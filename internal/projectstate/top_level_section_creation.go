@@ -190,7 +190,31 @@ func isFiniteViewportBounds(bounds ViewportBounds) bool {
 
 func isSupportedTopLevelSectionImplType(implType string) bool {
 	switch implType {
-	case "Chat", "Code", "Dict", "Group", "MetaControl", "StateMachineEnd", "StateMachineGate", "StateMachineStart", "Terminal", "TextBlock":
+	case "Browser",
+		"Callable",
+		"Chart",
+		"Chat",
+		"Code",
+		"Dict",
+		"Draw",
+		"GenPythonCode",
+		"GenPythonMetadata",
+		"GlobalVariables",
+		"Group",
+		"IFrame",
+		"Image",
+		"ListRoot",
+		"MetaControl",
+		"Plugin",
+		"Prompt",
+		"Social",
+		"Spreadsheet",
+		"StateMachineEnd",
+		"StateMachineGate",
+		"StateMachineStart",
+		"TaskBoard",
+		"Terminal",
+		"TextBlock":
 		return true
 	default:
 		return false
@@ -198,12 +222,8 @@ func isSupportedTopLevelSectionImplType(implType string) bool {
 }
 
 func isSupportedMetaControlCodeObjType(codeObjType string) bool {
-	switch codeObjType {
-	case "SliderParam", "TextParam":
-		return true
-	default:
-		return false
-	}
+	_, ok := controlCodeObjectTypes[strings.TrimSpace(codeObjType)]
+	return ok
 }
 
 func isFinitePosition(position Position) bool {
@@ -323,6 +343,14 @@ func buildCreatedTopLevelSectionImpl(
 	input CreateTopLevelSectionInput,
 ) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
 	switch input.ImplType {
+	case "Callable":
+		return buildCreatedFrontendSectionImpl(implID, "Callable", createdCallableSectionDefaults(), input.ImplOverrides)
+	case "ListRoot":
+		return buildCreatedFrontendSectionImpl(implID, "ListRoot", createdListRootSectionDefaults(), input.ImplOverrides)
+	case "Browser":
+		return buildCreatedFrontendSectionImpl(implID, "Browser", createdBrowserSectionDefaults(), input.ImplOverrides)
+	case "Chart":
+		return buildCreatedFrontendSectionImpl(implID, "Chart", createdChartSectionDefaults(), input.ImplOverrides)
 	case "Chat":
 		payload, err := buildCreatedSectionPayload(implID, "Chat", createdChatSectionDefaults(), input.ImplOverrides)
 		if err != nil {
@@ -350,18 +378,57 @@ func buildCreatedTopLevelSectionImpl(
 				Language: codeLanguage,
 			},
 		}, nil, nil, nil, nil
+	case "Draw":
+		payload, err := buildCreatedSectionPayload(implID, "Draw", createdDrawSectionDefaults(), input.ImplOverrides)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		payloadObject, err := rawObjectFromProjectPayload(payload)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		return SectionImpl{
+			ID:      implID,
+			Kind:    SectionKindDraw,
+			Payload: payload,
+			Draw: &DrawSectionImpl{
+				RenderedImagePath: payloadRawStringField(payloadObject, "renderedImagePath"),
+			},
+		}, nil, nil, nil, nil
 	case "Dict":
 		payload, err := buildCreatedSectionPayload(implID, "Dict", createdDictSectionDefaults(), input.ImplOverrides)
 		if err != nil {
 			return SectionImpl{}, nil, nil, nil, err
 		}
 		return SectionImpl{ID: implID, Kind: SectionKind("dict"), Payload: payload}, nil, nil, nil, nil
+	case "GenPythonCode":
+		return buildCreatedGeneratedSectionImpl(
+			implID,
+			"GenPythonCode",
+			GeneratedSectionKindPythonCode,
+			createdGeneratedCodeSectionDefaults("GenPythonCode"),
+			input.ImplOverrides,
+		)
+	case "GenPythonMetadata":
+		return buildCreatedGeneratedSectionImpl(
+			implID,
+			"GenPythonMetadata",
+			GeneratedSectionKindPythonMetadata,
+			createdGeneratedCodeSectionDefaults("GenPythonMetadata"),
+			input.ImplOverrides,
+		)
+	case "GlobalVariables":
+		return buildCreatedFrontendSectionImpl(implID, "GlobalVariables", createdGlobalVariablesSectionDefaults(), input.ImplOverrides)
 	case "Group":
 		payload, err := buildCreatedSectionPayload(implID, "Group", createdGroupSectionDefaults(), input.ImplOverrides)
 		if err != nil {
 			return SectionImpl{}, nil, nil, nil, err
 		}
 		return SectionImpl{ID: implID, Kind: SectionKind("group"), Payload: payload}, nil, nil, nil, nil
+	case "IFrame":
+		return buildCreatedFrontendSectionImpl(implID, "IFrame", createdIFrameSectionDefaults(), input.ImplOverrides)
+	case "Image":
+		return buildCreatedFrontendSectionImpl(implID, "Image", createdImageSectionDefaults(), input.ImplOverrides)
 	case "MetaControl":
 		controlType := "SliderParam"
 		if input.ControlCodeObjType != nil && strings.TrimSpace(*input.ControlCodeObjType) != "" {
@@ -379,6 +446,14 @@ func buildCreatedTopLevelSectionImpl(
 			return SectionImpl{}, nil, nil, nil, err
 		}
 		return SectionImpl{ID: implID, Kind: SectionKind("metacontrol"), Payload: payload}, &paramCore, &paramVariant, &paramImpl, nil
+	case "Plugin":
+		return buildCreatedFrontendSectionImpl(implID, "Plugin", createdPluginSectionDefaults(), input.ImplOverrides)
+	case "Prompt":
+		return buildCreatedFrontendSectionImpl(implID, "Prompt", createdPromptSectionDefaults(), input.ImplOverrides)
+	case "Social":
+		return buildCreatedFrontendSectionImpl(implID, "Social", createdSocialSectionDefaults(), input.ImplOverrides)
+	case "Spreadsheet":
+		return buildCreatedFrontendSectionImpl(implID, "Spreadsheet", createdSpreadsheetSectionDefaults(), input.ImplOverrides)
 	case "StateMachineStart":
 		machineGroupID, err := newProjectStateID()
 		if err != nil {
@@ -424,6 +499,8 @@ func buildCreatedTopLevelSectionImpl(
 			return SectionImpl{}, nil, nil, nil, err
 		}
 		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineEnd"), Payload: payload}, nil, nil, nil, nil
+	case "TaskBoard":
+		return buildCreatedFrontendSectionImpl(implID, "TaskBoard", createdTaskBoardSectionDefaults(), input.ImplOverrides)
 	case "Terminal":
 		payload, err := buildCreatedSectionPayload(implID, "Terminal", createdTerminalSectionDefaults(), input.ImplOverrides)
 		if err != nil {
@@ -444,6 +521,44 @@ func buildCreatedTopLevelSectionImpl(
 	default:
 		return SectionImpl{}, nil, nil, nil, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, input.ImplType)
 	}
+}
+
+func buildCreatedFrontendSectionImpl(
+	implID string,
+	implType string,
+	defaults map[string]any,
+	overrides map[string]any,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	payload, err := buildCreatedSectionPayload(implID, implType, defaults, overrides)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	return SectionImpl{
+		ID:      implID,
+		Kind:    SectionKind("frontend"),
+		Payload: payload,
+	}, nil, nil, nil, nil
+}
+
+func buildCreatedGeneratedSectionImpl(
+	implID string,
+	implType string,
+	generatedKind GeneratedSectionKind,
+	defaults map[string]any,
+	overrides map[string]any,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	payload, err := buildCreatedSectionPayload(implID, implType, defaults, overrides)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	return SectionImpl{
+		ID:      implID,
+		Kind:    SectionKindGenerated,
+		Payload: payload,
+		Generated: &GeneratedSectionImpl{
+			Kind: generatedKind,
+		},
+	}, nil, nil, nil, nil
 }
 
 func createdBaseSectionDefaults(implType string) map[string]any {
@@ -467,11 +582,69 @@ func createdSectionSizeDefaults(implType string) map[string]any {
 	switch implType {
 	case "Chat":
 		return map[string]any{"width": 400.0, "height": 200.0}
-	case "Code", "TextBlock":
+	case "Browser":
+		return map[string]any{"width": 720.0, "height": 460.0}
+	case "Chart":
+		return map[string]any{"width": 300.0, "height": 300.0}
+	case "Code", "GenPythonCode", "GenPythonMetadata", "TextBlock":
 		return map[string]any{"width": 500.0, "height": 150.0}
+	case "Draw":
+		return map[string]any{"width": 402.0, "height": 100.0}
+	case "Prompt":
+		return map[string]any{"width": 300.0, "height": 150.0}
+	case "Spreadsheet":
+		return map[string]any{"width": 760.0, "height": 500.0}
+	case "TaskBoard":
+		return map[string]any{"width": 720.0, "height": 430.0}
 	default:
 		return map[string]any{"width": 250.0, "height": 150.0}
 	}
+}
+
+func createdBaseSectionWithParamsDefaults(implType string) map[string]any {
+	defaults := createdBaseSectionDefaults(implType)
+	defaults["codeObjVariantMap"] = map[string]any{}
+	defaults["hideUnpinnedParams"] = false
+	defaults["paramFilter"] = ""
+	defaults["columnWidth"] = nil
+	defaults["configLanguage"] = "python"
+	defaults["pinnedParams"] = []any{}
+	defaults["selectedParams"] = []any{}
+	defaults["ignoreTypeErrors"] = map[string]any{
+		"callable": false,
+		"params":   map[string]any{},
+	}
+	defaults["edgeInputParams"] = []any{}
+	defaults["edgeOutputPorts"] = []any{}
+	return defaults
+}
+
+func createdBaseParentSectionDefaults(implType string) map[string]any {
+	defaults := createdBaseSectionDefaults(implType)
+	defaults["children"] = []any{}
+	return defaults
+}
+
+func createdBaseCodeSectionLikeDefaults(implType string) map[string]any {
+	defaults := createdBaseParentSectionDefaults(implType)
+	defaults["code"] = ""
+	defaults["codeFileBinding"] = nil
+	defaults["attachedTerminalSectionId"] = nil
+	return defaults
+}
+
+func createdCallableSectionDefaults() map[string]any {
+	defaults := createdBaseSectionWithParamsDefaults("Callable")
+	defaults["callable"] = nil
+	defaults["hideParams"] = false
+	return defaults
+}
+
+func createdListRootSectionDefaults() map[string]any {
+	defaults := createdBaseParentSectionDefaults("ListRoot")
+	defaults["defaultChildSectionType"] = "Callable"
+	defaults["viewMode"] = string(ListRootViewModeDefault)
+	return defaults
 }
 
 func createdChatSectionDefaults() map[string]any {
@@ -495,12 +668,8 @@ func createdChatSectionDefaults() map[string]any {
 }
 
 func createdCodeSectionDefaults() map[string]any {
-	defaults := createdBaseSectionDefaults("Code")
-	defaults["children"] = []any{}
-	defaults["code"] = ""
+	defaults := createdBaseCodeSectionLikeDefaults("Code")
 	defaults["codeLanguage"] = "python"
-	defaults["codeFileBinding"] = nil
-	defaults["attachedTerminalSectionId"] = nil
 	defaults["diagnosticsIgnoreState"] = map[string]any{
 		"muted":           false,
 		"suppressedCodes": []any{},
@@ -508,21 +677,12 @@ func createdCodeSectionDefaults() map[string]any {
 	return defaults
 }
 
+func createdGeneratedCodeSectionDefaults(implType string) map[string]any {
+	return createdBaseCodeSectionLikeDefaults(implType)
+}
+
 func createdDictSectionDefaults() map[string]any {
-	defaults := createdBaseSectionDefaults("Dict")
-	defaults["codeObjVariantMap"] = map[string]any{}
-	defaults["hideUnpinnedParams"] = false
-	defaults["paramFilter"] = ""
-	defaults["columnWidth"] = nil
-	defaults["configLanguage"] = "python"
-	defaults["pinnedParams"] = []any{}
-	defaults["selectedParams"] = []any{}
-	defaults["ignoreTypeErrors"] = map[string]any{
-		"callable": false,
-		"params":   map[string]any{},
-	}
-	defaults["edgeInputParams"] = []any{}
-	defaults["edgeOutputPorts"] = []any{}
+	defaults := createdBaseSectionWithParamsDefaults("Dict")
 	defaults["topLevelParamId"] = nil
 	defaults["isJsonSource"] = false
 	defaults["jsonSourceKeys"] = []any{}
@@ -530,9 +690,15 @@ func createdDictSectionDefaults() map[string]any {
 	return defaults
 }
 
+func createdGlobalVariablesSectionDefaults() map[string]any {
+	return createdDictSectionDefaults()
+}
+
 func createdGroupSectionDefaults() map[string]any {
-	defaults := createdBaseSectionDefaults("Group")
-	defaults["children"] = []any{}
+	defaults := createdBaseParentSectionDefaults("Group")
+	defaults["isHorizontalOrientation"] = false
+	defaults["overflowMode"] = false
+	defaults["defaultChildSectionType"] = "Callable"
 	return defaults
 }
 
@@ -543,6 +709,46 @@ func createdMetaControlSectionDefaults(paramID string, paramVariantID string) ma
 		paramID: paramVariantID,
 	}
 	defaults["showSectionTitle"] = false
+	return defaults
+}
+
+func createdImageSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Image")
+	defaults["imagePath"] = ""
+	return defaults
+}
+
+func createdChartSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Chart")
+	defaults["dataPath"] = ""
+	defaults["chartSettings"] = chartSettingsObject(defaultChartSettingsState(ChartTypeLine))
+	return defaults
+}
+
+func createdDrawSectionDefaults() map[string]any {
+	layerName, err := generateMemorableString()
+	if err != nil {
+		panic(err)
+	}
+	defaults := createdBaseSectionDefaults("Draw")
+	defaults["layers"] = []any{
+		map[string]any{
+			"name":         layerName,
+			"elements":     []any{},
+			"visible":      true,
+			"layerOpacity": 1.0,
+		},
+	}
+	defaults["renderedImagePath"] = nil
+	defaults["activeLayerIdx"] = 0
+	defaults["brushColor"] = "#ff0000"
+	defaults["brushSize"] = 16
+	defaults["brushShape"] = "butt"
+	defaults["brushOpacity"] = 1.0
+	defaults["eraserBrushSize"] = 16
+	defaults["drawThrottleDelay"] = 0
+	defaults["canvasMode"] = "draw"
+	defaults["colorChoices"] = []any{}
 	return defaults
 }
 
@@ -561,6 +767,67 @@ func createdTextBlockSectionDefaults() map[string]any {
 	return defaults
 }
 
+func createdPromptSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Prompt")
+	defaults["promptTemplateId"] = nil
+	defaults["template"] = ""
+	defaults["format"] = string(PromptFormatJinja)
+	defaults["inputs"] = map[string]any{}
+	defaults["renderedText"] = ""
+	defaults["missingVariables"] = []any{}
+	defaults["renderError"] = nil
+	return defaults
+}
+
+func createdSocialSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Social")
+	defaults["url"] = ""
+	return defaults
+}
+
+func createdIFrameSectionDefaults() map[string]any {
+	return createdBaseSectionDefaults("IFrame")
+}
+
+func createdBrowserSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Browser")
+	defaults["folder"] = ""
+	defaults["hideColumn"] = false
+	defaults["columnWidth"] = nil
+	defaults["typesColumnWidth"] = nil
+	defaults["viewMode"] = string(BrowserAreaViewModeList)
+	defaults["savedSearches"] = []any{}
+	return defaults
+}
+
+func createdPluginSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Plugin")
+	defaults["pluginId"] = ""
+	defaults["kind"] = "default"
+	defaults["data"] = map[string]any{}
+	defaults["schemaVersion"] = nil
+	return defaults
+}
+
+func createdTaskBoardSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("TaskBoard")
+	defaults["viewMode"] = string(TaskBoardViewModeKanban)
+	defaults["columns"] = nil
+	defaults["tasks"] = []any{}
+	return defaults
+}
+
+func createdSpreadsheetSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Spreadsheet")
+	defaults["filePath"] = ""
+	defaults["activeSheet"] = nil
+	defaults["readOnly"] = false
+	defaults["showRowNumbers"] = true
+	defaults["density"] = string(SpreadsheetGridDensityCompact)
+	defaults["autoReloadOnExternalChange"] = false
+	return defaults
+}
+
 func newMetaControlParam(controlType string) (CodeObject, CodeObjectVariant, CodeObjectImpl, error) {
 	codeObjID, err := newProjectStateID()
 	if err != nil {
@@ -570,26 +837,10 @@ func newMetaControlParam(controlType string) (CodeObject, CodeObjectVariant, Cod
 	if err != nil {
 		return CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
-	implID, err := newProjectStateID()
-	if err != nil {
-		return CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
-	}
-
-	basePayload := map[string]any{
-		"value": "",
-	}
-	switch controlType {
-	case "SliderParam":
-		basePayload["value"] = "0"
-		basePayload["min"] = 0
-		basePayload["max"] = 100
-		basePayload["step"] = 1
-	case "TextParam":
-	default:
+	if !isSupportedMetaControlCodeObjType(controlType) {
 		return CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: %q", ErrTopLevelMetaControlCodeObjTypeUnsupported, controlType)
 	}
-
-	payload, err := buildCreatedCodeObjectPayload(implID, controlType, basePayload)
+	impl, err := newCodeObjectImplForType(controlType)
 	if err != nil {
 		return CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
@@ -605,14 +856,10 @@ func newMetaControlParam(controlType string) (CodeObject, CodeObjectVariant, Cod
 		},
 		CodeObjectVariant{
 			ID:               variantID,
-			ImplID:           implID,
-			NonPresetImplIDs: []string{implID},
+			ImplID:           impl.ID,
+			NonPresetImplIDs: []string{impl.ID},
 		},
-		CodeObjectImpl{
-			ID:      implID,
-			Type:    controlType,
-			Payload: payload,
-		},
+		impl,
 		nil
 }
 

@@ -3,6 +3,7 @@ package projectstate
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -276,6 +277,270 @@ func TestProjectCreateTopLevelSectionAppliesLayoutSnapshotViewportPlacementAndIn
 	}
 	if project.ViewModes["secondary"].TopLevelSections["existing-section"].X != 40 || project.ViewModes["secondary"].TopLevelSections["existing-section"].Y != 50 {
 		t.Fatalf("expected inactive view mode layout to remain unchanged, got %#v", project.ViewModes["secondary"].TopLevelSections["existing-section"])
+	}
+}
+
+// Formerly menu-backed section types should create with the payload defaults the frontend expects.
+func TestProjectCreateTopLevelSectionSupportsExpandedSectionTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		implType      string
+		implOverrides map[string]any
+		assert        func(*testing.T, Project, CreateTopLevelSectionResult, map[string]any, SectionImpl)
+	}{
+		{
+			name:     "callable",
+			implType: "Callable",
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "Callable" {
+					t.Fatalf("expected Callable payload type, got %q", got)
+				}
+				if got := payloadRawStringField(payload, "paramFilter"); got != "" {
+					t.Fatalf("expected empty paramFilter, got %q", got)
+				}
+				if got := payload["callable"]; got != nil {
+					t.Fatalf("expected nil callable target, got %#v", got)
+				}
+				if !reflect.DeepEqual(payload["pinnedParams"], []any{}) {
+					t.Fatalf("expected empty pinned params, got %#v", payload["pinnedParams"])
+				}
+			},
+		},
+		{
+			name:     "list root",
+			implType: "ListRoot",
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "defaultChildSectionType"); got != "Callable" {
+					t.Fatalf("expected default child Callable, got %q", got)
+				}
+				if got := payloadStringField(payload, "viewMode"); got != "default" {
+					t.Fatalf("expected default view mode, got %q", got)
+				}
+				if !reflect.DeepEqual(payload["children"], []any{}) {
+					t.Fatalf("expected empty children array, got %#v", payload["children"])
+				}
+			},
+		},
+		{
+			name:     "draw",
+			implType: "Draw",
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if !impl.IsDraw() || impl.Draw == nil {
+					t.Fatalf("expected draw impl, got %#v", impl)
+				}
+				rawLayers, ok := payload["layers"].([]any)
+				if !ok || len(rawLayers) != 1 {
+					t.Fatalf("expected one seeded draw layer, got %#v", payload["layers"])
+				}
+				layer, ok := rawLayers[0].(map[string]any)
+				if !ok {
+					t.Fatalf("expected draw layer object, got %#v", rawLayers[0])
+				}
+				if got := payloadRawStringField(layer, "name"); got == "" {
+					t.Fatalf("expected seeded draw layer name, got %#v", layer)
+				}
+				if !payloadBoolField(layer, "visible") {
+					t.Fatalf("expected seeded draw layer to be visible, got %#v", layer)
+				}
+			},
+		},
+		{
+			name:     "browser",
+			implType: "Browser",
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "viewMode"); got != string(BrowserAreaViewModeList) {
+					t.Fatalf("expected browser view mode %q, got %q", BrowserAreaViewModeList, got)
+				}
+				size, ok := payloadObjectField(payload, "size")
+				if !ok {
+					t.Fatalf("expected browser size object, got %#v", payload["size"])
+				}
+				if width, ok := size["width"].(float64); !ok || width != 720 {
+					t.Fatalf("expected browser width 720, got %#v", size["width"])
+				}
+				if height, ok := size["height"].(float64); !ok || height != 460 {
+					t.Fatalf("expected browser height 460, got %#v", size["height"])
+				}
+			},
+		},
+		{
+			name:     "generated python",
+			implType: "GenPythonCode",
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
+					t.Fatalf("expected generated python impl, got %#v", impl)
+				}
+				if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
+					t.Fatalf("expected generated python payload type, got %q", got)
+				}
+				size, ok := payloadObjectField(payload, "size")
+				if !ok {
+					t.Fatalf("expected generated python size object, got %#v", payload["size"])
+				}
+				if width, ok := size["width"].(float64); !ok || width != 500 {
+					t.Fatalf("expected generated python width 500, got %#v", size["width"])
+				}
+			},
+		},
+		{
+			name:     "plugin",
+			implType: "Plugin",
+			implOverrides: map[string]any{
+				"pluginId": "acme.plugin",
+				"kind":     "inspector",
+				"data": map[string]any{
+					"mode": "compact",
+				},
+			},
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "pluginId"); got != "acme.plugin" {
+					t.Fatalf("expected pluginId acme.plugin, got %q", got)
+				}
+				if got := payloadStringField(payload, "kind"); got != "inspector" {
+					t.Fatalf("expected plugin kind inspector, got %q", got)
+				}
+				data, ok := payloadObjectField(payload, "data")
+				if !ok {
+					t.Fatalf("expected plugin data object, got %#v", payload["data"])
+				}
+				if got := payloadRawStringField(data, "mode"); got != "compact" {
+					t.Fatalf("expected plugin data.mode compact, got %q", got)
+				}
+			},
+		},
+		{
+			name:     "spreadsheet",
+			implType: "Spreadsheet",
+			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "density"); got != string(SpreadsheetGridDensityCompact) {
+					t.Fatalf("expected spreadsheet density %q, got %q", SpreadsheetGridDensityCompact, got)
+				}
+				if !payloadBoolField(payload, "showRowNumbers") {
+					t.Fatalf("expected spreadsheet row numbers enabled, got %#v", payload)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		project := testCreateTopLevelSectionProject(t)
+
+		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+			ImplType:      tc.implType,
+			ImplOverrides: tc.implOverrides,
+		}, defaultAutoLayoutSectionSizingPolicy())
+		if err != nil {
+			t.Fatalf("create %s top level section: %v", tc.name, err)
+		}
+
+		payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+		if err != nil {
+			t.Fatalf("effective %s payload: %v", tc.name, err)
+		}
+		_, _, impl, err := project.ResolveSection(result.SectionID)
+		if err != nil {
+			t.Fatalf("resolve %s section: %v", tc.name, err)
+		}
+
+		tc.assert(t, project, result, payload, impl)
+	}
+}
+
+// Top-level meta controls should accept the same control types and defaults as change_param_impl.
+func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name            string
+		controlCodeType string
+		assert          func(*testing.T, map[string]any)
+	}{
+		{
+			name:            "dropdown",
+			controlCodeType: "DropdownParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if !reflect.DeepEqual(payload["choices"], []any{}) {
+					t.Fatalf("expected empty dropdown choices, got %#v", payload["choices"])
+				}
+			},
+		},
+		{
+			name:            "date",
+			controlCodeType: "DateParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "dateControlMode"); got != "input" {
+					t.Fatalf("expected date control mode input, got %q", got)
+				}
+				if got := payloadStringField(payload, "dateSelectionMode"); got != "single" {
+					t.Fatalf("expected date selection mode single, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "button",
+			controlCodeType: "ButtonParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "actionMode"); got != "WEBSOCKET_LISTENER" {
+					t.Fatalf("expected button action mode WEBSOCKET_LISTENER, got %q", got)
+				}
+				if got := payloadStringField(payload, "requestMethod"); got != "POST" {
+					t.Fatalf("expected button request method POST, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "dropzone",
+			controlCodeType: "DropzoneParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "mode"); got != "STATEFUL" {
+					t.Fatalf("expected dropzone mode STATEFUL, got %q", got)
+				}
+				if got := payloadStringField(payload, "placeholder"); got != "Drop a file here" {
+					t.Fatalf("expected dropzone placeholder, got %q", got)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		project := testCreateTopLevelSectionProject(t)
+
+		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+			ImplType:           "MetaControl",
+			ControlCodeObjType: &tc.controlCodeType,
+		}, defaultAutoLayoutSectionSizingPolicy())
+		if err != nil {
+			t.Fatalf("create %s meta control section: %v", tc.name, err)
+		}
+		if result.MetaControlParamID == nil || *result.MetaControlParamID == "" {
+			t.Fatalf("expected meta control param id for %s, got %#v", tc.name, result.MetaControlParamID)
+		}
+
+		codeObjPayload, _, _, _, err := project.ResolveSectionCodeObject(
+			result.SectionID,
+			*result.MetaControlParamID,
+		)
+		if err != nil {
+			t.Fatalf("resolve %s meta control code object: %v", tc.name, err)
+		}
+		if got := payloadStringField(codeObjPayload, "type"); got != tc.controlCodeType {
+			t.Fatalf("expected control type %q, got %q", tc.controlCodeType, got)
+		}
+
+		tc.assert(t, codeObjPayload)
 	}
 }
 
