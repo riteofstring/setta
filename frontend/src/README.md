@@ -10,11 +10,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1448`
+- Authored TS/TSX files under `frontend/src`: `1450`
 - Non-generated TS/TSX files at `1000+` lines: `42`
 - Biggest current production hotspots:
-  - `plugins/runtime.ts` (`2730`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
+  - `plugins/runtime.ts` (`2237`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
@@ -596,8 +596,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - Plugin runtime
 
-  - `plugins/runtime.ts` owns plugin registration, capability gating, runtime
-    transport, and host APIs.
+  - `plugins/runtimeDerivedViews.ts` owns stable plugin-list or status entry
+    reuse plus sorted section-kind, pane-tab, command, and top-nav view
+    derivation used by `plugins/runtime.ts`.
+  - `plugins/runtime.ts` now focuses on runtime refresh transport, plugin
+    frontend load/reuse, registry merge, capability gating, and host APIs over
+    that local derived-view owner.
   - `components/Section/Layouts/PluginArea.tsx` and
     `components/Panes/Overview/Plugins/*` render plugin-backed surfaces.
 
