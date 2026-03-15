@@ -4921,3 +4921,30 @@ in `frontend/src/README.md` and the cleanup plans.
   - `17df1bc55a29074417cb1331e88a7dd30709b47a`
 - Next highest-value unblocked slice:
   - Split timers and streaming-animation wiring out of `frontend/src/components/Chat/ChatMessages.tsx`, which is now back to the top unresolved hotspot after `ProjectChatBottomDock.tsx` dropped to about `4759` lines.
+
+## 2026-03-15 14:40:40 PDT
+
+- Slice completed: extracted chat runtime timers, timestamp helpers, count-badge animation, label scrambling, and thought-preview scroll behavior out of `ChatMessages.tsx`
+- Why this slice now:
+  - `frontend/src/components/Chat/ChatMessages.tsx` was still one of the top unresolved render-heavy hotspots at the start of the slice, and the timer or streaming-runtime cluster was already a cohesive local seam with existing integration coverage in the chat surface. That made it higher value than switching back to `ProjectChatBottomDock.tsx` before removing one more mixed-responsibility block from the shared chat renderer.
+  - After this extraction, `ProjectChatBottomDock.tsx` is once again the largest unresolved hotspot, so the default next slice shifts back there.
+- Key files touched:
+  - `frontend/src/components/Chat/chatMessageRuntime.tsx`
+  - `frontend/src/components/Chat/chatMessageRuntime.test.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-runtime-indicators-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatMessageRuntime.test.tsx src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx src/components/Chat/chatMessageContent.test.tsx src/components/Chat/chatAssistantActivity.test.ts src/components/Chat/chatStructuredOutput.test.tsx src/components/Chat/chatAttachmentPreviewUrls.test.ts src/components/Chat/chatAttachmentPreviews.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/chatMessageRuntime.tsx src/components/Chat/chatMessageRuntime.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-runtime-indicators-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-runtime-indicators-2026-03-15.md` with the same-origin harness context and before/after runtime-indicator observations.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell was still blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified the collapsed assistant activity row still rendered the total timer, the per-thinking timer, the count badge, and the minimized thought preview with overflow auto-scroll or pinned-bottom behavior intact.
+- Commit hash:
+  - `4bb14f52a615f7083fba64c8d38a94d1daee2a77`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is again the top unresolved hotspot at about `4759` lines and still mixes layout math, pointer resize or drag state, snap logic, animation bookkeeping, tracked git-pane behavior, and render shells.
