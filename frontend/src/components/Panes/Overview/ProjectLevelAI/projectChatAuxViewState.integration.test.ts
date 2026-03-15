@@ -1,8 +1,9 @@
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { setProjectChatAuxViewForActiveProject } from "./ProjectChat";
+import { setProjectChatAuxViewForActiveProject } from "./projectChatAuxViewState";
 
 describe("setProjectChatAuxViewForActiveProject", () => {
   beforeEach(() => {

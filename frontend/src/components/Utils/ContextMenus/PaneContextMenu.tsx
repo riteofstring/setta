@@ -15,10 +15,11 @@ import type {
 import { useEffect, useMemo, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
-  CreateSectionsContextMenuInfo,
-  createTopLevelSectionFromImplSpecs,
+  type CreateSectionsContextMenuGroup,
+  type CreateSectionsContextMenuInfo,
   useCreateSectionsList,
-} from "state/actions/sections/createSectionsHelper";
+} from "state/actions/sections/createSectionCatalog";
+import { createTopLevelSectionFromImplSpecs } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -177,11 +178,6 @@ export function PaneContextMenu() {
     </ContextMenuCore>
   );
 }
-
-type CreateSectionsContextMenuGroup = {
-  group: string;
-  items: Array<CreateSectionsContextMenuInfo>;
-};
 
 type PaneContextMenuContentsProps = {
   contextMenuItems: Array<CreateSectionsContextMenuGroup>;
