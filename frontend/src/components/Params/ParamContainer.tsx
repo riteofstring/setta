@@ -64,8 +64,6 @@ function _ParamContainer({
     showParamDisplayNames,
   ]);
 
-  const columnWidth = "var(--param-column-width, 200px)";
-
   const errorMessage = maybeErrorMessage ?? "";
   const hasError = errorMessage.length > 0;
 
@@ -101,12 +99,8 @@ function _ParamContainer({
     return (
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-key-value group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
-        style={{
-          gridTemplateColumns: `minmax(min-content, ${columnWidth}) 0.75rem minmax(0, 1fr)`,
-          gridTemplateAreas: `"key center-gutter value"`,
-          ...(dndStyle ?? {}),
-        }}
+        className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+        style={dndStyle}
         data-param-row="true"
         {...floatingBoxHandlers}
         onMouseDownCapture={onMouseDown}
@@ -134,11 +128,8 @@ function _ParamContainer({
   return !isNestedParam ? (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
+      className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      style={dndStyle}
       data-param-row="true"
       {...floatingBoxHandlers}
       onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
@@ -175,12 +166,9 @@ function _ParamContainer({
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
       {...floatingBoxHandlers}
-      style={{
-        gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
+      style={dndStyle}
       data-param-row="true"
       onMouseDownCapture={onMouseDown}
       onClick={onClick}

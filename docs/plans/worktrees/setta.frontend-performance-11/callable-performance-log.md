@@ -395,3 +395,35 @@ Append-only log for the callable DOM-first performance refactor.
     - the next meaningful performance work belongs to Phase 2 row/tree flattening
 - Next action:
   - Use the current callable regression suite and stable `open` CDP control pair as the gate for the first Phase 2 row/tree checkpoint.
+
+### 2026-03-16 27
+
+- Item: Phase 2 checkpoint 1 row-template primitive consolidation.
+- Status: `done`
+- Details:
+  - Added the shared `section-param-row` grid utility in `frontend/index.css`.
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so the leaf row and the top-level parent row now use the shared row primitive instead of row-local inline grid templates.
+  - Updated the nested parent row to use the existing `section-args-nested` utility directly instead of `grid-cols-subgrid`.
+  - Updated the temporary DnD placeholder row in `frontend/src/components/Params/ParamSwitch.tsx` to use the same shared row primitive as the steady-state top-level rows.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the row-template consolidation.
+  - Live row-template metrics on the matched control scene:
+    - total visible param rows: `7` on both `main` and the worktree
+    - rows still carrying `grid-cols-subgrid`:
+      - `main`: `1`
+      - worktree: `0`
+    - visible param rows still carrying inline `grid-template-columns`:
+      - `main`: `7`
+      - worktree: `0`
+  - Interpretation:
+    - this is the first accepted Phase 2 checkpoint because it removes row-local template duplication and the last row-level `grid-cols-subgrid` use from the stable callable control scene without user-visible drift
+- Next action:
+  - Continue Phase 2 with the next row/tree checkpoint, focusing on nested-child ownership and wrapper reduction rather than shared leaf/input wrappers.

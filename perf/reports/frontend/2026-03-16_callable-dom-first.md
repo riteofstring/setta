@@ -327,3 +327,34 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - Phase 1 leaf reductions are effectively exhausted
   - the next meaningful callable performance work should begin with Phase 2 row/tree flattening rather than additional shared-input leaf churn
+
+### Phase 2 checkpoint 1: row-template primitive consolidation
+
+- Date/time: 2026-03-16
+- Scope:
+  - added the shared `section-param-row` utility in `frontend/index.css`
+  - updated `frontend/src/components/Params/ParamContainer.tsx` so the leaf row and the top-level parent row use shared row-template utilities instead of row-local inline grid-template declarations
+  - updated the nested parent row to rely on `section-args-nested` directly instead of `grid-cols-subgrid`
+  - updated the temporary DnD placeholder row in `frontend/src/components/Params/ParamSwitch.tsx` to use the same shared row primitive as the steady-state top-level rows
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - callable section screenshots remained visually aligned after the row-template consolidation
+- Live row-template delta on the callable control scene:
+  - visible param rows: `7` on both `main` and the worktree
+  - rows still carrying `grid-cols-subgrid`:
+    - `main`: `1`
+    - worktree: `0`
+  - visible param rows still carrying inline `grid-template-columns`:
+    - `main`: `7`
+    - worktree: `0`
+- Interpretation:
+  - this is the first accepted Phase 2 row/tree checkpoint because it removes row-local template duplication while preserving the existing callable row geometry, DnD placeholder behavior, and screenshot parity
+  - the next meaningful row/tree work should focus on nested-child wrapper ownership rather than the already-flattened row-template primitives
