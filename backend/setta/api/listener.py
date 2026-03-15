@@ -113,57 +113,6 @@ def _hosts_equivalent(left: str, right: str) -> bool:
     return {left, right} <= {"127.0.0.1", "localhost", "::1"}
 
 
-# Worktree/dev helpers ---------------------------------------------------------
-
-
-def _load_latest_local_session(
-    start_dir: Path,
-) -> tuple[SessionMetadata, bytes] | None:
-    """Resolve the latest running Setta session for this workspace (if any)."""
-    sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    if sessions_root.is_absolute():
-        paths = get_setta_paths()
-        workspace_root = paths.workspace_root.resolve(strict=False)
-        resolved_sessions_root = sessions_root.resolve(strict=False)
-    else:
-        start = start_dir.resolve()
-        resolved_sessions_root = None
-        workspace_root = None
-        for parent in (start, *start.parents):
-            candidate = parent / sessions_root
-            if candidate.is_dir():
-                workspace_root = parent
-                resolved_sessions_root = candidate
-                break
-        if resolved_sessions_root is None or workspace_root is None:
-            return None
-    sessions_root = resolved_sessions_root
-    if not sessions_root.exists():
-        return None
-
-    registry = SessionRegistry(sessions_root=sessions_root)
-    sessions = registry.find_sessions_by_workspace(
-        workspace_root,
-        prune_stale=False,
-        track_suspicious=True,
-    )
-    sessions = [
-        session for session in sessions if registry.is_session_process_setta(session)
-    ]
-    if not sessions:
-        return None
-    sessions.sort(key=lambda session: session.startedAt)
-
-    suspicious = registry.suspicious_session_ids()
-    preferred = [session for session in sessions if session.id not in suspicious]
-    selected = preferred[-1] if preferred else sessions[-1]
-    try:
-        secret = registry.load_secret(selected)
-    except FileNotFoundError:
-        return None
-    return selected, secret
-
-
 # Listener callbacks may either complete synchronously or return an awaitable.
 ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 ListenerCallbackBuilder = Callable[["SettaListener"], None]
@@ -656,9 +605,50 @@ class SettaListener:
             return
         # If the caller didn't pass host/port, prefer the latest session recorded in
         # this workspace (dev worktrees use per-worktree ports + cookie names).
-        session_info = _load_latest_local_session(Path.cwd())
-        if session_info is None:
+        sessions_root = C.RUNTIME_SESSIONS_FOLDER
+        if sessions_root.is_absolute():
+            paths = get_setta_paths()
+            workspace_root = paths.workspace_root.resolve(strict=False)
+            resolved_sessions_root = sessions_root.resolve(strict=False)
+        else:
+            start = Path.cwd().resolve()
+            resolved_sessions_root = None
+            workspace_root = None
+            for parent in (start, *start.parents):
+                candidate = parent / sessions_root
+                if candidate.is_dir():
+                    workspace_root = parent
+                    resolved_sessions_root = candidate
+                    break
+            if resolved_sessions_root is None or workspace_root is None:
+                return
+        sessions_root = resolved_sessions_root
+        if not sessions_root.exists():
             return
+
+        registry = SessionRegistry(sessions_root=sessions_root)
+        sessions = registry.find_sessions_by_workspace(
+            workspace_root,
+            prune_stale=False,
+            track_suspicious=True,
+        )
+        sessions = [
+            session
+            for session in sessions
+            if registry.is_session_process_setta(session)
+        ]
+        if not sessions:
+            return
+        sessions.sort(key=lambda session: session.startedAt)
+
+        suspicious = registry.suspicious_session_ids()
+        preferred = [session for session in sessions if session.id not in suspicious]
+        selected = preferred[-1] if preferred else sessions[-1]
+        try:
+            secret = registry.load_secret(selected)
+        except FileNotFoundError:
+            return
+        session_info = (selected, secret)
         metadata, secret = session_info
         logger.info(
             "SettaListener autoconnecting to session %s at %s:%s (workspace=%s)",
