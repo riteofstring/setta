@@ -27,6 +27,8 @@ It currently covers:
 - prompt-template read and CRUD transport behavior
 - prompt-template linked-section refresh and delete/reference behavior
 - prompt-template runtime/codegen source-of-truth behavior
+- engine-config read and CRUD transport behavior
+- engine-config mode-gating and update-broadcast behavior
 - listener bootstrap/init/register behavior
 - listener realtime/force-refresh transport behavior
 - listener coverage route and coverage-update contracts
@@ -68,7 +70,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Six concrete parity gaps are already visible:
+- Seven concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -80,6 +82,9 @@ Rows outside these slices are still pending.
   - source-baseline prompt-template delete blocks workflow-edge references
     with `409`
   - current Go deletes referenced workflow templates without that guard
+  - source-baseline engine-config create/update accepts blank names when the
+    field is present
+  - current Go trims and rejects blank engine-config names
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
@@ -90,6 +95,9 @@ Rows outside these slices are still pending.
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
   linked-template runtime/codegen source-of-truth path itself is proved.
+- The engine-config slice mostly closes with proofs, but it adds one concrete
+  behavior gap around blank-name acceptance plus two documented divergences
+  around IDE-only reads and deferred `EngineConfigsUpdated` fan-out.
 - The terminal slice mostly closes with proofs, but it adds:
   - one more implementation proof gap for invalid explicit terminal ids on
     `runCode`
@@ -194,11 +202,22 @@ Rows outside these slices are still pending.
 | `PT-02` | Prompt-template create/update/delete round-trips preserve generated ids, default `description`/`format`/`inputSchema`/`metadata`, explicit empty strings when fields are present, and `null` delete responses. | `backend/setta/types/prompt.py::PromptTemplate`; `tests/routers/test_agentic_routes.py::test_prompt_template_crud`; `tests/agentic/test_agentic_store.py::test_prompt_templates_roundtrip`. | Impl: `internal/httpapi/prompt_template_routes.go`; `internal/prompttemplates/store.go::normalizeTemplate`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesCreatesTemplate`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesUpdatesTemplate`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesDeletesTemplate`; `internal/prompttemplates/store_test.go::TestStoreAllowsEmptyNameAndTemplate`. | `Proved` | |
 | `PT-03` | `getPromptTemplate`, update, and delete require the template to exist and return `404` when it does not. | `backend/setta/routers/agentic.py::route_get_prompt_template`; `backend/setta/routers/agentic.py::route_update_prompt_template`; `backend/setta/routers/agentic.py::route_delete_prompt_template`. | Impl: `internal/httpapi/prompt_template_routes.go`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsNotFoundForGet`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsNotFoundForUpdate`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsNotFoundForDelete`. | `Proved` | This row only claims the missing-template contract, not the exact framework-level missing-field validation shape. |
 | `PT-04` | Source-baseline `GET /getPromptTemplates` is LLM-gated rather than IDE-only; current Go intentionally narrows the list read to IDE mode for the surviving direct hydration caller. | `backend/setta/routers/agentic.py::route_get_prompt_templates`; `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations` only blocks mutations, not reads. | Current Go guard: `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesBlocksShareMode`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-read-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-crud-transport.md`. | `Intentional divergence` | The phase docs explicitly landed `GET /getPromptTemplates` as IDE-gated because the active hydration caller is the IDE-only Project AI surface. |
-| `PT-05` | Source-baseline `POST /getPromptTemplate` is also LLM-gated rather than IDE-only. | `backend/setta/routers/agentic.py::route_get_prompt_template`; `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations` does not cover single-item reads. | Current Go guard: `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesBlocksShareModeMutations`. | `Dormant / unproven caller` | Current Go narrows the single-item read to IDE mode too, but I do not yet have a rewrite doc or active-caller proof showing whether share-mode access still matters for this unused route. |
+| `PT-05` | Source-baseline `POST /getPromptTemplate` is also LLM-gated rather than IDE-only. | `backend/setta/routers/agentic.py::route_get_prompt_template`; `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations` does not cover single-item reads. | Current Go guard: `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesBlocksShareModeMutations`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-13-agentic-single-item-read-transport.md`. | `Intentional divergence` | The later single-item-read cleanup explicitly kept these dormant settings reads inside the same IDE-only surface as the rest of the landed Go settings transport. |
 | `PT-06` | Updating a saved prompt template automatically refreshes every linked Prompt section's cached `template`, `format`, and preview state. | `backend/setta/routers/agentic.py::route_update_prompt_template`; `docs/reference/prompt-sections.md` linked-template mode. | Current Go link model: `internal/projectstate/prompt_sections.go::SetPromptTemplateLink`; link proof: `internal/httpapi/project_prompt_routes_test.go::TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejectsMissingTemplate`; current frontend read path: `frontend/src/utils/promptSectionSource.ts`; `frontend/src/components/Section/Layouts/PromptArea.tsx`. | `Missing` | Current Go resolves and caches the template when the link is created, but there is no Go equivalent of `refresh_linked_prompt_sections_for_template(...)`. The frontend can display the latest template text from the prompt-template store, but cached project-state preview fields still go stale until another prompt-section mutation happens. |
 | `PT-07` | Prompt-template mutations refresh the prompt-template watcher and broadcast `PromptTemplatesUpdated` over the frontend websocket. | `backend/setta/routers/agentic.py::route_create_prompt_template`; `backend/setta/routers/agentic.py::route_update_prompt_template`; `backend/setta/routers/agentic.py::route_delete_prompt_template`; `backend/setta/agentic/prompt_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_prompt_templates_update`. | Current same-tab update path: `frontend/src/state/actions/ai.ts::{createPromptTemplate,updatePromptTemplate,deletePromptTemplate}`; websocket handler remains in `frontend/src/state/actions/websocketReceive.ts`; rewrite defer: `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-crud-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-read-transport.md`. | `Intentional divergence` | The rewrite docs explicitly deferred watcher refresh and websocket fan-out because current direct callers already update local prompt-template state from route results. |
 | `PT-08` | Deleting a prompt template that is still referenced by workflow edges is blocked with `409`, while prompt-section links do not block deletion. | `backend/setta/routers/agentic.py::route_delete_prompt_template`; `docs/reference/prompt-sections.md` template-deletion behavior. | Current Go delete path: `internal/httpapi/prompt_template_routes.go::deletePromptTemplateHandler`; current workflow/template linkage still exists in `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`. | `Missing` | Current Go deletes the template after an existence check and does not inspect workflow references, so it misses the source-baseline `409` guard. The prompt-section broken-link half of the doc still survives separately. |
 | `PT-09` | Linked prompt sections use the saved prompt template as the source of truth for runtime/codegen/workflow resolution and fail loudly when the linked template is missing. | `docs/reference/prompt-sections.md` linked-template and runtime/codegen sections. | Impl: `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`; frontend broken-link UI proof: `frontend/src/utils/promptSectionSource.ts`; `frontend/src/components/Section/Layouts/PromptArea.test.tsx::it(\"shows linked prompt templates as read-only source text\")`; `frontend/src/components/Section/Layouts/PromptArea.test.tsx::it(\"clears stale prompt text when a linked prompt template is missing\")`. | `Proved` | This keeps runtime/codegen parity even though `PT-06` still leaves cached project-state preview fields stale after template edits. |
+
+## Engine Configs
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `EC-01` | Engine-config listing reads `engine_configs.json` in persisted order and returns `[]` when the file is missing. | `backend/setta/database/db_objs.py::read_engine_configs`; `backend/setta/agentic/store.py::load_engine_configs`; `backend/setta/routers/agentic.py::route_get_engine_configs`. | Impl: `internal/agentruns/store.go::List`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesListsConfigs`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsEmptyList`; `internal/agentruns/service_test.go::TestEngineStoreCreateUpdateDeleteRoundTrip`. | `Proved` | Current Go enriches responses with `runtimeSupport`; this row only claims the surviving file-backed list semantics. |
+| `EC-02` | Engine-config create/update/delete round-trips persist ids and defaults and delete returns `null`. | `backend/setta/types/agentic.py::EngineConfig`; `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`; `backend/setta/routers/agentic.py::route_delete_engine_config`. | Impl: `internal/httpapi/engine_config_routes.go`; `internal/agentruns/store.go`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesCreatesConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesUpdatesConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesDeletesConfig`; `internal/agentruns/service_test.go::TestEngineStoreCreateUpdateDeleteRoundTrip`. | `Proved` | |
+| `EC-03` | `getEngineConfig`, update, and delete require the config to exist and return `404` when it does not. | `backend/setta/routers/agentic.py::route_get_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`; `backend/setta/routers/agentic.py::route_delete_engine_config`. | Impl: `internal/httpapi/engine_config_routes.go`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsNotFoundForMissingGetConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsNotFoundForMissingConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsNotFoundForMissingDeleteConfig`. | `Proved` | |
+| `EC-04` | Source-baseline engine-config reads are LLM-gated rather than IDE-only; current Go intentionally narrows both list and single-item reads to the IDE settings surface. | `backend/setta/routers/agentic.py::route_get_engine_configs`; `backend/setta/routers/agentic.py::route_get_engine_config`. | Current Go guard: `internal/httpapi/engine_config_routes.go::RegisterEngineConfigRoutes`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesBlocksShareMode`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-read-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-agentic-single-item-read-transport.md`. | `Intentional divergence` | The rewrite docs explicitly kept engine-config reads inside the IDE-only settings boundary because no concrete share/deployment caller was found. |
+| `EC-05` | Source-baseline engine-config create/update accepts blank names when the field is present. | `backend/setta/types/agentic.py::EngineConfig`; `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`. | Current Go validation: `internal/httpapi/engine_config_routes.go::buildCreatedEngineConfig`; `internal/agentruns/types.go::EngineConfig.normalized`. | `Missing` | Source `main` only required field presence through Pydantic. Current Go trims and rejects blank names on create and update, which is a real behavioral tightening that is not documented as an intentional break. |
+| `EC-06` | Engine-config mutations broadcast `EngineConfigsUpdated` after create/update/delete. | `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`; `backend/setta/routers/agentic.py::route_delete_engine_config`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_engine_configs_update`. | Current same-tab update path: `frontend/src/state/actions/ai.ts::{createEngineConfig,updateEngineConfig,deleteEngineConfig}`; rewrite defer: `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-read-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-update-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-create-delete-transport.md`. | `Intentional divergence` | The route family is Go-owned, but realtime fan-out remains explicitly deferred because current direct callers already update local engine-config state from route results. |
 
 ## Listener Bootstrap, Coverage, And Frontend Emits
 
@@ -294,35 +313,35 @@ Rows outside these slices are still pending.
 
 ## Current Findings
 
-1. The matrix now contains six concrete source-parity gaps:
-   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `LS-11`, and `LS-17`.
+1. The matrix now contains seven concrete source-parity gaps:
+   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, and `LS-17`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
-   - documented transport/realtime divergence (`PT-04`, `PT-07`)
-   - one narrowed read route whose old non-IDE contract is still dormant or
-     unproven as an active caller requirement (`PT-05`)
+   - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
    - preserved runtime/codegen source-of-truth behavior (`PT-09`)
-3. The project-shell slice also surfaced one source behavior that is still
+3. The engine-config slice mostly closes with proofs, but it adds one real
+   behavior gap (`EC-05`) plus two documented divergences (`EC-04`, `EC-06`).
+4. The project-shell slice also surfaced one source behavior that is still
    unproven on the current Go architecture:
    `PS-06`.
-4. The listener transport slices added six more rows that are implemented in Go but
+5. The listener transport slices added six more rows that are implemented in Go but
    still under-proved relative to `main`:
    `LS-04`, `LS-12`, `LS-13`, `LS-16`, `LR-05`, and `LC-05`.
-5. The terminal slice added one more under-proved row:
+6. The terminal slice added one more under-proved row:
    `TR-01`.
-6. The terminal slice also recorded two documented clean-break divergences:
+7. The terminal slice also recorded two documented clean-break divergences:
    `TT-03` and `TR-07`.
-7. The terminal slice surfaced two source behaviors that are now dormant or
+8. The terminal slice surfaced two source behaviors that are now dormant or
    still unproven as active Go-era caller requirements:
    `TT-04` and `TR-08`.
-8. The detached-run slice added one more under-proved row:
+9. The detached-run slice added one more under-proved row:
    `DR-05`.
-9. The remaining issues in the naming slice are still mostly proof gaps rather
+10. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
-10. The next high-value steps are:
-   - decide whether `CN-07`, `PS-08`, `PT-06`, and `PT-08` should be restored
-     or documented as intentional divergences
+11. The next high-value steps are:
+   - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, and `EC-05` should be
+     restored or documented as intentional divergences
    - decide whether `LS-11` and `LS-17` should be restored or documented as
      intentional divergences
    - close proof gaps for project/view-mode/window-space/section format-rule
