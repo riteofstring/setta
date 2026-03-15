@@ -4,15 +4,12 @@ from tempfile import TemporaryDirectory
 import pytest
 
 from setta.agentic.store import (
-    delete_prompt_template,
-    list_prompt_templates,
     load_agent_profiles,
     load_external_agent_configs,
     load_agent_run,
     load_prompt_template,
     require_external_agent_config,
     save_agent_run,
-    save_prompt_template,
 )
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
@@ -134,7 +131,7 @@ class TestAgenticStore:
                 metadata={"category": "greeting"},
             )
 
-            save_prompt_template(dbe, template)
+            dbe.write_prompt(template.id, template.model_dump(mode="json"))
 
             loaded = load_prompt_template(dbe, template.id)
             assert loaded is not None
@@ -143,9 +140,3 @@ class TestAgenticStore:
             assert loaded.template == template.template
             assert loaded.inputSchema == template.inputSchema
             assert loaded.metadata == template.metadata
-
-            templates = list_prompt_templates(dbe)
-            assert [entry.id for entry in templates] == [template.id]
-
-            delete_prompt_template(dbe, template.id)
-            assert list_prompt_templates(dbe) == []
