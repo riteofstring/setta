@@ -47,12 +47,11 @@ categorize them.
 
 - Expand the differential manifest beyond the current bootstrap / websocket /
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
-  required-view-mode-repair / deleted-active-tab-repair /
-  missing-required-section / code-obj-backfill / workspace-launch
-  outdated-settings slice
+  reserved-name-save / required-view-mode-repair /
+  deleted-active-tab-repair / missing-required-section /
+  code-obj-backfill / workspace-launch outdated-settings slice
 - Add executable proof for the remaining dedicated-`/settings` rows that are
   still open, especially:
-  `settings_project.validation.save_updates_allow_reserved_settings_name_beyond_bootstrap`,
   `settings_project.code_objs.field_type_to_param_impl_mapping_preserved_on_create_and_backfill`,
   and
   `settings_project.display_names.reload_backfill_only_fills_new_blank_labels`
