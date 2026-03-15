@@ -60,6 +60,12 @@ Last audited: `2026-03-17`
   follow-up slice: read-only terminal input-ignore parity, `runCode` and
   `runDetached` detail-body transport, and agent-profile share-mode /
   missing-profile detail behavior
+- plus the targeted file-browser follow-up slice: `createFile`
+  workspace-relative path guards, `checkIfFileExists`
+  workspace-relative / blank-path behavior and share-mode deployment-path
+  restriction, `checkWorkspaceInitialized` local-dev/global detection and
+  outside-workspace opt-in, file-stat transport, and folder-listing
+  outside-workspace opt-in
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -76,11 +82,11 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `300`
+- Rows audited in this pass: `306`
 - Status counts:
-  - `Proved`: `274`
+  - `Proved`: `279`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `1`
+  - `Missing`: `2`
   - `Retained Python boundary`: `8`
   - `Intentional divergence`: `6`
   - `Dormant / unproven caller`: `11`
@@ -244,6 +250,13 @@ Last audited: `2026-03-17`
   refresh slice: backend codegen-target generation, persisted main-save
   materialization, output-path normalization/rejection, and cache
   invalidation/pruning behavior.
+- This pass also extends the matrix into a targeted file-browser follow-up
+  slice: `createFile` workspace-relative path guards,
+  `checkIfFileExists` workspace-relative / blank-path behavior and
+  share-mode deployment-path restriction,
+  `checkWorkspaceInitialized` local-dev/global detection and
+  outside-workspace opt-in, file-stat transport, and folder-listing
+  outside-workspace opt-in.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -278,10 +291,9 @@ Last audited: `2026-03-17`
     audited here
   - attachment prompt-text/MIME-classification rows beyond the
     download-url/download transport subset audited here
-  - file-browser `checkIfFileExists`, `checkWorkspaceInitialized`,
-    file-stat-specific transport, outside-workspace opt-in, and remaining
-    transfer/download token rows beyond the root/read/write/list subset audited
-    here
+  - remaining file-browser transfer/download token rows beyond the
+    root/read/write/list/create/check/stat/workspace-initialized /
+    outside-workspace subset audited here
   - artifact listener-update validation/conflict-strategy/image/chart-data
     edge-case rows beyond the import/update/delete/share-overlay subset audited
     here
@@ -312,6 +324,11 @@ Last audited: `2026-03-17`
   audited slice: Go returns a typed `404 detached_run_not_found`, while the
   source baseline appears to fall through to the generic `500` error handler
   for stale run ids on the same route family.
+- `file_browser.check_if_file_exists.share_mode_deployment_path_restriction`
+  is now an explicit `Missing` row: the Python source allows
+  `checkIfFileExists` in share mode against paths under the deployment root,
+  while the Go route still blocks the route behind the generic deployment
+  file-browsing guard.
 - No explicit `Implemented, proof incomplete` rows remain in this audited
   slice.
 - `settings.save.disabling_autosave_cancels_pending_project_autosaves` is now
@@ -347,6 +364,12 @@ Last audited: `2026-03-17`
   rows, while `detached_run.unknown_run_transport_contract` is now called out
   as an explicit remaining parity gap instead of staying hidden in deferred
   notes.
+- `file_browser.create_file.workspace_relative_and_path_guard`,
+  `file_browser.check_if_file_exists.workspace_relative_blank_false_and_path_guard`,
+  `file_browser.check_workspace_initialized.local_dev_global_detection_and_outside_workspace_opt_in`,
+  `file_browser.folder_listing.outside_workspace_opt_in`, and
+  `file_browser.file_stat.returns_mtime_ns_and_size` are now explicit proved
+  rows instead of staying hidden in the deferred file-browser follow-up bucket.
 - Retained Python boundaries are now recorded explicitly for
   `setta.api.SettaListener`, `setta.api.chat_toolkit`,
   `setta.api.SettaRunner`, the share listener runtime, and the packaged
@@ -518,6 +541,12 @@ Last audited: `2026-03-17`
 | `attachment.deployment.download_policy_guard_and_share_session_query` | `tests/routers/test_attachment_routes.py::test_download_urls_blocked_when_policy_disallows`; `backend/setta/routers/attachments.py::_build_download_url`; `route_get_attachment_download_url` | `internal/httpapi/attachment_routes.go::ensureAttachmentDownloadsAllowed`; `buildAttachmentDownloadURL`; `internal/chatattachments/service.go::DownloadForShareSession` | `TestDownloadForShareSessionServesDeploymentArtifacts`; `TestRegisterAttachmentRoutesIncludesShareSessionForDeployment`; `TestRegisterAttachmentRoutesRejectsDeploymentDownloadsWhenPolicyDisabled` | deployment callers still use the same attachment URL-building route plus the root download route | `Proved` | Share-mode download URLs still carry the share-session query and the deployment policy still blocks downloads when file access is disabled. |
 | `file_browser.root.workspace_metadata_and_default_ignores` | `tests/routers/test_file_browser_routes.py::test_get_file_browser_root_ide_mode`; `backend/setta/routers/artifact.py::route_get_file_browser_root` | `internal/filebrowser/service.go::Root`; `internal/httpapi/filebrowser_routes.go::getFileBrowserRootHandler` | `TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads`; `TestAppServesFileBrowserRoutes` | `RouteGetFileBrowserRoot` remains on the active IDE transport surface | `Proved` | The root route still returns the workspace root, platform path separator, and the documented default ignore patterns. |
 | `file_browser.mode.deployment_forbidden_message` | `tests/routers/test_file_browser_routes.py::test_get_file_browser_root_share_mode_forbidden`; `...test_get_folder_contents_share_mode_forbidden`; `backend/setta/routers/artifact.py::route_get_file_browser_root`; `route_get_folder_contents` | `internal/httpapi/filebrowser_routes.go::ensureFileBrowsingAllowed` | `TestRegisterFileBrowserRoutesBlocksDeploymentModeWithExplicitMessage` | file-browser callers still hit the same route family, now guarded in the Go transport layer | `Proved` | Share/deployment mode still returns the explicit "File browsing is disabled in deployment mode." message. |
+| `file_browser.create_file.workspace_relative_and_path_guard` | `tests/routers/test_detached_workspace_root_paths.py::test_create_file_is_workspace_relative`; `tests/routers/test_share_filesystem_routes.py::test_create_file_restricts_share_paths`; `backend/setta/routers/sections.py::route_create_file` | `internal/filebrowser/service.go::CreateFile`; `internal/httpapi/filebrowser_routes.go::createFileHandler` | `TestRegisterFileBrowserRoutesCreatesWorkspaceFiles`; `TestRegisterFileBrowserRoutesRejectsCreateFileOutsideWorkspaceRoot` | `frontend/src/components/Panes/UiEditor/SectionConfig/InputAreaSettings.tsx` still creates files through `route_create_file` | `Proved` | `createFile` still resolves relative paths against the workspace root, creates parent folders plus an empty file, and rejects escapes outside the allowed root. |
+| `file_browser.check_if_file_exists.workspace_relative_blank_false_and_path_guard` | `tests/routers/test_detached_workspace_root_paths.py::test_check_if_file_exists_is_workspace_relative`; `backend/setta/routers/artifact.py::route_check_if_file_exists` | `internal/filebrowser/service.go::CheckIfFileExists`; `internal/httpapi/filebrowser_routes.go::checkIfFileExistsHandler` | `TestRegisterFileBrowserRoutesChecksIfFileExistsRelativeToWorkspaceAndRejectsOutsidePaths` | `frontend/src/state/hooks/utils.ts`; `frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal.tsx`; `frontend/src/components/Modals/ShareDeploymentsModal/PublishShareDeploymentModal.tsx` still call `route_check_if_file_exists` | `Proved` | File-existence checks still resolve relative paths against the workspace root, return `false` for blank paths, and reject outside-workspace inputs instead of probing arbitrary filesystem paths. |
+| `file_browser.check_if_file_exists.share_mode_deployment_path_restriction` | `tests/routers/test_share_filesystem_routes.py::test_check_if_file_exists_restricts_share_paths`; `backend/setta/routers/artifact.py::route_check_if_file_exists` | `internal/httpapi/filebrowser_routes.go::checkIfFileExistsHandler`; `internal/httpapi/filebrowser_routes.go::ensureFileBrowsingAllowed` | no Go proof for the source share-mode branch; current deployment route behavior is only covered indirectly by the broader deployment file-browser guard tests | `frontend/src/utils/generatedEndpoints.ts` still exports `route_check_if_file_exists`, but current rewrite docs do not prove a surviving share-mode caller for this branch | `Missing` | The Python source allows `checkIfFileExists` in share mode for deployment-root paths and rejects blocked deployment paths only after that scoped resolution; the Go route currently blocks the route wholesale in deployment mode before path checks run. |
+| `file_browser.check_workspace_initialized.local_dev_global_detection_and_outside_workspace_opt_in` | `tests/routers/test_file_browser_routes.py::test_check_workspace_initialized_handles_local_and_global`; `...test_check_workspace_initialized_blocks_outside_cwd_by_default`; `...test_check_workspace_initialized_allows_outside_cwd_when_enabled`; `backend/setta/routers/artifact.py::route_check_workspace_initialized` | `internal/filebrowser/service.go::CheckWorkspaceInitialized`; `internal/filebrowser/service.go::isInitializedWorkspaceFolder`; `internal/httpapi/filebrowser_routes.go::checkWorkspaceInitializedHandler` | `TestRegisterFileBrowserRoutesChecksWorkspaceInitializationAndOutsideWorkspaceOptIn` | `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` still calls `route_check_workspace_initialized` while navigating browser roots | `Proved` | Workspace-initialization checks still recognize local `setta_files`, local `setta_files_dev`, and global Setta roots, block outside-workspace paths by default, and allow them only when the caller opts in. |
+| `file_browser.folder_listing.outside_workspace_opt_in` | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_blocks_outside_cwd`; `...test_get_folder_contents_allows_outside_cwd_when_enabled`; `backend/setta/routers/artifact.py::route_get_folder_contents` | `internal/filebrowser/service.go::ListFolder`; `internal/httpapi/filebrowser_routes.go::getFolderContentsHandler` | `TestRegisterFileBrowserRoutesAllowOutsideWorkspaceFolderListingWhenEnabled` | `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` passes `allowOutsideWorkspaceRoot`; folder-path completions in `frontend/src/components/Utils/CodeMirror/folderPathCompletions.ts` also use that transport | `Proved` | Folder listings still reject outside-workspace paths by default and only traverse them when the caller explicitly enables outside-workspace browsing. |
+| `file_browser.file_stat.returns_mtime_ns_and_size` | `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_stat_returns_mtime_ns_and_size`; `backend/setta/routers/artifact.py::route_get_file_browser_file_stat` | `internal/filebrowser/service.go::StatFile`; `internal/httpapi/filebrowser_routes.go::getFileBrowserFileStatHandler` | `TestRegisterFileBrowserRoutesReturnsFileStat` | `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.tsx` still polls `route_get_file_browser_file_stat` for stale-file detection | `Proved` | File-stat reads still return the normalized path together with authoritative `mtimeNs` and byte size for stale-check polling. |
 | `file_browser.download_urls.skip_invalid_paths_and_serve_bytes` | `backend/setta/routers/artifact.py::route_get_file_browser_download_urls`; `_resolve_file_path_for_download`; `route_file_browser_download` | `internal/filebrowser/service.go::BuildDownloadURLs`; `Download`; `internal/httpapi/filebrowser_routes.go` | `TestServiceReadWriteAndDownloadFlow`; `TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads` | `RouteGetFileBrowserDownloadURL` and `RouteFileBrowserDownload` remain active route names | `Proved` | File-browser download URL generation still skips invalid paths and round-trips valid files through the signed download route. |
 | `file_browser.read_content.snapshots_bytes_into_binary_store` | `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_reads_file`; `backend/setta/routers/artifact.py::route_get_file_browser_file_content` | `internal/filebrowser/service.go::ReadFileContent` | `TestServiceReadWriteAndDownloadFlow`; `TestAppServesFileBrowserRoutes` | the live app still serves `RouteGetFileBrowserFileContent` and binary-downloads the resulting `contentId` | `Proved` | Reading file-browser content still snapshots file bytes into the binary store and returns a `contentId` plus file metadata instead of inlining the file body. |
 | `file_browser.read_content.oversize_and_concurrent_change_guards` | `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_rejects_oversized_file`; `...test_get_file_browser_file_content_caps_requested_max_bytes`; `...test_get_file_browser_file_content_rejects_file_changed_while_reading` | `internal/filebrowser/service.go::ReadFileContent`; `internal/httpapi/filebrowser_routes.go::writeFileBrowserRouteError` | `TestServiceReadFileContentRejectsOversizeAndConcurrentChange`; `TestRegisterFileBrowserRoutesMapReadAndWriteGuardErrors` | file-browser read callers still reach the same transport surface and receive typed error envelopes | `Proved` | Oversized reads still fail with `413`, requested limits are capped to the documented max, and concurrent file changes still raise a conflict instead of returning stale content. |

@@ -115,6 +115,253 @@ func TestRegisterFileBrowserRoutesCreatesWorkspaceFiles(t *testing.T) {
 	}
 }
 
+func TestRegisterFileBrowserRoutesChecksIfFileExistsRelativeToWorkspaceAndRejectsOutsidePaths(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "exists.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatalf("write workspace file: %v", err)
+	}
+
+	existsRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckIfFileExists, strings.NewReader(`{"filepath":"exists.txt"}`))
+	existsRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, existsRequest, authService)
+
+	existsResponse := httptest.NewRecorder()
+	handler.ServeHTTP(existsResponse, existsRequest)
+	if existsResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", existsResponse.Code, existsResponse.Body.String())
+	}
+	if strings.TrimSpace(existsResponse.Body.String()) != "true" {
+		t.Fatalf("expected true response, got %q", existsResponse.Body.String())
+	}
+
+	blankRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckIfFileExists, strings.NewReader(`{"filepath":"   "}`))
+	blankRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, blankRequest, authService)
+
+	blankResponse := httptest.NewRecorder()
+	handler.ServeHTTP(blankResponse, blankRequest)
+	if blankResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", blankResponse.Code, blankResponse.Body.String())
+	}
+	if strings.TrimSpace(blankResponse.Body.String()) != "false" {
+		t.Fatalf("expected false response for blank filepath, got %q", blankResponse.Body.String())
+	}
+
+	outsidePath := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(outsidePath, []byte("outside"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	outsideRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckIfFileExists, strings.NewReader(`{"filepath":"`+outsidePath+`"}`))
+	outsideRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, outsideRequest, authService)
+
+	outsideResponse := httptest.NewRecorder()
+	handler.ServeHTTP(outsideResponse, outsideRequest)
+	if outsideResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", outsideResponse.Code, outsideResponse.Body.String())
+	}
+	if !strings.Contains(outsideResponse.Body.String(), `"code":"path_forbidden"`) {
+		t.Fatalf("expected path_forbidden error, got %q", outsideResponse.Body.String())
+	}
+}
+
+func TestRegisterFileBrowserRoutesChecksWorkspaceInitializationAndOutsideWorkspaceOptIn(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, globalSettaFilesBase, err := newFileBrowserRouteServiceWithRoots(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	initializedLocal := filepath.Join(workspaceRoot, "initialized-local")
+	initializedLocalDev := filepath.Join(workspaceRoot, "initialized-local-dev")
+	initializedGlobal := filepath.Join(workspaceRoot, "initialized-global")
+	plain := filepath.Join(workspaceRoot, "plain")
+	for _, path := range []string{initializedLocal, initializedLocalDev, initializedGlobal, plain} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(initializedLocal, "setta_files"), 0o755); err != nil {
+		t.Fatalf("mkdir initialized local root: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(initializedLocalDev, "setta_files_dev"), 0o755); err != nil {
+		t.Fatalf("mkdir initialized local dev root: %v", err)
+	}
+	if err := os.MkdirAll(config.BuildFilesRootFromBase(globalSettaFilesBase, initializedGlobal), 0o755); err != nil {
+		t.Fatalf("mkdir initialized global root: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name       string
+		folderPath string
+		want       string
+	}{
+		{name: "initialized local", folderPath: initializedLocal, want: "true"},
+		{name: "initialized local dev", folderPath: initializedLocalDev, want: "true"},
+		{name: "initialized global", folderPath: initializedGlobal, want: "true"},
+		{name: "plain", folderPath: plain, want: "false"},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckWorkspaceInitialized, strings.NewReader(`{"folderPath":"`+testCase.folderPath+`"}`))
+			request.Header.Set("Content-Type", "application/json")
+			addHTTPTestAuthCookie(t, request, authService)
+
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+			if strings.TrimSpace(response.Body.String()) != testCase.want {
+				t.Fatalf("expected %s, got %q", testCase.want, response.Body.String())
+			}
+		})
+	}
+
+	outsideRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(outsideRoot, "setta_files"), 0o755); err != nil {
+		t.Fatalf("mkdir outside initialized root: %v", err)
+	}
+
+	blockedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckWorkspaceInitialized, strings.NewReader(`{"folderPath":"`+outsideRoot+`"}`))
+	blockedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, blockedRequest, authService)
+
+	blockedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(blockedResponse, blockedRequest)
+	if blockedResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", blockedResponse.Code, blockedResponse.Body.String())
+	}
+	if !strings.Contains(blockedResponse.Body.String(), `"code":"path_forbidden"`) {
+		t.Fatalf("expected path_forbidden error, got %q", blockedResponse.Body.String())
+	}
+
+	allowedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckWorkspaceInitialized, strings.NewReader(`{"folderPath":"`+outsideRoot+`","allowOutsideWorkspaceRoot":true}`))
+	allowedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, allowedRequest, authService)
+
+	allowedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(allowedResponse, allowedRequest)
+	if allowedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", allowedResponse.Code, allowedResponse.Body.String())
+	}
+	if strings.TrimSpace(allowedResponse.Body.String()) != "true" {
+		t.Fatalf("expected true response for allowed outside workspace path, got %q", allowedResponse.Body.String())
+	}
+}
+
+func TestRegisterFileBrowserRoutesAllowOutsideWorkspaceFolderListingWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, _, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	outsideRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(outsideRoot, "outside-folder"), 0o755); err != nil {
+		t.Fatalf("mkdir outside folder: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outsideRoot, "outside-file.txt"), []byte("outside"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+
+	blockedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFolderContents, strings.NewReader(`{"folderPath":"`+outsideRoot+`"}`))
+	blockedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, blockedRequest, authService)
+
+	blockedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(blockedResponse, blockedRequest)
+	if blockedResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", blockedResponse.Code, blockedResponse.Body.String())
+	}
+	if !strings.Contains(blockedResponse.Body.String(), `"code":"path_forbidden"`) {
+		t.Fatalf("expected path_forbidden error, got %q", blockedResponse.Body.String())
+	}
+
+	allowedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFolderContents, strings.NewReader(`{"folderPath":"`+outsideRoot+`","allowOutsideWorkspaceRoot":true}`))
+	allowedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, allowedRequest, authService)
+
+	allowedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(allowedResponse, allowedRequest)
+	if allowedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", allowedResponse.Code, allowedResponse.Body.String())
+	}
+
+	var payload []filebrowser.FolderContentItem
+	if err := json.Unmarshal(allowedResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode folder listing payload: %v", err)
+	}
+	names := make(map[string]filebrowser.FolderContentItem, len(payload))
+	for _, item := range payload {
+		names[item.Name] = item
+	}
+	if _, ok := names["outside-folder"]; !ok {
+		t.Fatalf("expected outside-folder entry, got %#v", payload)
+	}
+	if _, ok := names["outside-file.txt"]; !ok {
+		t.Fatalf("expected outside-file.txt entry, got %#v", payload)
+	}
+}
+
+func TestRegisterFileBrowserRoutesReturnsFileStat(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	filePath := filepath.Join(workspaceRoot, "file-stat.txt")
+	if err := os.WriteFile(filePath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write file stat fixture: %v", err)
+	}
+	info, err := os.Stat(filePath)
+	if err != nil {
+		t.Fatalf("stat file stat fixture: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFileBrowserFileStat, strings.NewReader(`{"path":"`+filePath+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload filebrowser.FileStatResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode file stat payload: %v", err)
+	}
+	if payload.Path != filePath {
+		t.Fatalf("expected path %q, got %q", filePath, payload.Path)
+	}
+	if payload.MtimeNs != info.ModTime().UnixNano() {
+		t.Fatalf("expected mtime %d, got %d", info.ModTime().UnixNano(), payload.MtimeNs)
+	}
+	if payload.Size != info.Size() {
+		t.Fatalf("expected size %d, got %d", info.Size(), payload.Size)
+	}
+}
+
 func TestRegisterFileBrowserRoutesDefaultFolderContentsShowDotfilesButHideIgnoredRoots(t *testing.T) {
 	t.Parallel()
 
@@ -360,6 +607,12 @@ func TestRegisterFileBrowserRoutesBlocksLauncherMode(t *testing.T) {
 
 func newFileBrowserRouteService(t *testing.T, authService *auth.Service) (*filebrowser.Service, string, *binarypayload.Store, error) {
 	t.Helper()
+	service, workspaceRoot, binaryStore, _, err := newFileBrowserRouteServiceWithRoots(t, authService)
+	return service, workspaceRoot, binaryStore, err
+}
+
+func newFileBrowserRouteServiceWithRoots(t *testing.T, authService *auth.Service) (*filebrowser.Service, string, *binarypayload.Store, string, error) {
+	t.Helper()
 
 	root := t.TempDir()
 	workspaceRoot := filepath.Join(root, "workspace")
@@ -376,7 +629,7 @@ func newFileBrowserRouteService(t *testing.T, authService *auth.Service) (*fileb
 	}
 	binaryStore, err := binarypayload.NewStore(filepath.Join(root, "binary"))
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, "", err
 	}
 	service, err := filebrowser.NewService(filebrowser.ServiceOptions{
 		WorkspaceRoot:        workspaceRoot,
@@ -387,9 +640,9 @@ func newFileBrowserRouteService(t *testing.T, authService *auth.Service) (*fileb
 		Sessions:             authService,
 	})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, "", err
 	}
-	return service, workspaceRoot, binaryStore, nil
+	return service, workspaceRoot, binaryStore, globalSettaFilesBase, nil
 }
 
 func newFileBrowserRouteTestHandler(t *testing.T, mode config.Mode, authService *auth.Service, service *filebrowser.Service) http.Handler {
