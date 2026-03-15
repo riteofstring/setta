@@ -378,8 +378,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/Panes/Overview/Git/*` and `components/Git/*` own the git pane,
     diff overlay, graph overlay, and embedded graph window UI.
-  - `state/actions/gitStatusAndDiff.ts` owns git status refresh, diff
-    availability, diff overlay opening, and diff-mode switching.
+  - `state/actions/gitStatusState.ts` owns git status refresh plus diff
+    availability derivation.
+  - `state/actions/gitDiffOverlayActions.ts` owns diff overlay opening,
+    diff hydration, diff-mode switching, and overlay close behavior.
+  - `state/actions/gitStatusAndDiff.ts` is now the thin compatibility facade.
   - `state/actions/gitGraphRefreshState.ts` owns git graph/log refresh and
     initial page loading, `state/actions/gitGraphPaginationRequests.ts` owns
     load-more request gating plus transport orchestration,

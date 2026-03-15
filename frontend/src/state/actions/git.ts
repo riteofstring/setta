@@ -1,4 +1,9 @@
 export {
+  closeGitOverlay,
+  openGitDiffOverlay,
+  setGitDiffMode,
+} from "./gitDiffOverlayActions";
+export {
   loadMoreGitGraphCommits,
   setGitGraphFilterText,
 } from "./gitGraphLoadState";
@@ -15,8 +20,5 @@ export {
 } from "./gitGraphSelection";
 export {
   buildGitDiffAvailabilityByPath,
-  closeGitOverlay,
-  openGitDiffOverlay,
   refreshGitStatus,
-  setGitDiffMode,
-} from "./gitStatusAndDiff";
+} from "./gitStatusState";

@@ -10,6 +10,7 @@ import {
   useListRef,
   type RowComponentProps,
 } from "react-window";
+import { closeGitOverlay } from "state/actions/gitDiffOverlayActions";
 import { setGitGraphFilterText } from "state/actions/gitGraphFilterState";
 import {
   refreshGitGraphOverlay,
@@ -21,7 +22,6 @@ import {
   selectGitCommit,
   selectGitCommitFile,
 } from "state/actions/gitGraphSelection";
-import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
 import { useGitStore } from "state/git";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type {

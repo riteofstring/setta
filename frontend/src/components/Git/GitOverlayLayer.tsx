@@ -1,6 +1,6 @@
 import { GitDiffOverlay } from "components/Git/GitDiffOverlay";
 import { useEffect } from "react";
-import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
+import { closeGitOverlay } from "state/actions/gitDiffOverlayActions";
 import { useGitStore } from "state/git";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 

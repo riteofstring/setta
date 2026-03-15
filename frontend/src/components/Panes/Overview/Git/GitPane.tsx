@@ -4,11 +4,9 @@ import {
   type GitFileStatusCategory,
 } from "components/Git/gitFileStatusVisuals";
 import { useEffect, useMemo } from "react";
+import { openGitDiffOverlay } from "state/actions/gitDiffOverlayActions";
 import { openGitGraphOverlay } from "state/actions/gitGraphOverlayActions";
-import {
-  openGitDiffOverlay,
-  refreshGitStatus,
-} from "state/actions/gitStatusAndDiff";
+import { refreshGitStatus } from "state/actions/gitStatusState";
 import { useGitStore } from "state/git";
 import { useShareCapabilities } from "state/hooks/share";
 import type { GitStatusEntry, GitWorktreeEntry } from "utils/generatedTypes";

@@ -288,9 +288,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   owns selected commit clearing plus commit details/file-diff selection, and
   `frontend/src/state/actions/gitGraphState.ts` now owns reusable graph state
   builders and current project-config lookup, while
-  `frontend/src/state/actions/gitStatusAndDiff.ts` continues to own git status
-  refresh, diff availability, diff overlay opening, and diff-mode switching
-  that previously lived in `frontend/src/state/actions/git.ts`.
+  `frontend/src/state/actions/gitStatusState.ts` now owns git status refresh
+  plus diff availability derivation,
+  `frontend/src/state/actions/gitDiffOverlayActions.ts` now owns diff overlay
+  opening, diff hydration, diff-mode switching, and overlay close behavior,
+  and `frontend/src/state/actions/gitStatusAndDiff.ts` is now the thin
+  compatibility facade over those narrower git status/diff owners.
 - `frontend/src/state/actions/aiChatStreamingToolCalls.ts` now owns shared
   tool-call placeholder reconciliation and delta reducers used by the chat
   streaming and chat-section owners.
@@ -441,7 +444,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/gitStatusAndDiff.ts` at 215 lines
   - `frontend/src/state/actions/shareSessionState.ts` at 214 lines
   - `frontend/src/state/actions/runOrImportCode.ts` at 214 lines
   - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 213 lines
@@ -451,6 +453,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
   - `frontend/src/state/actions/edges.ts` at 208 lines
+  - `frontend/src/state/actions/projectChatWindowingSectionState.ts` at 207 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -763,6 +766,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - frontend websocket payload parsing and feature-specific dispatch
 - `websocketIncomingProjectSnapshots.ts` now owns:
   - project/app snapshot routing for inbound websocket updates
+- `gitStatusState.ts` now owns:
+  - git status refresh transport
+  - diff availability derivation by file path
+- `gitDiffOverlayActions.ts` now owns:
+  - diff overlay opening and close behavior
+  - diff hydration transport
+  - diff-mode switching against the active overlay
+- `gitStatusAndDiff.ts` is now:
+  - the thin compatibility facade over the narrowed git status/diff owners
 - `edgeHandleKeys.ts` now owns:
   - pure edge-handle key derivation for registry lookups
 - `edgeHandleRegistration.ts` now owns:
