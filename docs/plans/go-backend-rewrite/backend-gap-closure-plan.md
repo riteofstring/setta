@@ -118,3 +118,7 @@ categorize them.
   the same heuristic still applies: close adjacent proof-only route/service
   rows in small bundles when the owner is already aligned, then return to the
   larger remaining live-surface gaps
+- The file-browser mixed-input download-url minting row and explicit-empty
+  `ignorePatterns` override row are now proved too; keep harvesting these
+  adjacent service-only proofs while the owner is open, but stop once the next
+  remaining row would need broader surface setup rather than one focused test
