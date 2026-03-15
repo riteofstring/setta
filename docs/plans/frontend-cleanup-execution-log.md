@@ -6502,3 +6502,46 @@ schedule settings` button still appears on the live task row.
     which is now the highest unresolved front-door hotspot after
     `FileBrowserPane.tsx` dropped under 700 lines and delegated its list/filter
     surfaces into local file-browser owners.
+
+## 2026-03-16 05:26:55 PDT
+
+- Slice completed: extracted the project-chat thread-session and pending-chat
+  continuity owner out of
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Section/Layouts/BrowserArea.tsx` or
+  `frontend/src/components/Chat/ChatInput.tsx` because
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` was
+  still the recorded next unresolved front door at the start of the turn and
+  still mixed per-surface draft-thread lifecycle, selected thread-group sync,
+  engine-switch continuation state, and pending-chat continuity into the first
+  file a contributor opened for Project AI chat behavior.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.test.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-thread-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSwitchContinuation.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts frontend/tests/e2e/chat/project-ai-combobox.spec.ts --grep "project ai new thread placeholder stays inline, clears when unused, and promotes to a titled thread|project chat shows continue-in-new-thread banner after engine switch on selected thread"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.test.ts ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-thread-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-thread-session-2026-03-16.md`
+    with the before/after Project AI chat measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `ProjectChat.tsx` dropped from `1377` to `1183` lines while the measured
+    default Project AI chat subtree stayed flat at `58` nodes with the same
+    `11` buttons, the same `3` text inputs, the same `458px` surface width,
+    the same `508px` surface height, and no horizontal overflow at `960x900`.
+    The thread list still opened cleanly with the same empty-state CTA at both
+    `1440x900` and `960x900`.
+- Commit hash:
+  - `48f600788289339ea689c4f0b866f468fecbd99b`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the
+    highest-value unresolved chat/project-AI front door after `ProjectChat.tsx`
+    delegated its thread-session continuity into a sharp local owner.
