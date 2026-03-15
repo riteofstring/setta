@@ -181,6 +181,9 @@ Expected candidate clusters include:
   - `backend/setta/middleware/*`
   - `backend/setta/mcp/server.py`
 - superseded backend subsystems:
+  - package-root detached-run residue:
+    - `backend/setta/run_manager.py`
+    - `tests/run_manager/*`
   - `backend/setta/project_state/*` except retained typed support
   - `backend/setta/llm/*` except retained `llm/chat_toolkit/*`
   - `backend/setta/agentic/*` except explicit sidecar assets
@@ -200,6 +203,11 @@ Current tree note:
 - `backend/setta/server_state.py`, `backend/setta/routers/*`,
   `backend/setta/middleware/*`, and `backend/setta/mcp/server.py` are already
   gone in the current worktree.
+- `backend/setta/run_manager.py` and `tests/run_manager/*` are also gone in
+  the current worktree because detached-run runtime ownership already lives in
+  Go under `internal/detachedruns` plus
+  `internal/httpapi/detached_run_routes.go`; the retained Python runner
+  boundary is only the thin `setta.api.SettaRunner` HTTP client.
 - Recompute the remaining Step 3 batch from live imports before deleting more
   websocket helpers. `backend/setta/websockets/binary_frames.py` remains tied
   to the retained Python listener SDK, while `websocket_manager.py` and
