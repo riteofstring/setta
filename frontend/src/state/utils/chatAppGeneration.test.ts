@@ -1,8 +1,8 @@
 import { createAgentRun, createUserChatMessage } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
+import { collectChatAppGenerationDetailsByChatId } from "./chatAppGenerationAgentRuns";
 import {
-  collectChatAppGenerationDetailsByChatId,
   deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   normalizeChatAppGenerationContext,
@@ -11,7 +11,7 @@ import {
   retainChatAppGenerationDetailsForMessages,
   serializeChatAppGenerationByMessageId,
   setChatAppGenerationForMessage,
-} from "./chatAppGeneration";
+} from "./chatAppGenerationDetails";
 
 describe("chatAppGeneration", () => {
   it("normalizes invalid app-generation values to null", () => {
