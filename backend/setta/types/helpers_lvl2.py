@@ -34,7 +34,6 @@ from setta.types.generated.effective_impls import (
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
-    BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
     BaseParamCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
@@ -44,11 +43,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgs,
     CoreArgs,
-    GroupSectionImplArgsWithCallable,
-    ImageSectionImplArgsWithCallable,
-    ListRootSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
-    TextBlockSectionImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -78,7 +73,6 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
-from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout
 from setta.types.section_impls import (
@@ -89,32 +83,22 @@ from setta.types.section_impls import (
     CallableSectionImpl,
     ChatSectionImpl,
     ChatSectionState,
-    CodeFileBinding,
     DrawSectionImpl,
-    GroupSectionImpl,
     ListRootSectionImpl,
-    ListRootViewMode,
     MetaControlSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
-    SpreadsheetGridDensity,
-    SpreadsheetSectionImpl,
     TaskBoardColumn,
     TaskBoardSectionImpl,
-    TaskBoardTask,
-    TaskBoardViewMode,
     TerminalSectionImpl,
     TextBlockFormat,
     TextBlockSectionImpl,
-    TypeErrorIgnoreState,
 )
-from setta.utils.errors import InvalidSectionName
 from setta.utils.name_validation import (
     validate_project_name,
     validate_section_name,
 )
-from setta.utils.paths import normalize_workspace_path
 from setta.utils.utils import insert_into_array
 
 logger = logging.getLogger(__name__)
@@ -125,18 +109,6 @@ if TYPE_CHECKING:
         ProjectStateCore,
         ProjectStateSingleConfig,
     )
-
-
-DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES = frozenset(
-    {
-        SectionType.GlobalVariables,
-        SectionType.GenPythonCode,
-        SectionType.GenPythonMetadata,
-        SectionType.StateMachineStart,
-        SectionType.StateMachineGate,
-        SectionType.StateMachineEnd,
-    }
-)
 
 
 def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: ID):
@@ -1123,119 +1095,6 @@ def delete_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", section
     return removed_param_id
 
 
-def delete_selected_params(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    paramInfoIds: list[ID],
-):
-    if not paramInfoIds:
-        return []
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    root_id: ID | None = None
-    if isinstance(section_impl, CallableSectionImpl):
-        root_id = section_impl.callable
-    elif isinstance(section_impl, BaseDictSectionImpl):
-        root_id = section_impl.topLevelParamId
-    else:
-        raise TypeError
-
-    if not root_id:
-        return []
-
-    if root_id not in section_impl.codeObjVariantMap:
-        raise KeyError(
-            f"Root param container {root_id} missing for section {sectionId}"
-        )
-
-    traversal = traverse_hierarchy(
-        p.codeObjs,
-        p.codeObjImpls,
-        p.codeObjVariants,
-        section_impl.codeObjVariantMap,
-        top_level_ids=[],
-        root_id=root_id,
-        options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
-    )
-    parent_map = traversal.parent_map
-
-    removed_param_ids: list[ID] = []
-    parent_to_removed: dict[ID, set[ID]] = {}
-    for param_id in dict.fromkeys(paramInfoIds):
-        if param_id not in p.codeObjs:
-            raise KeyError(f"Param {param_id} not found for deletion.")
-        param_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, sectionId, param_id, BaseParamCodeObjImpl
-        )
-        if not param_impl.coreNameEditable:
-            continue
-        parent_id = parent_map.get(param_id)
-        if not parent_id:
-            raise KeyError(f"Param {param_id} has no parent in section {sectionId}.")
-        parent_to_removed.setdefault(parent_id, set()).add(param_id)
-        removed_param_ids.append(param_id)
-
-    if not removed_param_ids:
-        return []
-
-    for parent_id, removed_children in parent_to_removed.items():
-        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, sectionId, parent_id, BaseParentCodeObjImpl
-        )
-        next_children = [
-            child for child in parent_impl.children if child not in removed_children
-        ]
-        if next_children == parent_impl.children:
-            continue
-        set_curr_effective_code_obj_impl_value(
-            p,
-            sectionId,
-            parent_id,
-            BaseParentCodeObjImplArgsWithCallable(children=next_children),
-        )
-
-    removed_set = set(removed_param_ids)
-    next_pinned = [
-        param_id
-        for param_id in section_impl.pinnedParams
-        if param_id not in removed_set
-    ]
-    next_selected = [
-        param_id
-        for param_id in section_impl.selectedParams
-        if param_id not in removed_set
-    ]
-    next_ignore_params = {
-        param_id: ignore
-        for param_id, ignore in section_impl.ignoreTypeErrors.params.items()
-        if param_id not in removed_set
-    }
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(
-            pinnedParams=next_pinned,
-            selectedParams=next_selected,
-            ignoreTypeErrors=TypeErrorIgnoreState(
-                callable=section_impl.ignoreTypeErrors.callable,
-                params=next_ignore_params,
-            ),
-        ),
-    )
-
-    next_edge_inputs = [
-        param_id
-        for param_id in section_impl.edgeInputParams
-        if param_id not in removed_set
-    ]
-    if next_edge_inputs != section_impl.edgeInputParams:
-        set_section_edge_inputs(settings, p, sectionId, next_edge_inputs)
-
-    return removed_param_ids
-
-
 def delete_kwarg_from_callable_section(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
@@ -1288,184 +1147,6 @@ def compute_initial_default_variant(variant: Variant):
     return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
 
 
-def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, TextBlockSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p, sectionId, TextBlockSectionImplArgsWithCallable(text=text)
-    )
-    if impl.headingAsSectionName:
-        first_heading = (
-            get_first_markdown_heading(text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(text)
-        )
-        if first_heading:
-            try:
-                set_section_name(p, sectionId, first_heading)
-            except InvalidSectionName:
-                pass
-
-
-def set_text_block_heading_as_section_name(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    headingAsSectionName: bool,
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, TextBlockSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(headingAsSectionName=headingAsSectionName),
-    )
-    if headingAsSectionName:
-        first_heading = (
-            get_first_markdown_heading(impl.text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(impl.text)
-        )
-        if first_heading:
-            try:
-                set_section_name(p, sectionId, first_heading)
-            except InvalidSectionName:
-                pass
-
-
-def set_text_block_master_font_size(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    masterFontSizePx: float,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
-    clamped_size = max(8.0, min(48.0, float(masterFontSizePx)))
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(masterFontSizePx=clamped_size),
-    )
-
-
-def set_parent_default_child_section_type(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    defaultChildSectionType: SectionType,
-):
-    if defaultChildSectionType in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-        raise ValueError(
-            f"Section type {defaultChildSectionType} cannot be a default child type."
-        )
-    section_impl = get_curr_effective_section_impl(p, sectionId)
-    if isinstance(section_impl, ListRootSectionImpl):
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            ListRootSectionImplArgsWithCallable(
-                defaultChildSectionType=defaultChildSectionType
-            ),
-        )
-        return
-    if isinstance(section_impl, GroupSectionImpl):
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            GroupSectionImplArgsWithCallable(
-                defaultChildSectionType=defaultChildSectionType
-            ),
-        )
-        return
-    raise TypeError(f"Section {sectionId} does not support default child section type.")
-
-
-def set_list_root_view_mode(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    viewMode: ListRootViewMode,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ListRootSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ListRootSectionImplArgsWithCallable(viewMode=viewMode),
-    )
-
-
-def set_task_board_section_state(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    viewMode: TaskBoardViewMode,
-    columns: list[TaskBoardColumn],
-    tasks: list[TaskBoardTask],
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TaskBoardSectionImpl)
-    normalized_columns: list[TaskBoardColumn] = []
-    seen_column_ids: set[ID] = set()
-    for column in columns:
-        if column.id in seen_column_ids:
-            continue
-        seen_column_ids.add(column.id)
-        normalized_columns.append(column.model_copy(deep=True))
-    normalized_tasks: list[TaskBoardTask] = []
-    for task in tasks:
-        normalized = task.model_copy(deep=True)
-        if normalized.columnId not in seen_column_ids:
-            normalized.columnId = None
-        normalized_tasks.append(normalized)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "viewMode": viewMode,
-            "columns": normalized_columns,
-            "tasks": normalized_tasks,
-        },
-    )
-
-
-def set_spreadsheet_file_path(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    filePath: str,
-    activeSheet: str | None,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, SpreadsheetSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "filePath": filePath.strip(),
-            "activeSheet": activeSheet,
-        },
-    )
-
-
-def set_spreadsheet_section_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    readOnly: bool,
-    showRowNumbers: bool,
-    density: SpreadsheetGridDensity,
-    autoReloadOnExternalChange: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, SpreadsheetSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "readOnly": readOnly,
-            "showRowNumbers": showRowNumbers,
-            "density": density,
-            "autoReloadOnExternalChange": autoReloadOnExternalChange,
-        },
-    )
-
-
 def get_first_heading_or_text(markdown: str):
     trimmed_markdown = markdown.lstrip()
     heading_match = re.search(
@@ -1491,21 +1172,6 @@ def get_first_markdown_heading(markdown: str):
         if heading_text:
             return heading_text
     return None
-
-
-def set_code_file_binding(
-    p: "ProjectStateSingleConfig", sectionId: ID, binding: CodeFileBinding
-):
-    normalized_binding = CodeFileBinding(
-        canonical_path=normalize_workspace_path(binding.canonical_path),
-        access_mode=binding.access_mode,
-        autoBinding=binding.autoBinding,
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseCodeSectionImplArgsWithCallable(codeFileBinding=normalized_binding),
-    )
 
 
 def _maybe_clear_edge_target_value(p: "ProjectStateSingleConfig", edge: Edge):
@@ -1588,14 +1254,6 @@ def set_section_edge_inputs(
     )
 
 
-def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(paramFilter=value),
-    )
-
-
 def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     normalized = validate_section_name(p, sectionId, name)
     p.sections[sectionId].name = normalized
@@ -1634,14 +1292,6 @@ def set_chat_section_state(
             activeBranchId=state.activeBranchId,
             branches=state.branches,
         ),
-    )
-
-
-def set_image_area_image_path(
-    p: "ProjectStateSingleConfig", sectionId: ID, imagePath: str
-):
-    set_curr_effective_section_impl_value(
-        p, sectionId, ImageSectionImplArgsWithCallable(imagePath=imagePath)
     )
 
 
@@ -1751,339 +1401,6 @@ def move_sections_to_parent_section(
     )
     if isinstance(new_parent_impl, BaseCodeSectionImpl):
         _set_code_section_attached_terminal(p, newParentId, sectionIds[0])
-
-
-def _get_section_param_root_id(
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    section_impl: BaseSectionWithParamsImpl,
-) -> ID:
-    if isinstance(section_impl, CallableSectionImpl):
-        root_id = section_impl.callable
-        if root_id is None:
-            raise KeyError(f"Section {section_id} missing callable root.")
-        if root_id not in p.codeObjs:
-            raise KeyError(f"Callable root {root_id} missing from project state.")
-        return root_id
-    if isinstance(section_impl, BaseDictSectionImpl):
-        root_id = section_impl.topLevelParamId
-        if root_id is None:
-            raise KeyError(f"Section {section_id} missing top level param root.")
-        if root_id not in p.codeObjs:
-            raise KeyError(
-                f"Top level param root {root_id} missing from project state."
-            )
-        return root_id
-    raise TypeError(f"Section {section_id} does not support param reordering.")
-
-
-def _get_section_param_parent_map(
-    p: "ProjectStateSingleConfig",
-    section_impl: BaseSectionWithParamsImpl,
-    root_id: ID,
-) -> dict[ID, ID | None]:
-    if root_id not in section_impl.codeObjVariantMap:
-        raise KeyError(f"Section {section_impl.id} missing root param variant mapping.")
-    hierarchy = traverse_hierarchy(
-        p.codeObjs,
-        p.codeObjImpls,
-        p.codeObjVariants,
-        section_impl.codeObjVariantMap,
-        top_level_ids=[],
-        root_id=root_id,
-        options=TraversalOptions(build_parent_map=True),
-    )
-    return hierarchy.parent_map
-
-
-def _normalize_param_ids(param_ids: list[ID]) -> list[ID]:
-    if not param_ids:
-        raise ValueError("Expected at least one param id.")
-    seen: set[ID] = set()
-    output: list[ID] = []
-    for param_id in param_ids:
-        if param_id in seen:
-            raise ValueError(f"Duplicate param id {param_id}.")
-        seen.add(param_id)
-        output.append(param_id)
-    return output
-
-
-def _resolve_param_move_context(
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    param_ids: list[ID],
-):
-    section_impl, root_id, parent_map, normalized = _resolve_param_selection(
-        p, section_id, param_ids
-    )
-    parent_id = parent_map[normalized[0]]
-    if parent_id is None:
-        raise ValueError(
-            f"Param {normalized[0]} has no parent in section {section_id}."
-        )
-    for param_id in normalized[1:]:
-        if parent_map[param_id] != parent_id:
-            raise ValueError("Param selection spans multiple parents.")
-    return section_impl, root_id, parent_map, parent_id, normalized
-
-
-def _resolve_param_selection(
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    param_ids: list[ID],
-):
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, section_id, BaseSectionWithParamsImpl
-    )
-    if section_impl.paramFilter.strip():
-        raise ValueError(
-            f"Section {section_id} has an active param filter; reordering disabled."
-        )
-    normalized = _normalize_param_ids(param_ids)
-    root_id = _get_section_param_root_id(p, section_id, section_impl)
-    parent_map = _get_section_param_parent_map(p, section_impl, root_id)
-    for param_id in normalized:
-        if param_id not in parent_map:
-            raise KeyError(f"Param {param_id} not found in section {section_id}.")
-    selected_set = set(normalized)
-    for param_id in normalized:
-        ancestor = parent_map[param_id]
-        while ancestor is not None:
-            if ancestor in selected_set:
-                raise ValueError(
-                    "Param selection includes both ancestor and descendant."
-                )
-            ancestor = parent_map[ancestor]
-    return section_impl, root_id, parent_map, normalized
-
-
-def _ensure_valid_new_parent(
-    parent_map: dict[ID, ID | None],
-    param_ids: list[ID],
-    new_parent_id: ID,
-):
-    if new_parent_id not in parent_map:
-        raise KeyError(f"New parent {new_parent_id} is not in the param tree.")
-    selected_set = set(param_ids)
-    if new_parent_id in selected_set:
-        raise ValueError("Cannot reparent into a selected param.")
-    ancestor = new_parent_id
-    while ancestor is not None:
-        if ancestor in selected_set:
-            raise ValueError("Cannot reparent into a descendant of selection.")
-        ancestor = parent_map.get(ancestor)
-
-
-def move_params_within_parent(
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    param_ids: list[ID],
-    new_index: int,
-):
-    _, _, _, parent_id, normalized = _resolve_param_move_context(
-        p, section_id, param_ids
-    )
-    if new_index < 0:
-        raise ValueError("Expected non-negative new index.")
-    parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, parent_id, BaseParentCodeObjImpl
-    )
-    children = list(parent_impl.children)
-    ordered_param_ids = [param_id for param_id in children if param_id in normalized]
-    if len(ordered_param_ids) != len(normalized):
-        missing = [param_id for param_id in normalized if param_id not in children]
-        raise KeyError(f"Params not found under parent {parent_id}: {missing}")
-    remaining = [param_id for param_id in children if param_id not in normalized]
-    if new_index > len(remaining):
-        raise ValueError("New index exceeds available sibling range.")
-    next_children = insert_into_array(remaining, new_index, ordered_param_ids)
-    set_curr_effective_code_obj_impl_value(
-        p,
-        section_id,
-        parent_id,
-        BaseParentCodeObjImplArgsWithCallable(children=next_children),
-    )
-
-
-def move_params_to_parent(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    param_ids: list[ID],
-    new_parent_id: ID,
-    new_index: int,
-):
-    _, _, parent_map, old_parent_id, normalized = _resolve_param_move_context(
-        p, section_id, param_ids
-    )
-    if new_index < 0:
-        raise ValueError("Expected non-negative new index.")
-    if old_parent_id == new_parent_id:
-        move_params_within_parent(p, section_id, normalized, new_index)
-        return
-    _ensure_valid_new_parent(parent_map, normalized, new_parent_id)
-
-    old_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, old_parent_id, BaseParentCodeObjImpl
-    )
-    new_parent_impl = get_curr_effective_code_obj_impl(p, section_id, new_parent_id)
-    if not isinstance(new_parent_impl, BaseParentCodeObjImpl):
-        change_param_impl(
-            settings, p, section_id, new_parent_id, CodeObjType.NestedParam.name
-        )
-        new_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, new_parent_id, BaseParentCodeObjImpl
-        )
-
-    old_children = list(old_parent_impl.children)
-    ordered_param_ids = [
-        param_id for param_id in old_children if param_id in normalized
-    ]
-    if len(ordered_param_ids) != len(normalized):
-        missing = [param_id for param_id in normalized if param_id not in old_children]
-        raise KeyError(f"Params not found under parent {old_parent_id}: {missing}")
-    next_old_children = [
-        param_id for param_id in old_children if param_id not in normalized
-    ]
-    new_children = [
-        param_id for param_id in new_parent_impl.children if param_id not in normalized
-    ]
-    if new_index > len(new_children):
-        raise ValueError("New index exceeds available sibling range.")
-    next_new_children = insert_into_array(new_children, new_index, ordered_param_ids)
-    set_curr_effective_code_obj_impl_value(
-        p,
-        section_id,
-        old_parent_id,
-        BaseParentCodeObjImplArgsWithCallable(children=next_old_children),
-    )
-    set_curr_effective_code_obj_impl_value(
-        p,
-        section_id,
-        new_parent_id,
-        BaseParentCodeObjImplArgsWithCallable(children=next_new_children),
-    )
-
-
-def indent_params(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    param_ids: list[ID],
-):
-    _, _, _, parent_id, normalized = _resolve_param_move_context(
-        p, section_id, param_ids
-    )
-    parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, parent_id, BaseParentCodeObjImpl
-    )
-    children = list(parent_impl.children)
-    ordered_param_ids = [param_id for param_id in children if param_id in normalized]
-    if not ordered_param_ids:
-        raise KeyError("No params found to indent.")
-    if len(ordered_param_ids) != len(normalized):
-        missing = [param_id for param_id in normalized if param_id not in children]
-        raise KeyError(f"Params not found under parent {parent_id}: {missing}")
-    selected_set = set(ordered_param_ids)
-    groups: list[list[ID]] = []
-    current_group: list[ID] = []
-    for child_id in children:
-        if child_id in selected_set:
-            current_group.append(child_id)
-        elif current_group:
-            groups.append(current_group)
-            current_group = []
-    if current_group:
-        groups.append(current_group)
-
-    for group in groups:
-        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, parent_id, BaseParentCodeObjImpl
-        )
-        children = list(parent_impl.children)
-        ordered_group = [param_id for param_id in children if param_id in group]
-        if not ordered_group:
-            continue
-        first_id = ordered_group[0]
-        first_index = children.index(first_id)
-        previous_id: ID | None = None
-        for idx in range(first_index - 1, -1, -1):
-            candidate = children[idx]
-            if candidate not in selected_set:
-                previous_id = candidate
-                break
-        if previous_id is None:
-            continue
-        prev_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, previous_id, BaseParamCodeObjImpl
-        )
-        if not isinstance(prev_impl, BaseParentCodeObjImpl):
-            change_param_impl(
-                settings, p, section_id, previous_id, CodeObjType.NestedParam.name
-            )
-        prev_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, previous_id, BaseParentCodeObjImpl
-        )
-        new_index = len(prev_parent_impl.children)
-        move_params_to_parent(
-            settings, p, section_id, ordered_group, previous_id, new_index
-        )
-
-
-def unindent_params(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    section_id: ID,
-    param_ids: list[ID],
-):
-    _, _, parent_map, normalized = _resolve_param_selection(p, section_id, param_ids)
-    params_by_parent: dict[ID, list[ID]] = {}
-    parents_in_order: list[ID] = []
-    for param_id in normalized:
-        parent_id = parent_map[param_id]
-        if parent_id is None:
-            raise ValueError(f"Param {param_id} has no parent in section {section_id}.")
-        if parent_id not in params_by_parent:
-            params_by_parent[parent_id] = []
-            parents_in_order.append(parent_id)
-        params_by_parent[parent_id].append(param_id)
-
-    for parent_id in parents_in_order:
-        grandparent_id = parent_map[parent_id]
-        if grandparent_id is None:
-            continue
-        grandparent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, grandparent_id, BaseParentCodeObjImpl
-        )
-        grandparent_children = list(grandparent_impl.children)
-        if parent_id not in grandparent_children:
-            raise KeyError(f"Parent {parent_id} missing from grandparent children.")
-        new_index = grandparent_children.index(parent_id) + 1
-        move_params_to_parent(
-            settings,
-            p,
-            section_id,
-            params_by_parent[parent_id],
-            grandparent_id,
-            new_index,
-        )
-        old_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            p, section_id, parent_id, BaseParentCodeObjImpl
-        )
-        if (
-            not old_parent_impl.children
-            and old_parent_impl.type == CodeObjType.NestedParam
-        ):
-            change_param_impl(
-                settings, p, section_id, parent_id, CodeObjType.CodeParam.name
-            )
-            set_curr_effective_code_obj_impl_value(
-                p,
-                section_id,
-                parent_id,
-                BaseChildlessCodeObjImplArgsWithCallable(value="{}"),
-            )
 
 
 def delete_code_obj(p: "ProjectStateCore", codeObjId: ID):

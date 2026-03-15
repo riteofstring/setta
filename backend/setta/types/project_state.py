@@ -13,6 +13,9 @@ from setta.types.chat_messages import JSONValue
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import set_effective_impl_value
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseCodeSectionImplArgsWithCallable,
+)
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
@@ -22,11 +25,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.helpers_lvl2 import (
-    BaseCodeSectionImplArgsWithCallable,
-    get_section_path_full_name,
-    get_top_level_param_ids,
-)
+from setta.types.helpers_lvl2 import get_section_path_full_name, get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_chat_windowing import (
