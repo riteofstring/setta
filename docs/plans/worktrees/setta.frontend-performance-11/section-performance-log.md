@@ -3268,3 +3268,39 @@ Append-only log for the section performance refactor.
     - the current Codex session's DevTools bridge is still dead even after browser restarts and MCP-process cleanup
 - Next action:
   - Re-establish the current Codex session's `chrome-devtools-mcp` bridge, then rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+
+### 2026-03-17 91
+
+- Item: Recover the DevTools bridge and rerun the pending disposable-scene `mode` activation compare.
+- Status: `blocked`
+- Details:
+  - Rechecked the built-in `chrome-devtools-mcp` tool in this Codex session.
+  - Result:
+    - `list_pages` succeeded again
+    - the old `Transport closed` blocker is resolved for this session
+  - Recreated matched disposable `open` control scenes directly through backend endpoints on both apps:
+    - worktree project: `smooth_hawk`
+    - untouched `main` project: `dry_slow`
+    - shared section name: `zinc_blade`
+    - shared callable setup:
+      - `file` pinned
+      - `buffering` moved to edge inputs
+      - nested `errors`
+  - Re-centered both canvases because the earlier `1440x1200` baseline transform pushed the callable too far down/right inside the current `1400x900` DevTools viewport.
+  - Saved the centered scene screenshots and rerun artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-devtools-recovery/`
+  - Fresh DevTools click-probe summary on the centered `mode` row:
+    - untouched `main`: `INP 13 ms`
+    - worktree: `INP 16 ms`
+  - Post-click DOM read on both branches showed the same problem:
+    - live `.cm-editor` count inside the `mode` row stayed `0`
+    - `:focus-within` stayed `false`
+    - the active element stayed `BODY`
+  - Conclusion:
+    - the active checkpoint is no longer blocked by a dead DevTools bridge
+    - it is now blocked by the current DevTools interaction harness on the recreated scenes, which is not reliably entering the live `mode` editor and therefore does not yield an acceptance-grade cold activation trace
+    - the lower activation seam remains trace-gated; there is still no justification for another blind code slice
+- Next action:
+  - Keep the lower activation seam trace-gated.
+  - Establish a deterministic interaction path that proves the `mode` row mounts the live `.cm-editor` on both untouched `main` and this worktree before trusting another cold-trace rerun.
+  - If a reliable rerun still points back down here, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` before reopening the already-trimmed lower activation files.
