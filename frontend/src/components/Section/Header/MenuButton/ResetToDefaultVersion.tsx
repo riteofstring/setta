@@ -1,4 +1,4 @@
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { MenuItem } from "./DropdownMenuItem";
 import {
   getSectionInfo,
   resetSectionsToDefaultVersions,
