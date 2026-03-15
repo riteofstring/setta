@@ -2,10 +2,10 @@ import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,
   setProjectChatThreadGroupAssignment,
-} from "./projectChatThreadGroupMutations";
+} from "./projectChatThreadGroupAssignments";
+import { createProjectChatThreadGroup } from "./projectChatThreadGroupCrud";
 import { clearProjectChatThreadStorageUndoStackForTests } from "./projectChatThreadStorageUndo";
 import { redoProjectState, undoProjectState } from "./undo";
 

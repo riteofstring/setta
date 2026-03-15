@@ -1,12 +1,16 @@
 export {
-  createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,
-  renameProjectChatThreadGroup,
-  reorderProjectChatThreadGroups,
   setProjectChatThreadGroupAssignment,
+} from "./projectChatThreadGroupAssignments";
+export {
+  createProjectChatThreadGroup,
+  renameProjectChatThreadGroup,
+} from "./projectChatThreadGroupCrud";
+export {
+  reorderProjectChatThreadGroups,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-} from "./projectChatThreadGroupMutations";
+} from "./projectChatThreadGroupOrdering";
 export {
   deleteProjectChatThread,
   markProjectChatThreadViewed,

@@ -164,11 +164,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   thin serialized write orchestrator, reducing
   `frontend/src/state/actions/projectChatWindowingWrites.ts` to the public
   mutation facade.
-- `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
-  persisted project-chat thread group creation, rename, collapse, pin, reorder,
-  assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`
-  now owns per-thread viewed, pin, reorder, and delete behavior, and
-  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` now owns the
+- `frontend/src/state/actions/projectChatThreadGroupCrud.ts` now owns
+  persisted project-chat thread group create/rename behavior,
+  `frontend/src/state/actions/projectChatThreadGroupOrdering.ts` now owns
+  collapse/pin/reorder behavior, and
+  `frontend/src/state/actions/projectChatThreadGroupAssignments.ts` now owns
+  assignment/delete behavior, while
+  `frontend/src/state/actions/projectChatThreadGroupMutations.ts` is now the
+  thin compatibility surface. `frontend/src/state/actions/projectChatThreadMutations.ts`
+  still owns per-thread viewed, pin, reorder, and delete behavior, and
+  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` still owns the
   local delete undo stack and restoration logic that previously lived in
   `frontend/src/state/actions/projectChatThreads.ts`.
 - `frontend/src/state/actions/gitGraphLog.ts` now owns git graph overlay boot,
@@ -263,18 +268,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
   - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
   - `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts` at 190 lines
+  - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 178 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
   - `frontend/src/state/actions/sections/moveSectionState.ts` at 252 lines
   - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
+  - `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts` at 190 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -502,11 +507,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `windowSpaces.ts` now owns:
   - thin workspace restore orchestration that composes restore planning and
     project-chat thread rebound helpers
-- `projectChatThreads.ts`, `projectChatThreadGroupMutations.ts`,
-  `projectChatThreadMutations.ts`, `projectChatThreadStorageUndo.ts`, and
-  `projectChatThreadStorageShared.ts` now split into:
+- `projectChatThreads.ts`, `projectChatThreadGroupCrud.ts`,
+  `projectChatThreadGroupOrdering.ts`,
+  `projectChatThreadGroupAssignments.ts`,
+  `projectChatThreadGroupMutations.ts`, `projectChatThreadMutations.ts`,
+  `projectChatThreadStorageUndo.ts`, and `projectChatThreadStorageShared.ts`
+  now split into:
   - `projectChatThreads.ts` as the thin compatibility re-export surface
-  - `projectChatThreadGroupMutations.ts` for persisted group-level thread storage mutations
+  - `projectChatThreadGroupCrud.ts` for persisted group create/rename mutations
+  - `projectChatThreadGroupOrdering.ts` for collapse/pin/reorder mutations
+  - `projectChatThreadGroupAssignments.ts` for assignment/delete mutations
+  - `projectChatThreadGroupMutations.ts` as the thin compatibility re-export surface
   - `projectChatThreadMutations.ts` for per-thread viewed, pin, reorder, and delete mutations
   - `projectChatThreadStorageUndo.ts` for delete undo-stack ownership and restoration
   - `projectChatThreadStorageShared.ts` for normalization and ordering helpers shared by the mutation and undo owners

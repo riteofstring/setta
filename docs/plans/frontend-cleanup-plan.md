@@ -156,13 +156,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/stateMachineEdgeConnections.ts` now owns
   workflow connection validation and edge construction, reducing
   `frontend/src/state/actions/stateMachineEdgeConnections.ts` to 165 lines.
-- `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
-  persisted project-chat thread group creation, rename, collapse, pin, reorder,
-  assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`
-  now owns per-thread viewed, pin, reorder, and delete behavior, and
-  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` now owns the
-  local delete undo stack and restoration logic, reducing
-  `frontend/src/state/actions/projectChatThreads.ts` to a 20-line compatibility
+- `frontend/src/state/actions/projectChatThreadGroupCrud.ts` now owns
+  persisted project-chat thread group create/rename behavior,
+  `frontend/src/state/actions/projectChatThreadGroupOrdering.ts` now owns
+  collapse/pin/reorder behavior, and
+  `frontend/src/state/actions/projectChatThreadGroupAssignments.ts` now owns
+  assignment/delete behavior, while
+  `frontend/src/state/actions/projectChatThreadGroupMutations.ts` is now a
+  thin compatibility re-export surface. `frontend/src/state/actions/projectChatThreadMutations.ts`
+  still owns per-thread viewed, pin, reorder, and delete behavior, and
+  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` still owns the
+  local delete undo stack and restoration logic, leaving
+  `frontend/src/state/actions/projectChatThreads.ts` as the compatibility
   surface.
 - `frontend/src/state/actions/gitGraphLog.ts` now owns git graph overlay boot,
   git graph/log loading, pagination, and graph filter/all-refs refresh
@@ -523,7 +528,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/projectChatThreadGroupMutations.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/uiSettingReveal.ts`, `state/actions/stateMachineRuns.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

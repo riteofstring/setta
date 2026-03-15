@@ -47,14 +47,18 @@ import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import type { ChatRunType } from "state/actions/chatHistoryTypes";
 import {
-  createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,
-  renameProjectChatThreadGroup,
-  reorderProjectChatThreadGroups,
   setProjectChatThreadGroupAssignment,
+} from "state/actions/projectChatThreadGroupAssignments";
+import {
+  createProjectChatThreadGroup,
+  renameProjectChatThreadGroup,
+} from "state/actions/projectChatThreadGroupCrud";
+import {
+  reorderProjectChatThreadGroups,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-} from "state/actions/projectChatThreadGroupMutations";
+} from "state/actions/projectChatThreadGroupOrdering";
 import {
   deleteProjectChatThread,
   markProjectChatThreadViewed,

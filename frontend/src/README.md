@@ -81,9 +81,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/chatMergeUtils.ts` is now the thin compatibility facade
     over those narrower chat merge owners.
   - `state/actions/chat*.ts` owns the remaining chat merge utilities.
-  - `state/actions/projectChatThreadGroupMutations.ts` owns persisted project
-    chat thread group creation, rename, collapse, pin, reorder, assignment, and
-    deletion behavior.
+  - `state/actions/projectChatThreadGroupCrud.ts` owns persisted project chat
+    thread group creation and rename behavior.
+  - `state/actions/projectChatThreadGroupOrdering.ts` owns persisted project
+    chat thread group collapse, pin, and reorder behavior.
+  - `state/actions/projectChatThreadGroupAssignments.ts` owns persisted project
+    chat thread group assignment and deletion behavior.
+  - `state/actions/projectChatThreadGroupMutations.ts` is now a thin
+    compatibility surface that re-exports those narrower group-mutation
+    owners.
   - `state/actions/projectChatThreadMutations.ts` owns persisted per-thread
     viewed, pin, reorder, and delete behavior.
   - `state/actions/projectChatThreadStorageUndo.ts` owns the local thread/group

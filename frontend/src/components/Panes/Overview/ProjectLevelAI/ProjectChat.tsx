@@ -55,7 +55,7 @@ import {
 } from "state/actions/chatHistoryProvenance";
 import type { ChatHistoryCompatibility } from "state/actions/chatHistoryTypes";
 import { addPersistentNotification } from "state/actions/notifications";
-import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreadGroupMutations";
+import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreadGroupAssignments";
 import {
   useAIStore,
   useProjectState,

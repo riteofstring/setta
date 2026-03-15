@@ -2,14 +2,18 @@ import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,
-  renameProjectChatThreadGroup,
-  reorderProjectChatThreadGroups,
   setProjectChatThreadGroupAssignment,
+} from "./projectChatThreadGroupAssignments";
+import {
+  createProjectChatThreadGroup,
+  renameProjectChatThreadGroup,
+} from "./projectChatThreadGroupCrud";
+import {
+  reorderProjectChatThreadGroups,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-} from "./projectChatThreadGroupMutations";
+} from "./projectChatThreadGroupOrdering";
 import {
   deleteProjectChatThread,
   markProjectChatThreadViewed,
