@@ -19,6 +19,15 @@ def test_backend_start_uses_shared_setta_path_flag_parser() -> None:
     assert "setta_path_flags_seed_from_env" in backend_start
 
 
+def test_backend_start_uses_go_entrypoint() -> None:
+    root = repo_root()
+    backend_start = (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
+    assert 'SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")' in backend_start
+    assert '/dev/tty' in backend_start
+    assert "SETTA_PYTHON_BIN" not in backend_start
+    assert ". ./activate.sh" not in backend_start
+
+
 def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     root = repo_root()
     reset_script = (root / "scripts" / "reset-setta-state.sh").read_text(
@@ -26,6 +35,16 @@ def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     )
     assert "scripts/lib/setta_path_flags.sh" in reset_script
     assert "setta_path_flags_try_parse" in reset_script
+    assert "paths --env" in reset_script
+    assert ". ./activate.sh" not in reset_script
+
+
+def test_frontend_postinstall_uses_node_xterm_patch() -> None:
+    root = repo_root()
+    package_json = json.loads((root / "frontend" / "package.json").read_text())
+    postinstall = package_json["scripts"]["postinstall"]
+    assert "node ./scripts/fix_xterm.mjs" in postinstall
+    assert "python fix_xterm.py" not in postinstall
 
 
 def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:
@@ -147,6 +166,39 @@ def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> No
     assert existing_workspace_line != -1
     assert fixture_seed_guard_line != -1
     assert existing_workspace_line < fixture_seed_guard_line
+
+
+def test_playwright_runner_overwrites_seeded_project_state_with_go_runtime_shape() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "_seed_minimal_setta_files(setta_root)" in script
+    assert "./scripts/go.sh run ./cmd/setta-seed-playwright-workspace" in script
+    assert '--setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"' in script
+
+
+def test_playwright_runner_reads_bootstrap_token_from_backend_log() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '"${PYTHON_BIN}" - "${LOG_DIR}/backend.log"' in script
+    assert 'token_pattern = re.compile(r"^\\s*Token:\\s+(\\S+)\\s*$")' in script
+    assert "Timed out waiting for bootstrap token in" in script
+
+
+def test_playwright_runner_builds_current_go_cli_binary_by_default() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "prepare_current_setta_cli()" in script
+    assert "./scripts/go.sh build -o" in script
+    assert "./cmd/setta" in script
+    assert "./cmd/setta-server" in script
+    assert 'export SETTA_GO_CLI_BIN="${current_setta_go_bin}"' in script
+    assert 'export SETTA_SERVER_BIN="${current_setta_server_bin}"' in script
 
 
 def test_plugin_fixture_link_script_defaults_to_no_rescan_and_unlink_wrapper_removed() -> None:
