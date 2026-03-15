@@ -51,9 +51,10 @@ categorize them.
   deleted-active-tab-repair / missing-required-section /
   code-obj-backfill / display-name-backfill / workspace-launch
   outdated-settings slice
-- The remaining explicit dedicated-`/settings` parity gap is
-  `settings_project.load.partial_layout_visible_section_repair_is_ephemeral_on_disk_in_source`
-- Keep newly isolated non-caller-visible mismatches explicit instead of folding
-  them back into broader live-contract rows; the next example is
-  `settings_project.load.partial_layout_visible_section_repair_is_ephemeral_on_disk_in_source`
+- The previously isolated dedicated-`/settings` persisted-layout gap is now
+  closed; keep any newly uncovered non-caller-visible mismatches explicit
+  instead of folding them back into broader live-contract rows
+- The next queue should come from the remaining matrix `Missing` and
+  `Implemented, proof incomplete` rows outside this now-proved `/settings`
+  slice
 - More corpus-driven latest-state hydration / projection scenarios
