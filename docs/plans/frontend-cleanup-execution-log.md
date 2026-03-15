@@ -6327,3 +6327,45 @@ schedule settings` button still appears on the live task row.
     which is now the largest unresolved front-door hotspot and still combines
     tracked-pane state, placement/focus commands, animation lifecycle, and
     floating-bounds or snap orchestration above its extracted windowing owners.
+
+## 2026-03-16 04:32:22 PDT
+
+- Slice completed: extracted dock window lifecycle commands and animation bookkeeping from `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Git/GitGraphOverlay.tsx` because
+  `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was still
+  the top unresolved front-door hotspot at the start of the turn and still
+  mixed create/open/minimize/close/dock/maximize/restore commands, dock-cycle
+  focus behavior, and enter/exit animation state in the first file a
+  contributor opened for project-chat windowing.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockWindowLifecycle.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-bottom-dock-window-lifecycle-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/components/ChatWindowing/projectChatWindowShortcuts.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat bottom dock auto-creates a chat and supports creating additional windows|project chat canvas visibility toggle hides and restores overlay windows|project chat windows support floating drag/resize, z-order focus, and maximize restore"`
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatBottomDockWindowLifecycle.ts src/components/ChatWindowing/ProjectChatBottomDock.test.ts ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-bottom-dock-window-lifecycle-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-bottom-dock-window-lifecycle-2026-03-16.md`
+    with the before/after dock metrics.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`
+    at `1440x900` with one docked chat window open. `ProjectChatBottomDock.tsx`
+    dropped from `1658` to `1197` lines while the measured dock metrics stayed
+    flat at `1` dock panel, `0` floating windows, `0` minimized pills, a
+    `468px` strip width, `40px` strip height, and a `460x540` dock panel.
+    The overall document node count dropped because the reload returned to the
+    main chat surface instead of the auxiliary skills surface used for the
+    baseline capture; the dock subtree itself did not change.
+- Commit hash:
+  - `c1144c82a088c5db27c0df12ed0b90215c114e8b`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Git/GitGraphOverlay.tsx`, which is now
+    the highest unresolved front-door hotspot after the dock root dropped under
+    1200 lines and delegated lifecycle commands plus animation bookkeeping into
+    a local windowing owner.
