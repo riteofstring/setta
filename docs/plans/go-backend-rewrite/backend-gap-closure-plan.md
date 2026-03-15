@@ -47,10 +47,12 @@ categorize them.
 
 - Expand the differential manifest beyond the current bootstrap / websocket /
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
-  required-view-mode-repair / missing-required-section / code-obj-backfill /
-  workspace-launch outdated-settings slice
-- Broaden `/settings` repair proof beyond the required-tab restart slice,
-  especially the deleted-active-tab reload branch whose source fallback is
-  sensitive to persisted view-mode identity ordering:
-  `settings_project.view_modes.reset_preserves_active_tab_name_else_falls_back_and_reprojects_active_layout`
+  required-view-mode-repair / deleted-active-tab-repair /
+  missing-required-section / code-obj-backfill / workspace-launch
+  outdated-settings slice
+- Add executable proof for the still-open dedicated-`/settings` layout-shape
+  rows, especially:
+  `settings_project.view_modes.builtin_tab_order_and_three_column_600px_layout_shape`
+  and
+  `settings_project.view_modes.default_layout_and_viewport_seeded_for_builtin_tabs`
 - More corpus-driven latest-state hydration / projection scenarios
