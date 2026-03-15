@@ -12,6 +12,7 @@ Principles:
 Current fixtures:
 
 - `backend/`: backend-only plugin shell with a minimal Go entrypoint.
+- `backend-mcp-tools/`: Go-backed backend plugin that exposes stdio MCP tools.
 - `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
 - `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
@@ -36,8 +37,8 @@ Target fixture catalog (coverage baseline):
 
 Current count:
 
-- 21 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 15 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 22 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 16 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:

@@ -2,14 +2,21 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
+	"setta/internal/mcpx"
 	"setta/internal/plugins"
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service *plugins.Service
+	service     *plugins.Service
+	logger      *slog.Logger
+	runtimeRoot string
+	mcpServer   *mcpx.Server
+	runtime     *pluginBackendMCPRuntime
 
 	mu sync.Mutex
 }
@@ -171,6 +178,33 @@ func (s *pluginMutationRuntimeService) Restart(ctx context.Context) (plugins.Plu
 	return s.base.Restart(ctx)
 }
 
+func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
+	if r == nil || r.service == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	snapshot, err := r.service.Rescan()
+	if err != nil {
+		return err
+	}
+	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
+	if err != nil {
+		return err
+	}
+	if err := r.replaceRuntimeToolsLocked(nil, nextRuntime); err != nil {
+		_ = nextRuntime.Close(context.Background())
+		return err
+	}
+	r.runtime = nextRuntime
+	return nil
+}
+
 func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.DiscoverySnapshot, error) {
 	if r == nil || r.service == nil {
 		return plugins.DiscoverySnapshot{}, nil
@@ -182,15 +216,84 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, err := r.service.PreviewBackendRuntimeRefresh(); err != nil {
+	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
+	if err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
 
-	snapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
-	if commitErr != nil {
-		return snapshot, commitErr
+	nextRuntime, err := r.buildRuntimeLocked(ctx, previewSnapshot)
+	if err != nil {
+		return plugins.DiscoverySnapshot{}, err
 	}
-	return snapshot, nil
+	if err := r.replaceRuntimeToolsLocked(r.runtime, nextRuntime); err != nil {
+		_ = nextRuntime.Close(context.Background())
+		return plugins.DiscoverySnapshot{}, err
+	}
+
+	previousRuntime := r.runtime
+	r.runtime = nextRuntime
+	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
+	if commitErr != nil {
+		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
+		if rollbackErr != nil && r.logger != nil {
+			r.logger.Error("rollback plugin backend MCP tools failed", "error", rollbackErr)
+		}
+		r.runtime = previousRuntime
+		_ = nextRuntime.Close(context.Background())
+		return committedSnapshot, commitErr
+	}
+
+	if previousRuntime != nil {
+		_ = previousRuntime.Close(context.Background())
+	}
+	return committedSnapshot, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
+	if r == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.runtime == nil {
+		return nil
+	}
+	runtime := r.runtime
+	r.runtime = nil
+	return runtime.Close(ctx)
+}
+
+func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
+	return newPluginBackendMCPRuntime(ctx, pluginBackendMCPRuntimeOptions{
+		Logger:      r.logger,
+		RuntimeRoot: r.runtimeRoot,
+		Snapshot:    snapshot,
+	})
+}
+
+func (r *pluginBackendRuntimeRefresher) replaceRuntimeToolsLocked(previous *pluginBackendMCPRuntime, next *pluginBackendMCPRuntime) error {
+	if r == nil || r.mcpServer == nil {
+		return nil
+	}
+
+	removeNames := []string{}
+	if previous != nil {
+		removeNames = append(removeNames, previous.toolNames...)
+	}
+
+	nextRegistrations := []mcpx.ToolRegistration{}
+	if next != nil {
+		nextRegistrations = append(nextRegistrations, next.registrations...)
+	}
+	if err := r.mcpServer.ReplaceTools(removeNames, nextRegistrations); err != nil {
+		return fmt.Errorf("replace plugin backend MCP tools: %w", err)
+	}
+	return nil
 }
 
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {

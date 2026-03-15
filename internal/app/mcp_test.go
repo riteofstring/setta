@@ -477,6 +477,128 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.
 	}
 }
 
+func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppPluginFixture(t, cfg, "backend-mcp-tools", "setta-fixture-backend-mcp-tools")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	toolsResult, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	var readTool *sdkmcp.Tool
+	var writeTool *sdkmcp.Tool
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "setta_fixture_mcp_read" {
+			readTool = tool
+		}
+		if tool.Name == "setta_fixture_mcp_write" {
+			writeTool = tool
+		}
+	}
+	if readTool == nil || writeTool == nil {
+		t.Fatalf("expected plugin backend MCP tools in list, got %#v", toolsResult.Tools)
+	}
+	if readTool.Annotations == nil || !readTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected read-only hint on backend read tool, got %#v", readTool.Annotations)
+	}
+	if writeTool.Annotations != nil && writeTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected write tool to omit read-only hint, got %#v", writeTool.Annotations)
+	}
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	readResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "setta_fixture_mcp_read",
+		Arguments: map[string]any{
+			"value": "alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call plugin backend read tool: %v", err)
+	}
+	if readResult.IsError {
+		t.Fatalf("expected plugin backend read tool success, got %#v", readResult.StructuredContent)
+	}
+	readPayload, ok := readResult.StructuredContent.(string)
+	if !ok {
+		t.Fatalf("expected string read payload, got %#v", readResult.StructuredContent)
+	}
+	if readPayload != "read:setta-fixture-backend-mcp-tools:alpha" {
+		t.Fatalf("unexpected plugin backend read payload %q", readPayload)
+	}
+
+	searchResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_mcp_tools",
+		Arguments: map[string]any{
+			"query": "fixture mcp read",
+			"limit": 5,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_mcp_tools: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected search_mcp_tools success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
+	results := mustStructuredListValue(t, searchPayload["results"])
+	if len(results) == 0 {
+		t.Fatalf("expected search results, got %#v", searchPayload["results"])
+	}
+
+	foundReadTool := false
+	for _, entry := range results {
+		result := mustStructuredMapValue(t, entry)
+		if result["name"] == "setta_fixture_mcp_read" {
+			foundReadTool = true
+			break
+		}
+	}
+	if !foundReadTool {
+		t.Fatalf("expected plugin backend read tool in search results, got %#v", results)
+	}
+}
+
 func TestAppIDEMCPServerSupportsReportCompletionStatusOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

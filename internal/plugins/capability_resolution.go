@@ -34,7 +34,6 @@ var (
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":          {},
-		"registerMcpTools":             {},
 		"registerLanguageServer":       {},
 		"registerExternalAgentAdapter": {},
 		"registerCodegenTarget":        {},

@@ -101,8 +101,9 @@ not complete.
 - Full backend plugin parity is still missing. The previous plugin backend
   feature set now needs Go-native replacements rather than product-level
   deletion, including backend routes/static assets, listener/runtime hooks,
-  backend MCP tools, codegen targets, language-server integration,
-  external-agent integration, and the Go-native backend plugin runtime model.
+  codegen targets, language-server integration, external-agent integration,
+  richer backend runtime/status visibility, and the rest of the Go-native
+  backend plugin runtime model.
 - The rewrite is not complete until those paths are either removed, moved to
   Go, or narrowed to the documented retained Python SDK surface only, and until
   the missing backend plugin feature set is restored in Go.
@@ -123,6 +124,8 @@ not complete.
   cut back substantially.
 - The old Python listener generated-runtime fallback is gone. Retained Python
   listener code is expected to stay on the authoring/client side only.
+- Go now owns plugin-defined backend MCP tool registration, invocation, and
+  mutation-time refresh for Go-backed backend plugins.
 
 ### Behavioral test-parity rule
 

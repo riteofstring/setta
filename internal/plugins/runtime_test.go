@@ -211,8 +211,8 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	}
 }
 
-func TestServiceRuntimeHostBlocksDeclaredBackendCapabilitiesUntilRuntimeLands(t *testing.T) {
-	// IDE runtime should accept backend capability vocabulary but expose it as host-blocked until the Go backend runtime exists.
+func TestServiceRuntimeEnablesBackendMCPToolsWhileBlockingOtherBackendCapabilities(t *testing.T) {
+	// IDE runtime should expose backend MCP tools as active while keeping the remaining backend transport surfaces host-blocked.
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
@@ -233,16 +233,16 @@ func TestServiceRuntimeHostBlocksDeclaredBackendCapabilitiesUntilRuntimeLands(t 
 	if len(runtimeResponse.List.Plugins) != 1 {
 		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
 	}
-	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 0 {
-		t.Fatalf("expected backend capabilities to stay blocked, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 1 || runtimeResponse.List.Plugins[0].EffectiveCapabilities[0] != "registerMcpTools" {
+		t.Fatalf("expected backend MCP tools to be effective, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
 	if len(statusEntry.RequestedCapabilities) != 3 {
 		t.Fatalf("expected requested backend capabilities, got %#v", statusEntry.RequestedCapabilities)
 	}
-	if len(statusEntry.BlockedCapabilities) != 3 {
-		t.Fatalf("expected three blocked backend capabilities, got %#v", statusEntry.BlockedCapabilities)
+	if len(statusEntry.BlockedCapabilities) != 2 {
+		t.Fatalf("expected two blocked backend capabilities, got %#v", statusEntry.BlockedCapabilities)
 	}
 	for _, blockedCapability := range statusEntry.BlockedCapabilities {
 		if blockedCapability.Reason != PluginBlockedCapabilityReasonHostPolicy {

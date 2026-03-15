@@ -263,6 +263,103 @@ func TestAppIDEMCPToolCallRouteSupportsPluginManagementTools(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPPluginInstallRefreshesBackendMCPTools(t *testing.T) {
+	sourceSpec := configureAppLocalPyPIFixture(t, "backend-mcp-tools", "setta-fixture-backend-mcp-tools", "0.1.0")
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	sessionClient := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := sessionClient.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	assertPluginBackendToolPresence(t, session, false)
+
+	installResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "install_plugin",
+		Arguments: map[string]any{
+			"sourceSpec": sourceSpec,
+			"installer":  "pip",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call install_plugin: %v", err)
+	}
+	if installResult.IsError {
+		t.Fatalf("expected install_plugin success, got %#v", installResult.StructuredContent)
+	}
+	installPayload := mustStructuredMapValue(t, installResult.StructuredContent)
+	if installPayload["restartRequired"] != false {
+		t.Fatalf("expected restartRequired=false after backend MCP plugin install, got %#v", installPayload["restartRequired"])
+	}
+
+	assertPluginBackendToolPresence(t, session, true)
+
+	uninstallResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "uninstall_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-backend-mcp-tools",
+			"scope":    "workspace",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call uninstall_plugin: %v", err)
+	}
+	if uninstallResult.IsError {
+		t.Fatalf("expected uninstall_plugin success, got %#v", uninstallResult.StructuredContent)
+	}
+	uninstallPayload := mustStructuredMapValue(t, uninstallResult.StructuredContent)
+	if uninstallPayload["restartRequired"] != false {
+		t.Fatalf("expected restartRequired=false after backend MCP plugin uninstall, got %#v", uninstallPayload["restartRequired"])
+	}
+
+	assertPluginBackendToolPresence(t, session, false)
+}
+
+func assertPluginBackendToolPresence(t *testing.T, session *sdkmcp.ClientSession, wantPresent bool) {
+	t.Helper()
+
+	toolsResult, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	hasReadTool := false
+	hasWriteTool := false
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "setta_fixture_mcp_read" {
+			hasReadTool = true
+		}
+		if tool.Name == "setta_fixture_mcp_write" {
+			hasWriteTool = true
+		}
+	}
+	if hasReadTool != wantPresent || hasWriteTool != wantPresent {
+		t.Fatalf("expected plugin backend MCP tool presence=%t, got read=%t write=%t", wantPresent, hasReadTool, hasWriteTool)
+	}
+}
+
 func seedAppPluginFixture(t *testing.T, workspaceRoot string, fixtureName string) {
 	t.Helper()
 

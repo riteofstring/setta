@@ -95,6 +95,7 @@ type App struct {
 	boundCode     *boundcode.Service
 	mcpServer     *mcpx.Server
 	mcpClient     *mcpx.Client
+	pluginRuntime *pluginBackendRuntimeRefresher
 	handler       http.Handler
 }
 
@@ -1175,7 +1176,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	if modePolicy.IsIDE() && pluginDiscovery != nil {
 		pluginRuntimeRefresh = &pluginBackendRuntimeRefresher{
-			service: pluginMutationService,
+			service:     pluginMutationService,
+			logger:      logger,
+			runtimeRoot: cfg.Paths.RuntimeRoot,
 		}
 		pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 			if pluginRuntimeRefresh == nil {
@@ -1217,6 +1220,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				terminalService.Close(context.Background()),
 			)
 			return nil, err
+		}
+		if pluginRuntimeRefresh != nil {
+			pluginRuntimeRefresh.mcpServer = mcpServer
+			if err := pluginRuntimeRefresh.Initialize(context.Background()); err != nil {
+				_ = errors.Join(
+					closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+					closeMCPClient(mcpClient, context.Background()),
+					closeSettingsState(settingsStateRuntime),
+					pluginRuntimeRefresh.Close(context.Background()),
+					terminalService.Close(context.Background()),
+				)
+				return nil, err
+			}
 		}
 	}
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
@@ -1585,6 +1601,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		boundCode:     boundCodeService,
 		mcpServer:     mcpServer,
 		mcpClient:     mcpClient,
+		pluginRuntime: pluginRuntimeRefresh,
 		handler:       handler,
 	}, nil
 }
@@ -1674,6 +1691,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),
+		a.pluginRuntime.Close(ctx),
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
