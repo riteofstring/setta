@@ -1,21 +1,24 @@
 import { keyActivationCommands } from "./keyActivationCommands";
 import { isTabLikeShortcut } from "./keyShortcutMatching";
 import {
+  getFocusShortcutRegistrations,
+  getPaneNavigationShortcutRegistrations,
+} from "./keyShortcutNavigationRegistrations";
+import {
   createParamShortcutRegistration,
   createShortcutRegistration,
 } from "./keyShortcutRegistrationFactories";
-import {
-  getCanvasAndPaneShortcutRegistrations,
-  getCreationShortcutRegistrations,
-  getFocusShortcutRegistrations,
-  getInteractionModeShortcutRegistrations,
-  getProjectCommandShortcutRegistrations,
-  getTooltipShortcutRegistrations,
-} from "./keyShortcutRegistrationGroups";
 import type {
   SettingsShortcuts,
   ShortcutRegistration,
 } from "./keyShortcutRegistrationTypes";
+import { getTooltipShortcutRegistrations } from "./keyShortcutTooltipRegistrations";
+import {
+  getCanvasShortcutRegistrations,
+  getCreationShortcutRegistrations,
+  getInteractionModeShortcutRegistrations,
+  getProjectCommandShortcutRegistrations,
+} from "./keyShortcutWorkspaceRegistrations";
 export type {
   KeyAction,
   KeyActionEvent,
@@ -81,7 +84,8 @@ export function createShortcutRegistrations(
     ...getTooltipShortcutRegistrations(shortcuts),
     ...getProjectCommandShortcutRegistrations(shortcuts),
     ...getParamShortcutRegistrations(shortcuts),
-    ...getCanvasAndPaneShortcutRegistrations(shortcuts),
+    ...getCanvasShortcutRegistrations(shortcuts),
+    ...getPaneNavigationShortcutRegistrations(shortcuts),
     ...getInteractionModeShortcutRegistrations(shortcuts),
   ];
 }

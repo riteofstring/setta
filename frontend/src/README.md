@@ -510,8 +510,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     orchestration and pressed-key bookkeeping;
     `state/actions/keyActivationCommands.ts` owns the shortcut command
     registry plus React Flow key-mode toggles,
-    `state/actions/keyShortcutRegistrationGroups.ts` owns the grouped shortcut
-    registration tables, `keyShortcutRegistrations.ts` owns the remaining
+    `state/actions/keyShortcutNavigationRegistrations.ts` owns focus and
+    pane-navigation shortcut registrations,
+    `state/actions/keyShortcutTooltipRegistrations.ts` owns tooltip shortcut
+    registrations, `state/actions/keyShortcutWorkspaceRegistrations.ts` owns
+    creation, project-command, canvas, and interaction-mode registrations,
+    `state/actions/keyShortcutRegistrationGroups.ts` is now the thin
+    compatibility surface, `keyShortcutRegistrations.ts` owns the remaining
     Tab-vs-param binding decisions plus registry composition,
     `keyShortcutMatching.ts` owns shortcut parsing, event-code normalization,
     and shortcut matching, `keyShortcutInputPolicy.ts` owns editable-target and

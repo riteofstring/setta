@@ -337,8 +337,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/keyActivations.ts` is now a listener
   delegates the shortcut command registry plus React Flow key-mode toggles to
   `frontend/src/state/actions/keyActivationCommands.ts`, grouped shortcut
-  registration to
-  `frontend/src/state/actions/keyShortcutRegistrationGroups.ts`, the
+  registration ownership to
+  `frontend/src/state/actions/keyShortcutNavigationRegistrations.ts`,
+  `frontend/src/state/actions/keyShortcutTooltipRegistrations.ts`,
+  `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts`, the thin
+  compatibility surface to
+  `frontend/src/state/actions/keyShortcutRegistrationGroups.ts`, and the
   remaining Tab-vs-param binding and registry composition to
   `frontend/src/state/actions/keyShortcutRegistrations.ts`, shortcut
   parsing/event-code normalization/matching to
@@ -594,7 +598,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/keyShortcutRegistrationGroups.ts`, `state/actions/gitGraphLoadState.ts`, `state/actions/uiSettingRevealExecution.ts`, `state/hooks/aiFollow.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/gitGraphLoadState.ts`, `state/actions/uiSettingRevealExecution.ts`, `state/actions/keyActivations.ts`, `state/actions/aiChatStreamingRouting.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

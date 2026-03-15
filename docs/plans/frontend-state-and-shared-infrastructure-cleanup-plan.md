@@ -279,8 +279,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/keyActivations.ts` is now a listener
   orchestration entrypoint; `keyActivationCommands.ts` owns the shortcut
   command registry plus React Flow key-mode toggles,
-  `keyShortcutRegistrationGroups.ts` owns grouped shortcut registration
-  tables, `keyShortcutRegistrations.ts` owns the remaining Tab-vs-param
+  `keyShortcutNavigationRegistrations.ts` owns focus plus pane-navigation
+  registrations, `keyShortcutTooltipRegistrations.ts` owns tooltip
+  registrations, `keyShortcutWorkspaceRegistrations.ts` owns creation,
+  project-command, canvas, and interaction-mode registrations,
+  `keyShortcutRegistrationGroups.ts` is now the thin compatibility surface,
+  `keyShortcutRegistrations.ts` owns the remaining Tab-vs-param
   binding decisions plus registry composition, `keyShortcutMatching.ts` owns
   shortcut parsing, event-code normalization, and shortcut matching,
   `keyShortcutInputPolicy.ts` owns editable-target and input-ignore policy,
@@ -307,12 +311,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/keyShortcutRegistrationGroups.ts` at 294 lines
   - `frontend/src/state/actions/gitGraphLoadState.ts` at 294 lines
   - `frontend/src/state/actions/uiSettingRevealExecution.ts` at 287 lines
   - `frontend/src/state/actions/keyActivations.ts` at 286 lines
   - `frontend/src/state/actions/aiChatStreamingRouting.ts` at 278 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 268 lines
+  - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts` at 186 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -573,13 +577,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `stateMachineRunMutations.ts` for optimistic workflow start/stop/reset commands plus refresh-after-mutation behavior
   - `stateMachineRuns.ts` as the thin compatibility facade
 - `keyActivations.ts`, `keyActivationCommands.ts`,
-  `keyShortcutRegistrationGroups.ts`,
-  `keyShortcutRegistrations.ts`, `keyShortcutMatching.ts`,
-  `keyShortcutInputPolicy.ts`, `keyShortcutUtils.ts`, and
-  `keyActivationHandlers.ts` now split into:
+  `keyShortcutNavigationRegistrations.ts`,
+  `keyShortcutTooltipRegistrations.ts`,
+  `keyShortcutWorkspaceRegistrations.ts`,
+  `keyShortcutRegistrationGroups.ts`, `keyShortcutRegistrations.ts`,
+  `keyShortcutMatching.ts`, `keyShortcutInputPolicy.ts`,
+  `keyShortcutUtils.ts`, and `keyActivationHandlers.ts` now split into:
   - `keyActivations.ts` for global key-listener wiring and pressed-key bookkeeping
   - `keyActivationCommands.ts` for the shortcut command registry and React Flow key-mode toggles
-  - `keyShortcutRegistrationGroups.ts` for grouped shortcut registration tables
+  - `keyShortcutNavigationRegistrations.ts` for focus and pane-navigation shortcut registrations
+  - `keyShortcutTooltipRegistrations.ts` for tooltip shortcut registrations
+  - `keyShortcutWorkspaceRegistrations.ts` for creation, project-command, canvas, and interaction-mode registrations
+  - `keyShortcutRegistrationGroups.ts` as the thin compatibility facade
   - `keyShortcutRegistrations.ts` for Tab-vs-param binding decisions and registry composition
   - `keyShortcutMatching.ts` for shortcut parsing, event-code normalization, and shortcut matching
   - `keyShortcutInputPolicy.ts` for editable-target and input-ignore policy
