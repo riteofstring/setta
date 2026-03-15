@@ -1,8 +1,9 @@
+from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
 from fastapi import WebSocket
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import (
@@ -11,11 +12,12 @@ from setta.types.agentic import (
     EngineConfigList,
     TranscriptionProfileList,
 )
-from setta.types.artifact_messages import UpdateArtifactMsgContent
+from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
-from setta.types.id import ID
+from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+from setta.types.id import ID, create_new_id
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerDependencyEventContent,
@@ -32,13 +34,111 @@ from setta.types.listener import (
     RealtimeUIChangeContent,
 )
 from setta.types.llm_config import AllLLMConfigs
-from setta.types.lsp import SettaLspDiagnosticsPayload
-from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
-from setta.types.name_validation import SettaProjectNameValidationErrors
-from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.prompt import PromptTemplateList
 from setta.types.settings_state import RenameRefactorMode
+from setta.utils.constants import C
+from setta.utils.timestamps import get_now_timestamp
+
+
+class UpdateArtifactMsgContent(BaseModel):
+    artifacts: list[BaseArtifactUnionWithDiscriminator]
+    updateType: Literal["update", "delete"]
+
+
+class SettaSectionTypeErrors(BaseModel):
+    callable: list[str] = Field(default_factory=list)
+    params: dict[ID, list[str]] = Field(default_factory=dict)
+
+
+class SettaProjectConfigDiagnostics(BaseModel):
+    projectConfigId: ID
+    errors: dict[ID, SettaSectionTypeErrors] = Field(default_factory=dict)
+    isGenCode: bool
+
+
+class SettaLspDiagnosticPosition(BaseModel):
+    line: int
+    character: int
+
+
+class SettaLspDiagnosticRange(BaseModel):
+    start: SettaLspDiagnosticPosition
+    end: SettaLspDiagnosticPosition
+
+
+class SettaLspDiagnostic(BaseModel):
+    message: str
+    severity: int | None = None
+    code: str | int | None = None
+    source: str | None = None
+    range: SettaLspDiagnosticRange
+    uri: str | None = None
+
+
+class SettaLspDiagnosticsPayload(BaseModel):
+    projectConfigId: ID
+    genCode: SettaProjectConfigDiagnostics
+    codeSections: dict[ID, list[SettaLspDiagnostic]] = Field(default_factory=dict)
+    unmappedGenCode: list[SettaLspDiagnostic] = Field(default_factory=list)
+
+
+class SettaProjectNameValidationErrors(BaseModel):
+    projectConfigId: ID
+    projectErrors: list[str] = Field(default_factory=list)
+    sectionErrors: dict[ID, list[str]] = Field(default_factory=dict)
+    paramErrors: dict[ID, list[str]] = Field(default_factory=dict)
+
+
+class ManagedAPIKeysSnapshot(BaseModel):
+    apiKeys: APIKeys = Field(default_factory=dict)
+    revision: int = Field(ge=0)
+    corrupt: bool = False
+    errorCode: str | None = None
+    message: str | None = None
+
+
+class SettaNotificationType(str, Enum):
+    error = "error"
+    warning = "warning"
+    info = "info"
+    save = "save"
+
+
+class SettaNotification(BaseModel):
+    id: ID = Field(default_factory=create_new_id)
+    projectConfigId: ID = Field(
+        default_factory=lambda: ID(C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
+    )
+    type: SettaNotificationType = SettaNotificationType.info
+    message: str
+    temporary: bool = True
+    timestamp: datetime = Field(default_factory=get_now_timestamp)
+    metadata: dict = Field(default_factory=dict)
+    read_status: bool = False
+
+    @field_serializer("timestamp")
+    def serialize_timestamp(self, timestamp: datetime):
+        return timestamp.isoformat()
+
+
+class SettaBackendLogEventSeverity(str, Enum):
+    critical = "critical"
+    error = "error"
+    warning = "warning"
+    info = "info"
+
+
+class SettaBackendLogEvent(BaseModel):
+    id: ID = Field(default_factory=create_new_id)
+    projectConfigId: ID | None = None
+    severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info
+    message: str
+    timestamp: datetime = Field(default_factory=get_now_timestamp)
+
+    @field_serializer("timestamp")
+    def serialize_timestamp(self, timestamp: datetime):
+        return timestamp.isoformat()
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):

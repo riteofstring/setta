@@ -453,6 +453,15 @@ Current tree note:
   the historical Python route enum had no surviving retained Python caller,
   while active transport ownership already lives in Go under `internal/httpapi`,
   `internal/wsapi`, and `internal/frontendbindings`.
+- The dead single-consumer websocket payload support batch is also gone in the
+  current worktree: `backend/setta/types/artifact_messages.py`,
+  `backend/setta/types/lsp.py`, `backend/setta/types/managed_api_keys.py`,
+  `backend/setta/types/name_validation.py`, and
+  `backend/setta/types/notifications.py` were deleted after moving their only
+  still-used payload models into `backend/setta/types/websocket.py`. No other
+  backend or test caller imported those modules, and the old
+  `SettaLSPPosition` dataclass in `types/lsp.py` had no remaining caller at
+  all.
 - The dead generated Python type-definition tail is also smaller in the current
   worktree: `backend/scripts/prune_generated_types.py` pruned repo-unreferenced
   adapters, type-set constants, and the unused `ProjectConfigArgs` typed dict
