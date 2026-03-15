@@ -1323,72 +1323,6 @@ func TestRegisterPluginRootRoutesRejectsTraversalAndUnknownPlugins(t *testing.T)
 	}
 }
 
-func TestRegisterPluginRootRoutesServesBackendStaticAssets(t *testing.T) {
-	t.Parallel()
-
-	service, roots := newPluginRouteTestService(t, config.ModeIDE)
-	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend-static-router")
-	runtime := newPluginRouteBackendRuntime(t, roots, config.ModeIDE)
-	defer func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close plugin backend runtime: %v", err)
-		}
-	}()
-	handler := newPluginRouteTestHandlerWithBackendRuntime(t, config.ModeIDE, service, runtime)
-
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt", nil)
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected backend static asset 200, got %d with body %q", response.Code, response.Body.String())
-	}
-	if strings.TrimSpace(response.Body.String()) != "fixture static payload" {
-		t.Fatalf("unexpected backend static asset payload %q", response.Body.String())
-	}
-}
-
-func TestRegisterPluginRootRoutesRejectsBackendStaticTraversalAndUnknownPlugins(t *testing.T) {
-	t.Parallel()
-
-	service, roots := newPluginRouteTestService(t, config.ModeIDE)
-	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend-static-router")
-	runtime := newPluginRouteBackendRuntime(t, roots, config.ModeIDE)
-	defer func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close plugin backend runtime: %v", err)
-		}
-	}()
-	handler := newPluginRouteTestHandlerWithBackendRuntime(t, config.ModeIDE, service, runtime)
-
-	traversalResponse := httptest.NewRecorder()
-	traversalRequest := httptest.NewRequest(http.MethodGet, "/plugin-static/setta-fixture-backend-static-router/fixture/%2E%2E/setta.plugin.json", nil)
-	handler.ServeHTTP(traversalResponse, traversalRequest)
-	if traversalResponse.Code != http.StatusBadRequest {
-		t.Fatalf("expected backend static traversal 400, got %d with body %q", traversalResponse.Code, traversalResponse.Body.String())
-	}
-	var traversalPayload errorResponse
-	if err := json.Unmarshal(traversalResponse.Body.Bytes(), &traversalPayload); err != nil {
-		t.Fatalf("decode backend static traversal error payload: %v", err)
-	}
-	if traversalPayload.Error.Code != string(plugins.ServiceErrorCodeAssetInvalidPath) {
-		t.Fatalf("expected backend static asset invalid path code, got %q", traversalPayload.Error.Code)
-	}
-
-	notFoundResponse := httptest.NewRecorder()
-	notFoundRequest := httptest.NewRequest(http.MethodGet, "/plugin-static/missing-plugin/fixture/hello.txt", nil)
-	handler.ServeHTTP(notFoundResponse, notFoundRequest)
-	if notFoundResponse.Code != http.StatusNotFound {
-		t.Fatalf("expected unknown backend static plugin 404, got %d with body %q", notFoundResponse.Code, notFoundResponse.Body.String())
-	}
-	var notFoundPayload errorResponse
-	if err := json.Unmarshal(notFoundResponse.Body.Bytes(), &notFoundPayload); err != nil {
-		t.Fatalf("decode unknown backend static plugin error payload: %v", err)
-	}
-	if notFoundPayload.Error.Code != string(plugins.ServiceErrorCodeNotFound) {
-		t.Fatalf("expected backend static plugin not found code, got %q", notFoundPayload.Error.Code)
-	}
-}
-
 type pluginRouteTestRoots struct {
 	workspaceRoot  string
 	settaFilesRoot string
@@ -1448,8 +1382,7 @@ func newPluginRouteTestHandlerWithBackendRuntime(
 		ModePolicy: modes.NewPolicy(mode),
 		RegisterRoot: func(r chi.Router) {
 			if err := RegisterPluginRootRoutes(r, PluginRootRouteDependencies{
-				Service:        service,
-				BackendRuntime: runtime,
+				Service: service,
 			}); err != nil {
 				t.Fatalf("register plugin root routes: %v", err)
 			}

@@ -336,6 +336,11 @@ This verdict holds under both of the only reasonable definitions:
   - `internal/plugins` no longer captures or invokes plugin listener endpoints
   - `/ws/listeners/{listenerID}` now serves retained Python listeners and
     built-in listener endpoints only, not plugin-defined endpoint dispatch
+- The old Python-backed plugin backend static-dir surface is gone:
+  - `backend/setta/plugins/worker.py` no longer registers static dirs
+  - `internal/plugins` no longer captures backend static-dir registrations
+  - `/plugin-static/{pluginId}/...` is no longer part of the active root route
+    inventory
 
 ### Verified retained Python boundaries
 
@@ -372,11 +377,11 @@ explicit retained boundary list, most notably the still-active Python plugin
 worker implementation/runtime path in `backend/setta/plugins/worker.py`. The
 deleted Python plugin-management path in `backend/setta/plugins/manager.py`,
 the removed plugin listener-endpoint path, the old top-level Python FastAPI
-app, the old `setta.dev_start` shim, the old source-only Python startup/CLI
-helper surfaces, the legacy Python server-state startup path, and the legacy
-Python project-state plugin-codegen owner are no longer part of that blocker
-set, and schema-backed plugin UI settings are no longer part of that blocker
-set either.
+app, the removed backend static-dir path, the old `setta.dev_start` shim, the
+old source-only Python startup/CLI helper surfaces, the legacy Python
+server-state startup path, and the legacy Python project-state plugin-codegen
+owner are no longer part of that blocker set, and schema-backed plugin UI
+settings are no longer part of that blocker set either.
 
 ### Test and smoke evidence executed
 

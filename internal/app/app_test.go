@@ -6839,56 +6839,6 @@ func TestAppServesPluginBackendProjectStateAndListenerRoutes(t *testing.T) {
 	}
 }
 
-func TestAppServesPluginBackendStaticAssets(t *testing.T) {
-	// The real app should start static-dir-owning backend plugins at startup and serve authenticated plugin-static assets.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
-	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend-static-router")
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-
-	staticRequest, err := http.NewRequest(
-		http.MethodGet,
-		server.URL+"/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt",
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("new backend static request: %v", err)
-	}
-	staticRequest.AddCookie(authCookie)
-	staticResponse, err := http.DefaultClient.Do(staticRequest)
-	if err != nil {
-		t.Fatalf("get backend static response: %v", err)
-	}
-	defer staticResponse.Body.Close()
-	if staticResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(staticResponse.Body)
-		t.Fatalf("expected backend static 200, got %d with body %q", staticResponse.StatusCode, string(body))
-	}
-	staticBody, err := io.ReadAll(staticResponse.Body)
-	if err != nil {
-		t.Fatalf("read backend static body: %v", err)
-	}
-	if strings.TrimSpace(string(staticBody)) != "fixture static payload" {
-		t.Fatalf("unexpected backend static body %q", string(staticBody))
-	}
-}
-
 func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	// The real app should surface worker-backed backend language-server, external-agent, and codegen registrations through plugin runtime.
 	cfg := testConfig(t)
@@ -8093,8 +8043,8 @@ func TestAppRefreshesPluginBackendRuntimeAfterLifecycleMutations(t *testing.T) {
 }
 
 func TestAppRescanRefreshesPluginBackendRuntime(t *testing.T) {
-	// The real IDE app should rebuild backend route and static-dir ownership on
-	// rescan when plugin files appear or disappear after startup.
+	// The real IDE app should rebuild backend route ownership on rescan when
+	// plugin files appear or disappear after startup.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -8133,14 +8083,14 @@ func TestAppRescanRefreshesPluginBackendRuntime(t *testing.T) {
 		return response
 	}
 
-	initialRoute := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend-static-router/info", "")
+	initialRoute := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend/health", "")
 	defer initialRoute.Body.Close()
 	if initialRoute.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(initialRoute.Body)
 		t.Fatalf("expected backend route 404 before rescan install, got %d with body %q", initialRoute.StatusCode, string(body))
 	}
 
-	installAppPluginFixture(t, cfg, "backend-static-router", "setta-fixture-backend-static-router")
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
 
 	firstRescan := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRescan, `{}`)
 	defer firstRescan.Body.Close()
@@ -8149,22 +8099,15 @@ func TestAppRescanRefreshesPluginBackendRuntime(t *testing.T) {
 		t.Fatalf("expected rescan 200 after fixture install, got %d with body %q", firstRescan.StatusCode, string(body))
 	}
 
-	routeResponse := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend-static-router/info", "")
+	routeResponse := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend/health", "")
 	defer routeResponse.Body.Close()
 	if routeResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(routeResponse.Body)
 		t.Fatalf("expected backend route 200 after rescan install, got %d with body %q", routeResponse.StatusCode, string(body))
 	}
 
-	staticResponse := doRequest(http.MethodGet, "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt", "")
-	defer staticResponse.Body.Close()
-	if staticResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(staticResponse.Body)
-		t.Fatalf("expected backend static 200 after rescan install, got %d with body %q", staticResponse.StatusCode, string(body))
-	}
-
-	if err := os.RemoveAll(filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend-static-router")); err != nil {
-		t.Fatalf("remove backend static fixture: %v", err)
+	if err := os.RemoveAll(filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend")); err != nil {
+		t.Fatalf("remove backend fixture: %v", err)
 	}
 
 	secondRescan := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRescan, `{}`)
@@ -8174,18 +8117,11 @@ func TestAppRescanRefreshesPluginBackendRuntime(t *testing.T) {
 		t.Fatalf("expected rescan 200 after fixture removal, got %d with body %q", secondRescan.StatusCode, string(body))
 	}
 
-	removedRoute := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend-static-router/info", "")
+	removedRoute := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend/health", "")
 	defer removedRoute.Body.Close()
 	if removedRoute.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(removedRoute.Body)
 		t.Fatalf("expected backend route 404 after rescan removal, got %d with body %q", removedRoute.StatusCode, string(body))
-	}
-
-	removedStatic := doRequest(http.MethodGet, "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt", "")
-	defer removedStatic.Body.Close()
-	if removedStatic.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(removedStatic.Body)
-		t.Fatalf("expected backend static 404 after rescan removal, got %d with body %q", removedStatic.StatusCode, string(body))
 	}
 }
 

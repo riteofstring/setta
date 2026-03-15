@@ -27,7 +27,6 @@ const RoutePluginsLockWrite = "/plugins/lock/write"
 const RoutePluginsLockApply = "/plugins/lock/apply"
 const RoutePluginsRestart = "/plugins/restart"
 const RoutePluginsAssetWildcard = "/plugins/{pluginId}/*"
-const RoutePluginStaticAssetWildcard = "/plugin-static/{pluginId}/*"
 
 type PluginRouteDependencies struct {
 	ModePolicy modes.Policy
@@ -35,16 +34,11 @@ type PluginRouteDependencies struct {
 }
 
 type PluginRootRouteDependencies struct {
-	Service        PluginAssetService
-	BackendRuntime PluginStaticAssetRuntime
+	Service PluginAssetService
 }
 
 type PluginAssetService interface {
 	ResolveAssetPath(pluginID string, assetPath string) (string, error)
-}
-
-type PluginStaticAssetRuntime interface {
-	ResolveStaticAssetPath(pluginID string, assetPath string) (string, error)
 }
 
 type PluginRouteService interface {
@@ -97,9 +91,6 @@ func RegisterPluginRootRoutes(router chi.Router, deps PluginRootRouteDependencie
 	}
 
 	router.Get(RoutePluginsAssetWildcard, pluginAssetHandler(deps))
-	if deps.BackendRuntime != nil {
-		router.Get(RoutePluginStaticAssetWildcard, pluginStaticAssetHandler(deps))
-	}
 	return nil
 }
 
@@ -408,25 +399,6 @@ func pluginAssetHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
 		if isImmutablePluginAssetVersion(r.URL.Query().Get("v")) {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
-		http.ServeFile(w, r, resolvedPath)
-	}
-}
-
-func pluginStaticAssetHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		pluginID := chi.URLParam(r, "pluginId")
-		assetPath, err := url.PathUnescape(chi.URLParam(r, "*"))
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, string(plugins.ServiceErrorCodeAssetInvalidPath), "Invalid plugin static asset path.")
-			return
-		}
-
-		resolvedPath, err := deps.BackendRuntime.ResolveStaticAssetPath(pluginID, assetPath)
-		if err != nil {
-			writePluginRouteError(w, r, err)
-			return
-		}
-
 		http.ServeFile(w, r, resolvedPath)
 	}
 }

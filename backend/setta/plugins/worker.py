@@ -28,7 +28,6 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.invoke_mcp_tool",
     "plugin.invoke_codegen_target",
     "host.register_router",
-    "host.register_static_dir",
     "host.register_mcp_tool",
     "host.register_language_server",
     "host.register_external_agent_adapter",
@@ -250,21 +249,6 @@ class _WorkerState:
             {
                 "prefix": prefix,
                 "routes": route_descriptors,
-            },
-        )
-
-    def _register_static_dir(
-        self,
-        *,
-        url_prefix: str,
-        path: str | Path,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        host_call(
-            "host.register_static_dir",
-            {
-                "urlPrefix": url_prefix,
-                "path": str(path),
             },
         )
 
@@ -1484,13 +1468,6 @@ class _WorkerBackendPluginContext:
 
     def register_router(self, router: Any, *, prefix: str | None = None) -> None:
         self._state._register_router(router, prefix=prefix, host_call=self._host_call)
-
-    def register_static_dir(self, url_prefix: str, path: str | Path) -> None:
-        self._state._register_static_dir(
-            url_prefix=url_prefix,
-            path=path,
-            host_call=self._host_call,
-        )
 
     def register_mcp_tool(
         self,

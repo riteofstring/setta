@@ -3,11 +3,8 @@ package plugins
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -253,75 +250,6 @@ func TestBackendRouteRuntimeSupportsProjectStateReadsOverRoutesAndMCPTools(t *te
 	}
 }
 
-// Static-dir-only backend plugins should capture mount registrations, close their worker session, and resolve files later without a live worker.
-func TestBackendRouteRuntimeResolvesStaticOnlyFixtureAssets(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	pluginRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-fixture-static-only")
-	staticRoot := filepath.Join(pluginRoot, "backend", "static")
-	if err := os.MkdirAll(staticRoot, 0o755); err != nil {
-		t.Fatalf("mkdir static root: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(staticRoot, "hello.txt"), []byte("hello from static-only fixture\n"), 0o644); err != nil {
-		t.Fatalf("write static file: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "entrypoint.py"), []byte(
-		"def register(plugin):\n    plugin.register_static_dir('assets', 'backend/static')\n",
-	), 0o644); err != nil {
-		t.Fatalf("write backend entrypoint: %v", err)
-	}
-	writeJSONFile(t, filepath.Join(pluginRoot, "setta.plugin.json"), map[string]any{
-		"schemaVersion":     1,
-		"id":                "setta-fixture-static-only",
-		"name":              "Static Only Fixture",
-		"version":           "0.1.0",
-		"settaVersionRange": ">=0.0.0",
-		"enabledByDefault":  true,
-		"capabilities":      []string{"registerStaticDir"},
-		"backend": map[string]any{
-			"entrypoint": "backend/entrypoint.py",
-		},
-	})
-
-	runtime := mustNewBackendRouteRuntime(t, roots, config.ModeIDE)
-	defer func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close backend route runtime: %v", err)
-		}
-	}()
-
-	if len(runtime.Routes()) != 0 {
-		t.Fatalf("expected no backend routes, got %#v", runtime.Routes())
-	}
-	if len(runtime.MCPTools()) != 0 {
-		t.Fatalf("expected no backend mcp tools, got %#v", runtime.MCPTools())
-	}
-	staticDirs := runtime.StaticDirs()
-	if len(staticDirs) != 1 {
-		t.Fatalf("expected 1 static-dir registration, got %#v", staticDirs)
-	}
-	if len(runtime.sessions) != 0 {
-		t.Fatalf("expected static-only plugin to close worker session, got %#v", runtime.sessions)
-	}
-
-	resolvedPath, err := runtime.ResolveStaticAssetPath("setta-fixture-static-only", "assets/hello.txt")
-	if err != nil {
-		t.Fatalf("resolve static asset path: %v", err)
-	}
-	payload, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		t.Fatalf("read resolved static asset: %v", err)
-	}
-	if strings.TrimSpace(string(payload)) != "hello from static-only fixture" {
-		t.Fatalf("unexpected static asset payload %q", string(payload))
-	}
-
-	_, err = runtime.ResolveStaticAssetPath("setta-fixture-static-only", "assets/../setta.plugin.json")
-	var serviceErr *ServiceError
-	if !errors.As(err, &serviceErr) || serviceErr.Code != ServiceErrorCodeAssetInvalidPath {
-		t.Fatalf("expected traversal asset-invalid-path error, got %v", err)
-	}
-}
-
 // Mixed route+tool backend plugins should reuse one live worker session for both HTTP proxying and MCP tool calls.
 func TestBackendRouteRuntimeSupportsMixedRouteAndMCPFixtures(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -361,53 +289,6 @@ func TestBackendRouteRuntimeSupportsMixedRouteAndMCPFixtures(t *testing.T) {
 	}
 	if result != "route-runtime:setta-fixture-backend-language-server-e2e:tool" {
 		t.Fatalf("unexpected mixed fixture tool result %#v", result)
-	}
-}
-
-// Mixed route+static backend plugins should expose both HTTP proxying and static asset resolution from one startup path.
-func TestBackendRouteRuntimeSupportsMixedRouteAndStaticFixtures(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-static-router")
-
-	runtime := mustNewBackendRouteRuntime(t, roots, config.ModeIDE)
-	defer func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close backend route runtime: %v", err)
-		}
-	}()
-
-	routes := runtime.Routes()
-	if len(routes) != 1 {
-		t.Fatalf("expected 1 backend route, got %#v", routes)
-	}
-	staticDirs := runtime.StaticDirs()
-	if len(staticDirs) != 1 {
-		t.Fatalf("expected 1 backend static dir, got %#v", staticDirs)
-	}
-	if len(runtime.sessions) != 1 {
-		t.Fatalf("expected mixed plugin to keep one worker session, got %#v", runtime.sessions)
-	}
-
-	route := mustFindBackendRoute(t, routes, "/info")
-	request := httptest.NewRequest(http.MethodGet, "http://setta.test"+route.Pattern, nil)
-	response, err := runtime.ProxyRoute(context.Background(), route, request, nil)
-	if err != nil {
-		t.Fatalf("proxy mixed route+static fixture route: %v", err)
-	}
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected mixed route+static status 200, got %#v", response.StatusCode)
-	}
-
-	resolvedPath, err := runtime.ResolveStaticAssetPath("setta-fixture-backend-static-router", "fixture/hello.txt")
-	if err != nil {
-		t.Fatalf("resolve mixed fixture static asset: %v", err)
-	}
-	payload, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		t.Fatalf("read mixed fixture static asset: %v", err)
-	}
-	if strings.TrimSpace(string(payload)) != "fixture static payload" {
-		t.Fatalf("unexpected mixed fixture static asset payload %q", string(payload))
 	}
 }
 

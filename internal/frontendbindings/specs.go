@@ -71,11 +71,6 @@ func CurrentRouteGroups() []RouteGroup {
 					Path:     httpapi.RoutePluginsAssetWildcard,
 					EnumName: "PLUGIN_ASSET_WILDCARD",
 				},
-				{
-					Name:     "pluginStaticAssetWildcard",
-					Path:     httpapi.RoutePluginStaticAssetWildcard,
-					EnumName: "PLUGIN_STATIC_ASSET_WILDCARD",
-				},
 			},
 		},
 		{

@@ -9,7 +9,6 @@ export const GoRootRoutes = {
 } as const;
 export const GoPluginRootRoutes = {
   pluginAssetWildcard: "/plugins/{pluginId}/*",
-  pluginStaticAssetWildcard: "/plugin-static/{pluginId}/*",
 } as const;
 export const GoHTTPRoutes = {
   getBackendInitStatus: "/backendInitStatus",
@@ -1240,7 +1239,6 @@ export const RouteEnum = {
   BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
   TOOLS_CALL: "/__setta__/tools/call",
   PLUGIN_ASSET_WILDCARD: "/plugins/{pluginId}/*",
-  PLUGIN_STATIC_ASSET_WILDCARD: "/plugin-static/{pluginId}/*",
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",

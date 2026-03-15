@@ -293,7 +293,6 @@ GoHTTPRoutes.upsertAppGenCustomSkill path=/upsertAppGenCustomSkill enum=UPSERT_A
 GoHTTPRoutes.validateAppDefinition path=/validateAppDefinition enum=VALIDATE_APP_DEFINITION
 GoHTTPRoutes.writeFileBrowserFileContent path=/writeFileBrowserFileContent enum=WRITE_FILE_BROWSER_FILE_CONTENT
 GoPluginRootRoutes.pluginAssetWildcard path=/plugins/{pluginId}/* enum=PLUGIN_ASSET_WILDCARD
-GoPluginRootRoutes.pluginStaticAssetWildcard path=/plugin-static/{pluginId}/* enum=PLUGIN_STATIC_ASSET_WILDCARD
 GoRootRoutes.bootstrapConsume path=/__setta__/bootstrap/consume enum=BOOTSTRAP_CONSUME
 GoRootRoutes.bootstrapPage path=/__setta__/bootstrap enum=BOOTSTRAP_PAGE
 GoRootRoutes.toolsCall path=/__setta__/tools/call enum=TOOLS_CALL

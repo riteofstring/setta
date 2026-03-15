@@ -988,8 +988,7 @@ func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 			"toolsCall":        {},
 		},
 		"GoPluginRootRoutes": {
-			"pluginAssetWildcard":       {},
-			"pluginStaticAssetWildcard": {},
+			"pluginAssetWildcard": {},
 		},
 		"GoHTTPRoutes": {
 			"pluginsBackendRoute": {},
@@ -1115,7 +1114,6 @@ func TestCurrentRouteGroupsCoverEveryRootRouteName(t *testing.T) {
 func TestCurrentRouteGroupsCoverPluginAssetRootRoutes(t *testing.T) {
 	expectedPaths := []string{
 		httpapi.RoutePluginsAssetWildcard,
-		httpapi.RoutePluginStaticAssetWildcard,
 	}
 
 	seen := map[string]struct{}{}

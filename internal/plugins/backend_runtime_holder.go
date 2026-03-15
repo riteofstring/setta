@@ -74,10 +74,6 @@ func (h *BackendRuntimeHolder) ProxyRoute(
 	return h.Current().ProxyRoute(ctx, route, request, pathParams)
 }
 
-func (h *BackendRuntimeHolder) ResolveStaticAssetPath(pluginID string, assetPath string) (string, error) {
-	return h.Current().ResolveStaticAssetPath(pluginID, assetPath)
-}
-
 func (h *BackendRuntimeHolder) InvokeMCPTool(ctx context.Context, toolName string, arguments map[string]any) (any, error) {
 	return h.Current().InvokeMCPTool(ctx, toolName, arguments)
 }

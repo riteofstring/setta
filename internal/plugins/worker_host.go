@@ -26,7 +26,6 @@ const (
 	CapabilityRegisterMCPTools             = "registerMcpTools"
 	CapabilityReadProjectState             = "readProjectState"
 	CapabilityRegisterRouter               = "registerRouter"
-	CapabilityRegisterStaticDir            = "registerStaticDir"
 	CapabilityRegisterLanguageServer       = "registerLanguageServer"
 	CapabilityRegisterExternalAgentAdapter = "registerExternalAgentAdapter"
 	CapabilityRegisterCodegenTarget        = "registerCodegenTarget"
@@ -37,7 +36,6 @@ const (
 	HostMethodRegisterMCPTool             = "host.register_mcp_tool"
 	HostMethodReadProjectState            = "host.read_project_state"
 	HostMethodRegisterRouter              = "host.register_router"
-	HostMethodRegisterStaticDir           = "host.register_static_dir"
 	HostMethodRegisterLanguageServer      = "host.register_language_server"
 	HostMethodRegisterExternalAgent       = "host.register_external_agent_adapter"
 	HostMethodRegisterCodegenTarget       = "host.register_codegen_target"
@@ -109,7 +107,6 @@ type WorkerHostOptions struct {
 	Deployment                    *deployments.Runtime
 	ProjectStateReader            ProjectStateReader
 	RouterRegistrar               BackendRouterRegistrar
-	StaticDirRegistrar            BackendStaticDirRegistrar
 	MCPToolRegistrar              BackendMCPToolRegistrar
 	LanguageServerRegistrar       BackendLanguageServerRegistrar
 	ExternalAgentAdapterRegistrar BackendExternalAgentAdapterRegistrar
@@ -137,11 +134,6 @@ type EmitListenerDependencyEventsRequest struct {
 type RegisterRouterRequest struct {
 	Prefix *string                        `json:"prefix"`
 	Routes []workerBackendRouteDescriptor `json:"routes"`
-}
-
-type RegisterStaticDirRequest struct {
-	URLPrefix string `json:"urlPrefix"`
-	Path      string `json:"path"`
 }
 
 type RegisterMCPToolRequest struct {
@@ -222,7 +214,6 @@ type WorkerHost struct {
 	deployment                *deployments.Runtime
 	projectStateReader        ProjectStateReader
 	routerStore               BackendRouterRegistrar
-	staticDirStore            BackendStaticDirRegistrar
 	mcpToolStore              BackendMCPToolRegistrar
 	languageServerStore       BackendLanguageServerRegistrar
 	externalAgentAdapterStore BackendExternalAgentAdapterRegistrar
@@ -233,7 +224,6 @@ func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	if options.ListenerProducer == nil &&
 		options.ProjectStateReader == nil &&
 		options.RouterRegistrar == nil &&
-		options.StaticDirRegistrar == nil &&
 		options.MCPToolRegistrar == nil &&
 		options.LanguageServerRegistrar == nil &&
 		options.ExternalAgentAdapterRegistrar == nil &&
@@ -246,7 +236,6 @@ func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 		deployment:                options.Deployment,
 		projectStateReader:        options.ProjectStateReader,
 		routerStore:               options.RouterRegistrar,
-		staticDirStore:            options.StaticDirRegistrar,
 		mcpToolStore:              options.MCPToolRegistrar,
 		languageServerStore:       options.LanguageServerRegistrar,
 		externalAgentAdapterStore: options.ExternalAgentAdapterRegistrar,
@@ -405,28 +394,6 @@ func (h *WorkerHost) RegisterRouter(
 	return nil
 }
 
-func (h *WorkerHost) RegisterStaticDir(
-	ctx context.Context,
-	worker WorkerContext,
-	request RegisterStaticDirRequest,
-) error {
-	if h == nil || h.staticDirStore == nil {
-		return ErrWorkerHostStaticDirRegistrarRequired
-	}
-	if !worker.hasCapability(CapabilityRegisterStaticDir) {
-		return fmt.Errorf("%w: %s", ErrWorkerHostCapabilityDenied, CapabilityRegisterStaticDir)
-	}
-
-	registration, err := normalizeWorkerStaticDirRegistration(worker, request)
-	if err != nil {
-		return err
-	}
-	if err := h.staticDirStore.RegisterStaticDir(ctx, registration); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (h *WorkerHost) RegisterExternalAgentAdapter(
 	ctx context.Context,
 	worker WorkerContext,
@@ -517,15 +484,6 @@ func (h *WorkerHost) Dispatch(
 			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
 		}
 		if err := h.RegisterRouter(ctx, worker, request); err != nil {
-			return nil, err
-		}
-		return json.RawMessage(`{"ok":true}`), nil
-	case HostMethodRegisterStaticDir:
-		var request RegisterStaticDirRequest
-		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
-		}
-		if err := h.RegisterStaticDir(ctx, worker, request); err != nil {
 			return nil, err
 		}
 		return json.RawMessage(`{"ok":true}`), nil
