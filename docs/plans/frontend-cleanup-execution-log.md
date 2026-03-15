@@ -6674,3 +6674,49 @@ schedule settings` button still appears on the live task row.
   - Simplify `frontend/src/components/Chat/ChatMessages.tsx`, which is now the
     highest unresolved front-door hotspot after `ProjectChatCore.tsx`
     delegated its hydration retry/timer ownership into a sharp local hook.
+
+## 2026-03-16 06:26:34 PDT
+
+- Slice completed: extracted the chat message surface owners out of
+  `frontend/src/components/Chat/ChatMessages.tsx`
+- This was higher value than jumping to
+  `frontend/src/components/Git/GitGraphOverlay.tsx` or back to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  because `frontend/src/components/Chat/ChatMessages.tsx` was still the
+  recorded next unresolved front-door hotspot at the start of the turn and
+  still mixed per-message render branches, assistant/user/system bubble shells,
+  and action-rail ownership into the first shared chat surface contributors
+  opened.
+- Key files touched:
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Chat/chatMessageSurface.tsx`
+  - `frontend/src/components/Chat/chatMessageActions.tsx`
+  - `frontend/src/components/Chat/chatMessageBubbles.tsx`
+  - `frontend/src/components/Chat/chatMessageActions.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-messages-surface-owner-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatMessageActions.test.tsx src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-editing.spec.ts frontend/tests/e2e/chat/chat-branching.spec.ts --grep "message actions are icon-only and anchored beside bubbles by role|chat section edit creates branch and switcher|project chat redo regenerates from the source user message"`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/chatMessageSurface.tsx src/components/Chat/chatMessageActions.tsx src/components/Chat/chatMessageBubbles.tsx src/components/Chat/chatMessageActions.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-messages-surface-owner-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-messages-surface-owner-2026-03-16.md`
+    with the seeded message-surface owner measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `ChatMessages.tsx` dropped from `1236` to `531` lines while the seeded
+    disposable chat section rendered `3` message groups, `3` action rails,
+    `1` user bubble, `1` assistant bubble, and `1` system bubble with no
+    message-list horizontal overflow at `1440x900` or `960x900`. A pre-refactor
+    CDP baseline was not captured because the live dev page had already
+    hot-reloaded into the extracted implementation by the time the seeded
+    surface was ready.
+- Commit hash:
+  - `3c0992997c405d3c9aa6314ed99e6913d5e8c877`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Git/GitGraphOverlay.tsx`, which is now
+    the highest unresolved front-door hotspot in the current tree after
+    `ChatMessages.tsx` delegated its message surface ownership into sharp local
+    chat owners.
