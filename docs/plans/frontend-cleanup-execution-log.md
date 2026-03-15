@@ -5880,3 +5880,47 @@ schedule settings` button still appears on the live task row.
     which is now the largest unresolved non-chat front-door hotspot after
     `GitGraphOverlay.tsx` dropped to about 1550 lines and delegated its resize
     lifecycle into feature-local owners.
+
+## 2026-03-15 22:29:47 PDT
+
+- Slice completed: extracted ProjectChat inline-thread layout owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` or
+  `frontend/src/components/Section/Layouts/ChatArea.tsx` because
+  `frontend/src/README.md` still ranked
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` as
+  the top front-door hotspot at the start of the turn, and its inline-thread
+  breakpoint, resize, and header-sync lifecycle was still a large mixed UI
+  responsibility embedded directly in that first-hop project-AI surface.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.test.ts`
+  - `frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-inline-threads-layout-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep 'project ai threads render folder groups and keep pinned scopes separate|project ai threads remember explicit large-width close after narrow resize|project ai preserves draft text when resize reveals inline threads'`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.ts src/components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.test.ts tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-inline-threads-layout-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-inline-threads-layout-2026-03-15.md`
+    with before/after wide-layout resize measurements and the matching
+    synthetic-trace caveat.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy` at
+    `1400x900`; the inline-thread header host still resized from `219px` to
+    `299px` after a `+80px` drag and the toolbar stayed within the header host
+    before and after the drag.
+- Commit hash:
+  - `669cdde58ac9c971346c045ce967aad8bc845174`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`,
+    which is now the highest unresolved front-door hotspot after
+    `ProjectChat.tsx` dropped to about 1848 lines and delegated its inline
+    thread layout lifecycle into feature-local owners.
