@@ -241,6 +241,16 @@ Current tree note:
   launcher management, and SSH connect/runtime surfaces already live in Go
   under `internal/launcher`, `internal/workspacelaunch`, `internal/sshx`,
   `internal/settacmd`, and `internal/settacli`.
+- The old Python launcher-artifact installer cluster is also gone in the
+  current worktree: `backend/setta/launcher_artifacts/*.py` and
+  `tests/start/test_launcher_artifact_installers.py` were dead-path cleanup
+  once launcher metadata setup/repair/update, managed artifact planning and
+  installation, and artifact-launch reuse all moved to Go under
+  `internal/launcher`, `internal/settacmd`, and the shell/PowerShell installer
+  scripts. Current CLI/docs already route launcher installation through
+  `setta launcher setup` plus the OS-specific scripts, while the only retained
+  packaged boundary in that tree is `backend/setta/launcher_artifacts/assets/*`
+  for shipped launcher assets such as `Setta.icns`.
 - `backend/setta/trusted_frontend_origins.py` and
   `tests/auth/test_trusted_frontend_origins.py` are also gone in the current
   worktree because trusted frontend-origin storage, launcher-origin proof
