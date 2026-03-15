@@ -1,5 +1,4 @@
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
-import { getBgColor, getOutlineColor } from "./utils";
+import { getOutlineColor } from "./utils";
 
 type SectionContainerShellClassNameOptions = {
   isActiveSection: boolean;
@@ -25,7 +24,6 @@ type SectionSurfaceClassNameOptions = {
   positionAndSizeLocked: boolean;
   shouldDisablePointerEvents?: boolean;
   isYouTube?: boolean;
-  surfaceLayout?: "grid" | "windowFlow";
   frameClassName?: string;
   layoutClassName?: string;
   zIndexClassName?: string;
@@ -34,77 +32,8 @@ type SectionSurfaceClassNameOptions = {
   hideFrameBorder?: boolean;
 };
 
-type CanvasSectionChromeOptions = {
-  sectionTypeName: SectionType;
-  textBlockMetaControlStyle: boolean;
-  isUserView: boolean;
-  hasSectionStyleTheme: boolean;
-  positionAndSizeLocked: boolean;
-  hideHeader?: boolean;
-};
-
-type CanvasSectionHeaderVariant =
-  | "metaControlMenu"
-  | "textBlockMetaControlMenu"
-  | "sectionHeader"
-  | "none";
-
-type CanvasSectionChrome = {
-  bgColor: string;
-  useMetaControlStyle: boolean;
-  surfaceClassName: string;
-  showMetaControlDragHandle: boolean;
-  headerVariant: CanvasSectionHeaderVariant;
-};
-
-type SectionSurfaceModeOptions = {
-  sectionTypeName: SectionType;
-  textBlockMetaControlStyle: boolean;
-};
-
-type SectionSurfaceMode = {
-  bgColor: string;
-  isMetaControl: boolean;
-  useMetaControlStyle: boolean;
-};
-
-type WindowSectionChromeOptions = {
-  sectionTypeName: SectionType;
-  isActiveSection: boolean;
-  isInOtherProjectConfigs: boolean;
-  textBlockMetaControlStyle: boolean;
-  hasSectionStyleTheme: boolean;
-  positionAndSizeLocked: boolean;
-  isStandalonePage: boolean;
-  roundedClassName: string;
-};
-
-type WindowSectionChrome = {
-  bgColor: string;
-  outerShellClassName: string;
-  innerShellClassName: string;
-  useMetaControlStyle: boolean;
-};
-
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
-}
-
-function getSectionSurfaceMode({
-  sectionTypeName,
-  textBlockMetaControlStyle,
-}: SectionSurfaceModeOptions): SectionSurfaceMode {
-  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
-  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
-
-  return {
-    bgColor,
-    isMetaControl,
-    useMetaControlStyle,
-  };
 }
 
 export function getSectionContainerShellClassName({
@@ -195,7 +124,6 @@ export function getSectionSurfaceClassName({
   positionAndSizeLocked,
   shouldDisablePointerEvents = false,
   isYouTube = false,
-  surfaceLayout = "grid",
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   zIndexClassName = "z-10",
@@ -204,12 +132,7 @@ export function getSectionSurfaceClassName({
   hideFrameBorder = false,
 }: SectionSurfaceClassNameOptions): string {
   const layoutClassNameToUse =
-    layoutClassName ??
-    (surfaceLayout === "grid"
-      ? "section-grid-cols section-grid-rows section-grid-areas"
-      : "");
-  const displayClassName =
-    surfaceLayout === "grid" ? "grid" : "flex min-h-0 flex-col";
+    layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
     : "";
@@ -221,8 +144,7 @@ export function getSectionSurfaceClassName({
     shouldDisablePointerEvents && "pointer-events-none select-none",
     bgColor,
     layoutClassNameToUse,
-    "relative h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
-    displayClassName,
+    "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
     frameBorderClassName,
     cornerClassName ?? (!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"),
     isYouTube && "overflow-clip",
@@ -231,92 +153,4 @@ export function getSectionSurfaceClassName({
     frameClassName,
     sectionStyleChromeClassName,
   );
-}
-
-export function getCanvasSectionChrome({
-  sectionTypeName,
-  textBlockMetaControlStyle,
-  isUserView,
-  hasSectionStyleTheme,
-  positionAndSizeLocked,
-  hideHeader = false,
-}: CanvasSectionChromeOptions): CanvasSectionChrome {
-  const surfaceMode = getSectionSurfaceMode({
-    sectionTypeName,
-    textBlockMetaControlStyle,
-  });
-  const surfaceClassName = getSectionSurfaceClassName({
-    bgColor: surfaceMode.bgColor,
-    hasSectionStyleTheme,
-    positionAndSizeLocked,
-    surfaceLayout: surfaceMode.isMetaControl ? "grid" : "windowFlow",
-    frameClassName: surfaceMode.useMetaControlStyle
-      ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
-      : undefined,
-    layoutClassName: surfaceMode.isMetaControl
-      ? "grid-cols-1 grid-rows-1"
-      : undefined,
-    metaHoverZIndexClassName: surfaceMode.useMetaControlStyle
-      ? "group-hover/card-section:z-[170]"
-      : "",
-  });
-  let headerVariant: CanvasSectionHeaderVariant = "none";
-  if (surfaceMode.isMetaControl && !isUserView) {
-    headerVariant = "metaControlMenu";
-  } else if (textBlockMetaControlStyle && !isUserView) {
-    headerVariant = "textBlockMetaControlMenu";
-  } else if (!hideHeader) {
-    headerVariant = "sectionHeader";
-  }
-
-  return {
-    bgColor: surfaceMode.bgColor,
-    useMetaControlStyle: surfaceMode.useMetaControlStyle,
-    surfaceClassName,
-    showMetaControlDragHandle:
-      surfaceMode.useMetaControlStyle && !isUserView && !positionAndSizeLocked,
-    headerVariant,
-  };
-}
-
-export function getWindowSectionChrome({
-  sectionTypeName,
-  isActiveSection,
-  isInOtherProjectConfigs,
-  textBlockMetaControlStyle,
-  hasSectionStyleTheme,
-  positionAndSizeLocked,
-  isStandalonePage,
-  roundedClassName,
-}: WindowSectionChromeOptions): WindowSectionChrome {
-  const surfaceMode = getSectionSurfaceMode({
-    sectionTypeName,
-    textBlockMetaControlStyle,
-  });
-  const cornerClassName = isStandalonePage ? "rounded-none" : roundedClassName;
-
-  return {
-    bgColor: surfaceMode.bgColor,
-    outerShellClassName: getSectionContainerShellClassName({
-      isActiveSection,
-      isGlobalVariables: sectionTypeName === SectionTypeEnum.GlobalVariables,
-      isInOtherProjectConfigs,
-      useMetaControlStyle: surfaceMode.useMetaControlStyle,
-      hasSectionStyleTheme,
-      positionAndSizeLocked,
-      forceHideOutline: true,
-      hideBorder: isStandalonePage,
-      sizeClassName: "h-full w-full",
-      cornerClassName,
-    }),
-    innerShellClassName: getSectionSurfaceClassName({
-      bgColor: surfaceMode.bgColor,
-      hasSectionStyleTheme,
-      positionAndSizeLocked,
-      surfaceLayout: "windowFlow",
-      cornerClassName,
-      hideFrameBorder: isStandalonePage,
-    }),
-    useMetaControlStyle: surfaceMode.useMetaControlStyle,
-  };
 }
