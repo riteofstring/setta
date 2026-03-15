@@ -3224,3 +3224,32 @@ module map and placement guide while this cleanup progresses.
     authored/shared hotspot at 338 lines, by separating atomic project-store
     publication helpers from the remaining local cross-feature Zustand store
     definitions.
+
+## 2026-03-15 07:21:09 PDT
+
+- Slice completed: extracted atomic project-store publication from local store
+  definitions
+- Key files touched:
+  - `frontend/src/state/atomicProjectStorePublication.ts`
+  - `frontend/src/state/atomicProjectStorePublication.test.ts`
+  - `frontend/src/state/storeDefinitions.ts`
+  - `frontend/src/state/storeDefinitions.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/atomicProjectStorePublication.test.ts src/state/storeDefinitions.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/projectStateOptimisticUpdates.test.ts src/state/activeSectionUI.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/atomicProjectStorePublication.ts src/state/atomicProjectStorePublication.test.ts src/state/storeDefinitions.ts src/state/storeDefinitions.test.ts src/state/definitions.ts src/state/actions/project/loadProject.ts src/state/actions/sectionProjectStateSync.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `7d5bc49d3`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/utils/chatAppGeneration.ts`, now the largest
+    authored/shared hotspot at 319 lines, by separating generation payload or
+    app-definition derivation from the remaining publish and prompt helpers.
