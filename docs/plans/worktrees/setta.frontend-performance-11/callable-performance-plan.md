@@ -89,8 +89,14 @@ For the broadened sections-wide pass, treat these as the shared architecture clu
 ## Layout Principles
 
 - Default to the flattest DOM structure that preserves behavior.
+- Treat `grid` as a last resort, not a default.
 - Do not assume `grid` is the right answer just because the layout is complex.
-- Keep `grid` only where it clearly earns its keep through a simpler contract or lower DOM cost.
+- Reach for simpler techniques first:
+  - plain block flow when it is sufficient
+  - `relative` + `absolute` positioning for overlays, underlines, and visual chrome
+  - pseudo-elements for purely visual affordances
+  - `flex` for truly one-dimensional layout when it simplifies the contract
+- Keep `grid` only where those simpler techniques would make the structure harder to reason about or materially increase DOM/layout cost.
 - Prefer `relative` + `absolute` positioning for decorative layers, underlines, badges, hover chrome, and overlays when that removes wrapper nodes or layout coupling.
 - Prefer pseudo-elements over extra DOM nodes for purely visual affordances.
 - Use `flex` only when the layout is truly one-dimensional and it simplifies the contract without introducing extra measurement or wrapper work.
@@ -567,6 +573,7 @@ Tasks:
 1. Replace wrapper nodes with pseudo-elements where possible.
 2. Replace visual-only grid usage with absolute positioning where it keeps parity and reduces coupling.
 3. Keep each checkpoint small and screenshot-gated.
+4. If any checkpoint keeps `grid`, document why the simpler non-grid options were not sufficient.
 
 Exit criteria:
 
@@ -589,6 +596,7 @@ Tasks:
 1. Remove `grid-cols-subgrid` where a simpler contract can preserve parity.
 2. Collapse nested row shells that still exist only to satisfy the old grid contract.
 3. Prefer a single shared row primitive instead of multiple similar grid wrappers.
+4. Treat any surviving `grid` usage as an explicit exception that must be justified by parity or measured cost.
 
 Exit criteria:
 

@@ -1052,3 +1052,24 @@ Append-only log for the callable DOM-first performance refactor.
     - the next serious DOM rethink should happen at the section-shell level
 - Next action:
   - Start the new shared section-shell baseline phase before more implementation work.
+
+### 2026-03-16 43
+
+- Item: Tightened the section-shell plan so `grid` is treated as a last resort.
+- Status: `done`
+- Details:
+  - Updated the layout principles in the active sections-wide plan so `grid` is no longer merely "used carefully"; it is now explicitly a last resort.
+  - Recorded the intended preference order:
+    - plain block flow
+    - `relative` + `absolute`
+    - pseudo-elements
+    - `flex` for truly one-dimensional cases
+    - `grid` only when the simpler options are not sufficient
+  - Updated the active shared-shell phases so any surviving `grid` usage must be justified, not carried forward by default.
+- Interpretation:
+  - This matches the actual architectural direction better:
+    - serious DOM simplification first
+    - `grid` only as an exception
+    - performance testing in Chrome DevTools remains the gate
+- Next action:
+  - Continue with the shared section-shell baseline under the stronger non-grid-first rule.
