@@ -454,11 +454,11 @@ Last audited: `2026-03-18`
   external-agent config create/bootstrap/header splits that broader config
   rows had still implied
 - plus the targeted omission-closure follow-up slice: watch-code baseline
-  ignore-path behavior, launch-intent consume tamper/expiry/replay handling,
-  settings-project empty-document materialization, live `metaControlByType`
-  caller-path correction, and external-agent OpenCode server-mode plus Codex
-  session-auth runtime rows that the prior omission sweep had still left
-  implicit
+  ignore-path behavior including default ignored dirs, launch-intent consume
+  tamper/expiry/replay handling, settings-project empty-document
+  materialization, live `metaControlByType` caller-path correction, and
+  external-agent OpenCode server-mode plus Codex session-auth runtime rows
+  that the prior omission sweep had still left implicit
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -521,11 +521,11 @@ Last audited: `2026-03-18`
 
 ## Status Summary
 
-- Rows audited in this pass: `983`
+- Rows audited in this pass: `984`
 - Status counts:
   - `Proved`: `795`
   - `Implemented, proof incomplete`: `7`
-  - `Missing`: `56`
+  - `Missing`: `57`
   - `Retained Python boundary`: `93`
   - `Intentional divergence`: `14`
   - `Dormant / unproven caller`: `18`
@@ -1085,11 +1085,11 @@ Last audited: `2026-03-18`
   currently implemented but still unisolated runtime branches.
 - A follow-up omission closure pass later on `2026-03-18` found a few more
   still-implicit subcontracts inside already-audited slices: watch-code
-  baseline scans needed their own resolved state-root/runtime-root ignore
-  rows, launch-intent consume needed its tamper/expiry/replay proof split,
-  settings-project materialization needed an explicit empty-document no-op
-  row, and external-agent runtime coverage still lacked distinct OpenCode
-  server-mode and Codex session-auth rows.
+  baseline scans needed their own default-ignored-dir plus resolved
+  state-root/runtime-root ignore rows, launch-intent consume needed its
+  tamper/expiry/replay proof split, settings-project materialization needed
+  an explicit empty-document no-op row, and external-agent runtime coverage
+  still lacked distinct OpenCode server-mode and Codex session-auth rows.
 - That same pass also corrected one stale settings classification:
   `sectionSizingPolicy.metaControlByType` is still live on the current caller
   path because settings load into runtime state, section sizing consumes those
@@ -1671,6 +1671,7 @@ Last audited: `2026-03-18`
 | `format_code.bound_section_updates_watch_code_registry` | `tests/project_state/test_codegen_targets.py::test_format_code_updates_watch_code_registry` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry`; `TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate` | `internal/httpapi/project_routes.go::formatCodeHandler` drives the app-owned route | `Proved` | Formatting a watch-code-bound section still refreshes the callable registry alongside the stored code. |
 | `watch_code.enable_baselines_existing_inputs_without_creating_sections` | `tests/project_state/test_watch_code.py::test_baseline_on_enable_skips_existing_defs` | `internal/projectstate/watch_code.go`; `internal/httpapi/project_routes.go::setWatchCodeEnabledHandler` | `TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs`; `TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs` | `frontend/src/utils/generatedEndpoints.ts` still exposes `setWatchCodeEnabled` | `Proved` | Enabling watch code still baselines existing watched definitions without immediately materializing callable sections. |
 | `watch_code.new_inputs_baseline_only_new_paths_when_enabled` | `tests/project_state/test_watch_code.py::test_baseline_new_watch_inputs_when_enabled` | `internal/projectstate/watch_code.go`; `internal/httpapi/project_routes.go::setWatchCodeInputsHandler` | `TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled`; `TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs` | `setWatchCodeInputs` remains an active generated endpoint | `Proved` | Adding watch inputs while watch code is enabled still baselines only the new paths and preserves prior baseline entries. |
+| `watch_code.baseline_scans.ignore_default_ignored_dirs` | `docs/reference/watch-code.md` makes default ignored dirs part of the watch-code input contract and ties initial baselining to enable/input changes on the live caller surface | `internal/projectstate/watch_code.go::{baselineWatchCodeInputs,baselineWatchCodeFolder,baselineWatchCodeFile,iterWatchCodePythonFiles,shouldIgnoreWatchCodePath}` | current Go baseline coverage proves enable/input baselining entrypoints through `TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs` and `TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled`, but there is no direct Go proof for ignored-dir filtering on the baseline path and the current explicit-file baseline branch bypasses `shouldIgnoreWatchCodePath` entirely | `internal/httpapi/project_routes.go::{setWatchCodeEnabledHandler,setWatchCodeInputsHandler}` and `frontend/src/utils/generatedEndpoints.ts::{route_set_watch_code_enabled,route_set_watch_code_inputs}` still drive the caller-backed baseline path | `Missing` | The source watch-code input contract treats default ignored dirs as part of baseline discovery too, but the rewrite only applies that filter when baselining watched folders. Explicit watched-file baselines still bypass the ignored-dir check, so baselineing does not yet fully preserve the source ignore-dir contract. |
 | `watch_code.baseline_scans.ignore_configured_state_root_by_resolved_path` | `backend/setta/project_state/watch_code.py::_build_ignore_predicate`; `tests/project_state/test_watch_code_ignore_paths.py::test_iter_python_files_ignores_custom_state_root_inside_workspace` keep the source baseline scan path explicit when the configured `setta_files` root lives under the workspace | `internal/projectstate/watch_code.go::{baselineWatchCodeFolder,iterWatchCodePythonFiles,shouldIgnoreWatchCodePath}` | current Go baseline coverage proves enable/input baselining entrypoints through `TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs` and `TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled`, but there is no Go implementation path or test that resolves the configured `setta_files_root` and excludes it by absolute path during baseline scans | `internal/httpapi/project_routes.go::{setWatchCodeEnabledHandler,setWatchCodeInputsHandler}` and `frontend/src/utils/generatedEndpoints.ts::{route_set_watch_code_enabled,route_set_watch_code_inputs}` still drive the caller-backed baseline path | `Missing` | The rewrite still hard-codes directory-name ignores on the watch-code baseline path, so initial enable/input scans do not yet prove or deliver the source behavior that skips the configured state root by resolved path when it sits inside the workspace. |
 | `watch_code.baseline_scans.ignore_configured_runtime_root_by_resolved_path` | `backend/setta/project_state/watch_code.py::_build_ignore_predicate` also resolves the active runtime root into the source baseline ignore predicate so workspace-local scratch output is skipped during initial scans | `internal/projectstate/watch_code.go::{baselineWatchCodeFolder,iterWatchCodePythonFiles,shouldIgnoreWatchCodePath}` | current Go baseline coverage proves enable/input baselining entrypoints only; there is still no Go implementation path or direct proof that resolves the configured runtime root and excludes it by absolute path during baseline scans | the same `setWatchCodeEnabled` and `setWatchCodeInputs` caller surface still owns initial baseline scans on the live Watch Code pane path | `Missing` | The rewrite still lacks the source runtime-root ignore behavior on initial watch-code baselines: enabling watch code or adding inputs does not yet prove or deliver resolved runtime-root path exclusion when that directory lives inside the workspace. |
 | `watch_code.baseline_scans.keep_user_runtime_named_folders_outside_resolved_setta_roots` | `tests/project_state/test_watch_code_ignore_paths.py::test_iter_python_files_does_not_ignore_user_runtime_folder_outside_setta_roots` keeps the source false-positive guard explicit for initial scans too: a user folder merely named `runtime` must stay visible unless it is the resolved Setta runtime root | `internal/projectstate/watch_code.go::{baselineWatchCodeFolder,iterWatchCodePythonFiles,shouldIgnoreWatchCodePath}` | current Go baseline coverage proves neither the resolved-root exclusions nor the inverse false-positive guard on baseline scans, even though the current implementation appears to preserve it because `runtime` is not one of the hard-coded ignored basenames | the same `setWatchCodeEnabled` and `setWatchCodeInputs` caller path still owns initial baseline scans before later watcher events take over | `Implemented, proof incomplete` | The current rewrite appears to preserve the source false-positive guard during baseline scans because it does not generically ignore folders named `runtime`, but there is still no direct Go proof isolating that unrelated user runtime-named folders outside the resolved Setta roots remain scannable on the baseline path. |
