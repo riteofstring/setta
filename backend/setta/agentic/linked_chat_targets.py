@@ -88,22 +88,3 @@ def resolve_executable_linked_chat_target(
         selected_profile=selected_profile,
         effective_engine_config_id=effective_engine_config_id,
     )
-
-
-def is_executable_linked_chat_target(
-    project_state: ProjectStateSingleConfig,
-    target_section_id: ID,
-    *,
-    dbe: DBE,
-    llm_configs: AllLLMConfigs,
-) -> bool:
-    try:
-        resolve_executable_linked_chat_target(
-            project_state,
-            target_section_id,
-            dbe=dbe,
-            llm_configs=llm_configs,
-        )
-    except LinkedChatTargetResolutionError:
-        return False
-    return True
