@@ -740,6 +740,46 @@ class Route:
             {},
         )
 
+    def test_delete_settings_view_mode_from_store_payload_marks_deleted_active_id(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "activeViewModeId": "settings-core",
+                        "isEditingViewMode": False,
+                        "viewModes": {
+                            "settings-core": {
+                                "id": "settings-core",
+                                "name": "Core",
+                                "sortIndex": 0,
+                            },
+                            "settings-all": {
+                                "id": "settings-all",
+                                "name": "All Settings",
+                                "sortIndex": 4,
+                            },
+                        },
+                    }
+                }
+            }
+        }
+
+        updated = harness.delete_settings_view_mode_from_store_payload(
+            payload,
+            view_mode_name="Core",
+        )
+        project_config = updated["projects"]["settings"]["projectConfig"]
+
+        self.assertNotIn("settings-core", project_config["viewModes"])
+        self.assertEqual(project_config["activeViewModeId"], "settings-core")
+        self.assertTrue(project_config["isEditingViewMode"])
+        self.assertEqual(project_config["viewport"], {"x": 80, "y": 40, "zoom": 1.3})
+        self.assertTrue(project_config["viewportInitialized"])
+
     def test_summarize_settings_project_top_level_layout_repair_detects_rebuild(
         self,
     ) -> None:
@@ -806,6 +846,85 @@ class Route:
                 "restartLatestTopLevelSectionCount": 2,
                 "persistedViewModeCount": 2,
                 "persistedTopLevelSectionCount": 2,
+            },
+        )
+
+    def test_summarize_settings_project_deleted_active_view_mode_repair_detects_stable_projection(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        project_config = {
+            "activeViewModeId": "settings-all",
+            "isEditingViewMode": False,
+            "viewport": None,
+            "viewportInitialized": False,
+            "topLevelSections": {"section-a": {}, "section-b": {}},
+            "viewModes": {
+                "settings-all": {
+                    "id": "settings-all",
+                    "name": "All Settings",
+                    "sortIndex": 4,
+                    "viewport": None,
+                    "viewportInitialized": False,
+                    "topLevelSections": {"section-a": {}, "section-b": {}},
+                },
+                "settings-core": {
+                    "id": "settings-core",
+                    "name": "Core",
+                    "sortIndex": 0,
+                    "viewport": None,
+                    "viewportInitialized": False,
+                    "topLevelSections": {"section-a": {}, "section-b": {}},
+                },
+            },
+        }
+        restart_load_payload = {"projectConfig": project_config}
+        restart_latest_payload = {"projectState": restart_load_payload}
+        persisted_payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": project_config,
+                }
+            }
+        }
+
+        summary = harness.summarize_settings_project_deleted_active_view_mode_repair(
+            initial_load_http_status=200,
+            restart_load_http_status=200,
+            restart_load_payload=restart_load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload=restart_latest_payload,
+            persisted_after_payload=persisted_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadViewModeCount": 2,
+                "restartLoadIsEditingViewMode": False,
+                "restartLoadActiveViewModeIdPresent": True,
+                "restartLoadActiveViewModePresentInMap": True,
+                "restartLoadProjectLayoutMatchesActiveViewMode": True,
+                "restartLoadProjectViewportMatchesActiveViewMode": True,
+                "restartLoadProjectViewportInitializedMatchesActiveViewMode": True,
+                "restartLatestViewModeCount": 2,
+                "restartLatestIsEditingViewMode": False,
+                "restartLatestActiveViewModeIdPresent": True,
+                "restartLatestActiveViewModePresentInMap": True,
+                "restartLatestProjectLayoutMatchesActiveViewMode": True,
+                "restartLatestProjectViewportMatchesActiveViewMode": True,
+                "restartLatestProjectViewportInitializedMatchesActiveViewMode": True,
+                "persistedViewModeCount": 2,
+                "persistedIsEditingViewMode": False,
+                "persistedActiveViewModeIdPresent": True,
+                "persistedActiveViewModePresentInMap": True,
+                "persistedProjectLayoutMatchesActiveViewMode": True,
+                "persistedProjectViewportMatchesActiveViewMode": True,
+                "persistedProjectViewportInitializedMatchesActiveViewMode": True,
             },
         )
 

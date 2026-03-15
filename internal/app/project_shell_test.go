@@ -447,6 +447,171 @@ func TestAppSettingsProjectLoadRoutesRepairAndPersistMissingRequiredViewMode(t *
 	}
 }
 
+func TestAppSettingsProjectLoadRoutesRepairDeletedActiveViewModeAndReprojectLayout(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	if err := app.Shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown app: %v", err)
+	}
+
+	settingsStore, err := projectstate.NewStore(filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.SettingsFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted settings project store: %v", err)
+	}
+	settingsDocument, err := settingsStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted settings project document: %v", err)
+	}
+	settingsProject := settingsDocument.Projects[settingsstate.SettingsProjectID]
+	delete(settingsProject.ViewModes, "settings-core")
+	settingsProject.ActiveViewModeID = "settings-core"
+	settingsProject.IsEditingViewMode = true
+	settingsProject.Viewport = &projectstate.Viewport{X: 80, Y: 40, Zoom: 1.3}
+	settingsProject.ViewportInitialized = true
+	settingsDocument.Projects[settingsstate.SettingsProjectID] = settingsProject
+	if err := settingsStore.Save(context.Background(), settingsDocument); err != nil {
+		t.Fatalf("save corrupted settings project document: %v", err)
+	}
+
+	restartedApp, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("restart app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := restartedApp.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown restarted app: %v", err)
+		}
+	})
+
+	restartedServer := httptest.NewServer(restartedApp.Handler())
+	defer restartedServer.Close()
+
+	restartedAuthCookie := newAppTestAuthCookie(t, restartedApp)
+
+	restartedLoadRequest, err := http.NewRequest(http.MethodPost, restartedServer.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
+	if err != nil {
+		t.Fatalf("new restarted settings load request: %v", err)
+	}
+	restartedLoadRequest.Header.Set("Content-Type", "application/json")
+	restartedLoadRequest.AddCookie(restartedAuthCookie)
+
+	restartedLoadResponse, err := http.DefaultClient.Do(restartedLoadRequest)
+	if err != nil {
+		t.Fatalf("load restarted settings project config: %v", err)
+	}
+	defer restartedLoadResponse.Body.Close()
+	if restartedLoadResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartedLoadResponse.Body)
+		t.Fatalf("expected restarted settings project config 200, got %d with body %q", restartedLoadResponse.StatusCode, string(body))
+	}
+
+	var restartedLoadPayload projectview.SingleConfig
+	if err := json.NewDecoder(restartedLoadResponse.Body).Decode(&restartedLoadPayload); err != nil {
+		t.Fatalf("decode restarted settings project payload: %v", err)
+	}
+	if len(restartedLoadPayload.ProjectConfig.ViewModes) != 5 {
+		t.Fatalf("expected 5 settings view modes after repair, got %d", len(restartedLoadPayload.ProjectConfig.ViewModes))
+	}
+	if restartedLoadPayload.ProjectConfig.IsEditingViewMode {
+		t.Fatal("expected repaired settings load payload to exit view-edit mode")
+	}
+	if restartedLoadPayload.ProjectConfig.ActiveViewModeID == nil {
+		t.Fatal("expected repaired settings load payload to expose an active view mode")
+	}
+	activeLoadViewMode, ok := restartedLoadPayload.ProjectConfig.ViewModes[*restartedLoadPayload.ProjectConfig.ActiveViewModeID]
+	if !ok {
+		t.Fatalf("expected repaired active view mode %q to exist", *restartedLoadPayload.ProjectConfig.ActiveViewModeID)
+	}
+	if !reflect.DeepEqual(restartedLoadPayload.ProjectConfig.TopLevelSections, activeLoadViewMode.TopLevelSections) {
+		t.Fatal("expected repaired settings load payload to reproject the active view mode layout")
+	}
+	if !reflect.DeepEqual(restartedLoadPayload.ProjectConfig.Viewport, activeLoadViewMode.Viewport) {
+		t.Fatal("expected repaired settings load payload to reproject the active view mode viewport")
+	}
+	if restartedLoadPayload.ProjectConfig.ViewportInitialized != activeLoadViewMode.ViewportInitialized {
+		t.Fatal("expected repaired settings load payload to reproject viewportInitialized")
+	}
+
+	restartedLatestRequest, err := http.NewRequest(http.MethodPost, restartedServer.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
+	if err != nil {
+		t.Fatalf("new restarted latest-state request: %v", err)
+	}
+	restartedLatestRequest.Header.Set("Content-Type", "application/json")
+	restartedLatestRequest.AddCookie(restartedAuthCookie)
+
+	restartedLatestResponse, err := http.DefaultClient.Do(restartedLatestRequest)
+	if err != nil {
+		t.Fatalf("load restarted latest settings project state: %v", err)
+	}
+	defer restartedLatestResponse.Body.Close()
+	if restartedLatestResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartedLatestResponse.Body)
+		t.Fatalf("expected restarted latest settings project state 200, got %d with body %q", restartedLatestResponse.StatusCode, string(body))
+	}
+
+	var restartedLatestPayload httpapi.ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.NewDecoder(restartedLatestResponse.Body).Decode(&restartedLatestPayload); err != nil {
+		t.Fatalf("decode restarted latest settings project payload: %v", err)
+	}
+	if len(restartedLatestPayload.ProjectState.ProjectConfig.ViewModes) != 5 {
+		t.Fatalf("expected latest settings payload to expose 5 repaired view modes, got %d", len(restartedLatestPayload.ProjectState.ProjectConfig.ViewModes))
+	}
+	if restartedLatestPayload.ProjectState.ProjectConfig.IsEditingViewMode {
+		t.Fatal("expected repaired latest settings payload to exit view-edit mode")
+	}
+	if restartedLatestPayload.ProjectState.ProjectConfig.ActiveViewModeID == nil {
+		t.Fatal("expected repaired latest settings payload to expose an active view mode")
+	}
+	activeLatestViewMode, ok := restartedLatestPayload.ProjectState.ProjectConfig.ViewModes[*restartedLatestPayload.ProjectState.ProjectConfig.ActiveViewModeID]
+	if !ok {
+		t.Fatalf("expected latest repaired active view mode %q to exist", *restartedLatestPayload.ProjectState.ProjectConfig.ActiveViewModeID)
+	}
+	if !reflect.DeepEqual(restartedLatestPayload.ProjectState.ProjectConfig.TopLevelSections, activeLatestViewMode.TopLevelSections) {
+		t.Fatal("expected repaired latest settings payload to reproject the active view mode layout")
+	}
+	if !reflect.DeepEqual(restartedLatestPayload.ProjectState.ProjectConfig.Viewport, activeLatestViewMode.Viewport) {
+		t.Fatal("expected repaired latest settings payload to reproject the active view mode viewport")
+	}
+	if restartedLatestPayload.ProjectState.ProjectConfig.ViewportInitialized != activeLatestViewMode.ViewportInitialized {
+		t.Fatal("expected repaired latest settings payload to reproject viewportInitialized")
+	}
+
+	repairedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open repaired settings project store: %v", err)
+	}
+	repairedDocument, err := repairedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load repaired settings project document: %v", err)
+	}
+	repairedProject, err := repairedDocument.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("repaired settings project by id: %v", err)
+	}
+	if repairedProject.IsEditingViewMode {
+		t.Fatal("expected repaired persisted settings project to exit view-edit mode")
+	}
+	activePersistedViewMode, ok := repairedProject.ViewModes[repairedProject.ActiveViewModeID]
+	if !ok {
+		t.Fatalf("expected persisted repaired active view mode %q to exist", repairedProject.ActiveViewModeID)
+	}
+	if !reflect.DeepEqual(repairedProject.TopLevelSections, activePersistedViewMode.TopLevelSections) {
+		t.Fatal("expected repaired persisted settings project to reproject the active view mode layout")
+	}
+	if !reflect.DeepEqual(repairedProject.Viewport, activePersistedViewMode.Viewport) {
+		t.Fatal("expected repaired persisted settings project to reproject the active view mode viewport")
+	}
+	if repairedProject.ViewportInitialized != activePersistedViewMode.ViewportInitialized {
+		t.Fatal("expected repaired persisted settings project to reproject viewportInitialized")
+	}
+}
+
 func TestAppStartupFailsClosedOnMissingRequiredSettingsSection(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
