@@ -1863,3 +1863,34 @@ module map and placement guide while this cleanup progresses.
     authored/shared state hotspot, by separating the remaining streaming merge,
     shown-param, ancestry, and tool-preview cleanup helpers into narrower read
     or reconciliation modules.
+
+## 2026-03-15 01:09:50 PDT
+
+- Slice completed: split the remaining `sectionInfos.ts` helper cluster into
+  dedicated section ownership modules
+- Key files touched:
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/sectionStreamingMerge.ts`
+  - `frontend/src/state/actions/sectionShownParams.ts`
+  - `frontend/src/state/actions/sectionHierarchy.ts`
+  - `frontend/src/state/actions/sectionToolArgumentPreview.ts`
+  - `frontend/src/state/actions/sectionStreamingMerge.test.ts`
+  - `frontend/src/state/actions/sectionShownParams.test.ts`
+  - `frontend/src/state/actions/sectionHierarchy.test.ts`
+  - `frontend/src/state/actions/sectionToolArgumentPreview.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionShownParams.test.ts src/state/actions/sectionHierarchy.test.ts src/state/actions/sectionToolArgumentPreview.test.ts src/state/actions/sectionStreamingMerge.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/activeSectionController.test.ts src/state/actions/aiFollow.test.ts src/state/actions/params/moveParams.test.ts src/components/Params/GroupContainer.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/README.md src/components/AppHeader/EditMenu.tsx src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx src/components/Params/GroupContainer.tsx src/components/Params/ParamDndMonitor.tsx src/components/Section/Header/MenuButton/ClearValues.tsx src/components/Section/Header/MenuButton/ResetToDefaultVersion.tsx src/components/Section/SectionParts/KwargsControls.tsx src/forks/dnd-kit/adapter/useSortable.ts src/state/actions/activeSectionController.ts src/state/actions/nodeInternals.ts src/state/actions/params/paramMoveQueries.ts src/state/actions/sectionHierarchy.test.ts src/state/actions/sectionHierarchy.ts src/state/actions/sectionInfos.test.ts src/state/actions/sectionInfos.ts src/state/actions/sectionProjectStateSync.ts src/state/actions/sectionShownParams.test.ts src/state/actions/sectionShownParams.ts src/state/actions/sectionStreamingMerge.test.ts src/state/actions/sectionStreamingMerge.ts src/state/actions/sectionToolArgumentPreview.test.ts src/state/actions/sectionToolArgumentPreview.ts src/state/actions/sections/moveSections.ts src/state/actions/sections/sectionSizes.ts src/state/hooks/aiFollow.ts src/utils/tabbingLogic.ts ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `bd545b9e8`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionEffectiveImpls.ts`, now the
+    largest authored/shared state hotspot, by separating core effective-impl
+    derivation from the remaining typed selector helpers.
