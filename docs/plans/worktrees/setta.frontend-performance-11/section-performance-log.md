@@ -4005,3 +4005,46 @@ Append-only log for the section performance refactor.
   - Choose next between:
     - reopening the collision/placeholder owner stack directly
     - documenting the remaining `~1.2px` row-height gap as blocked at the current lower seam
+
+### 2026-03-18 108
+
+- Item: Narrow the next lower-seam owner from the generic collision stack to `getPastHalfway()`.
+- Status: `needs_more_work`
+- Details:
+  - Re-read the current lower drag path in:
+    - `frontend/src/forks/dnd-kit/adapter/collision.ts`
+    - `frontend/src/forks/dnd-kit/adapter/collisionCompare.ts`
+    - `frontend/src/forks/dnd-kit/adapter/sorting.ts`
+    - `frontend/src/components/Params/ParamDndMonitor.tsx`
+  - Added a subagent-backed cross-check against the same files before updating the tracker.
+  - Conclusion:
+    - the strongest next owner seam is now specifically:
+      - `frontend/src/forks/dnd-kit/adapter/collision.ts`
+      - `getPastHalfway()`
+  - Why that is stronger than the broader stack on current evidence:
+    - the confirmed residual-gap rerun already showed the top row still resolves
+    - the failure is that the final top-row hover stays `pastHalfway: true`
+    - `frontend/src/components/Params/ParamDndMonitor.tsx`
+      - same-parent reorder passes that boolean directly into `computeNewIndex()`
+    - `frontend/src/forks/dnd-kit/adapter/sorting.ts`
+      - for the decisive `activeIndex = 1`, `overIndex = 0` case, current semantics already return `0` when `pastHalfway === false`
+      - so `computeNewIndex()` is downstream, not the first seam
+    - `frontend/src/forks/dnd-kit/adapter/collisionCompare.ts`
+      - is weaker as the next seam because the captured rerun already reached the top row before missing the final flip
+    - `frontend/src/components/Params/ParamDndMonitor.tsx`
+      - `maybeMovePlaceholder()` is also downstream for the same-parent reorder because the decisive branch is gated by the `pastHalfway` value it receives
+  - Primary candidate mechanism inside `getPastHalfway()`:
+    - pointer-direction memory
+    - edge selection from the active rect (`top` / `bottom` on param rows)
+    - sticky `±10px` hysteresis when the collision remains on the same row
+  - Interpretation:
+    - the remaining checkpoint-1 blocker is no longer best described as “collision / placeholder handling” in general
+    - it is now more precisely:
+      - midpoint / hysteresis sensitivity in `getPastHalfway()` under the changed row geometry
+  - Recorded the owner narrowing in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-past-halfway-primary-owner.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - If the work continues, reopen `getPastHalfway()` first instead of the wider collision stack.
+  - Only revisit `resolveOverCollisionId()` first if a fresh read shows the final top-row collision itself is wrong.
+  - If the work stops here, document the remaining `~1.2px` row-height gap as blocked at this more specific lower seam.
