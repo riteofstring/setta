@@ -5,7 +5,7 @@ Last audited: `2026-03-17`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `acad437276234608e356b4e0c4f5f9be2fdd6acf`
+- Target head: `38a0cd1abdb0f6243608d047411044710cf912dc`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -199,6 +199,9 @@ Last audited: `2026-03-17`
   type/value behavior, explicit param-impl config normalization and
   validation, param-selection toggle / clear behavior, and the current live
   `deleteSelectedParams` caller surface on the kwargs/UI-config flows
+- plus the targeted code-object display-name follow-up slice:
+  raw display-name persistence and latest-state hydration on the current
+  param-name and quick-info caller surface
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -215,9 +218,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `436`
+- Rows audited in this pass: `437`
 - Status counts:
-  - `Proved`: `403`
+  - `Proved`: `404`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `0`
   - `Retained Python boundary`: `8`
@@ -711,6 +714,7 @@ Last audited: `2026-03-17`
 | `param.rename.editable_kwarg_and_dict_root_blank_names` | `tests/utils/test_name_validation.py::test_param_name_allows_empty_for_editable_kwarg`; `...allows_empty_for_dict_root` | `internal/projectstate/code_object_names.go` | `TestProjectSetCodeObjectNameAllowsEmptyEditableKwarg`; `...AllowsEmptyDictRoot`; `TestProjectNormalizedAllowsEmptyEditableKwargAndDictRootNames` | `KwargsControls` and param callers use generated endpoints; no frontend-only fallback | `Proved` | Blank-name exceptions remain explicit and normalized safely. |
 | `param.rename.dict_relaxed_rules_with_control_char_guard` | `tests/utils/test_name_validation.py::test_dict_param_name_allows_punctuation`; `...allows_path_like_keys`; `...rejects_control_chars` | `internal/projectstate/code_object_names.go` | `TestProjectSetCodeObjectNameAllowsDocumentedDictParamFormats`; `...RejectsDictParamControlCharacters` | same runtime path used by param rename endpoints | `Proved` | Dict keys stay deliberately permissive except for control chars. |
 | `param.rename.parent_scoped_duplicate_and_shared_core_updates` | `tests/utils/test_name_validation.py::test_param_name_duplicate_rejected`; `tests/routers/test_name_validation_routes.py::test_shared_param_rename_updates_all_refs` | `internal/projectstate/code_object_names.go` | `TestProjectSetCodeObjectNameRejectsDuplicateSiblingName`; `...UpdatesSharedParamAcrossSections` | `TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsPersistLatestState` | `Proved` | Duplicates remain parent-scoped and shared code objects still rename once at the core. |
+| `param.display_name.raw_core_persistence_on_live_ide_surface` | `backend/setta/types/core.py::Core.displayName`; `tests/project_state/test_param_display_names.py::test_core_display_name_defaults`; `...::test_project_state_persists_display_name_and_toggle` | `internal/projectstate/code_object_writes.go::SetCodeObjectDisplayName`; `internal/httpapi/project_routes.go::{setCodeObjDisplayNameHandler,writeCodeObjDisplayNameMutationError}` | `TestRuntimeSetCodeObjectDisplayNamePersists`; `TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsPersistLatestState`; `TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalidInputs` | `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`; `frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx`; `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` | `Proved` | `displayName` remains a separate optional core field from the canonical param name, defaults to empty, and persists as a raw string on the current IDE caller surface so frontend rename/quick-info flows can both set and clear it without entering the stricter name-validation path. Missing code-object ids still fail with the stable `400 code_obj_id_required` transport error. |
 | `param.add_kwarg.create_blank_editable_param` | `backend/setta/types/helpers_lvl2.py::add_kwarg` | `internal/projectstate/add_kwarg.go` | `TestProjectAddKwargAppendsCallableParam`; `TestProjectAddKwargSharesDictParamAcrossSections`; `TestProjectAddKwargSupportsGlobalVariables` | `internal/httpapi/project_routes.go`; `TestRegisterProjectRoutesAddKwargPersistsLatestState` | `Proved` | New kwargs still start empty and editable. |
 | `param.add_kwarg.create_blank_dict_root` | `backend/setta/types/helpers_lvl2.py::add_kwarg_to_dict_section` creates `Core(name="")` for the root | `internal/projectstate/add_kwarg.go` | `TestProjectAddKwargInitializesMissingDictRoot` | same add-kwarg route boundary as above | `Proved` | This row required a source-parity fix in Go during the audit. |
 | `param.delete_kwarg.removes_last_param_cleans_stale_section_state_and_prunes_unused_code_objects` | `tests/helpers/project_state_mutations.py::delete_kwarg`; `::delete_kwarg_from_callable_section`; `::delete_kwarg_from_dict_section`; `tests/types/test_delete_kwarg_edges.py::test_delete_kwarg_removes_edge_inputs_and_clears_value` | `internal/projectstate/delete_kwarg.go` | `TestProjectDeleteKwargRemovesLastCallableParam`; `TestProjectDeleteKwargRemovesLastSharedDictParamAcrossSections`; `TestProjectDeleteKwargSupportsGlobalVariables`; `TestProjectDeleteKwargCleansRemovedEdgeInputState` | `internal/httpapi/project_routes.go::deleteKwargHandler`; `TestRegisterProjectRoutesDeleteKwargPersistsLatestState`; `frontend/src/components/Section/SectionParts/KwargsControls.tsx` | `Proved` | Convenience deletion still removes the last kwarg from callable, dict, and global roots; shared dict-root deletions still fan out across sections that point at the same root; and deleting that param still clears stale edge-input, pinned, selected, type-ignore, and incoming-edge state before pruning the now-unused code object graph. |
