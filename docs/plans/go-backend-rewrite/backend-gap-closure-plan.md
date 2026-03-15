@@ -198,3 +198,8 @@ categorize them.
   cheap wins should stay on similarly narrow live route branches in
   deployment/runtime surfaces rather than reopening these already-covered
   catalog and workflow validation paths
+- The launcher-mode CORS fail-closed row is now proved too, including
+  unconfigured loopback preflight, non-allowlisted loopback credentialed
+  requests, and trusted-origin store-read failure; the next small proof-only
+  slices should keep following that pattern of route-visible negative branches
+  on already-implemented owners
