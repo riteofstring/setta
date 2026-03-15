@@ -55,8 +55,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
-  - `state/actions/aiChatStreaming.ts` owns top-level streaming chunk routing,
-    managed-chat detail updates, and persistence or stop side effects.
+  - `state/actions/aiChatStreaming.ts` owns the public streaming entrypoint
+    plus managed-chat detail updates.
+  - `state/actions/aiChatStreamingRouting.ts` owns placeholder filtering,
+    chatId-to-section routing, stream-active tracking, section persistence, and
+    scope-violation side effects for streaming chunks.
   - `state/actions/aiChatStreamingMessages.ts` owns shared message delta,
     finalized-assistant merge, and message upsert helpers used by chat streaming
     and tool-preview updates.
