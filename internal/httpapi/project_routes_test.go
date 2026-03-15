@@ -1871,6 +1871,78 @@ func TestRegisterProjectRoutesCreateTopLevelSectionAppliesSnapshotViewportAndNam
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionReturnsMetaControlParamIDAndHonorsExplicitPosition(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTopLevelSection,
+		strings.NewReader(`{"projectConfigId":"project-alpha","implType":"MetaControl","controlCodeObjType":"TextParam","position":{"x":-44,"y":91}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.CreateTopLevelSectionResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode createTopLevelSection response: %v", err)
+	}
+	if strings.TrimSpace(payload.SectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", payload)
+	}
+	if payload.MetaControlParamID == nil || strings.TrimSpace(*payload.MetaControlParamID) == "" {
+		t.Fatalf("expected created meta control param id, got %#v", payload)
+	}
+	if payload.PanTo != nil {
+		t.Fatalf("expected explicit-position create to omit pan hint, got %#v", payload.PanTo)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project snapshot: %v", err)
+	}
+	layout, ok := project.TopLevelSections[payload.SectionID]
+	if !ok {
+		t.Fatalf("expected created layout in snapshot, got %#v", project.TopLevelSections)
+	}
+	if layout.X != -44 || layout.Y != 91 {
+		t.Fatalf("expected explicit position {-44 91}, got %#v", layout)
+	}
+
+	_, _, impl, err := project.ResolveSection(payload.SectionID)
+	if err != nil {
+		t.Fatalf("resolve created section: %v", err)
+	}
+	implPayload := decodeProjectRouteRawObject(t, impl.Payload)
+	if got, _ := implPayload["metaControlParamId"].(string); got != *payload.MetaControlParamID {
+		t.Fatalf("expected created meta control payload id %q, got %#v", *payload.MetaControlParamID, implPayload["metaControlParamId"])
+	}
+}
+
 func TestRegisterProjectRoutesCreateTopLevelSectionReturns422ForInvalidInitialName(t *testing.T) {
 	t.Parallel()
 
