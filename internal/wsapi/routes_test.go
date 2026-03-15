@@ -1259,6 +1259,18 @@ func TestRegisterRoutesListenerRegisterAndLiveMessagesUseTemporaryIDs(t *testing
 				Value:      json.RawMessage(`"value-1"`),
 			},
 		},
+		DependencyValues: &realtime.ListenerRenderedDependencyValues{
+			Entries: []realtime.ListenerRenderedDependencyValue{
+				{
+					DependencyKey: dictSectionID + "." + addParamResult.CodeObjID,
+					RenderedValue: "'value-1'",
+				},
+				{
+					DependencyKey: dictSectionID,
+					RenderedValue: "{'value': 'value-1'}",
+				},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("emit temporary realtime delta: %v", err)
@@ -1266,15 +1278,30 @@ func TestRegisterRoutesListenerRegisterAndLiveMessagesUseTemporaryIDs(t *testing
 	if sequence != 1 || delivered != 1 {
 		t.Fatalf("expected one translated realtime delivery, got sequence=%d delivered=%d", sequence, delivered)
 	}
+	realtimeEvent := readNextMessage(t, conn)
 	assertRouteListenerRealtimeEvent(
 		t,
-		readNextMessage(t, conn),
+		realtimeEvent,
 		temporaryProjectID,
 		"",
 		1,
 		temporarySectionID+"."+temporaryCodeObjID,
 		`"value-1"`,
 	)
+	content := decodeRouteListenerRealtimeContent(t, realtimeEvent)
+	if content.DependencyValues == nil {
+		t.Fatal("expected translated dependency values on temporary realtime event")
+	}
+	translatedValues := map[string]string{}
+	for _, entry := range content.DependencyValues.Entries {
+		translatedValues[entry.DependencyKey] = entry.RenderedValue
+	}
+	if got := translatedValues[temporarySectionID+"."+temporaryCodeObjID]; got != "'value-1'" {
+		t.Fatalf("expected temporary child dependency value %q, got %q", "'value-1'", got)
+	}
+	if got := translatedValues[temporarySectionID]; got != "{'value': 'value-1'}" {
+		t.Fatalf("expected temporary parent dependency value %q, got %q", "{'value': 'value-1'}", got)
+	}
 
 	sequence, delivered, err = broadcaster.EmitDependencyEvents(context.Background(), realtime.EmitDependencyEventsParams{
 		ProjectID: "project-a",
@@ -1371,6 +1398,98 @@ func TestRegisterRoutesListenerAcceptsPythonRegisterPayloadAndEmitsStructuredDep
 		t.Fatalf("expected dependency event delivery (sequence=2 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
 	}
 	assertRouteListenerDependencyEvent(t, readNextMessage(t, conn), "project-a", "", 2, "section-action", `{"clicked":true}`)
+}
+
+func TestRegisterRoutesListenerRealtimeUsesDependencyClosureAndDependencyValues(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	dictSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Dict", "inputs")
+	_, addParamResult, err := projectRuntime.AddKwarg(context.Background(), "project-a", dictSectionID)
+	if err != nil {
+		t.Fatalf("add dict param: %v", err)
+	}
+	if _, err := projectRuntime.SetCodeObjectName(context.Background(), "project-a", addParamResult.CodeObjID, "count"); err != nil {
+		t.Fatalf("rename dict param for listener graph visibility: %v", err)
+	}
+	if _, err := projectRuntime.SetSectionCodeObjectValue(context.Background(), "project-a", dictSectionID, addParamResult.CodeObjID, "1"); err != nil {
+		t.Fatalf("seed dict param value: %v", err)
+	}
+	producer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+		Broadcaster:  broadcaster,
+		ProjectState: projectRuntime,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer:    producer,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-parent"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"projectConfigId":"project-a","callbacks":{"cb-a":{"dependencies":[{"type":"Section","sectionId":"`+dictSectionID+`"}],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write parent-only listener register: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
+
+	sequence, delivered, err := producer.EmitUIChange(context.Background(), realtime.EmitUIChangeParams{
+		ProjectID: "project-a",
+		DependencyKey: json.RawMessage(`{
+			"type":"SectionParam",
+			"sectionId":"` + dictSectionID + `",
+			"codeObjId":"` + addParamResult.CodeObjID + `"
+		}`),
+		Value: json.RawMessage(`{"type":"Literal","payload":"updated from producer"}`),
+	})
+	if err != nil {
+		t.Fatalf("emit ui change through listener producer: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected parent listener delivery via dependency closure (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	realtimeEvent := readNextMessage(t, conn)
+	assertRouteListenerRealtimeEvent(
+		t,
+		realtimeEvent,
+		"project-a",
+		"",
+		1,
+		dictSectionID+"."+addParamResult.CodeObjID,
+		`{"type":"Literal","payload":"updated from producer"}`,
+	)
+
+	content := decodeRouteListenerRealtimeContent(t, realtimeEvent)
+	if content.DependencyValues == nil {
+		t.Fatal("expected authoritative dependency values on listener realtime event")
+	}
+
+	renderedValues := map[string]string{}
+	for _, entry := range content.DependencyValues.Entries {
+		renderedValues[entry.DependencyKey] = entry.RenderedValue
+	}
+	if got := renderedValues[dictSectionID+"."+addParamResult.CodeObjID]; got != "updated from producer" {
+		t.Fatalf("expected child dependency rendered value %q, got %q", "updated from producer", got)
+	}
+	parentValue, ok := renderedValues[dictSectionID]
+	if !ok {
+		t.Fatalf("expected parent dependency value for %q, got %#v", dictSectionID, renderedValues)
+	}
+	if !strings.Contains(parentValue, "updated from producer") {
+		t.Fatalf("expected parent dependency value to include updated child value, got %q", parentValue)
+	}
 }
 
 func TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFrontend(t *testing.T) {
@@ -3586,6 +3705,19 @@ func decodeRouteListenerForceRefreshContent(
 	var content realtime.ListenerForceRefreshContent
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener force refresh: %v", err)
+	}
+	return content
+}
+
+func decodeRouteListenerRealtimeContent(
+	t *testing.T,
+	message routeMessageEnvelope,
+) realtime.ListenerRealtimeEventContent {
+	t.Helper()
+
+	var content realtime.ListenerRealtimeEventContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener realtime event: %v", err)
 	}
 	return content
 }
