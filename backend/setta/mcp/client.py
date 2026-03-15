@@ -93,7 +93,7 @@ class BridgeConfig:
     bootstrap_url: str | None = field(default=None, repr=False)
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
+def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
     parser = argparse.ArgumentParser(
         prog="setta.mcp.client",
         description="Connect to Setta's MCP endpoint or run the stdio bridge.",
@@ -117,11 +117,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--bootstrap-url",
         help="Bootstrap URL containing a token fragment or query parameter.",
     )
-    return parser
-
-
-def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
-    parser = build_arg_parser()
     args = parser.parse_args(argv)
     return BridgeConfig(
         backend_url=args.backend,
@@ -129,15 +124,6 @@ def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
         bootstrap_token=args.bootstrap_token,
         bootstrap_url=args.bootstrap_url,
     )
-
-
-def _resolve_bridge_token(config: BridgeConfig) -> str | None:
-    if config.bootstrap_token:
-        token = config.bootstrap_token.strip()
-        return token if token else None
-    if config.bootstrap_url:
-        return extract_token_from_bootstrap_url(config.bootstrap_url)
-    return None
 
 
 async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
@@ -160,7 +146,12 @@ async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
 
 
 async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
-    token = _resolve_bridge_token(config)
+    token: str | None = None
+    if config.bootstrap_token:
+        trimmed_token = config.bootstrap_token.strip()
+        token = trimmed_token if trimmed_token else None
+    elif config.bootstrap_url:
+        token = extract_token_from_bootstrap_url(config.bootstrap_url)
     if token:
         cookie_header = await _consume_bootstrap_token(config.backend_url, token)
         return {"Cookie": cookie_header}
