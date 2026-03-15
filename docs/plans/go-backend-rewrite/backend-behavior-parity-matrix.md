@@ -5,7 +5,7 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `d168a889ca0e8dff4d6ce2dd2e18a47dab8e134e`
+- Target head: `8d8dc54275264acf2074f1246946bb1902350396`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -27,9 +27,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `163`
+- Rows audited in this pass: `164`
 - Status counts:
-  - `Proved`: `158`
+  - `Proved`: `159`
   - `Intentional divergence`: `5`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
@@ -51,6 +51,9 @@ Last audited: `2026-03-16`
     `setTypeErrorIgnore` now lives on the project-mutation route stack so IDE
     callers keep the existing behavior and deployment/share callers follow the
     source param-change policy and overlay semantics
+  - `internal/gitread/service.go`: git status responses now include the
+    source-style `worktrees` list again, including current/prunable metadata,
+    and the generated frontend bindings expose that contract to the git pane
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -120,7 +123,7 @@ Last audited: `2026-03-16`
   - artifact listener-update validation/conflict-strategy/image/chart-data
     edge-case rows beyond the import/update/delete/share-overlay subset audited
     here
-  - git status truncation/worktree/deployment-mode-detail rows and broader
+  - git status truncation/deployment-mode-detail rows and broader
     commit-details/log parsing edge cases beyond the status/diff/log/history
     subset audited here
 
@@ -294,6 +297,7 @@ Last audited: `2026-03-16`
 | `artifacts.share.policy_denied_blocks_mutation` | `tests/routers/test_share_artifacts.py::test_share_updates_blocked_by_policy` | `internal/shareartifacts/service.go::requireMutablePolicy`; `internal/httpapi/artifact_routes.go::writeArtifactRouteError` | `TestServiceUpdateRejectsPolicyDenied`; `TestRegisterArtifactRoutesShareModeRejectsPolicyDenied` | share callers still mutate through `RouteUpdateArtifacts` on the Go transport | `Proved` | Share artifact updates still fail closed when the deployment policy disallows mutable artifact overlays. |
 | `git.status.non_repo_returns_empty_non_repo_metadata` | `backend/setta/routers/git.py::_get_repo_root_or_none`; `_build_repo_info` | `internal/gitread/service.go::Status` | `TestServiceStatusReturnsNonRepoMetadataOutsideGitWorkspace`; `TestRegisterGitRoutesReturnsNonRepoStatus` | `RouteGetGitStatus` remains the active transport surface for the git pane | `Proved` | Git status still returns a non-repo payload with empty entries instead of surfacing an error when the workspace is not a git repo. |
 | `git.status.separate_staged_unstaged_untracked_entries` | `tests/routers/test_git_routes.py::test_status_staged_unstaged_untracked`; `backend/setta/routers/git.py::_parse_porcelain_status` | `internal/gitread/service.go::Status`; `parsePorcelainStatus` | `TestServiceStatusParsesStagedUnstagedAndUntrackedEntries`; `TestRegisterGitRoutesReturnsStatusAndDiff`; `TestAppServesGitStatusAndDiffRoutes` | the git pane still reads `RouteGetGitStatus` directly from the Go backend | `Proved` | Status responses still split staged, unstaged, and untracked entries the same way the source git pane expects. |
+| `git.status.worktree_entries_current_and_prunable_flags` | `backend/setta/types/git.py::GetGitStatusResponse`; `tests/routers/test_git_routes.py::test_status_route_returns_typed_worktree_entries`; `...test_status_route_keeps_primary_status_when_worktree_listing_fails` | `internal/gitread/service.go::Status`; `listWorktrees`; `parseWorktreeListPorcelain` | `TestParseWorktreeListPorcelainMarksCurrentAndPrunable`; `TestServiceStatusReturnsTypedWorktrees`; `TestRegisterGitRoutesReturnsTypedWorktrees` | `frontend/src/components/Panes/Overview/Git/GitPane.tsx` still reads `response?.worktrees ?? []`; regenerated `frontend/src/utils/generatedTypes.ts` now restores `GitWorktreeEntry` on `GetGitStatusResponse` | `Proved` | Git status once again returns typed worktree entries, including current and prunable markers, while still falling back to the primary status payload if `git worktree list` fails. |
 | `git.diff.unstaged_staged_and_synthesized_untracked` | `tests/routers/test_git_routes.py::test_diff_unstaged_staged_and_untracked`; `backend/setta/routers/git.py::route_get_git_diff` | `internal/gitread/service.go::Diff`; `synthesizeUntrackedDiff` | `TestServiceDiffReturnsStagedUnstagedAndSynthesizedUntrackedDiffs`; `TestRegisterGitRoutesReturnsStatusAndDiff`; `TestAppServesGitStatusAndDiffRoutes` | `RouteGetGitDiff` remains the active git-diff transport for the frontend | `Proved` | Git diff still returns staged and unstaged diffs for tracked files and still synthesizes a diff for untracked files. |
 | `git.diff.rename_literal_pathspec_and_directory_rejection` | `tests/routers/test_git_routes.py::test_diff_staged_rename_uses_old_path_when_provided`; `...test_diff_treats_special_characters_as_literal_pathspecs`; `...test_diff_rejects_directory_pathspec` | `internal/gitread/service.go::Diff`; `assertSingleFilePathspec`; `normalizeRepoRelativePath` | `TestServiceDiffUsesOldPathForStagedRename`; `TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories`; `TestRegisterGitRoutesUsesOldPathForRenameAndRejectsDirectories` | the same `RouteGetGitDiff` surface still powers rename and single-file diff callers | `Proved` | Git diff still uses the old path to show renames, treats special characters literally, and rejects directory pathspecs. |
 | `git.log.pagination_and_decoration_preservation` | `tests/routers/test_git_routes.py::test_log_pagination_offsets_without_overlap`; `...test_log_preserves_decorations_with_commas_in_ref_names`; `...test_log_falls_back_when_decorate_atom_is_unexpanded` | `internal/gitread/history.go::Log`; decoration fallback helpers | `TestServiceLogPaginatesAndPreservesDecorations` | `RouteGetGitLog` remains the active transport surface for the git graph/history callers | `Proved` | Git log pagination still advances without overlap and still preserves ref decorations even when git’s decorate atom needs fallback parsing. |
