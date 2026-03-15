@@ -1112,6 +1112,41 @@ func TestRegisterRoutesListenerInitMissingProjectSendsListenerError(t *testing.T
 	})
 }
 
+func TestRegisterRoutesListenerInitMissingProjectIDSendsListenerError(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-missing"}}`)); err != nil {
+		t.Fatalf("write listener init missing project id: %v", err)
+	}
+
+	// Explicit missing project ids must fail with the same listener error shape
+	// as the source bootstrap transport rather than silently defaulting.
+	listenerError := readNextMessage(t, conn)
+	assertRouteListenerError(t, listenerError, "project_state_unavailable", map[string]any{
+		"projectConfigId": "project-missing",
+	})
+}
+
 func TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit(t *testing.T) {
 	t.Parallel()
 
@@ -2090,6 +2125,58 @@ func TestRegisterRoutesListenerEndpointCallReturnsUnknownEndpointError(t *testin
 	}, map[string]any{
 		"message": "unknown listener endpoint: missing_listener_endpoint",
 	})
+}
+
+func TestRegisterRoutesListenerEndpointCallRejectsEmptyEndpointName(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	builtInInvoker := &routeBuiltInListenerEndpointInvoker{
+		invoke: func(info ConnectionInfo, endpointName string, payload map[string]any) (any, bool, error) {
+			return map[string]any{"unexpected": true}, true, nil
+		},
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:           hub,
+		ListenerBroadcaster:    broadcaster,
+		BuiltInListenerInvoker: builtInInvoker,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-a","callId":"call-empty","endpointName":"   ","payload":{}}}`)); err != nil {
+		t.Fatalf("write listener router endpoint call with empty endpoint: %v", err)
+	}
+
+	// Empty endpoint names must fail closed before any built-in or plugin
+	// dispatch is attempted.
+	result := readNextMessage(t, conn)
+	assertListenerRouterEndpointResult(t, result, realtime.ListenerRouterEndpointResultContent{
+		ProjectConfigID: "project-a",
+		CallID:          "call-empty",
+		OK:              false,
+		Error:           "listener_call_invalid_operation",
+	}, map[string]any{
+		"message": "endpointName must be non-empty",
+	})
+	if len(builtInInvoker.calls) != 0 {
+		t.Fatalf("expected no built-in dispatch for empty endpoint name, got %#v", builtInInvoker.calls)
+	}
 }
 
 func TestRegisterRoutesListenerClosesOnInvalidRegistration(t *testing.T) {
