@@ -72,13 +72,10 @@ class ShareListenerRuntime:
         base = self._sanitize_module_suffix(self._deployment_root.name)
         return f"setta_share_listener_{base}_{safe_suffix}"
 
-    def _drop_module(self, module: ModuleType) -> None:
-        sys.modules.pop(module.__name__, None)
-
     def _drop_handle(self, key: tuple[str, ID], handle: _ListenerHandle) -> None:
         if key in self._session_handles:
             del self._session_handles[key]
-        self._drop_module(handle.module)
+        sys.modules.pop(handle.module.__name__, None)
 
     async def ensure_listener_for_session(
         self, session_id: str | None, project_config_id: ID
@@ -153,7 +150,7 @@ class ShareListenerRuntime:
         handle = self._session_handles.pop(key)
         handle.listener.stop()
         handle.task.cancel()
-        self._drop_module(handle.module)
+        sys.modules.pop(handle.module.__name__, None)
 
     def drop_session_listener(self, session_id: str) -> None:
         session_keys = [
