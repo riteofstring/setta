@@ -678,7 +678,7 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `MS-01` | `stopLLMChat` cancels the latest running managed run, returns `stoppedRunId`, and reports only the newly interrupted assistant message id instead of reviving historical assistant inputs. | `tests/routers/test_ai_agent_run_chats.py::{test_stop_llm_chat,test_stop_llm_chat_does_not_mark_historical_assistant_from_inputs}`; source route: `backend/setta/routers/ai.py::route_stop_llm_chat`. | Impl: `internal/managedchat/service.go::StopChat`; route mapping: `internal/httpapi/ai_routes.go::stopLLMChatHandler`; proof: `internal/managedchat/service_test.go::{TestServiceStopChatCancelsLatestRunningRun,TestServiceStopChatIgnoresHistoricalAssistantInputs}`; route proof: `internal/httpapi/ai_routes_test.go::TestRegisterAIRoutesStopsManagedChat`. | `Proved` | |
-| `MS-02` | `stopLLMChat` returns `alreadyStopped=true` with nil stop ids when no running managed run remains for the chat. | `tests/routers/test_ai_agent_run_chats.py::test_stop_llm_chat_reports_already_stopped_when_no_running_run`; source route: `backend/setta/routers/ai.py::route_stop_llm_chat`. | Impl: `internal/managedchat/service.go::StopChat`; partial proof: `internal/managedchat/service_test.go::TestServiceStopChatReturnsAlreadyStoppedWhenNoRunningRun`; caller proof: `frontend/src/state/actions/aiStopProjectChat.test.ts::it("restores optimistic interruption markers when stop reports already stopped", ...)`. | `Implemented, proof incomplete` | The current Go service returns the source-shaped payload, but this slice does not yet include a direct Go HTTP route test for the already-stopped transport branch. |
+| `MS-02` | `stopLLMChat` returns `alreadyStopped=true` with nil stop ids when no running managed run remains for the chat. | `tests/routers/test_ai_agent_run_chats.py::test_stop_llm_chat_reports_already_stopped_when_no_running_run`; source route: `backend/setta/routers/ai.py::route_stop_llm_chat`. | Impl/proof: `internal/managedchat/service.go::StopChat`; `internal/managedchat/service_test.go::TestServiceStopChatReturnsAlreadyStoppedWhenNoRunningRun`; route proof: `internal/httpapi/ai_routes_test.go::TestRegisterAIRoutesStopManagedChatReturnsAlreadyStoppedWhenNoRunningRunRemains`; caller proof: `frontend/src/state/actions/aiStopProjectChat.test.ts::it("restores optimistic interruption markers when stop reports already stopped", ...)`. | `Proved` | |
 
 ## External Agent Responses
 
@@ -1159,7 +1159,7 @@ It covers:
     OpenAPI-schema row (`TS-12`), and four more proof-gap clusters
     (`TS-02`, `TS-04`, `TS-07`, `TS-11`).
 14. The chat-hydration / managed-stop / external-response slice now closes its
-    real behavior gaps and retains two proof-gap clusters (`AH-02`, `MS-02`).
+    real behavior gaps and retains one proof-gap cluster (`AH-02`).
 15. The AI-follow / external-run-stop / agent-run-read slice now closes with
     proofs and adds no new real behavior gap.
 16. The managed-agent-run slice mostly closes with proofs, but it adds one
@@ -1270,8 +1270,8 @@ It covers:
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
       (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),
       the new plugin proof gap (`PL-08`), and the new transcription proof gaps (`TS-02`, `TS-04`,
-      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gaps (`AH-02`,
-      `MS-02`), plus the new chat-section proof gap (`CS-06`), plus the new
+      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gap (`AH-02`),
+      plus the new chat-section proof gap (`CS-06`), plus the new
       project-chat-windowing proof gaps (`CW-02`, `CW-06`), plus the new
       managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps

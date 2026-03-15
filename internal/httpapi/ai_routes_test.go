@@ -4240,6 +4240,39 @@ func TestRegisterAIRoutesStopsManagedChat(t *testing.T) {
 	}
 }
 
+// The stop route should preserve the source-shaped alreadyStopped transport
+// when the chat has historical runs but nothing is still running.
+func TestRegisterAIRoutesStopManagedChatReturnsAlreadyStoppedWhenNoRunningRunRemains(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	fixture.seedManagedHydrationRun(t)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStopLLMChat,
+		strings.NewReader(`{"chatId":"chat-managed"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload managedchat.StopResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode already-stopped managed chat response: %v", err)
+	}
+	if !payload.AlreadyStopped {
+		t.Fatalf("expected alreadyStopped response, got %#v", payload)
+	}
+	if payload.StoppedRunID != nil || payload.StoppedMessageID != nil {
+		t.Fatalf("expected nil stop ids for alreadyStopped response, got %#v", payload)
+	}
+}
+
 func newAIRouteTestHandler(t *testing.T, mode config.Mode, managed *managedchat.Service, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime, follows ...*externalagents.FollowService) http.Handler {
 	t.Helper()
 
