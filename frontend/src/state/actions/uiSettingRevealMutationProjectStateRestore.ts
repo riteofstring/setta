@@ -1,7 +1,7 @@
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { restoreBackendAuthoritativeActiveSectionIds } from "./activeSections";
-import { areStringArraysEqual } from "./uiSettingRevealActivation";
+import { areStringArraysEqual } from "./uiSettingRevealActivationShared";
 import {
   isRevealMutationOwnerMatch,
   revealMutationOwners,

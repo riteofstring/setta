@@ -1,10 +1,5 @@
 import type { UISettingRevealTarget } from "utils/generatedTypes";
 import {
-  applyRequestedActiveSectionForReveal,
-  applyRevealActivationSteps,
-  openPaneForRevealTarget,
-} from "./uiSettingRevealActivation";
-import {
   buildRevealMutationFailureResult,
   captureRevealLocalStorageSnapshot,
   captureRevealProjectStateSnapshot,
@@ -20,10 +15,15 @@ import type {
   RevealMutationResult,
 } from "./uiSettingRevealMutationTypes";
 import {
+  applyRequestedActiveSectionForReveal,
+  openPaneForRevealTarget,
+} from "./uiSettingRevealPaneActivation";
+import {
   buildExecutionContextMismatchStatus,
   resolveRevealExecutionMismatch,
   type UISettingRevealExecutionContext,
 } from "./uiSettingRevealShared";
+import { applyRevealActivationSteps } from "./uiSettingRevealStepActivation";
 
 export type {
   RevealMutationDiff,

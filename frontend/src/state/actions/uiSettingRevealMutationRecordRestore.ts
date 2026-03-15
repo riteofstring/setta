@@ -1,4 +1,4 @@
-import { areStringArraysEqual } from "./uiSettingRevealActivation";
+import { areStringArraysEqual } from "./uiSettingRevealActivationShared";
 import { isRevealMutationOwnerMatch } from "./uiSettingRevealMutationOwnership";
 
 export function revertStringArrayRecordEntryIfOwned({

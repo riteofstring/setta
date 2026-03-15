@@ -259,7 +259,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   still owns project-state active-section rollback,
   `uiSettingRevealMutationRestore.ts` is still the thin restore orchestrator,
   `uiSettingRevealMutationSnapshots.ts` is still the compatibility facade,
-  `uiSettingRevealActivation.ts` owns pane/accordion activation writes,
+  `uiSettingRevealPaneActivation.ts` now owns requested active-section
+  selection plus pane-opening writes,
+  `uiSettingRevealStepActivation.ts` now owns watch-code portal, accordion,
+  and project-chat-aux activation writes,
+  `uiSettingRevealActivation.ts` is now the thin compatibility facade,
+  `uiSettingRevealActivationShared.ts` now owns shared activation helpers,
   `uiSettingRevealDom.ts` owns anchor lookup and highlighting, and
   `uiSettingRevealShared.ts` owns execution-context/status helpers.
 - `frontend/src/state/actions/keyActivations.ts` is now a 284-line listener
@@ -290,11 +295,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/uiSettingRevealActivation.ts` at 307 lines
+  - `frontend/src/state/hooks/artifacts.ts` at 446 lines
+  - `frontend/src/state/hooks/terminals/terminalSessions.ts` at 353 lines
+  - `frontend/src/state/hooks/sectionMinMaxDims.ts` at 316 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
-  - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
-  - `frontend/src/state/actions/aiTranscription.ts` at 300 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -505,7 +510,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealMutationCapture.ts` for snapshot capture plus failure-result assembly
   - `uiSettingRevealMutationRestore.ts` as the thin restore orchestrator
   - `uiSettingRevealMutationSnapshots.ts` as the compatibility facade
-  - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
+  - `uiSettingRevealPaneActivation.ts` for requested active-section selection plus pane-opening writes
+  - `uiSettingRevealStepActivation.ts` for watch-code portal, accordion, and project-chat-aux activation writes
+  - `uiSettingRevealActivation.ts` as the thin compatibility facade
+  - `uiSettingRevealActivationShared.ts` for shared activation helpers
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
 - `stateMachineRuns.ts` and adjacent helpers now split into:

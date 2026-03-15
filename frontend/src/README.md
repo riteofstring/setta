@@ -493,9 +493,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns project-state active-section rollback, and
     `uiSettingRevealMutationRestore.ts` is now the thin restore orchestrator.
   - `state/actions/uiSettingRevealMutationSnapshots.ts` is now the
-    compatibility facade, `uiSettingRevealActivation.ts` owns pane activation
-    writes, `uiSettingRevealDom.ts` owns DOM anchor/highlight behavior, and
-    `uiSettingRevealShared.ts` owns execution-status helpers.
+    compatibility facade, `uiSettingRevealPaneActivation.ts` owns requested
+    active-section selection plus pane-opening writes,
+    `uiSettingRevealStepActivation.ts` owns watch-code portal, accordion, and
+    project-chat-aux activation writes, `uiSettingRevealActivation.ts` is now
+    the thin compatibility facade, `uiSettingRevealActivationShared.ts` owns
+    shared activation helpers, `uiSettingRevealDom.ts` owns DOM
+    anchor/highlight behavior, and `uiSettingRevealShared.ts` owns
+    execution-status helpers.
   - `state/hooks/sectionMinMaxDims.ts` owns section sizing-policy reads plus
     measured min/max dimension derivation for section surfaces.
   - `state/hooks/sectionScrollability.ts` owns the shared overflow observer used
