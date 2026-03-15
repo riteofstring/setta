@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from setta.agentic.chat_names import create_new_chat_name
 from setta.agentic.chat_view import (
@@ -85,7 +85,20 @@ class AgentRunChatStore(ChatStore):
             raw_name = run.outputs.get("name") if run.outputs else None
             name = raw_name if isinstance(raw_name, str) else None
             if name is None:
-                messages = _parse_run_messages(run)
+                raw_messages = (
+                    run.outputs.get("messages")
+                    if run.outputs and isinstance(run.outputs.get("messages"), list)
+                    else (
+                        run.inputs.get("messages")
+                        if run.inputs and isinstance(run.inputs.get("messages"), list)
+                        else None
+                    )
+                )
+                messages = (
+                    [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
+                    if raw_messages
+                    else []
+                )
                 name = derive_chat_name(messages)
             if run.outputs:
                 raw_last_updated = run.outputs.get("lastUpdated")
@@ -167,7 +180,20 @@ class AgentRunChatStore(ChatStore):
         run = load_agent_run(self.dbe, chat_id)
         if run is None or not is_scriptable_chat_run(run):
             return None
-        existing = _parse_run_messages(run)
+        raw_messages = (
+            run.outputs.get("messages")
+            if run.outputs and isinstance(run.outputs.get("messages"), list)
+            else (
+                run.inputs.get("messages")
+                if run.inputs and isinstance(run.inputs.get("messages"), list)
+                else None
+            )
+        )
+        existing = (
+            [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
+            if raw_messages
+            else []
+        )
         if not messages:
             return _build_chat_from_run(run)
         existing_ids = {message.id for message in existing}
@@ -214,7 +240,20 @@ def _build_chat_from_run(run: AgentRun) -> Chat | None:
     if not isinstance(raw_llm_config, dict):
         return None
     llm_config = LLMConfig.model_validate(raw_llm_config)
-    messages = _parse_run_messages(run)
+    raw_messages = (
+        run.outputs.get("messages")
+        if run.outputs and isinstance(run.outputs.get("messages"), list)
+        else (
+            run.inputs.get("messages")
+            if run.inputs and isinstance(run.inputs.get("messages"), list)
+            else None
+        )
+    )
+    messages = (
+        [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
+        if raw_messages
+        else []
+    )
     raw_name = run.outputs.get("name") if run.outputs else None
     name = raw_name if isinstance(raw_name, str) else derive_chat_name(messages)
     if run.outputs:
@@ -244,14 +283,3 @@ def _build_chat_from_run(run: AgentRun) -> Chat | None:
         messages=messages,
         systemPrompt=system_prompt,
     )
-
-
-def _parse_run_messages(run: AgentRun) -> list[BaseChatMessageUnion]:
-    raw_messages: list[Any] | None = None
-    if run.outputs and isinstance(run.outputs.get("messages"), list):
-        raw_messages = run.outputs.get("messages")
-    elif run.inputs and isinstance(run.inputs.get("messages"), list):
-        raw_messages = run.inputs.get("messages")
-    if not raw_messages:
-        return []
-    return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
