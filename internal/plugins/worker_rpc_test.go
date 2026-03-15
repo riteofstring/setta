@@ -271,8 +271,6 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 		"fixture-plugin",
 		"--plugin-version",
 		"0.1.0",
-		"--plugin-root",
-		pluginRoot,
 		"--entrypoint",
 		entrypoint,
 	)

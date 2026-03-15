@@ -668,3 +668,11 @@ context instead of feeding a dead Python-side convenience API. This keeps the
 Go runtime's real capability filtering/status tracking intact while narrowing
 the remaining Python worker runtime away from authoring-time introspection
 helpers.
+
+A twenty-ninth follow-up rewrite step removed another dead Python worker
+convenience field. `backend/setta/plugins/worker.py` no longer accepts
+`--plugin-root`, and the Python worker plugin context no longer exposes
+`plugin_root`; the subprocess never used that path for real runtime behavior.
+The Go worker host still keeps the plugin root in its own worker context for
+relative path resolution, but the Python subprocess/test wiring no longer feeds
+that dead authoring-only field into the worker process.

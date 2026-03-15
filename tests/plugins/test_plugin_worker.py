@@ -32,8 +32,6 @@ def _start_worker(
         manifest["id"],
         "--plugin-version",
         manifest["version"],
-        "--plugin-root",
-        str(plugin_root),
         "--entrypoint",
         str(entrypoint),
     ]
@@ -136,7 +134,6 @@ def test_worker_state_initializes_async_loop_lazily(tmp_path: Path) -> None:
     state = _WorkerState(
         plugin_id="setta-fixture-backend",
         plugin_version="0.1.0",
-        plugin_root=tmp_path,
         entrypoint_path=tmp_path / "entrypoint.py",
     )
     assert state._async_loop is None
@@ -504,8 +501,6 @@ def test_worker_cli_rejects_missing_identity_args(
     expected_message: str,
 ) -> None:
     # Worker startup should fail fast when plugin id/version args are blank.
-    plugin_root = tmp_path / "plugin-root"
-    plugin_root.mkdir(parents=True, exist_ok=True)
     entrypoint = tmp_path / "entrypoint.py"
     entrypoint.write_text("def register(plugin):\n    return None\n", encoding="utf-8")
 
@@ -518,8 +513,6 @@ def test_worker_cli_rejects_missing_identity_args(
             plugin_id,
             "--plugin-version",
             plugin_version,
-            "--plugin-root",
-            str(plugin_root),
             "--entrypoint",
             str(entrypoint),
         ],
@@ -535,8 +528,6 @@ def test_worker_cli_rejects_missing_identity_args(
 
 def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
     # Worker startup should fail when backend entrypoint path does not exist.
-    plugin_root = tmp_path / "plugin-root"
-    plugin_root.mkdir(parents=True, exist_ok=True)
     missing_entrypoint = tmp_path / "missing-entrypoint.py"
 
     completed = subprocess.run(
@@ -548,8 +539,6 @@ def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
             "setta-fixture-backend",
             "--plugin-version",
             "0.1.0",
-            "--plugin-root",
-            str(plugin_root),
             "--entrypoint",
             str(missing_entrypoint),
         ],

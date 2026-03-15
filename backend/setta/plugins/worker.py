@@ -157,7 +157,6 @@ class _WorkerRouteHandler:
 class _WorkerState:
     plugin_id: str
     plugin_version: str
-    plugin_root: Path
     entrypoint_path: Path
     module: Any | None = None
     route_handlers: dict[str, _WorkerRouteHandler] = field(default_factory=dict)
@@ -1552,7 +1551,6 @@ class _WorkerBackendPluginContext:
         self._state = state
         self._host_call = host_call
         self.plugin_id = state.plugin_id
-        self.plugin_root = state.plugin_root
 
     def register_router(self, router: Any, *, prefix: str | None = None) -> None:
         self._state._register_router(router, prefix=prefix, host_call=self._host_call)
@@ -1719,7 +1717,6 @@ def main() -> int:
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--plugin-id")
     parser.add_argument("--plugin-version")
-    parser.add_argument("--plugin-root")
     parser.add_argument("--entrypoint")
     args = parser.parse_args()
 
@@ -1728,7 +1725,6 @@ def main() -> int:
 
     plugin_id = str(args.plugin_id).strip()
     plugin_version = str(args.plugin_version).strip()
-    plugin_root = Path(args.plugin_root).expanduser().resolve(strict=False)
     entrypoint_path = Path(args.entrypoint).expanduser().resolve(strict=False)
 
     if not plugin_id:
@@ -1773,7 +1769,6 @@ def main() -> int:
     state = _WorkerState(
         plugin_id=plugin_id,
         plugin_version=plugin_version,
-        plugin_root=plugin_root,
         entrypoint_path=entrypoint_path,
     )
     host_rpc_caller = _HostRpcCaller()

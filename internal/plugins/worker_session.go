@@ -80,8 +80,6 @@ func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
 		pluginID,
 		"--plugin-version",
 		pluginVersion,
-		"--plugin-root",
-		pluginRoot,
 		"--entrypoint",
 		entrypoint,
 	)
