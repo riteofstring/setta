@@ -4589,3 +4589,35 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/shareSessionState.ts` so share-session
     bootstrap and deployment-mode initialization stop living beside cached
     session reuse and cookie/session-storage reads.
+
+## 2026-03-15 12:29:12 PDT
+
+- Slice completed: split share-session stored state and bootstrap flows
+- Key files touched:
+  - `frontend/src/state/actions/shareSessionStoredState.ts`
+  - `frontend/src/state/actions/shareSessionBootstrap.ts`
+  - `frontend/src/state/actions/shareSessionState.ts`
+  - `frontend/src/state/actions/shareSessionStoredState.test.ts`
+  - `frontend/src/state/actions/shareSessionBootstrap.test.ts`
+  - `frontend/src/state/actions/share.ts`
+  - `frontend/src/state/actions/shareProjectConfig.ts`
+  - `frontend/src/state/actions/shareProjectConfig.test.ts`
+  - `frontend/src/state/actions/websocketShareSessionRecovery.ts`
+  - `frontend/src/state/actions/websocketShareSessionRecovery.test.ts`
+  - `frontend/src/state/hooks/share.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/shareSessionStoredState.test.ts src/state/actions/shareSessionBootstrap.test.ts src/state/actions/shareProjectConfig.test.ts src/state/actions/websocketShareSessionRecovery.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/shareSessionState.ts src/state/actions/shareSessionStoredState.ts src/state/actions/shareSessionBootstrap.ts src/state/actions/shareSessionStoredState.test.ts src/state/actions/shareSessionBootstrap.test.ts src/state/actions/share.ts src/state/actions/shareProjectConfig.ts src/state/actions/shareProjectConfig.test.ts src/state/actions/websocketShareSessionRecovery.ts src/state/actions/websocketShareSessionRecovery.test.ts src/state/hooks/share.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual share-session/state ownership
+    split and did not change frontend rendering behavior.
+- Commit hash:
+  - `4dc318e0b57748aae0e5b6a1a5243c2cc2ae5c45`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/runOrImportCode.ts` so run-vs-import
+    transport selection, loading guards, and follow-up project reload behavior
+    stop sharing one action surface.
