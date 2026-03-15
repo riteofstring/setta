@@ -1,10 +1,12 @@
 package filebrowser
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -243,6 +245,149 @@ func TestServiceReadWriteAndDownloadFlow(t *testing.T) {
 	}
 }
 
+func TestServiceReadFileContentRejectsOversizeAndConcurrentChange(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	smallFilePath := filepath.Join(workspaceRoot, "small.txt")
+	if err := os.WriteFile(smallFilePath, []byte("too large"), 0o644); err != nil {
+		t.Fatalf("write small file: %v", err)
+	}
+
+	maxBytes := int64(4)
+	_, err := service.ReadFileContent(context.Background(), FileContentRequest{
+		Path:     smallFilePath,
+		MaxBytes: &maxBytes,
+	})
+	if err == nil {
+		t.Fatal("expected oversize read to fail")
+	}
+	var routeErr *Error
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorTooLarge {
+		t.Fatalf("expected too_large error, got %#v", err)
+	}
+
+	changingFilePath := filepath.Join(workspaceRoot, "changing.bin")
+	changingFileSize := DefaultMaxFileContentBytes - 2048
+	if err := os.WriteFile(changingFilePath, bytes.Repeat([]byte("x"), int(changingFileSize)), 0o644); err != nil {
+		t.Fatalf("write changing file: %v", err)
+	}
+
+	stopTouches := make(chan struct{})
+	touchStarted := make(chan struct{})
+	go func() {
+		started := false
+		attempt := int64(0)
+		for {
+			select {
+			case <-stopTouches:
+				return
+			default:
+			}
+			attempt += 1
+			mtime := time.Unix(1_730_000_000, attempt).UTC()
+			_ = os.Chtimes(changingFilePath, mtime, mtime)
+			if !started {
+				close(touchStarted)
+				started = true
+			}
+			runtime.Gosched()
+		}
+	}()
+	<-touchStarted
+
+	readLimit := int64(changingFileSize + 1024)
+	_, err = service.ReadFileContent(context.Background(), FileContentRequest{
+		Path:     changingFilePath,
+		MaxBytes: &readLimit,
+	})
+	close(stopTouches)
+	if err == nil {
+		t.Fatal("expected concurrent change read to fail")
+	}
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorConflict {
+		t.Fatalf("expected conflict error, got %#v", err)
+	}
+}
+
+func TestServiceWriteFileContentEnforcesCreateOnlyAndStaleGuards(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, binaryStore, _ := newTestFileBrowserService(t, nil)
+
+	createRef, err := binaryStore.StoreBytes([]byte("created"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store create payload: %v", err)
+	}
+	createdPath := filepath.Join(workspaceRoot, "created.txt")
+	createResult, err := service.WriteFileContent(context.Background(), WriteFileContentRequest{
+		Path:      createdPath,
+		ContentID: createRef.ContentID,
+	})
+	if err != nil {
+		t.Fatalf("create missing file: %v", err)
+	}
+	if createResult.Path != createdPath {
+		t.Fatalf("expected created path %q, got %q", createdPath, createResult.Path)
+	}
+	if payload, err := os.ReadFile(createdPath); err != nil || string(payload) != "created" {
+		t.Fatalf("expected created file contents, got %q err=%v", string(payload), err)
+	}
+
+	_, err = service.WriteFileContent(context.Background(), WriteFileContentRequest{
+		Path:      createdPath,
+		ContentID: createRef.ContentID,
+	})
+	if err == nil {
+		t.Fatal("expected create-only write to reject existing file")
+	}
+	var routeErr *Error
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorConflict {
+		t.Fatalf("expected create-only conflict, got %#v", err)
+	}
+
+	_, err = service.WriteFileContent(context.Background(), WriteFileContentRequest{
+		Path:      createdPath,
+		ContentID: "missing-content-id",
+	})
+	if err == nil {
+		t.Fatal("expected missing binary payload to fail")
+	}
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorBinaryPayloadInvalid {
+		t.Fatalf("expected invalid binary payload error, got %#v", err)
+	}
+
+	stalePath := filepath.Join(workspaceRoot, "stale.txt")
+	if err := os.WriteFile(stalePath, []byte("old"), 0o644); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+	staleInfo, err := os.Stat(stalePath)
+	if err != nil {
+		t.Fatalf("stat stale file: %v", err)
+	}
+	updatedMtime := staleInfo.ModTime().Add(2 * time.Second)
+	if err := os.Chtimes(stalePath, updatedMtime, updatedMtime); err != nil {
+		t.Fatalf("touch stale file: %v", err)
+	}
+	updateRef, err := binaryStore.StoreBytes([]byte("updated"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store update payload: %v", err)
+	}
+	expectedMtimeNs := staleInfo.ModTime().UnixNano()
+	_, err = service.WriteFileContent(context.Background(), WriteFileContentRequest{
+		Path:            stalePath,
+		ContentID:       updateRef.ContentID,
+		ExpectedMtimeNs: &expectedMtimeNs,
+	})
+	if err == nil {
+		t.Fatal("expected stale mtime write to fail")
+	}
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorConflict {
+		t.Fatalf("expected stale mtime conflict, got %#v", err)
+	}
+}
+
 func TestServiceTransferCopyRenamesConflictsAndRejectsNestedMoves(t *testing.T) {
 	t.Parallel()
 
@@ -314,4 +459,37 @@ func TestServiceTransferCopyRenamesConflictsAndRejectsNestedMoves(t *testing.T) 
 	if !strings.Contains(err.Error(), "Cannot move or copy a folder into itself.") || !errors.As(err, &routeErr) || routeErr.Kind != ErrorInvalidRequest {
 		t.Fatalf("expected nested folder rejection, got %#v", err)
 	}
+}
+
+func newTestFileBrowserService(t *testing.T, timeNow func() time.Time) (*Service, string, *binarypayload.Store, string) {
+	t.Helper()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaFilesRoot := filepath.Join(root, "setta_files")
+	runtimeRoot := filepath.Join(root, "runtime-root")
+	globalSettaFilesBase := filepath.Join(root, ".setta", "setta_files")
+	for _, path := range []string{workspaceRoot, settaFilesRoot, runtimeRoot, globalSettaFilesBase} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	binaryStore, err := binarypayload.NewStore(filepath.Join(root, "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:        workspaceRoot,
+		SettaFilesRoot:       settaFilesRoot,
+		RuntimeRoot:          runtimeRoot,
+		GlobalSettaFilesBase: globalSettaFilesBase,
+		BinaryStore:          binaryStore,
+		Sessions:             testSessionProvider{current: &auth.CurrentSession{Secret: []byte("test-secret")}},
+		TimeNow:              timeNow,
+	})
+	if err != nil {
+		t.Fatalf("new file browser service: %v", err)
+	}
+	return service, workspaceRoot, binaryStore, root
 }
