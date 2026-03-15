@@ -466,6 +466,155 @@ func TestLoadRejectsConflictingSettaFilesFlags(t *testing.T) {
 	}
 }
 
+func TestLoadPrefersExplicitSettaFilesRootOverExistingLocalRoot(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	localRoot := filepath.Join(workspaceRoot, "setta_files")
+	explicitRoot := filepath.Join(tmpDir, "state", "setta_files_dev")
+
+	for _, path := range []string{localRoot, explicitRoot, settaHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	cfg, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot:  workspaceRoot,
+			SettaHome:      settaHome,
+			SettaFilesRoot: explicitRoot,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.SettaFilesRoot != explicitRoot {
+		t.Fatalf("expected explicit setta files root %q, got %q", explicitRoot, cfg.Paths.SettaFilesRoot)
+	}
+	if !cfg.Paths.UsesExplicitSettaFiles {
+		t.Fatal("expected explicit setta files root to mark usesExplicitSettaFiles")
+	}
+	if cfg.Paths.ActiveSettaFilesLocation() != "custom" {
+		t.Fatalf("expected active files location custom, got %q", cfg.Paths.ActiveSettaFilesLocation())
+	}
+}
+
+func TestLoadPrefersEnvSettaFilesRootOverExistingLocalRoot(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	localRoot := filepath.Join(workspaceRoot, "setta_files")
+	envRoot := filepath.Join(tmpDir, "state", "setta_files_dev")
+
+	for _, path := range []string{localRoot, envRoot, settaHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	cfg, err := Load(LoadOptions{
+		CWD: workspaceRoot,
+		EnvLookup: testEnv{
+			filesRootEnv: envRoot,
+		}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.SettaFilesRoot != envRoot {
+		t.Fatalf("expected env setta files root %q, got %q", envRoot, cfg.Paths.SettaFilesRoot)
+	}
+	if !cfg.Paths.UsesExplicitSettaFiles {
+		t.Fatal("expected env setta files root to mark usesExplicitSettaFiles")
+	}
+}
+
+func TestLoadExplicitSettaFilesRootBypassesInvalidLocalRootFile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	localRoot := filepath.Join(workspaceRoot, "setta_files")
+	explicitRoot := filepath.Join(tmpDir, "state", "setta_files_dev")
+
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.MkdirAll(explicitRoot, 0o755); err != nil {
+		t.Fatalf("mkdir explicit root: %v", err)
+	}
+	if err := os.WriteFile(localRoot, []byte("not a directory\n"), 0o644); err != nil {
+		t.Fatalf("write invalid local root file: %v", err)
+	}
+
+	cfg, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot:  workspaceRoot,
+			SettaHome:      settaHome,
+			SettaFilesRoot: explicitRoot,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.SettaFilesRoot != explicitRoot {
+		t.Fatalf("expected explicit setta files root %q, got %q", explicitRoot, cfg.Paths.SettaFilesRoot)
+	}
+}
+
+func TestLoadRejectsConflictingEnvSettaFilesRootAndLocation(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	_, err := Load(LoadOptions{
+		CWD: workspaceRoot,
+		EnvLookup: testEnv{
+			filesRootEnv:     filepath.Join(tmpDir, "state", "setta_files_dev"),
+			filesLocationEnv: "global",
+		}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected environment conflict error")
+	}
+	if got := err.Error(); !strings.Contains(got, filesRootEnv) || !strings.Contains(got, filesLocationEnv) {
+		t.Fatalf("expected environment conflict error to mention %s and %s, got %q", filesRootEnv, filesLocationEnv, got)
+	}
+}
+
 func TestLoadRejectsInvalidAutoModeInUserConfig(t *testing.T) {
 	t.Parallel()
 
