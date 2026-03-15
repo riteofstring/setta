@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`70a5b03a1fe3bcdd78c6cb1b334d7485d7e2712e`
+`4f901e6edd4747bcbe5d44b306f0a3480d2e0e0c`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -71,6 +71,7 @@ It currently covers:
 - section chrome/filter/meta-control, child-defaults, and param-selection
   behavior
 - param value/config mutation and section edge-port route behavior
+- section-variant mutation and delete-route behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -139,7 +140,10 @@ Rows outside these slices are still pending.
 - The param-value / param-impl / edge-port slice mostly closes with proofs,
   but it adds one more caller-backed param-write deployment-policy gap, one
   new direct-write proof gap, and two more dormant route-boundary rows.
-- Forty-one concrete parity gaps are already visible:
+- The section-variant slice mostly closes with proofs, but it adds one more
+  caller-backed variant-policy gap, one broader direct-route proof gap, and
+  one more dormant delete-route boundary row.
+- Forty-two concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -1019,15 +1023,26 @@ Rows outside these slices are still pending.
 | `EP-01` | `setSectionEdgeInputs` and `setSectionEdgeOutputs` normalize port definitions through latest-state hydration: added edge-input params convert to `CodeParam`, duplicate ids and padded strings are normalized, removed ports prune matching edges and clear removed target/source values, and `GlobalVariables` shares the same edge-input support. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_section_edge_inputs,set_section_edge_outputs}`; source tests: `tests/types/test_edge_ports_variants.py::{test_edge_ports_are_variant_scoped,test_create_new_variant_copies_edges}`; source project-state test: `tests/project_state/test_edge_output_reapply.py::test_set_section_edge_outputs_reapplies_edge_values`. | Impl: `internal/projectstate/edge_io.go::{SetSectionEdgeInputs,SetSectionEdgeOutputs,normalizeSectionEdgeInputs,normalizeSectionEdgeOutputs}`; proof: `internal/projectstate/edge_io_test.go::{TestRuntimeSetSectionEdgeInputsConvertsAddedParamAndRemovesDeletedEdges,TestRuntimeSetSectionEdgeInputsSupportsGlobalVariables,TestRuntimeSetSectionEdgeOutputsTrimsPortsAndRemovesDeletedEdges}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionEdgeMutationsPersistLatestState,TestRegisterProjectRoutesSectionEdgeMutationsRejectInvalidInputs}`. | `Proved` | Current Go route proof also covers the typed `404 param_info_not_found` and `422 section_edge_io_unsupported` transport branches for invalid edge-port writes. |
 | `EP-02` | Direct HTTP `setSectionEdgeInputs` and `setSectionEdgeOutputs` remain mounted outside IDE and fail closed with deployment-mode param-metadata `403` instead of disappearing entirely. | Source routes: `backend/setta/routers/project_manager.py::{route_set_section_edge_inputs,route_set_section_edge_outputs}`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current callers in `frontend/src/components/Section/SectionParts/KwargsControls.tsx` and `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx` already guard the controls with `canEditStructure`, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source/current transport delta is real, but this slice does not yet prove a surviving deployment/share caller still needs the direct route-presence contract. |
 
+## Section Variant Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `SV-01` | `createNewSectionVariant` duplicates the active section variant into a new variant: it clones non-preset section/code-object state, copies variant-scoped edge wiring, and selects the new variant in `sectionVariantMap`. | Source helper: `backend/setta/types/helpers_lvl2.py::create_new_section_variant`; source manager method: `backend/setta/project_state/base_project_manager.py::create_new_section_variant`; source tests: `tests/types/test_edge_ports_variants.py::{test_edge_ports_are_variant_scoped,test_create_new_variant_copies_edges}`. | Impl: `internal/projectstate/section_variant_creation.go::CreateNewSectionVariant`; proof: `internal/projectstate/section_variant_creation_test.go::{TestProjectCreateNewSectionVariantDuplicatesParamVariantStateAndEdges,TestProjectCreateNewSectionVariantReusesPresetImplsAndVariantOverrides}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSectionVariantMutationsPersistLatestState`. | `Proved` | The current Go runtime proof is slightly stronger than the pinned source tests because it also checks preset-impl reuse and cloned code-object variant state. |
+| `SV-02` | `setSectionVariant`, `setDefaultSectionVariant`, and `setSectionVariantSortOrder` persist the active/default/order state for a section, while the sort-order route family preserves the source `404` / `422` transport mapping for missing sections, missing variants, and duplicate ids. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_section_variant,set_default_section_variant}`; source manager method: `backend/setta/project_state/base_project_manager.py::set_section_variant_sort_order`; source tests: `tests/project_state/test_project_config_view_modes.py::{test_set_section_variant_sort_order_rejects_duplicate_ids,test_set_section_variant_sort_order_raises_for_missing_section}`; source route tests: `tests/routers/test_project_manager_sort_order_routes.py::{test_set_section_variant_sort_order_maps_value_error_to_http_422,test_set_section_variant_sort_order_maps_key_error_to_http_404,test_set_section_variant_sort_order_maps_missing_section_to_http_404}`. | Impl: `internal/projectstate/section_variant_selection.go::{SetSectionVariant,SetDefaultSectionVariant,SetSectionVariantSortOrder}`; proof: `internal/projectstate/section_variant_selection_test.go::{TestRuntimeSetSectionVariantUpdatesActiveVariantMap,TestRuntimeSetDefaultSectionVariantUpdatesSectionCore,TestRuntimeSetSectionVariantRejectsVariantOutsideSection,TestRuntimeSetSectionVariantSortOrderUpdatesVariantOrder,TestRuntimeSetSectionVariantSortOrderRejectsDuplicateVariantIDs,TestRuntimeSetSectionVariantSortOrderRejectsMissingSection}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionVariantMutationsPersistLatestState,TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs}`. | `Implemented, proof incomplete` | Current Go proves the persisted mutation behavior and the `422 variant_sort_order_invalid` branch, but this slice does not yet cite a direct Go route test for the `404` transport variants on missing sections or missing/non-member variants. |
+| `SV-03` | `setSectionVariantName`, `toggleVariantFrozen`, `toggleVariantJSONSource`, and `setVariantJSONSourceKeys` persist their variant-metadata writes, flip dict-section JSON-source mode/config language, and reject disabled-key-edit or non-dict targets. | Source docs: `docs/reference/json_source_sections.md`; source helpers: `backend/setta/types/helpers_lvl2.py::{set_section_variant_name,toggle_variant_frozen,toggle_variant_json_source,set_variant_json_source_keys}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{set_section_variant_name,toggle_variant_frozen,toggle_variant_json_source,set_variant_json_source_keys}`. | Impl: `internal/projectstate/section_variant_mutations.go::{SetSectionVariantName,ToggleVariantFrozen,ToggleVariantJSONSource,SetVariantJSONSourceKeys}`; proof: `internal/projectstate/section_variant_mutations_test.go::{TestRuntimeSetSectionVariantNameUpdatesVariantMetadata,TestRuntimeToggleVariantFrozenFlipsFrozenFlag,TestRuntimeToggleVariantJSONSourceUpdatesDictPayload,TestRuntimeSetVariantJSONSourceKeysStoresNormalizedKeys,TestRuntimeSetVariantJSONSourceKeysRejectsDisabledEdits,TestRuntimeToggleVariantJSONSourceRejectsNonDictSection}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionVariantMutationsPersistLatestState,TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs}`. | `Proved` | This row is scoped to persisted section-variant metadata and direct-route transport behavior; broader JSON-source watcher/cache refresh behavior remains for a later slice. |
+| `SV-04` | `deleteSectionVariantOrAsk` returns the JSON-source file path for prompt-only deletion, ordinary variant deletion prunes variant-specific edges and code-object state, and `deleteJSONSourceFileAndVariant` deletes the workspace-root file plus variant while rejecting paths outside the workspace root. | Source helper: `backend/setta/types/helpers_lvl2.py::delete_section_variant_or_ask`; source manager methods: `backend/setta/project_state/base_project_manager.py::{delete_section_variant_or_ask,delete_json_source_file_and_variant}`; source detached-workspace test: `tests/routers/test_detached_workspace_root_paths.py::test_delete_json_source_file_deletes_from_workspace_root`. | Impl: `internal/projectstate/section_variant_deletion.go::{DeleteSectionVariantPromptPath,DeleteSectionVariant}`; proof: `internal/projectstate/section_variant_deletion_test.go::{TestProjectDeleteSectionVariantPromptPathReturnsJSONSourceFile,TestProjectDeleteSectionVariantRemovesVariantEdgesAndVariantSpecificState}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesDeleteSectionVariantOrAskReturnsWorkspacePathForJSONSourceVariant,TestRegisterProjectRoutesDeleteSectionVariantOrAskDeletesNonJSONSourceVariant,TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantDeletesWorkspaceFileAndVariant,TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantRejectsPathsOutsideWorkspaceRoot}`. | `Proved` | Current Go route proof covers both the prompt-only JSON-source branch and the filesystem root guard on confirmed file deletion. |
+| `SV-05` | In share/app sessions, the non-delete section-variant mutation family stays mounted behind `allowVariantChanges`: `createNewSectionVariant`, `setSectionVariant`, `setDefaultSectionVariant`, `setSectionVariantSortOrder`, `setSectionVariantName`, `toggleVariantFrozen`, `toggleVariantJSONSource`, and `setVariantJSONSourceKeys` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_create_new_section_variant,route_set_section_variant,route_set_default_section_variant,route_set_section_variant_sort_order,route_set_section_variant_name,route_toggle_variant_frozen,route_toggle_variant_json_source,route_set_variant_json_source_keys}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues those writes from share-aware `canEditVariants` callers via `frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx` and `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx`. | `Missing` | This is an active parity gap: the source/current policy boundary keeps these writes transport-visible under `allowVariantChanges`, but current Go removes the entire family outside IDE while shared variant-edit surfaces still call it. |
+| `SV-06` | In share/app sessions, `deleteSectionVariantOrAsk` and `deleteJSONSourceFileAndVariant` stay transport-visible and fail closed with share-mode `403` instead of disappearing entirely outside IDE. | Source routes: `backend/setta/routers/project_manager.py::{route_delete_section_variant_or_ask,route_delete_json_source_file_and_variant}`; source share-route tests: `tests/routers/test_share_filesystem_routes.py::{test_delete_section_variant_blocked_in_share_mode,test_delete_json_source_variant_blocked_in_share_mode}`. | Current Go mounts both delete routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend variant deletion wiring in `frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx` disables deletion outside IDE/deployment via `allowVariantDeletion = canEditVariants && !isDeploymentMode`, and the modal action helpers live in `frontend/src/state/actions/project/sectionVariants.ts`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active Go-era non-IDE caller still depends on the direct delete-route contract. |
+
 ## Current Findings
 
-1. The matrix now contains forty-one concrete source-parity gaps:
+1. The matrix now contains forty-two concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   and `PV-05`.
+   `PV-05`, and `SV-05`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1144,18 +1159,21 @@ Rows outside these slices are still pending.
     but it adds one real param-write deployment-policy gap (`PV-05`), one
     broader direct-write proof gap (`PV-02`), and two dormant route-boundary
     rows (`PV-06`, `EP-02`).
-38. Git route behavior is now largely proved, including literal pathspec
+38. The section-variant slice mostly closes with proofs, but it adds one real
+    variant-policy gap (`SV-05`), one broader direct-route proof gap
+    (`SV-02`), and one dormant delete-route boundary row (`SV-06`).
+39. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-39. The remaining issues in the naming slice are still mostly proof gaps rather
+40. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-40. The next high-value steps are:
+41. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
-      `VL-07`, `SP-03`, `PA-02`, and `PV-05` should be restored or
+      `VL-07`, `SP-03`, `PA-02`, `PV-05`, and `SV-05` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
@@ -1163,9 +1181,9 @@ Rows outside these slices are still pending.
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
       `LH-04`, `WL-05`, `AS-02`, `SM-04`, `CH-04`, `SD-07`, `SD-08`,
-      `SD-09`, `CS-05`, `CB-05`, `CD-02`, `CD-03`, `PV-06`, and `EP-02` can
-      be treated as fully dead legacy or share-only transports, or still need
-      explicit retained-boundary decisions
+      `SD-09`, `CS-05`, `CB-05`, `CD-02`, `CD-03`, `PV-06`, `EP-02`, and
+      `SV-06` can be treated as fully dead legacy or share-only transports,
+      or still need explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
@@ -1184,6 +1202,7 @@ Rows outside these slices are still pending.
       project-chat-windowing proof gaps (`CW-02`, `CW-06`), plus the new
       managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
-      (`WS-02`, `WS-05`), plus the new param-value proof gap (`PV-02`)
+      (`WS-02`, `WS-05`), plus the new param-value proof gap (`PV-02`), plus
+      the new section-variant proof gap (`SV-02`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
