@@ -58,6 +58,60 @@ func TestProjectSetSectionCodeObjectValueRejectsPasswordParams(t *testing.T) {
 	}
 }
 
+// Direct dropzone value writes should preserve only the configured number of
+// attachments so hydrated latest-state payloads never exceed maxAttachments.
+func TestProjectSetSectionCodeObjectValueTruncatesStatefulDropzoneAttachments(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	if err := project.ChangeParamImpl("meta-section", "meta-param", "DropzoneParam"); err != nil {
+		t.Fatalf("change meta control impl to dropzone: %v", err)
+	}
+	if err := project.UpdateParamImplConfig("meta-section", "meta-param", map[string]any{"maxAttachments": 1}); err != nil {
+		t.Fatalf("set dropzone maxAttachments: %v", err)
+	}
+
+	input := `{"version":1,"attachments":[{"kind":"text","id":"text:first","name":"Dropped text","text":"first"},{"kind":"text","id":"text:second","name":"Dropped text","text":"second"}]}`
+	if err := project.SetSectionCodeObjectValue("meta-section", "meta-param", input); err != nil {
+		t.Fatalf("set dropzone value: %v", err)
+	}
+
+	payload, _, _, _, err := project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve dropzone param: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != `{"attachments":[{"id":"text:first","kind":"text","name":"Dropped text","text":"first"}],"version":1}` {
+		t.Fatalf("expected truncated dropzone payload, got %q", got)
+	}
+}
+
+// Stateless dropzones should discard uploaded payload JSON on direct writes so
+// state only reflects the stateless transport contract.
+func TestProjectSetSectionCodeObjectValueClearsStatelessDropzoneValue(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	if err := project.ChangeParamImpl("meta-section", "meta-param", "DropzoneParam"); err != nil {
+		t.Fatalf("change meta control impl to dropzone: %v", err)
+	}
+	if err := project.UpdateParamImplConfig("meta-section", "meta-param", map[string]any{"mode": "STATELESS"}); err != nil {
+		t.Fatalf("set dropzone mode stateless: %v", err)
+	}
+
+	input := `{"version":1,"attachments":[{"kind":"text","id":"text:first","name":"Dropped text","text":"first"}]}`
+	if err := project.SetSectionCodeObjectValue("meta-section", "meta-param", input); err != nil {
+		t.Fatalf("set stateless dropzone value: %v", err)
+	}
+
+	payload, _, _, _, err := project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve stateless dropzone param: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "" {
+		t.Fatalf("expected stateless dropzone value to clear, got %q", got)
+	}
+}
+
 func TestProjectSetTypeErrorIgnorePersistsCallableAndParamFlags(t *testing.T) {
 	t.Parallel()
 
