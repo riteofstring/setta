@@ -260,6 +260,63 @@ func TestRunConnectRejectsConflictingSettaFilesInputs(t *testing.T) {
 	}
 }
 
+func TestRunConnectValidationRejectsInvalidFlagCombinations(t *testing.T) {
+	testCases := []struct {
+		name           string
+		args           []string
+		wantErrMessage string
+	}{
+		{
+			name:           "missing_ssh_target",
+			args:           []string{"connect", "--workspace", "/remote/workspace"},
+			wantErrMessage: "connect requires <ssh_target>",
+		},
+		{
+			name:           "extra_positional_argument",
+			args:           []string{"connect", "user@host", "--workspace", "/remote/workspace", "extra"},
+			wantErrMessage: "connect accepts flags after a single ssh_target, not additional positional arguments",
+		},
+		{
+			name:           "conflicting_session_and_latest",
+			args:           []string{"connect", "user@host", "--workspace", "/remote/workspace", "--session", "session-a", "--latest"},
+			wantErrMessage: "Use either --session or --latest, not both.",
+		},
+		{
+			name:           "conflicting_detach_and_print_only",
+			args:           []string{"connect", "user@host", "--workspace", "/remote/workspace", "--detach", "--print-only"},
+			wantErrMessage: "Use either --detach or --print-only, not both.",
+		},
+		{
+			name:           "invalid_local_port",
+			args:           []string{"connect", "user@host", "--workspace", "/remote/workspace", "--local-port", "70000"},
+			wantErrMessage: "Invalid local port: 70000",
+		},
+		{
+			name:           "missing_workspace",
+			args:           []string{"connect", "user@host", "--latest"},
+			wantErrMessage: "--workspace is required for SSH connect",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			stdout, stderr, err := runCLIWithOSEnv(t.TempDir(), testCase.args...)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			if strings.TrimSpace(stdout) != "" {
+				t.Fatalf("expected empty stdout, got %q", stdout)
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+			if err.Error() != testCase.wantErrMessage {
+				t.Fatalf("expected %q, got %q", testCase.wantErrMessage, err.Error())
+			}
+		})
+	}
+}
+
 func readTunnelMetadataForSettacli(t *testing.T, path string) sshx.TunnelMetadata {
 	t.Helper()
 

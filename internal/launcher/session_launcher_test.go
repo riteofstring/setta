@@ -92,3 +92,36 @@ func TestLocalIDESessionLauncherLaunchEnvClearsInheritedAuthCookieName(t *testin
 		t.Fatalf("expected only unrelated env entries to remain, got %#v", env)
 	}
 }
+
+func TestLocalIDESessionLauncherLaunchEnvClearsInheritedRuntimeIdentityVars(t *testing.T) {
+	t.Parallel()
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		Env: []string{
+			"PATH=/usr/bin",
+			"SETTA_WORKSPACE_ROOT=/tmp/workspace",
+			"SETTA_HOME=/tmp/.setta",
+			"SETTA_PROFILE_LOOKUP_HOME=/tmp/.profiles",
+			"SETTA_RUNTIME_ROOT=/tmp/runtime",
+			"SETTA_FILES_ROOT=/tmp/files",
+			"SETTA_FILES_LOCATION=local",
+			"SETTA_PROFILE=dev",
+			"SETTA_SERVER_MODE=launcher",
+			"SETTA_SESSION_ID=session-a",
+			"SETTA_SESSIONS_ROOT=/tmp/runtime/sessions",
+			"OTHER=value",
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	env := launcher.launchEnv()
+	if len(env) != 2 {
+		t.Fatalf("expected only unrelated env entries to remain, got %#v", env)
+	}
+	if env[0] != "PATH=/usr/bin" || env[1] != "OTHER=value" {
+		t.Fatalf("unexpected filtered env %#v", env)
+	}
+}

@@ -179,6 +179,63 @@ func TestSelectRemoteStopTargetsReturnsSessionNotFoundError(t *testing.T) {
 	}
 }
 
+func TestRunStopRemoteValidationRejectsInvalidFlagCombinations(t *testing.T) {
+	testCases := []struct {
+		name           string
+		args           []string
+		wantErrMessage string
+	}{
+		{
+			name:           "missing_ssh_target",
+			args:           []string{"stop", "--workspace", "/remote/workspace"},
+			wantErrMessage: "local stop is not implemented in cmd/setta-cli yet; provide <ssh_target> for remote stop",
+		},
+		{
+			name:           "extra_positional_argument",
+			args:           []string{"stop", "user@host", "--workspace", "/remote/workspace", "extra"},
+			wantErrMessage: "stop accepts flags after a single ssh_target, not additional positional arguments",
+		},
+		{
+			name:           "conflicting_session_and_latest",
+			args:           []string{"stop", "user@host", "--workspace", "/remote/workspace", "--session", "session-a", "--latest"},
+			wantErrMessage: "use either --session or --latest, not both",
+		},
+		{
+			name:           "all_with_selector",
+			args:           []string{"stop", "user@host", "--workspace", "/remote/workspace", "--all", "--session", "session-a"},
+			wantErrMessage: "use --all by itself",
+		},
+		{
+			name:           "missing_workspace",
+			args:           []string{"stop", "user@host", "--latest"},
+			wantErrMessage: "--workspace is required for remote stop",
+		},
+		{
+			name:           "invalid_server_mode",
+			args:           []string{"stop", "user@host", "--workspace", "/remote/workspace", "--server-mode", "share"},
+			wantErrMessage: `invalid --server-mode "share"`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			stdout, stderr, err := runCLIWithOSEnv(t.TempDir(), testCase.args...)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			if strings.TrimSpace(stdout) != "" {
+				t.Fatalf("expected empty stdout, got %q", stdout)
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+			if err.Error() != testCase.wantErrMessage {
+				t.Fatalf("expected %q, got %q", testCase.wantErrMessage, err.Error())
+			}
+		})
+	}
+}
+
 func runCLIWithOSEnv(cwd string, args ...string) (string, string, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

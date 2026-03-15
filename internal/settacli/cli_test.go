@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"setta/internal/auth"
+	"setta/internal/frontendorigins"
 	"setta/internal/httpapi"
 	"setta/internal/localsessions"
 	"setta/internal/mcpx"
@@ -88,6 +89,130 @@ func TestRunStatusConnectInfoJSONAcceptsWorkspaceShortAlias(t *testing.T) {
 	sessionPayload := payload["session"].(map[string]any)
 	if sessionPayload["id"] != session.ID {
 		t.Fatalf("expected session id %q, got %#v", session.ID, sessionPayload["id"])
+	}
+}
+
+func TestRunStatusValidationRejectsInvalidCommandShapes(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+
+	testCases := []struct {
+		name           string
+		args           []string
+		wantErrMessage string
+	}{
+		{
+			name:           "missing_mode_selection",
+			args:           []string{"status"},
+			wantErrMessage: "use --connect-info to print session details",
+		},
+		{
+			name:           "list_sessions_requires_json",
+			args:           []string{"status", "--list-sessions"},
+			wantErrMessage: "use --json with --list-sessions",
+		},
+		{
+			name:           "conflicting_session_and_latest",
+			args:           []string{"status", "--connect-info", "--session", "session-a", "--latest"},
+			wantErrMessage: "use either --session or --latest, not both",
+		},
+		{
+			name: "invalid_server_mode",
+			args: []string{
+				"--workspace", fixture.workspaceRoot,
+				"--setta-home", fixture.settaHome,
+				"status",
+				"--connect-info",
+				"--server-mode", "share",
+			},
+			wantErrMessage: `invalid --server-mode "share"`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			stdout, stderr, err := fixture.run(testCase.args...)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			if strings.TrimSpace(stdout) != "" {
+				t.Fatalf("expected empty stdout, got %q", stdout)
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+			if err.Error() != testCase.wantErrMessage {
+				t.Fatalf("expected %q, got %q", testCase.wantErrMessage, err.Error())
+			}
+		})
+	}
+}
+
+func TestRunStatusConnectInfoJSONLauncherOriginIncludesNormalizedOriginAndProof(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, _, err := fixture.run(
+		"--workspace", fixture.workspaceRoot,
+		"--setta-home", fixture.settaHome,
+		"status",
+		"--connect-info",
+		"--json",
+		"--launcher-origin", "http://127.0.0.1:9001/launch?ignored=1",
+	)
+	if err != nil {
+		t.Fatalf("run status connect-info with launcher origin: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+	if payload["launcherOrigin"] != "http://127.0.0.1:9001" {
+		t.Fatalf("unexpected normalized launcher origin %#v", payload["launcherOrigin"])
+	}
+	proof, ok := payload["launcherOriginProof"].(string)
+	if !ok || strings.TrimSpace(proof) == "" {
+		t.Fatalf("expected launcher origin proof, got %#v", payload["launcherOriginProof"])
+	}
+
+	secret, err := fixture.registry.LoadSecret(session)
+	if err != nil {
+		t.Fatalf("load session secret: %v", err)
+	}
+	if !frontendorigins.ValidateLauncherOriginHandoffProof(session.ID, "http://127.0.0.1:9001", proof, secret) {
+		t.Fatalf("expected launcher origin proof to validate for session %q", session.ID)
+	}
+}
+
+func TestRunStatusRejectsInvalidLauncherOrigin(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	_ = fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace", fixture.workspaceRoot,
+		"--setta-home", fixture.settaHome,
+		"status",
+		"--connect-info",
+		"--json",
+		"--launcher-origin", "not-an-origin",
+	)
+	if err == nil {
+		t.Fatal("expected invalid launcher-origin error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "--launcher-origin must be an absolute http(s) origin" {
+		t.Fatalf("unexpected error %q", err.Error())
 	}
 }
 
@@ -215,6 +340,26 @@ func TestRunAuthJSONAcceptsWorkspaceShortAlias(t *testing.T) {
 	sessionPayload := payload["session"].(map[string]any)
 	if sessionPayload["id"] != session.ID {
 		t.Fatalf("expected session id %q, got %#v", session.ID, sessionPayload["id"])
+	}
+}
+
+func TestRunAuthRejectsConflictingSessionAndLatestSelectors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+
+	stdout, stderr, err := fixture.run("auth", "--session", "session-a", "--latest")
+	if err == nil {
+		t.Fatal("expected selector conflict")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "use either --session or --latest, not both" {
+		t.Fatalf("unexpected error %q", err.Error())
 	}
 }
 
@@ -573,6 +718,107 @@ func TestRunAPIRequestErrorJSONContract(t *testing.T) {
 	}
 }
 
+func TestRunAPIValidationRejectsInvalidInputShapesAndIncompleteExplicitAuth(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+
+	testCases := []struct {
+		name                 string
+		input                string
+		args                 []string
+		writePayloadFile     string
+		writeAuthFile        string
+		wantMessageSubstring string
+	}{
+		{
+			name:                 "conflicting_stdin_sources",
+			input:                `{}`,
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--stdin", "--auth-stdin", "--json-output"},
+			wantMessageSubstring: "use --auth-stdin or --stdin, not both",
+		},
+		{
+			name:                 "multiple_payload_sources",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--json", `{}`, "--file", "__PAYLOAD__", "--json-output"},
+			writePayloadFile:     `{}`,
+			wantMessageSubstring: "use only one of --json, --stdin, or --file",
+		},
+		{
+			name:                 "non_object_payload",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--json", `[]`, "--json-output"},
+			wantMessageSubstring: "tool arguments must be a JSON object",
+		},
+		{
+			name:                 "non_object_auth_json",
+			input:                `[]`,
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-stdin", "--json-output"},
+			wantMessageSubstring: "auth JSON must be an object",
+		},
+		{
+			name:                 "malformed_cookie_value",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--cookie", "raw-cookie", "--base-url", "http://127.0.0.1:8000", "--json-output"},
+			wantMessageSubstring: "cookie must be provided in name=value form",
+		},
+		{
+			name:                 "auth_json_missing_cookie_fields",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-json", "__AUTH__", "--json-output"},
+			writeAuthFile:        `{"baseUrl":"http://127.0.0.1:8000"}`,
+			wantMessageSubstring: "auth JSON missing cookieHeader/cookie fields",
+		},
+		{
+			name:                 "cookie_without_base_url_or_session_fails_closed",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--cookie-header", "Cookie: session=value", "--json-output"},
+			wantMessageSubstring: "no matching Setta sessions found",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			args := append([]string(nil), testCase.args...)
+			if testCase.writePayloadFile != "" {
+				payloadPath := filepath.Join(t.TempDir(), "payload.json")
+				if err := os.WriteFile(payloadPath, []byte(testCase.writePayloadFile), 0o644); err != nil {
+					t.Fatalf("write payload file: %v", err)
+				}
+				for i, arg := range args {
+					if arg == "__PAYLOAD__" {
+						args[i] = payloadPath
+					}
+				}
+			}
+			if testCase.writeAuthFile != "" {
+				authPath := filepath.Join(t.TempDir(), "auth.json")
+				if err := os.WriteFile(authPath, []byte(testCase.writeAuthFile), 0o644); err != nil {
+					t.Fatalf("write auth file: %v", err)
+				}
+				for i, arg := range args {
+					if arg == "__AUTH__" {
+						args[i] = authPath
+					}
+				}
+			}
+
+			stdout, stderr, err := fixture.runWithInput(testCase.input, args...)
+			if err == nil {
+				t.Fatal("expected input validation error")
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+			payload := decodeJSONPayload(t, stdout)
+			if payload["error"] != "InputError" {
+				t.Fatalf("unexpected error payload %#v", payload)
+			}
+			message, ok := payload["message"].(string)
+			if !ok || !strings.Contains(message, testCase.wantMessageSubstring) {
+				t.Fatalf("expected message containing %q, got %#v", testCase.wantMessageSubstring, payload["message"])
+			}
+		})
+	}
+}
+
 type cliFixture struct {
 	workspaceRoot  string
 	settaHome      string
@@ -732,6 +978,16 @@ func decodeConnectInfoJSON(t *testing.T, raw string) map[string]any {
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(decoded, &payload); err != nil {
+		t.Fatalf("decode json payload: %v", err)
+	}
+	return payload
+}
+
+func decodeJSONPayload(t *testing.T, raw string) map[string]any {
+	t.Helper()
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &payload); err != nil {
 		t.Fatalf("decode json payload: %v", err)
 	}
 	return payload
