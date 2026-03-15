@@ -6,12 +6,10 @@ from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import ListenerRealtimeDelta
-from setta.websockets.listener_registry import ListenerRegistry
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 
 if TYPE_CHECKING:
-    from setta.websockets.websocket_manager import WebsocketManager
+    from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
 pytestmark = pytest.mark.asyncio
@@ -116,44 +114,3 @@ async def test_emit_realtime_delta_requires_dependency_ids() -> None:
             project_config_id=PROJECT_ID,
             deltas=[],
         )
-
-
-class _StubWebsocketManager:
-    def __init__(self) -> None:
-        self.sent_messages: list[tuple[object, str]] = []
-
-    async def send_message(self, message, websocket_id):
-        self.sent_messages.append((message, websocket_id))
-
-    async def broadcast(self, message, connectionType):
-        raise AssertionError("broadcast should not be used in tests")
-
-
-def _build_force_refresh_sender() -> tuple[_StubWebsocketManager, WMHPythonScriptSender]:
-    websocket_manager = _StubWebsocketManager()
-    listener_registry = ListenerRegistry()
-    sender = WMHPythonScriptSender(
-        cast("WebsocketManager", websocket_manager), listener_registry
-    )
-    return websocket_manager, sender
-
-
-async def test_force_refresh_resets_sequence_tracking() -> None:
-    websocket_manager, sender = _build_force_refresh_sender()
-    hub = RealtimeEventHub(sender)
-
-    delta = ListenerRealtimeDelta(
-        dependency=create_dep_key(sectionId=SECTION_A_ID),
-        value=LiteralDependencyValue("1"),
-    )
-
-    await hub.emit_realtime_delta(
-        project_config_id=PROJECT_ID,
-        deltas=[delta],
-    )
-    assert (PROJECT_ID, None) in hub._sequence_by_project
-
-    await sender.send_force_refresh(projectConfigId=PROJECT_ID)
-
-    assert (PROJECT_ID, None) not in hub._sequence_by_project
-    assert websocket_manager.sent_messages == []

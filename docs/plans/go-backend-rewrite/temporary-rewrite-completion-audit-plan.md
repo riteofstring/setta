@@ -341,6 +341,13 @@ This verdict holds under both of the only reasonable definitions:
   - `internal/plugins` no longer captures backend static-dir registrations
   - `/plugin-static/{pluginId}/...` is no longer part of the active root route
     inventory
+- The old Python listener force-refresh route/sender path is gone:
+  - `backend/setta/routers/project_manager.py` no longer exposes
+    `forceRefreshListener`
+  - `backend/setta/websockets/msg_handlers/python_script_sender.py` no longer
+    owns a duplicate Python `send_force_refresh(...)` transport
+  - the active listener force-refresh caller path remains the Go HTTP route in
+    `internal/httpapi/listener_routes.go`
 
 ### Verified retained Python boundaries
 
@@ -381,8 +388,9 @@ app, the removed backend static-dir path, the old `setta.dev_start` shim, the
 old source-only Python startup/CLI helper surfaces, the legacy Python
 server-state startup path, the legacy Python project-state plugin-codegen
 owner, and the removed plugin language-server runtime/app/UI surface are no
-longer part of that blocker set, and schema-backed plugin UI settings are no
-longer part of that blocker set either.
+longer part of that blocker set, the old Python listener force-refresh
+route/sender path is no longer part of that blocker set, and schema-backed
+plugin UI settings are no longer part of that blocker set either.
 
 ### Test and smoke evidence executed
 

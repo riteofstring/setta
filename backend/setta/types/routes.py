@@ -182,7 +182,6 @@ class Route(str, Enum):
     REDO = "/redo"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
     GET_LATEST_LSP_DIAGNOSTICS = "/getLatestLspDiagnostics"
-    FORCE_REFRESH_LISTENER = "/forceRefreshListener"
     SET_TOP_LEVEL_SECTION_LAYOUT = "/setTopLevelSectionLayout"
     AUTO_LAYOUT_TOP_LEVEL_SECTIONS = "/autoLayoutTopLevelSections"
     ADD_KWARG = "/addKwarg"

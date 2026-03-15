@@ -563,10 +563,6 @@ class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
     """Request the latest parsed LSP diagnostics payload for a project config."""
 
 
-class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
-    pass
-
-
 class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
     """Override layout metadata for every top-level section in a config."""
 
