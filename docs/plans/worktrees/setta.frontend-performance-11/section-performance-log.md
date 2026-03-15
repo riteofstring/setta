@@ -4606,3 +4606,62 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted flex lower shell for MetaControl text/code.
   - Move to the remaining MetaControl color-picker wrapper before reopening any higher seam.
+
+### 2026-03-18 121
+
+- Item: Accept the lower MetaControl color-picker shell flattening and close the lower MetaControl `single-cell` seam for the current scope.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx`
+  - The accepted lower-shell move is narrow:
+    - the MetaControl color-picker wrapper no longer uses `single-cell-container`
+    - the shared color-picker native-input path no longer uses `single-cell-child`
+    - the shared choice-trigger path no longer uses the single-cell overlay helpers
+    - the native MetaControl color well keeps the centered picker glyph and compact green shell after the class removal
+  - Added focused direct coverage in:
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - native input path no longer renders the single-cell overlay helpers
+      - choice-trigger path no longer renders the single-cell overlay helpers
+    - `frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts`
+      - strengthened the existing text-area guardrail so live CodeMirror activation still stays inside the compact shell
+      - new MetaControl color-picker guardrail keeps the native color input inside the compact section shell and off the old single-cell classes
+    - `frontend/tests/e2e/app/app-mode-colorpicker-dropzone-theme.spec.ts`
+      - stayed green, covering the shared choice-trigger color-picker path under app theming
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - result: `2` files passed, `11` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts frontend/tests/e2e/app/app-mode-colorpicker-dropzone-theme.spec.ts`
+      - result: `14` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: `http://127.0.0.1:3087/baking_tide`
+      - native MetaControl color well still reads:
+        - `single-cell-container`
+        - `single-cell-child`
+      - geometry:
+        - node `202 x 34`
+        - shell `198 x 28`
+        - native input `198 x 28`
+    - worktree: `http://127.0.0.1:3011/young_staying`
+      - native MetaControl color well now reads:
+        - `section-value`
+        - `relative`
+        - `flex`
+        - `items-stretch`
+        - no `single-cell-container`
+        - no `single-cell-child`
+      - geometry:
+        - node `202 x 34`
+        - shell `198 x 28`
+        - native input `200 x 30`
+  - Interpretation:
+    - the lower MetaControl color-picker shell is now accepted
+    - the lower MetaControl seam is exhausted for the current scope
+    - the higher `sectionChrome` baseline stays closed
+    - the next lower inventory should widen to the shared color-picker wrappers outside MetaControl rather than reopening an accepted MetaControl slice
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_meta-control-lower-shell-color-picker.md`
+- Next action:
+  - Keep the accepted flex/absolute lower shell for MetaControl color picker.
+  - Re-read the shared color-picker wrapper consumers in `ParamUI.tsx`, `appRegistry.tsx`, and `DrawAreaControls.tsx` before moving upward again.
