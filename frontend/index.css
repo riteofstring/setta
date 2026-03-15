@@ -431,27 +431,12 @@ html.dark body {
 /* utility classes */
 
 .section-args-nested {
-  grid-template-columns:
-    0.75rem
-    minmax(min-content, var(--param-column-width, 200px))
-    0.75rem
-    minmax(0, 1fr);
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
   grid-template-areas: "left-gutter key center-gutter value";
 }
 
-.section-param-row {
-  grid-template-columns:
-    minmax(min-content, var(--param-column-width, 200px))
-    0.75rem
-    minmax(0, 1fr);
-  grid-template-areas: "key center-gutter value";
-}
-
 .section-args-nested-key-value {
-  grid-template-columns:
-    minmax(min-content, var(--param-column-width, 200px))
-    0.75rem
-    minmax(0, 1fr);
+  grid-template-columns: 1fr 0.75rem 1fr;
   grid-template-areas: "key center-gutter value";
 }
 

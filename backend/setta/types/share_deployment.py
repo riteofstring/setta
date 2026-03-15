@@ -1,11 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
@@ -51,24 +49,3 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowFileDownloads: bool = False
     allowMultipleRuns: bool = True
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
-
-
-class ShareDeploymentMetadata(BaseModel, extra="forbid"):
-    deploymentName: str
-    deploymentVersion: str
-    defaultProjectConfigId: ID
-    defaultProjectConfigName: str
-    createdAt: datetime
-    deploymentRoot: Path
-    policyPath: Path
-
-
-class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
-    deploymentName: str
-    deploymentVersion: str
-    shareSessionId: str
-    sessionRunCount: int
-    defaultProjectConfigId: ID
-    projectMetadata: list[ProjectConfig]
-    sharePolicy: SharePolicy
-    manifest: DeploymentManifest | None = None
