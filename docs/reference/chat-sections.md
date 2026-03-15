@@ -124,16 +124,14 @@ behalf of a scoped Chat section are restricted to the sections reachable via
 these edges. If a Chat section has no edges, it effectively has no tool access.
 Use Project Chat (unscoped) for full access.
 
-Linked chat edges also back the `invoke_linked_chat` MCP tool:
+Linked chat edges are still surfaced in scoped chat context and executable-target
+discovery, but the old standalone `invoke_linked_chat` MCP tool is not part of
+the current Go-owned MCP surface.
 
-- It can invoke only a directly linked target from a `chat_chat` edge.
-- It requires section-scoped agentic context; unscoped Project Chat cannot call
-  it implicitly.
-- The target chat section reuses or persists its managed `chatId` binding before
-  starting the run.
-- Recursion is bounded to one nested hop and cycles are rejected explicitly.
-- Runtime policy still applies: linked-chat invocation requires LLM access and
-  run-start authorization.
+- Only directly linked `chat_chat` targets with executable chat configuration
+  are advertised in linked-chat context blocks.
+- Project Chat remains unscoped and does not gain extra tool access from these
+  links.
 
 ## Workflow integration
 

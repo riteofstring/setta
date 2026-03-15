@@ -198,7 +198,7 @@ def _build_linked_chat_block(
         return ""
     lines = [
         "## Linked Chats",
-        "These direct chat links can be invoked with the `invoke_linked_chat` tool.",
+        "These direct chat links are available as executable linked-chat targets.",
     ]
     for section_id in linked_chat_section_ids:
         if section_id not in project_state.sections:

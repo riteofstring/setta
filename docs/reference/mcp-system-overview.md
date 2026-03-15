@@ -4,38 +4,27 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
 
 ## Server runtime (`internal/mcpx`)
 - The active MCP server/runtime lives in `internal/mcpx/server.go` and is mounted by the Go app under `/mcp`.
-- The constructor wires together Setta-specific state: it loads the canonical ↔ temporary ID map from the database (`dbe.read_temporary_id_map()`), stores a reference to the FastAPI state object, and broadcasts a `SettaNotification` once the server is ready so the UI can show “MCP Server Ready”.
-- Tool registration happens immediately via `add_setta_tools()`. Functions decorated with `@setta_init_tool` become always-on “init” tools, while `@setta_tool` registrations are marked as “discoverable”. The `SettaToolType` annotation is injected into each tool’s metadata so clients can split the sets.
-- `setta_id_transformer` wraps every tool callable so we can transparently convert between canonical IDs and the temporary IDs that LLMs see. After each call we persist the latest ID map to keep the client and server aligned.
-- A BM25 search index is built over every discoverable tool on demand. The index blends tool names, docstrings, parameter descriptions, and search tags/categories. The server-side `search_mcp_tools` helper queries this index for external MCP clients, while the internal managed chat runtime runs its own local search across all configured servers and returns tool references when tool search is enabled. The `list_mcp_tools` init tool uses the same registry for a cheap listing.
-- When a function is registered we extract its docstring through `docstring_parser` and propagate parameter descriptions into the JSON schema. Tool execution catches exceptions and re-raises them as `ToolError` so clients see structured failures.
+- The constructor wires together the Go-owned providers for project state, docs loading, Python-package inspection, terminal history, agent profiles/runs, UI-setting reveals, and canonical↔temporary ID translation.
+- Tool registration happens through `defaultToolDefinitions()` in `internal/mcpx/server.go`. Each built-in tool is described by a `tools.Spec`, registered through `internal/tools.Registry`, and exposed with explicit input/output schemas plus normalized metadata.
+- Calls run through the Go ID-translation and scope-enforcement path before the tool handler executes, so the same registered metadata drives temporary-id handling, target resolution, and blocked-result shaping.
+- A search index is built over every discoverable tool from the Go registry. The index blends tool names, descriptions, metadata tags/categories, and schema text. The server-side `search_mcp_tools` helper queries this index for external MCP clients, while the internal managed chat runtime runs its own local multi-server search. The `list_mcp_tools` init tool uses the same registry for a cheap listing.
+- Tool execution surfaces structured `code`/`message` failures through the Go MCP error path rather than the older Python FastMCP wrapper.
 
-## Tool decorators (`backend/setta/mcp/tool_setup.py` and friends)
-- `@setta_tool` stores the decorated callable in the `SETTA_MCP_TOOLS` list. Use it for discoverable tools that should live in the main tool catalog.
-- `@setta_init_tool` stores the callable in `SETTA_INIT_MCP_TOOLS`. These tools (for example `read_file_range` and `list_mcp_tools`) are injected into every MCP server session automatically, while the managed chat runtime intercepts `setta__search_mcp_tools` locally for multi-server search.
-- `project_state_registry.project_state_tool` lets any `BaseProjectManager` coroutine become an MCP tool. The decorator inspects the method’s Pydantic request model, builds a standalone async function whose signature mirrors that schema (minus any fields tagged with `json_schema_extra[settaMcpHidden]`), and routes calls back through the correct project manager instance. This keeps project-specific tools consistent with the rest of our MCP surface.
-- All tool decorators preserve docstrings, so investing in clear docblocks pays off twice: parameter descriptions show up in the MCP schema, and the BM25 index becomes more accurate.
+## Tool catalog and metadata (`internal/mcpx` and `internal/tools`)
+- `defaultToolDefinitions()` in `internal/mcpx/server.go` is the source of truth for the built-in Go MCP tool catalog.
+- `internal/tools/registry.go` validates tool names and metadata, rejects duplicates, and keeps the registered catalog sorted for listing and search.
+- `internal/mcpx/tool_catalog.go` builds the same Go-owned tool payloads for CLI/tool-introspection paths, so the live server and offline tool catalog stay aligned.
+- The retained Python `backend/setta/mcp/tool_setup.py` and `backend/setta/mcp/tools/project_state_registry.py` only remain for residual Python `project_state` cleanup tail. They are not the active MCP runtime definition path.
 
 ## Tool search tags and categories
-- Every tool can carry `searchTags` and `searchCategory` inside `SettaToolAnnotations`. These are used by the BM25 index so search terms match better.
-- Explicit tags and category are attached via `attach_tool_search_tags`/`attach_tool_search_category` in `project_state_tool` or by manually decorating tool functions.
-- Derived metadata comes from the tool name: `_derive_search_tags` expands common synonyms (for example `create` -> `add`, `new`, `insert`) and `_derive_search_category` matches token keywords (for example `terminal`, `chat`, `params`) to a category.
-- During registration we merge explicit and derived tags, normalize them to lowercase, and prefer the explicit category when provided. The final values are stored on the MCP tool annotations and returned in `search_mcp_tools` results.
+- Every tool can carry `SearchTags` and `SearchCategory` in `internal/tools.Metadata`.
+- Explicit tags/category are declared on each `tools.Spec`; `internal/tools/metadata.go` also derives additional search tags and a fallback category from the tool name.
+- Registration normalizes tags/categories once, and `internal/tools/search.go` indexes those normalized values together with tool names, descriptions, and schema text for `search_mcp_tools`.
 
-## Tool runtime policy
-- Tools can also declare `ToolRuntimePolicyMetadata`, currently used for:
-  - `requiresLLM`
-  - `startsRun`
-- The Go MCP runtime enforces these annotations before the tool body runs.
-- `requiresLLM` checks the active runtime/deployment policy before execution.
-- `startsRun` performs a request-scoped pending run-start authorization so
-  single-run deployment limits and run permissions are reserved before the tool
-  launches work.
-- If the tool fails before it commits the start, the pending authorization is
-  rolled back automatically.
-- Tools that successfully start work must commit the pending authorization
-  themselves; `run_agent_profile` and `invoke_linked_chat` both opt into this
-  flow.
+## Tool metadata surface
+- The active Go MCP metadata under the `setta` namespace includes `toolKind`, `accessType`, `idPathsByType`, optional `resultIdPathsByType`, optional `defaultTargetSingletonSection`, `searchTags`, `searchCategory`, optional `resultFilter`, and optional `toolArgumentPreview`.
+- `internal/mcpx/server.go` derives SDK `readOnlyHint`/`idempotentHint` annotations from read-only access metadata.
+- Scope enforcement, result filtering, and managed tool-preview streaming all consume this same normalized Go metadata.
 
 ## UI setting tools and reveal flow
 - Setta now exposes UI-setting tools as discoverable MCP tools:
@@ -62,9 +51,6 @@ Agentic context inputs:
 - Optional: `chatId` (used to associate follow/highlight state with a specific chat/run).
 - Optional: `frontendAffinityToken` (used to route UI-setting reveal requests back to the originating frontend when multiple frontends are connected).
 - Optional: `allowUnscoped=true` (project-level access; used by Project Chat).
-- Optional: `linkedChatInvocationDepth` and
-  `linkedChatInvocationChainSectionIds` (used to bound nested
-  `invoke_linked_chat` calls).
 
 Ways to provide agentic context:
 - MCP meta (`projectConfigId`, `chatId`, `sectionId`, `frontendAffinityToken`, `allowUnscoped`).
@@ -77,7 +63,7 @@ Ways to provide agentic context:
 
 Tool enforcement details:
 - Tools declare access metadata (`accessType`: `read`/`write`/`structural` and
-  `idPathsByType`) via `backend/setta/mcp/tool_metadata.py`.
+  `idPathsByType`) through `internal/tools/metadata.go`.
 - The server extracts target ids from tool arguments, maps `codeObj` ids to
   section ids when possible, and blocks out-of-scope calls. Blocked results
   include `blockedSectionIds`, `targetSectionIds`, and `missingEdgesCanonical`
@@ -87,21 +73,9 @@ Tool enforcement details:
 - Some tool results are scope-filtered instead of blocked (for example project
   state summaries and LSP diagnostics).
 
-## Linked chat invocation
-- `invoke_linked_chat(targetSectionId, prompt)` is a discoverable Setta MCP tool
-  implemented in `backend/setta/mcp/tools/agentic_tools.py`.
-- It is intended for direct `chat_chat` agentic edges only; admission goes
-  through `admit_linked_chat_section_invocation`.
-- The tool requires section-scoped agentic context. Missing section context is
-  rejected before admission.
-- Nested linked-chat calls are bounded:
-  - maximum depth is one nested hop
-  - the caller chain is tracked to reject cycles
-- Target chat bindings are reused/persisted before the run starts so the target
-  section remains the source of truth for future invocations.
-- The tool also participates in runtime policy enforcement:
-  - `requiresLLM=true`
-  - `startsRun=true`
+## Linked chat edges
+- Linked `chat_chat` edges still participate in scoped chat context and executable-target discovery, but the old standalone Python `invoke_linked_chat` MCP tool is not part of the current Go-owned tool catalog.
+- The active Go agentic MCP flow uses `run_agent_profile` plus `report_state_machine_signal`; linked chat edges remain project-state metadata rather than a caller-backed direct MCP tool surface.
 
 ## Frontend affinity routing
 - On websocket connect, each frontend receives a `FrontendIdentity` message with a `frontendAffinityToken`.
@@ -169,7 +143,7 @@ Tool enforcement details:
 - External clients can optionally call `search_mcp_tools` to get shortlists of relevant tools. The server-side search results use un-namespaced tool names, so external clients should call tools by those names.
 
 ## When to touch what
-- Adding or modifying tools → update `backend/setta/mcp/tools/*` or annotate project manager methods with `@project_state_tool`. Keep docstrings up to date so discovery remains accurate.
+- Adding or modifying tools → update `internal/mcpx/server.go` or the focused helper files under `internal/mcpx/*_tools.go`, plus `internal/tools/*` when metadata/search behavior changes. The retained Python `project_state_registry.py` decorator is only for the residual Python cleanup tail.
 - Changing how MCP calls are streamed to the UI for managed chats → edit `internal/managedllm`, `internal/managedchat/live_runtime.go`, `internal/httpapi/llm_routes.go`, and the websocket reducers in `frontend/src/state/actions/ai.ts`.
 - Adapting the chat UI → adjust the components in `frontend/src/components/Panes/Overview/ProjectLevelAI/`.
 - Integrating a new external MCP consumer → either script against `python -m setta.mcp.client` or write a native SSE client that emulates what `MultiMCPClient` already does (initialize, cache tools, call tools, reconnect on failure).

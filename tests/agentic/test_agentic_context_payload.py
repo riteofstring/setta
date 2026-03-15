@@ -512,7 +512,7 @@ def test_build_agentic_context_payload_includes_linked_chat_targets(
 
     assert payload.section_ids == [ID(linked_chat_section_id)]
     assert "## Linked Chats" in payload.text
-    assert "`invoke_linked_chat`" in payload.text
+    assert "executable linked-chat targets" in payload.text
     assert "Planner [id: TEMP-LINKED-CHAT]" in payload.text
 
 
