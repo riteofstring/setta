@@ -655,6 +655,83 @@ func TestRegisterTerminalRoutesReusesExplicitAttachedTerminal(t *testing.T) {
 	}
 }
 
+func TestRegisterTerminalRoutesIgnoresInvalidExplicitTerminalAndFallsBackToAttachedTerminal(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	_, attachedTerminalID, err := runFixture.runtime.EnsureCodeSectionAttachedTerminal(
+		"project-alpha",
+		"code-section",
+		projectstate.TerminalSectionSeed{
+			SectionID: "attached-terminal",
+			VariantID: "attached-terminal-variant",
+			ImplID:    "attached-terminal-impl",
+			Name:      "Terminal",
+		},
+	)
+	if err != nil {
+		t.Fatalf("ensure attached terminal: %v", err)
+	}
+
+	terminalID := terminals.BuildTerminalID(attachedTerminalID, "")
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:         terminalID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveHTTPTestBashCommand(t),
+	})
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	prepareHTTPInterruptShell(t, terminalService, terminalID, attachment)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":"invalid-terminal","runSnapshotMode":"never"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, impl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if impl.Code == nil {
+		t.Fatal("expected code impl")
+	}
+	if impl.Code.AttachedTerminalSectionID != attachedTerminalID {
+		t.Fatalf("expected invalid explicit terminal id to fall back to attached terminal %q, got %q", attachedTerminalID, impl.Code.AttachedTerminalSectionID)
+	}
+	if _, exists := project.Sections["invalid-terminal"]; exists {
+		t.Fatalf("did not expect invalid explicit terminal id to create a terminal section, got %#v", project.Sections["invalid-terminal"])
+	}
+
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_RUN_OK")
+	if !strings.Contains(output, "ROUTE_RUN_OK") {
+		t.Fatalf("expected run output in fallback attached terminal, got %q", output)
+	}
+}
+
 func TestRegisterTerminalRoutesRunsCodeWithSectionVariantOverridesWithoutMutatingBaseState(t *testing.T) {
 	t.Parallel()
 	skipIfTerminalPTYUnsupported(t)

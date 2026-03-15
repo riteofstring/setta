@@ -525,7 +525,7 @@ It covers:
 
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `TR-01` | Invalid explicit `terminalSectionId` values are ignored and `runCode` falls back to ensuring/using an attached terminal for manual code runs. | `tests/terminals/test_run_code_attached_terminal.py::test_invalid_terminal_id_is_ignored`; `backend/setta/terminals/run_code.py::_is_valid_attached_terminal`. | Impl: `internal/runs/service.go::resolveTerminalSection`; `internal/projectstate/run_graph.go::ValidateAttachedTerminalForVariant`; partial proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal`. | `Implemented, proof incomplete` | Current Go has the same explicit-invalid-terminal fallback shape, but this slice has no direct Go test yet for the invalid-explicit-id branch from `main`. |
+| `TR-01` | Invalid explicit `terminalSectionId` values are ignored and `runCode` falls back to ensuring/using an attached terminal for manual code runs. | `tests/terminals/test_run_code_attached_terminal.py::test_invalid_terminal_id_is_ignored`; `backend/setta/terminals/run_code.py::_is_valid_attached_terminal`. | Impl: `internal/runs/service.go::resolveTerminalSection`; `internal/projectstate/run_graph.go::ValidateAttachedTerminalForVariant`; proof: `internal/httpapi/terminal_routes_test.go::{TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal,TestRegisterTerminalRoutesIgnoresInvalidExplicitTerminalAndFallsBackToAttachedTerminal}`. | `Proved` | |
 | `TR-02` | Valid explicit attached terminal ids are reused for manual code runs. | `tests/terminals/test_run_code_attached_terminal.py::test_valid_terminal_id_is_reused`; `backend/setta/terminals/run_code.py::run_code`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesReusesExplicitAttachedTerminal`. | `Proved` | |
 | `TR-03` | Manual code runs without an explicit terminal ensure an attached terminal and dispatch output there. | `backend/setta/terminals/run_code.py::run_code` ensures an attached terminal for runnable code sections before dispatch. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal`. | `Proved` | |
 | `TR-04` | Section-variant and param overrides affect run planning without mutating the base project state, and override-specific terminal selection follows the overridden variant. | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_does_not_mutate_state`; `tests/project_state/test_run_overrides.py::test_create_run_command_applies_overrides_without_mutating_state`; `backend/setta/project_state/base_project_manager.py::create_run_command`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsCodeWithSectionVariantOverridesWithoutMutatingBaseState`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesReusesExplicitAttachedTerminalForSectionVariantOverride`. | `Proved` | |
@@ -1137,8 +1137,7 @@ It covers:
    unproven on the current Go architecture:
    `PS-06`.
 5. The listener transport slices now close with proofs.
-6. The terminal slice added one more under-proved row:
-   `TR-01`.
+6. The terminal slice now closes its active run-code behavior with proofs.
 7. The terminal slice also recorded two documented clean-break divergences:
    `TT-03` and `TR-07`.
 8. The terminal slice surfaced two source behaviors that are now dormant or
@@ -1265,7 +1264,7 @@ It covers:
       explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
-    - close the remaining listener/terminal proof gaps (`TR-01`, `DR-05`) plus the new
+    - close the remaining listener/terminal proof gaps (`DR-05`) plus the new
       code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
       `WC-02`), the new docstring/completion proof gap (`CP-02`),
       the new Project-AI tooling proof gaps (`SK-01`,
