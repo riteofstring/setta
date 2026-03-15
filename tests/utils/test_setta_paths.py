@@ -4,13 +4,16 @@ import os
 from pathlib import Path
 
 import pytest
+
+from setta.database.db_objs import DBE
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.paths import (
     build_files_root_from_base,
+    clear_setta_paths_cache,
     resolve_setta_paths,
+    validate_workspace_root,
 )
 from setta.utils.setta_home import resolve_setta_home
-from tests.helpers.setta_paths import clear_setta_paths_cache, validate_workspace_root
 
 
 @pytest.fixture(autouse=True)
@@ -300,11 +303,11 @@ def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -
     assert paths.setta_files_root == expected_global_root
     assert not paths.setta_files_root.exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_local_can_create_root(
+def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -316,11 +319,11 @@ def test_resolve_setta_paths_explicit_local_can_create_root(
     assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
     assert not paths.setta_files_root.exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_global_can_create_root(
+def test_resolve_setta_paths_explicit_global_creates_root_with_dbe(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -339,7 +342,7 @@ def test_resolve_setta_paths_explicit_global_can_create_root(
     assert paths.setta_files_root == expected_global_root
     assert not (workspace / "setta_files").exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
     assert not (workspace / "setta_files").exists()
 
