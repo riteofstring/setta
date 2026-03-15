@@ -184,6 +184,57 @@ func TestRegisterBinaryRoutesRejectsOversizedPayload(t *testing.T) {
 	}
 }
 
+func TestRegisterBinaryRoutesAcceptPayloadAboveLegacyMultipartPartSize(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Store:      store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	largePayload := bytes.Repeat([]byte("a"), 2*1024*1024)
+	body, contentType := buildBinaryUploadRequestBody(t, largePayload, "true")
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteBinaryUpload, body)
+	request.Header.Set("Content-Type", contentType)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for payload above legacy multipart threshold, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var ref binarypayload.ContentRef
+	if err := json.NewDecoder(response.Body).Decode(&ref); err != nil {
+		t.Fatalf("decode binary upload response: %v", err)
+	}
+	if ref.ByteLength != int64(len(largePayload)) {
+		t.Fatalf("expected byte length %d, got %d", len(largePayload), ref.ByteLength)
+	}
+	if _, err := store.ReadBytes(ref.ContentID); err != nil {
+		t.Fatalf("read uploaded large payload: %v", err)
+	}
+}
+
 func TestRegisterBinaryRoutesServesDownloadedPayload(t *testing.T) {
 	t.Parallel()
 
