@@ -32,6 +32,7 @@ func (s *stubLiveChatStateProvider) GetLiveChatState(runID string) (*ChatState, 
 type managedChatFixture struct {
 	service *Service
 	runs    *agentruns.RunStore
+	engines *agentruns.EngineStore
 	start   *stubManagedChatStarter
 }
 
@@ -291,6 +292,61 @@ func TestServiceGetChatUsesLiveOverlayWhenRunning(t *testing.T) {
 	}
 }
 
+// Running chat hydration should still resolve llm config and usage from the
+// persisted run while overlaying only live messages/waiting state.
+func TestServiceGetChatUsesPersistedRunMetadataWhileLiveOverlayIsActive(t *testing.T) {
+	t.Parallel()
+
+	live := &stubLiveChatStateProvider{
+		state: &ChatState{
+			Messages: []map[string]any{
+				userMessage("user-live", "Hello"),
+				assistantMessage("assistant-live", "Streaming reply"),
+			},
+			WaitingForResponse: true,
+		},
+	}
+	fixture := newManagedChatFixture(t, live)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-live-metadata",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 12, 30, 0, 0, time.UTC),
+			status:          agentruns.RunStatusRunning,
+			inputMessages:   []map[string]any{userMessage("user-live", "Hello")},
+			outputMessages:  []map[string]any{userMessage("user-live", "Hello")},
+			usage: map[string]any{
+				"promptTokens":     24,
+				"completionTokens": 3,
+				"modelContextWindow": 128000,
+			},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+
+	hydrated, err := fixture.service.GetChat("chat-live-metadata", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if len(hydrated.Messages) != 2 || hydrated.Messages[1]["id"] != "assistant-live" {
+		t.Fatalf("expected live overlay messages, got %#v", hydrated.Messages)
+	}
+	if !hydrated.WaitingForResponse {
+		t.Fatal("expected live overlay waiting state")
+	}
+	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != "primary" {
+		t.Fatalf("expected persisted run engine metadata to resolve primary llm config, got %#v", hydrated.LLMConfig)
+	}
+	if hydrated.ContextUsage == nil || hydrated.ContextUsage.ContextUsedTokens == nil || *hydrated.ContextUsage.ContextUsedTokens != 24 {
+		t.Fatalf("expected persisted run usage metadata, got %#v", hydrated.ContextUsage)
+	}
+	if hydrated.ContextUsage.ContextWindowTokens == nil || *hydrated.ContextUsage.ContextWindowTokens != 128000 {
+		t.Fatalf("expected persisted context window metadata, got %#v", hydrated.ContextUsage)
+	}
+}
+
 // Hydration must stay tolerant of legacy or missing engine metadata and return
 // a null llmConfig instead of failing the whole chat read.
 func TestServiceGetChatAllowsMissingEngineMetadata(t *testing.T) {
@@ -321,6 +377,121 @@ func TestServiceGetChatAllowsMissingEngineMetadata(t *testing.T) {
 	}
 	if len(hydrated.Messages) != 2 {
 		t.Fatalf("expected persisted messages to remain readable, got %#v", hydrated.Messages)
+	}
+}
+
+func TestServiceGetChatAllowsNonSettaLLMEngineMetadata(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-external-engine",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-external",
+			startedAt:       time.Date(2026, 3, 8, 13, 15, 0, 0, time.UTC),
+			status:          agentruns.RunStatusCompleted,
+			inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+			outputMessages:  []map[string]any{assistantMessage("assistant-1", "Done")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+
+	hydrated, err := fixture.service.GetChat("chat-external-engine", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if hydrated.LLMConfig != nil {
+		t.Fatalf("expected nil llmConfig for non-setta engine metadata, got %#v", hydrated.LLMConfig)
+	}
+}
+
+func TestServiceGetChatAllowsBlankLLMConfigBinding(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	if err := fixture.engines.Write([]agentruns.EngineConfig{
+		{
+			ID:         "engine-managed",
+			Name:       "Managed Engine",
+			EngineType: agentruns.EngineTypeSettaLLM,
+		},
+		{
+			ID:                    "engine-external",
+			Name:                  "External Engine",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: stringPtr("external-config"),
+		},
+	}); err != nil {
+		t.Fatalf("rewrite engine configs: %v", err)
+	}
+
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-blank-config",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 13, 30, 0, 0, time.UTC),
+			status:          agentruns.RunStatusCompleted,
+			inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+			outputMessages:  []map[string]any{assistantMessage("assistant-1", "Done")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+
+	hydrated, err := fixture.service.GetChat("chat-blank-config", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if hydrated.LLMConfig != nil {
+		t.Fatalf("expected nil llmConfig for blank llm binding, got %#v", hydrated.LLMConfig)
+	}
+}
+
+func TestServiceGetChatAllowsUnresolvedLLMConfigBinding(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	missingConfigID := "missing-config"
+	if err := fixture.engines.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &missingConfigID,
+		},
+		{
+			ID:                    "engine-external",
+			Name:                  "External Engine",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: stringPtr("external-config"),
+		},
+	}); err != nil {
+		t.Fatalf("rewrite engine configs: %v", err)
+	}
+
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-unresolved-config",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 13, 45, 0, 0, time.UTC),
+			status:          agentruns.RunStatusCompleted,
+			inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+			outputMessages:  []map[string]any{assistantMessage("assistant-1", "Done")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+
+	hydrated, err := fixture.service.GetChat("chat-unresolved-config", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if hydrated.LLMConfig != nil {
+		t.Fatalf("expected nil llmConfig for unresolved llm binding, got %#v", hydrated.LLMConfig)
 	}
 }
 
@@ -728,6 +899,7 @@ func newManagedChatFixture(t *testing.T, live LiveChatStateProvider, starters ..
 	return managedChatFixture{
 		service: service,
 		runs:    runs,
+		engines: engines,
 		start:   starterStub,
 	}
 }
