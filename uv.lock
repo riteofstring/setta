@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -2004,8 +2004,23 @@ name = "setta"
 source = { editable = "." }
 dependencies = [
     { name = "basedpyright" },
-    { name = "bm25s" },
     { name = "claude-agent-sdk" },
+    { name = "ruff" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "build" },
+    { name = "pip-audit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-xdist" },
+]
+gemini = [
+    { name = "google-cloud-aiplatform" },
+]
+source = [
+    { name = "bm25s" },
     { name = "click" },
     { name = "docstring-parser" },
     { name = "docstring-to-markdown" },
@@ -2024,7 +2039,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rectangle-packer" },
     { name = "requests" },
-    { name = "ruff" },
     { name = "toml" },
     { name = "uvicorn" },
     { name = "watchdog" },
@@ -2032,55 +2046,43 @@ dependencies = [
     { name = "websockets" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "build" },
-    { name = "pip-audit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-xdist" },
-]
-gemini = [
-    { name = "google-cloud-aiplatform" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "basedpyright", specifier = "==1.25.0" },
-    { name = "bm25s", specifier = "==0.2.14" },
+    { name = "bm25s", marker = "extra == 'source'", specifier = "==0.2.14" },
     { name = "build", marker = "extra == 'dev'", specifier = "==1.0.3" },
     { name = "claude-agent-sdk", specifier = "==0.1.21" },
-    { name = "click", specifier = "==8.2.1" },
-    { name = "docstring-parser", specifier = "==0.16" },
-    { name = "docstring-to-markdown", specifier = "==0.17" },
-    { name = "fastapi", specifier = "==0.115.12" },
+    { name = "click", marker = "extra == 'source'", specifier = "==8.2.1" },
+    { name = "docstring-parser", marker = "extra == 'source'", specifier = "==0.16" },
+    { name = "docstring-to-markdown", marker = "extra == 'source'", specifier = "==0.17" },
+    { name = "fastapi", marker = "extra == 'source'", specifier = "==0.115.12" },
     { name = "google-cloud-aiplatform", marker = "extra == 'gemini'", specifier = "==1.128.0" },
-    { name = "jinja2", specifier = "==3.1.4" },
-    { name = "jsonschema", specifier = "==4.25.1" },
-    { name = "litellm", specifier = "==1.80.15" },
-    { name = "lsprotocol", specifier = "==2023.0.1" },
-    { name = "mcp", specifier = "==1.25.0" },
-    { name = "packaging", specifier = "==25.0" },
+    { name = "jinja2", marker = "extra == 'source'", specifier = "==3.1.4" },
+    { name = "jsonschema", marker = "extra == 'source'", specifier = "==4.25.1" },
+    { name = "litellm", marker = "extra == 'source'", specifier = "==1.80.15" },
+    { name = "lsprotocol", marker = "extra == 'source'", specifier = "==2023.0.1" },
+    { name = "mcp", marker = "extra == 'source'", specifier = "==1.25.0" },
+    { name = "packaging", marker = "extra == 'source'", specifier = "==25.0" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = "==2.9.0" },
-    { name = "psutil", specifier = "==7.0.0" },
-    { name = "ptyprocess", marker = "sys_platform != 'win32'", specifier = "==0.7.0" },
-    { name = "pydantic", specifier = "==2.11.5" },
+    { name = "psutil", marker = "extra == 'source'", specifier = "==7.0.0" },
+    { name = "ptyprocess", marker = "sys_platform != 'win32' and extra == 'source'", specifier = "==0.7.0" },
+    { name = "pydantic", marker = "extra == 'source'", specifier = "==2.11.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.3.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = "==0.23.8" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = "==3.6.1" },
-    { name = "python-dotenv", specifier = "==1.1.0" },
-    { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = "==2.0.15" },
-    { name = "pyyaml", specifier = "==6.0.2" },
-    { name = "rectangle-packer", specifier = "==2.0.5" },
-    { name = "requests", specifier = "==2.32.4" },
+    { name = "python-dotenv", marker = "extra == 'source'", specifier = "==1.1.0" },
+    { name = "pywinpty", marker = "sys_platform == 'win32' and extra == 'source'", specifier = "==2.0.15" },
+    { name = "pyyaml", marker = "extra == 'source'", specifier = "==6.0.2" },
+    { name = "rectangle-packer", marker = "extra == 'source'", specifier = "==2.0.5" },
+    { name = "requests", marker = "extra == 'source'", specifier = "==2.32.4" },
     { name = "ruff", specifier = "==0.12.12" },
-    { name = "toml", specifier = "==0.10.2" },
-    { name = "uvicorn", specifier = "==0.34.3" },
-    { name = "watchdog", specifier = "==6.0.0" },
-    { name = "watchfiles", specifier = "==0.24.0" },
-    { name = "websockets", specifier = "==15.0.1" },
+    { name = "toml", marker = "extra == 'source'", specifier = "==0.10.2" },
+    { name = "uvicorn", marker = "extra == 'source'", specifier = "==0.34.3" },
+    { name = "watchdog", marker = "extra == 'source'", specifier = "==6.0.0" },
+    { name = "watchfiles", marker = "extra == 'source'", specifier = "==0.24.0" },
+    { name = "websockets", marker = "extra == 'source'", specifier = "==15.0.1" },
 ]
-provides-extras = ["dev", "gemini"]
+provides-extras = ["dev", "gemini", "source"]
 
 [[package]]
 name = "shapely"

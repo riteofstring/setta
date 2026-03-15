@@ -1,4 +1,5 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as Menubar from "@radix-ui/react-menubar";
+import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
@@ -69,22 +70,24 @@ function MenuButton({
   }
 
   return (
-    <CardHeaderMenuButton
-      triggerClassName={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${iconWrapperClassName}`}
-      trigger={
-        <HeaderIcon
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isListElement={isListElement}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      }
-    >
-      {menuItems.map((Component, idx) => (
-        <Component sectionId={sectionId} key={idx} />
-      ))}
-    </CardHeaderMenuButton>
+    <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
+      <CardHeaderMenuButton
+        triggerClassName={iconWrapperClassName}
+        trigger={
+          <HeaderIcon
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            isInOtherProjectConfigs={isInOtherProjectConfigs}
+            isListElement={isListElement}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        }
+      >
+        {menuItems.map((Component, idx) => (
+          <Component sectionId={sectionId} key={idx} />
+        ))}
+      </CardHeaderMenuButton>
+    </Menubar.Root>
   );
 }
 
@@ -92,21 +95,16 @@ export default MenuButton;
 
 function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
   return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger className={triggerClassName} type="button">
-        {trigger}
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          className="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850"
-          align="start"
-          sideOffset={5}
-          alignOffset={-3}
-        >
-          {children}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <MenuDropdown
+      triggerClassName={triggerClassName}
+      contentClassName="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
+      contentAlign="start"
+      contentSideOffset={5}
+      contentAlignOffset={-3}
+      trigger={trigger}
+    >
+      {children}
+    </MenuDropdown>
   );
 }
 
