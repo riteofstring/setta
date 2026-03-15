@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`8320fe85a1fccd6c5a59775de5dca029b3e732b6`
+`a82a8dd10ef2ecbbeac5f274d7d139f967516676`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -74,6 +74,7 @@ It currently covers:
 - section-variant mutation and delete-route behavior
 - view-mode create/switch/edit route behavior
 - section movement, grouping, and param-reorder route behavior
+- code-section attached-terminal route behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -151,7 +152,9 @@ Rows outside these slices are still pending.
 - The section-movement / grouping / param-reorder slice mostly closes with
   proofs, but it adds one more caller-backed layout-policy gap plus two more
   dormant structure/param route-boundary rows.
-- Forty-four concrete parity gaps are already visible:
+- The code-section attached-terminal slice mostly closes with proofs, but it
+  adds one more caller-backed attached-terminal transport gap outside IDE.
+- Forty-five concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -290,6 +293,10 @@ Rows outside these slices are still pending.
     `allowLayoutChanges`
   - current Go mounts `moveSections` only in IDE even though current shared
     layout drag still routes ordinary moves through `route_move_sections`
+  - source share/app sessions keep `setCodeSectionAttachedTerminal`
+    transport-visible and fail closed with deployment-mode structural `403`
+  - current Go mounts that special-case attached-terminal route only in IDE
+    even though current shared DnD still switches to it for terminal drops
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -1066,15 +1073,22 @@ Rows outside these slices are still pending.
 | `PM-01` | `moveParams`, `moveParamGroups`, `indentParams`, and `unindentParams` reorder or reparent param trees, apply batched moves sequentially, convert nested/code-param shapes as needed, preserve `GlobalVariables` behavior, and keep the surviving typed `400` / `404` / `422` transport mapping for invalid indexes, missing parents, and invalid move batches. | Source helpers: `backend/setta/types/helpers_lvl2.py::{move_params_within_parent,move_params_to_parent,indent_params,unindent_params}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{move_params,move_param_groups,indent_params,unindent_params}`; source tests: `tests/types/test_helpers_lvl2.py::{test_move_params_within_parent_reorders,test_indent_converts_previous_sibling,test_unindent_converts_empty_nested,test_move_params_to_parent_reparents}`. | Impl: `internal/projectstate/param_moves.go::{MoveParams,MoveParamGroups,IndentParams,UnindentParams}`; proof: `internal/projectstate/param_moves_test.go::{TestProjectMoveParamsReordersWithinParent,TestProjectMoveParamGroupsAppliesMovesSequentially,TestProjectIndentParamsConvertsPreviousSiblingAndMovesGroup,TestProjectUnindentParamsRestoresEmptyNestedParentToCodeParam,TestProjectMoveParamsSupportsGlobalVariables}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesParamMoveMutationsPersistLatestState,TestRegisterProjectRoutesParamMoveMutationsRejectInvalidInputs}`. | `Proved` | The current Go proof is slightly broader than the pinned source tests because it also covers sequential batched move-group application and explicit typed route-error mapping. |
 | `PM-02` | In share/app sessions, the direct HTTP param-move family (`moveParams`, `moveParamGroups`, `indentParams`, and `unindentParams`) stays transport-visible and fails closed with deployment-mode param-metadata `403` instead of disappearing outside IDE. | Source param-metadata guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_param_metadata`; source routes: `backend/setta/routers/project_manager.py::{route_move_params,route_move_param_groups,route_indent_params,route_unindent_params}`. | Current Go mounts all four routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current param-DnD and keyboard callers in `frontend/src/forks/dnd-kit/ParamDndContext.tsx`, `frontend/src/components/Params/ParamDndList.tsx`, `frontend/src/state/actions/params/moveParams.ts::getParamSelectionBase`, and `frontend/src/state/actions/keyActivations.ts` short-circuit on deployment mode or `canEditStructure`, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove a surviving Go-era non-IDE caller still needs the direct param-move route contract. |
 
+## Code-Section Attached-Terminal Route
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `CT-01` | `setCodeSectionAttachedTerminal` round-trips attach/detach, removes and restores top-level layout state for the terminal, reparents a terminal out of its previous parent when necessary, normalizes attached code/terminal sizing, and rejects non-terminal or non-code targets. | Source helper: `backend/setta/types/helpers_lvl2.py::_set_code_section_attached_terminal`; source manager method: `backend/setta/project_state/base_project_manager.py::set_code_section_attached_terminal`; source tests: `tests/project_state/test_code_section_attached_terminal.py::{test_attach_and_detach_terminal,test_attach_bumps_code_section_height,test_attach_bumps_auto_code_section_height,test_attach_invalid_terminal_raises,test_attach_requires_code_section}`. | Impl: `internal/projectstate/attached_terminal_writes.go::SetCodeSectionAttachedTerminal`; proof: `internal/projectstate/attached_terminal_writes_test.go::{TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach,TestRuntimeSetCodeSectionAttachedTerminalMovesTerminalFromExistingParent,TestRuntimeSetCodeSectionAttachedTerminalRejectsNonTerminalTarget,TestRuntimeSetCodeSectionAttachedTerminalRejectsNonCodeParent}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesCodeSectionAttachedTerminalPersistsLatestState,TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsInvalidInputs}`. | `Proved` | Current Go route proof covers the surviving typed `invalid_terminal_section` / `invalid_code_section` transport mapping, while the runtime proof directly checks deterministic detach layout restoration and terminal sizing normalization. |
+| `CT-02` | In share/app sessions, `setCodeSectionAttachedTerminal` stays transport-visible and fails closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source docs: `docs/reference/dnd-kit.md`; source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source route: `backend/setta/routers/project_manager.py::route_set_code_section_attached_terminal`. | Current Go mounts `RouteSetCodeSectionAttachedTerminal` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still switches to that route from `frontend/src/state/actions/sections/moveSections.ts::moveSectionsWithBackend` when a single terminal is dropped into a code section, and section DnD remains enabled by `canEditLayout` in `frontend/src/forks/dnd-kit/useDNDSensors.ts` plus `frontend/src/forks/dnd-kit/useMoveSection.ts`. | `Missing` | This is an active transport gap: the source kept the special-case attached-terminal route mounted and failed closed with structural `403`, but current Go removes it outside IDE while current shared DnD still invokes it for terminal drops. |
+
 ## Current Findings
 
-1. The matrix now contains forty-four concrete source-parity gaps:
+1. The matrix now contains forty-five concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, `SV-05`, `VM-03`, and `MV-02`.
+   `PV-05`, `SV-05`, `VM-03`, `MV-02`, and `CT-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1200,19 +1214,21 @@ Rows outside these slices are still pending.
 40. The section-movement / grouping / param-reorder slice mostly closes with
     proofs, but it adds one real layout-policy gap (`MV-02`) plus two dormant
     route-boundary rows (`SG-02`, `PM-02`).
-41. Git route behavior is now largely proved, including literal pathspec
+41. The code-section attached-terminal slice mostly closes with proofs, but it
+    adds one real non-IDE transport gap (`CT-02`).
+42. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-42. The remaining issues in the naming slice are still mostly proof gaps rather
+43. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-43. The next high-value steps are:
+44. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
-      `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, and `MV-02`
-      should be
+      `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`, and
+      `CT-02` should be
       restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
