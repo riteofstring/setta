@@ -8,4 +8,5 @@ PROMPT_FILE="${SCRIPT_DIR}/prompts/backend-behavior-parity-matrix-gap-check.txt"
 exec "${SCRIPT_DIR}/run-codex-loop.sh" \
   --prompt-file "${PROMPT_FILE}" \
   --workdir "${ROOT_DIR}" \
+  --yolo \
   "$@"

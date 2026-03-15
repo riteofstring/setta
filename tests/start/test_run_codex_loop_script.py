@@ -184,6 +184,49 @@ def test_run_codex_loop_script_runs_requested_iterations_and_captures_responses(
         ).read_text(encoding="utf-8") == f"stdout response {index}\n"
 
 
+def test_run_codex_loop_script_yolo_mode_passes_exec_equivalent_flag(
+    tmp_path: Path,
+) -> None:
+    # `--yolo` on the wrapper script should map to the documented exec-mode
+    # equivalent rather than relying on implicit Codex CLI behavior.
+    sandbox_root, calls_dir = _build_codex_loop_sandbox(tmp_path)
+    prompt_file = sandbox_root / "prompt.txt"
+    output_dir = sandbox_root / "outputs"
+    workdir = sandbox_root / "workspace"
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    prompt_file.write_text("Reply briefly.\n", encoding="utf-8")
+
+    env = os.environ.copy()
+    env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-codex-loop.sh"),
+            "--prompt-file",
+            str(prompt_file),
+            "--output-dir",
+            str(output_dir),
+            "--workdir",
+            str(workdir),
+            "--yolo",
+        ],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    args = (calls_dir / "args_1.txt").read_text(encoding="utf-8").splitlines()
+
+    assert args[0] == "exec"
+    assert "--dangerously-bypass-approvals-and-sandbox" in args
+
+
 def test_run_codex_loop_script_requires_prompt_file(tmp_path: Path) -> None:
     sandbox_root, _ = _build_codex_loop_sandbox(tmp_path)
 
@@ -201,7 +244,8 @@ def test_run_codex_loop_script_requires_prompt_file(tmp_path: Path) -> None:
 
 def test_backend_parity_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> None:
     # The wrapper should pin the shared prompt file and repo root workdir while
-    # still forwarding caller-supplied loop arguments unchanged.
+    # still forwarding caller-supplied loop arguments unchanged after forcing
+    # the yolo-equivalent exec policy.
     sandbox_root, capture_file = _build_codex_loop_wrapper_sandbox(tmp_path)
 
     result = subprocess.run(
@@ -236,7 +280,8 @@ def test_backend_parity_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> N
     )
     assert args[2] == "--workdir"
     assert args[3] == str(sandbox_root)
-    assert args[4:] == [
+    assert args[4] == "--yolo"
+    assert args[5:] == [
         "--iterations",
         "7",
         "--output-dir",
