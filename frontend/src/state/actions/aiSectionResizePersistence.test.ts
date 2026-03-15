@@ -1,7 +1,5 @@
-import {
-  getCurrEffectiveSectionImplOfType,
-  processProjectStateUpdateFromBackend,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { usePendingOperations, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -25,7 +23,7 @@ import {
   vi,
 } from "vitest";
 
-let persistChatSectionState: typeof import("./ai").persistChatSectionState;
+let persistChatSectionState: typeof import("./aiChatSectionState").persistChatSectionState;
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -78,7 +76,8 @@ function seedChatSection() {
 
 describe("chat section state persistence during backend updates", () => {
   beforeAll(async () => {
-    persistChatSectionState = (await import("./ai")).persistChatSectionState;
+    persistChatSectionState = (await import("./aiChatSectionState"))
+      .persistChatSectionState;
   });
 
   beforeEach(() => {
