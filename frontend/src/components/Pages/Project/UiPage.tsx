@@ -4,15 +4,13 @@ import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorCon
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
-import { useEffect } from "react";
-import { attachKeyEventListeners } from "state/actions/keyActivations";
-import { useLocalStorage, useMisc } from "state/definitions";
+import { useLocalStorage } from "state/definitions";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
+import { useProjectSurfaceGlobalListeners } from "./useProjectSurfaceGlobalListeners";
 
 export function UIPage() {
-  useInitGlobalKeyEventListeners();
-  useLastMouseDownMouseUpLocation();
+  useProjectSurfaceGlobalListeners();
   const showMiniMap = useLocalStorage((x) => x.showMinimap);
 
   return (
@@ -26,35 +24,4 @@ export function UIPage() {
       </div>
     </SectionDndContext>
   );
-}
-
-function useInitGlobalKeyEventListeners() {
-  useEffect(() => {
-    const cleanup = attachKeyEventListeners();
-    return cleanup;
-  }, []);
-}
-
-function useLastMouseDownMouseUpLocation() {
-  useEffect(() => {
-    const handlePointerDown = (e) => {
-      useMisc.setState({
-        lastMouseDownLocation: { x: e.clientX, y: e.clientY },
-      });
-    };
-
-    const handlePointerUp = (e) => {
-      useMisc.setState({
-        lastMouseUpLocation: { x: e.clientX, y: e.clientY },
-      });
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("pointerup", handlePointerUp);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, []);
 }
