@@ -185,3 +185,7 @@ categorize them.
   the launcher-open symlink-escape row are now proved too; the remaining
   launcher-home backlog is the genuinely missing trust/rollback/metadata-
   ordering slice rather than basic fail-closed path validation
+- The deployment-mode `formatCode` guard row and the stale-parent
+  `moveSections` row are now proved too; keep preferring these small
+  route-visible malformed-input or mode-guard proofs when they close an
+  already-implemented owner without expanding the harness unnecessarily
