@@ -55,6 +55,23 @@ export function countLLMConfigs(groups: Array<LLMConfigGroup>): number {
   return groups.reduce((sum, group) => sum + group.items.length, 0);
 }
 
+export function resolveSelectableLLMConfigId(
+  groups: Array<LLMConfigGroup>,
+  configId: string | null,
+): string | null {
+  if (!configId) {
+    return null;
+  }
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (item.id === configId) {
+        return configId;
+      }
+    }
+  }
+  return null;
+}
+
 export function pickDefaultConfigId(
   config: AllLLMConfigs | null,
 ): string | null {

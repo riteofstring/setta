@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from setta import __version__
 from setta.agentic.engine_config_watcher import EngineConfigWatcher
 from setta.agentic.example_config import seed_agentic_config_files
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -41,7 +40,6 @@ from setta.lsp.managers import (
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
-from setta.plugins.manager import PluginManager
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -63,7 +61,6 @@ from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
 )
-from setta.utils.setta_home import resolve_setta_home
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -220,8 +217,8 @@ class SettaFastAPIState:
         self.share_mode = share_mode
         self.launcher_mode = launcher_mode
         self.deployment_mode = share_mode or app_mode
-        # Register runtime state on the app before startup work begins so backend
-        # plugin register-time host calls can resolve app.state.setta.
+        # Register runtime state on the app before startup work begins so any
+        # startup consumers can resolve app.state.setta.
         app.state.setta = self
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
@@ -255,29 +252,6 @@ class SettaFastAPIState:
             self.paths = get_setta_paths()
         else:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
-        plugin_workspace_root = (
-            self.share_deployment_root
-            if self.share_deployment_root is not None
-            else self.paths.workspace_root
-        )
-        plugin_setta_files_root = (
-            self.share_deployment_root
-            if self.share_deployment_root is not None
-            else self.paths.setta_files_root
-        )
-        plugin_setta_home = (
-            self.share_runtime_root
-            if self.share_runtime_root is not None
-            else resolve_setta_home()
-        )
-        self.plugin_manager = PluginManager(
-            workspace_root=plugin_workspace_root,
-            setta_files_root=plugin_setta_files_root,
-            setta_home=plugin_setta_home,
-            server_mode=self._resolve_server_mode(),
-            setta_version=__version__,
-            auto_rescan=False,
-        )
         if not self.deployment_mode and not self.launcher_mode:
             seed_llm_config_example_file(self.dbe)
             seed_agentic_config_files(self.dbe)
@@ -445,7 +419,6 @@ class SettaFastAPIState:
                 json_source=self.json_source,
                 code_files=self.code_files,
                 lsp_writers=None,
-                plugin_manager=self.plugin_manager,
             )
             settings_project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_settings,
@@ -458,23 +431,17 @@ class SettaFastAPIState:
                 json_source=self.json_source,
                 code_files=self.settings_code_files,
                 lsp_writers=None,
-                plugin_manager=self.plugin_manager,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
                 main_manager=project_manager,
                 settings_manager=settings_project_manager,
             )
 
-            self.init_status.record("Loading backend plugins")
-            await self._maybe_delay()
-            self.plugin_manager.load_backend_plugins(app=app)
             if self._enable_language_server:
                 self.lsps = LSPServers(
                     self.settings_file.settings.languageServer,
                     workspace_root=self.paths.workspace_root,
-                    plugin_language_servers=(
-                        self.plugin_manager.get_backend_language_servers()
-                    ),
+                    plugin_language_servers=[],
                 )
                 self.lsp_writers = LSPWriters(self.lsps)
                 project_manager.lsp_writers = self.lsp_writers
@@ -584,9 +551,6 @@ class SettaFastAPIState:
                 self.dbe,
                 self.wmh_frontend_sender,
                 share_mode=self.deployment_mode,
-                plugin_external_agent_adapters=(
-                    self.plugin_manager.get_backend_external_agent_adapters()
-                ),
                 mcp_client=self.mcp_client,
             )
             self.state_machine_runner = StateMachineRunner(
@@ -625,12 +589,6 @@ class SettaFastAPIState:
             self.init_status.mark_ready()
         except Exception as exc:
             await self.stop_transcription_session_cleanup_loop()
-            try:
-                self.plugin_manager.shutdown_backend_plugins()
-            except Exception:
-                logger.exception(
-                    "Failed to clean up backend plugins after initialization error."
-                )
             if self.lsps is not None:
                 try:
                     if self.lsp_writers is not None:
@@ -695,7 +653,6 @@ class SettaFastAPIState:
             lsp_writers=lsp_writers,
             frontend_sender=self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,
-            plugin_manager=self.plugin_manager,
         )
         if self.share_runtime_state.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
@@ -756,9 +713,6 @@ class SettaFastAPIState:
                 "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
-        self.init_status.record("Loading backend plugins")
-        await self._maybe_delay()
-        self.plugin_manager.load_backend_plugins(app=app)
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._start_transcription_session_cleanup_loop()

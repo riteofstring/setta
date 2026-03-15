@@ -1,4 +1,4 @@
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { useMisc } from "state/definitions";
 
 export const terminalTheme = {
   foreground: "#B8C2D5",
