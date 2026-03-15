@@ -20,6 +20,10 @@ Last audited: `2026-03-16`
   settings/app-definition/UI-setting/codegen-tooling pass
 - plus the bounded settings/app-definition HTTP mode-guard/detail slice that
   followed the MCP/UI-setting plugin-invalid-entry pass
+- plus the first bounded transcription-profile / transcription-session slice:
+  profile capability/validation behavior, file-mode dictation flow, typed
+  start/append/cancel errors, auto-mode fallback rules, and session scope
+  isolation
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -32,9 +36,10 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `216`
+- Rows audited in this pass: `227`
 - Status counts:
-  - `Proved`: `202`
+  - `Proved`: `212`
+  - `Missing`: `1`
   - `Intentional divergence`: `5`
   - `Dormant / unproven caller`: `9`
 - Audit fixes landed while building this matrix:
@@ -120,6 +125,10 @@ Last audited: `2026-03-16`
   app-definition HTTP transport slice: settings mode-guard detail bodies,
   unrestricted app-catalog HTTP reads, and app-definition route
   mode-guard / launcher / invalid-set transport detail parity.
+- This pass also extends the matrix into the first bounded transcription slice:
+  transcription-profile capability/validation behavior, provider-dictation
+  file flow, typed transcription-session start/append/cancel errors, and
+  session scope isolation.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -169,10 +178,22 @@ Last audited: `2026-03-16`
     plugin-invalid-entry subset audited here
   - broader codegen refresh/listener/runtime rows beyond the project-target
     validation and reconciliation subset audited here
+  - transcription-profile chunk-ms validation, invalid-json/detail, and
+    deployment/share/launcher LLM-policy-vs-IDE-mode transport rows beyond the
+    capability/validation subset audited here
+  - broader realtime transcription handshake, event-shape, payload-validation,
+    and ordering rows beyond the file-flow/start-error/session-scope subset
+    audited here
+  - broader managed-chat, tool-preview, external-agent, agent-run,
+    prompt-template, app-gen-skill, engine-config, and external-agent-config
+    AI surface rows
 
 ## Current Gaps
 
-- None in the rows audited so far.
+- `transcription_sessions.auto.capability_failures_fall_back_to_file` is now
+  explicit as a `Missing` row: the source auto mode retries file transcription
+  for bounded realtime-capability setup failures, while the current Go auto
+  path still propagates the realtime setup error.
 - The five behavior changes that do not match the source baseline are recorded
   explicitly as `Intentional divergence`, not left as silent drift.
 - Deferred follow-up still exists for unaudited slices and for the
@@ -398,3 +419,14 @@ Last audited: `2026-03-16`
 | `ui_settings.plugin.schema_invalid_setting_stays_unavailable_while_healthy_siblings_survive` | `tests/mcp/test_ui_setting_tools.py::test_plugin_schema_tracks_multiple_invalid_entries_per_setting_id` | `internal/uisettings/plugins.go::parsePluginUISettingDefinitions`; `internal/uisettings/registry.go::MissingSettingError` | `TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKeepHealthySibling` | `get_ui_setting_value` still returns structured per-setting errors on the MCP tool surface | `Proved` | Invalid plugin schema entries now make only the affected setting ids unavailable while healthy sibling plugin settings remain readable. |
 | `ui_settings.plugin.register_pane_capability_gate_blocks_read_write` | `tests/mcp/test_ui_setting_tools.py::test_plugin_ui_setting_returns_plugin_unavailable_when_register_pane_not_effective` | `internal/uisettings/plugins.go::buildPluginRegistryMetadata`; `internal/uisettings/registry.go::MissingSettingError` | `TestServerUISettingToolsReturnPluginUnavailableForReadWriteWhenRegisterPaneCapabilityNotEffective` | MCP UI-setting reads and writes still surface the capability-gated `plugin_unavailable` error instead of mutating config | `Proved` | Plugin settings remain unavailable to read/write callers when the plugin is present but `registerPane` is not an effective capability. |
 | `codegen_targets.mcp_temporary_ids_and_plugin_registration_gate` | `backend/setta/mcp/server.py` temporary-id conversion at invocation edge; `tests/mcp/test_id_conversion.py`; `tests/project_state/test_codegen_targets.py::test_set_codegen_targets_rejects_unknown_plugin_target` | `internal/mcpx/temporary_ids.go`; `internal/mcpx/server.go`; `internal/projectstate/codegen_targets.go` | `TestTemporaryIDStoreResolvesKnownTemporaryIDsAndRejectsUnknownNumericIDs`; `TestMCPToolCallRouteSupportsPluginSetProjectConfigCodegenTargetsWithTemporaryIDs`; `TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsOverAuthenticatedSSE`; `TestAppIDEMCPServerSupportsLinkedPluginSetProjectConfigCodegenTargetsWithTemporaryIDsOverAuthenticatedSSE`; `TestAppIDEMCPToolCallRouteSupportsSetProjectConfigCodegenTargets` | MCP tool-call and authenticated-SSE callers still mutate codegen targets through the same tool name | `Proved` | MCP codegen-target writes still reject unregistered plugin languages, but once the plugin is linked the same tool accepts temporary project ids and persists the target against the canonical project. |
+| `transcription_profiles.list.supports_realtime_annotation_reflects_config` | `tests/routers/test_agentic_routes.py::test_transcription_profile_routes_validate_llm_config_id`; `backend/setta/routers/agentic.py::{route_get_transcription_profiles,_attach_transcription_profiles_capabilities}` | `internal/transcriptionprofiles/service.go::List`; `internal/httpapi/transcription_profile_routes.go::getTranscriptionProfilesHandler` | `TestServiceListAttachesRealtimeCapabilities`; `TestRegisterTranscriptionProfileRoutesListsProfiles` | `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` still hydrates transcription-profile choices through `getTranscriptionProfiles` | `Proved` | Listed transcription profiles still recompute `supportsRealtimeTranscription` from the active LLM config, leaving unsupported or missing configs marked false. |
+| `transcription_profiles.write.unknown_config_rejected` | `tests/routers/test_agentic_routes.py::test_transcription_profile_routes_validate_llm_config_id`; `backend/setta/routers/agentic.py::_require_valid_transcription_llm_config_id` | `internal/transcriptionprofiles/service.go::validateAndHydrateProfile`; `internal/httpapi/transcription_profile_routes.go` | `TestServiceCreateRejectsUnknownLLMConfig`; `TestRegisterTranscriptionProfileRoutesRejectsUnknownLLMConfig` | the same Project AI settings caller writes profiles through `createTranscriptionProfile` and `updateTranscriptionProfile` | `Proved` | Transcription-profile writes still reject unknown transcription config ids before persisting any profile change. |
+| `transcription_profiles.write.unsupported_realtime_transport_rejected` | `tests/routers/test_agentic_routes.py::test_transcription_profile_routes_validate_llm_config_id`; `backend/setta/routers/agentic.py::_require_valid_transcription_transport_mode` | `internal/transcriptionprofiles/service.go::validateAndHydrateProfile`; `SupportsRealtimeTranscriptionConfig` | `TestServiceUpdateRejectsUnsupportedRealtimeTransport`; `TestRegisterTranscriptionProfileRoutesRejectsUnsupportedRealtimeTransport` | the same Project AI settings caller exposes realtime/file/auto transport selection through the profile editor | `Proved` | Realtime transcription profiles still reject provider/model combinations that do not advertise supported realtime transcription. |
+| `transcription_sessions.file_flow.stop_uploads_wav_and_returns_final_text` | `tests/routers/test_ai_agent_run_chats.py::test_transcription_session_file_flow_uses_litellm_transcription`; `backend/setta/routers/ai.py::{route_start_transcription_session,route_append_transcription_audio,route_stop_transcription_session}`; `backend/setta/llm/transcription_sessions.py::FileTranscriptionEngine` | `internal/transcriptionsessions/service.go::{StartSession,buildSessionEngine}`; `internal/transcriptionsessions/service.go::fileUploader.Upload` | `TestServiceStartAppendStopUploadsBufferedFileTranscription`; `TestRegisterAIRoutesRunsFileModeTranscriptionSession`; `TestAppServesFileModeTranscriptionSessionRoutes` | `frontend/src/state/actions/ai.ts` still drives provider dictation through `startTranscriptionSession`, `appendTranscriptionAudio`, and `stopTranscriptionSession` | `Proved` | File-mode dictation still buffers PCM16 across append calls, uploads a WAV window only on stop, and returns the final transcript on the stop response. |
+| `transcription_sessions.append.session_not_found_maps_404_typed` | `tests/routers/test_ai_agent_run_chats.py::test_append_transcription_audio_maps_session_not_found_by_exception_type`; `backend/setta/routers/ai.py::route_append_transcription_audio` | `internal/httpapi/ai_transcription_routes.go::writeTranscriptionServiceError` | `TestRegisterAIRoutesReturnsTypedTranscriptionSessionNotFound` | the provider-dictation append caller in `frontend/src/state/actions/ai.ts` still uses the same route boundary | `Proved` | Appending audio to a missing transcription session still returns a typed `404 session_not_found` error instead of a generic failure. |
+| `transcription_sessions.start.missing_profile_maps_404_typed` | `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_missing_profile_returns_404`; `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_maps_profile_not_found_by_exception_type`; `backend/setta/routers/ai.py::route_start_transcription_session` | `internal/httpapi/ai_transcription_routes.go::writeTranscriptionServiceError`; `startTranscriptionSessionHandler` | `TestRegisterAIRoutesReturnsTypedMissingTranscriptionProfile` | the same provider-dictation start caller in `frontend/src/state/actions/ai.ts` posts `transcriptionProfileId` through this route | `Proved` | Starting dictation with a missing transcription profile still returns a typed `404 profile_not_found` error. |
+| `transcription_sessions.start.unsupported_model_maps_400_typed` | `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_rejects_realtime_on_unsupported_provider`; `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_rejects_realtime_on_openai_file_model`; `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_maps_typed_unsupported_model_code`; `backend/setta/routers/ai.py::route_start_transcription_session` | `internal/transcriptionsessions/service.go::buildSessionEngine`; `internal/httpapi/ai_transcription_routes.go::writeTranscriptionServiceError` | `TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel`; `TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel` | provider dictation still starts from the same route surface and surfaces typed start failures to the frontend caller | `Proved` | Unsupported realtime transcription models still fail start with a typed `400 unsupported_model` error instead of silently downgrading or creating a doomed session. |
+| `transcription_sessions.start.auto_missing_api_key_does_not_fallback` | `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_auto_does_not_fallback_on_missing_api_key`; `backend/setta/llm/transcription_sessions.py::_is_realtime_fallback_error` | `internal/transcriptionsessions/service.go::buildSessionEngine`; `internal/httpapi/ai_transcription_routes.go::writeTranscriptionServiceError` | `TestRegisterAIRoutesReturnsTypedMissingAPIKeyForRealtimeTranscriptionStart`; `TestRegisterAIRoutesAutoTranscriptionReturnsTypedMissingAPIKeyWithoutFallback` | `frontend/src/state/actions/ai.ts` still treats missing-key startup failures as terminal provider-dictation errors instead of silently switching transports | `Proved` | Auto-mode dictation still fails closed on missing API keys and does not silently fall back to file transcription. |
+| `transcription_sessions.auto.capability_failures_fall_back_to_file` | `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_auto_falls_back_to_file`; `backend/setta/llm/transcription_sessions.py::_is_realtime_fallback_error`; `backend/setta/llm/transcription_sessions.py::TranscriptionSessionManager.start_session` | `internal/transcriptionsessions/service.go::buildSessionEngine` currently returns realtime-engine setup errors directly in auto mode instead of retrying file mode | `TestServiceAutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails`; `TestRegisterAIRoutesAutoTranscriptionReturnsTypedProviderFailureWithoutFallback` | the same provider-dictation start caller still reaches the Go auto-mode route boundary in `frontend/src/state/actions/ai.ts` | `Missing` | Python auto mode retries file transcription for bounded realtime-capability setup failures, but the current Go auto path still propagates the realtime setup error without a fallback retry. |
+| `transcription_sessions.cancel.missing_session_is_idempotent_ok` | `tests/routers/test_ai_agent_run_chats.py::test_transcription_session_cancel_is_idempotent`; `backend/setta/routers/ai.py::route_cancel_transcription_session` | `internal/httpapi/ai_transcription_routes.go::cancelTranscriptionSessionHandler` | `TestRegisterAIRoutesCancelTranscriptionSessionReturnsOKWhenSessionMissing` | `frontend/src/state/actions/ai.ts` still cancels provider dictation through the same endpoint during cleanup/error paths | `Proved` | Canceling an already-missing transcription session still returns `{"ok": true}` instead of surfacing a not-found error. |
+| `transcription_sessions.scope_mismatch_does_not_remove_owner_session` | `tests/routers/test_ai_agent_run_chats.py::test_transcription_session_scope_mismatch_does_not_remove_owner_session`; `backend/setta/llm/transcription_sessions.py::_mark_append_in_flight`; `_pop_active_session` | `internal/transcriptionsessions/service.go::{markInFlight,popSession}` | `TestServiceScopeMismatchDoesNotRemoveOwnerSession` | provider-dictation session ids remain scoped to the authenticated frontend session that created them | `Proved` | A scope mismatch still behaves like session-not-found to the wrong caller without removing the owning caller's transcription session. |
