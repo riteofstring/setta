@@ -16,9 +16,12 @@ import {
   runCustomRun,
 } from "state/actions/customRuns";
 import { runFromMainRunButton } from "state/actions/runOrImportCode";
-import { usePendingOperations, useProjectState } from "state/definitions";
-import { useRunControl } from "state/stores/projectStatusStores";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import {
+  useLocalStorage,
+  usePendingOperations,
+  useProjectState,
+  useRunControl,
+} from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { OverviewTabNameEnum } from "utils/constants";
 

@@ -1,9 +1,5 @@
 import { resetProjectStores } from "state/utils";
 import {
-  route_get_agent_runs,
-  route_get_llm_chat,
-} from "utils/generatedEndpoints";
-import {
   afterAll,
   afterEach,
   beforeAll,
@@ -20,15 +16,11 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_get_agent_runs: vi.fn(),
-    route_get_llm_chat: vi.fn(),
     route_get_llm_response: vi.fn(),
   };
 });
 
-let submitMessage: typeof import("state/actions/aiChatSubmissionMessages").submitMessage;
-const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
-const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
+let submitMessage: typeof import("state/actions/ai").submitMessage;
 let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "draft-surface-affinity";
 
@@ -52,10 +44,8 @@ describe("submitMessage websocket affinity", () => {
       },
     };
     (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
-    const aiChatSubmissionMessages = await import(
-      "state/actions/aiChatSubmissionMessages"
-    );
-    submitMessage = aiChatSubmissionMessages.submitMessage;
+    const ai = await import("state/actions/ai");
+    submitMessage = ai.submitMessage;
   });
 
   beforeEach(async () => {
@@ -69,22 +59,6 @@ describe("submitMessage websocket affinity", () => {
       },
     });
     vi.clearAllMocks();
-    mockedRouteGetAgentRuns.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [],
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: null,
-        contextUsage: null,
-        appGenerationByMessageId: {},
-      },
-    });
   });
 
   afterEach(() => {
