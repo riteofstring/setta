@@ -4892,3 +4892,48 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted Draw canvas shell closed.
   - Re-read `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam.
+
+### 2026-03-18 126
+
+- Item: Accept the Chart shell flattening and close the remaining `single-cell` shell in the active Chart body path.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - The accepted lower-shell move is narrow:
+    - the outer chart figure no longer uses `single-cell-container`
+    - the touched chart canvas no longer relies on `single-cell-child`
+    - the explicit `py-2.5` slack keeps the same compact `300 x 270` figure shell around the `275 x 250` visible canvas box
+  - Added focused direct coverage in:
+    - `frontend/tests/e2e/sections/chart-canvas-shell.spec.ts`
+      - the chart shell no longer exposes `single-cell-container`
+      - the touched chart markup no longer exposes `single-cell-child`
+      - the canvas keeps positive geometry inside the compact shell
+    - existing chart/sizing guardrails stayed green:
+      - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+  - Verification:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/chart-canvas-shell.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts`
+      - result: `10` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `hiding_swift` on `http://127.0.0.1:3087/hiding_swift`
+      - outer chart figure still reads `section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip`
+      - visible geometry:
+        - figure `300 x 270`
+        - canvas `275 x 250`
+    - worktree: disposable compare project `writing_pearl` on `http://127.0.0.1:3011/writing_pearl`
+      - outer chart figure now reads `section-w-full section-row-main relative flex h-auto min-h-0 w-full min-w-0 max-w-full items-center justify-center overflow-clip py-2.5`
+      - chart canvas now reads `block max-w-full`
+      - the touched chart markup no longer exposes `single-cell-container`
+      - the touched chart markup no longer exposes `single-cell-child`
+      - visible geometry:
+        - figure `300 x 270`
+        - canvas `275 x 250`
+  - Interpretation:
+    - the Chart shell is now accepted
+    - the higher `sectionChrome` baseline stays closed
+    - the next pass should return to the remaining section-owned lower shell in `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_chart-area-shell.md`
+- Next action:
+  - Keep the accepted Chart shell closed.
+  - Re-read `frontend/src/components/Section/Layouts/BrowserArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam.
