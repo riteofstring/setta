@@ -4247,3 +4247,27 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` so
     canvas-surface lookup stops living beside section-window boot and rebind
     orchestration.
+
+## 2026-03-15 11:23:53 PDT
+
+- Slice completed: split project chat canvas surface lookup from boot flow
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingCanvasSurface.ts`
+  - `frontend/src/state/actions/projectChatWindowingCanvasSurface.test.ts`
+  - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowingCanvasSurface.test.ts src/state/actions/projectChatWindowing.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowingCanvasSurface.ts src/state/actions/projectChatWindowingCanvasBoot.ts src/state/actions/projectChatWindowingCanvasSurface.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `ca1f876c6f385bb58e8812dcf2e98d2088ac6aa2`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionLayoutQueries.ts` so
+    layout-placement reads stop living beside viewport-fit, pane-layout, and
+    section-container geometry helpers.
