@@ -1,4 +1,3 @@
-import copy
 import logging
 import math
 import re
@@ -6,9 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import rpack
-from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
-from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.artifact import (
     DrawAreaLayer,
 )
@@ -33,7 +30,7 @@ from setta.types.core import (
     get_default_section_core_name,
 )
 from setta.types.dropzone import normalize_dropzone_value
-from setta.types.edges import Edge, EdgePort
+from setta.types.edges import Edge
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -46,7 +43,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseParamCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
-    BaseSectionImplArgs,
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     ChatSectionImplArgsWithCallable,
@@ -57,7 +53,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgsWithCallable,
     ListRootSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
-    PromptSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -82,10 +77,8 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
-    get_curr_section_base_impl,
     get_curr_section_variant,
     get_variant_base_and_effective_code_obj_impl_with_type_guard,
-    get_variant_base_and_effective_section_impl_with_type_guard,
     get_variant_base_code_obj_impl,
     get_variant_effective_section_impl,
     set_curr_effective_code_obj_impl_value,
@@ -98,12 +91,10 @@ from setta.types.project_chat_windowing import (
     validate_project_chat_thread_bindings_unchanged,
 )
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
-from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
-    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatDictationMode,
@@ -116,16 +107,11 @@ from setta.types.section_impls import (
     ListRootSectionImpl,
     ListRootViewMode,
     MetaControlSectionImpl,
-    PromptSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
     SpreadsheetGridDensity,
     SpreadsheetSectionImpl,
-    StateMachineEndSectionImpl,
-    StateMachineGateSectionImpl,
-    StateMachineGateType,
-    StateMachineStartSectionImpl,
     TaskBoardColumn,
     TaskBoardSectionImpl,
     TaskBoardTask,
@@ -134,16 +120,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TextBlockSectionImpl,
     TypeErrorIgnoreState,
-)
-from setta.types.state_machine_edges import (
-    STATE_MACHINE_EDGE_SOURCE_PORT_ID,
-    STATE_MACHINE_EDGE_TARGET_PORT_ID,
-    StateMachineEdge,
-    StateMachineSourceActivationCountCondition,
-    StateMachineSourceFilter,
-    StateMachineSourceFilterType,
-    StateMachineTargetAction,
-    StateMachineTargetActionType,
 )
 from setta.utils.errors import InvalidSectionName
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -155,20 +131,6 @@ from setta.utils.paths import normalize_workspace_path
 from setta.utils.utils import insert_into_array, move_item_in_array
 
 logger = logging.getLogger(__name__)
-
-
-def build_prompt_section_preview(
-    template: str,
-    format: PromptFormat,
-):
-    if format != PromptFormat.Jinja:
-        return PromptRenderResult(
-            rendered_text=template,
-            missing_variables=[],
-            render_error=None,
-        )
-
-    return render_prompt(template, {})
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
@@ -1255,75 +1217,6 @@ def create_child_sections_via_incrementer(
     create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
-def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
-    to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
-    to_delete_set = set(to_delete)
-    if p.projectConfig.edges:
-        remaining_edges: list[Edge] = []
-        removed_edges: list[Edge] = []
-        for edge in p.projectConfig.edges:
-            if (
-                edge.sourceSectionId in to_delete_set
-                or edge.targetSectionId in to_delete_set
-            ):
-                removed_edges.append(edge)
-            else:
-                remaining_edges.append(edge)
-        p.projectConfig.edges = remaining_edges
-        for edge in removed_edges:
-            if edge.targetSectionId not in to_delete_set:
-                _maybe_clear_edge_target_value(p, edge)
-    if p.projectConfig.agenticEdges:
-        remaining_agentic: list[AgenticEdge] = []
-        for edge in p.projectConfig.agenticEdges:
-            if (
-                edge.sourceSectionId in to_delete_set
-                or edge.targetSectionId in to_delete_set
-            ):
-                continue
-            remaining_agentic.append(edge)
-        p.projectConfig.agenticEdges = remaining_agentic
-    if p.projectConfig.stateMachineEdges:
-        remaining_state_machine: list[StateMachineEdge] = []
-        for edge in p.projectConfig.stateMachineEdges:
-            if (
-                edge.sourceSectionId in to_delete_set
-                or edge.targetSectionId in to_delete_set
-            ):
-                continue
-            remaining_state_machine.append(edge)
-        p.projectConfig.stateMachineEdges = remaining_state_machine
-    for id in reversed(to_delete):
-        parentId = p.parentSectionMap[id]
-        # delete from parent's current children list
-        if parentId:
-            _maybe_clear_code_section_attached_terminal(p, parentId, id)
-            set_curr_effective_section_impl_value(
-                p,
-                parentId,
-                BaseParentSectionImplArgsWithCallable(
-                    children=lambda currChildren: [x for x in currChildren if x != id]
-                ),
-            )
-        else:
-            p.projectConfig.topLevelSections.pop(id, None)
-
-        still_used = check_if_section_is_still_used_somewhere(p, id)
-        if not still_used:
-            core = p.sections[id]
-            p.projectConfig.sectionVariantMap.pop(id, None)
-            del p.sections[id]
-            for variant_id in core.variants:
-                variant = p.sectionVariants[variant_id]
-                del p.sectionVariants[variant_id]
-                for impl_id in variant.nonPresetImpls:
-                    del p.sectionImpls[impl_id]
-
-    _prune_unused_code_objs(p)
-    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
-    p.validate_active_ids()
-
-
 def _prune_unused_code_objs(p: "ProjectStateSingleConfig") -> None:
     # Sections own large param graphs. Repeated create/delete cycles can leave
     # orphaned code objs behind, ballooning loadProjectConfig payload sizes.
@@ -1369,153 +1262,6 @@ def _prune_unused_code_objs(p: "ProjectStateSingleConfig") -> None:
     for code_obj_id in list(p.codeObjs.keys()):
         if code_obj_id not in reachable:
             delete_code_obj(p, code_obj_id)
-
-
-def check_if_section_is_still_used_somewhere(
-    p: "ProjectStateSingleConfig", sectionId: ID
-):
-    for s in p.sections.values():
-        if sectionId in s.sharedModifier.get("children", []):
-            return True
-    for s in p.sectionImpls.values():
-        if isinstance(s, BaseParentSectionImpl) and sectionId in s.children:
-            return True
-    for s in p.sectionVariants.values():
-        if sectionId in s.modifier.get("children", []):
-            return True
-    return False
-
-
-def get_all_sections_for_deletion_or_copying(
-    p: "ProjectStateSingleConfig", sectionIds: list[ID]
-):
-    idsToDelete = copy.deepcopy(sectionIds)
-    visited = set()
-    idx = 0
-    while idx < len(idsToDelete):
-        currId = idsToDelete[idx]
-        if currId not in visited:
-            currChildren = get_section_descendants_from_all_variants(p, currId)
-            idsToDelete.extend(currChildren)
-            visited.add(currId)
-        idx += 1
-    output: list[ID] = []
-    seen: set[ID] = set()
-    for id in idsToDelete:
-        if id in seen:
-            continue
-        output.append(id)
-        seen.add(id)
-    return output
-
-
-def get_section_descendants_from_all_variants(
-    p: "ProjectStateSingleConfig", sectionId: ID
-):
-    output: list[ID] = []
-    core = p.sections[sectionId]
-    for variantId in core.variants:
-        impl = get_variant_effective_section_impl(p, sectionId, variantId)
-        if isinstance(impl, BaseParentSectionImpl):
-            output.extend(impl.children)
-    return output
-
-
-def _copy_edges_for_new_section_variant(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    sourceVariantId: ID,
-    newVariantId: ID,
-    source_output_ports: set[ID],
-    target_input_ports: set[ID],
-):
-    new_edges: list[Edge] = []
-    for edge in p.projectConfig.edges:
-        update_source = (
-            edge.sourceSectionId == sectionId
-            and edge.sourceVariantId == sourceVariantId
-        )
-        update_target = (
-            edge.targetSectionId == sectionId
-            and edge.targetVariantId == sourceVariantId
-        )
-        if not (update_source or update_target):
-            continue
-        if update_source and edge.sourcePortId not in source_output_ports:
-            continue
-        if update_target and edge.targetPortId not in target_input_ports:
-            continue
-        new_edge = edge.model_copy(deep=True)
-        new_edge.id = create_new_id()
-        if update_source:
-            new_edge.sourceVariantId = newVariantId
-        if update_target:
-            new_edge.targetVariantId = newVariantId
-        new_edges.append(new_edge)
-    if new_edges:
-        p.projectConfig.edges.extend(new_edges)
-
-
-def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
-    source_variant_id = get_curr_section_variant(p, sectionId).id
-    currBaseImpl = get_curr_section_base_impl(p, sectionId)
-    source_edge_input_params: list[ID] = []
-    source_edge_output_ports: list[EdgePort] = []
-    source_edge_output_port_ids: set[ID] = set()
-    if isinstance(currBaseImpl, BaseSectionWithParamsImpl):
-        source_effective_impl = get_curr_effective_section_impl_with_type_guard(
-            p, sectionId, BaseSectionWithParamsImpl
-        )
-        source_edge_input_params = list(source_effective_impl.edgeInputParams)
-        source_edge_output_ports = [
-            port.model_copy(deep=True) for port in source_effective_impl.edgeOutputPorts
-        ]
-        source_edge_output_port_ids = _edge_output_port_ids(source_effective_impl)
-    if currBaseImpl.isPreset:
-        newBaseImpl = currBaseImpl
-    else:
-        newBaseImpl = currBaseImpl.model_copy(
-            update=BaseSectionImplArgs(
-                id=create_new_id(), name=generate_memorable_string()
-            ),
-            deep=True,
-        )
-
-    newVariant = Variant(
-        impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
-    )
-    core = p.sections[sectionId]
-
-    if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
-        newCodeObjVariantMap: dict[ID, ID] = {}
-        for codeObjId, codeObjVariantId in newBaseImpl.codeObjVariantMap.items():
-            newCodeObjVariantMap[codeObjId] = create_new_code_obj_variant(
-                p, codeObjId, codeObjVariantId, None
-            )
-        set_effective_impl_value(
-            newBaseImpl,
-            core,
-            newVariant,
-            BaseSectionWithParamsImplArgsWithCallable(
-                codeObjVariantMap=newCodeObjVariantMap,
-                edgeInputParams=source_edge_input_params,
-                edgeOutputPorts=source_edge_output_ports,
-            ),
-        )
-
-    core.variants.append(newVariant.id)
-    p.sectionImpls[newBaseImpl.id] = newBaseImpl
-    p.sectionVariants[newVariant.id] = newVariant
-    p.projectConfig.sectionVariantMap[sectionId] = newVariant.id
-    if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
-        _copy_edges_for_new_section_variant(
-            p,
-            sectionId,
-            source_variant_id,
-            newVariant.id,
-            source_edge_output_port_ids,
-            set(source_edge_input_params),
-        )
 
 
 def create_new_code_obj_variant(
@@ -2223,397 +1969,6 @@ def set_code_file_binding(
     )
 
 
-def _get_section_variant_impl_with_params(
-    p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
-) -> BaseSectionWithParamsImpl:
-    if sectionId not in p.sections:
-        raise KeyError(f"Section {sectionId} not found.")
-    core = p.sections[sectionId]
-    if variantId not in core.variants:
-        raise KeyError(f"Variant {variantId} not found for section {sectionId}.")
-    _, _, impl = get_variant_base_and_effective_section_impl_with_type_guard(
-        p, core, variantId, BaseSectionWithParamsImpl
-    )
-    return impl
-
-
-def _edge_output_port_ids(impl: BaseSectionWithParamsImpl) -> set[ID]:
-    return {port.id for port in impl.edgeOutputPorts}
-
-
-def _ensure_edge_endpoints_valid(p: "ProjectStateSingleConfig", edge: Edge):
-    source_impl = _get_section_variant_impl_with_params(
-        p, edge.sourceSectionId, edge.sourceVariantId
-    )
-    target_impl = _get_section_variant_impl_with_params(
-        p, edge.targetSectionId, edge.targetVariantId
-    )
-    source_ports = _edge_output_port_ids(source_impl)
-    if edge.sourcePortId not in source_ports:
-        raise KeyError(
-            f"Section {edge.sourceSectionId} missing output port {edge.sourcePortId}."
-        )
-    if edge.targetPortId not in target_impl.edgeInputParams:
-        raise KeyError(
-            f"Section {edge.targetSectionId} missing input port {edge.targetPortId}."
-        )
-
-
-def _ensure_agentic_edge_endpoints_valid(
-    p: "ProjectStateSingleConfig", edge: AgenticEdge
-):
-    source_exists = edge.sourceSectionId in p.sections
-    target_exists = edge.targetSectionId in p.sections
-    if not source_exists:
-        raise KeyError(
-            f"Agentic edge {edge.id} source section {edge.sourceSectionId} missing from project state."
-        )
-    if not target_exists:
-        raise KeyError(
-            f"Agentic edge {edge.id} target section {edge.targetSectionId} missing from project state."
-        )
-    if source_exists:
-        source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
-        if source_impl.type in {
-            SectionType.StateMachineStart,
-            SectionType.StateMachineGate,
-            SectionType.StateMachineEnd,
-        }:
-            raise TypeError(
-                f"Agentic edge {edge.id} does not support state machine nodes."
-            )
-        if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.chat_section}:
-            if source_impl.type != SectionType.Chat:
-                raise TypeError(
-                    f"Agentic edge {edge.id} expects a chat source section."
-                )
-    if target_exists:
-        target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
-        if target_impl.type in {
-            SectionType.StateMachineStart,
-            SectionType.StateMachineGate,
-            SectionType.StateMachineEnd,
-        }:
-            raise TypeError(
-                f"Agentic edge {edge.id} does not support state machine nodes."
-            )
-        if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.section_chat}:
-            if target_impl.type != SectionType.Chat:
-                raise TypeError(
-                    f"Agentic edge {edge.id} expects a chat target section."
-                )
-
-
-def _ensure_state_machine_edge_endpoints_valid(
-    p: "ProjectStateSingleConfig",
-    edge: StateMachineEdge,
-    machine_group_overrides: dict[ID, str] | None = None,
-):
-    _ensure_state_machine_machine_group_id_valid(
-        edge.machineGroupId, f"State machine edge {edge.id}"
-    )
-    source_exists = edge.sourceSectionId in p.sections
-    target_exists = edge.targetSectionId in p.sections
-    if not source_exists:
-        raise KeyError(
-            f"State machine edge {edge.id} source section {edge.sourceSectionId} missing from project state."
-        )
-    if not target_exists:
-        raise KeyError(
-            f"State machine edge {edge.id} target section {edge.targetSectionId} missing from project state."
-        )
-    if not source_exists or not target_exists:
-        return
-    source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
-    target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
-    source_allowed = {
-        SectionType.Chat,
-        SectionType.StateMachineStart,
-        SectionType.StateMachineGate,
-    }
-    target_allowed = {
-        SectionType.Chat,
-        SectionType.StateMachineGate,
-        SectionType.StateMachineEnd,
-    }
-    if source_impl.type not in source_allowed:
-        raise TypeError(
-            f"State machine edge {edge.id} has unsupported source type {source_impl.type}."
-        )
-    if target_impl.type not in target_allowed:
-        raise TypeError(
-            f"State machine edge {edge.id} has unsupported target type {target_impl.type}."
-        )
-    if (
-        edge.sourceSectionId == edge.targetSectionId
-        and source_impl.type != SectionType.Chat
-    ):
-        raise TypeError(
-            f"State machine edge {edge.id} only supports self-loops on Chat sections."
-        )
-    if source_impl.type == SectionType.StateMachineEnd:
-        raise TypeError(f"State machine edge {edge.id} cannot source from End.")
-    if target_impl.type == SectionType.StateMachineStart:
-        raise TypeError(f"State machine edge {edge.id} cannot target Start.")
-    _ensure_state_machine_edge_port_ids_valid(edge, source_impl, target_impl)
-    _ensure_state_machine_source_activation_count_condition_valid(
-        edge.id,
-        edge.sourceActivationCountCondition,
-    )
-    _ensure_state_machine_source_filter_valid(edge, source_impl)
-    _ensure_state_machine_target_action_valid(
-        p,
-        edge,
-        target_impl,
-    )
-    source_machine_group_id = _resolve_state_machine_section_machine_group_id(
-        edge.sourceSectionId,
-        source_impl,
-        machine_group_overrides,
-        edge.machineGroupId,
-    )
-    target_machine_group_id = _resolve_state_machine_section_machine_group_id(
-        edge.targetSectionId,
-        target_impl,
-        machine_group_overrides,
-        edge.machineGroupId,
-    )
-    if source_machine_group_id != edge.machineGroupId:
-        raise ValueError(
-            f"State machine edge {edge.id} machine group does not match the source section."
-        )
-    if target_machine_group_id != edge.machineGroupId:
-        raise ValueError(
-            f"State machine edge {edge.id} machine group does not match the target section."
-        )
-
-
-def _ensure_state_machine_machine_group_id_valid(machine_group_id: str, context: str):
-    if machine_group_id.strip() == "":
-        raise ValueError(f"{context} machine group must not be empty.")
-    if machine_group_id != machine_group_id.strip():
-        raise ValueError(
-            f"{context} machine group must not start or end with whitespace."
-        )
-
-
-def _resolve_state_machine_section_machine_group_id(
-    section_id: ID,
-    section_impl: BaseSectionImpl,
-    machine_group_overrides: dict[ID, str] | None,
-    fallback_machine_group_id: str,
-) -> str:
-    if isinstance(
-        section_impl,
-        (
-            StateMachineStartSectionImpl,
-            StateMachineGateSectionImpl,
-            StateMachineEndSectionImpl,
-        ),
-    ):
-        if (
-            machine_group_overrides is not None
-            and section_id in machine_group_overrides
-        ):
-            return machine_group_overrides[section_id]
-        return section_impl.machineGroupId
-    return fallback_machine_group_id
-
-
-def _ensure_state_machine_edge_port_ids_valid(
-    edge: StateMachineEdge,
-    source_impl: BaseSectionImpl,
-    target_impl: BaseSectionImpl,
-):
-    if edge.sourcePortId != STATE_MACHINE_EDGE_SOURCE_PORT_ID:
-        raise ValueError(
-            f"State machine edge {edge.id} source port must be {STATE_MACHINE_EDGE_SOURCE_PORT_ID}."
-        )
-    if edge.targetPortId != STATE_MACHINE_EDGE_TARGET_PORT_ID:
-        raise ValueError(
-            f"State machine edge {edge.id} target port must be {STATE_MACHINE_EDGE_TARGET_PORT_ID}."
-        )
-    if source_impl.type == SectionType.StateMachineEnd:
-        raise TypeError(f"State machine edge {edge.id} cannot source from End.")
-    if target_impl.type == SectionType.StateMachineStart:
-        raise TypeError(f"State machine edge {edge.id} cannot target Start.")
-
-
-def _ensure_state_machine_source_filter_valid(
-    edge: StateMachineEdge, source_impl: BaseSectionImpl
-):
-    source_filter = edge.sourceFilter
-    if source_impl.type != SectionType.Chat:
-        if source_filter is not None:
-            raise ValueError(
-                f"State machine edge {edge.id} only allows source filters on Chat sources."
-            )
-        return
-    if source_filter is None:
-        return
-    if source_filter.type == StateMachineSourceFilterType.signal:
-        _ensure_state_machine_signal_filter_valid(edge.id, source_filter)
-        return
-    if source_filter.signalName is not None:
-        raise ValueError(
-            f"State machine edge {edge.id} non-signal source filters cannot set signalName."
-        )
-    if source_filter.payloadField is not None:
-        raise ValueError(
-            f"State machine edge {edge.id} non-signal source filters cannot set payloadField."
-        )
-    if source_filter.equals is not None:
-        raise ValueError(
-            f"State machine edge {edge.id} non-signal source filters cannot set equals."
-        )
-
-
-def _ensure_state_machine_signal_filter_valid(
-    edge_id: ID, source_filter: StateMachineSourceFilter
-):
-    if source_filter.signalName is None or source_filter.signalName.strip() == "":
-        raise ValueError(
-            f"State machine edge {edge_id} signal filters require a signalName."
-        )
-    if source_filter.signalName != source_filter.signalName.strip():
-        raise ValueError(
-            f"State machine edge {edge_id} signalName must not start or end with whitespace."
-        )
-    if source_filter.payloadField is None and source_filter.equals is None:
-        return
-    if source_filter.payloadField is None or source_filter.equals is None:
-        raise ValueError(
-            f"State machine edge {edge_id} signal filters require payloadField and equals together."
-        )
-    if source_filter.payloadField.strip() == "":
-        raise ValueError(
-            f"State machine edge {edge_id} signal payloadField must not be empty."
-        )
-    if source_filter.payloadField != source_filter.payloadField.strip():
-        raise ValueError(
-            f"State machine edge {edge_id} signal payloadField must not start or end with whitespace."
-        )
-    if source_filter.equals.strip() == "":
-        raise ValueError(
-            f"State machine edge {edge_id} signal equals value must not be empty."
-        )
-
-
-def _ensure_state_machine_source_activation_count_condition_valid(
-    edge_id: ID,
-    source_activation_count_condition: StateMachineSourceActivationCountCondition
-    | None,
-):
-    if source_activation_count_condition is not None:
-        if source_activation_count_condition.value < 0:
-            raise ValueError(
-                f"State machine edge {edge_id} source activation count conditions require a non-negative value."
-            )
-
-
-def _ensure_state_machine_target_action_valid(
-    p: "ProjectStateSingleConfig",
-    edge: StateMachineEdge,
-    target_impl: BaseSectionImpl,
-):
-    target_action = edge.targetAction
-    if target_impl.type != SectionType.Chat:
-        if target_action is not None:
-            raise ValueError(
-                f"State machine edge {edge.id} only allows target actions on Chat targets."
-            )
-        return
-    if target_action is None:
-        raise ValueError(
-            f"State machine edge {edge.id} requires a target action for Chat targets."
-        )
-    if (
-        target_action.permissionMode is not None
-        and target_action.permissionMode
-        not in {mode.value for mode in ChatPermissionMode}
-    ):
-        raise ValueError(
-            f"State machine edge {edge.id} has unsupported permission mode {target_action.permissionMode}."
-        )
-    if target_action.type == StateMachineTargetActionType.send_prompt:
-        _ensure_state_machine_send_prompt_action_valid(
-            p,
-            edge.id,
-            target_action,
-        )
-        return
-    _ensure_state_machine_reset_thread_action_valid(edge.id, target_action)
-
-
-def _ensure_state_machine_send_prompt_action_valid(
-    p: "ProjectStateSingleConfig",
-    edge_id: ID,
-    target_action: StateMachineTargetAction,
-):
-    has_prompt_template = target_action.promptTemplateId is not None
-    has_prompt_section = target_action.promptSectionId is not None
-    has_inline_prompt = (
-        target_action.inlinePrompt is not None
-        and target_action.inlinePrompt.strip() != ""
-    )
-    configured_source_count = sum(
-        [has_prompt_template, has_prompt_section, has_inline_prompt]
-    )
-    if configured_source_count != 1:
-        raise ValueError(
-            f"State machine edge {edge_id} send_prompt actions require exactly one of promptTemplateId, promptSectionId, or inlinePrompt."
-        )
-    if has_prompt_template:
-        return
-    if not has_prompt_section:
-        return
-    prompt_impl = get_curr_effective_section_impl_with_type_guard(
-        p,
-        target_action.promptSectionId,
-        PromptSectionImpl,
-    )
-    render_result = render_prompt(prompt_impl.template, target_action.promptInputs)
-    if render_result.render_error is not None:
-        raise ValueError(
-            f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"
-        )
-    if render_result.rendered_text.strip() == "":
-        raise ValueError(
-            f"State machine edge {edge_id} prompt section {prompt_impl.id} rendered an empty prompt."
-        )
-
-
-def _ensure_state_machine_reset_thread_action_valid(
-    edge_id: ID, target_action: StateMachineTargetAction
-):
-    has_inline_prompt = (
-        target_action.inlinePrompt is not None
-        and target_action.inlinePrompt.strip() != ""
-    )
-    if (
-        target_action.promptTemplateId is not None
-        or target_action.promptSectionId is not None
-        or has_inline_prompt
-        or target_action.promptInputs
-    ):
-        raise ValueError(
-            f"State machine edge {edge_id} reset_thread actions cannot include prompt content or prompt inputs."
-        )
-
-
-def _ensure_state_machine_edges_valid(
-    p: "ProjectStateSingleConfig",
-    edges: list[StateMachineEdge],
-    machine_group_overrides: dict[ID, str] | None = None,
-):
-    for edge in edges:
-        _ensure_state_machine_edge_endpoints_valid(
-            p,
-            edge,
-            machine_group_overrides,
-        )
-
-
 def _maybe_clear_edge_target_value(p: "ProjectStateSingleConfig", edge: Edge):
     if edge.targetSectionId not in p.sections:
         return
@@ -2694,397 +2049,12 @@ def set_section_edge_inputs(
     )
 
 
-def set_section_edge_outputs(
-    p: "ProjectStateSingleConfig", sectionId: ID, edgeOutputPorts: list[EdgePort]
-):
-    core = p.sections[sectionId]
-    if "edgeOutputPorts" in core.sharedModifier:
-        del core.sharedModifier["edgeOutputPorts"]
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    deduped: list[EdgePort] = []
-    seen: set[ID] = set()
-    for port in edgeOutputPorts:
-        if port.id in seen:
-            continue
-        accessor = port.accessor.strip()
-        deduped.append(
-            EdgePort(
-                id=port.id,
-                accessor=accessor,
-            )
-        )
-        seen.add(port.id)
-
-    removed_ports = _edge_output_port_ids(section_impl) - seen
-    if removed_ports:
-        variant_id = get_curr_section_variant(p, sectionId).id
-        remaining_edges: list[Edge] = []
-        removed_edges: list[Edge] = []
-        for edge in p.projectConfig.edges:
-            if (
-                edge.sourceSectionId == sectionId
-                and edge.sourceVariantId == variant_id
-                and edge.sourcePortId in removed_ports
-            ):
-                removed_edges.append(edge)
-            else:
-                remaining_edges.append(edge)
-        p.projectConfig.edges = remaining_edges
-        for edge in removed_edges:
-            _maybe_clear_edge_target_value(p, edge)
-
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(edgeOutputPorts=deduped),
-    )
-
-
-def create_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    if any(existing.id == edge.id for existing in p.projectConfig.edges):
-        raise KeyError(f"Edge {edge.id} already exists.")
-    _ensure_edge_endpoints_valid(p, edge)
-    p.projectConfig.edges.append(edge)
-
-
-def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
-    edge_ids = set(edgeIds)
-    existing_ids = {edge.id for edge in p.projectConfig.edges}
-    missing = edge_ids - existing_ids
-    if missing:
-        raise KeyError(f"Edges not found: {sorted(missing)}")
-    remaining_edges: list[Edge] = []
-    removed_edges: list[Edge] = []
-    for edge in p.projectConfig.edges:
-        if edge.id in edge_ids:
-            removed_edges.append(edge)
-        else:
-            remaining_edges.append(edge)
-    p.projectConfig.edges = remaining_edges
-    for edge in removed_edges:
-        _maybe_clear_edge_target_value(p, edge)
-
-
-def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
-    edge_ids: set[ID] = set()
-    for edge in edges:
-        if edge.id in edge_ids:
-            raise KeyError(f"Duplicate edge id {edge.id} in update.")
-        edge_ids.add(edge.id)
-        _ensure_edge_endpoints_valid(p, edge)
-    removed_edges = [edge for edge in p.projectConfig.edges if edge.id not in edge_ids]
-    p.projectConfig.edges = edges
-    for edge in removed_edges:
-        _maybe_clear_edge_target_value(p, edge)
-
-
-def create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    if any(existing.id == edge.id for existing in p.projectConfig.agenticEdges):
-        raise KeyError(f"Agentic edge {edge.id} already exists.")
-    _ensure_agentic_edge_endpoints_valid(p, edge)
-    p.projectConfig.agenticEdges.append(edge)
-
-
-def update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    for idx, existing in enumerate(p.projectConfig.agenticEdges):
-        if existing.id != edge.id:
-            continue
-        _ensure_agentic_edge_endpoints_valid(p, edge)
-        p.projectConfig.agenticEdges[idx] = edge
-        return
-    raise KeyError(f"Agentic edge {edge.id} not found.")
-
-
-def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
-    edge_ids = set(edgeIds)
-    existing_ids = {edge.id for edge in p.projectConfig.agenticEdges}
-    missing = edge_ids - existing_ids
-    if missing:
-        raise KeyError(f"Agentic edges not found: {sorted(missing)}")
-    remaining_edges: list[AgenticEdge] = []
-    for edge in p.projectConfig.agenticEdges:
-        if edge.id in edge_ids:
-            continue
-        remaining_edges.append(edge)
-    p.projectConfig.agenticEdges = remaining_edges
-
-
-def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
-    edge_ids: set[ID] = set()
-    for edge in edges:
-        if edge.id in edge_ids:
-            raise KeyError(f"Duplicate agentic edge id {edge.id} in update.")
-        edge_ids.add(edge.id)
-        _ensure_agentic_edge_endpoints_valid(p, edge)
-    p.projectConfig.agenticEdges = edges
-
-
-def _get_unique_connected_state_machine_group_id(
-    p: "ProjectStateSingleConfig", section_id: ID
-) -> str | None:
-    machine_group_ids = {
-        edge.machineGroupId
-        for edge in p.projectConfig.stateMachineEdges
-        if edge.sourceSectionId == section_id or edge.targetSectionId == section_id
-    }
-    if len(machine_group_ids) != 1:
-        return None
-    return next(iter(machine_group_ids))
-
-
-def _resolve_existing_machine_group_id_for_state_machine_endpoint(
-    p: "ProjectStateSingleConfig", section_id: ID, section_impl: BaseSectionImpl
-) -> str | None:
-    if isinstance(
-        section_impl,
-        (
-            StateMachineStartSectionImpl,
-            StateMachineGateSectionImpl,
-            StateMachineEndSectionImpl,
-        ),
-    ):
-        return section_impl.machineGroupId
-    return _get_unique_connected_state_machine_group_id(p, section_id)
-
-
-def _get_state_machine_group_merge_replacements(
-    p: "ProjectStateSingleConfig", edge: StateMachineEdge
-) -> dict[str, str]:
-    source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
-    target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
-    source_machine_group_id = (
-        _resolve_existing_machine_group_id_for_state_machine_endpoint(
-            p, edge.sourceSectionId, source_impl
-        )
-    )
-    target_machine_group_id = (
-        _resolve_existing_machine_group_id_for_state_machine_endpoint(
-            p, edge.targetSectionId, target_impl
-        )
-    )
-    existing_machine_group_ids = {
-        machine_group_id
-        for machine_group_id in (source_machine_group_id, target_machine_group_id)
-        if machine_group_id is not None
-    }
-    if len(existing_machine_group_ids) <= 1:
-        return {}
-    if edge.machineGroupId not in existing_machine_group_ids:
-        raise ValueError(
-            f"State machine edge {edge.id} machine group must match one of the connected machine groups."
-        )
-    return {
-        machine_group_id: edge.machineGroupId
-        for machine_group_id in existing_machine_group_ids
-        if machine_group_id != edge.machineGroupId
-    }
-
-
-def _build_state_machine_group_merge_overrides(
-    p: "ProjectStateSingleConfig", merge_replacements: dict[str, str]
-) -> dict[ID, str]:
-    if not merge_replacements:
-        return {}
-    machine_group_overrides: dict[ID, str] = {}
-    for section_id in p.sections:
-        impl = get_curr_effective_section_impl(p, section_id)
-        if not isinstance(
-            impl,
-            (
-                StateMachineStartSectionImpl,
-                StateMachineGateSectionImpl,
-                StateMachineEndSectionImpl,
-            ),
-        ):
-            continue
-        if impl.machineGroupId in merge_replacements:
-            machine_group_overrides[section_id] = merge_replacements[
-                impl.machineGroupId
-            ]
-    return machine_group_overrides
-
-
-def _apply_state_machine_group_merge(
-    p: "ProjectStateSingleConfig", merge_replacements: dict[str, str]
-) -> None:
-    if not merge_replacements:
-        return
-    for section_id, machine_group_id in _build_state_machine_group_merge_overrides(
-        p, merge_replacements
-    ).items():
-        set_curr_effective_section_impl_value(
-            p,
-            section_id,
-            {
-                "machineGroupId": machine_group_id,
-            },
-        )
-    p.projectConfig.stateMachineEdges = [
-        edge.model_copy(
-            update={"machineGroupId": merge_replacements[edge.machineGroupId]}
-        )
-        if edge.machineGroupId in merge_replacements
-        else edge
-        for edge in p.projectConfig.stateMachineEdges
-    ]
-
-
-def create_state_machine_edge(
-    p: "ProjectStateSingleConfig",
-    edge: StateMachineEdge,
-):
-    if any(existing.id == edge.id for existing in p.projectConfig.stateMachineEdges):
-        raise KeyError(f"State machine edge {edge.id} already exists.")
-    merge_replacements = _get_state_machine_group_merge_replacements(p, edge)
-    next_edges = [
-        existing.model_copy(
-            update={"machineGroupId": merge_replacements[existing.machineGroupId]}
-        )
-        if existing.machineGroupId in merge_replacements
-        else existing
-        for existing in p.projectConfig.stateMachineEdges
-    ]
-    next_edges.append(edge)
-    _ensure_state_machine_edges_valid(
-        p,
-        next_edges,
-        _build_state_machine_group_merge_overrides(p, merge_replacements),
-    )
-    _apply_state_machine_group_merge(p, merge_replacements)
-    p.projectConfig.stateMachineEdges.append(edge)
-
-
-def update_state_machine_edge(
-    p: "ProjectStateSingleConfig",
-    edge: StateMachineEdge,
-):
-    for idx, existing in enumerate(p.projectConfig.stateMachineEdges):
-        if existing.id != edge.id:
-            continue
-        next_edges = list(p.projectConfig.stateMachineEdges)
-        next_edges[idx] = edge
-        _ensure_state_machine_edges_valid(p, next_edges)
-        p.projectConfig.stateMachineEdges[idx] = edge
-        return
-    raise KeyError(f"State machine edge {edge.id} not found.")
-
-
-def delete_state_machine_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
-    edge_ids = set(edgeIds)
-    existing_ids = {edge.id for edge in p.projectConfig.stateMachineEdges}
-    missing = edge_ids - existing_ids
-    if missing:
-        raise KeyError(f"State machine edges not found: {sorted(missing)}")
-    remaining_edges: list[StateMachineEdge] = []
-    for edge in p.projectConfig.stateMachineEdges:
-        if edge.id in edge_ids:
-            continue
-        remaining_edges.append(edge)
-    _ensure_state_machine_edges_valid(p, remaining_edges)
-    p.projectConfig.stateMachineEdges = remaining_edges
-
-
-def set_state_machine_edges(
-    p: "ProjectStateSingleConfig",
-    edges: list[StateMachineEdge],
-):
-    edge_ids: set[ID] = set()
-    for edge in edges:
-        if edge.id in edge_ids:
-            raise KeyError(f"Duplicate state machine edge id {edge.id} in update.")
-        edge_ids.add(edge.id)
-    _ensure_state_machine_edges_valid(p, edges)
-    p.projectConfig.stateMachineEdges = edges
-
-
-def set_state_machine_section_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    machineGroupId: str,
-    label: str,
-    gateType: StateMachineGateType | None,
-):
-    _ensure_state_machine_machine_group_id_valid(
-        machineGroupId, f"State machine section {sectionId}"
-    )
-    impl = get_curr_effective_section_impl(p, sectionId)
-    if isinstance(impl, StateMachineStartSectionImpl):
-        _ensure_state_machine_edges_valid(
-            p,
-            p.projectConfig.stateMachineEdges,
-            {sectionId: machineGroupId},
-        )
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            {
-                "machineGroupId": machineGroupId,
-                "label": label,
-            },
-        )
-        return
-    if isinstance(impl, StateMachineEndSectionImpl):
-        _ensure_state_machine_edges_valid(
-            p,
-            p.projectConfig.stateMachineEdges,
-            {sectionId: machineGroupId},
-        )
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            {
-                "machineGroupId": machineGroupId,
-                "label": label,
-            },
-        )
-        return
-    if isinstance(impl, StateMachineGateSectionImpl):
-        if gateType is None:
-            raise ValueError("Gate sections require a gate type.")
-        _ensure_state_machine_edges_valid(
-            p,
-            p.projectConfig.stateMachineEdges,
-            {sectionId: machineGroupId},
-        )
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            {
-                "machineGroupId": machineGroupId,
-                "label": label,
-                "gateType": gateType,
-            },
-        )
-        return
-    raise TypeError(f"Section {sectionId} is not a state machine section.")
-
-
-def _prune_invalid_agentic_edges(p: "ProjectStateSingleConfig") -> None:
-    if not p.projectConfig.agenticEdges:
-        return
-    remaining_edges: list[AgenticEdge] = []
-    for edge in p.projectConfig.agenticEdges:
-        try:
-            _ensure_agentic_edge_endpoints_valid(p, edge)
-        except (KeyError, TypeError):
-            continue
-        remaining_edges.append(edge)
-    p.projectConfig.agenticEdges = remaining_edges
-
-
 def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):
     set_curr_effective_section_impl_value(
         p,
         sectionId,
         BaseSectionWithParamsImplArgsWithCallable(paramFilter=value),
     )
-
-
-def set_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID):
-    p.projectConfig.sectionVariantMap[sectionId] = variantId
-    _prune_invalid_agentic_edges(p)
 
 
 def set_section_sizes(
@@ -3104,45 +2074,6 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     normalized = validate_section_name(p, sectionId, name)
     p.sections[sectionId].name = normalized
     p._section_slug_cache = None
-
-
-def set_prompt_section_template(
-    p: "ProjectStateSingleConfig", sectionId: ID, template: str
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, PromptSectionImpl
-    )
-    result = build_prompt_section_preview(template, impl.format)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            promptTemplateId=None,
-            template=template,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
-        ),
-    )
-
-
-def set_prompt_section_format(
-    p: "ProjectStateSingleConfig", sectionId: ID, format: PromptFormat
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, PromptSectionImpl
-    )
-    result = build_prompt_section_preview(impl.template, format)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            format=format,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
-        ),
-    )
 
 
 def set_project_chat_windowing_state(
