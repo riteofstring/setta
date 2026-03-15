@@ -190,6 +190,24 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 	}
 }
 
+func TestValidateDirectSaveDocumentRejectsUnknownTopLevelBranch(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+	document["unexpectedSettingsBranch"] = true
+
+	err = ValidateDirectSaveDocument(document)
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+	if !strings.Contains(err.Error(), "settings.unexpectedSettingsBranch") {
+		t.Fatalf("expected error to contain unexpected top-level path, got %q", err.Error())
+	}
+}
+
 func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
 

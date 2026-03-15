@@ -279,6 +279,46 @@ func TestRegisterSettingsRoutesSaveMissingSettingsFieldReturnsValidationEnvelope
 	}
 }
 
+func TestRegisterSettingsRoutesSaveRejectsUnknownTopLevelSettingsBranch(t *testing.T) {
+	t.Parallel()
+
+	// The source SettingsState root rejects unknown top-level settings branches.
+	runtime, _ := newSettingsRouteTestRuntime(t)
+	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
+	before := runtime.Snapshot()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSaveSettings,
+		strings.NewReader(`{"settings":{"unexpectedSettingsBranch":true}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected save settings 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload validationErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode validation envelope: %v", err)
+	}
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if !strings.Contains(payload.Message, "settings.unexpectedSettingsBranch") {
+		t.Fatalf("expected unexpected branch detail in %q", payload.Message)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
+	}
+
+	after := runtime.Snapshot()
+	if got := after.Document["backend"].(map[string]any)["renameRefactorMode"]; got != before.Document["backend"].(map[string]any)["renameRefactorMode"] {
+		t.Fatalf("expected rejected save to preserve runtime snapshot, got before=%#v after=%#v", before.Document["backend"], after.Document["backend"])
+	}
+}
+
 func TestRegisterSettingsRoutesSaveRejectsTypedInvalidNestedSettings(t *testing.T) {
 	t.Parallel()
 

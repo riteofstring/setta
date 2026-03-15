@@ -31,26 +31,20 @@ func validateLiveSettingsContract(document Document) error {
 		return err
 	}
 
-	for _, branch := range []string{"shortcuts", "gui", "backend", "sectionSizingPolicy"} {
-		currentValue, ok := document[branch]
-		if !ok {
-			continue
-		}
+	for branch, currentValue := range document {
 		defaultValue, ok := defaults[branch]
 		if !ok {
+			return newValidationError("settings.%s: Extra inputs are not permitted", branch)
+		}
+		if branch == "languageServer" {
+			if _, ok := asObject(currentValue); !ok {
+				return newValidationError("settings.languageServer: Input should be an object")
+			}
 			continue
 		}
 		if err := validateValueAgainstDefault(currentValue, defaultValue, "settings."+branch); err != nil {
 			return err
 		}
-	}
-
-	languageServerValue, ok := document["languageServer"]
-	if !ok {
-		return nil
-	}
-	if _, ok := asObject(languageServerValue); !ok {
-		return newValidationError("settings.languageServer: Input should be an object")
 	}
 	return nil
 }
