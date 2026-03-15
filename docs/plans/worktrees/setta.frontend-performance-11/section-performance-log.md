@@ -5000,3 +5000,56 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted Browser icon thumbnail shell closed.
   - Re-read `frontend/src/components/Section/Layouts/ChatArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam or widening Browser into `MediaCarousel`.
+
+### 2026-03-18 128
+
+- Item: Accept the Chat history spinner shell flattening and close the last live `single-cell` owner inside `frontend/src/components/Section/Layouts`.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - The accepted lower-shell move is narrow:
+    - the managed history row keeps its existing flex button shell
+    - the live `BrailleSpinner` no longer uses `single-cell-child`
+    - the spinner now rides the row via `shrink-0` while staying inside the same constrained chat-width branch
+  - Added focused direct coverage in:
+    - `frontend/tests/e2e/chat/chat-history-spinner-shell.spec.ts`
+      - the managed history row no longer exposes `single-cell-container` / `single-cell-child`
+      - the row keeps positive geometry
+      - the live spinner stays visible and inside the row bounds
+      - the surrounding managed-history branch keeps the constrained `data-chat-width-shell="true"` / `max-w-[72rem]` contract
+    - existing managed-history regressions stayed green:
+      - `frontend/tests/e2e/chat/chat-composer-controls.spec.ts`
+        - `chat section history refreshes runs when the history panel opens`
+        - `chat section exits history when external activity resumes the current managed thread`
+  - Verification:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-history-spinner-shell.spec.ts`
+      - result: `1` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts --grep "chat section history refreshes runs when the history panel opens|chat section exits history when external activity resumes the current managed thread"`
+      - result: `2` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `pearl_chief` on `http://127.0.0.1:3087/pearl_chief`
+      - representative managed history row keeps the existing flex row class
+      - live spinner class still includes `single-cell-child`
+      - touched markup still exposes the old helper contract
+      - geometry:
+        - row `376 x 52.5`
+        - spinner `8.89 x 13`
+      - spinner remains inside the row bounds
+    - worktree: disposable compare project `eager_fair` on `http://127.0.0.1:3011/eager_fair`
+      - representative managed history row keeps the same flex row class
+      - live spinner class now reads `inline-flex ... shrink-0 text-[13px] ...`
+      - touched markup no longer exposes `single-cell-child`
+      - geometry:
+        - row `386 x 52.5`
+        - spinner `8.89 x 13`
+      - spinner remains inside the row bounds
+  - Interpretation:
+    - the Chat history spinner seam is now accepted
+    - there are no remaining live `single-cell` owners under `frontend/src/components/Section/Layouts`
+    - the next pass should widen upward into the shared `frontend/src/components/Utils/MediaCarousel.tsx` seam rather than reopening a section-local lower shell
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_chat-history-spinner-shell.md`
+- Next action:
+  - Keep the accepted Chat history spinner shell closed.
+  - Re-read `frontend/src/components/Utils/MediaCarousel.tsx` as the next shared shell candidate, using `frontend/src/components/Section/Layouts/BrowserArea.tsx` as the first representative host before deciding whether `PaneContainer` is still a stronger higher seam.
