@@ -211,6 +211,7 @@ func normalizeProjectChatWindowingState(
 	if state.NextInstanceNumber > 0 {
 		normalized.NextInstanceNumber = state.NextInstanceNumber
 	}
+	winningInstanceIDBySectionID := map[string]string{}
 
 	for instanceID, instance := range state.InstancesByID {
 		trimmedInstanceID := strings.TrimSpace(instanceID)
@@ -239,15 +240,30 @@ func normalizeProjectChatWindowingState(
 				nextInstance.Placement = ChatWindowPlacementFloating
 			}
 		}
-		if nextInstance.Mode == ChatWindowModeSection {
-			if nextInstance.SectionIDOrNull == nil {
-				continue
-			}
+		if nextInstance.Mode == ChatWindowModeSection && nextInstance.SectionIDOrNull == nil {
+			continue
+		}
+		if nextInstance.SectionIDOrNull != nil {
 			if _, ok := sections[*nextInstance.SectionIDOrNull]; !ok {
 				continue
 			}
-		} else {
-			nextInstance.SectionIDOrNull = nil
+			nextInstance.Title = nil
+
+			currentBestInstanceID := winningInstanceIDBySectionID[*nextInstance.SectionIDOrNull]
+			currentBestInstance, currentBestExists := normalized.InstancesByID[currentBestInstanceID]
+			if !shouldPreferProjectChatSectionBindingCandidate(
+				nextInstance,
+				trimmedInstanceID,
+				currentBestInstance,
+				currentBestInstanceID,
+				currentBestExists,
+			) {
+				continue
+			}
+			if currentBestExists {
+				delete(normalized.InstancesByID, currentBestInstanceID)
+			}
+			winningInstanceIDBySectionID[*nextInstance.SectionIDOrNull] = trimmedInstanceID
 		}
 		normalized.InstancesByID[trimmedInstanceID] = nextInstance
 	}
@@ -277,6 +293,7 @@ func normalizeWindowSpaces(
 		nextWindowSpace.ID = trimmedID
 		nextWindowSpace.Name = strings.TrimSpace(nextWindowSpace.Name)
 		nextWindows := make(map[string]WindowSpaceWindow, len(nextWindowSpace.WindowsByID))
+		winningWindowIDBySectionID := map[string]string{}
 		for instanceID, window := range nextWindowSpace.WindowsByID {
 			trimmedInstanceID := strings.TrimSpace(instanceID)
 			if trimmedInstanceID == "" {
@@ -305,6 +322,23 @@ func normalizeWindowSpaces(
 				if _, ok := sections[*nextWindow.SectionIDOrNull]; !ok {
 					continue
 				}
+				nextWindow.Title = nil
+
+				currentBestWindowID := winningWindowIDBySectionID[*nextWindow.SectionIDOrNull]
+				currentBestWindow, currentBestExists := nextWindows[currentBestWindowID]
+				if !shouldPreferWindowSpaceSectionBindingCandidate(
+					nextWindow,
+					trimmedInstanceID,
+					currentBestWindow,
+					currentBestWindowID,
+					currentBestExists,
+				) {
+					continue
+				}
+				if currentBestExists {
+					delete(nextWindows, currentBestWindowID)
+				}
+				winningWindowIDBySectionID[*nextWindow.SectionIDOrNull] = trimmedInstanceID
 			} else {
 				nextWindow.SectionIDOrNull = nil
 			}
@@ -478,4 +512,66 @@ func validateWindowingOwner(
 		return fmt.Errorf("section_mode requires a section binding")
 	}
 	return nil
+}
+
+func sectionBindingPlacementPriority(placement ChatWindowPlacement) int {
+	switch placement {
+	case ChatWindowPlacementCanvasSection:
+		return 4
+	case ChatWindowPlacementFloating:
+		return 3
+	case ChatWindowPlacementMaximized:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func isProjectChatWindowVisible(instance ProjectChatWindowInstance) bool {
+	return !instance.IsClosed && !instance.IsMinimized
+}
+
+func shouldPreferProjectChatSectionBindingCandidate(
+	candidate ProjectChatWindowInstance,
+	candidateInstanceID string,
+	currentBest ProjectChatWindowInstance,
+	currentBestInstanceID string,
+	currentBestExists bool,
+) bool {
+	if !currentBestExists || currentBestInstanceID == "" {
+		return true
+	}
+	candidatePriority := sectionBindingPlacementPriority(candidate.Placement)
+	currentBestPriority := sectionBindingPlacementPriority(currentBest.Placement)
+	if candidatePriority != currentBestPriority {
+		return candidatePriority > currentBestPriority
+	}
+	candidateVisible := isProjectChatWindowVisible(candidate)
+	currentBestVisible := isProjectChatWindowVisible(currentBest)
+	if candidateVisible != currentBestVisible {
+		return candidateVisible
+	}
+	if candidate.ZIndex != currentBest.ZIndex {
+		return candidate.ZIndex > currentBest.ZIndex
+	}
+	if candidate.LastFocusedAt != currentBest.LastFocusedAt {
+		return candidate.LastFocusedAt > currentBest.LastFocusedAt
+	}
+	return candidateInstanceID > currentBestInstanceID
+}
+
+func shouldPreferWindowSpaceSectionBindingCandidate(
+	candidate WindowSpaceWindow,
+	candidateWindowID string,
+	currentBest WindowSpaceWindow,
+	currentBestWindowID string,
+	currentBestExists bool,
+) bool {
+	if !currentBestExists || currentBestWindowID == "" {
+		return true
+	}
+	if candidate.ZIndex != currentBest.ZIndex {
+		return candidate.ZIndex > currentBest.ZIndex
+	}
+	return candidateWindowID > currentBestWindowID
 }

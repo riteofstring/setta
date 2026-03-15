@@ -796,6 +796,10 @@ def execute_scenario(
         return execute_persisted_project_windowing_after_create(backend)
     if scenario.kind == "project_windowing_authoritative_presence_on_load":
         return execute_project_windowing_authoritative_presence_on_load(backend)
+    if scenario.kind == "windowing_section_binding_dedup_and_title_clearing_on_load":
+        return execute_windowing_section_binding_dedup_and_title_clearing_on_load(
+            backend
+        )
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1134,6 +1138,74 @@ def execute_project_windowing_authoritative_presence_on_load(
         "restartLatestProjectStateStatus": restart_latest_http_status,
         "restartLatestProjectState": restart_latest_payload,
         "persistedProjectDocumentAfterRestart": persisted_after_payload,
+    }
+
+
+def execute_windowing_section_binding_dedup_and_title_clearing_on_load(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    project_config = object_field(loaded, "projectConfig")
+    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    if not top_level_sections:
+        raise ParityHarnessError(
+            f"Expected created project {project_id!r} to have at least one top-level section."
+        )
+    section_id = next(iter(top_level_sections))
+
+    persisted_payload = read_persisted_project_document(backend)
+    corrupted_payload = seed_windowing_section_binding_conflicts_in_store_payload(
+        persisted_payload,
+        project_id=project_id,
+        section_id=section_id,
+    )
+    write_json(backend.setta_files_root / PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_backend(backend)
+
+    restart_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": created_name},
+    )
+    restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    restart_latest_http_status: int | None = None
+    restart_latest_payload: Any = None
+    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+        restart_project_config = object_field(restart_load_payload, "projectConfig")
+        restart_project_id = expect_non_empty_string(
+            restart_project_config.get("id"),
+            "projectConfig.id",
+        )
+        restart_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": restart_project_id},
+        )
+        restart_latest_http_status = restart_latest_response.status_code
+        restart_latest_payload = normalize_response_json_allow_status(
+            restart_latest_response
+        )
+
+    summary = summarize_windowing_section_binding_dedup_and_title_clearing_on_load(
+        restart_load_http_status=restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=restart_latest_http_status,
+        restart_latest_payload=restart_latest_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "corruptedProjectDocument": corrupted_payload,
+        "restartLoadProjectConfigStatus": restart_load_response.status_code,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": restart_latest_http_status,
+        "restartLatestProjectState": restart_latest_payload,
     }
 
 
@@ -2370,6 +2442,91 @@ def summarize_project_windowing_authoritative_presence_on_load(
         )
 
     return summary
+
+
+def summarize_windowing_section_binding_dedup_and_title_clearing_on_load(
+    restart_load_http_status: int,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "restartLoadHttpStatus": restart_load_http_status,
+        "restartLatestHttpStatus": restart_latest_http_status,
+    }
+
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        summary.update(
+            summarize_single_config_windowing_section_binding_state(
+                payload=restart_load_payload,
+                prefix="restartLoad",
+            )
+        )
+    else:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(restart_load_payload)
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        summary.update(
+            summarize_single_config_windowing_section_binding_state(
+                payload=latest_project_state,
+                prefix="restartLatest",
+            )
+        )
+    elif restart_latest_http_status is not None:
+        summary["restartLatestErrorSummary"] = normalize_error_summary(
+            restart_latest_payload
+        )
+
+    return summary
+
+
+def summarize_single_config_windowing_section_binding_state(
+    payload: dict[str, Any],
+    prefix: str,
+) -> dict[str, Any]:
+    project_chat_windowing = expect_object(
+        payload.get("projectChatWindowing"),
+        "projectChatWindowing",
+        allow_missing=True,
+    )
+    project_chat_instances = object_field(
+        project_chat_windowing,
+        "instancesById",
+        allow_missing=True,
+    )
+    project_chat_titles: dict[str, str | None] = {}
+    for instance_id, raw_instance in project_chat_instances.items():
+        instance = expect_object(raw_instance, f"projectChatWindowing.instancesById.{instance_id}")
+        title_value = instance.get("title")
+        project_chat_titles[instance_id] = (
+            None if title_value is None else normalized_string(title_value)
+        )
+
+    project_config = object_field(payload, "projectConfig")
+    window_spaces = object_field(project_config, "windowSpaces", allow_missing=True)
+    space = expect_object(
+        window_spaces.get("space-dedupe"),
+        "projectConfig.windowSpaces.space-dedupe",
+        allow_missing=True,
+    )
+    space_windows = object_field(space, "windowsById", allow_missing=True)
+    space_titles: dict[str, str | None] = {}
+    for window_id, raw_window in space_windows.items():
+        window = expect_object(raw_window, f"projectConfig.windowSpaces.space-dedupe.windowsById.{window_id}")
+        title_value = window.get("title")
+        space_titles[window_id] = (
+            None if title_value is None else normalized_string(title_value)
+        )
+
+    return {
+        f"{prefix}ProjectChatSectionWindowCount": len(project_chat_instances),
+        f"{prefix}ProjectChatSectionWindowIDs": sorted(project_chat_instances.keys()),
+        f"{prefix}ProjectChatSectionWindowTitles": project_chat_titles,
+        f"{prefix}WindowSpaceSectionWindowCount": len(space_windows),
+        f"{prefix}WindowSpaceSectionWindowIDs": sorted(space_windows.keys()),
+        f"{prefix}WindowSpaceSectionWindowTitles": space_titles,
+    }
 
 
 def summarize_settings_project_shell(
@@ -4525,6 +4682,88 @@ def remove_project_windowing_from_store_payload(
             allow_missing=True,
         )
         raw_windowing_by_id.pop(project_id, None)
+        payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
+        return payload
+
+    raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
+
+
+def seed_windowing_section_binding_conflicts_in_store_payload(
+    payload: dict[str, Any],
+    project_id: str,
+    section_id: str,
+) -> dict[str, Any]:
+    project_chat_windowing = {
+        "instancesById": {
+            "project-chat-window-1": {
+                "instanceId": "project-chat-window-1",
+                "placement": "canvas_section",
+                "sectionIdOrNull": section_id,
+                "title": "Canvas Section Chat",
+                "zIndex": 1,
+            },
+            "project-chat-window-2": {
+                "instanceId": "project-chat-window-2",
+                "placement": "floating",
+                "sectionIdOrNull": section_id,
+                "title": "Floating Section Chat",
+                "zIndex": 10,
+            },
+        },
+        "order": [
+            "project-chat-window-2",
+            "project-chat-window-1",
+        ],
+        "nextInstanceNumber": 3,
+    }
+    window_spaces = {
+        "space-dedupe": {
+            "id": "space-dedupe",
+            "name": "Workspace",
+            "sortIndex": 0,
+            "windowsById": {
+                "window-1": {
+                    "surfaceKind": "section",
+                    "sectionIdOrNull": section_id,
+                    "title": "Lower Priority Section",
+                    "zIndex": 1,
+                },
+                "window-2": {
+                    "surfaceKind": "section",
+                    "sectionIdOrNull": section_id,
+                    "title": "Higher Priority Section",
+                    "zIndex": 10,
+                },
+            },
+            "order": [
+                "window-1",
+                "window-2",
+            ],
+        }
+    }
+
+    projects = object_field(payload, "projects", allow_missing=True)
+    if project_id in projects:
+        project = expect_object(projects[project_id], f"projects.{project_id}")
+        project["projectChatWindowing"] = project_chat_windowing
+        project["windowSpaces"] = window_spaces
+        projects[project_id] = project
+        payload["projects"] = projects
+        return payload
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if project_id in source_projects:
+        project = expect_object(source_projects[project_id], f"projectConfigs.{project_id}")
+        project["windowSpaces"] = window_spaces
+        source_projects[project_id] = project
+        payload["projectConfigs"] = source_projects
+
+        raw_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        raw_windowing_by_id[project_id] = project_chat_windowing
         payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
         return payload
 

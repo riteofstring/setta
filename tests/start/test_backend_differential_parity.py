@@ -2150,6 +2150,70 @@ class Route:
             },
         )
 
+    def test_summarize_windowing_section_binding_dedup_and_title_clearing_on_load(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        single_config = {
+            "projectChatWindowing": {
+                "instancesById": {
+                    "project-chat-window-1": {
+                        "instanceId": "project-chat-window-1",
+                        "title": None,
+                    }
+                }
+            },
+            "projectConfig": {
+                "windowSpaces": {
+                    "space-dedupe": {
+                        "windowsById": {
+                            "window-2": {
+                                "title": None,
+                            }
+                        }
+                    }
+                }
+            },
+        }
+
+        summary = harness.summarize_windowing_section_binding_dedup_and_title_clearing_on_load(
+            restart_load_http_status=200,
+            restart_load_payload=single_config,
+            restart_latest_http_status=200,
+            restart_latest_payload={"projectState": single_config},
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadProjectChatSectionWindowCount": 1,
+                "restartLoadProjectChatSectionWindowIDs": [
+                    "project-chat-window-1"
+                ],
+                "restartLoadProjectChatSectionWindowTitles": {
+                    "project-chat-window-1": None
+                },
+                "restartLoadWindowSpaceSectionWindowCount": 1,
+                "restartLoadWindowSpaceSectionWindowIDs": ["window-2"],
+                "restartLoadWindowSpaceSectionWindowTitles": {"window-2": None},
+                "restartLatestProjectChatSectionWindowCount": 1,
+                "restartLatestProjectChatSectionWindowIDs": [
+                    "project-chat-window-1"
+                ],
+                "restartLatestProjectChatSectionWindowTitles": {
+                    "project-chat-window-1": None
+                },
+                "restartLatestWindowSpaceSectionWindowCount": 1,
+                "restartLatestWindowSpaceSectionWindowIDs": ["window-2"],
+                "restartLatestWindowSpaceSectionWindowTitles": {
+                    "window-2": None
+                },
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

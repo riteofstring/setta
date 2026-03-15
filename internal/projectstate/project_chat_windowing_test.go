@@ -109,6 +109,9 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 	if sectionWindow.SectionIDOrNull == nil || *sectionWindow.SectionIDOrNull != "section-a" {
 		t.Fatalf("expected trimmed section binding section-a, got %#v", sectionWindow.SectionIDOrNull)
 	}
+	if sectionWindow.Title != nil {
+		t.Fatalf("expected section window title to be cleared, got %#v", sectionWindow.Title)
+	}
 	if sectionWindow.ChatID != nil {
 		t.Fatalf("expected section window chat id to be cleared, got %#v", sectionWindow.ChatID)
 	}
@@ -148,8 +151,8 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 	if spaceSectionWindow.ChatID != nil {
 		t.Fatalf("expected section window-space chat id to be cleared, got %#v", spaceSectionWindow.ChatID)
 	}
-	if spaceSectionWindow.Title == nil || *spaceSectionWindow.Title != "Section" {
-		t.Fatalf("expected trimmed window title Section, got %#v", spaceSectionWindow.Title)
+	if spaceSectionWindow.Title != nil {
+		t.Fatalf("expected section-owned window-space title to be cleared, got %#v", spaceSectionWindow.Title)
 	}
 	if spaceSectionWindow.NormalizedBounds.Width != 1 || spaceSectionWindow.NormalizedBounds.Height != 1 {
 		t.Fatalf("expected normalized floating bounds 1x1, got %#v", spaceSectionWindow.NormalizedBounds)
@@ -164,6 +167,126 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 	}
 	if _, ok := space.WindowsByID["window-missing"]; ok {
 		t.Fatal("expected missing section window to be dropped")
+	}
+}
+
+func TestProjectNormalizedDedupesSectionBoundProjectChatWindowsAndClearsTitles(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		Sections: map[string]Section{
+			"section-a": {
+				ID:   "section-a",
+				Name: "Section A",
+			},
+		},
+		ProjectChatWindowing: &ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-chat-window-1": {
+					InstanceID:      "project-chat-window-1",
+					Placement:       ChatWindowPlacementCanvasSection,
+					SectionIDOrNull: stringPointer("section-a"),
+					Title:           stringPointer("Canvas Section Chat"),
+					ZIndex:          1,
+				},
+				"project-chat-window-2": {
+					InstanceID:      "project-chat-window-2",
+					Placement:       ChatWindowPlacementFloating,
+					SectionIDOrNull: stringPointer("section-a"),
+					Title:           stringPointer("Floating Section Chat"),
+					ZIndex:          10,
+				},
+			},
+			Order:              []string{"project-chat-window-2", "project-chat-window-1"},
+			NextInstanceNumber: 3,
+		},
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+
+	if normalized.ProjectChatWindowing == nil {
+		t.Fatal("expected project chat windowing to be present")
+	}
+	if got := normalized.ProjectChatWindowing.Order; !reflect.DeepEqual(got, []string{"project-chat-window-1"}) {
+		t.Fatalf("expected deduped project chat order, got %#v", got)
+	}
+	if got := len(normalized.ProjectChatWindowing.InstancesByID); got != 1 {
+		t.Fatalf("expected one surviving project chat window, got %d", got)
+	}
+	survivor := normalized.ProjectChatWindowing.InstancesByID["project-chat-window-1"]
+	if survivor.SectionIDOrNull == nil || *survivor.SectionIDOrNull != "section-a" {
+		t.Fatalf("expected surviving section binding section-a, got %#v", survivor.SectionIDOrNull)
+	}
+	if survivor.Title != nil {
+		t.Fatalf("expected surviving section-bound title to be cleared, got %#v", survivor.Title)
+	}
+	if _, ok := normalized.ProjectChatWindowing.InstancesByID["project-chat-window-2"]; ok {
+		t.Fatal("expected lower-priority duplicate project chat window to be dropped")
+	}
+}
+
+func TestProjectNormalizedDedupesSectionBoundWindowSpaceWindowsAndClearsTitles(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		Sections: map[string]Section{
+			"section-a": {
+				ID:   "section-a",
+				Name: "Section A",
+			},
+		},
+		WindowSpaces: map[string]WindowSpaceConfig{
+			"space-dedupe": {
+				ID:        "space-dedupe",
+				Name:      "Workspace",
+				SortIndex: 0,
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-1": {
+						SurfaceKind:     WindowSpaceSurfaceKindSection,
+						SectionIDOrNull: stringPointer("section-a"),
+						Title:           stringPointer("Lower Priority Section"),
+						ZIndex:          9,
+					},
+					"window-2": {
+						SurfaceKind:     WindowSpaceSurfaceKindSection,
+						SectionIDOrNull: stringPointer("section-a"),
+						Title:           stringPointer("Higher ID Section"),
+						ZIndex:          9,
+					},
+				},
+				Order: []string{"window-1", "window-2"},
+			},
+		},
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+
+	space := normalized.WindowSpaces["space-dedupe"]
+	if got := space.Order; !reflect.DeepEqual(got, []string{"window-2"}) {
+		t.Fatalf("expected deduped window-space order, got %#v", got)
+	}
+	if got := len(space.WindowsByID); got != 1 {
+		t.Fatalf("expected one surviving window-space window, got %d", got)
+	}
+	survivor := space.WindowsByID["window-2"]
+	if survivor.SectionIDOrNull == nil || *survivor.SectionIDOrNull != "section-a" {
+		t.Fatalf("expected surviving window-space section binding section-a, got %#v", survivor.SectionIDOrNull)
+	}
+	if survivor.Title != nil {
+		t.Fatalf("expected surviving window-space title to be cleared, got %#v", survivor.Title)
+	}
+	if _, ok := space.WindowsByID["window-1"]; ok {
+		t.Fatal("expected lower-priority duplicate window-space window to be dropped")
 	}
 }
 
