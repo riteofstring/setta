@@ -282,6 +282,10 @@ Last audited: `2026-03-17`
   rescan/install/uninstall/update/rollback/enable/disable roundtrip behavior
   plus typed failure and IDE-only transport on the live plugins-pane caller
   surface
+- plus the targeted root-bootstrap follow-up slice:
+  bootstrap page auth-recovery plus launcher-handoff payload behavior, and
+  bootstrap-token consume cookie/bearer/trusted-origin transport on the live
+  auth-loss recovery and retained runner caller surfaces
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -298,9 +302,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `524`
+- Rows audited in this pass: `526`
 - Status counts:
-  - `Proved`: `491`
+  - `Proved`: `493`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `0`
   - `Retained Python boundary`: `8`
@@ -601,6 +605,11 @@ Last audited: `2026-03-17`
   follow-up slice: rescan/install/uninstall/update/rollback/enable/disable
   roundtrip behavior plus typed failure and IDE-only transport on the live
   plugins-pane caller surface.
+- This pass also extends the matrix into the targeted root-bootstrap
+  follow-up slice: bootstrap page auth-recovery plus launcher-handoff payload
+  behavior, and bootstrap-token consume cookie/bearer/trusted-origin
+  transport on the live auth-loss recovery and retained runner caller
+  surfaces.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -782,6 +791,10 @@ Last audited: `2026-03-17`
   direct realtime UI-change/dependency-event sender path are now explicit
   proved rows instead of remaining implicit inside websocket hub/route tests,
   listener-producer coverage, and frontend websocket sender/store coverage.
+- Root bootstrap page and bootstrap-token consume behavior are now explicit
+  proved rows instead of remaining implicit inside auth/httpapi tests, the
+  retained runner bootstrap client, and the frontend websocket auth-loss
+  recovery path.
 - Docstring markdown conversion, MCP runtime-status reads, and IDE-only
   path-reveal transport are now explicit proved rows instead of remaining
   implicit inside helper-route tests and the Project AI/TextBlock caller
@@ -949,6 +962,8 @@ Last audited: `2026-03-17`
 | `project_shell.notifications.list_filtered_by_project` | `backend/setta/routers/projects.py::route_get_notifications` returns `read_notifications(projectConfigId)` | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesReturnsProjectNotifications`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane calls `route_get_notifications` | `Proved` | The Go notifications read path keeps per-project filtering. |
 | `project_shell.notifications.delete_persists` | `backend/setta/routers/projects.py::route_delete_notification` deletes the notification through the DB | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane removes locally, then posts the delete | `Proved` | The delete side effect itself survives in Go. |
 | `project_shell.notifications.delete_transport_success_bool` | `backend/setta/routers/projects.py::route_delete_notification` returns `{"success": success}` | `internal/httpapi/project_shell_routes.go::deleteNotificationHandler` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | `frontend/src/components/Panes/Overview/NotificationsArea.tsx` ignores the response today | `Proved` | Go now returns the source success object. |
+| `auth.bootstrap.consume.mints_auth_cookie_accepts_bearer_token_and_records_verified_launcher_origin` | `docs/reference/auth-and-sessions.md` keeps IDE auth on a bootstrap-token exchange through `POST /__setta__/bootstrap/consume`; `docs/reference/setta-cli-commands.md` documents the retained runner consuming that route and forwarding the returned auth cookie to later calls; `tests/api/test_runner.py` keeps the retained bootstrap-cookie client branch live | `internal/httpapi/httpapi.go::bootstrapConsumeHandler`; `internal/auth/service.go`; `internal/frontendorigins/service.go` | `TestNewHandlerUsesBootstrapCookieToAuthenticateProtectedRoutes`; `TestBootstrapConsumeAcceptsBearerTokenWhenBodyOmitsToken`; `TestBootstrapConsumeReturnsVerifiedLauncherOrigin`; `TestBootstrapConsumeRejectsUntrustedLauncherOrigin` | retained runner bootstrap still posts this root route from `backend/setta/api/runner.py::_resolve_auth_headers`, and the same root consume path remains part of the launcher/bootstrap handoff surface documented in the current rewrite docs | `Proved` | Root bootstrap-token consumption still accepts either a JSON-body token or bearer-token fallback, mints the session-scoped auth cookie that unlocks protected API routes, returns the stable `{"status":"ok"}` success payload, and persists a trusted launcher origin only when the handoff proof verifies instead of silently widening origin trust. |
+| `auth.bootstrap.page.serves_manual_auth_recovery_and_launcher_handoff_payloads` | `docs/reference/dev-vs-built.md` keeps `GET /__setta__/bootstrap` available for manual auth recovery outside dev auto-cookie minting; `docs/plans/go-backend-rewrite/archive/phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` scopes bootstrap-page parity as part of launcher-origin and workspace-history handoff behavior | `internal/httpapi/bootstrap_page.go`; route mount in `internal/httpapi/httpapi.go` | `TestHandlerServesBootstrapPageWhenAuthEnabled`; `TestBootstrapPageUsesDevFrontendRedirectWhenConfigured`; `TestBootstrapPageIncludesLauncherHandoffAndWorkspaceHistoryStorage` | `frontend/src/utils/backendOriginTransport.ts::buildBootstrapPageUrl` and `frontend/src/state/actions/websocketReceive.ts` still direct auth-loss recovery to this root page, while launcher/workspace-launch flows continue to hand users off through the same bootstrap surface | `Proved` | The root bootstrap page still serves the live browser recovery surface: it remains mounted only when auth is enabled, still points at the canonical consume endpoint, still prefers the configured dev-frontend redirect when present, and still carries launcher-origin plus workspace-root/return-url payload data through the page so launcher handoff and workspace-history restoration do not depend on a separate helper route. |
 | `status_meta.backend_init.readiness_snapshot_exposes_ready_event_worktree_and_refresh_window` | `docs/plans/go-backend-rewrite/archive/phase-2-status-meta-read-route-closeout.md`; `backend/setta/routers/status.py`; `backend/setta/utils/init_status.py`; `backend/setta/utils/worktree.py` | `internal/httpapi/status_routes.go::getBackendInitStatusHandler`; `internal/app/app.go` wires the handler from canonical auth/config metadata plus the bounded dev-worktree helper | `TestRegisterStatusRoutesReturnsBackendInitStatus`; `TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName`; `TestAppServesStatusMetaRoutes` | `frontend/src/components/Pages/GlobalWrapper.tsx` still polls `route_get_backend_init_status` for the backend-ready loading gate, and `frontend/src/components/AppHeader/WorktreeHint.tsx` still reads the same payload for the worktree badge | `Proved` | `backendInitStatus` still returns a stable ready snapshot with one ready event, `isReady=true`, the auth-cookie refresh window, and the bounded active-worktree name when available, which is the live boot-time contract the app shell and worktree badge still consume. |
 | `status_meta.auth_refresh.read_exposes_cookie_window_for_websocket_recovery` | `docs/plans/go-backend-rewrite/archive/phase-2-status-meta-read-route-closeout.md`; `docs/reference/auth-and-sessions.md`; `docs/plans/go-backend-rewrite/archive/phase-2-auth-modes-request-context.md` | `internal/httpapi/status_routes.go::getAuthRefreshStatusHandler` | `TestRegisterStatusRoutesReturnsAuthRefreshStatus`; `TestAppServesStatusMetaRoutes` | `frontend/src/state/actions/websocketReceive.ts` still calls `route_get_auth_refresh_status` to recompute the auth-refresh interval during websocket steady-state refresh and auth-loss recovery | `Proved` | `authRefreshStatus` still exposes the auth-cookie refresh window as the live websocket auth-recovery contract instead of relying on a frontend-only constant or heuristic. |
 | `status_meta.server_mode.read_bootstraps_frontend_capabilities` | `docs/plans/go-backend-rewrite/archive/phase-1-foundation-runtime.md` keeps `GET /api/serverMode` in the initial runtime surface | `internal/httpapi/httpapi.go` serves `RouteGetServerMode` directly from the runtime info service | `TestNewHandlerServesHealthServerModeAndRuntimeInfo`; `TestNewHandlerUsesAPIAuthForServerMode` | `frontend/src/state/actions/serverMode.ts` still initializes the global mode store from `route_get_server_mode`, and `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx` still derives launcher-management capability from that bootstrapped mode | `Proved` | `serverMode` remains the thin authoritative boot-time read for frontend mode capability branching instead of collapsing into a larger runtime-info payload or frontend inference. |
