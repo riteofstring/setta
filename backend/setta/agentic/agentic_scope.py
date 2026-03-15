@@ -386,8 +386,8 @@ def build_scope_blocked_tool_result(
                 continue
             canonical.append(
                 {
-                    # Keep canonical IDs for UI; these should not be rewritten by
-                    # convert_canonical_ids_to_temporary().
+                    # Keep canonical IDs for UI; the temporary-id rewrite path
+                    # must not touch these values.
                     "sourceSectionId": str(source),
                     "targetSectionId": str(target),
                     "kind": kind,

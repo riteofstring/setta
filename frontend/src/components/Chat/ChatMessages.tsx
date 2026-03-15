@@ -1,4 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import * as Dialog from "@radix-ui/react-dialog";
+import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
 import {
   CodeBlock,
   MarkdownCodePre,
@@ -7,13 +9,19 @@ import {
   BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
   BrailleSpinner,
 } from "components/Utils/BrailleSpinner";
+import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
-  memo,
+  MediaCarousel,
+  type MediaCarouselItem,
+} from "components/Utils/MediaCarousel";
+import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   ReactNode,
   type PointerEvent as ReactPointerEvent,
   Ref,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -28,11 +36,14 @@ import {
   FiCpu,
   FiEdit3,
   FiFileText,
+  FiMusic,
   FiRotateCcw,
   FiTerminal,
   FiTrash2,
+  FiVideo,
 } from "react-icons/fi";
-import { IoMdCheckmark } from "react-icons/io";
+import { IoMdCheckmark, IoMdClose } from "react-icons/io";
+import { IoImageOutline } from "react-icons/io5";
 import {
   MdChevronLeft,
   MdChevronRight,
@@ -47,93 +58,138 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useAIStore } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import {
+  getAttachmentPreviewKind,
+  isImageAttachment,
+  isTextAttachment,
+} from "utils/attachmentPreview";
+import { formatBytes } from "utils/attachments";
 import { C } from "utils/c";
 import {
   APPROVAL_TOOL_NAME,
   type ApprovalPayload,
   type AskUserQuestionPayload,
+  QUESTION_TOOL_NAME,
+  TODO_TOOL_NAME,
+  type TodoListPayload,
   normalizeToolName,
   parseAnswers,
   parseApprovalPayload,
   parseAskUserQuestionPayload,
   parseTodoPayload,
-  QUESTION_TOOL_NAME,
   resolveToolCallArguments,
-  TODO_TOOL_NAME,
-  type TodoListPayload,
 } from "utils/claudeTools";
+import {
+  type CodeLanguage,
+  resolveCodeLanguageFromPath,
+} from "utils/codeLanguage";
 import {
   type ConversationSearchTextRange,
   findConversationSearchTextRanges,
 } from "utils/conversationSearch";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
+  AttachmentDownloadURLEntry,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
+  CodeLanguageEnum,
+  ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
 import { ApprovalCard } from "./ApprovalCard";
-import {
-  type ActivityMessageContext,
-  type ActivityPreviewData,
-  type ActivityTimelineEntry,
-  type AssistantChatMessage,
-  buildActivityTimelineEntries,
-  buildCopyTextForActivityTimelineEntry,
-  buildCopyTextForMessage,
-  type ChatContentItem,
-  extractNonEmptyStringArg,
-  getStreamActivitySummary,
-  hasAssistantActivityContent,
-  hasMeaningfulAssistantDisplayItems,
-  isAssistantActivityOnlyMessage,
-  isAssistantErrorText,
-  partitionAssistantContent,
-  resolveActionLabel,
-  resolveActivityTimestampMs,
-  resolveCollapsedThinkingActivityLabel,
-  resolveCompactionEntryLabel,
-  resolveCompactionSummaryText,
-  resolveDisplayArgsForToolCallEntry,
-  resolveLatestActivityPreview,
-  resolveLatestThinkingSummary,
-  resolveMessageCreatedAtMs,
-  resolveThinkingSummaryHeadline,
-  stripAssistantErrorPrefix,
-  type ThinkingContentItem,
-  type ThinkingRenderEntry,
-  type ToolCallRenderEntry,
-  type ToolResultValue,
-} from "./chatAssistantActivity";
-import { ChatAttachmentList, ChatImage } from "./chatAttachmentPreviews";
-import {
-  type ChatAttachmentUrlMap,
-  type RequestChatAttachmentUrls,
-  useChatAttachmentPreviewUrls,
-} from "./chatAttachmentPreviewUrls";
 import { ChatMessageEditor } from "./ChatMessageEditor";
-import {
-  formatStructuredToolResult as formatToolResult,
-  resolveDiffTextFromUnknown,
-  resolveStructuredOutputFallbackPayload,
-  resolveStructuredOutputPayload,
-  StructuredOutputBlock,
-  type StructuredOutputOwner,
-  type StructuredOutputPayload,
-  type StructuredOutputRunState,
-} from "./chatStructuredOutput";
 import { QuestionCard } from "./QuestionCard";
+import { TodoListCard } from "./TodoListCard";
 import {
   type AnimatedStreamingCharacter,
   reconcileAnimatedStreamingCharacters,
   splitStreamingMarkdownText,
 } from "./streamingMarkdown";
-import { TodoListCard } from "./TodoListCard";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
-export { buildCopyTextForMessage };
+type AssistantChatMessage = Extract<
+  BaseChatMessageUnion,
+  { role: "assistant" }
+>;
+type ChatContentItem = AssistantChatMessage["content"][number];
+type ThinkingContentItem = Extract<
+  ChatContentItem,
+  { type: typeof C.LLM_THINKING }
+>;
+
+type ToolResultValue = ToolChatMessage["result"] | string;
+type ToolCallRenderEntry = {
+  toolCall: ToolCall;
+  isStreaming: boolean;
+};
+
+type ThinkingRenderEntry = {
+  item: ThinkingContentItem;
+  messageId: string;
+  itemIndex: number;
+  timerRunKey: string;
+  timestampMs: number | null;
+  isStreaming: boolean;
+  wasInterrupted: boolean;
+};
+
+type ActivityMessageContext = {
+  message: AssistantChatMessage;
+  isStreaming: boolean;
+  wasInterrupted: boolean;
+};
+
+type ActivityTimelineEntry =
+  | {
+      kind: "thinking";
+      key: string;
+      thinkingEntry: ThinkingRenderEntry;
+    }
+  | {
+      kind: ToolCallDisplayKind;
+      key: string;
+      messageId: string;
+      toolEntry: ToolCallRenderEntry;
+    };
+
+type ActivityPreviewData = {
+  label: string;
+  kind:
+    | "none"
+    | "thought"
+    | "context"
+    | "action"
+    | "tool"
+    | "terminal"
+    | "subagent";
+  thoughtText: string | null;
+  thoughtActivityKey: string | null;
+  hasStreamingThought: boolean;
+  shouldScrambleTitle: boolean;
+};
+
+type AssistantDisplayItem = {
+  item: ChatContentItem;
+  fullIndex: number;
+};
+
+type AssistantContentPartition = {
+  thinkingItems: ThinkingContentItem[];
+  displayItems: AssistantDisplayItem[];
+};
+
+type ToolCallDisplayKind =
+  | "tool"
+  | "action"
+  | "compaction"
+  | "terminal"
+  | "subagent";
+type StructuredOutputOwner = "action" | "tool" | "terminal" | "subagent";
 type ActivityToolLikeRowKind = StructuredOutputOwner;
 
 type ToolCallContext = {
@@ -164,6 +220,13 @@ const ACTIVITY_ROW_HOVER_CLASS =
   "hover:bg-setta-100/35 dark:hover:bg-setta-900/55";
 const ACTIVITY_CHILD_TRIGGER_CLASS =
   "bg-setta-50/95 hover:bg-setta-100/95 dark:bg-setta-875 dark:hover:bg-setta-850";
+const STRUCTURED_OUTPUT_DEFAULT_MAX_HEIGHT_PX = 260;
+const STRUCTURED_OUTPUT_MIN_HEIGHT_PX = 90;
+const STRUCTURED_OUTPUT_MAX_VIEWPORT_RATIO = 0.8;
+const STRUCTURED_OUTPUT_RESIZE_HANDLE_CLASS =
+  "group/resize absolute inset-x-0 bottom-0 z-[1] h-3 translate-y-1/2 cursor-row-resize touch-none opacity-0 transition-opacity data-[resizing=true]:opacity-100 group-hover/structured-output-pane:opacity-100 group-focus-within/structured-output-pane:opacity-100";
+const STRUCTURED_OUTPUT_RESIZE_HANDLE_BAR_CLASS =
+  "absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-setta-200/90 transition-colors group-hover/resize:bg-blue-400 group-focus-visible/resize:bg-blue-400 dark:bg-setta-700/90 dark:group-hover/resize:bg-blue-400 dark:group-focus-visible/resize:bg-blue-400";
 const ACTIVITY_ACCORDION_CONTENT_CLASS =
   "overflow-hidden data-[state=closed]:hidden data-[state=open]:block";
 const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pt-1`;
@@ -200,8 +263,36 @@ const CHAT_TIMESTAMP_TOOLTIP_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 const COUNT_BADGE_STEP_ANIMATION_MS = 120;
 const COUNT_BADGE_STEP_PAUSE_MS = 24;
+const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
 const ASSISTANT_ACTIVITY_DETAILS_VALUE = "assistant-activity-details";
+const ACTION_TOOL_NAMES = new Set<string>([
+  "command_execution",
+  "file_change",
+  "webSearch",
+  "imageView",
+  "collabToolCall",
+  "enteredReviewMode",
+  "exitedReviewMode",
+]);
+const ACTIVE_RUNTIME_TERMINAL_TOOL_NAMES = new Set<string>([
+  "command_execution",
+]);
+const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
+  "setta__run_agent_profile",
+  "run_agent_profile",
+]);
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
+
+type AttachmentUrlEntry = {
+  url: AttachmentDownloadURLEntry["url"];
+  expiresAt: AttachmentDownloadURLEntry["expiresAt"];
+};
+type AttachmentTextPreview = {
+  text: string;
+  truncated: boolean;
+  isLoading: boolean;
+  error: string | null;
+};
 
 type AssistantActivityChildAccordionControl = {
   defaultOpen: boolean;
@@ -767,6 +858,23 @@ function MarkdownContent({
   );
 }
 
+function formatToolArgs(args: unknown) {
+  if (!args) return "{}";
+  if (typeof args === "string") {
+    return args;
+  }
+
+  try {
+    return JSON.stringify(args, null, 2);
+  } catch {
+    return String(args);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function copyTextWithNotifications({
   text,
   emptyMessage,
@@ -792,6 +900,209 @@ function copyTextWithNotifications({
       console.error("Failed to copy text:", error);
       addTemporaryNotification(failureMessage, "error");
     });
+}
+
+function extractNonEmptyStringArg(args: unknown, key: string): string | null {
+  if (!isRecord(args)) {
+    return null;
+  }
+  const value = args[key];
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveToolDisplayName(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): string | null {
+  const toolResult = toolResultsById[entry.toolCall.id];
+  const fromResult = normalizeToolName(toolResult?.tool_name);
+  if (fromResult) {
+    return fromResult;
+  }
+  return normalizeToolName(entry.toolCall.function?.name);
+}
+
+function resolveToolRawName(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): string {
+  const toolResult = toolResultsById[entry.toolCall.id];
+  if (
+    typeof toolResult?.tool_name === "string" &&
+    toolResult.tool_name.trim()
+  ) {
+    return toolResult.tool_name.trim();
+  }
+  if (
+    typeof entry.toolCall.function?.name === "string" &&
+    entry.toolCall.function.name.trim()
+  ) {
+    return entry.toolCall.function.name.trim();
+  }
+  return "";
+}
+
+function resolveToolCallDisplayKind(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): ToolCallDisplayKind {
+  const runtimeDisplayKind = resolveActiveRuntimeDisplayKind(
+    entry,
+    toolResultsById,
+  );
+  if (runtimeDisplayKind) {
+    return runtimeDisplayKind;
+  }
+  const normalizedName = resolveToolDisplayName(entry, toolResultsById);
+  if (normalizedName === CONTEXT_COMPACTION_TOOL_NAME) {
+    return "compaction";
+  }
+  if (normalizedName && ACTION_TOOL_NAMES.has(normalizedName)) {
+    return "action";
+  }
+  const rawName = resolveToolRawName(entry, toolResultsById);
+  if (rawName.startsWith("mcp__")) {
+    return "action";
+  }
+  return "tool";
+}
+
+function resolveRuntimeToolCategory(
+  toolName: string | null,
+): "terminal" | "subagent" | null {
+  if (!toolName) {
+    return null;
+  }
+  const normalizedToolName = normalizeToolName(toolName);
+  if (!normalizedToolName) {
+    return null;
+  }
+  const lowerCaseToolName = normalizedToolName.toLowerCase();
+  if (ACTIVE_RUNTIME_TERMINAL_TOOL_NAMES.has(lowerCaseToolName)) {
+    return "terminal";
+  }
+  if (ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES.has(lowerCaseToolName)) {
+    return "subagent";
+  }
+  return null;
+}
+
+function resolveActiveRuntimeDisplayKind(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): "terminal" | "subagent" | null {
+  if (!entry.isStreaming) {
+    return null;
+  }
+  if (toolResultsById[entry.toolCall.id]) {
+    return null;
+  }
+  return resolveRuntimeToolCategory(
+    resolveToolDisplayName(entry, toolResultsById),
+  );
+}
+
+function hashStringToBase36(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function resolveThinkingTimerRunKey({
+  messageId,
+  itemIndex,
+  item,
+}: {
+  messageId: string;
+  itemIndex: number;
+  item: ThinkingContentItem;
+}): string {
+  const signature = item.signature?.trim();
+  if (signature && signature.length > 0) {
+    return `thinking-signature-${hashStringToBase36(signature)}`;
+  }
+  return `thinking-${messageId}-${itemIndex}`;
+}
+
+function buildActivityTimelineEntries(
+  messageContexts: ActivityMessageContext[],
+  toolResultsById: Record<string, ToolChatMessage>,
+): ActivityTimelineEntry[] {
+  const timelineEntries: ActivityTimelineEntry[] = [];
+  for (const messageContext of messageContexts) {
+    const { message, isStreaming, wasInterrupted } = messageContext;
+    const { thinkingItems, displayItems } = partitionAssistantContent(
+      message.content,
+    );
+    const thinkingIsStreaming =
+      isStreaming && !hasMeaningfulAssistantDisplayItems(displayItems);
+    const thinkingTimestampMs = resolveMessageCreatedAtMs(message);
+    for (let itemIndex = 0; itemIndex < thinkingItems.length; itemIndex += 1) {
+      const item = thinkingItems[itemIndex];
+      if (!item) {
+        continue;
+      }
+      timelineEntries.push({
+        kind: "thinking",
+        key: `${message.id}-thinking-${itemIndex}`,
+        thinkingEntry: {
+          item,
+          messageId: message.id,
+          itemIndex,
+          timerRunKey: resolveThinkingTimerRunKey({
+            messageId: message.id,
+            itemIndex,
+            item,
+          }),
+          timestampMs: thinkingTimestampMs,
+          isStreaming: thinkingIsStreaming,
+          wasInterrupted,
+        },
+      });
+    }
+    const toolCalls = message.tool_calls ?? [];
+    for (const toolCall of toolCalls) {
+      const toolEntry: ToolCallRenderEntry = { toolCall, isStreaming };
+      timelineEntries.push({
+        kind: resolveToolCallDisplayKind(toolEntry, toolResultsById),
+        key: toolCall.id,
+        messageId: message.id,
+        toolEntry,
+      });
+    }
+  }
+  return timelineEntries;
+}
+
+function resolveActionLabel(name: string, args: unknown): string {
+  const normalized = normalizeToolName(name) ?? name;
+  if (normalized === "command_execution") {
+    const command = extractNonEmptyStringArg(args, "command");
+    if (command) {
+      return command;
+    }
+    return "Run command";
+  }
+  if (normalized === "file_change") {
+    const path =
+      extractNonEmptyStringArg(args, "path") ??
+      extractNonEmptyStringArg(args, "filePath");
+    if (path) {
+      return `Edit ${path}`;
+    }
+    return "Edit file";
+  }
+  if (name.startsWith("mcp__")) {
+    return `MCP ${name.slice("mcp__".length)}`;
+  }
+  return normalized || "Action";
 }
 
 const FILE_READ_ACTION_NAMES = new Set<string>([
@@ -913,6 +1224,846 @@ function resolveActionRailIcon({
   return <PiWrenchFill size={13} className="min-w-4" />;
 }
 
+function resolveToolResultDisplay(
+  result: ToolResultValue | undefined,
+): string | null {
+  if (typeof result === "string") {
+    const trimmed = result.trim();
+    if (trimmed.length > 0) {
+      return result;
+    }
+    return null;
+  }
+  if (typeof result === "number" || typeof result === "boolean") {
+    return String(result);
+  }
+  if (result && typeof result === "object") {
+    return formatToolArgs(result);
+  }
+  return null;
+}
+
+type StructuredOutputKind = "plain" | "code" | "diff";
+type StructuredOutputPayload = {
+  text: string;
+  kind: StructuredOutputKind;
+  language: CodeLanguage | null;
+  useJsx: boolean;
+  pathHint: string | null;
+};
+
+type StructuredOutputPart = "input" | "output";
+
+function resolveCodeLanguageFromMimeType(mimeType: string | null): {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+} {
+  if (!mimeType) {
+    return { language: null, useJsx: false };
+  }
+  const normalized = mimeType.trim().toLowerCase();
+  if (
+    normalized === "application/json" ||
+    normalized.endsWith("+json") ||
+    normalized === "text/json"
+  ) {
+    return { language: CodeLanguageEnum.json, useJsx: false };
+  }
+  if (
+    normalized === "application/yaml" ||
+    normalized === "text/yaml" ||
+    normalized === "application/x-yaml" ||
+    normalized === "text/x-yaml"
+  ) {
+    return { language: CodeLanguageEnum.yaml, useJsx: false };
+  }
+  if (normalized === "text/markdown") {
+    return { language: CodeLanguageEnum.markdown, useJsx: false };
+  }
+  if (
+    normalized === "application/toml" ||
+    normalized === "text/x-toml" ||
+    normalized === "application/x-toml"
+  ) {
+    return { language: CodeLanguageEnum.toml, useJsx: false };
+  }
+  if (
+    normalized === "application/javascript" ||
+    normalized === "text/javascript" ||
+    normalized === "application/x-javascript"
+  ) {
+    return { language: CodeLanguageEnum.javascript, useJsx: false };
+  }
+  if (
+    normalized === "application/typescript" ||
+    normalized === "text/typescript"
+  ) {
+    return { language: CodeLanguageEnum.typescript, useJsx: false };
+  }
+  return { language: null, useJsx: false };
+}
+
+function resolveLanguageFromPathHint(pathHint: string | null): {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+} {
+  if (!pathHint) {
+    return { language: null, useJsx: false };
+  }
+  const normalized = pathHint.toLowerCase();
+  if (normalized.endsWith(".tsx")) {
+    return { language: CodeLanguageEnum.typescript, useJsx: true };
+  }
+  if (normalized.endsWith(".jsx")) {
+    return { language: CodeLanguageEnum.javascript, useJsx: true };
+  }
+  const language = resolveCodeLanguageFromPath(pathHint);
+  if (language === CodeLanguageEnum.plaintext) {
+    return { language: null, useJsx: false };
+  }
+  return { language, useJsx: false };
+}
+
+function resolvePathHintFromUnknown(value: unknown): string | null {
+  const pathKeys = [
+    "path",
+    "filePath",
+    "filepath",
+    "targetPath",
+    "target",
+    "file",
+    "filename",
+    "fileName",
+    "uri",
+  ];
+  for (const key of pathKeys) {
+    const resolved = extractNonEmptyStringArg(value, key);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveMimeTypeHintFromUnknown(value: unknown): string | null {
+  const mimeKeys = ["mimeType", "mimetype", "contentType", "content_type"];
+  for (const key of mimeKeys) {
+    const resolved = extractNonEmptyStringArg(value, key);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveCommandInputText(value: unknown): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const command = value.command;
+  if (typeof command !== "string") {
+    return null;
+  }
+  const trimmed = command.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return command;
+}
+
+function resolveDiffTextFromUnknown(value: unknown): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const diff = value.diff;
+  if (typeof diff !== "string") {
+    return null;
+  }
+  const trimmed = diff.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return diff;
+}
+
+export function classifyDiffLineForChat(
+  line: string,
+): "add" | "del" | "hunk" | "file" | "meta" | "context" {
+  if (line.startsWith("@@")) {
+    return "hunk";
+  }
+  if (line.startsWith("diff --git")) {
+    return "meta";
+  }
+  if (
+    line.startsWith("index ") ||
+    line.startsWith("new file mode ") ||
+    line.startsWith("deleted file mode ") ||
+    line.startsWith("similarity index ") ||
+    line.startsWith("rename from ") ||
+    line.startsWith("rename to ") ||
+    line.startsWith("\\ No newline at end of file")
+  ) {
+    return "meta";
+  }
+  if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+    return "file";
+  }
+  if (line.startsWith("+") && !line.startsWith("+++")) {
+    return "add";
+  }
+  if (line.startsWith("-") && !line.startsWith("---")) {
+    return "del";
+  }
+  return "context";
+}
+
+export function isUnifiedDiffText(text: string): boolean {
+  const lines = text.split(/\r?\n/u);
+  let hasFileHeader = false;
+  let hasHunk = false;
+  let hasDiffHeader = false;
+  let hasBinaryHeader = false;
+  for (const line of lines) {
+    if (line.startsWith("diff --git ")) {
+      hasDiffHeader = true;
+    } else if (line.startsWith("--- ") || line.startsWith("+++ ")) {
+      hasFileHeader = true;
+    } else if (line.startsWith("@@")) {
+      hasHunk = true;
+    } else if (line.startsWith("Binary files ")) {
+      hasBinaryHeader = true;
+    }
+  }
+  if (hasDiffHeader && (hasFileHeader || hasHunk || hasBinaryHeader)) {
+    return true;
+  }
+  if (hasFileHeader && hasHunk) {
+    return true;
+  }
+  return false;
+}
+
+function tryParseObjectOrArrayJson(text: string): unknown | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (Array.isArray(parsed) || isRecord(parsed)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveStructuredOutputPayload({
+  value,
+  toolName,
+  part,
+  contextValue,
+}: {
+  value: unknown;
+  toolName: string;
+  part: StructuredOutputPart;
+  contextValue?: unknown;
+}): StructuredOutputPayload | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const normalizedToolName = normalizeToolName(toolName) ?? toolName;
+  const pathHint =
+    resolvePathHintFromUnknown(value) ??
+    resolvePathHintFromUnknown(contextValue) ??
+    null;
+  const mimeTypeHint =
+    resolveMimeTypeHintFromUnknown(value) ??
+    resolveMimeTypeHintFromUnknown(contextValue) ??
+    null;
+  const pathLanguage = resolveLanguageFromPathHint(pathHint);
+  const mimeLanguage = resolveCodeLanguageFromMimeType(mimeTypeHint);
+  const resolvedLanguage =
+    pathLanguage.language !== null ? pathLanguage : mimeLanguage;
+
+  if (normalizedToolName === "file_change") {
+    const diffFromObject = resolveDiffTextFromUnknown(value);
+    if (diffFromObject && isUnifiedDiffText(diffFromObject)) {
+      return {
+        text: diffFromObject,
+        kind: "diff",
+        language: null,
+        useJsx: false,
+        pathHint,
+      };
+    }
+  }
+
+  if (part === "input" && normalizedToolName === "command_execution") {
+    const commandText = resolveCommandInputText(value);
+    if (commandText) {
+      return {
+        text: commandText,
+        kind: "code",
+        language: CodeLanguageEnum.bash,
+        useJsx: false,
+        pathHint,
+      };
+    }
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+    if (isUnifiedDiffText(value)) {
+      return {
+        text: value,
+        kind: "diff",
+        language: null,
+        useJsx: false,
+        pathHint,
+      };
+    }
+    const parsedJson = tryParseObjectOrArrayJson(value);
+    if (parsedJson !== null) {
+      return {
+        text: JSON.stringify(parsedJson, null, 2),
+        kind: "code",
+        language: CodeLanguageEnum.json,
+        useJsx: false,
+        pathHint,
+      };
+    }
+    if (resolvedLanguage.language !== null) {
+      return {
+        text: value,
+        kind: "code",
+        language: resolvedLanguage.language,
+        useJsx: resolvedLanguage.useJsx,
+        pathHint,
+      };
+    }
+    return {
+      text: value,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint,
+    };
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return {
+      text: String(value),
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint,
+    };
+  }
+
+  if (Array.isArray(value) || isRecord(value)) {
+    return {
+      text: formatToolArgs(value),
+      kind: "code",
+      language: CodeLanguageEnum.json,
+      useJsx: false,
+      pathHint,
+    };
+  }
+
+  return {
+    text: String(value),
+    kind: "plain",
+    language: null,
+    useJsx: false,
+    pathHint,
+  };
+}
+
+function resolveStructuredOutputFallbackPayload({
+  runState,
+  failedLabel,
+  successLabel,
+  stoppedLabel,
+}: {
+  runState: ToolCallRunState;
+  failedLabel: string;
+  successLabel: string;
+  stoppedLabel: string;
+}): StructuredOutputPayload | null {
+  if (runState === "failed") {
+    return {
+      text: failedLabel,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint: null,
+    };
+  }
+  if (runState === "success") {
+    return {
+      text: successLabel,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint: null,
+    };
+  }
+  if (runState === "stopped") {
+    return {
+      text: stoppedLabel,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint: null,
+    };
+  }
+  return null;
+}
+
+function resolveCompactionSummaryText(
+  entries: ToolCallRenderEntry[],
+  toolResultsById: Record<string, ToolChatMessage>,
+  toolCallArguments: Record<string, string>,
+): string | null {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (!entry) {
+      continue;
+    }
+    const toolResult = toolResultsById[entry.toolCall.id];
+    const resultDisplay = resolveToolResultDisplay(
+      formatToolResult(toolResult),
+    );
+    if (resultDisplay) {
+      return resultDisplay;
+    }
+    const argsFromMessage = entry.toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments?.[entry.toolCall.id];
+    if (isRecord(argsFromMessage) && Object.keys(argsFromMessage).length > 0) {
+      return formatToolArgs(argsFromMessage);
+    }
+    if (pendingArgs && pendingArgs.trim().length > 0) {
+      return pendingArgs;
+    }
+  }
+  return null;
+}
+
+function resolveActionEntryLabel(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+  toolCallArguments: Record<string, string>,
+): string {
+  const toolCall = entry.toolCall;
+  const toolResult = toolResultsById[toolCall.id];
+  const rawToolName =
+    toolResult?.tool_name || toolCall.function?.name || `Action ${toolCall.id}`;
+  const argsToDisplay = resolveDisplayArgsForToolCallEntry({
+    toolCall,
+    toolResult,
+    toolCallArguments,
+  });
+  return resolveActionLabel(rawToolName, argsToDisplay);
+}
+
+function resolveToolEntryLabel(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): string {
+  const latestResult = toolResultsById[entry.toolCall.id];
+  return (
+    latestResult?.tool_name ||
+    entry.toolCall.function?.name ||
+    `Tool call ${entry.toolCall.id}`
+  );
+}
+
+function resolveSubagentEntryLabel({
+  entry,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  entry: ToolCallRenderEntry;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  const toolCall = entry.toolCall;
+  const toolResult = toolResultsById[toolCall.id];
+  const rawToolName =
+    toolResult?.tool_name ||
+    toolCall.function?.name ||
+    `Subagent ${toolCall.id}`;
+  const argsToDisplay = resolveDisplayArgsForToolCallEntry({
+    toolCall,
+    toolResult,
+    toolCallArguments,
+  });
+  const profileId = extractNonEmptyStringArg(argsToDisplay, "profileId");
+  if (profileId) {
+    return profileId;
+  }
+  return normalizeToolName(rawToolName) ?? rawToolName;
+}
+
+function resolveDisplayArgsForToolCallEntry({
+  toolCall,
+  toolResult,
+  toolCallArguments,
+}: {
+  toolCall: ToolCall;
+  toolResult: ToolChatMessage | undefined;
+  toolCallArguments: Record<string, string>;
+}): unknown {
+  const argsFromResult = toolResult?.arguments;
+  const argsFromAssistant = toolCall.function?.arguments;
+  const pendingArgs = toolCallArguments?.[toolCall.id];
+  if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+    return argsFromResult;
+  }
+  if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+    return argsFromAssistant;
+  }
+  return pendingArgs;
+}
+
+function resolveCompactionEntryLabel({
+  entry,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  entry: ToolCallRenderEntry;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  return (
+    resolveCompactionSummaryText([entry], toolResultsById, toolCallArguments) ??
+    "Compaction completed."
+  );
+}
+
+function resolveLatestThoughtPreview(
+  timelineEntries: ActivityTimelineEntry[],
+): { activityKey: string | null; thoughtText: string | null } {
+  for (let index = timelineEntries.length - 1; index >= 0; index -= 1) {
+    const entry = timelineEntries[index];
+    if (!entry || entry.kind !== "thinking") {
+      continue;
+    }
+    const thoughtText = entry.thinkingEntry.item.thinking.trim();
+    if (thoughtText.length > 0) {
+      return {
+        activityKey: entry.key,
+        thoughtText,
+      };
+    }
+  }
+  return {
+    activityKey: null,
+    thoughtText: null,
+  };
+}
+
+function resolveHasStreamingThought(
+  timelineEntries: ActivityTimelineEntry[],
+): boolean {
+  return timelineEntries.some(
+    (entry) => entry.kind === "thinking" && entry.thinkingEntry.isStreaming,
+  );
+}
+
+function resolveThinkingPreviewHeadline(entry: ThinkingRenderEntry): {
+  headline: string | null;
+  shouldScramble: boolean;
+} {
+  if (entry.isStreaming) {
+    const streamingHeadline = resolveStreamingThinkingHeadline({
+      content: entry.item.thinking,
+      summary: entry.item.summary,
+    });
+    if (streamingHeadline) {
+      return { headline: streamingHeadline, shouldScramble: false };
+    }
+    return { headline: null, shouldScramble: true };
+  }
+  const summaryMeta = resolveThinkingSummaryMeta({
+    content: entry.item.thinking,
+    summary: entry.item.summary,
+    isStreaming: entry.isStreaming,
+  });
+  if (summaryMeta.hasTitle) {
+    return { headline: summaryMeta.headline, shouldScramble: false };
+  }
+  return { headline: null, shouldScramble: false };
+}
+
+function resolveFallbackThinkingHeadline(
+  timelineEntries: ActivityTimelineEntry[],
+  startIndex: number,
+): string | null {
+  for (let index = startIndex; index >= 0; index -= 1) {
+    const entry = timelineEntries[index];
+    if (!entry || entry.kind !== "thinking") {
+      continue;
+    }
+    const nextHeadline = resolveThinkingPreviewHeadline(entry.thinkingEntry);
+    if (nextHeadline.headline) {
+      return nextHeadline.headline;
+    }
+  }
+  return null;
+}
+
+function resolveLatestActivityPreview({
+  timelineEntries,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  timelineEntries: ActivityTimelineEntry[];
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): ActivityPreviewData {
+  const hasStreamingThought = resolveHasStreamingThought(timelineEntries);
+  const { activityKey: thoughtActivityKey, thoughtText } =
+    resolveLatestThoughtPreview(timelineEntries);
+  const thinkingEntryCount = timelineEntries.filter(
+    (entry) => entry.kind === "thinking",
+  ).length;
+  const hasThoughtPreviewText = (thoughtText?.trim().length ?? 0) > 0;
+  const latestEntry = timelineEntries[timelineEntries.length - 1];
+  if (!latestEntry) {
+    return {
+      label: "No recent activity",
+      kind: "none",
+      thoughtText,
+      thoughtActivityKey,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "thinking") {
+    if (hasThoughtPreviewText) {
+      return {
+        label: hasStreamingThought
+          ? "Thinking"
+          : thinkingEntryCount > 1
+            ? "Thoughts"
+            : "Reasoning",
+        kind: "thought",
+        thoughtText,
+        thoughtActivityKey,
+        hasStreamingThought,
+        shouldScrambleTitle: false,
+      };
+    }
+    const latestHeadline = resolveThinkingPreviewHeadline(
+      latestEntry.thinkingEntry,
+    );
+    if (latestHeadline.headline) {
+      return {
+        label: latestHeadline.headline,
+        kind: "thought",
+        thoughtText,
+        thoughtActivityKey,
+        hasStreamingThought,
+        shouldScrambleTitle: false,
+      };
+    }
+    const fallbackHeadline = resolveFallbackThinkingHeadline(
+      timelineEntries,
+      timelineEntries.length - 2,
+    );
+    if (fallbackHeadline) {
+      return {
+        label: fallbackHeadline,
+        kind: "thought",
+        thoughtText,
+        thoughtActivityKey,
+        hasStreamingThought,
+        shouldScrambleTitle: false,
+      };
+    }
+    if (latestHeadline.shouldScramble) {
+      return {
+        label: "Thinking",
+        kind: "thought",
+        thoughtText,
+        thoughtActivityKey,
+        hasStreamingThought,
+        shouldScrambleTitle: false,
+      };
+    }
+    return {
+      label: "Reasoning",
+      kind: "thought",
+      thoughtText,
+      thoughtActivityKey,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "compaction") {
+    return {
+      label: `Context: ${resolveCompactionEntryLabel({
+        entry: latestEntry.toolEntry,
+        toolResultsById,
+        toolCallArguments,
+      })}`,
+      kind: "context",
+      thoughtText,
+      thoughtActivityKey,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "action") {
+    return {
+      label: `Action: ${resolveActionEntryLabel(
+        latestEntry.toolEntry,
+        toolResultsById,
+        toolCallArguments,
+      )}`,
+      kind: "action",
+      thoughtText,
+      thoughtActivityKey,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "terminal") {
+    return {
+      label: `Terminal: ${resolveActionEntryLabel(
+        latestEntry.toolEntry,
+        toolResultsById,
+        toolCallArguments,
+      )}`,
+      kind: "terminal",
+      thoughtText,
+      thoughtActivityKey,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "subagent") {
+    return {
+      label: `Subagent: ${resolveSubagentEntryLabel({
+        entry: latestEntry.toolEntry,
+        toolResultsById,
+        toolCallArguments,
+      })}`,
+      kind: "subagent",
+      thoughtText,
+      thoughtActivityKey,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  return {
+    label: `Action: ${resolveToolEntryLabel(
+      latestEntry.toolEntry,
+      toolResultsById,
+    )}`,
+    kind: "tool",
+    thoughtText,
+    thoughtActivityKey,
+    hasStreamingThought,
+    shouldScrambleTitle: false,
+  };
+}
+
+type StreamActivitySummary = {
+  activityKey: string;
+  lastTextIndex: number;
+};
+
+const ASSISTANT_ERROR_PREFIX = "[Error]";
+
+function isAssistantErrorText(text: string): boolean {
+  return text.trimStart().startsWith(ASSISTANT_ERROR_PREFIX);
+}
+
+function stripAssistantErrorPrefix(text: string): string {
+  const next = text.replace(/^\s*\[Error\]\s*/u, "");
+  return next.trim().length > 0 ? next : "The AI request failed.";
+}
+
+function isThinkingContentItem(
+  item: ChatContentItem,
+): item is ThinkingContentItem {
+  return item.type === C.LLM_THINKING;
+}
+
+function partitionAssistantContent(
+  content: ChatContentItem[],
+): AssistantContentPartition {
+  const thinkingItems: ThinkingContentItem[] = [];
+  const displayItems: AssistantDisplayItem[] = [];
+  for (let index = 0; index < content.length; index += 1) {
+    const item = content[index];
+    if (isThinkingContentItem(item)) {
+      thinkingItems.push(item);
+      continue;
+    }
+    displayItems.push({ item, fullIndex: index });
+  }
+  return { thinkingItems, displayItems };
+}
+
+function isMeaningfulAssistantDisplayItem(item: ChatContentItem): boolean {
+  if (item.type === C.LLM_TEXT) {
+    return item.text.trim().length > 0;
+  }
+  if (item.type === "image_url") {
+    return item.image_url.url.trim().length > 0;
+  }
+  return false;
+}
+
+function hasMeaningfulAssistantDisplayItems(
+  displayItems: AssistantDisplayItem[],
+): boolean {
+  return displayItems.some(({ item }) =>
+    isMeaningfulAssistantDisplayItem(item),
+  );
+}
+
+function getStreamActivitySummary(
+  content: ChatContentItem[],
+): StreamActivitySummary {
+  let textLength = 0;
+  let thinkingLength = 0;
+  let summaryLength = 0;
+  let signatureLength = 0;
+  let imageCount = 0;
+  let lastTextIndex = -1;
+  for (let index = 0; index < content.length; index += 1) {
+    const item = content[index];
+    if (item.type === C.LLM_TEXT) {
+      textLength += item.text.length;
+      lastTextIndex = index;
+      continue;
+    }
+    if (item.type === C.LLM_THINKING) {
+      thinkingLength += item.thinking.length;
+      if (item.summary) {
+        summaryLength += item.summary.length;
+      }
+      if (item.signature) {
+        signatureLength += item.signature.length;
+      }
+      continue;
+    }
+    if (item.type === "image_url") {
+      imageCount += 1;
+    }
+  }
+  return {
+    activityKey: `${textLength}-${thinkingLength}-${summaryLength}-${signatureLength}-${imageCount}`,
+    lastTextIndex,
+  };
+}
+
 function resolveStreamingAssistantMessageId(
   messages: Array<BaseChatMessageUnion>,
 ): string | null {
@@ -995,6 +2146,19 @@ function resolveTimestampMs(value: unknown): number | null {
   return value;
 }
 
+function resolveMessageCreatedAtMs(
+  message: BaseChatMessageUnion,
+): number | null {
+  return resolveTimestampMs((message as { createdAt?: unknown }).createdAt);
+}
+
+function resolveActivityTimestampMs(
+  startedAtMs: number | null,
+  completedAtMs: number | null,
+): number | null {
+  return resolveTimestampMs(startedAtMs) ?? resolveTimestampMs(completedAtMs);
+}
+
 function formatChatTimestamp(timestampMs: number | null): string | null {
   const resolvedTimestampMs = resolveTimestampMs(timestampMs);
   if (resolvedTimestampMs === null) {
@@ -1058,6 +2222,151 @@ function ChatMessageTimestampFooter({
       <ChatTimestamp timestampMs={timestampMs} kind="message" />
     </div>
   );
+}
+
+function deriveThinkingHeadlineFromContent(content: string): string | null {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const normalizedLines = trimmed
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) =>
+      line
+        .replace(/^#+\s+/u, "")
+        .replace(/^(?:>+|\*|-)\s*/u, "")
+        .replace(/^\d+\.\s*/u, "")
+        .replace(/\s+/gu, " ")
+        .trim(),
+    )
+    .filter((line) => line.length > 0);
+  const collapsed =
+    normalizedLines[0] ??
+    trimmed
+      .replace(/\s+/gu, " ")
+      .replace(/^#+\s+/u, "")
+      .replace(/^(?:>+|\*|-)\s*/u, "")
+      .replace(/^\d+\.\s*/u, "")
+      .trim();
+  if (collapsed.length === 0) {
+    return null;
+  }
+  const maxLength = 96;
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, maxLength).trimEnd()}...`;
+}
+
+function resolveThinkingSummaryMeta({
+  content,
+  summary,
+  isStreaming,
+}: {
+  content: string;
+  summary: string | null | undefined;
+  isStreaming: boolean;
+}): { headline: string; hasTitle: boolean } {
+  if (isStreaming) {
+    return { headline: "Thinking...", hasTitle: false };
+  }
+  const summaryText = summary?.trim() ?? "";
+  const hasThinkingText = content.trim().length > 0;
+  const summaryHeadlineSourceText = (
+    summaryText.split(/\r?\n/u)[0] ?? ""
+  ).trim();
+  const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
+  const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
+  const summaryLooksLikeThinking =
+    normalizedSummaryText.length > 0 &&
+    normalizedThinkingText.length > 0 &&
+    normalizedSummaryText === normalizedThinkingText;
+  const collapsedSummaryText =
+    summaryLooksLikeThinking || summaryHeadlineSourceText.length === 0
+      ? ""
+      : summaryHeadlineSourceText;
+  if (collapsedSummaryText) {
+    return { headline: collapsedSummaryText, hasTitle: true };
+  }
+  if (hasThinkingText) {
+    const derivedHeadline = deriveThinkingHeadlineFromContent(content);
+    if (derivedHeadline) {
+      return { headline: derivedHeadline, hasTitle: true };
+    }
+    return {
+      headline: "Summary unavailable. Expand to view full reasoning.",
+      hasTitle: false,
+    };
+  }
+  return {
+    headline: isStreaming ? "Thinking..." : "Reasoning complete.",
+    hasTitle: false,
+  };
+}
+
+function resolveStreamingThinkingHeadline({
+  content,
+  summary,
+}: {
+  content: string;
+  summary: string | null | undefined;
+}): string | null {
+  const summaryText = summary?.trim() ?? "";
+  const summaryHeadlineSourceText = (
+    summaryText.split(/\r?\n/u)[0] ?? ""
+  ).trim();
+  const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
+  const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
+  const summaryLooksLikeThinking =
+    normalizedSummaryText.length > 0 &&
+    normalizedThinkingText.length > 0 &&
+    normalizedSummaryText === normalizedThinkingText;
+  if (summaryHeadlineSourceText.length > 0 && !summaryLooksLikeThinking) {
+    return summaryHeadlineSourceText;
+  }
+  return deriveThinkingHeadlineFromContent(content);
+}
+
+function resolveThinkingSummaryHeadline({
+  content,
+  summary,
+  isStreaming,
+}: {
+  content: string;
+  summary: string | null | undefined;
+  isStreaming: boolean;
+}): string {
+  if (isStreaming) {
+    return (
+      resolveStreamingThinkingHeadline({ content, summary }) ?? "Thinking..."
+    );
+  }
+  return resolveThinkingSummaryMeta({ content, summary, isStreaming }).headline;
+}
+
+function resolveCollapsedThinkingActivityLabel({
+  isStreaming,
+}: {
+  isStreaming: boolean;
+}): string {
+  return isStreaming ? "Thinking" : "Reasoning";
+}
+
+function resolveLatestThinkingSummary(
+  thinkingItems: ThinkingContentItem[],
+  isStreaming: boolean,
+): string {
+  const latestItem = thinkingItems[thinkingItems.length - 1];
+  if (!latestItem) {
+    return "No thoughts yet.";
+  }
+  return resolveThinkingSummaryHeadline({
+    content: latestItem.thinking,
+    summary: latestItem.summary,
+    isStreaming,
+  });
 }
 
 const SCRAMBLE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -1646,6 +2955,619 @@ function useRunElapsedDuration({
     elapsedMs,
     hasKnownDuration: true,
   };
+}
+
+function ChatImage({
+  url,
+  className,
+  onError,
+}: {
+  url: string;
+  className?: string;
+  onError?: () => void;
+}) {
+  const baseClassName =
+    "max-h-64 w-auto max-w-full rounded-md border border-setta-200/70 bg-white";
+  const combinedClassName = className
+    ? `${baseClassName} ${className}`
+    : baseClassName;
+  return (
+    <img
+      src={url}
+      alt="Chat attachment"
+      className={combinedClassName}
+      loading="lazy"
+      onError={onError}
+    />
+  );
+}
+
+const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
+const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
+const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
+
+function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
+  return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
+}
+
+function collectAttachments(
+  messages: Array<BaseChatMessageUnion>,
+): ChatFileAttachment[] {
+  const map = new Map<string, ChatFileAttachment>();
+  for (const message of messages) {
+    const attachments =
+      "attachments" in message && Array.isArray(message.attachments)
+        ? message.attachments
+        : [];
+    for (const attachment of attachments) {
+      if (!map.has(attachment.id)) {
+        map.set(attachment.id, attachment);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+function getAttachmentSizeLabel(attachment: ChatFileAttachment): string | null {
+  if (attachment.size === null || attachment.size === undefined) {
+    return null;
+  }
+  return formatBytes(attachment.size);
+}
+
+function AttachmentPreviewDialog({
+  open,
+  onOpenChange,
+  attachments,
+  selectedAttachmentId,
+  onSelectAttachmentId,
+  attachmentUrlMap,
+  requestAttachmentUrls,
+  onImageError,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  attachments: ChatFileAttachment[];
+  selectedAttachmentId: string | null;
+  onSelectAttachmentId: (id: string) => void;
+  attachmentUrlMap: Record<string, AttachmentUrlEntry>;
+  requestAttachmentUrls: (
+    targets: ChatFileAttachment[],
+    options?: { force?: boolean },
+  ) => Promise<Record<string, AttachmentUrlEntry>>;
+  onImageError: (attachment: ChatFileAttachment) => void;
+}) {
+  const selectedIndex = useMemo(() => {
+    if (attachments.length === 0) {
+      return -1;
+    }
+    if (!selectedAttachmentId) {
+      return 0;
+    }
+    const index = attachments.findIndex(
+      (attachment) => attachment.id === selectedAttachmentId,
+    );
+    return index >= 0 ? index : 0;
+  }, [attachments, selectedAttachmentId]);
+  const selectedAttachment =
+    selectedIndex >= 0 ? attachments[selectedIndex] : null;
+  const [textPreviewMap, setTextPreviewMap] = useState<
+    Record<string, AttachmentTextPreview>
+  >({});
+
+  useEffect(() => {
+    if (!open || attachments.length === 0) {
+      return;
+    }
+    void requestAttachmentUrls(attachments);
+  }, [open, attachments, requestAttachmentUrls]);
+
+  const requestTextPreview = useCallback(
+    async (attachment: ChatFileAttachment) => {
+      if (!isTextAttachment(attachment)) {
+        return;
+      }
+      const existing = textPreviewMap[attachment.id];
+      if (existing) {
+        return;
+      }
+      if (
+        attachment.size !== null &&
+        attachment.size !== undefined &&
+        attachment.size > TEXT_PREVIEW_MAX_BYTES
+      ) {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: true,
+            isLoading: false,
+            error: "Preview disabled for large files.",
+          },
+        }));
+        return;
+      }
+      let entry = attachmentUrlMap[attachment.id];
+      if (!entry || isAttachmentUrlStale(entry, Date.now())) {
+        const refreshed = await requestAttachmentUrls([attachment], {
+          force: true,
+        });
+        entry = refreshed[attachment.id] ?? attachmentUrlMap[attachment.id];
+      }
+      if (!entry) {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: "Preview unavailable.",
+          },
+        }));
+        return;
+      }
+      setTextPreviewMap((prev) => ({
+        ...prev,
+        [attachment.id]: {
+          text: "",
+          truncated: false,
+          isLoading: true,
+          error: null,
+        },
+      }));
+      let response: Response;
+      try {
+        response = await fetch(entry.url);
+      } catch {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: "Preview unavailable.",
+          },
+        }));
+        return;
+      }
+      if (!response.ok) {
+        setTextPreviewMap((prev) => ({
+          ...prev,
+          [attachment.id]: {
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: "Preview unavailable.",
+          },
+        }));
+        return;
+      }
+      const text = await response.text();
+      const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
+      const previewText = truncated
+        ? text.slice(0, TEXT_PREVIEW_CHAR_LIMIT)
+        : text;
+      setTextPreviewMap((prev) => ({
+        ...prev,
+        [attachment.id]: {
+          text: previewText,
+          truncated,
+          isLoading: false,
+          error: null,
+        },
+      }));
+    },
+    [attachmentUrlMap, requestAttachmentUrls, textPreviewMap],
+  );
+
+  useEffect(() => {
+    if (!open || !selectedAttachment) {
+      return;
+    }
+    void requestTextPreview(selectedAttachment);
+  }, [open, requestTextPreview, selectedAttachment]);
+
+  const carouselItems = useMemo<Array<MediaCarouselItem<ChatFileAttachment>>>(
+    () =>
+      attachments.map((attachment) => {
+        const attachmentUrl = attachmentUrlMap[attachment.id]?.url ?? null;
+        const previewKind = getAttachmentPreviewKind(attachment);
+        const shouldShowThumbnail = previewKind === "image";
+        return {
+          id: attachment.id,
+          label: attachment.name,
+          thumbnailUrl: shouldShowThumbnail ? attachmentUrl : null,
+          imageUrl: shouldShowThumbnail ? attachmentUrl : null,
+          data: attachment,
+        };
+      }),
+    [attachments, attachmentUrlMap],
+  );
+
+  const renderFileCard = useCallback(
+    (attachment: ChatFileAttachment, icon: ReactNode, description?: string) => {
+      const sizeLabel = getAttachmentSizeLabel(attachment);
+      return (
+        <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
+          <div className="text-setta-400 dark:text-setta-500">{icon}</div>
+          <span className="max-w-[70%] truncate text-center text-setta-700 dark:text-setta-200">
+            {attachment.name}
+          </span>
+          {description ? (
+            <span className="text-xs text-setta-400 dark:text-setta-500">
+              {description}
+            </span>
+          ) : null}
+          {sizeLabel ? (
+            <span className="text-xs text-setta-400 dark:text-setta-500">
+              {sizeLabel}
+            </span>
+          ) : null}
+        </div>
+      );
+    },
+    [],
+  );
+
+  const renderAttachmentPreview = useCallback(
+    (item: MediaCarouselItem<ChatFileAttachment>) => {
+      const attachment = item.data;
+      if (!attachment) {
+        return (
+          <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
+            <IoImageOutline size={40} />
+            <span>Loading preview...</span>
+          </div>
+        );
+      }
+      const previewKind = getAttachmentPreviewKind(attachment);
+      const attachmentUrl = attachmentUrlMap[attachment.id]?.url ?? "";
+      if (previewKind === "image") {
+        if (!attachmentUrl) {
+          return (
+            <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
+              <IoImageOutline size={40} />
+              <span>Loading preview...</span>
+            </div>
+          );
+        }
+        return (
+          <div className="relative h-full w-full">
+            <img
+              src={attachmentUrl}
+              alt={attachment.name}
+              className="h-full w-full object-contain"
+              loading="lazy"
+              onError={() => onImageError(attachment)}
+            />
+          </div>
+        );
+      }
+      if (previewKind === "text") {
+        const preview = textPreviewMap[attachment.id];
+        if (!preview || preview.isLoading) {
+          return (
+            <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
+              <FiFileText size={40} />
+              <span>Loading preview...</span>
+            </div>
+          );
+        }
+        if (preview.error) {
+          return (
+            <div className="flex flex-col items-center gap-2 text-sm text-setta-500 dark:text-setta-300">
+              <FiFileText size={40} />
+              <span className="max-w-[70%] text-center text-setta-700 dark:text-setta-200">
+                {preview.error}
+              </span>
+            </div>
+          );
+        }
+        return (
+          <div className="flex h-full w-full flex-col gap-2">
+            <div className="h-full w-full overflow-hidden rounded-md border border-setta-200/60 bg-white/70 dark:border-setta-700 dark:bg-setta-900/60">
+              <pre className="h-full w-full overflow-auto p-4 text-xs leading-relaxed text-setta-700 dark:text-setta-200">
+                {preview.text || ""}
+              </pre>
+            </div>
+            {preview.truncated ? (
+              <div className="text-[11px] text-setta-400">
+                Preview truncated.
+              </div>
+            ) : null}
+          </div>
+        );
+      }
+      if (previewKind === "pdf") {
+        if (
+          attachment.size !== null &&
+          attachment.size !== undefined &&
+          attachment.size > PDF_PREVIEW_MAX_BYTES
+        ) {
+          return renderFileCard(
+            attachment,
+            <FiFileText size={40} />,
+            "Preview disabled for large PDFs.",
+          );
+        }
+        if (!attachmentUrl) {
+          return renderFileCard(
+            attachment,
+            <FiFileText size={40} />,
+            "Preview unavailable.",
+          );
+        }
+        return (
+          <div className="relative h-full w-full overflow-hidden rounded-md">
+            <iframe
+              src={attachmentUrl}
+              title={attachment.name}
+              className="h-full w-full"
+            />
+          </div>
+        );
+      }
+      if (previewKind === "audio") {
+        if (!attachmentUrl) {
+          return renderFileCard(
+            attachment,
+            <FiMusic size={40} />,
+            "Preview unavailable.",
+          );
+        }
+        return (
+          <div className="flex h-full w-full items-center justify-center">
+            <audio controls preload="metadata" className="w-full max-w-[720px]">
+              <source src={attachmentUrl} />
+            </audio>
+          </div>
+        );
+      }
+      if (previewKind === "video") {
+        if (!attachmentUrl) {
+          return renderFileCard(
+            attachment,
+            <FiVideo size={40} />,
+            "Preview unavailable.",
+          );
+        }
+        return (
+          <div className="relative h-full w-full">
+            <video controls preload="metadata" className="h-full w-full">
+              <source src={attachmentUrl} />
+            </video>
+          </div>
+        );
+      }
+      if (previewKind === "archive") {
+        return renderFileCard(
+          attachment,
+          <FiArchive size={40} />,
+          "Archive preview not available.",
+        );
+      }
+      return renderFileCard(
+        attachment,
+        <FiFileText size={40} />,
+        "Preview not available.",
+      );
+    },
+    [attachmentUrlMap, onImageError, renderFileCard, textPreviewMap],
+  );
+
+  if (!open || attachments.length === 0 || !selectedAttachment) {
+    return null;
+  }
+
+  const sizeLabel = getAttachmentSizeLabel(selectedAttachment);
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex h-[80vh] min-h-0 w-[95vw] max-w-[1100px] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-lg bg-white px-6 pb-5 pt-4 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800">
+          <div className="flex items-center justify-between gap-3">
+            <Dialog.Title className="text-xs font-bold uppercase tracking-[0.2em] text-setta-400">
+              Attachment preview
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-setta-400 transition hover:bg-setta-200 hover:text-setta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:hover:bg-setta-900 dark:hover:text-setta-200"
+              >
+                <IoMdClose size={18} />
+              </button>
+            </Dialog.Close>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex items-center justify-between text-[11px] text-setta-400">
+              <div className="max-w-[70%] truncate">
+                {selectedAttachment.name}
+              </div>
+              <div className="shrink-0">
+                {selectedIndex + 1} / {attachments.length}
+              </div>
+            </div>
+
+            <MediaCarousel
+              items={carouselItems}
+              selectedId={selectedAttachmentId}
+              onSelect={onSelectAttachmentId}
+              renderPreview={renderAttachmentPreview}
+              showThumbnailLabels
+              showNavButtons={attachments.length > 1}
+              containerClassName="gap-4"
+              previewClassName="border border-setta-200/60 bg-setta-50 dark:border-setta-700 dark:bg-setta-860/80"
+              thumbnailRowClassName="rounded-lg border border-setta-200/60 bg-setta-50/70 px-3 py-3 dark:border-setta-700 dark:bg-setta-900/50"
+              thumbnailClassName="border-setta-300/70 bg-white/70 dark:border-setta-700 dark:bg-setta-800/70"
+              selectedThumbnailClassName="border-blue-500 shadow-md"
+              footer={
+                <div className="flex items-center justify-between text-[11px] text-setta-400">
+                  <div className="truncate">
+                    {selectedAttachment.mimeType ?? "Unknown type"}
+                  </div>
+                  {sizeLabel ? <span>{sizeLabel}</span> : null}
+                </div>
+              }
+            />
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function ChatAttachmentList({
+  attachments,
+  isUser,
+  attachmentUrlMap,
+  requestAttachmentUrls,
+  conversationSearchTerms = [],
+}: {
+  attachments: ChatFileAttachment[];
+  isUser: boolean;
+  attachmentUrlMap: Record<string, AttachmentUrlEntry>;
+  requestAttachmentUrls: (
+    targets: ChatFileAttachment[],
+    options?: { force?: boolean },
+  ) => Promise<Record<string, AttachmentUrlEntry>>;
+  conversationSearchTerms?: Array<string>;
+}) {
+  const hasAttachments = attachments.length > 0;
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewAttachmentId, setPreviewAttachmentId] = useState<string | null>(
+    null,
+  );
+  const pillClassName = isUser
+    ? "border-white/40 bg-white/10 text-white"
+    : "border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200";
+  const detailClassName = isUser ? "text-white/70" : "text-setta-400";
+  const handleImageError = useCallback(
+    (attachment: ChatFileAttachment) => {
+      void requestAttachmentUrls([attachment], { force: true });
+    },
+    [requestAttachmentUrls],
+  );
+  const handlePreviewOpen = useCallback((attachment: ChatFileAttachment) => {
+    setPreviewAttachmentId(attachment.id);
+    setPreviewOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const staleImages = attachments.filter((attachment) => {
+      if (!isImageAttachment(attachment)) {
+        return false;
+      }
+      const entry = attachmentUrlMap[attachment.id];
+      if (!entry) {
+        return false;
+      }
+      return isAttachmentUrlStale(entry, Date.now());
+    });
+    if (staleImages.length > 0) {
+      void requestAttachmentUrls(staleImages);
+    }
+  }, [attachments, attachmentUrlMap, requestAttachmentUrls]);
+
+  useEffect(() => {
+    if (!previewOpen || attachments.length === 0) {
+      return;
+    }
+    if (
+      previewAttachmentId &&
+      attachments.some((attachment) => attachment.id === previewAttachmentId)
+    ) {
+      return;
+    }
+    setPreviewAttachmentId(attachments[0]?.id ?? null);
+  }, [attachments, previewAttachmentId, previewOpen]);
+
+  if (!hasAttachments) {
+    return null;
+  }
+
+  return (
+    <>
+      <AttachmentPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        attachments={attachments}
+        selectedAttachmentId={previewAttachmentId}
+        onSelectAttachmentId={setPreviewAttachmentId}
+        attachmentUrlMap={attachmentUrlMap}
+        requestAttachmentUrls={requestAttachmentUrls}
+        onImageError={handleImageError}
+      />
+      <div className="flex flex-wrap gap-2">
+        {attachments.map((attachment) => {
+          const isImage = isImageAttachment(attachment);
+          const entry = attachmentUrlMap[attachment.id];
+          const url = entry ? entry.url : "";
+          const sizeLabel = getAttachmentSizeLabel(attachment);
+          if (isImage && url) {
+            return (
+              <div key={attachment.id} className="flex w-24 flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => handlePreviewOpen(attachment)}
+                  className="inline-flex h-16 w-16 cursor-pointer items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                >
+                  <ChatImage
+                    url={url}
+                    onError={() => handleImageError(attachment)}
+                    className={`h-16 w-16 cursor-pointer object-cover ${
+                      isUser ? "border-white/40 bg-white/10" : ""
+                    }`}
+                  />
+                </button>
+                <div
+                  className={`flex w-full flex-col gap-0.5 text-[10px] ${detailClassName}`}
+                >
+                  <span className="truncate">
+                    {renderConversationSearchHighlightedText(
+                      attachment.name,
+                      conversationSearchTerms,
+                    )}
+                  </span>
+                  {sizeLabel ? (
+                    <span className="opacity-70">{sizeLabel}</span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div
+              key={attachment.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => handlePreviewOpen(attachment)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handlePreviewOpen(attachment);
+                }
+              }}
+              className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
+            >
+              <span className="max-w-[220px] truncate">
+                {renderConversationSearchHighlightedText(
+                  attachment.name,
+                  conversationSearchTerms,
+                )}
+              </span>
+              {sizeLabel ? (
+                <span className={`text-[10px] ${detailClassName}`}>
+                  {sizeLabel}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 const ThinkingBox = memo(function ThinkingBox({
@@ -2911,6 +4833,351 @@ function ToolCallAccordionStatus({ runState }: { runState: ToolCallRunState }) {
   );
 }
 
+type ResizeListenerTarget = Pick<
+  Window,
+  "addEventListener" | "removeEventListener"
+>;
+type StructuredOutputResizeEdge = "top" | "bottom";
+
+function clampValue(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function attachStructuredOutputResizeListeners({
+  target,
+  onMove,
+  onUp,
+}: {
+  target: ResizeListenerTarget;
+  onMove: (event: PointerEvent) => void;
+  onUp: (event: PointerEvent) => void;
+}): () => void {
+  target.addEventListener("pointermove", onMove);
+  target.addEventListener("pointerup", onUp);
+  target.addEventListener("pointercancel", onUp);
+  return () => {
+    target.removeEventListener("pointermove", onMove);
+    target.removeEventListener("pointerup", onUp);
+    target.removeEventListener("pointercancel", onUp);
+  };
+}
+
+function findNearestVerticalScrollContainer(
+  element: HTMLElement,
+): HTMLElement | null {
+  const messageListScrollContainer = element.closest<HTMLElement>(
+    '[data-chat-message-list-scroll-container="true"]',
+  );
+  if (messageListScrollContainer) {
+    return messageListScrollContainer;
+  }
+  let current = element.parentElement;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      current.scrollHeight > current.clientHeight + 1
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function resolveTopDeltaPerScrollPixel({
+  scrollContainer,
+  probeElement,
+}: {
+  scrollContainer: HTMLElement;
+  probeElement: HTMLElement;
+}): number {
+  const originalScrollTop = scrollContainer.scrollTop;
+  const initialTop = probeElement.getBoundingClientRect().top;
+  for (const desiredOffset of [1, -1]) {
+    scrollContainer.scrollTop = originalScrollTop + desiredOffset;
+    const actualOffset = scrollContainer.scrollTop - originalScrollTop;
+    const nextTop = probeElement.getBoundingClientRect().top;
+    scrollContainer.scrollTop = originalScrollTop;
+    if (Math.abs(actualOffset) < 0.5) {
+      continue;
+    }
+    const topDeltaPerScrollPixel = (nextTop - initialTop) / actualOffset;
+    if (Math.abs(topDeltaPerScrollPixel) > 0.01) {
+      return topDeltaPerScrollPixel;
+    }
+  }
+  return 0;
+}
+
+const StructuredOutputViewport = memo(function StructuredOutputViewport({
+  owner,
+  part,
+  children,
+}: {
+  owner: StructuredOutputOwner;
+  part: StructuredOutputPart;
+  children: ReactNode;
+}) {
+  const [heightPx, setHeightPx] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+      resizeCleanupRef.current = null;
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
+    };
+  }, []);
+
+  const beginResize = useCallback(
+    (
+      edge: StructuredOutputResizeEdge,
+      event: ReactPointerEvent<HTMLDivElement>,
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const contentElement = contentRef.current;
+      if (!contentElement) {
+        return;
+      }
+      const startHeightPx = contentElement.getBoundingClientRect().height;
+      const startPointerY = event.clientY;
+      const pointerId = event.pointerId;
+      setIsResizing(true);
+      // Preserve the current compact height as the drag floor to avoid snapping
+      // short panes up to the global minimum on first movement.
+      const minHeightPx = Math.min(
+        STRUCTURED_OUTPUT_MIN_HEIGHT_PX,
+        startHeightPx,
+      );
+      const maxHeightPx = Math.max(
+        STRUCTURED_OUTPUT_MIN_HEIGHT_PX,
+        Math.floor(window.innerHeight * STRUCTURED_OUTPUT_MAX_VIEWPORT_RATIO),
+      );
+      let previousHeightPx = startHeightPx;
+      const scrollContainer =
+        edge === "bottom"
+          ? findNearestVerticalScrollContainer(contentElement)
+          : null;
+      const topDeltaPerScrollPixel =
+        scrollContainer !== null
+          ? resolveTopDeltaPerScrollPixel({
+              scrollContainer,
+              probeElement: contentElement,
+            })
+          : 0;
+
+      const onMove = (moveEvent: PointerEvent) => {
+        if (moveEvent.pointerId !== pointerId) {
+          return;
+        }
+        const pointerDeltaY = moveEvent.clientY - startPointerY;
+        const signedDeltaY = edge === "top" ? -pointerDeltaY : pointerDeltaY;
+        const nextHeight = clampValue(
+          startHeightPx + signedDeltaY,
+          minHeightPx,
+          maxHeightPx,
+        );
+        if (nextHeight === previousHeightPx) {
+          return;
+        }
+        const previousTopPx = contentElement.getBoundingClientRect().top;
+        const isBottomGrowth =
+          edge === "bottom" && nextHeight > previousHeightPx;
+        previousHeightPx = nextHeight;
+        setHeightPx(nextHeight);
+
+        // Keep the pane visually anchored while dragging the bottom border in a
+        // bottom-anchored chat viewport so growth feels downward.
+        if (isBottomGrowth && scrollContainer) {
+          if (resizeFrameRef.current !== null) {
+            window.cancelAnimationFrame(resizeFrameRef.current);
+          }
+          resizeFrameRef.current = window.requestAnimationFrame(() => {
+            resizeFrameRef.current = null;
+            const nextTopPx = contentElement.getBoundingClientRect().top;
+            const topShiftPx = nextTopPx - previousTopPx;
+            if (
+              Math.abs(topShiftPx) > 0.5 &&
+              Math.abs(topDeltaPerScrollPixel) > 0.01
+            ) {
+              scrollContainer.scrollTop += -topShiftPx / topDeltaPerScrollPixel;
+            }
+          });
+        }
+      };
+
+      const onUp = (upEvent: PointerEvent) => {
+        if (upEvent.pointerId !== pointerId) {
+          return;
+        }
+        cleanup();
+        resizeCleanupRef.current = null;
+        setIsResizing(false);
+        if (resizeFrameRef.current !== null) {
+          window.cancelAnimationFrame(resizeFrameRef.current);
+          resizeFrameRef.current = null;
+        }
+      };
+
+      resizeCleanupRef.current?.();
+      const cleanup = attachStructuredOutputResizeListeners({
+        target: window,
+        onMove,
+        onUp,
+      });
+      resizeCleanupRef.current = cleanup;
+    },
+    [],
+  );
+
+  const contentStyle =
+    heightPx === null
+      ? { maxHeight: `${STRUCTURED_OUTPUT_DEFAULT_MAX_HEIGHT_PX}px` }
+      : { height: `${heightPx}px` };
+
+  return (
+    <div className="group/structured-output-pane relative min-w-0">
+      <div
+        ref={contentRef}
+        data-chat-structured-output-pane="true"
+        data-chat-structured-output-pane-owner={owner}
+        data-chat-structured-output-pane-part={part}
+        className="min-w-0 overflow-y-auto [scrollbar-gutter:stable]"
+        style={contentStyle}
+      >
+        {children}
+      </div>
+      {(["bottom"] as const).map((edge) => (
+        <div
+          key={edge}
+          role="separator"
+          aria-label={`Resize activity output pane from ${edge} border`}
+          data-chat-structured-output-resize-handle="true"
+          data-chat-structured-output-resize-handle-owner={owner}
+          data-chat-structured-output-resize-handle-part={part}
+          data-chat-structured-output-resize-handle-edge={edge}
+          data-resizing={isResizing ? "true" : "false"}
+          className={STRUCTURED_OUTPUT_RESIZE_HANDLE_CLASS}
+          onPointerDown={(event) => beginResize(edge, event)}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setHeightPx(null);
+          }}
+        >
+          <div
+            className={STRUCTURED_OUTPUT_RESIZE_HANDLE_BAR_CLASS}
+            aria-hidden="true"
+          />
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const StructuredOutputBlock = memo(function StructuredOutputBlock({
+  payload,
+  owner,
+  part,
+  isStreaming,
+}: {
+  payload: StructuredOutputPayload;
+  owner: StructuredOutputOwner;
+  part: StructuredOutputPart;
+  isStreaming: boolean;
+}) {
+  const codeMirrorTheme = useCodeMirrorStyle();
+  const displayText = useTypewriterEffect(payload.text, isStreaming, 5);
+  let content: ReactNode;
+
+  if (isStreaming) {
+    content = (
+      <pre
+        data-chat-structured-output="true"
+        data-chat-structured-output-owner={owner}
+        data-chat-structured-output-part={part}
+        data-chat-structured-output-kind={payload.kind}
+        data-chat-structured-output-language={payload.language ?? "plaintext"}
+        data-chat-structured-output-streaming="true"
+        className="m-0 cursor-auto overflow-x-auto whitespace-pre font-mono text-[11px] leading-relaxed text-setta-600 dark:text-setta-200"
+      >
+        {displayText.length > 0 ? displayText : " "}
+      </pre>
+    );
+  } else if (payload.kind === "diff") {
+    content = (
+      <div
+        data-chat-structured-output="true"
+        data-chat-structured-output-owner={owner}
+        data-chat-structured-output-part={part}
+        data-chat-structured-output-kind="diff"
+        data-chat-structured-output-language="diff"
+        className="m-0 min-w-0 cursor-auto font-mono text-[11px] leading-relaxed text-setta-600 dark:text-setta-200"
+      >
+        <GitDiffCodeMirror
+          value={displayText}
+          filePathForLanguage={payload.pathHint}
+          wrapLines={true}
+          className="min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
+        />
+      </div>
+    );
+  } else if (payload.kind === "code") {
+    content = (
+      <div
+        data-chat-structured-output="true"
+        data-chat-structured-output-owner={owner}
+        data-chat-structured-output-part={part}
+        data-chat-structured-output-kind="code"
+        data-chat-structured-output-language={payload.language ?? "plaintext"}
+      >
+        <DummyCodeMirror
+          code={displayText}
+          theme={codeMirrorTheme}
+          className="cursor-auto overflow-x-auto font-mono text-[11px] leading-relaxed text-setta-600 dark:text-setta-200"
+          language={payload.language}
+          useJsx={payload.useJsx}
+          wrapLines={true}
+        />
+      </div>
+    );
+  } else {
+    content = (
+      <div
+        data-chat-structured-output="true"
+        data-chat-structured-output-owner={owner}
+        data-chat-structured-output-part={part}
+        data-chat-structured-output-kind="plain"
+        data-chat-structured-output-language="plaintext"
+      >
+        <DummyCodeMirror
+          code={displayText}
+          theme={codeMirrorTheme}
+          className="cursor-auto overflow-x-auto font-mono text-[11px] leading-relaxed text-setta-600 dark:text-setta-200"
+          language={payload.language}
+          useJsx={payload.useJsx}
+          wrapLines={true}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <StructuredOutputViewport owner={owner} part={part}>
+      {content}
+    </StructuredOutputViewport>
+  );
+});
+
 type ActivityToolLikeMeta = {
   itemAttr: Record<string, string>;
   triggerAttr: Record<string, string>;
@@ -3651,7 +5918,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
   );
 });
 
-type ToolCallRunState = StructuredOutputRunState;
+type ToolCallRunState = "running" | "success" | "failed" | "stopped";
 type ToolCallSectionState = "running" | "complete" | "stopped";
 
 function resolveToolCallRunState(
@@ -4488,6 +6755,138 @@ function ChatMessageActions({
   );
 }
 
+function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
+  const content = message.content ?? [];
+  const output: string[] = [];
+  for (const item of content) {
+    if (item.type === C.LLM_TEXT) {
+      output.push(item.text);
+    } else if (item.type === C.LLM_THINKING) {
+      output.push(item.thinking);
+    }
+  }
+  return output.join("\n\n").trim();
+}
+
+export function buildCopyTextForMessage({
+  message,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  message: BaseChatMessageUnion;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  const output: string[] = [];
+  const plainText = getPlainTextFromMessage(message);
+  if (plainText.length > 0) {
+    output.push(plainText);
+  }
+  if (message.role !== ChatRoleEnum.assistant) {
+    return output.join("\n\n").trim();
+  }
+  const toolCalls = message.tool_calls ?? [];
+  for (const toolCall of toolCalls) {
+    const toolResult = toolResultsById[toolCall.id];
+    const toolName =
+      toolResult?.tool_name ||
+      toolCall.function?.name ||
+      `Tool call ${toolCall.id}`;
+    const lines: string[] = [toolName];
+    const argsFromResult = toolResult?.arguments;
+    const argsFromMessage = toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments[toolCall.id];
+    let args: unknown = null;
+    if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+      args = argsFromResult;
+    } else if (argsFromMessage && Object.keys(argsFromMessage).length > 0) {
+      args = argsFromMessage;
+    } else if (pendingArgs && pendingArgs.trim().length > 0) {
+      args = pendingArgs;
+    }
+    if (args) {
+      lines.push(`Arguments:\n${formatToolArgs(args)}`);
+    }
+    const result = formatToolResult(toolResult);
+    if (result !== undefined) {
+      if (typeof result === "string" && result.trim().length > 0) {
+        lines.push(`Result:\n${result}`);
+      } else if (typeof result === "number" || typeof result === "boolean") {
+        lines.push(`Result:\n${String(result)}`);
+      } else if (result && typeof result === "object") {
+        lines.push(`Result:\n${formatToolArgs(result)}`);
+      }
+    }
+    output.push(lines.join("\n"));
+  }
+  return output.join("\n\n").trim();
+}
+
+function buildCopyTextForAssistantActivityMessage({
+  message,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  message: AssistantChatMessage;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  const activityOnlyContent = message.content.filter(isThinkingContentItem);
+  const hasActivityContent =
+    activityOnlyContent.length > 0 || (message.tool_calls ?? []).length > 0;
+  if (!hasActivityContent) {
+    return "";
+  }
+  const activityOnlyMessage: AssistantChatMessage = {
+    ...message,
+    content: activityOnlyContent,
+    attachments: [],
+  };
+  return buildCopyTextForMessage({
+    message: activityOnlyMessage,
+    toolResultsById,
+    toolCallArguments,
+  });
+}
+
+function buildCopyTextForActivityTimelineEntry({
+  entry,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  entry: ActivityTimelineEntry;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  if (entry.kind === "thinking") {
+    const syntheticMessage: AssistantChatMessage = {
+      id: `activity-copy-thinking-${entry.key}`,
+      role: ChatRoleEnum.assistant,
+      content: [entry.thinkingEntry.item],
+      attachments: [],
+      tool_calls: null,
+    };
+    return buildCopyTextForAssistantActivityMessage({
+      message: syntheticMessage,
+      toolResultsById,
+      toolCallArguments,
+    });
+  }
+
+  const syntheticMessage: AssistantChatMessage = {
+    id: `activity-copy-tool-${entry.key}`,
+    role: ChatRoleEnum.assistant,
+    content: [],
+    attachments: [],
+    tool_calls: [entry.toolEntry.toolCall],
+  };
+  return buildCopyTextForAssistantActivityMessage({
+    message: syntheticMessage,
+    toolResultsById,
+    toolCallArguments,
+  });
+}
+
 const ChatMessage = memo(function ChatMessage({
   message,
   toolResultsById,
@@ -4521,8 +6920,11 @@ const ChatMessage = memo(function ChatMessage({
   suppressActivityThoughtScroll?: boolean;
   suppressActivitySection?: boolean;
   onRedoMessage?: (messageId: string) => Promise<boolean> | boolean;
-  attachmentUrlMap: ChatAttachmentUrlMap;
-  requestAttachmentUrls: RequestChatAttachmentUrls;
+  attachmentUrlMap: Record<string, AttachmentUrlEntry>;
+  requestAttachmentUrls: (
+    targets: ChatFileAttachment[],
+    options?: { force?: boolean },
+  ) => Promise<Record<string, AttachmentUrlEntry>>;
   isEditing?: boolean;
   editingBubbleWidthPx?: number | null;
   interrupted: boolean;
@@ -4548,14 +6950,6 @@ const ChatMessage = memo(function ChatMessage({
   const isAssistant = message.role === ChatRoleEnum.assistant;
   const showEdit = isUser && canEdit;
   const editDisabled = Boolean(editDisabledReason);
-  const renderAttachmentName = useCallback(
-    (attachmentName: string) =>
-      renderConversationSearchHighlightedText(
-        attachmentName,
-        conversationSearchTerms,
-      ),
-    [conversationSearchTerms],
-  );
   const handleCopy = useCallback(() => {
     const text = buildCopyTextForMessage({
       message,
@@ -4720,7 +7114,7 @@ const ChatMessage = memo(function ChatMessage({
               isUser={false}
               attachmentUrlMap={attachmentUrlMap}
               requestAttachmentUrls={requestAttachmentUrls}
-              renderAttachmentName={renderAttachmentName}
+              conversationSearchTerms={conversationSearchTerms}
             />
             {displayItems.map(({ item, fullIndex }) => {
               return (
@@ -4792,7 +7186,7 @@ const ChatMessage = memo(function ChatMessage({
         isUser={message.role === ChatRoleEnum.user}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
-        renderAttachmentName={renderAttachmentName}
+        conversationSearchTerms={conversationSearchTerms}
       />
       {content.map((item, idx) => {
         const key = `${message.id}-${idx}`;
@@ -4851,6 +7245,35 @@ function resolveQuestionAnswers(
   return null;
 }
 
+function isAssistantActivityOnlyMessage(
+  message: BaseChatMessageUnion,
+): message is AssistantChatMessage {
+  if (message.role !== ChatRoleEnum.assistant) {
+    return false;
+  }
+  const attachments =
+    "attachments" in message && Array.isArray(message.attachments)
+      ? message.attachments
+      : [];
+  if (attachments.length > 0) {
+    return false;
+  }
+  const { thinkingItems, displayItems } = partitionAssistantContent(
+    message.content,
+  );
+  if (displayItems.length > 0) {
+    return false;
+  }
+  const toolCalls = message.tool_calls ?? [];
+  return thinkingItems.length > 0 || toolCalls.length > 0;
+}
+
+function hasAssistantActivityContent(message: AssistantChatMessage): boolean {
+  const { thinkingItems } = partitionAssistantContent(message.content);
+  const toolCalls = message.tool_calls ?? [];
+  return thinkingItems.length > 0 || toolCalls.length > 0;
+}
+
 function ChatMessages({
   messages,
   waitingForResponse,
@@ -4893,11 +7316,91 @@ function ChatMessages({
   const [editingBubbleWidthPx, setEditingBubbleWidthPx] = useState<
     number | null
   >(null);
-  const { attachmentUrlMap, requestAttachmentUrls } =
-    useChatAttachmentPreviewUrls(messages);
+  const [attachmentUrlMap, setAttachmentUrlMap] = useState<
+    Record<string, AttachmentUrlEntry>
+  >({});
+  const attachmentUrlRequests = useRef<Set<string>>(new Set());
+  const allAttachments = useMemo(
+    () => collectAttachments(messages),
+    [messages],
+  );
   const toolResultsById = useMemo(
     () => buildToolResultMap(allMessages),
     [allMessages],
+  );
+  const requestAttachmentUrls = useCallback(
+    async (
+      targets: ChatFileAttachment[],
+      options: { force?: boolean } = {},
+    ) => {
+      if (targets.length === 0) {
+        return {};
+      }
+      const now = Date.now();
+      const pending = targets.filter((attachment) => {
+        const entry = attachmentUrlMap[attachment.id];
+        if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
+          return false;
+        }
+        if (
+          attachmentUrlRequests.current.has(attachment.id) &&
+          !options.force
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (pending.length === 0) {
+        return {};
+      }
+      for (const attachment of pending) {
+        attachmentUrlRequests.current.add(attachment.id);
+      }
+      const projectConfigId = getCurrProjectConfigId();
+      let entries: AttachmentDownloadURLEntry[] = [];
+      try {
+        const res = await route_get_attachment_download_urls({
+          artifactIds: pending.map((attachment) => attachment.id),
+          projectConfigId,
+        });
+        if (!res200(res)) {
+          const detail = getErrorDetail(res.data);
+          console.warn(
+            "Failed to load attachment URLs",
+            detail ?? pending.map((attachment) => attachment.id),
+          );
+          return {};
+        }
+        entries = res.data;
+      } catch (error) {
+        console.warn("Failed to load attachment URLs", error);
+        return {};
+      } finally {
+        for (const attachment of pending) {
+          attachmentUrlRequests.current.delete(attachment.id);
+        }
+      }
+      const nextEntries: Record<string, AttachmentUrlEntry> = {};
+      for (const entry of entries) {
+        if (
+          typeof entry.expiresAt !== "number" ||
+          !Number.isFinite(entry.expiresAt)
+        ) {
+          console.error("Attachment URL missing expiresAt", entry);
+          continue;
+        }
+        const expiresAt = entry.expiresAt * 1000;
+        nextEntries[entry.artifactId] = {
+          url: entry.url,
+          expiresAt,
+        };
+      }
+      if (Object.keys(nextEntries).length > 0) {
+        setAttachmentUrlMap((prev) => ({ ...prev, ...nextEntries }));
+      }
+      return nextEntries;
+    },
+    [attachmentUrlMap],
   );
 
   useEffect(() => {
@@ -4906,6 +7409,13 @@ function ChatMessages({
       setEditingBubbleWidthPx(null);
     }
   }, [waitingForResponse]);
+
+  useEffect(() => {
+    if (allAttachments.length === 0) {
+      return;
+    }
+    void requestAttachmentUrls(allAttachments);
+  }, [allAttachments, requestAttachmentUrls]);
   const output: ReactNode[] = [];
   const lastMessage = messages[messages.length - 1];
   let streamingMessageId: string | null = null;
@@ -5406,4 +7916,40 @@ function buildToolResultMap(
     }
   }
   return map;
+}
+
+function formatToolResult(
+  toolResult: ToolChatMessage | undefined,
+): ToolResultValue | undefined {
+  if (!toolResult) {
+    return undefined;
+  }
+  if (Array.isArray(toolResult.content) && toolResult.content.length > 0) {
+    const renderedEntries = toolResult.content
+      .map((entry) => {
+        if (entry.type === "text") {
+          return entry.text;
+        }
+        if (entry.type === "tool_reference") {
+          return `Tool reference: ${entry.tool_name}`;
+        }
+        if (entry.type === "resource") {
+          const label = entry.resource?.uri
+            ? `Resource: ${entry.resource.uri}`
+            : "Resource";
+          return entry.resource?.mimeType
+            ? `${label} (${entry.resource.mimeType})`
+            : label;
+        }
+        if (entry.type === "image") {
+          return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
+        }
+        return JSON.stringify(entry, null, 2);
+      })
+      .filter((entry) => entry.trim().length > 0);
+    if (renderedEntries.length > 0) {
+      return renderedEntries.join("\n\n");
+    }
+  }
+  return toolResult.result;
 }
