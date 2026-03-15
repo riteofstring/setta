@@ -40,7 +40,6 @@ var (
 		"readProjectState":         {},
 		"subscribeProjectState":    {},
 		"emitListenerEvents":       {},
-		"registerLanguageServer":   {},
 		"registerCodegenTarget":    {},
 		"registerListenerEndpoint": {},
 		"registerStaticDir":        {},
@@ -48,7 +47,6 @@ var (
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":      {},
-		"registerLanguageServer":   {},
 		"registerListenerEndpoint": {},
 		"registerStaticDir":        {},
 	}

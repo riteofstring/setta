@@ -16,9 +16,7 @@ func TestRouterCompleteSnapshotRoutesPluginLanguage(t *testing.T) {
 		routerTestRepoRoot(t),
 		"tests",
 		"fixtures",
-		"plugins",
-		"backend-language-server-e2e",
-		"backend",
+		"lsp",
 		"mini_language_server.py",
 	)
 	settingsKey := "fixtureDslLanguageServer"
@@ -80,9 +78,7 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 		routerTestRepoRoot(t),
 		"tests",
 		"fixtures",
-		"plugins",
-		"backend-language-server-e2e",
-		"backend",
+		"lsp",
 		"mini_language_server.py",
 	)
 	settingsKey := "fixtureDslLanguageServer"
@@ -120,7 +116,7 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 		Character:     8,
 	})
 	if err == nil {
-		t.Fatal("expected plugin language to be unavailable before refresh")
+		t.Fatal("expected fixture language to be unavailable before refresh")
 	}
 
 	if err := router.ReplaceAdditionalSpecs(ctx, []LanguageServerSpec{

@@ -17,7 +17,6 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "readProjectState",
     "subscribeProjectState",
     "emitListenerEvents",
-    "registerLanguageServer",
     "registerCodegenTarget",
     "registerListenerEndpoint",
     "registerStaticDir",
@@ -150,16 +149,6 @@ class PluginBlockedCapability(BaseModel):
     reason: BlockedCapabilityReason
 
 
-class PluginRegisteredLanguageServer(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    language: str
-    command: str
-    args: list[str] = Field(default_factory=list)
-    settingsKey: str | None = None
-
-
 class PluginRegisteredExternalAgentAdapter(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -263,9 +252,6 @@ class PluginStatusEntry(BaseModel):
     requestedCapabilities: list[str]
     effectiveCapabilities: list[str]
     blockedCapabilities: list[PluginBlockedCapability]
-    registeredLanguageServers: list[PluginRegisteredLanguageServer] = Field(
-        default_factory=list
-    )
     registeredExternalAgentAdapters: list[PluginRegisteredExternalAgentAdapter] = Field(
         default_factory=list
     )

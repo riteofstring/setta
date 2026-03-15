@@ -746,14 +746,6 @@ type PluginConfigDescriptor struct {
 	CurrentConfigDigestSHA256 *string        `json:"currentConfigDigestSha256"`
 }
 
-type PluginRegisteredLanguageServer struct {
-	Name        string   `json:"name"`
-	Language    string   `json:"language"`
-	Command     string   `json:"command"`
-	Args        []string `json:"args"`
-	SettingsKey *string  `json:"settingsKey"`
-}
-
 type PluginRegisteredExternalAgentAdapter struct {
 	AdapterID       string   `json:"adapterId"`
 	PluginID        string   `json:"pluginId"`
@@ -820,7 +812,6 @@ type PluginStatusEntry struct {
 	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
 	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
 	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
-	RegisteredLanguageServers       []PluginRegisteredLanguageServer       `json:"registeredLanguageServers"`
 	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
 	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
 	EnablementSource                *PluginEnablementSource                `json:"enablementSource"`

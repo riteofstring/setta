@@ -3838,7 +3838,6 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(PluginFrontendDescriptor{}),
 		reflect.TypeOf(PluginContentDescriptor{}),
 		reflect.TypeOf(PluginConfigDescriptor{}),
-		reflect.TypeOf(PluginRegisteredLanguageServer{}),
 		reflect.TypeOf(PluginRegisteredExternalAgentAdapter{}),
 		reflect.TypeOf(PluginRegisteredCodegenTarget{}),
 		reflect.TypeOf(DependencyKeyType("")),

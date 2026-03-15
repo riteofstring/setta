@@ -922,19 +922,6 @@ export function createPluginConfigDescriptor(
   return options as PluginConfigDescriptor;
 }
 
-export type PluginRegisteredLanguageServer = {
-  name: string;
-  language: string;
-  command: string;
-  args: Array<string>;
-  settingsKey: string | null;
-};
-export function createPluginRegisteredLanguageServer(
-  options: Partial<PluginRegisteredLanguageServer> = {},
-): PluginRegisteredLanguageServer {
-  return options as PluginRegisteredLanguageServer;
-}
-
 export type PluginRegisteredExternalAgentAdapter = {
   adapterId: string;
   pluginId: string;
@@ -10267,7 +10254,6 @@ export type PluginStatusEntry = {
   requestedCapabilities: Array<string>;
   effectiveCapabilities: Array<string>;
   blockedCapabilities: Array<PluginBlockedCapability>;
-  registeredLanguageServers: Array<PluginRegisteredLanguageServer>;
   registeredExternalAgentAdapters: Array<PluginRegisteredExternalAgentAdapter>;
   registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
   enablementSource: PluginEnablementSource | null;

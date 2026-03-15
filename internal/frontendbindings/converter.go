@@ -5039,7 +5039,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "requestedCapabilities", TypeExpr: "Array<string>"},
 				TypeProperty{Name: "effectiveCapabilities", TypeExpr: "Array<string>"},
 				TypeProperty{Name: "blockedCapabilities", TypeExpr: "Array<PluginBlockedCapability>"},
-				TypeProperty{Name: "registeredLanguageServers", TypeExpr: "Array<PluginRegisteredLanguageServer>"},
 				TypeProperty{Name: "registeredExternalAgentAdapters", TypeExpr: "Array<PluginRegisteredExternalAgentAdapter>"},
 				TypeProperty{Name: "registeredCodegenTargets", TypeExpr: "Array<PluginRegisteredCodegenTarget>"},
 				TypeProperty{Name: "enablementSource", TypeExpr: "PluginEnablementSource | null"},

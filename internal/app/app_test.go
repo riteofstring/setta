@@ -6350,12 +6350,11 @@ func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	}
 }
 
-func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) {
-	// The real app should keep removed backend plugin capabilities unavailable in runtime status.
+func TestAppServesPluginRuntimeWithoutRemovedBackendCodegenRegistrations(t *testing.T) {
+	// The real app should keep removed backend codegen registrations unavailable in runtime status.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	installAppPluginFixture(t, cfg, "backend-language-server", "setta-fixture-backend-language-server")
 	installAppBackendCodegenFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
@@ -6399,13 +6398,6 @@ func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) 
 					Capability string `json:"capability"`
 					Reason     string `json:"reason"`
 				} `json:"blockedCapabilities"`
-				RegisteredLanguageServers []struct {
-					Name        string   `json:"name"`
-					Language    string   `json:"language"`
-					Command     string   `json:"command"`
-					Args        []string `json:"args"`
-					SettingsKey *string  `json:"settingsKey"`
-				} `json:"registeredLanguageServers"`
 				RegisteredExternalAgentAdapters []struct {
 					AdapterID       string   `json:"adapterId"`
 					PluginID        string   `json:"pluginId"`
@@ -6432,8 +6424,8 @@ func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) 
 	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
 		t.Fatalf("decode plugin runtime payload: %v", err)
 	}
-	if len(runtimePayload.Status.Plugins) != 2 {
-		t.Fatalf("expected two plugins in runtime status payload, got %#v", runtimePayload.Status.Plugins)
+	if len(runtimePayload.Status.Plugins) != 1 {
+		t.Fatalf("expected one plugin in runtime status payload, got %#v", runtimePayload.Status.Plugins)
 	}
 
 	findEntry := func(pluginID string) struct {
@@ -6444,13 +6436,6 @@ func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) 
 			Capability string `json:"capability"`
 			Reason     string `json:"reason"`
 		} `json:"blockedCapabilities"`
-		RegisteredLanguageServers []struct {
-			Name        string   `json:"name"`
-			Language    string   `json:"language"`
-			Command     string   `json:"command"`
-			Args        []string `json:"args"`
-			SettingsKey *string  `json:"settingsKey"`
-		} `json:"registeredLanguageServers"`
 		RegisteredExternalAgentAdapters []struct {
 			AdapterID       string   `json:"adapterId"`
 			PluginID        string   `json:"pluginId"`
@@ -6487,13 +6472,6 @@ func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) 
 				Capability string `json:"capability"`
 				Reason     string `json:"reason"`
 			} `json:"blockedCapabilities"`
-			RegisteredLanguageServers []struct {
-				Name        string   `json:"name"`
-				Language    string   `json:"language"`
-				Command     string   `json:"command"`
-				Args        []string `json:"args"`
-				SettingsKey *string  `json:"settingsKey"`
-			} `json:"registeredLanguageServers"`
 			RegisteredExternalAgentAdapters []struct {
 				AdapterID       string   `json:"adapterId"`
 				PluginID        string   `json:"pluginId"`
@@ -6515,26 +6493,6 @@ func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) 
 				Code string `json:"code"`
 			} `json:"errors"`
 		}{}
-	}
-
-	languageServerEntry := findEntry("setta-fixture-backend-language-server")
-	if languageServerEntry.State != "active" {
-		t.Fatalf("unexpected language-server runtime status entry %#v", languageServerEntry)
-	}
-	if len(languageServerEntry.EffectiveCapabilities) != 0 {
-		t.Fatalf("expected removed language-server capability to stay out of the effective list, got %#v", languageServerEntry.EffectiveCapabilities)
-	}
-	if len(languageServerEntry.BlockedCapabilities) != 1 {
-		t.Fatalf("expected one blocked backend language-server capability, got %#v", languageServerEntry.BlockedCapabilities)
-	}
-	if languageServerEntry.BlockedCapabilities[0].Capability != "registerLanguageServer" || languageServerEntry.BlockedCapabilities[0].Reason != "host_policy" {
-		t.Fatalf("unexpected backend language-server blocked capability payload %#v", languageServerEntry.BlockedCapabilities[0])
-	}
-	if len(languageServerEntry.RegisteredLanguageServers) != 0 {
-		t.Fatalf("expected no backend language-server registrations after removal, got %#v", languageServerEntry.RegisteredLanguageServers)
-	}
-	if len(languageServerEntry.Errors) != 0 {
-		t.Fatalf("expected no backend language-server registration errors, got %#v", languageServerEntry.Errors)
 	}
 
 	statusEntry := findEntry("setta-fixture-backend-codegen")
@@ -10112,9 +10070,7 @@ func prepareAppLSPFixture(t *testing.T) {
 			repoRoot,
 			"tests",
 			"fixtures",
-			"plugins",
-			"backend-language-server-e2e",
-			"backend",
+			"lsp",
 			"mini_language_server.py",
 		),
 	)

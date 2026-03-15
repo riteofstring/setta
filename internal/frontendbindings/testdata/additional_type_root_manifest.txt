@@ -157,7 +157,6 @@ PluginFrontendDescriptor
 PluginInstallerBackend
 PluginRegisteredCodegenTarget
 PluginRegisteredExternalAgentAdapter
-PluginRegisteredLanguageServer
 PluginRestartCapability
 PluginRestartCapabilityMode
 PluginRuntimeState

@@ -41,7 +41,6 @@ type StatusEntry struct {
 	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
 	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
 	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
-	RegisteredLanguageServers       []PluginRegisteredLanguageServer       `json:"registeredLanguageServers"`
 	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
 	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
 	EnablementSource                *PluginEnablementSource                `json:"enablementSource"`
@@ -75,7 +74,6 @@ type statusEntryRuntimeDigestPayload struct {
 	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
 	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
 	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
-	RegisteredLanguageServers       []PluginRegisteredLanguageServer       `json:"registeredLanguageServers"`
 	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
 	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
 	Errors                          []PluginErrorInfo                      `json:"errors"`
@@ -214,7 +212,6 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
 		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
 		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
 		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
 		RegisteredCodegenTargets:        []PluginRegisteredCodegenTarget{},
 		EnablementSource:                cloneOptionalEnablementSource(entry.EnablementSource),
@@ -229,7 +226,6 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
 		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
 		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
 		RegisteredCodegenTargets:        []PluginRegisteredCodegenTarget{},
 		Errors:                          clonePluginErrorsOrEmpty(entry.Errors),
@@ -254,13 +250,6 @@ func cloneBlockedCapabilitiesOrEmpty(values []PluginBlockedCapability) []PluginB
 		return []PluginBlockedCapability{}
 	}
 	return append([]PluginBlockedCapability{}, values...)
-}
-
-func cloneRegisteredLanguageServersOrEmpty(values []PluginRegisteredLanguageServer) []PluginRegisteredLanguageServer {
-	if len(values) == 0 {
-		return []PluginRegisteredLanguageServer{}
-	}
-	return append([]PluginRegisteredLanguageServer{}, values...)
 }
 
 func cloneRegisteredExternalAgentAdaptersOrEmpty(values []PluginRegisteredExternalAgentAdapter) []PluginRegisteredExternalAgentAdapter {

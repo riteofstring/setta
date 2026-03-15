@@ -299,9 +299,7 @@ func newFixtureLSPCompletionService(
 		routeTestRepoRoot(t),
 		"tests",
 		"fixtures",
-		"plugins",
-		"backend-language-server-e2e",
-		"backend",
+		"lsp",
 		"mini_language_server.py",
 	)
 	session, err := lsp.NewSession(lsp.SessionOptions{

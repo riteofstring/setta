@@ -79,14 +79,6 @@ type PluginBlockedCapability struct {
 	Reason     PluginBlockedCapabilityReason `json:"reason"`
 }
 
-type PluginRegisteredLanguageServer struct {
-	Name        string   `json:"name"`
-	Language    string   `json:"language"`
-	Command     string   `json:"command"`
-	Args        []string `json:"args"`
-	SettingsKey *string  `json:"settingsKey"`
-}
-
 type PluginRegisteredExternalAgentAdapter struct {
 	AdapterID       string   `json:"adapterId"`
 	PluginID        string   `json:"pluginId"`

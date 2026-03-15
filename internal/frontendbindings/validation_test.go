@@ -7625,7 +7625,6 @@ func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
 				{Name: "requestedCapabilities", TypeExpr: "Array<string>", Optional: false},
 				{Name: "effectiveCapabilities", TypeExpr: "Array<string>", Optional: false},
 				{Name: "blockedCapabilities", TypeExpr: "Array<PluginBlockedCapability>", Optional: false},
-				{Name: "registeredLanguageServers", TypeExpr: "Array<PluginRegisteredLanguageServer>", Optional: false},
 				{Name: "registeredExternalAgentAdapters", TypeExpr: "Array<PluginRegisteredExternalAgentAdapter>", Optional: false},
 				{Name: "registeredCodegenTargets", TypeExpr: "Array<PluginRegisteredCodegenTarget>", Optional: false},
 				{Name: "enablementSource", TypeExpr: "PluginEnablementSource | null", Optional: false},

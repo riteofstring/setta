@@ -71,7 +71,6 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
-    registeredLanguageServers: [],
     registeredExternalAgentAdapters: [],
     registeredCodegenTargets: [],
     enablementSource: null,
@@ -1435,7 +1434,6 @@ describe("plugin runtime helpers", () => {
               requestedCapabilities: [...status.requestedCapabilities],
               effectiveCapabilities: [...status.effectiveCapabilities],
               blockedCapabilities: [...status.blockedCapabilities],
-              registeredLanguageServers: [...status.registeredLanguageServers],
               registeredExternalAgentAdapters: [
                 ...status.registeredExternalAgentAdapters,
               ],

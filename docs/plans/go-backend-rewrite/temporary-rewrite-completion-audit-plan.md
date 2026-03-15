@@ -313,8 +313,8 @@ This verdict holds under both of the only reasonable definitions:
 - The legacy Python `SettaFastAPIState` no longer constructs or boots the
   Python plugin manager/runtime during IDE/share/app startup:
   - `backend/setta/server_state.py`
-  - plugin language-server and plugin external-agent adapter lists are now
-    sourced as empty on that legacy Python server-state path
+  - plugin runtime registration state is no longer sourced from a Python
+    plugin manager on that legacy Python server-state path
 - The legacy Python `BaseProjectManager` no longer owns plugin codegen target
   validation or plugin codegen output materialization/cache state:
   - `backend/setta/project_state/base_project_manager.py`
@@ -753,14 +753,14 @@ codegen target selection was deleted. After that slice, the remaining Python
 plugin worker blocker is limited to language servers.
 
 A later follow-up rewrite step removed the active plugin language-server
-surface too. The Go app no longer loads plugin-supplied additional LSP specs at
-startup or after plugin mutations, `registerLanguageServer` is now blocked by
-host policy in plugin capability resolution, plugin runtime/status no longer
-advertises backend language-server registrations, and the PluginsPane plus the
+surface too. The Go app no longer loads plugin-supplied additional LSP specs
+at startup or after plugin mutations, the plugin manifest/runtime contract no
+longer retains `registerLanguageServer` or `registeredLanguageServers`, the
+language-server-only plugin fixtures were deleted, and the PluginsPane plus the
 dedicated plugin language-server Playwright coverage no longer present that
 path as an active product feature. That removes the last active plugin-worker
 language-server product/runtime surface even though the transitional Python
-worker implementation still remains in-tree for cleanup.
+worker implementation still remained in-tree for cleanup.
 
 A later follow-up rewrite step then removed the dead plugin-worker
 language-server registration machinery itself. The Python worker no longer

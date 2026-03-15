@@ -105,7 +105,6 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
-    registeredLanguageServers: [],
     registeredExternalAgentAdapters: [],
     registeredCodegenTargets: [],
     enablementSource: null,
@@ -330,7 +329,7 @@ describe("plugins pane helpers", () => {
         requestedCapabilities: [
           "registerCommand",
           "registerPane",
-          "registerLanguageServer",
+          "registerCodegenTarget",
         ],
         effectiveCapabilities: ["registerPane"],
         blockedCapabilities: [
@@ -342,8 +341,8 @@ describe("plugins pane helpers", () => {
         capabilityList: [
           "registerCommand",
           "registerPane",
-          "registerLanguageServer",
           "registerCodegenTarget",
+          "registerStaticDir",
         ],
       },
     );
@@ -356,12 +355,12 @@ describe("plugins pane helpers", () => {
     ).toBe("effective");
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get(
-        "registerLanguageServer",
+        "registerCodegenTarget",
       ),
     ).toBe("requested_unavailable");
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get(
-        "registerCodegenTarget",
+        "registerStaticDir",
       ),
     ).toBe("not_requested");
     expect(

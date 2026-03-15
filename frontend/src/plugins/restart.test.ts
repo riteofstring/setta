@@ -87,7 +87,6 @@ describe("plugin restart helpers", () => {
           requestedCapabilities: [],
           effectiveCapabilities: [],
           blockedCapabilities: [],
-          registeredLanguageServers: [],
           registeredExternalAgentAdapters: [],
           registeredCodegenTargets: [],
           enablementSource: null,
