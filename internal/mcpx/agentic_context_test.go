@@ -115,6 +115,26 @@ func TestCheckAgenticScopeUsesDefaultTargetSingletonSection(t *testing.T) {
 	}
 }
 
+func TestResolveAgenticScopeKeepsUnscopedAccessWhenSectionContextIsPresent(t *testing.T) {
+	t.Parallel()
+
+	view := mustTargetResolutionProjectView(t)
+	scope, err := resolveAgenticScope(view, "chat-section", true)
+	if err != nil {
+		t.Fatalf("resolve agentic scope: %v", err)
+	}
+
+	if !scope.StructuralAllowed {
+		t.Fatal("expected allowUnscoped scope to keep structural access")
+	}
+	if _, ok := scope.WriteSectionIDs["other-section"]; !ok {
+		t.Fatalf("expected allowUnscoped scope to include all writable sections, got %#v", scope.WriteSectionIDs)
+	}
+	if _, ok := scope.ContextSectionIDs["chat-section"]; !ok {
+		t.Fatalf("expected allowUnscoped scope to retain context section coverage, got %#v", scope.ContextSectionIDs)
+	}
+}
+
 func TestResolveAgenticContextIncludesRunIDFromMetaAndHeaders(t *testing.T) {
 	t.Parallel()
 

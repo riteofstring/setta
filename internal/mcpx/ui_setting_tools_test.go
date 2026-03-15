@@ -602,6 +602,207 @@ func TestServerSetUISettingValueWritesAndValidates(t *testing.T) {
 	}
 }
 
+func TestServerSetUISettingValueRevealAfterSetReturnsNestedRevealAndUsesMetaSectionContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-reveal-after-set",
+			ProjectConfigID:    "project-alpha",
+			DurationMS:         1500,
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "", "", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"sectionId": "allowed-callable-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           true,
+			"revealAfterSet":  true,
+			"durationMs":      1500,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with revealAfterSet: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_ui_setting_value with revealAfterSet success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", payload["changed"])
+	}
+	revealPayload := mustStructuredMap(t, payload["reveal"])
+	if revealPayload["requestId"] != "request-reveal-after-set" {
+		t.Fatalf("expected nested reveal request id, got %#v", revealPayload["requestId"])
+	}
+	if revealService.input.ContextSectionID != "allowed-callable-section" {
+		t.Fatalf("expected request-meta section context to be reused, got %q", revealService.input.ContextSectionID)
+	}
+	if revealService.input.SectionIDToActivate != "" {
+		t.Fatalf("expected no explicit section override, got %q", revealService.input.SectionIDToActivate)
+	}
+	if revealService.input.DurationMS != 1500 {
+		t.Fatalf("expected reveal duration 1500, got %d", revealService.input.DurationMS)
+	}
+}
+
+func TestServerSetUISettingValueRevealAfterSetShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-reveal-after-set",
+			ProjectConfigID:    "project-alpha",
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.watch_code.enabled",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSessionAndFrontendAffinity(
+		t,
+		clientSession,
+		"project-alpha",
+		"",
+		"",
+		"share-session-1",
+		"frontend-from-context",
+		true,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"frontendAffinityToken": "frontend-from-request",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.enabled",
+			"value":           true,
+			"revealAfterSet":  true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call share-scope set_ui_setting_value with revealAfterSet: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected share-scope set_ui_setting_value with revealAfterSet success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected shareSessionID share-session-1, got %q", revealService.input.ShareSessionID)
+	}
+	if revealService.input.FrontendAffinityToken != "frontend-from-context" {
+		t.Fatalf("expected session frontend affinity token, got %q", revealService.input.FrontendAffinityToken)
+	}
+}
+
+func TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenRevealFails(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-reveal-failure",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "failed",
+					Error: &uisettings.SettingError{
+						Code:    uisettings.ErrorCodeMutationFailed,
+						Message: "expected reveal failure",
+					},
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "", "", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"sectionId": "allowed-callable-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           true,
+			"revealAfterSet":  true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with revealAfterSet failure: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_ui_setting_value with revealAfterSet failure to keep write result, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", payload["changed"])
+	}
+	if _, ok := payload["error"]; ok {
+		t.Fatalf("did not expect top-level write error, got %#v", payload["error"])
+	}
+	revealPayload := mustStructuredMap(t, payload["reveal"])
+	statuses := mustStructuredList(t, revealPayload["statuses"])
+	status := mustStructuredMap(t, statuses[0])
+	if status["status"] != "failed" {
+		t.Fatalf("expected nested reveal failure, got %#v", status["status"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after reveal failure: %v", err)
+	}
+	if !project.ShowParamDisplayNames {
+		t.Fatal("expected write to persist even when nested reveal fails")
+	}
+}
+
 func TestServerSetUISettingValueRejectsWriterOldValueDrift(t *testing.T) {
 	t.Parallel()
 

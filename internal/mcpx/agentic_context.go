@@ -364,10 +364,7 @@ func sessionContextBool(session *AgenticContext, getter func(AgenticContext) boo
 }
 
 func resolveAgenticScope(projectState projectview.SingleConfig, chatSectionID string, allowUnscoped bool) (AgenticScope, error) {
-	if strings.TrimSpace(chatSectionID) == "" {
-		if !allowUnscoped {
-			return AgenticScope{}, nil
-		}
+	if allowUnscoped {
 		allSectionIDs := make(map[string]struct{}, len(projectState.Sections))
 		peerChatSectionIDs := map[string]struct{}{}
 		for sectionID := range projectState.Sections {
@@ -390,6 +387,9 @@ func resolveAgenticScope(projectState projectview.SingleConfig, chatSectionID st
 			PeerChatSectionIDs: peerChatSectionIDs,
 			StructuralAllowed:  true,
 		}, nil
+	}
+	if strings.TrimSpace(chatSectionID) == "" {
+		return AgenticScope{}, nil
 	}
 	if _, ok := projectState.Sections[chatSectionID]; !ok {
 		return AgenticScope{}, newToolErrorWithData(

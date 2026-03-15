@@ -3770,28 +3770,7 @@ func defaultToolDefinitions(
 				},
 				"required": []string{"projectConfigId", "settingId"},
 			},
-			OutputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"requestId": map[string]any{
-						"type": "string",
-					},
-					"projectConfigId": map[string]any{
-						"type": "string",
-					},
-					"durationMs": map[string]any{
-						"type": "integer",
-					},
-					"emittedRevealCount": map[string]any{
-						"type": "integer",
-					},
-					"statuses": map[string]any{
-						"type":  "array",
-						"items": uiSettingRevealStatusSchema(),
-					},
-				},
-				"required": []string{"requestId", "projectConfigId", "durationMs", "emittedRevealCount", "statuses"},
-			},
+			OutputSchema: uiSettingRevealResultSchema(),
 		})
 
 		definitions = append(definitions, toolDefinition{
@@ -3805,7 +3784,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "write", "mutate"},
 				},
-				Handler: newSetUISettingValueHandler(projectState, server.pluginMutations, workspaceRoot),
+				Handler: newSetUISettingValueHandler(server, projectState, server.pluginMutations, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -3821,6 +3800,14 @@ func defaultToolDefinitions(
 					"value": map[string]any{
 						"description": "New JSON value to persist for the setting.",
 					},
+					"revealAfterSet": map[string]any{
+						"type":        "boolean",
+						"description": "When true, run the canonical UI-setting reveal flow after a successful write and include the nested reveal result.",
+					},
+					"durationMs": map[string]any{
+						"type":        "integer",
+						"description": "Optional reveal duration in milliseconds when revealAfterSet is true.",
+					},
 				},
 				"required": []string{"projectConfigId", "settingId", "value"},
 			},
@@ -3834,7 +3821,8 @@ func defaultToolDefinitions(
 					"changed": map[string]any{
 						"type": "boolean",
 					},
-					"error": uiSettingErrorSchema(),
+					"reveal": uiSettingRevealResultSchema(),
+					"error":  uiSettingErrorSchema(),
 				},
 				"required": []string{"oldValue", "newValue", "normalizedValue", "changed"},
 			},

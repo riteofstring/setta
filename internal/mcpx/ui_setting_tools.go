@@ -44,6 +44,7 @@ type setUISettingValueResult struct {
 	NewValue        any                       `json:"newValue"`
 	NormalizedValue any                       `json:"normalizedValue"`
 	Changed         bool                      `json:"changed"`
+	Reveal          *revealUISettingResult    `json:"reveal,omitempty"`
 	Error           *uiSettingToolErrorResult `json:"error,omitempty"`
 }
 
@@ -159,7 +160,7 @@ func newGetUISettingValueHandler(projectState projectStateProvider, pluginMutati
 	}
 }
 
-func newSetUISettingValueHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
+func newSetUISettingValueHandler(server *Server, projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, registry, err := resolveScopedUISettingRegistry(
 			ctx,
@@ -180,6 +181,16 @@ func newSetUISettingValueHandler(projectState projectStateProvider, pluginMutati
 		value, err := readRequiredPresentArgument(arguments, "value")
 		if err != nil {
 			return nil, err
+		}
+		revealAfterSet, err := readOptionalBoolArgument(arguments, "revealAfterSet")
+		if err != nil {
+			return nil, err
+		}
+		durationMS := 3000
+		if resolvedDuration, err := readOptionalIntArgument(arguments, "durationMs"); err != nil {
+			return nil, err
+		} else if resolvedDuration != nil {
+			durationMS = *resolvedDuration
 		}
 
 		entry, ok, err := registry.Get(settingID)
@@ -250,22 +261,35 @@ func newSetUISettingValueHandler(projectState projectStateProvider, pluginMutati
 			}, nil
 		}
 
-		return setUISettingValueResult{
+		payload := setUISettingValueResult{
 			Setting:         summary,
 			OldValue:        result.OldValue,
 			NewValue:        result.NewValue,
 			NormalizedValue: result.NormalizedValue,
 			Changed:         result.Changed,
-		}, nil
+		}
+		if revealAfterSet {
+			revealResult, err := runUISettingReveal(
+				server,
+				ctx,
+				registry,
+				projectConfigID,
+				entry.Metadata.SettingID,
+				"",
+				durationMS,
+			)
+			if err != nil {
+				return nil, err
+			}
+			payload.Reveal = &revealResult
+		}
+
+		return payload, nil
 	}
 }
 
 func newRevealUISettingHandler(server *Server, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		if server == nil || server.uiSettingReveals == nil {
-			return nil, newToolError("internal_error", "UI setting reveal runtime is unavailable.")
-		}
-
 		projectConfigID, registry, err := resolveScopedUISettingRegistry(
 			ctx,
 			arguments,
@@ -294,47 +318,63 @@ func newRevealUISettingHandler(server *Server, workspaceRoot string) tools.Handl
 			durationMS = *resolvedDuration
 		}
 
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.ProjectView == nil || invocation.AgenticContext == nil {
-			return nil, newToolError("internal_error", "Scoped UI-setting reveal invocation context is unavailable.")
-		}
-
-		result, err := server.uiSettingReveals.Reveal(ctx, uisettings.RevealInput{
-			ProjectConfigID:       projectConfigID,
-			ProjectView:           invocation.ProjectView,
-			Registry:              registry,
-			SettingID:             settingID,
-			SectionIDToActivate:   sectionIDToActivate,
-			ContextSectionID:      invocation.AgenticContext.SectionID,
-			ChatID:                invocation.AgenticContext.ChatID,
-			ShareSessionID:        invocation.AgenticContext.ShareSessionID,
-			FrontendAffinityToken: invocation.AgenticContext.FrontendAffinityToken,
-			DurationMS:            durationMS,
-		})
-		if err != nil {
-			return nil, newToolError("internal_error", "UI setting reveal failed: %s", err.Error())
-		}
-
-		payload := revealUISettingResult{
-			RequestID:          result.RequestID,
-			ProjectConfigID:    result.ProjectConfigID,
-			DurationMS:         result.DurationMS,
-			EmittedRevealCount: result.EmittedRevealCount,
-			Statuses:           make([]revealUISettingStatusResult, 0, len(result.Statuses)),
-		}
-		for _, status := range result.Statuses {
-			payloadStatus := revealUISettingStatusResult{
-				SettingID: status.SettingID,
-				Status:    status.Status,
-				Target:    cloneRevealTarget(status.Target),
-			}
-			if status.Error != nil {
-				payloadStatus.Error = newUISettingToolErrorResult(status.Error.Code, status.Error.Message)
-			}
-			payload.Statuses = append(payload.Statuses, payloadStatus)
-		}
-		return payload, nil
+		return runUISettingReveal(server, ctx, registry, projectConfigID, settingID, sectionIDToActivate, durationMS)
 	}
+}
+
+func runUISettingReveal(
+	server *Server,
+	ctx context.Context,
+	registry *uisettings.Registry,
+	projectConfigID string,
+	settingID string,
+	sectionIDToActivate string,
+	durationMS int,
+) (revealUISettingResult, error) {
+	if server == nil || server.uiSettingReveals == nil {
+		return revealUISettingResult{}, newToolError("internal_error", "UI setting reveal runtime is unavailable.")
+	}
+
+	invocation, ok := ToolInvocationFromContext(ctx)
+	if !ok || invocation.ProjectView == nil || invocation.AgenticContext == nil {
+		return revealUISettingResult{}, newToolError("internal_error", "Scoped UI-setting reveal invocation context is unavailable.")
+	}
+
+	result, err := server.uiSettingReveals.Reveal(ctx, uisettings.RevealInput{
+		ProjectConfigID:       projectConfigID,
+		ProjectView:           invocation.ProjectView,
+		Registry:              registry,
+		SettingID:             settingID,
+		SectionIDToActivate:   sectionIDToActivate,
+		ContextSectionID:      invocation.AgenticContext.SectionID,
+		ChatID:                invocation.AgenticContext.ChatID,
+		ShareSessionID:        invocation.AgenticContext.ShareSessionID,
+		FrontendAffinityToken: invocation.AgenticContext.FrontendAffinityToken,
+		DurationMS:            durationMS,
+	})
+	if err != nil {
+		return revealUISettingResult{}, newToolError("internal_error", "UI setting reveal failed: %s", err.Error())
+	}
+
+	payload := revealUISettingResult{
+		RequestID:          result.RequestID,
+		ProjectConfigID:    result.ProjectConfigID,
+		DurationMS:         result.DurationMS,
+		EmittedRevealCount: result.EmittedRevealCount,
+		Statuses:           make([]revealUISettingStatusResult, 0, len(result.Statuses)),
+	}
+	for _, status := range result.Statuses {
+		payloadStatus := revealUISettingStatusResult{
+			SettingID: status.SettingID,
+			Status:    status.Status,
+			Target:    cloneRevealTarget(status.Target),
+		}
+		if status.Error != nil {
+			payloadStatus.Error = newUISettingToolErrorResult(status.Error.Code, status.Error.Message)
+		}
+		payload.Statuses = append(payload.Statuses, payloadStatus)
+	}
+	return payload, nil
 }
 
 func resolveScopedUISettingRegistry(
@@ -645,5 +685,30 @@ func uiSettingRevealStatusSchema() map[string]any {
 			"error":  uiSettingErrorSchema(),
 		},
 		"required": []string{"settingId", "status"},
+	}
+}
+
+func uiSettingRevealResultSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"requestId": map[string]any{
+				"type": "string",
+			},
+			"projectConfigId": map[string]any{
+				"type": "string",
+			},
+			"durationMs": map[string]any{
+				"type": "integer",
+			},
+			"emittedRevealCount": map[string]any{
+				"type": "integer",
+			},
+			"statuses": map[string]any{
+				"type":  "array",
+				"items": uiSettingRevealStatusSchema(),
+			},
+		},
+		"required": []string{"requestId", "projectConfigId", "durationMs", "emittedRevealCount", "statuses"},
 	}
 }

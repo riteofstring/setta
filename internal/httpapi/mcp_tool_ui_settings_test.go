@@ -271,6 +271,96 @@ func TestMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	revealService := &routeRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-set-after-reveal",
+			ProjectConfigID:    "project-alpha",
+			DurationMS:         1500,
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "failed",
+					Error: &uisettings.SettingError{
+						Code:    uisettings.ErrorCodeMutationFailed,
+						Message: "expected reveal failure",
+					},
+				},
+			},
+		},
+	}
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:    workspaceRoot,
+		ProjectState:     projectRuntime,
+		SectionNames:     routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:   diagnostics,
+		UISettingReveals: revealService,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_ui_setting_value",
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.show_param_display_names","value":true,"revealAfterSet":true,"durationMs":1500},
+		"agenticContext":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","allowUnscoped":true}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_ui_setting_value revealAfterSet success, got %#v", payload.StructuredContent)
+	}
+
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if result["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", result["changed"])
+	}
+	revealPayload := mustStructuredMapForRoute(t, result["reveal"])
+	statuses := mustStructuredListForRoute(t, revealPayload["statuses"])
+	if len(statuses) != 1 || mustStructuredMapForRoute(t, statuses[0])["status"] != "failed" {
+		t.Fatalf("expected nested failed reveal status, got %#v", statuses)
+	}
+	if revealService.input.ContextSectionID != "allowed-callable-section" {
+		t.Fatalf("expected context section to be forwarded, got %q", revealService.input.ContextSectionID)
+	}
+	if revealService.input.DurationMS != 1500 {
+		t.Fatalf("expected duration 1500, got %d", revealService.input.DurationMS)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after revealAfterSet route write: %v", err)
+	}
+	if !project.ShowParamDisplayNames {
+		t.Fatal("expected revealAfterSet route write to persist showParamDisplayNames")
+	}
+}
+
 func TestMCPToolCallRouteRevealUISettingAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
