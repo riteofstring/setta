@@ -10,12 +10,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1422`
+- Authored TS/TSX files under `frontend/src`: `1426`
 - Non-generated TS/TSX files at `1000+` lines: `44`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2400`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
@@ -23,7 +22,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2089`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
+  - `components/App/appRegistry.tsx` (`1753`)
 
 ## Module Map
 
@@ -113,6 +113,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns workspace-root polling, python-signal probing, create-project starter
     prompt adaptation, and the project-chat empty-state shell used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx`
+    owns external-agent config selection state, tool-type/run-mode
+    reconciliation, Claude or OpenCode validation, and the external-agent form
+    shell used by `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now focuses on
     project-chat surface orchestration, inline-thread layout, aux-view routing,
     conversation-search state, and chat-core/history composition over those
@@ -121,6 +125,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     on hydration retries, slash-command authority, runtime activity details,
     message submission/edit orchestration, and chat surface composition over
     the local empty-state owner.
+  - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` now
+    focuses on accordion composition, deployment-mode gating, guardrail
+    persistence, and manager routing over the local external-agent owner.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now
     focuses on polling, local toolbar state, search navigation, thread/group
     commands, DnD orchestration, and the history render shells over those
