@@ -1,11 +1,19 @@
+import hashlib
 import json
+from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any, TypeVar
 
 from setta.code_gen.utils import sanitize_slug
+from setta.utils.paths import resolve_path
 
 GEN_CODE_FILENAME = "setta_gen.py"
 GEN_CODE_META_FILENAME = "setta_gen_meta.py"
+
+
+def get_absolute_path(src_path, file_path):
+    return (Path(src_path).parent / file_path).resolve()
 
 
 def build_project_sections_dir(code_root: Path, project_name: str) -> Path:
@@ -22,6 +30,19 @@ def try_json(x):
         return json.loads(x)
     except (JSONDecodeError, TypeError):
         return x
+
+
+def compute_md5_hex(data: bytes | str) -> str:
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return hashlib.md5(data).hexdigest()
+
+
+def compute_md5_prefix(data: bytes | str, length: int) -> str:
+    if length <= 0:
+        raise ValueError("length must be positive")
+    digest = compute_md5_hex(data)
+    return digest[:length]
 
 
 def replace_at_positions(input_string, replacements, return_positions=False):
@@ -82,11 +103,61 @@ def replace_at_positions(input_string, replacements, return_positions=False):
     if return_positions:
         return final_string, new_positions
     return final_string
+
+
+def remove_empty(x):
+    if isinstance(x, defaultdict):
+        # Create a new defaultdict with the same default_factory
+        result = defaultdict(x.default_factory)
+        # Add only non-empty items
+        for k, v in x.items():
+            if len(v) > 0:
+                result[k] = v
+        return result
+    else:
+        # Original behavior for regular dictionaries
+        return {k: v for k, v in x.items() if len(v) > 0}
+
+
+def ensure_str_path(path: str | bytes | Any):
+    if isinstance(path, bytes):
+        return path.decode("utf-8")
+    return str(path)
+
+
+def normalize_path(path: Path | str) -> Path:
+    """Backwards-compatible helper for normalizing user-provided paths."""
+
+    return resolve_path(path)
+
+
+def insert_into_array(arr: list, index: int, new_items: list):
+    return [*arr[:index], *new_items, *arr[index:]]
+
+
+list_generic = TypeVar("list_generic")
+
+
+def move_item_in_array(array: list[list_generic], from_index: int, to_index: int):
+    new_array = array.copy()
+    item = new_array.pop(from_index)
+    new_array.insert(to_index, item)
+    return new_array
+
+
 __all__ = [
     "GEN_CODE_FILENAME",
     "GEN_CODE_META_FILENAME",
     "build_gen_code_path",
     "build_project_sections_dir",
+    "compute_md5_hex",
+    "compute_md5_prefix",
+    "ensure_str_path",
+    "get_absolute_path",
+    "insert_into_array",
+    "move_item_in_array",
+    "normalize_path",
+    "remove_empty",
     "replace_at_positions",
     "try_json",
 ]

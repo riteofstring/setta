@@ -1,0 +1,24 @@
+## 2026-03-15 Markdown Content Harness Check
+
+- Slice: extract markdown/code rendering, inline markdown labels, streaming markdown animation wrappers, and conversation-search highlight helpers from `frontend/src/components/Chat/ChatMessages.tsx` into `frontend/src/components/Chat/chatMessageContent.tsx`
+- App context: verified through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell was already blank from the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+- Surface exercised: `ChatMessageList` with a single assistant markdown message containing a heading, visible highlighted prose, inline code, a fenced code block, and a markdown table
+- Before refactor:
+  - harness node count: `63`
+  - visible search-highlight count: `3`
+  - fenced code block count: `1`
+  - markdown table wrapper count: `1`
+  - inline code hook present: `true`
+- After refactor:
+  - harness node count: `59`
+  - visible search-highlight count: `3`
+  - fenced code block count: `1`
+  - markdown table wrapper count: `1`
+  - inline code hook present: `true`
+- Visual check:
+  - verified the extracted harness still rendered the `Queue Summary` heading, inline code label, fenced code block copy button, and table wrapper
+  - confirmed search highlights stayed on visible prose and table text while fenced and inline code remained unhighlighted
+- Artifacts:
+  - `perf/reports/frontend/chat-markdown-content-before-2026-03-15.png`
+  - `perf/reports/frontend/chat-markdown-content-after-2026-03-15.png`
+- Perf note: no regression was observed in the markdown-content surface. The extracted owner preserved the visible markdown/highlight behavior while slightly reducing the harness subtree node count.

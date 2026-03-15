@@ -1,6 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
-import { useLocalStorage, useSettings } from "state/definitions";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { Position } from "utils/generatedTypes";
 import { useReactFlow } from "../store";
 import type { Viewport } from "../types";
