@@ -14,20 +14,40 @@ type GetFilteredRenderableParamIdsArgs = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
 };
 
-export function getFilteredRenderableParamIds({
+type GetFilteredRenderableParamIdLookupArgs = Omit<
+  GetFilteredRenderableParamIdsArgs,
+  "renderParamIds"
+>;
+
+export type RenderableParamIdLookup = Record<string, true>;
+export type NestedParentParamIdLookup = Record<string, true>;
+
+export function getNestedParentParamIdLookup(
+  requiredParamIdsToPaths: Record<string, Array<string>>,
+): NestedParentParamIdLookup {
+  const nestedParentParamIdLookup: NestedParentParamIdLookup = {};
+  for (const path of Object.values(requiredParamIdsToPaths)) {
+    for (let idx = 0; idx < path.length - 1; idx += 1) {
+      nestedParentParamIdLookup[path[idx]] = true;
+    }
+  }
+  return nestedParentParamIdLookup;
+}
+
+export function getFilteredRenderableParamIdLookup({
   state,
   sectionId,
-  renderParamIds,
   requiredParamIdsToPaths,
-}: GetFilteredRenderableParamIdsArgs) {
+}: GetFilteredRenderableParamIdLookupArgs): RenderableParamIdLookup | null {
   const paramsImpl = getCurrEffectiveSectionImplWithTypeGuard(
     state,
     sectionId,
     isBaseSectionWithParamsImpl,
   );
+  const paramFilter = paramsImpl.paramFilter.trim();
 
-  if (!paramsImpl.paramFilter) {
-    return renderParamIds;
+  if (paramFilter.length === 0) {
+    return null;
   }
 
   const requiredParamIdsWithNames = Object.keys(requiredParamIdsToPaths).map(
@@ -36,22 +56,40 @@ export function getFilteredRenderableParamIds({
       name: getParamDisplayName(state, sectionId, id),
     }),
   );
-  const matches = matchSorter(requiredParamIdsWithNames, paramsImpl.paramFilter, {
+  const matches = matchSorter(requiredParamIdsWithNames, paramFilter, {
     keys: ["name"],
   });
 
-  const filteredRequired = new Set<string>();
+  const filteredRequired: RenderableParamIdLookup = {};
   for (const match of matches) {
     const path = requiredParamIdsToPaths[match.id];
     if (!path) {
       continue;
     }
     for (const pathPart of path) {
-      filteredRequired.add(pathPart);
+      filteredRequired[pathPart] = true;
     }
   }
 
+  return filteredRequired;
+}
+
+export function getFilteredRenderableParamIds({
+  state,
+  sectionId,
+  renderParamIds,
+  requiredParamIdsToPaths,
+}: GetFilteredRenderableParamIdsArgs) {
+  const visibleParamIdLookup = getFilteredRenderableParamIdLookup({
+    state,
+    sectionId,
+    requiredParamIdsToPaths,
+  });
+  if (!visibleParamIdLookup) {
+    return renderParamIds;
+  }
+
   return renderParamIds.filter(
-    (paramId) => filteredRequired.has(paramId) || isTempParam(paramId),
+    (paramId) => visibleParamIdLookup[paramId] || isTempParam(paramId),
   );
 }

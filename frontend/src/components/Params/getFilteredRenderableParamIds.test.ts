@@ -253,6 +253,26 @@ describe("getFilteredRenderableParamIds", () => {
     expect(filteredIds).toEqual([encodingId, errorsId, modeId, tempModeId]);
   });
 
+  it("treats whitespace-only filters as inactive", () => {
+    const { sectionId, encodingId, errorsId, modeId } = setupProjectState({
+      paramFilter: "   ",
+    });
+    const tempModeId = getTempParamDndId(modeId);
+
+    const filteredIds = getFilteredRenderableParamIds({
+      state: useProjectState.getState(),
+      sectionId,
+      renderParamIds: [encodingId, errorsId, modeId, tempModeId],
+      requiredParamIdsToPaths: {
+        [encodingId]: [encodingId],
+        [errorsId]: [encodingId, errorsId],
+        [modeId]: [modeId],
+      },
+    });
+
+    expect(filteredIds).toEqual([encodingId, errorsId, modeId, tempModeId]);
+  });
+
   it("keeps the matched nested path and any temp placeholder ids", () => {
     const { sectionId, encodingId, errorsId, modeId } = setupProjectState({
       paramFilter: "Errors",

@@ -3,7 +3,7 @@
 Date: 2026-03-16
 Area: frontend
 Branch/Commit: frontend-performance-11 @ 26e7406b7
-Related plan: `docs/plans/worktrees/setta.frontend-performance-11/callable-performance-plan.md`
+Related plan: `docs/plans/worktrees/setta.frontend-performance-11/section-performance-plan.md`
 
 ## Goal
 

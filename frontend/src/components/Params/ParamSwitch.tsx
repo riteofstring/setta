@@ -29,11 +29,19 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import {
+  type NestedParentParamIdLookup,
+  type RenderableParamIdLookup,
+} from "./getFilteredRenderableParamIds";
+import { GetParamSwitch } from "./GetParamSwitch";
 import { ParamContainer } from "./ParamContainer";
-import { useParamDndContext } from "./ParamDndContext";
+import {
+  useParamDndChildrenForParent,
+  useParamDndContext,
+} from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
-import { getNonNestedParamRowClassName } from "./paramRowClassNames";
+import { ParamRowShell } from "./ParamRowShell";
 
 type ParamSwitchProps = {
   sectionId: string;
@@ -44,7 +52,11 @@ type ParamSwitchProps = {
   isNestedChildInTree?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  nestedParentParamIdLookup: NestedParentParamIdLookup | null;
+  visibleParamIdLookup: RenderableParamIdLookup | null;
 };
+
+const EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP: NestedParentParamIdLookup = {};
 
 function _ParamSwitch(props: ParamSwitchProps) {
   if (isTempParam(props.paramInfoId)) {
@@ -156,17 +168,14 @@ function TempParamSwitch({
     },
   );
   return (
-    <article
-      className={getNonNestedParamRowClassName({
-        isNestedChildInTree,
-        justifyBetween: true,
-        extraClassName: "bg-blue-500/40 dark:bg-blue-600/40",
-      })}
+    <ParamRowShell
+      isNestedChildInTree={isNestedChildInTree}
+      justifyBetween={true}
+      extraClassName="bg-blue-500/40 dark:bg-blue-600/40"
       style={dndStyle}
-      data-param-row="true"
-      ref={dndRef}
-      {...(dndAttributes ?? {})}
-      {...(dndListeners ?? {})}
+      dndRef={dndRef}
+      dndAttributes={dndAttributes}
+      dndListeners={dndListeners}
     />
   );
 }
@@ -175,11 +184,12 @@ function RealParamSwitch(props: ParamSwitchProps) {
   const {
     sectionId,
     paramInfoId,
+    onResizeStart,
+    isTopLevelWithPad,
     hasSectionStyleTheme,
     isNestedChildInTree,
     listKey,
   } = props;
-
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
@@ -196,14 +206,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
       ),
     };
   }, _.isEqual);
-
-  const paramsImpl = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ),
-  );
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
@@ -212,11 +214,20 @@ function RealParamSwitch(props: ParamSwitchProps) {
       isBaseParamCodeObjImpl,
     ),
   );
+  const paramIsSelected = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    ).selectedParams.includes(paramInfoId),
+  );
   const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
-  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
   const isKwarg = codeObjImpl.coreNameEditable;
   const paramChildren = isNestedParam ? codeObjImpl.children : [];
-
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const handleParamMouseDown = useCallback(
@@ -274,8 +285,19 @@ function RealParamSwitch(props: ParamSwitchProps) {
       paramInfoId={paramInfoId}
       onMouseDown={onMouseDownConditional}
       bg={hasChildren ? bg : ""}
+      hasChildren={hasChildren}
     />
   );
+  let labelShapeKey:
+    | "nameInputLeaf"
+    | "nameInputParent"
+    | "textLabelLeaf"
+    | "textLabelParent";
+  if (isKwarg) {
+    labelShapeKey = hasChildren ? "nameInputParent" : "nameInputLeaf";
+  } else {
+    labelShapeKey = hasChildren ? "textLabelParent" : "textLabelLeaf";
+  }
 
   const hasNested = paramChildren.length > 0;
   const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
@@ -290,32 +312,65 @@ function RealParamSwitch(props: ParamSwitchProps) {
     });
 
   return (
-    <ParamContainer
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      requiredParamIdsToPaths={props.requiredParamIdsToPaths}
-      onResizeStart={props.onResizeStart}
-      isTopLevelWithPad={props.isTopLevelWithPad}
-      isNestedChildInTree={isNestedChildInTree}
-      listKey={listKey}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      paramChildren={paramChildren}
-      bg={bg}
-      border={border}
-      isKwarg={isKwarg}
-      isNestedParam={isNestedParam}
-      maybeErrorMessage={maybeErrorMessage}
-      onClick={handleParamClick}
-      onMouseDown={onMouseDownAlways}
-      dndAttributes={dndAttributes}
-      dndListeners={dndListeners}
-      dndRef={dndRef}
-      dndStyle={dndStyle}
-      dndClassName={isDragging ? "opacity-80" : ""}
-    >
-      {label}
-    </ParamContainer>
+    <>
+      <ParamContainer
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        labelShapeKey={labelShapeKey}
+        onResizeStart={onResizeStart}
+        isTopLevelWithPad={isTopLevelWithPad}
+        isNestedChildInTree={isNestedChildInTree}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        bg={bg}
+        border={border}
+        isNestedParam={isNestedParam}
+        maybeErrorMessage={maybeErrorMessage}
+        onClick={handleParamClick}
+        onMouseDown={onMouseDownAlways}
+        dndAttributes={dndAttributes}
+        dndListeners={dndListeners}
+        dndRef={dndRef}
+        dndStyle={dndStyle}
+        dndClassName={isDragging ? "opacity-80" : ""}
+      >
+        {label}
+      </ParamContainer>
+      {renderChildren.length > 0 && (
+        <GetParamSwitch
+          sectionId={sectionId}
+          paramIds={renderChildren}
+          requiredParamIdsToPaths={props.requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          isNestedChildInTree={true}
+          nestedParentParamIdLookup={
+            props.nestedParentParamIdLookup ??
+            EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP
+          }
+          visibleParamIdLookup={props.visibleParamIdLookup}
+        />
+      )}
+    </>
   );
 }
 
-export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
+function areParamSwitchPropsEqual(
+  prevProps: ParamSwitchProps,
+  nextProps: ParamSwitchProps,
+) {
+  return (
+    prevProps.sectionId === nextProps.sectionId &&
+    prevProps.paramInfoId === nextProps.paramInfoId &&
+    prevProps.requiredParamIdsToPaths === nextProps.requiredParamIdsToPaths &&
+    prevProps.onResizeStart === nextProps.onResizeStart &&
+    prevProps.isTopLevelWithPad === nextProps.isTopLevelWithPad &&
+    prevProps.isNestedChildInTree === nextProps.isNestedChildInTree &&
+    prevProps.listKey === nextProps.listKey &&
+    prevProps.hasSectionStyleTheme === nextProps.hasSectionStyleTheme &&
+    prevProps.nestedParentParamIdLookup === nextProps.nestedParentParamIdLookup &&
+    prevProps.visibleParamIdLookup === nextProps.visibleParamIdLookup
+  );
+}
+
+export const ParamSwitch = React.memo(_ParamSwitch, areParamSwitchPropsEqual);

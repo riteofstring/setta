@@ -6,6 +6,10 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import {
+  getFilteredRenderableParamIdLookup,
+  getNestedParentParamIdLookup,
+} from "./getFilteredRenderableParamIds";
 
 type GetParamDndListRenderModelArgs = {
   state: ZustandProjectState;
@@ -23,18 +27,28 @@ export function getParamDndListRenderModel({
   allowTree,
 }: GetParamDndListRenderModelArgs) {
   const duplicateIndex = buildParamDuplicateIndex(state, sectionId);
+  const nestedParentParamIdLookup = getNestedParentParamIdLookup(
+    requiredParamIdsToPaths,
+  );
+  const visibleParamIdLookup = getFilteredRenderableParamIdLookup({
+    state,
+    sectionId,
+    requiredParamIdsToPaths,
+  });
   const impl = getCurrEffectiveSectionImplWithTypeGuard(
     state,
     sectionId,
     isBaseSectionWithParamsImpl,
   );
-  const paramFilterActive = impl.paramFilter.trim().length > 0;
+  const paramFilterActive = visibleParamIdLookup !== null;
 
   if (!allowTree || paramFilterActive) {
     return {
       duplicateIndex,
+      nestedParentParamIdLookup,
       paramFilterActive,
       tree: null,
+      visibleParamIdLookup,
     };
   }
 
@@ -42,8 +56,10 @@ export function getParamDndListRenderModel({
     if (!impl.callable) {
       return {
         duplicateIndex,
+        nestedParentParamIdLookup,
         paramFilterActive,
         tree: null,
+        visibleParamIdLookup,
       };
     }
   } else if (
@@ -53,20 +69,25 @@ export function getParamDndListRenderModel({
     if (!impl.topLevelParamId) {
       return {
         duplicateIndex,
+        nestedParentParamIdLookup,
         paramFilterActive,
         tree: null,
+        visibleParamIdLookup,
       };
     }
   } else {
     return {
       duplicateIndex,
+      nestedParentParamIdLookup,
       paramFilterActive,
       tree: null,
+      visibleParamIdLookup,
     };
   }
 
   return {
     duplicateIndex,
+    nestedParentParamIdLookup,
     paramFilterActive,
     tree: buildParamTreeView(
       state,
@@ -74,5 +95,6 @@ export function getParamDndListRenderModel({
       paramIds,
       requiredParamIdsToPaths,
     ),
+    visibleParamIdLookup,
   };
 }

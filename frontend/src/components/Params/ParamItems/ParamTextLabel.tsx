@@ -1,7 +1,20 @@
 import { getParamDisplayName } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
+import type { MouseEventHandler } from "react";
 
-export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
+export function ParamTextLabel({
+  sectionId,
+  paramInfoId,
+  onMouseDown,
+  bg,
+  hasChildren = false,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  onMouseDown?: MouseEventHandler;
+  bg: string;
+  hasChildren?: boolean;
+}) {
   const name = useProjectState((x) =>
     getParamDisplayName(x, sectionId, paramInfoId),
   );
@@ -20,7 +33,7 @@ export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
 
   return (
     <p
-      className={`section-key overflow-hidden ${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
+      className={`${hasChildren ? "section-key-value" : "section-key"} overflow-hidden ${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
       style={{ width: "var(--param-column-width, 200px)" }}
       onClick={onClick}
       onMouseDownCapture={onMouseDown} // has to be on capture for selection to work

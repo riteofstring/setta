@@ -30,7 +30,13 @@ export function ParamDndList({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { canEditStructure } = useShareCapabilities();
   const allowTree = isSelectingParams && canEditStructure;
-  const { duplicateIndex, paramFilterActive, tree } = useProjectState(
+  const {
+    duplicateIndex,
+    nestedParentParamIdLookup,
+    paramFilterActive,
+    tree,
+    visibleParamIdLookup,
+  } = useProjectState(
     (state) =>
       getParamDndListRenderModel({
         state,
@@ -54,6 +60,8 @@ export function ParamDndList({
           isTopLevel={isTopLevel}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          nestedParentParamIdLookup={nestedParentParamIdLookup}
+          visibleParamIdLookup={visibleParamIdLookup}
         />
       </ParamDuplicateIndexProvider>
     );
@@ -76,6 +84,8 @@ export function ParamDndList({
           dndParentId={tree.rootId}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          nestedParentParamIdLookup={nestedParentParamIdLookup}
+          visibleParamIdLookup={visibleParamIdLookup}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>

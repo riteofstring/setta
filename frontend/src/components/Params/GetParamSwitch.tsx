@@ -1,9 +1,12 @@
-import _ from "lodash";
-import { type ParamListKey } from "forks/dnd-kit/paramDndState";
-import { useProjectState } from "state/definitions";
+import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamSwitch } from "./ParamSwitch";
-import { getFilteredRenderableParamIds } from "./getFilteredRenderableParamIds";
+import {
+  type NestedParentParamIdLookup,
+  type RenderableParamIdLookup,
+} from "./getFilteredRenderableParamIds";
+
+const EMPTY_REQUIRED_PARAM_IDS_TO_PATHS: Record<string, Array<string>> = {};
 
 export function GetParamSwitch({
   sectionId,
@@ -15,6 +18,8 @@ export function GetParamSwitch({
   dndParentId,
   listKey,
   hasSectionStyleTheme,
+  nestedParentParamIdLookup,
+  visibleParamIdLookup,
 }: {
   sectionId: string;
   paramIds: Array<string>;
@@ -25,30 +30,41 @@ export function GetParamSwitch({
   dndParentId?: string;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  nestedParentParamIdLookup: NestedParentParamIdLookup;
+  visibleParamIdLookup: RenderableParamIdLookup | null;
 }) {
-  const renderParamIds = useParamDndChildrenForParent(dndParentId ?? "", paramIds);
-  const filteredIds = useProjectState(
-    (state) =>
-      getFilteredRenderableParamIds({
-        state,
-        sectionId,
-        renderParamIds,
-        requiredParamIdsToPaths,
-      }),
-    _.isEqual,
+  const renderParamIds = useParamDndChildrenForParent(
+    dndParentId ?? "",
+    paramIds,
   );
+  const filteredIds = visibleParamIdLookup
+    ? renderParamIds.filter(
+        (paramId) => visibleParamIdLookup[paramId] || isTempParam(paramId),
+      )
+    : renderParamIds;
 
-  return filteredIds.map((paramId, idx) => (
-    <ParamSwitch
-      key={paramId}
-      sectionId={sectionId}
-      paramInfoId={paramId}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
-      onResizeStart={onResizeStart}
-      isTopLevelWithPad={isTopLevel && idx > 0}
-      isNestedChildInTree={isNestedChildInTree}
-      listKey={listKey}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-    />
-  ));
+  return filteredIds.map((paramId, idx) => {
+    const isNestedParent = nestedParentParamIdLookup[paramId] === true;
+    return (
+      <ParamSwitch
+        key={paramId}
+        sectionId={sectionId}
+        paramInfoId={paramId}
+        requiredParamIdsToPaths={
+          isNestedParent
+            ? requiredParamIdsToPaths
+            : EMPTY_REQUIRED_PARAM_IDS_TO_PATHS
+        }
+        onResizeStart={onResizeStart}
+        isTopLevelWithPad={isTopLevel && idx > 0}
+        isNestedChildInTree={isNestedChildInTree}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        nestedParentParamIdLookup={
+          isNestedParent ? nestedParentParamIdLookup : null
+        }
+        visibleParamIdLookup={isNestedParent ? visibleParamIdLookup : null}
+      />
+    );
+  });
 }

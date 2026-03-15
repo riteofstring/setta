@@ -1968,3 +1968,73 @@ Append-only log for the section performance refactor.
   - The better reported INP on the worktree does not outweigh the much heavier `FunctionCall`, `RunTask`, and `Commit` totals for this acceptance gate.
 - Next action:
   - Reduce the added renderer work around `visibleParamIdLookup`, `requiredParamIdsToPaths`, and the surviving row-tree handoff across `GetParamSwitch`, `ParamSwitch`, and `ParamDndList`, then rerun the same locked `S0 Dict` visual/perf gate before advancing the accepted checkpoint state.
+
+### 2026-03-17 65
+
+- Item: Accept `Phase S2` checkpoint 6 after replacing the extra `GetParamSwitch` nested-parent selector with a path-derived parent lookup and rerunning the locked `S0 Dict` gate.
+- Status: `done`
+- Details:
+  - Updated the shared row/list render path so `GetParamSwitch` no longer performs a per-render `useProjectState(...)` nested-parent lookup over the filtered ids.
+  - Added a path-derived `nestedParentParamIdLookup` from `requiredParamIdsToPaths` in:
+    - `frontend/src/components/Params/getFilteredRenderableParamIds.ts`
+    - `frontend/src/components/Params/getParamDndListRenderModel.ts`
+  - Threaded that lookup through:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+  - Kept the row-only `ParamContainer` boundary from checkpoint 5 intact.
+  - Added focused render-model assertions in:
+    - `frontend/src/components/Params/getParamDndListRenderModel.test.ts`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamRowShell.test.tsx src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `7` files passed, `32` tests passed
+  - Re-ran the representative Playwright checkpoint suite:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Replayed the same representative filter interaction on both branches:
+    - start on `delta`
+    - replace the filter with `gamma`
+    - wait for the visible row set to settle
+  - Visual read:
+    - both branches settled on the same single visible `gamma` row
+    - the filter field, arg toolbar, pinned area, and row spacing stayed visually aligned
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint6-rerun2/`
+  - Target-renderer DevTools totals from the rerun pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `996.166`
+      - `UpdateLayoutTree`: `38.788`
+      - `Layout`: `6.610`
+      - `Paint`: `4.009`
+      - `RunTask`: `1109.632`
+      - `EventDispatch`: `2248.554`
+      - `TimerFire`: `142.815`
+      - `FireAnimationFrame`: `5.996`
+      - `Commit`: `5.653`
+      - `INP`: `204ms`
+    - worktree
+      - `FunctionCall`: `1166.831`
+      - `UpdateLayoutTree`: `36.619`
+      - `Layout`: `5.515`
+      - `Paint`: `3.679`
+      - `RunTask`: `1291.994`
+      - `EventDispatch`: `2136.752`
+      - `TimerFire`: `278.399`
+      - `FireAnimationFrame`: `6.341`
+      - `Commit`: `8.118`
+      - `INP`: `190ms`
+  - Comparison with the rejected checkpoint-6 attempt:
+    - the worktree no longer repeats the large target-renderer regression from entry 64
+    - worktree `FunctionCall` dropped from `1450.094ms` to `1166.831ms`
+    - worktree `RunTask` dropped from `1795.674ms` to `1291.994ms`
+    - worktree `Commit` dropped from `30.717ms` to `8.118ms`
+- Interpretation:
+  - This rerun is still mixed, but it is no longer a repeat of the rejected checkpoint-6 regression.
+  - Compared with untouched `main`, the worktree now wins on the directly touched layout/rendering path (`UpdateLayoutTree`, `Layout`, `Paint`) and on the user-visible interaction read (`INP`), while remaining only modestly higher on `FunctionCall`, `RunTask`, `TimerFire`, and `Commit`.
+  - The best explanation is that the removed `GetParamSwitch` nested-parent selector was the main source of the rejected checkpoint-6 renderer overhead.
+  - That makes checkpoint 6 acceptable as a row-tree ownership checkpoint rather than leaving the branch stuck on the rejected earlier candidate.
+- Next action:
+  - Stop and perform a fresh `Phase S2` structural read before deciding whether another row-tree pass is justified or whether the next serious step belongs to `Phase S3`.

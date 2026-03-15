@@ -266,6 +266,13 @@ describe("getParamDndListRenderModel", () => {
 
     expect(model.paramFilterActive).toBe(true);
     expect(model.tree).toBeNull();
+    expect(model.nestedParentParamIdLookup).toEqual({
+      [encodingId]: true,
+    });
+    expect(model.visibleParamIdLookup).toEqual({
+      [encodingId]: true,
+      [errorsId]: true,
+    });
     expect(model.duplicateIndex.parentById).toEqual({
       [rootId]: null,
       [modeId]: rootId,
@@ -294,11 +301,41 @@ describe("getParamDndListRenderModel", () => {
 
     expect(model.paramFilterActive).toBe(false);
     expect(model.tree).not.toBeNull();
+    expect(model.nestedParentParamIdLookup).toEqual({
+      [encodingId]: true,
+    });
+    expect(model.visibleParamIdLookup).toBeNull();
     expect(model.tree?.rootId).toBe(rootId);
     expect(model.tree?.flat.map((item) => item.id)).toEqual([
       modeId,
       encodingId,
       errorsId,
     ]);
+  });
+
+  it("keeps the tree path enabled when the filter is only whitespace", () => {
+    const { sectionId, rootId, modeId, encodingId, errorsId } =
+      setupProjectState({
+        paramFilter: "  ",
+      });
+
+    const model = getParamDndListRenderModel({
+      state: useProjectState.getState(),
+      sectionId,
+      allowTree: true,
+      paramIds: [modeId, encodingId],
+      requiredParamIdsToPaths: {
+        [modeId]: [modeId],
+        [encodingId]: [encodingId],
+        [errorsId]: [encodingId, errorsId],
+      },
+    });
+
+    expect(model.paramFilterActive).toBe(false);
+    expect(model.nestedParentParamIdLookup).toEqual({
+      [encodingId]: true,
+    });
+    expect(model.visibleParamIdLookup).toBeNull();
+    expect(model.tree?.rootId).toBe(rootId);
   });
 });

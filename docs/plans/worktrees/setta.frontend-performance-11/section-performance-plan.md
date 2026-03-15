@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S2: Shared Row / Shell Contract Simplification`
-- Latest accepted checkpoint: `Phase S2` checkpoint 5 moved the recursive child handoff out of `ParamContainer`, made it row-only, and narrowed the `ParamContainer` memo boundary
-- Checkpoint 6 candidate: visual parity and the locked `S0 Dict` DOM read held, but the rerun Chrome DevTools filter trace regressed on the touched target-renderer path, so checkpoint 6 is not accepted yet
+- Latest accepted checkpoint: `Phase S2` checkpoint 6 replaced the extra per-`GetParamSwitch` nested-parent store read with a path-derived parent lookup and kept the narrowed row-tree handoff above the row-only `ParamContainer`
+- Current `Phase S2` state: checkpoint 6 is accepted, but the latest rerun is still mixed enough that the next step should be a fresh structural read, not another blind row-tree pass
 
 Non-negotiable constraints:
 
@@ -42,7 +42,7 @@ Immediate next step:
 
 1. Reuse the locked S0 baseline in `perf/reports/frontend/2026-03-16_section-shell-s0.md` plus the accepted S1 checkpoints in `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint1.md` and `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint2.md`.
 2. Reuse the newer shared-shell checkpoints in `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint3.md`, `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint4.md`, `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint5.md`, and `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint6.md` as the accepted `Phase S1` history.
-3. Reuse `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint1.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint2.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint3.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint4.md`, and `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint5.md` as the accepted `Phase S2` history so far.
+3. Reuse `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint1.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint2.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint3.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint4.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint5.md`, and `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint6-rerun2.md` as the accepted `Phase S2` history so far.
 4. Treat `Phase S1` as exhausted on the locked representative controls:
    - no exact wrapper-only candidates remain on the current worktree read for `S0 Code` / `S0 Dict`
    - the surviving outer `section-row-pin-main` shell is blocked by real ownership, not decoration
@@ -52,18 +52,20 @@ Immediate next step:
    - `frontend/src/components/Params/ParamSwitch.tsx`
    - `frontend/src/components/Params/ParamContainer.tsx`
 6. The surviving shared-shell subgrid utility usage in `GroupContainer` is now removed on the worktree representative controls, and the special nested-parent `section-args-nested` row branch is also removed there.
-7. `ParamContainer` is now a row-only boundary beneath the list/filter orchestration, so the next step is to simplify the surviving row-tree handoff above it without changing DnD, selection, or nested-child behavior, starting with:
+7. `ParamContainer` is now a row-only boundary beneath the list/filter orchestration, and checkpoint 6 is the accepted pass that simplified the surviving row-tree handoff above it without reopening the earlier target-renderer regression:
    - `frontend/src/components/Params/ParamSwitch.tsx`
    - `frontend/src/components/Params/GetParamSwitch.tsx`
    - the remaining child-recursion prop threading, especially `requiredParamIdsToPaths` and `visibleParamIdLookup`
    - the surviving row-tree ownership split between `ParamDndList`, `GetParamSwitch`, and `ParamSwitch`
 8. Keep `S0 Code` and `S0 Dict` as the required untouched-`main` vs worktree representative controls.
 9. For any `Phase S2` performance test that touches resize, pan, or zoom, capture a Chrome DevTools `Performance` trace on the touched path before deciding whether the checkpoint is accepted.
-10. Current checkpoint-6 state:
-   - the DevTools tooling blocker is cleared and the locked untouched-`main` vs worktree `S0 Dict` visual/perf gate has now been rerun
-   - the in-progress checkpoint-6 candidate in `GetParamSwitch` / `ParamSwitch` / `ParamDndList` / `ParamContainer` kept visual parity and the flatter filtered DOM, but the touched target-renderer filter trace regressed versus untouched `main`
-   - do not accept checkpoint 6 in its current form
-   - the next step is to trim the added renderer work around `visibleParamIdLookup`, `requiredParamIdsToPaths`, and the surviving row-tree handoff, then rerun the same `S0 Dict` acceptance gate
+10. Current post-checkpoint-6 direction:
+   - the locked untouched-`main` vs worktree `S0 Dict` visual/perf gate has been rerun after removing the extra `GetParamSwitch` nested-parent selector work
+   - the latest trace pair no longer repeats the rejected checkpoint-6 target-renderer regression
+   - the touched `delta -> gamma` filter path is now mixed but acceptable:
+     - worktree wins on INP plus `UpdateLayoutTree`, `Layout`, `Paint`, and `EventDispatch`
+     - worktree is still modestly higher on `FunctionCall`, `RunTask`, `TimerFire`, and `Commit`
+   - treat checkpoint 6 as accepted, then stop and perform a fresh structural read before deciding whether another `Phase S2` pass is justified or whether the next serious step belongs to `Phase S3`
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 

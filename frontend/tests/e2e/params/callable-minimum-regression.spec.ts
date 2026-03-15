@@ -869,7 +869,7 @@ async function runReorderAndIndentFlow(
       "i",
       "j",
     ]);
-    const reorderedTopLevel = (
+    const reorderedVisibleOrder = (
       await getVisibleUnpinnedParamNames(root, sectionId, idsByName)
     ).join(" > ");
     await root.hover();
@@ -879,39 +879,41 @@ async function runReorderAndIndentFlow(
     await selectParamRow(rowI);
     await pressParamIndentShortcut(page, false);
     await expect(
-      rowH.locator(`#ParamContainer-${sectionId}-${idsByName.i}`),
+      root.locator(
+        `#ParamContainer-${sectionId}-${idsByName.h} + #ParamContainer-${sectionId}-${idsByName.i}`,
+      ),
     ).toHaveCount(1);
-    await waitForVisibleUnpinnedOrder(root, sectionId, idsByName, [
-      "k",
-      "h",
-      "j",
-    ]);
-    const indentedTopLevel = (
-      await getVisibleUnpinnedParamNames(root, sectionId, idsByName)
-    ).join(" > ");
-    await root.hover();
-    await captureSurfaceScreenshot(root, testInfo, `${prefix}-03-indented`);
-
-    await pressParamIndentShortcut(page, true);
-    await expect(
-      rowH.locator(`#ParamContainer-${sectionId}-${idsByName.i}`),
-    ).toHaveCount(0);
+    await expect(rowI).toHaveClass(/ml-\[0\.9rem\]/);
     await waitForVisibleUnpinnedOrder(root, sectionId, idsByName, [
       "k",
       "h",
       "i",
       "j",
     ]);
-    const restoredTopLevel = (
+    const indentedVisibleOrder = (
+      await getVisibleUnpinnedParamNames(root, sectionId, idsByName)
+    ).join(" > ");
+    await root.hover();
+    await captureSurfaceScreenshot(root, testInfo, `${prefix}-03-indented`);
+
+    await pressParamIndentShortcut(page, true);
+    await expect(rowI).not.toHaveClass(/ml-\[0\.9rem\]/);
+    await waitForVisibleUnpinnedOrder(root, sectionId, idsByName, [
+      "k",
+      "h",
+      "i",
+      "j",
+    ]);
+    const restoredVisibleOrder = (
       await getVisibleUnpinnedParamNames(root, sectionId, idsByName)
     ).join(" > ");
     await root.hover();
     await captureSurfaceScreenshot(root, testInfo, `${prefix}-04-unindented`);
 
     await attachJson(testInfo, `${prefix}-structure-metrics`, {
-      reorderedTopLevel,
-      indentedTopLevel,
-      restoredTopLevel,
+      reorderedVisibleOrder,
+      indentedVisibleOrder,
+      restoredVisibleOrder,
       nestedParentAfterIndent: "h",
     });
   } finally {
