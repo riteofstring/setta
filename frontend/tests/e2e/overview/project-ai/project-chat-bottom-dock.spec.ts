@@ -877,6 +877,18 @@ test("project chat keyboard shortcuts toggle canvas and control focused windows"
     const modKey = isMac ? "Meta" : "Control";
     const dockWindow = page.getByTestId("project-chat-bottom-dock-window");
     await expect(dockWindow).toBeVisible();
+    const composerInput = dockWindow.getByPlaceholder("Type a message...");
+
+    await composerInput.click();
+    await page.keyboard.press("Shift+Escape");
+    await expect(
+      page.getByTestId("project-chat-bottom-dock-window"),
+    ).toBeVisible();
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
 
     await page.keyboard.press("Shift+Escape");
     await expect(

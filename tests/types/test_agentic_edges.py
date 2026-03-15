@@ -1,4 +1,6 @@
 import pytest
+
+from setta.database.utils import create_new_id
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
@@ -6,11 +8,10 @@ from setta.types.helpers_lvl2 import (
     create_new_section_variant,
     create_top_level_section,
     delete_agentic_edges,
-    set_agentic_edges,
     set_section_variant,
+    set_agentic_edges,
     update_agentic_edge,
 )
-from setta.types.id import create_new_id
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType, TextBlockSectionImpl

@@ -1,27 +1,21 @@
 import asyncio
 
 import pytest
-from setta.api.listener import (
-    ListenerDependencyMetadata,
-    ListenerRuntimeState,
-    SettaListener,
-)
+
+from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.code_generator import PythonCodeGenerator
+from setta.project_state.project_manager_types import GetLatestProjectStateRequest
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID
-from setta.types.listener import (
-    ListenerErrorContent,
-    ListenerForceRefreshContent,
-    ListenerRouterEndpointResultContent,
-)
+from setta.types.listener import ListenerRouterEndpointResultContent
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
-    WebsocketMsgListenerError,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
@@ -65,11 +59,12 @@ def _build_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
 def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
     listener = SettaListener(project_name=project_state.projectConfig.name)
     dependency_graph = DependencyGraph(project_state)
+    code_generator = PythonCodeGenerator(dependency_graph, "", "")
     listener._runtime_state = ListenerRuntimeState(
-        dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
-            dependency_graph
-        ),
+        project_state=project_state,
         dependency_graph=dependency_graph,
+        code_generator=code_generator,
+        s_instance=None,
     )
     listener._project_config_id = project_state.projectConfig.id
     listener._is_registered = True
@@ -89,14 +84,12 @@ class TestListenerRouterEndpointCall:
             sent_payloads.append(payload)
 
         listener._send_websocket_payload = capture
-        request = {
-            "frontendOpId": None,
-            "projectConfigId": project_state.projectConfig.id,
-            "sectionId": ID("chat-section"),
-        }
+        request = GetLatestProjectStateRequest(
+            projectConfigId=project_state.projectConfig.id
+        )
         call_task = asyncio.create_task(
             listener._call_router_endpoint(
-                "route_get_chat_section_chat_id",
+                "route_get_latest_project_state",
                 payload=request,
             )
         )
@@ -108,11 +101,10 @@ class TestListenerRouterEndpointCall:
             sent_payloads[0]
         )
         assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
-        assert parsed_message.content.endpointName == "route_get_chat_section_chat_id"
+        assert parsed_message.content.endpointName == "route_get_latest_project_state"
         assert parsed_message.content.payload == {
             "frontendOpId": None,
             "projectConfigId": project_state.projectConfig.id,
-            "sectionId": "chat-section",
         }
 
         listener._handle_router_endpoint_result(
@@ -140,11 +132,8 @@ class TestListenerRouterEndpointCall:
         listener._send_websocket_payload = capture
         call_task = asyncio.create_task(
             listener._call_router_endpoint(
-                "route_get_chat_section_chat_id",
-                payload={
-                    "projectConfigId": project_state.projectConfig.id,
-                    "sectionId": "chat-section",
-                },
+                "route_get_latest_project_state",
+                payload={"projectConfigId": project_state.projectConfig.id},
             )
         )
 
@@ -171,111 +160,3 @@ class TestListenerRouterEndpointCall:
             await call_task
         assert "listener_call_failed" in str(ctx.value)
         assert "boom" in str(ctx.value)
-
-    async def test_call_router_endpoint_waits_for_authoritative_force_refresh(
-        self,
-    ) -> None:
-        project_state = _build_project_state(ID("proj-router-refresh"))
-        listener = _build_listener(project_state)
-        sent_payloads: list[str] = []
-
-        async def capture(payload: str) -> None:
-            sent_payloads.append(payload)
-
-        listener._send_websocket_payload = capture
-        call_task = asyncio.create_task(
-            listener._call_router_endpoint(
-                "route_set_chat_section_state",
-                payload={
-                    "projectConfigId": project_state.projectConfig.id,
-                    "sectionId": "section-1",
-                    "state": {"messages": []},
-                },
-            )
-        )
-
-        await asyncio.sleep(0)
-
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
-            sent_payloads[0]
-        )
-        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
-
-        listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
-                    projectConfigId=project_state.projectConfig.id,
-                    callId=parsed_message.content.callId,
-                    ok=True,
-                    result=None,
-                )
-            )
-        )
-
-        await asyncio.sleep(0)
-        assert not call_task.done()
-
-        await listener._handle_force_refresh(
-            ListenerForceRefreshContent(
-                callId=parsed_message.content.callId,
-                projectState=project_state,
-            )
-        )
-
-        assert await call_task is None
-
-    async def test_call_router_endpoint_surfaces_authoritative_refresh_failure(
-        self,
-    ) -> None:
-        project_state = _build_project_state(ID("proj-router-refresh-error"))
-        listener = _build_listener(project_state)
-        sent_payloads: list[str] = []
-
-        async def capture(payload: str) -> None:
-            sent_payloads.append(payload)
-
-        listener._send_websocket_payload = capture
-        call_task = asyncio.create_task(
-            listener._call_router_endpoint(
-                "route_set_chat_section_state",
-                payload={
-                    "projectConfigId": project_state.projectConfig.id,
-                    "sectionId": "section-1",
-                    "state": {"messages": []},
-                },
-            )
-        )
-
-        await asyncio.sleep(0)
-
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
-            sent_payloads[0]
-        )
-        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
-
-        listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
-                    projectConfigId=project_state.projectConfig.id,
-                    callId=parsed_message.content.callId,
-                    ok=True,
-                    result=None,
-                )
-            )
-        )
-        listener._handle_listener_error(
-            WebsocketMsgListenerError(
-                content=ListenerErrorContent(
-                    error="listener_refresh_failed",
-                    details={
-                        "callId": parsed_message.content.callId,
-                        "message": "snapshot rebuild failed",
-                    },
-                )
-            )
-        )
-
-        with pytest.raises(RuntimeError) as ctx:
-            await call_task
-        assert "listener_refresh_failed" in str(ctx.value)
-        assert "snapshot rebuild failed" in str(ctx.value)
