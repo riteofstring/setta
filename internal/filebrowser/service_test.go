@@ -77,11 +77,17 @@ func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(workspaceRoot, "node_modules"), 0o755); err != nil {
 		t.Fatalf("mkdir node_modules: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir .git: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(workspaceRoot, "visible.txt"), []byte("visible"), 0o644); err != nil {
 		t.Fatalf("write visible file: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(workspaceRoot, ".env"), []byte("hidden"), 0o644); err != nil {
 		t.Fatalf("write hidden file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, ".gitignore"), []byte("dist/\n"), 0o644); err != nil {
+		t.Fatalf("write .gitignore: %v", err)
 	}
 
 	// Symlinks to Setta-managed roots should stay hidden from the browser view.
@@ -115,11 +121,17 @@ func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 	if _, ok := names["node_modules"]; ok {
 		t.Fatalf("expected ignored folder to be hidden, got %#v", items)
 	}
-	if _, ok := names[".env"]; ok {
-		t.Fatalf("expected hidden file to be hidden, got %#v", items)
+	if _, ok := names[".env"]; !ok {
+		t.Fatalf("expected dotfile to stay visible by default, got %#v", items)
+	}
+	if _, ok := names[".gitignore"]; !ok {
+		t.Fatalf("expected dotfile to stay visible by default, got %#v", items)
 	}
 	if _, ok := names["setta_files"]; ok {
 		t.Fatalf("expected internal setta_files root to be hidden, got %#v", items)
+	}
+	if _, ok := names[".git"]; ok {
+		t.Fatalf("expected ignored .git root to stay hidden, got %#v", items)
 	}
 	if linkPath != "" {
 		if _, ok := names["setta-state-link"]; ok {

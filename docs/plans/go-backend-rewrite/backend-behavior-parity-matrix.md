@@ -137,7 +137,7 @@ It covers:
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
 - The chart- and browser-metadata slices mostly close with proofs, but they
-  add three more caller-backed transport/runtime gaps, one more active
+  add two more caller-backed transport/runtime gaps, one more active
   deployment-policy gap, and one more dormant deployment-mode boundary row.
 - The group-orientation / section-data slice mostly closes with proofs, but it
   adds two more caller-backed transport/runtime gaps plus three more dormant
@@ -192,7 +192,7 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Forty-five concrete parity gaps are already visible:
+- Forty-four concrete parity gaps are already visible:
   - source-baseline prompt-template updates refresh linked prompt-section
     cached state
   - current Go does not run an equivalent linked-section refresh
@@ -205,9 +205,6 @@ It covers:
     update
   - source-baseline listener transport supports `use_temporary_ids`
   - current Go rejects temporary listener ids on `ListenerInit`
-  - source-baseline file-browser folder listings show dev-facing dotfiles by
-    default
-  - current Go hides all dotfiles unless callers opt in with `includeHidden`
   - source-baseline share-scope UI-setting reveal routing is constrained to the
     active `shareSessionId`
   - current Go reveal routing ignores share-session scope and treats frontend
@@ -341,9 +338,9 @@ It covers:
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
   linked-template runtime/codegen source-of-truth path itself is proved.
-- The engine-config slice mostly closes with proofs, but it adds one concrete
-  behavior gap around blank-name acceptance plus two documented divergences
-  around IDE-only reads and deferred `EngineConfigsUpdated` fan-out.
+- The engine-config slice now closes with proofs and retains two documented
+  divergences around IDE-only reads and deferred `EngineConfigsUpdated`
+  fan-out.
 - The terminal slice mostly closes with proofs, but it adds:
   - one more implementation proof gap for invalid explicit terminal ids on
     `runCode`
@@ -696,8 +693,8 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `FB-01` | `getFileBrowserRoot` returns workspace root, path separator, and default ignore patterns; deployment-mode file browsing is forbidden; `createFile` remains IDE-only; launcher mode is blocked. | `tests/routers/test_file_browser_routes.py::test_get_file_browser_root_ide_mode`; `tests/routers/test_file_browser_routes.py::test_get_file_browser_root_share_mode_forbidden`; source routes: `backend/setta/routers/artifact.py::{route_get_file_browser_root,route_create_file}`. | Impl/proof: `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesCreatesWorkspaceFiles`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesBlocksDeploymentModeWithExplicitMessage`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesBlocksCreateFileInDeploymentMode`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesBlocksLauncherMode`. | `Proved` | |
-| `FB-02` | Default folder listings show dev-facing dotfiles like `.env` / `.gitignore` while still hiding ignored roots such as `.git`, `.venv`, `node_modules`, and Setta-managed roots. | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_shows_dotfiles_but_keeps_ignored_roots_hidden`; `docs/reference/file-browser-pane.md` filters/visibility section. | Current Go behavior: `internal/filebrowser/service.go::ListFolder` skips all dot-prefixed entries unless `IncludeHidden` is true; current proof of that behavior: `internal/filebrowser/service_test.go::TestServiceListFolderFiltersAndIncludesSettaInitialization`. | `Missing` | Current frontend callers do not set `includeHidden`, so the Go file browser currently regresses the source-baseline/default dotfile visibility. |
-| `FB-03` | Folder listings still surface Setta-initialized flags, keep user `runtime` visible, and hide symlinked Setta internal roots. | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_include_setta_initialized_flag`; `tests/routers/test_file_browser_routes.py::test_get_folder_contents_keeps_user_runtime_name_visible`; `tests/routers/test_file_browser_routes.py::test_get_folder_contents_hides_symlink_to_setta_internal_roots`. | Impl/proof: `internal/filebrowser/service_test.go::TestServiceListFolderFiltersAndIncludesSettaInitialization`. | `Proved` | This row is intentionally separate from `FB-02`; the dotfile default is wrong, but these other filtering/flag branches still match. |
+| `FB-02` | Default folder listings show dev-facing dotfiles like `.env` / `.gitignore` while still hiding ignored roots such as `.git`, `.venv`, `node_modules`, and Setta-managed roots. | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_shows_dotfiles_but_keeps_ignored_roots_hidden`; `docs/reference/file-browser-pane.md` filters/visibility section. | Impl: `internal/filebrowser/service.go::ListFolder`; proof: `internal/filebrowser/service_test.go::TestServiceListFolderFiltersAndIncludesSettaInitialization`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesDefaultFolderContentsShowDotfilesButHideIgnoredRoots`. | `Proved` | Current Go now matches the documented default caller path: ordinary dotfiles stay visible without `includeHidden`, while ignore-pattern/internal-root filtering still hides `.git`, `.venv`, `node_modules`, and Setta-managed roots. |
+| `FB-03` | Folder listings still surface Setta-initialized flags, keep user `runtime` visible, and hide symlinked Setta internal roots. | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_include_setta_initialized_flag`; `tests/routers/test_file_browser_routes.py::test_get_folder_contents_keeps_user_runtime_name_visible`; `tests/routers/test_file_browser_routes.py::test_get_folder_contents_hides_symlink_to_setta_internal_roots`. | Impl/proof: `internal/filebrowser/service_test.go::TestServiceListFolderFiltersAndIncludesSettaInitialization`. | `Proved` | This row stays separate from `FB-02` so the Setta-init/runtime/symlink filtering branches keep independent proof. |
 | `FB-04` | File read/write flow snapshots content into the binary store and enforces optimistic-concurrency and size/error guards: oversize reads, changed-while-reading conflicts, create-only semantics, stale mtimes, and missing binary payloads fail loudly. | `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_reads_file`; `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_rejects_oversized_file`; `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_rejects_file_changed_while_reading`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_creates_missing_file`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_rejects_existing_file_without_mtime`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_create_only_is_atomic`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_rejects_stale_mtime`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_rejects_missing_binary_payload`. | Impl: `internal/filebrowser/service.go::{ReadFileContent,WriteFileContent}`; current proof: `internal/filebrowser/service_test.go::TestServiceReadWriteAndDownloadFlow`; route proof: `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads`. | `Implemented, proof incomplete` | Current Go code has the source edge-case branches, but this slice only directly proves the happy-path read/write/download flow. |
 | `FB-05` | File-browser transfer copy auto-renames conflicts and rejects nested folder targets. | `tests/routers/test_file_browser_routes.py::test_transfer_file_browser_entry_copy_auto_renames_conflicts`; `tests/routers/test_file_browser_routes.py::test_transfer_file_browser_entry_rejects_nested_folder_target`. | Impl/proof: `internal/filebrowser/service_test.go::TestServiceTransferCopyRenamesConflictsAndRejectsNestedMoves`. | `Proved` | |
 
@@ -1239,9 +1236,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty-five concrete source-parity gaps:
+1. The matrix now contains forty-four concrete source-parity gaps:
    `PT-06`, `PT-08`, `LS-11`, `LS-17`, `LD-03`,
-   `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
+   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
@@ -1252,8 +1249,8 @@ It covers:
      delete protection (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
    - preserved runtime/codegen source-of-truth behavior (`PT-09`)
-3. The engine-config slice mostly closes with proofs, but it adds one real
-   behavior gap (`EC-05`) plus two documented divergences (`EC-04`, `EC-06`).
+3. The engine-config slice now closes with proofs and retains two documented
+   divergences (`EC-04`, `EC-06`).
 4. The project-shell slice also surfaced one source behavior that is still
    unproven on the current Go architecture:
    `PS-06`.
@@ -1270,9 +1267,7 @@ It covers:
 9. The detached-run slice added one more under-proved row:
    `DR-05`.
 10. The binary/artifact/attachment/file-browser/git slice mostly closes with
-    proofs, but it adds:
-    - one real behavior gap around default file-browser dotfile visibility
-      (`FB-02`)
+    proofs, and it adds:
     - one new dormant share/runtime question around binary downloads
       (`BP-03`)
     - four more under-proved proof clusters (`BP-02`, `AR-04`, `AT-05`,
@@ -1402,7 +1397,7 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `PT-06`, `PT-08`, `LD-03`, `FB-02`, `US-05`, `RV-02`,
+    - decide whether `PT-06`, `PT-08`, `LD-03`, `US-05`, `RV-02`,
       `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
       `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,

@@ -383,9 +383,6 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 		if s.isUnderIgnoredRoot(entryPath, internalIgnoreRoots) {
 			continue
 		}
-		if !request.IncludeHidden && strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
 		if shouldIgnoreName(entry.Name(), ignorePatterns) {
 			continue
 		}

@@ -113,6 +113,63 @@ func TestRegisterFileBrowserRoutesCreatesWorkspaceFiles(t *testing.T) {
 	}
 }
 
+func TestRegisterFileBrowserRoutesDefaultFolderContentsShowDotfilesButHideIgnoredRoots(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	if err := os.WriteFile(filepath.Join(workspaceRoot, ".env"), []byte("API_KEY=test"), 0o644); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, ".gitignore"), []byte("dist/\n"), 0o644); err != nil {
+		t.Fatalf("write .gitignore: %v", err)
+	}
+	for _, path := range []string{
+		filepath.Join(workspaceRoot, ".git"),
+		filepath.Join(workspaceRoot, ".venv"),
+		filepath.Join(workspaceRoot, "node_modules"),
+		filepath.Join(workspaceRoot, "setta_files"),
+	} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFolderContents, strings.NewReader(`{"folderPath":"`+workspaceRoot+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload []filebrowser.FolderContentItem
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode folder payload: %v", err)
+	}
+	names := make(map[string]filebrowser.FolderContentItem, len(payload))
+	for _, item := range payload {
+		names[item.Name] = item
+	}
+	for _, name := range []string{".env", ".gitignore"} {
+		if _, ok := names[name]; !ok {
+			t.Fatalf("expected default listing to include %q, got %#v", name, payload)
+		}
+	}
+	for _, name := range []string{".git", ".venv", "node_modules", "setta_files"} {
+		if _, ok := names[name]; ok {
+			t.Fatalf("expected default listing to hide %q, got %#v", name, payload)
+		}
+	}
+}
+
 func TestRegisterFileBrowserRoutesRejectsCreateFileOutsideWorkspaceRoot(t *testing.T) {
 	t.Parallel()
 
@@ -197,7 +254,7 @@ func newFileBrowserRouteService(t *testing.T, authService *auth.Service) (*fileb
 
 	root := t.TempDir()
 	workspaceRoot := filepath.Join(root, "workspace")
-	settaFilesRoot := filepath.Join(root, "setta_files")
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
 	runtimeRoot := filepath.Join(root, "runtime-root")
 	globalSettaFilesBase := filepath.Join(root, ".setta", "setta_files")
 	for _, path := range []string{workspaceRoot, settaFilesRoot, runtimeRoot, globalSettaFilesBase} {
