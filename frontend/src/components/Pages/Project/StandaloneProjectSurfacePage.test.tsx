@@ -62,6 +62,7 @@ type MockShareSessionState = {
 };
 
 const hoisted = vi.hoisted(() => {
+  const { create } = require("zustand") as typeof import("zustand");
   const state = {
     projectState: {
       projectConfig: {
@@ -89,30 +90,13 @@ const hoisted = vi.hoisted(() => {
     loadProjectConfigResult: [true, false] as [boolean, boolean],
   };
 
+  const buildChatHistoryEntriesMock = vi.fn(() => state.chatHistoryEntries);
+  const aiStoreSelectorMock = create<MockAIState>(() => state.aiState);
   const useProjectStateMock = Object.assign(
     (selector: (nextState: MockProjectState) => unknown) =>
       selector(state.projectState),
     {
       getState: () => state.projectState,
-    },
-  );
-
-  const useAIStoreMock = Object.assign(
-    (selector: (nextState: MockAIState) => unknown) => selector(state.aiState),
-    {
-      getState: () => state.aiState,
-      setState: (
-        updater:
-          | Partial<MockAIState>
-          | ((nextState: MockAIState) => Partial<MockAIState>),
-      ) => {
-        const nextState =
-          typeof updater === "function" ? updater(state.aiState) : updater;
-        state.aiState = {
-          ...state.aiState,
-          ...nextState,
-        };
-      },
     },
   );
 
@@ -125,12 +109,15 @@ const hoisted = vi.hoisted(() => {
   );
 
   return {
+    aiStoreSelectorMock,
+    buildChatHistoryEntriesMock,
     state,
     useProjectStateMock,
-    useAIStoreMock,
     useShareSessionMock,
   };
 });
+const standaloneWindowSpaceSurfaceRender = vi.fn();
+const sectionWindowSurfaceRender = vi.fn();
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -229,6 +216,7 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
       | ((errorCode: string | null) => void)
       | undefined;
   }) => {
+    sectionWindowSurfaceRender();
     useEffect(() => {
       onProjectChatBlockedErrorCodeChange?.(
         hoisted.state.projectChatBlockedErrorCode,
@@ -262,14 +250,20 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorStyleLoader", () => ({
 }));
 
 vi.mock("state/actions/chatHistory", () => ({
-  buildChatHistoryEntries: () => hoisted.state.chatHistoryEntries,
+  buildChatHistoryEntries: (
+    ...args: Parameters<typeof hoisted.buildChatHistoryEntriesMock>
+  ) => hoisted.buildChatHistoryEntriesMock(...args),
 }));
 
-vi.mock("state/definitions", () => ({
-  useAIStore: hoisted.useAIStoreMock,
-  useProjectState: hoisted.useProjectStateMock,
-  useShareSession: hoisted.useShareSessionMock,
-}));
+vi.mock("state/definitions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("state/definitions")>();
+  return {
+    ...actual,
+    useAIStore: hoisted.aiStoreSelectorMock,
+    useProjectState: hoisted.useProjectStateMock,
+    useShareSession: hoisted.useShareSessionMock,
+  };
+});
 
 vi.mock("state/hooks/project", () => ({
   useLoadProjectConfig: () => hoisted.state.loadProjectConfigResult,
@@ -302,6 +296,7 @@ vi.mock("./StandaloneWindowSpaceSurface", () => ({
       | ((errorCode: string | null) => void)
       | undefined;
   }) => {
+    standaloneWindowSpaceSurfaceRender();
     useEffect(() => {
       onProjectChatBlockedErrorCodeChange?.(
         hoisted.state.projectChatBlockedErrorCode,
@@ -312,6 +307,10 @@ vi.mock("./StandaloneWindowSpaceSurface", () => ({
     ]);
     return <div data-testid="mock-standalone-window-space-surface" />;
   },
+}));
+
+vi.mock("./useProjectSurfaceGlobalListeners", () => ({
+  useProjectSurfaceGlobalListeners: () => undefined,
 }));
 
 function LocationProbe() {
@@ -403,6 +402,9 @@ describe("StandaloneProjectSurfacePage", () => {
   let root: Root;
 
   beforeEach(() => {
+    hoisted.buildChatHistoryEntriesMock.mockClear();
+    sectionWindowSurfaceRender.mockClear();
+    standaloneWindowSpaceSurfaceRender.mockClear();
     hoisted.state.projectState = {
       projectConfig: {
         id: "project-config-1",
@@ -420,6 +422,7 @@ describe("StandaloneProjectSurfacePage", () => {
       agentRunsAuthorityState: "ready",
       chatDetails: {},
     };
+    hoisted.aiStoreSelectorMock.setState(hoisted.state.aiState, true);
     hoisted.state.shareSessionState = {
       isDeploymentMode: false,
       sharePolicy: null,
@@ -469,7 +472,7 @@ describe("StandaloneProjectSurfacePage", () => {
     expect(initialSurface?.getAttribute("data-project-chat-id")).toBe(
       "chat-alpha",
     );
-    expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
+    expect(hoisted.aiStoreSelectorMock.getState().activeChatId).toBe(
       "workspace-chat",
     );
 
@@ -486,7 +489,7 @@ describe("StandaloneProjectSurfacePage", () => {
         .querySelector('[data-testid="mock-location-path"]')
         ?.textContent?.trim(),
     ).toBe("/demo/chat");
-    expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
+    expect(hoisted.aiStoreSelectorMock.getState().activeChatId).toBe(
       "workspace-chat",
     );
 
@@ -507,7 +510,7 @@ describe("StandaloneProjectSurfacePage", () => {
         .querySelector('[data-testid="mock-location-path"]')
         ?.textContent?.trim(),
     ).toBe("/demo/chat/chat-beta");
-    expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
+    expect(hoisted.aiStoreSelectorMock.getState().activeChatId).toBe(
       "workspace-chat",
     );
   });
@@ -534,7 +537,7 @@ describe("StandaloneProjectSurfacePage", () => {
       ),
     ).not.toBeNull();
     expect(host.textContent).not.toContain("Thread Not Found");
-    expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
+    expect(hoisted.aiStoreSelectorMock.getState().activeChatId).toBe(
       "workspace-chat",
     );
   });
@@ -562,6 +565,165 @@ describe("StandaloneProjectSurfacePage", () => {
     ).not.toBeNull();
   });
 
+  it("keeps standalone window-space routes stable across unrelated AI history churn", async () => {
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {
+          "space-1": createWindowSpaceConfig({
+            id: "space-1",
+            name: "Research Board",
+            windowsById: {
+              "chat-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                sectionIdOrNull: null,
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Research Chat",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0,
+                  y: 0,
+                  width: 0.5,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["chat-window"],
+          }),
+        },
+        sectionVariantMap: {},
+      },
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/research_board"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="mock-standalone-window-space-surface"]',
+      ),
+    ).not.toBeNull();
+    const initialWindowSpaceRenderCount =
+      standaloneWindowSpaceSurfaceRender.mock.calls.length;
+    expect(initialWindowSpaceRenderCount).toBeGreaterThan(0);
+    expect(hoisted.buildChatHistoryEntriesMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      hoisted.aiStoreSelectorMock.setState({
+        agentRuns: [{ id: "unrelated-thread-update" }],
+      });
+    });
+
+    expect(standaloneWindowSpaceSurfaceRender).toHaveBeenCalledTimes(
+      initialWindowSpaceRenderCount,
+    );
+    expect(hoisted.buildChatHistoryEntriesMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps standalone section routes stable across unrelated AI history churn", async () => {
+    const textSection = createTextSectionFixture({
+      sectionId: "section-text",
+      sectionName: "notes",
+    });
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {},
+        sectionVariantMap: {
+          [textSection.sectionId]: textSection.variantId,
+        },
+      },
+      sections: {
+        [textSection.sectionId]: textSection.core,
+      },
+      sectionVariants: {
+        [textSection.variantId]: textSection.variant,
+      },
+      sectionImpls: {
+        [textSection.implId]: textSection.impl,
+      },
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/section/notes"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/section/:sectionSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="mock-section-window-surface"]'),
+    ).not.toBeNull();
+    const initialSectionRenderCount =
+      sectionWindowSurfaceRender.mock.calls.length;
+    expect(initialSectionRenderCount).toBeGreaterThan(0);
+    expect(hoisted.buildChatHistoryEntriesMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      hoisted.aiStoreSelectorMock.setState({
+        agentRuns: [{ id: "unrelated-thread-update" }],
+      });
+    });
+
+    expect(sectionWindowSurfaceRender).toHaveBeenCalledTimes(
+      initialSectionRenderCount,
+    );
+    expect(hoisted.buildChatHistoryEntriesMock).not.toHaveBeenCalled();
+  });
+
+  it("still recomputes thread history for standalone project chat routes", async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/chat-alpha"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(hoisted.buildChatHistoryEntriesMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      hoisted.aiStoreSelectorMock.setState({
+        agentRuns: [{ id: "chat-alpha-refresh" }],
+      });
+    });
+
+    expect(hoisted.buildChatHistoryEntriesMock).toHaveBeenCalledTimes(2);
+    expect(
+      host.querySelector(
+        '[data-testid="standalone-project-chat-thread-surface"]',
+      ),
+    ).not.toBeNull();
+  });
+
   it("shows standalone thread not found only after hydration reports chat_not_found", async () => {
     hoisted.state.chatHistoryEntries = [];
     hoisted.state.projectChatBlockedErrorCode = "chat_not_found";
@@ -580,7 +742,7 @@ describe("StandaloneProjectSurfacePage", () => {
     });
 
     expect(host.textContent).toContain("Thread Not Found");
-    expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
+    expect(hoisted.aiStoreSelectorMock.getState().activeChatId).toBe(
       "workspace-chat",
     );
     expect(

@@ -261,6 +261,8 @@ type StandaloneProjectSurfacePageLoadState = {
   is404: boolean;
 };
 
+const UNTRACKED_STANDALONE_AGENT_RUNS = null;
+
 export function StandaloneProjectSurfacePage() {
   const [doneLoading, is404] = useLoadProjectConfig();
   return (
@@ -324,14 +326,20 @@ export function StandaloneProjectSurfacePageWithLoadState({
     }),
     shallow,
   );
-  const agentRuns = useAIStore((state) => state.agentRuns);
+  const agentRuns = useAIStore((state) =>
+    target.kind === "project_chat_thread"
+      ? state.agentRuns
+      : UNTRACKED_STANDALONE_AGENT_RUNS,
+  );
   const projectChatHistoryEntries = useMemo(
     () =>
-      buildChatHistoryEntries(agentRuns, {
-        projectConfigId,
-        unscopedOnly: true,
-      }),
-    [agentRuns, projectConfigId],
+      target.kind === "project_chat_thread" && agentRuns
+        ? buildChatHistoryEntries(agentRuns, {
+            projectConfigId,
+            unscopedOnly: true,
+          })
+        : [],
+    [agentRuns, projectConfigId, target.kind],
   );
   const standaloneProjectChatThreadEntry = useMemo(() => {
     if (target.kind !== "project_chat_thread") {
