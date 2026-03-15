@@ -419,10 +419,12 @@ Current tree note:
   `backend/setta/websockets`, and matching `tests/*` subpackages were deleted
   because current callers import concrete submodules rather than relying on
   package-level code there, so namespace-package resolution is enough and no
-  replacement owner is needed. The re-exporting package roots that still carry
-  actual API or compatibility behavior, such as `backend/setta/api/__init__.py`,
-  `backend/setta/auth/__init__.py`, and `backend/setta/sessions/__init__.py`,
-  stay retained.
+  replacement owner is needed. The only remaining re-exporting package root
+  that still carries retained API behavior is `backend/setta/api/__init__.py`;
+  the old `backend/setta/auth/__init__.py` and
+  `backend/setta/sessions/__init__.py` shims were deleted once all repo callers
+  switched to concrete submodules and the retained Python boundary remained
+  scoped to `setta.api/*`.
 - The old Python `backend/setta/database/*` helper cluster is gone in the
   current worktree. The active identifier factory moved to
   `backend/setta/types/id.py`, where the surviving Python DTO/model layer now

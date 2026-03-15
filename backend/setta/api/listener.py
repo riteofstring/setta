@@ -39,7 +39,7 @@ from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
-from setta.sessions import SessionMetadata, SessionRegistry
+from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_key import (
     SectionDependencyKey,
