@@ -10,19 +10,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1469`
-- Non-generated TS/TSX files at `1000+` lines: `42`
-- Biggest current production hotspots:
-  - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
+- Authored TS/TSX files under `frontend/src`: `1474`
+- Non-generated TS/TSX files at `1000+` lines: `41`
+- Biggest current front-door hotspots:
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
   - `plugins/runtime.ts` (`1948`)
-  - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
   - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1848`)
   - `components/App/appRegistry.tsx` (`1753`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`1658`)
+  - `components/Pages/Home/HomePage.tsx` (`1620`)
+  - `components/Git/GitGraphOverlay.tsx` (`1550`)
 
 ## Module Map
 
@@ -56,6 +56,28 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` now focuses on
     selection state, clipboard/transfer commands, keyboard interaction, and
     row/filter render shells over those local tree-data owners.
+  - `components/Panes/Overview/Plugins/PluginsPane.helpers.ts` owns plugin
+    capability/source formatting, config/settings draft serialization, restart
+    planning, and shared plugin action error shaping used across the plugin
+    pane local owners.
+  - `components/Panes/Overview/Plugins/pluginsPanePluginCard.tsx` owns
+    per-plugin action/render branches, capability sections, pane or command
+    launch shells, and config/settings composition used by
+    `components/Panes/Overview/Plugins/PluginsPane.tsx`.
+  - `components/Panes/Overview/Plugins/pluginsPaneConfigEditors.tsx` owns
+    schema-backed plugin config editing and language-server settings editors
+    used by `components/Panes/Overview/Plugins/pluginsPanePluginCard.tsx`.
+  - `components/Panes/Overview/Plugins/pluginsPaneConfigSchema.ts` owns
+    top-level config-schema field derivation, supported primitive detection,
+    enum or UI-hint helpers, and immutable config updates used by
+    `components/Panes/Overview/Plugins/pluginsPaneConfigEditors.tsx`.
+  - `components/Panes/Overview/Plugins/pluginsPaneShared.tsx` owns shared
+    action-button, capability-row, and install-summary shells used by the
+    plugin pane local owners.
+  - `components/Panes/Overview/Plugins/PluginsPane.tsx` now focuses on
+    runtime/install/rescan/restart orchestration, busy-state tracking,
+    discovery-table composition, and active-plugin list wiring over those
+    local plugin owners.
   - `components/Panes/UiEditor/*` and `components/ProjectConfigs/*` own authoring
     and configuration editors.
 

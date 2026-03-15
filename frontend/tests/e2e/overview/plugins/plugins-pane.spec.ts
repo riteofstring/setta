@@ -123,6 +123,15 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     frontendPluginCard.getByText(/scope=workspace source=local:/),
   ).toBeVisible();
   await expect(
+    page.getByTestId("plugin-linked-source-guidance-setta-fixture-frontend"),
+  ).toContainText("Linked local plugin");
+  await expect(
+    frontendPluginCard.getByRole("button", { name: "Update", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    frontendPluginCard.getByRole("button", { name: "Rollback", exact: true }),
+  ).toBeDisabled();
+  await expect(
     frontendPluginCard.getByRole("button", {
       name: "Open Fixture Pane",
       exact: true,

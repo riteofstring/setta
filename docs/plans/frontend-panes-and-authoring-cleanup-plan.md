@@ -21,11 +21,19 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 ## Status Refresh (2026-03-15)
 
 - `AppConfigPane.tsx` is no longer the original 1700+ line monolith. It already delegates preview/draft shaping work to `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`.
-- `GitGraphOverlay.tsx` is still a meaningful pane-domain hotspot, but the
-  resize extraction dropped it behind `PluginsPane.tsx` and
-  `RunInstructions.tsx` as the default next pane-side entry surface.
-- `PluginsPane.tsx` and `RunInstructions.tsx` are still large pane entry
-  surfaces that contributors open before most of the deeper overview helpers.
+- `PluginsPane.tsx` is no longer a 2000-line first-hop pane surface. It now
+  delegates per-plugin card rendering to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPanePluginCard.tsx`,
+  config/settings editors to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigEditors.tsx`,
+  config-schema helpers to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigSchema.ts`,
+  and shared shells to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPaneShared.tsx`.
+- `RunInstructions.tsx` is now the default pane-side entry surface in this
+  companion plan.
+- `GitGraphOverlay.tsx` is still a meaningful pane-domain hotspot, but it is
+  now follow-through work behind `RunInstructions.tsx`.
 - `RunInstructions.tsx` already has helper seams in `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`, but the main surface still carries too much orchestration.
 - `FileBrowserPane.tsx` now delegates tree-data transport and tree view-model
   ownership to `useFileBrowserPaneTreeData.ts` and
@@ -33,15 +41,14 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   those seams instead of reintroducing transport logic into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
   to the largest pane and git entry surfaces contributors still open first:
-  `PluginsPane.tsx`, `RunInstructions.tsx`, and the remaining
-  `GitGraphOverlay.tsx` follow-through work, then return to
-  `FileBrowserPane.tsx`, `AppConfigPane.tsx`, and authoring follow-up work.
+  `RunInstructions.tsx` and the remaining `GitGraphOverlay.tsx`
+  follow-through work, then return to `FileBrowserPane.tsx`,
+  `AppConfigPane.tsx`, and authoring follow-up work.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
-  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` at 2023 lines
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data extraction
@@ -51,16 +58,28 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - `frontend/src/components/Panes/Overview/ProjectConfigs.tsx` at 656 lines
   - `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` at 1305 lines
   - `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx` at 605 lines
+- `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607
+  lines after the local plugin-card, config-editor, config-schema, and
+  shared-shell extraction and is no longer the default pane-side hotspot.
 - `GitGraphOverlay.tsx` mixes:
   - search/indexing helpers and decoration formatting
   - virtualization and row-height caching
   - row/detail render branches
   - header/sidebar/empty-state shell composition over the new resize owners
-- `PluginsPane.tsx` mixes:
-  - plugin catalog and status orchestration
-  - enable/disable and reload controls
-  - install/update affordances
-  - large render branches for different plugin states
+- `PluginsPane.tsx` local owners now divide responsibilities as follows:
+  - `pluginsPanePluginCard.tsx` owns per-plugin action/render branches,
+    capability sections, pane/command launch shells, and config/settings
+    composition.
+  - `pluginsPaneConfigEditors.tsx` owns schema-backed plugin config editing
+    and language-server settings editors.
+  - `pluginsPaneConfigSchema.ts` owns top-level config-schema field derivation,
+    supported primitive detection, enum/UI-hint helpers, and immutable config
+    updates.
+  - `pluginsPaneShared.tsx` owns shared action-button, capability-row, and
+    install-summary shells.
+  - `PluginsPane.tsx` now focuses on runtime/install/rescan/restart
+    orchestration, busy-state tracking, active-plugin list mapping, and
+    discovery-table composition.
 - `Overview.tsx` owns:
   - icon rail rendering
   - plugin tab resolution
@@ -118,7 +137,7 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 ## Plan
 
-1. Split `GitGraphOverlay.tsx` and the remaining giant pane roots first
+1. Split the remaining giant pane roots first
 
 - Keep `GitGraphOverlay.tsx` as the obvious git overlay entry surface.
 - `gitGraphOverlayResizeModel.ts` and `useGitGraphOverlayResize.ts` now own:
@@ -128,8 +147,14 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 - Continue extracting clearly named owners for:
   - search/indexing and decoration view models
   - virtualized row shells and detail panes
-- In the same phase, keep `PluginsPane.tsx` and `RunInstructions.tsx` ahead of
-  smaller authoring surfaces when choosing the next pane-side slice.
+- `PluginsPane.tsx` now delegates:
+  - per-plugin card/action rendering to `pluginsPanePluginCard.tsx`
+  - schema-backed config and language-server settings editors to `pluginsPaneConfigEditors.tsx`
+  - top-level config-schema field helpers to `pluginsPaneConfigSchema.ts`
+  - shared action/capability/install-summary shells to `pluginsPaneShared.tsx`
+- In the same phase, keep `RunInstructions.tsx` and the remaining
+  `GitGraphOverlay.tsx` follow-through work ahead of smaller authoring
+  surfaces when choosing the next pane-side slice.
 
 2. Continue `FileBrowserPane.tsx` only when it shortens the main path
 

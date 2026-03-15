@@ -54,8 +54,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1469 authored TS/TSX files under `frontend/src`.
-- There are 42 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
+- There are 1474 authored TS/TSX files under `frontend/src`.
+- There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1848 lines after the local settings, engine-selection, and inline-thread layout extraction
@@ -70,13 +70,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines after the local preview-surface and preview-state extraction
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
-- App and plugin runtime remain cleanup hotspots:
-  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` at 2023 lines
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
+- App/runtime and pane follow-through work remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 1948 lines after the local project-state bridge extraction
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
+- `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607 lines after the local plugin-card, config-editor, config-schema, and shared-shell extraction and is no longer a top-size hotspot.
 
 ## Current Pivot (2026-03-15)
 
@@ -106,6 +106,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   so the next default work in that domain should continue from the remaining
   larger front-door surfaces instead of immediately re-cutting those new local
   owners.
+- `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` now
+  delegates per-plugin card/action rendering to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPanePluginCard.tsx`,
+  schema-backed config and language-server settings editors to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigEditors.tsx`,
+  top-level config-schema field helpers to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigSchema.ts`,
+  and shared action/capability/install-summary shells to
+  `frontend/src/components/Panes/Overview/Plugins/pluginsPaneShared.tsx`, so
+  the next default work in that domain should continue from the remaining
+  larger pane and runtime entry surfaces instead of re-cutting those new local
+  plugin owners.
 - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` now
   delegates shared action-spec builders and placement animation helpers to
   `frontend/src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.tsx`,
@@ -193,7 +205,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ChatInput.tsx`,
   `ChatMessages.tsx`, `FileBrowserPane.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
@@ -277,6 +288,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts` now owns conversation-search filtering, submitted prompt history, runtime activity derivation, retained-image checks, latest-chat selection, and branch-source prompt helpers used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts` now owns custom slash-command draft reconciliation, namespace-authority gating, and native-command status text, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx` now owns slash-command engine tabs, agent-run polling, custom-command draft state, and the slash-command form/list shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx` now owns external-agent config selection state, tool-type/run-mode reconciliation, Claude/OpenCode validation, and the external-agent form shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
+- `frontend/src/components/Panes/Overview/Plugins/PluginsPane.helpers.ts` now owns shared plugin capability/source formatting, config/settings draft serialization, restart planning, and action error shaping, `frontend/src/components/Panes/Overview/Plugins/pluginsPanePluginCard.tsx` now owns per-plugin card render branches, pane/command launch shells, and capability sections, `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigEditors.tsx` now owns schema-backed plugin config editing and language-server settings editors, `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigSchema.ts` now owns top-level config-schema field derivation plus immutable config updates, and `frontend/src/components/Panes/Overview/Plugins/pluginsPaneShared.tsx` now owns shared action-button, capability-row, and install-summary shells used by `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`.
 - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts` now owns file-browser tree flatten/filter/sort helpers, request-ownership tokens, path/date formatting, and Setta-badge metadata helpers, while `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts` now owns file-browser root bootstrap, per-folder transport state, recursive-search crawling, preview URL refresh, and navigation tree view state used by `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`.
 - `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx` now owns the browser section list/icon/carousel render surface, `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts` now owns browser preview URL loading, text-preview fetch state, and carousel selection, and `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts` now owns preview-kind, extension-badge, file-size, and stale-preview helpers used by `frontend/src/components/Section/Layouts/BrowserArea.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
@@ -871,11 +883,11 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -975,11 +987,10 @@ Notes:
 1. Refresh or add the module map, placement rules, and execution log only if
    they are missing, stale, or changed by your slice.
 2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
-   usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
-   `components/Panes/Overview/Plugins/PluginsPane.tsx`,
-   `components/Section/Layouts/ChatArea.tsx`,
+   usually `components/Section/Layouts/ChatArea.tsx`,
    `plugins/runtime.ts`,
    `components/Panes/Overview/RunInstructions.tsx`,
+   `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
    `components/App/appRegistry.tsx`,
    `components/Section/Layouts/TaskBoardArea.tsx`,
    `components/Git/GitGraphOverlay.tsx`,

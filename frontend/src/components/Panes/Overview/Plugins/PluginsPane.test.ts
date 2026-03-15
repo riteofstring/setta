@@ -3,9 +3,13 @@ import {
   buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
+  buildPluginActionError,
+  buildPluginActionThrownError,
   buildPluginListEntryCardKey,
   buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
+  formatBlockedCapabilitiesForTable,
+  formatCapabilitiesForTable,
   formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
@@ -39,8 +43,12 @@ const pluginsPaneTestApi = {
   buildPluginListEntryCardKey,
   buildPluginSourceIdentityToken,
   buildBusyPluginIdSet,
+  buildPluginActionError,
+  buildPluginActionThrownError,
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
+  formatBlockedCapabilitiesForTable,
+  formatCapabilitiesForTable,
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
@@ -241,6 +249,42 @@ describe("plugins pane helpers", () => {
     );
 
     expect([...busyPluginIds].sort()).toEqual(["alpha.plugin", "beta.plugin"]);
+  });
+
+  it("formats capability tables and blocked capability detail deterministically", () => {
+    expect(
+      pluginsPaneTestApi.formatCapabilitiesForTable([
+        "registerPane",
+        "registerCommand",
+      ]),
+    ).toBe("registerCommand, registerPane");
+    expect(
+      pluginsPaneTestApi.formatBlockedCapabilitiesForTable([
+        { capability: "registerPane", reason: "mode_policy" },
+        { capability: "registerCommand", reason: "missing_dependency" },
+      ]),
+    ).toBe("registerCommand (missing_dependency), registerPane (mode_policy)");
+  });
+
+  it("formats action errors from endpoint payloads and thrown errors", () => {
+    expect(
+      pluginsPaneTestApi.buildPluginActionError("Install plugin", {
+        status: 409,
+        data: {
+          detail: {
+            code: "PLUGIN_EXISTS",
+            message: "Plugin is already installed.",
+          },
+        },
+        hasResponse: true,
+      }),
+    ).toBe("Install plugin failed: Plugin is already installed.");
+    expect(
+      pluginsPaneTestApi.buildPluginActionThrownError(
+        "Install plugin",
+        new Error("network timeout"),
+      ),
+    ).toBe("Install plugin failed: network timeout");
   });
 
   it("sorts restart-required plugin ids deterministically", () => {
