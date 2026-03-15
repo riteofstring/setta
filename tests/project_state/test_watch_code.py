@@ -151,6 +151,7 @@ class TestWatchCode:
         self.manager = SessionProjectManager(
             persistence_mode=SessionPersistenceMode.ide_main,
             frontend_sender=self.frontend_sender,
+            python_script_sender=self.python_script_sender,
             settings_file=self.settings_file,
             specific_file_watcher=self.specific_file_watcher,
             dbe=self.dbe,
@@ -1311,6 +1312,7 @@ class TestWatchCodeLspOrdering:
         self.manager = SessionProjectManager(
             persistence_mode=SessionPersistenceMode.ide_main,
             frontend_sender=self.frontend_sender,
+            python_script_sender=self.python_script_sender,
             settings_file=self.settings_file,
             specific_file_watcher=self.specific_file_watcher,
             dbe=self.dbe,

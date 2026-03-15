@@ -49,6 +49,7 @@ class ProjectManagerForTest(BaseProjectManager):
         self,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
+        python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
@@ -61,6 +62,7 @@ class ProjectManagerForTest(BaseProjectManager):
         super().__init__(
             lsp_writers,
             websocket_msg_handler,
+            python_script_sender,
             settings_file,
             specific_file_watcher,
             dbe,
@@ -139,6 +141,7 @@ class TestCodeFileBindingRegistration:
         self.manager = ProjectManagerForTest(
             self.lsp_writers,
             self.frontend_sender,
+            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -293,6 +296,7 @@ class TestCodeFileBindingRegistration:
         settings_manager = ProjectManagerForTest(
             self.lsp_writers,
             self.frontend_sender,
+            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,

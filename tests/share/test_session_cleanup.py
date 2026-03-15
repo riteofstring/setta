@@ -83,7 +83,7 @@ class TestShareSessionCleanup:
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
             listener_registry = ListenerRegistry()
-            WMHPythonScriptSender(
+            python_script_sender = WMHPythonScriptSender(
                 websocket_manager,
                 listener_registry,
                 None,
@@ -103,6 +103,7 @@ class TestShareSessionCleanup:
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_runtime_state,
                 settings_file=settings_file,
+                python_script_sender=python_script_sender,
                 lsp_writers=None,
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),
