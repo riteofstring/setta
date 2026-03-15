@@ -521,7 +521,7 @@ It covers:
 | `CN-04` | Editable kwargs and dict roots may keep empty names during rename-time validation. | `tests/utils/test_name_validation.py::test_param_name_allows_empty_for_editable_kwarg`; `tests/utils/test_name_validation.py::test_param_name_allows_empty_for_dict_root`; `docs/reference/name-validation.md`. | Impl: `internal/projectstate/code_object_names.go::validateCodeObjectNameFormat`; proof: `internal/projectstate/code_object_names_test.go::{TestProjectSetCodeObjectNameAllowsEmptyEditableKwarg,TestProjectSetCodeObjectNameAllowsEmptyDictRoot}`. | `Proved` | The Go runtime proof now covers both explicit empty-name allowances used by the param rename surface. |
 | `CN-05` | `setParamNameAndValue` is atomic: invalid names or unsupported value writes do not partially apply. | Source implementation: `backend/setta/project_state/base_project_manager.py::set_param_name_and_value`; source docs: `docs/reference/name-validation.md` immediate-validation section. | Impl/proof: `internal/projectstate/code_object_name_and_value_test.go::TestProjectSetParamNameAndValueDoesNotPartiallyApplyOnInvalidName`; `internal/projectstate/code_object_name_and_value_test.go::TestProjectSetParamNameAndValueDoesNotPartiallyApplyOnUnsupportedValueMutation`. | `Proved` | |
 | `CN-06` | Invalid code-object rename transport returns `422` with `invalid_code_obj_name`. | Source route family: `backend/setta/routers/project_manager.py`; source docs: `docs/reference/name-validation.md`. | Proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalidInputs`. | `Proved` | |
-| `CN-07` | `add_kwarg` creates an unnamed editable kwarg by default. | Source implementation: `backend/setta/types/helpers_lvl2.py::create_kwarg_objs` sets `Core(name="")`; source validation tests also explicitly allow empty editable-kwarg names. | Current Go behavior: `internal/projectstate/add_kwarg.go::nextAvailableAddKwargName` plus `newAddKwargCodeObject`; proof of divergence: `internal/projectstate/add_kwarg_test.go` now asserts the created name is non-empty and valid. | `Missing` | This is the first concrete behavior gap found in the matrix. Current Go assigns a generated non-empty name instead of preserving the source-baseline unnamed default. This needs an explicit product decision: restore source behavior or document an intentional divergence. |
+| `CN-07` | `add_kwarg` creates an unnamed editable kwarg by default. | Source implementation: `backend/setta/types/helpers_lvl2.py::create_kwarg_objs` sets `Core(name="")`; source validation tests also explicitly allow empty editable-kwarg names. | Impl: `internal/projectstate/add_kwarg.go::{addKwargToCallableSection,addKwargToDictSection,newAddKwargCodeObject}`; proof: `internal/projectstate/add_kwarg_test.go::{TestProjectAddKwargAppendsCallableParam,TestProjectAddKwargSharesDictParamAcrossSections,TestProjectAddKwargSupportsGlobalVariables,TestProjectAddKwargInitializesMissingDictRoot}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesAddKwargPersistsLatestState`; caller proof: `frontend/tests/e2e/params/dict-kwargs.spec.ts`. | `Proved` | Current Go now preserves the source-baseline empty editable-kwarg name, and the active dict-kwargs caller renders the placeholder state instead of a generated key. |
 
 ## Generated Names And Broadcast Contracts
 
@@ -1247,8 +1247,8 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty-eight concrete source-parity gaps:
-   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
+1. The matrix now contains forty-seven concrete source-parity gaps:
+   `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,

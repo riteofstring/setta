@@ -24,7 +24,7 @@ func TestProjectAddKwargAppendsCallableParam(t *testing.T) {
 		t.Fatalf("resolve callable root after add_kwarg: %v", err)
 	}
 	children := payloadStringArrayField(callablePayload, "children")
-	if len(children) != 2 || children[0] != "callable-param" || children[1] != result.CodeObjID {
+	if len(children) != 3 || children[0] != "callable-param" || children[1] != "editable-kwarg" || children[2] != result.CodeObjID {
 		t.Fatalf("unexpected callable children %#v", children)
 	}
 
@@ -32,11 +32,8 @@ func TestProjectAddKwargAppendsCallableParam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created callable param: %v", err)
 	}
-	if createdCodeObj.Name == "" {
-		t.Fatal("expected created callable param name")
-	}
-	if _, err := validateCodeObjectNameForSection(project, "callable-section", result.CodeObjID, createdCodeObj.Name); err != nil {
-		t.Fatalf("expected created callable param name to remain valid, got %q with error %v", createdCodeObj.Name, err)
+	if createdCodeObj.Name != "" {
+		t.Fatalf("expected created callable param name to start empty, got %q", createdCodeObj.Name)
 	}
 	if createdImpl.Type != codeParamType {
 		t.Fatalf("expected created callable param type CodeParam, got %q", createdImpl.Type)
@@ -76,11 +73,8 @@ func TestProjectAddKwargSharesDictParamAcrossSections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created dict param from dict-a: %v", err)
 	}
-	if dictACodeObj.Name == "" {
-		t.Fatal("expected created dict param name")
-	}
-	if _, err := validateCodeObjectNameForSection(project, "dict-a", result.CodeObjID, dictACodeObj.Name); err != nil {
-		t.Fatalf("expected created dict param name to remain valid, got %q with error %v", dictACodeObj.Name, err)
+	if dictACodeObj.Name != "" {
+		t.Fatalf("expected created dict param name to start empty, got %q", dictACodeObj.Name)
 	}
 	if dictAImpl.Type != codeParamType {
 		t.Fatalf("expected created dict param type CodeParam, got %q", dictAImpl.Type)
@@ -128,11 +122,8 @@ func TestProjectAddKwargSupportsGlobalVariables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created global param: %v", err)
 	}
-	if createdCodeObj.Name == "" {
-		t.Fatal("expected created global param name")
-	}
-	if _, err := validateCodeObjectNameForSection(project, "global-section", result.CodeObjID, createdCodeObj.Name); err != nil {
-		t.Fatalf("expected created global param name to remain valid, got %q with error %v", createdCodeObj.Name, err)
+	if createdCodeObj.Name != "" {
+		t.Fatalf("expected created global param name to start empty, got %q", createdCodeObj.Name)
 	}
 	if createdImpl.Type != codeParamType {
 		t.Fatalf("expected created global param type CodeParam, got %q", createdImpl.Type)
@@ -212,6 +203,9 @@ func TestProjectAddKwargInitializesMissingDictRoot(t *testing.T) {
 	children := payloadStringArrayField(rootPayload, "children")
 	if len(children) != 1 || children[0] != result.CodeObjID {
 		t.Fatalf("expected initialized dict root children [%q], got %#v", result.CodeObjID, children)
+	}
+	if got := project.CodeObjs[result.CodeObjID].Name; got != "" {
+		t.Fatalf("expected initialized dict child name to start empty, got %q", got)
 	}
 	if payloadStringField(sectionPayload, "type") == "" && fallbackSectionType(impl) == "" {
 		t.Fatalf("expected dict section type to remain available after add_kwarg")

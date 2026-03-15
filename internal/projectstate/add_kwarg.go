@@ -127,11 +127,7 @@ func (p *Project) addKwargToCallableSection(sectionID string, sectionPayload map
 		return "", fmt.Errorf("%w: codeObj=%q type=%q", ErrAddKwargParentTypeUnsupported, callableID, callableType)
 	}
 
-	nextName, err := p.nextAvailableAddKwargName(payloadStringArrayField(callablePayload, "children"))
-	if err != nil {
-		return "", err
-	}
-	paramCore, paramVariant, paramImpl, err := newAddKwargCodeObject(nextName)
+	paramCore, paramVariant, paramImpl, err := newAddKwargCodeObject("")
 	if err != nil {
 		return "", err
 	}
@@ -173,11 +169,7 @@ func (p *Project) addKwargToDictSection(sectionID string, sectionPayload map[str
 	if err != nil {
 		return "", err
 	}
-	nextName, err := p.nextAvailableAddKwargName(payloadStringArrayField(rootPayload, "children"))
-	if err != nil {
-		return "", err
-	}
-	paramCore, paramVariant, paramImpl, err := newAddKwargCodeObject(nextName)
+	paramCore, paramVariant, paramImpl, err := newAddKwargCodeObject("")
 	if err != nil {
 		return "", err
 	}
@@ -231,25 +223,6 @@ func (p Project) dictSectionIDsForTopLevelParam(topLevelParamID string) ([]strin
 		return nil, fmt.Errorf("%w: %q", ErrSectionNotFound, topLevelParamID)
 	}
 	return matches, nil
-}
-
-func (p Project) nextAvailableAddKwargName(childIDs []string) (string, error) {
-	used := map[string]struct{}{}
-	for _, childID := range childIDs {
-		codeObj, ok := p.CodeObjs[childID]
-		if !ok {
-			return "", fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
-		}
-		name := strings.TrimSpace(codeObj.Name)
-		if name == "" {
-			continue
-		}
-		used[name] = struct{}{}
-	}
-	return nextAvailableMemorableName(func(candidate string) (bool, error) {
-		_, exists := used[candidate]
-		return !exists, nil
-	})
 }
 
 func (p *Project) storeCreatedCodeObject(core CodeObject, variant CodeObjectVariant, impl CodeObjectImpl) {

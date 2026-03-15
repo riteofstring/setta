@@ -524,7 +524,13 @@ func (p Project) Normalized() (Project, error) {
 			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjIDKeyMismatch, codeObjKey, codeObj.ID)
 		}
 		if strings.TrimSpace(codeObj.Name) == "" {
-			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
+			allowsEmptyName, allowErr := normalized.codeObjectAllowsEmptyName(codeObj.ID)
+			if allowErr != nil {
+				return Project{}, allowErr
+			}
+			if !allowsEmptyName {
+				return Project{}, fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
+			}
 		}
 		if len(codeObj.VariantIDs) > 0 && strings.TrimSpace(codeObj.DefaultVariantID) == "" {
 			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjDefaultVariantMissing, codeObj.ID)

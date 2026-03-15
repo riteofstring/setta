@@ -3676,8 +3676,12 @@ func TestRegisterProjectRoutesAddKwargPersistsLatestState(t *testing.T) {
 	if len(sharedChildren) != 3 || sharedChildren[0] != "shared-child" || sharedChildren[1] != "shared-secret" {
 		t.Fatalf("expected shared-root children to append one new param, got %#v", sharedChildren)
 	}
-	if _, ok := payload.ProjectState.CodeObjs[sharedChildren[2]]; !ok {
+	createdCodeObj, ok := payload.ProjectState.CodeObjs[sharedChildren[2]]
+	if !ok {
 		t.Fatalf("expected created shared child %q to be present in code objects", sharedChildren[2])
+	}
+	if createdCodeObj.Name != "" {
+		t.Fatalf("expected created shared child name to start empty, got %q", createdCodeObj.Name)
 	}
 
 	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]

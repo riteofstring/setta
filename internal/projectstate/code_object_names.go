@@ -250,6 +250,48 @@ func codeObjectRenameRootID(sectionPayload map[string]any) string {
 	return ""
 }
 
+func (p Project) codeObjectAllowsEmptyName(codeObjID string) (bool, error) {
+	codeObj, ok := p.CodeObjs[codeObjID]
+	if !ok {
+		return false, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+	}
+
+	for _, variantID := range codeObj.VariantIDs {
+		variant, ok := p.CodeObjVariants[variantID]
+		if !ok {
+			return false, fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, variantID)
+		}
+		impl, ok := p.CodeObjImpls[variant.ImplID]
+		if !ok {
+			return false, fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
+		}
+		payload, err := rawObjectFromProjectPayload(impl.Payload)
+		if err != nil {
+			return false, err
+		}
+		if payloadBoolField(payload, "coreNameEditable") {
+			return true, nil
+		}
+	}
+
+	for _, sectionID := range sortedProjectSectionIDs(p.SectionVariantMap) {
+		variantID := p.SectionVariantMap[sectionID]
+		section, ok := p.Sections[sectionID]
+		if !ok {
+			return false, fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
+		}
+		sectionPayload, err := effectiveSectionPayload(p, section.ID, variantID)
+		if err != nil {
+			return false, err
+		}
+		if payloadStringField(sectionPayload, "topLevelParamId") == codeObjID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func collectCodeObjectHierarchy(project Project, codeObjVariantMap map[string]string, rootCodeObjID string) (map[string]string, map[string][]string, error) {
 	parentByID := map[string]string{
 		rootCodeObjID: "",

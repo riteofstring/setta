@@ -88,6 +88,30 @@ func TestProjectSetCodeObjectNameAllowsEmptyDictRoot(t *testing.T) {
 	}
 }
 
+func TestProjectNormalizedAllowsEmptyEditableKwargAndDictRootNames(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+
+	if err := project.SetCodeObjectName("editable-kwarg", "   "); err != nil {
+		t.Fatalf("set editable kwarg code object name: %v", err)
+	}
+	if err := project.SetCodeObjectName("shared-root", "   "); err != nil {
+		t.Fatalf("set dict root code object name: %v", err)
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project with empty editable kwarg and dict root names: %v", err)
+	}
+	if got := normalized.CodeObjs["editable-kwarg"].Name; got != "" {
+		t.Fatalf("expected normalized editable kwarg name to stay empty, got %q", got)
+	}
+	if got := normalized.CodeObjs["shared-root"].Name; got != "" {
+		t.Fatalf("expected normalized dict root name to stay empty, got %q", got)
+	}
+}
+
 func codeObjectNameTestProject(t *testing.T) Project {
 	t.Helper()
 
