@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { getResizeStartAutoSizeUpdate } from "state/actions/sections/sectionSizeGeometry";
-import { setSectionSize } from "state/actions/sections/sectionSizeState";
-import { useProjectState, useResizeEvent } from "state/definitions";
-import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
-import { useSettings } from "state/stores/uiPreferenceStores";
+import {
+  getResizeStartAutoSizeUpdate,
+  setSectionSize,
+} from "state/actions/sections/sectionSizes";
+import {
+  useProjectState,
+  useResizeEvent,
+  useSettings,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   getKwargsControlsHeightKey,
@@ -21,7 +26,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useSectionMinMaxDims } from "./sectionMinMaxDims";
+import { useSectionMinMaxDims } from "./sectionSizes";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
