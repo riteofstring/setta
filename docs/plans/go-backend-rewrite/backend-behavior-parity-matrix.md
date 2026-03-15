@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`25450bb574445739f19b06a8f014de2f8a65740f`
+`af10acbcbab31d44be6d363b0fa7932dfab9fd17`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -59,6 +59,7 @@ It currently covers:
 - docstring markdown, LSP completion helper, and callable signature-help /
   `setCallable` behavior
 - password reveal helper and password-secret store behavior
+- text-block mutation and deployment-policy behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -104,7 +105,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Twenty-five concrete parity gaps are already visible:
+- Twenty-seven concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -194,6 +195,15 @@ Rows outside these slices are still pending.
   - source code-section diagnostics ignore versionless LSP publishes
   - current Go applies versionless code-section diagnostics directly into the
     live snapshot instead of dropping them
+  - source invalid text-block display-mode / format request bodies fail typed
+    FastAPI enum validation with `422`
+  - current Go trims those enum strings and returns `400` from the mutation
+    path instead
+  - source deployment sessions keep text-block edit/layout mutation routes
+    mounted behind `allowParamChanges` / `allowLayoutChanges`
+  - current Go hard-gates all text-block mutation routes to IDE mode even
+    though current deployment UI still wires those controls through
+    `useShareCapabilities`
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -313,6 +323,9 @@ Rows outside these slices are still pending.
 - The password-reveal slice adds no new concrete parity gap, but it does add
   one dormant mode-boundary row around share/deployment password-reveal
   mounting (`PW-04`).
+- The text-block mutation slice mostly closes with proofs, but it adds two
+  concrete gaps around text-block enum transport validation (`TB-03`) and
+  deployment-policy mounting (`TB-04`).
 
 ## Project Names
 
@@ -824,13 +837,22 @@ Rows outside these slices are still pending.
 | `PW-03` | Password-param secrets are keyed by impl id, hydrated project-state payloads keep `value`/`defaultVal` blank while tracking `hasSecret`, and changing a text param to `PasswordParam` migrates the existing entered value into the secret store. | Source docs: `docs/reference/meta-controls.md`; `docs/reference/listener-flows.md`; source helper: `backend/setta/project_state/secret_values.py::strip_password_values`; source tests: `tests/types/test_password_param_secrets.py::{test_password_param_stores_secret_by_impl_id,test_text_param_value_moves_to_secret_on_password_switch,test_strip_password_values_sets_has_secret}`. | Impl: `internal/projectstate/password_param_reads.go::PasswordSecretsSnapshot`; `internal/projectstate/change_param_impl.go`; proof: `internal/projectstate/password_param_reads_test.go::TestProjectPasswordSecretsSnapshotIncludesStoredSecretsByImplID`; `internal/projectstate/change_param_impl_test.go::TestProjectChangeParamImplMigratesPasswordSecretsAndSupportsFollowOnWrites`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState,TestRegisterProjectRoutesChangeParamImplPersistsAndHydrates}`. | `Proved` | This row is scoped to live IDE/runtime state. Published share/app snapshots were already covered in the deployment slice. |
 | `PW-04` | Source share-mode deployments keep `getPasswordParamValue` mounted but blocked with `403`, including when share policy still allows param changes. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; source route guard: `backend/setta/routers/project_manager.py::route_get_password_param_value`; source test: `tests/routers/test_share_policy_routes.py::test_password_reveal_blocked_when_param_changes_allowed`. | Current Go only mounts the route in IDE mode via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; published share/app snapshots also force `hasSecret=false` via `internal/deployments/share_publish.go::stripPasswordValues`, proved in `internal/deployments/share_publish_test.go::TestSharePublisherPublishWritesManifestPolicyProjectAndStripsPasswords`; current caller-backed surface only proves IDE callers in `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but current share/app snapshots no longer expose reveal affordances, so this slice does not yet classify it as an active Go-era product gap. |
 
+## Text Block Mutations And Deployment Policy
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `TB-01` | `setTextBlockText` and `setTextBlockHeadingAsSectionName` update the text-block payload, derive a candidate section name from the first heading when `headingAsSectionName=true`, and ignore invalid or colliding derived names instead of failing the text update. | Source helper: `backend/setta/types/helpers_lvl2::{set_text_block_text,set_text_block_heading_as_section_name,get_first_heading_or_text,get_first_markdown_heading}`; source tests: `tests/types/test_helpers_lvl2::test_invalid_heading_does_not_block_text_update`; `tests/utils/test_name_validation.py::{test_text_block_heading_name_error_flags_invalid_heading,test_text_block_heading_name_error_flags_duplicate_sibling}`; source docs: `docs/reference/name-validation.md` text-block heading section. | Impl: `internal/projectstate/text_block_sections.go::{SetTextBlockText,SetTextBlockHeadingAsSectionName,syncTextBlockSectionName,extractFirstTextBlockHeading}`; proof: `internal/projectstate/text_block_sections_test.go::{TestRuntimeTextBlockMutationsUpdateEffectivePayload,TestRuntimeTextBlockMutationsIgnoreInvalidDerivedSectionName}`; validation proof: `internal/projectstate/name_validation_test.go::TestCollectNameValidationErrorsReportsTextBlockHeadingNameErrors`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesTextBlockMutationsPersistLatestState`. | `Proved` | This row is about the text-update plus tolerant derived-rename behavior, not the broader section-name validation matrix already covered above. |
+| `TB-02` | Display-mode, format, transparent-style, and master-font-size text-block mutations persist through latest-state hydration, clamp font size into `8..48`, and reject non-text-block targets. | Source helper: `backend/setta/types/helpers_lvl2::{set_text_block_display_mode,set_text_block_format,set_text_block_meta_control_style,set_text_block_master_font_size}`; source tests: `tests/types/test_helpers_lvl2::test_master_font_size_clamps_to_supported_range`; source routes/request models: `backend/setta/routers/project_manager.py::{route_set_text_block_display_mode,route_set_text_block_master_font_size,route_set_text_block_format,route_set_text_block_meta_control_style}`; `backend/setta/project_state/project_manager_types.py::{SetTextBlockDisplayModeRequest,SetTextBlockFormatRequest,SetTextBlockMasterFontSizeRequest,SetTextBlockMetaControlStyleRequest}`. | Impl: `internal/projectstate/text_block_sections.go::{SetTextBlockDisplayMode,SetTextBlockFormat,SetTextBlockMetaControlStyle,SetTextBlockMasterFontSize}`; proof: `internal/projectstate/text_block_sections_test.go::{TestRuntimeTextBlockMutationsUpdateEffectivePayload,TestRuntimeTextBlockMutationsRejectInvalidTargetsAndValues}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesTextBlockMutationsPersistLatestState,TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs}`. | `Proved` | Current Go proof covers payload persistence, typed non-text-block rejection, and master-font clamping. |
+| `TB-03` | Invalid `textDisplayMode` / `format` request payloads should fail source FastAPI/Pydantic enum validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded enum strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetTextBlockDisplayModeRequest,SetTextBlockFormatRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_display_mode,route_set_text_block_format}`. | Current Go normalizes and validates after JSON decode in `internal/projectstate/text_block_sections.go::{normalizeTextBlockDisplayMode,normalizeTextBlockFormat}` and maps failures through `internal/httpapi/project_routes.go::writeTextBlockMutationError`; proof of current `400` transport: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: Go both trims the enum strings and reports `400`, while the source typed body model would reject the same payload at FastAPI validation time with `422`. |
+| `TB-04` | In deployment sessions, text-block mutations stay mounted and are gated by share policy instead of being IDE-only: `setTextBlockText` follows `allowParamChanges`, while `setTextBlockDisplayMode`, `setTextBlockFormat`, and `setTextBlockMasterFontSize` follow `allowLayoutChanges`. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_text,route_set_text_block_display_mode,route_set_text_block_master_font_size,route_set_text_block_format}`; source share-policy tests: `tests/routers/test_share_policy_routes::{test_param_routes_blocked,test_layout_routes_blocked}`. | Current Go mounts every text-block mutation route only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still has deployment-aware callers via `frontend/src/state/hooks/share.ts`, `frontend/src/components/Panes/UiEditor/MarkdownEditor/MarkdownEditor.tsx`, `frontend/src/components/Section/Header/ToggleTextBlockDisplayModeButton.tsx`, `frontend/src/components/Section/Header/MenuButton/ShowMarkdown.tsx`, and `frontend/src/components/Panes/UiEditor/SectionConfig/TextBlockSettings.tsx`. | `Missing` | This is an active parity gap: source deployments allow these text-block mutations under policy gates, but current Go drops the transport entirely outside IDE even though current deployment UI still wires those controls through `useShareCapabilities`. |
+
 ## Current Findings
 
-1. The matrix now contains twenty-five concrete source-parity gaps:
+1. The matrix now contains twenty-seven concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
-   and `AU-11`.
+   `AU-11`, `TB-03`, and `TB-04`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -915,17 +937,20 @@ Rows outside these slices are still pending.
     dormant transport row (`CP-04`).
 27. The password-reveal slice adds no new real behavior gap, but it does add
     one dormant mode-boundary row (`PW-04`).
-28. Git route behavior is now largely proved, including literal pathspec
+28. The text-block mutation slice mostly closes with proofs, but it adds two
+    real transport gaps around enum validation/status (`TB-03`) and missing
+    deployment policy-gated mounting (`TB-04`).
+29. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-29. The remaining issues in the naming slice are still mostly proof gaps rather
+30. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-30. The next high-value steps are:
+31. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
-      `AU-10`, and `AU-11` should be restored or documented as intentional
-      divergences
+      `AU-10`, `AU-11`, `TB-03`, and `TB-04` should be restored or
+      documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
