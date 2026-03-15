@@ -5208,3 +5208,32 @@ in `frontend/src/README.md` and the cleanup plans.
   - `e747763a41c786f2940683fb63c4afa7fa18c142`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the next default UI priority and a larger unresolved chat surface at about `2597` lines after `ProjectChatBottomDock.tsx` dropped to about `2400` lines.
+
+## 2026-03-15 17:42:11 PDT
+
+- Slice completed: extracted browser/provider dictation lifecycle, provider fallback policy, transcript insertion, and dictation state out of `ChatInput.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/Chat/ChatInput.tsx` was still the next default UI priority in the current cleanup pivot and remained one of the larger unresolved chat surfaces at about `2597` lines.
+  - The dictation/transcription path was the clearest remaining feature-local seam after submission or queued-draft replay had already moved into `chatInputSubmission.ts`: it carried its own browser/provider capability checks, recorder lifecycle, fallback policy, cleanup, and transcript insertion without needing broader composer rewrites.
+  - This was higher value than jumping back to `ProjectChatHistory.tsx` immediately because it removed another cohesive interaction subsystem from the active chat surface and dropped `ChatInput.tsx` to about `2117` lines before changing domains again.
+- Key files touched:
+  - `frontend/src/components/Chat/useChatInputDictation.ts`
+  - `frontend/src/components/Chat/useChatInputDictation.test.tsx`
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-input-dictation-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/useChatInputDictation.test.tsx src/components/Chat/ChatInput.test.tsx src/components/Chat/ChatInput.submit.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-app-generation-slash-commands.spec.ts --grep "project ai chat replays queued /app-json through the same app-generation path"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatInput.tsx src/components/Chat/useChatInputDictation.ts src/components/Chat/useChatInputDictation.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-input-dictation-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-input-dictation-2026-03-15.md` with the same-origin harness baseline notes, the post-slice rerun, and before/after screenshots.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that the composer still rendered `Mic`, `Send message`, `context left 25%`, `1 background terminal active`, and `2 subagents active`, and that clicking the mic control still switched it to `Stop Mic` with the listening status row visible in the accessibility tree.
+- Commit hash:
+  - `61a70646a6748aae5a62b668662338a74d1dda43`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, which is now the next unresolved default-priority chat/project-AI hotspot at about `2297` lines after `ChatInput.tsx` dropped to about `2117` lines.
