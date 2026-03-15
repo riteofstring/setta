@@ -168,3 +168,8 @@ categorize them.
   that keeps the quick-win path open on `internal/externalagentconfigs`, but
   the remaining external-agent backlog is now more about runtime/config-file
   behavior than simple normalization helpers
+- The plugin codegen file/dir transition row was not just unproved; direct Go
+  coverage exposed a real stale-cleanup ordering bug, and the fix is now
+  landed. Keep treating “proof-incomplete” rows as potentially real gaps when
+  the missing test is around cleanup ordering, shape transitions, or other
+  edge-case mutation sequencing
