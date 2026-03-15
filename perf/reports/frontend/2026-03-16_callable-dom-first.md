@@ -839,3 +839,26 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
   - `GroupContainer` still appears in the trace artifact, but the accepted post-checkpoint reruns already removed its earlier broad measurement signature as the dominant reorder issue, and this boundary rerun did not produce a clearer callable-owned successor seam.
   - Treat this as the end of justified callable-specific Phase 3 work for now.
   - Any Phase 4 callable work should require a fresh trace that proves the next dominant hotspot is actually inside the callable subtree.
+
+### Callable track closeout against the original done condition
+
+- Date/time: 2026-03-16
+- Closeout read:
+  - The callable-specific track clearly achieved:
+    - a materially flatter callable subtree than untouched `main`
+    - maintained visual parity on the accepted checkpoints
+    - broader automated coverage, including the `math.sqrt` minimum regression matrix
+    - narrower callable render-path ownership on the filter/reorder path
+  - The callable-specific track did not fully achieve the original top-line performance condition:
+    - the locked pan/zoom/resize scenario did not become a clear callable-owned win
+    - the accepted Phase 2 closeout already showed:
+      - pan within noise
+      - zoom effectively flat
+      - resize only marginally different
+    - the later accepted Phase 3 work improved filter/reorder behavior instead, while the next dominant signal moved into shared page chrome / editor work
+- Result:
+  - Treat this report as a successful callable structural refactor record, not as proof that the original pan/zoom/resize performance objective was fully completed.
+  - The callable track is therefore stopped short of the original definition of done.
+  - Any follow-up work should either:
+    - prove a new callable-owned hotspot on the locked scenario, or
+    - explicitly expand scope beyond the callable subtree into the shared page chrome / editor path.

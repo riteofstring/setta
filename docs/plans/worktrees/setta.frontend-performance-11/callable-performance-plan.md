@@ -449,6 +449,17 @@ For every completed layout checkpoint and every phase end:
 - Existing callable behavior is covered by Playwright/Vitest and still passes.
 - Perf report and work log are updated append-only.
 
+Current closeout status:
+
+- The first, third, fourth, and fifth items above are satisfied by the accepted checkpoints already recorded in the log/report.
+- The second item is not yet satisfied:
+  - the Phase 2 closeout rerun showed the callable subtree is materially flatter, but pan stayed within noise, zoom stayed effectively flat, and resize was only marginally different on the same locked scenario
+  - later Phase 3 work improved the callable filter/reorder path, but it did not convert the locked pan/zoom/resize scenario into a clear callable-owned win
+- Therefore this callable-specific track should currently be treated as stopped short of full completion, not as "tasks completed".
+- Only reopen the callable track if:
+  - a fresh trace proves the locked pan/zoom/resize gap is still callable-owned, or
+  - the scope explicitly expands to shared page chrome / editor work that sits outside the callable subtree.
+
 ## Current Blockers At Planning Time
 
 - Baseline capture is still pending.

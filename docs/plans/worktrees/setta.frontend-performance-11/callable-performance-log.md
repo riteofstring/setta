@@ -949,3 +949,32 @@ Append-only log for the callable DOM-first performance refactor.
   - The correct next move is not "optimize `Search` because it is broad"; the correct next move is "stop the callable-specific track unless a new trace shows the callable subtree is still the owner of the next dominant cost."
 - Next action:
   - Do not start callable Phase 4 code changes until a fresh trace shows a callable-owned scripting hotspot that is stronger than the shared page chrome / editor signal.
+
+### 2026-03-16 40
+
+- Item: Callable track closeout assessment against the original definition of done.
+- Status: `done`
+- Details:
+  - Re-read the current `Definition Of Done For The Callable Track` in the plan and compared it against the accepted evidence already recorded in this log and the perf report.
+  - Criteria that are satisfied:
+    - callable subtree is measurably flatter than untouched `main`
+    - callable geometry remained aligned with untouched `main` across the accepted checkpoints
+    - existing callable behavior is covered by Playwright/Vitest and those checks remained green at each accepted checkpoint
+    - the perf report and work log were maintained append-only
+  - Criterion that is not yet satisfied:
+    - callable pan/zoom/resize traces improving on the same locked scenario
+  - Supporting evidence for that unsatisfied criterion:
+    - the accepted Phase 2 closeout rerun already concluded:
+      - pan remained within noise
+      - zoom remained effectively flat
+      - resize was only marginally different on the same-method rerun
+    - the later accepted Phase 3 work improved callable filter/reorder behavior and narrowed the callable render path, but it did not convert the locked pan/zoom/resize scenario into a clear callable-owned performance win
+    - the latest boundary traces point at shared page chrome / editor work rather than a new callable-specific hotspot
+- Interpretation:
+  - The callable-specific refactor track achieved the structural and behavioral goals, but it did not fully satisfy the original performance definition of done.
+  - The correct closeout state is:
+    - callable-specific track stopped
+    - plan not fully complete
+    - do not report `tasks completed`
+- Next action:
+  - If this effort resumes, start a new trace-backed track around the shared page chrome / editor hotspots or prove with a fresh trace that the locked pan/zoom/resize gap is still callable-owned.
