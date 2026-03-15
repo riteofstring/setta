@@ -542,6 +542,180 @@ func TestServiceLogRejectsInvalidRevision(t *testing.T) {
 	}
 }
 
+func TestServiceLogReturnsEmptyHistoryForUnbornHead(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("git not found: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	runGitReadCommand(t, repoRoot, "init")
+	runGitReadCommand(t, repoRoot, "config", "user.email", "a@example.com")
+	runGitReadCommand(t, repoRoot, "config", "user.name", "A")
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	response, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   0,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("log unborn head: %v", err)
+	}
+	if len(response.Commits) != 0 {
+		t.Fatalf("expected no commits for unborn head, got %#v", response.Commits)
+	}
+	if response.HasMore {
+		t.Fatalf("expected hasMore=false for unborn head, got %#v", response)
+	}
+	if response.NextOffset != nil {
+		t.Fatalf("expected nextOffset=nil for unborn head, got %#v", response.NextOffset)
+	}
+	if response.IsCapped {
+		t.Fatalf("expected isCapped=false for unborn head, got %#v", response)
+	}
+}
+
+func TestServiceLogSanitizesDecorationsWhenFallbackRefScanTruncates(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	headHash := strings.Repeat("a", 40)
+	logOutputPath := filepath.Join(t.TempDir(), "log.out")
+	if err := os.WriteFile(
+		logOutputPath,
+		[]byte(headHash+"\x00\x00A\x00a@example.com\x001700000000\x00subject\x00%(decorate:prefix=,suffix=,separator=\x1d)\x1dfeature/local\x1d)\x00"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write log output: %v", err)
+	}
+	truncatedRefsPath := filepath.Join(t.TempDir(), "refs.out")
+	if err := os.WriteFile(
+		truncatedRefsPath,
+		[]byte(strings.Repeat(headHash+"\x00\x00refs/heads/feature/local\x00\x00\n", 90000)),
+		0o644,
+	); err != nil {
+		t.Fatalf("write truncated refs output: %v", err)
+	}
+
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--abbrev-ref\" ]; then",
+		"      printf 'main\\n" + headHash + "\\n'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--verify\" ]; then",
+		"      printf '%s\\n' '" + headHash + "'",
+		"      exit 0",
+		"    fi",
+		"    ;;",
+		"  log)",
+		"    cat '" + logOutputPath + "'",
+		"    exit 0",
+		"    ;;",
+		"  for-each-ref)",
+		"    cat '" + truncatedRefsPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   0,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("log decorations fallback: %v", err)
+	}
+	if len(response.Commits) != 1 {
+		t.Fatalf("expected one commit, got %#v", response.Commits)
+	}
+	decorations := response.Commits[0].Decorations
+	if !containsString(decorations, "feature/local") {
+		t.Fatalf("expected sanitized local ref decoration, got %#v", decorations)
+	}
+	for _, decoration := range decorations {
+		if strings.HasPrefix(decoration, "%(decorate:prefix=,suffix=,separator=") || decoration == ")" {
+			t.Fatalf("expected unexpanded decorate atoms to be stripped, got %#v", decorations)
+		}
+	}
+}
+
+func TestServiceCommitDetailsFallsBackWhenTruncatedMetadataIsIncomplete(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	commitHash := strings.Repeat("b", 40)
+	truncatedShowPath := filepath.Join(t.TempDir(), "show.out")
+	if err := os.WriteFile(
+		truncatedShowPath,
+		[]byte(commitHash+"\x00\x00A\x00a@example.com"+strings.Repeat("x", maxShowBytes)),
+		0o644,
+	); err != nil {
+		t.Fatalf("write truncated show output: %v", err)
+	}
+	metadataFallbackPath := filepath.Join(t.TempDir(), "metadata.out")
+	if err := os.WriteFile(
+		metadataFallbackPath,
+		[]byte(commitHash+"\x00\x00A\x00a@example.com\x001700000000\x00A\x00a@example.com\x001700000000\x00subject\x00body\x00"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write fallback metadata output: %v", err)
+	}
+
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--verify\" ]; then",
+		"      printf '%s\\n' '" + commitHash + "'",
+		"      exit 0",
+		"    fi",
+		"    ;;",
+		"  show)",
+		"    if [ \"${6:-}\" = \"--no-patch\" ]; then",
+		"      cat '" + metadataFallbackPath + "'",
+		"      exit 0",
+		"    fi",
+		"    cat '" + truncatedShowPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: commitHash})
+	if err != nil {
+		t.Fatalf("commit details fallback: %v", err)
+	}
+	if !response.IsTruncated {
+		t.Fatalf("expected truncated fallback response, got %#v", response)
+	}
+	if response.Subject != "subject" || response.Body != "body" {
+		t.Fatalf("expected fallback metadata to survive, got %#v", response)
+	}
+	if len(response.Files) != 0 {
+		t.Fatalf("expected incomplete truncated metadata fallback to drop diff files, got %#v", response.Files)
+	}
+}
+
 func TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths(t *testing.T) {
 	t.Parallel()
 
@@ -678,6 +852,72 @@ func TestServiceCommitDetailsSetsTruncationFlagForLargeOutput(t *testing.T) {
 	}
 }
 
+func TestServiceDiffAndCommitFileDiffDisableExternalDiffAndTextconv(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	externalDiffMarker := filepath.Join(t.TempDir(), "external-diff.marker")
+	textconvMarker := filepath.Join(t.TempDir(), "textconv.marker")
+	externalDiffScript := writeGitReadExecutableScript(t, strings.Join([]string{
+		"#!/bin/sh",
+		"set -eu",
+		"touch '" + externalDiffMarker + "'",
+		"printf 'external diff should not run\\n'",
+	}, "\n"))
+	textconvScript := writeGitReadExecutableScript(t, strings.Join([]string{
+		"#!/bin/sh",
+		"set -eu",
+		"touch '" + textconvMarker + "'",
+		"printf 'TEXTCONV(%s)\\n' \"$1\"",
+	}, "\n"))
+
+	writeFile(t, filepath.Join(repoRoot, ".gitattributes"), "*.txt diff=test\n")
+	runGitReadCommand(t, repoRoot, "config", "diff.external", externalDiffScript)
+	runGitReadCommand(t, repoRoot, "config", "diff.test.textconv", textconvScript)
+	runGitReadCommand(t, repoRoot, "add", ".gitattributes")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "configure diff drivers")
+
+	writeFile(t, filepath.Join(repoRoot, "tracked.txt"), "two\n")
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	diffResponse, err := service.Diff(context.Background(), DiffRequest{
+		Path: "tracked.txt",
+		Mode: DiffModeUnstaged,
+	})
+	if err != nil {
+		t.Fatalf("unstaged diff: %v", err)
+	}
+	if !strings.Contains(diffResponse.Diff, "diff --git a/tracked.txt b/tracked.txt") || !strings.Contains(diffResponse.Diff, "-one") || !strings.Contains(diffResponse.Diff, "+two") {
+		t.Fatalf("expected builtin diff patch output, got %q", diffResponse.Diff)
+	}
+
+	runGitReadCommand(t, repoRoot, "add", "tracked.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "update tracked")
+	commitHash := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	commitDiffResponse, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: commitHash,
+		Path:       "tracked.txt",
+	})
+	if err != nil {
+		t.Fatalf("commit file diff: %v", err)
+	}
+	if !strings.Contains(commitDiffResponse.Diff, "diff --git a/tracked.txt b/tracked.txt") || !strings.Contains(commitDiffResponse.Diff, "-one") || !strings.Contains(commitDiffResponse.Diff, "+two") {
+		t.Fatalf("expected builtin commit file diff patch output, got %q", commitDiffResponse.Diff)
+	}
+
+	if _, err := os.Stat(externalDiffMarker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected external diff script to stay unused, stat err=%v", err)
+	}
+	if _, err := os.Stat(textconvMarker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected textconv script to stay unused, stat err=%v", err)
+	}
+}
+
 func initGitReadTestRepo(t *testing.T) string {
 	t.Helper()
 
@@ -801,6 +1041,43 @@ func newScriptedGitService(t *testing.T, statusOutput string, showOutput string,
 	}
 
 	return &Service{workspaceRoot: workspaceRoot, gitBinary: scriptPath}
+}
+
+func newCustomGitReadService(t *testing.T, workspaceRoot string, bodyLines []string) *Service {
+	t.Helper()
+
+	scriptLines := append([]string{
+		"#!/bin/sh",
+		"set -eu",
+		"while [ $# -gt 0 ]; do",
+		"  case \"${1:-}\" in",
+		"    -c|-C)",
+		"      shift 2",
+		"      ;;",
+		"    --no-pager)",
+		"      shift 1",
+		"      ;;",
+		"    *)",
+		"      break",
+		"      ;;",
+		"  esac",
+		"done",
+	}, bodyLines...)
+
+	return &Service{
+		workspaceRoot: workspaceRoot,
+		gitBinary:     writeGitReadExecutableScript(t, strings.Join(scriptLines, "\n")+"\n"),
+	}
+}
+
+func writeGitReadExecutableScript(t *testing.T, contents string) string {
+	t.Helper()
+
+	scriptPath := filepath.Join(t.TempDir(), "git.sh")
+	if err := os.WriteFile(scriptPath, []byte(contents), 0o755); err != nil {
+		t.Fatalf("write executable script: %v", err)
+	}
+	return scriptPath
 }
 
 func buildLargeGitStatusOutput(entryCount int) string {
