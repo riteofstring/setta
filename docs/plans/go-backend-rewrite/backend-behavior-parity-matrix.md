@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`9aae6c25c91c521ef616e10f82dd52cf63310b24`
+`e734af7da0334323de70bd08dc23d8d3c3e071a7`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -24,6 +24,9 @@ It currently covers:
 - project shell read/lifecycle/default-project routes
 - project shell metadata broadcasts and save notifications
 - project notification read/delete flows
+- prompt-template read and CRUD transport behavior
+- prompt-template linked-section refresh and delete/reference behavior
+- prompt-template runtime/codegen source-of-truth behavior
 - listener bootstrap/init/register behavior
 - listener realtime/force-refresh transport behavior
 - listener coverage route and coverage-update contracts
@@ -65,18 +68,28 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Four concrete parity gaps are already visible:
+- Six concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
     `withRefs`
   - current Go ignores `withRefs` and always performs the same clone path
+  - source-baseline prompt-template updates refresh linked prompt-section
+    cached state
+  - current Go does not run an equivalent linked-section refresh
+  - source-baseline prompt-template delete blocks workflow-edge references
+    with `409`
+  - current Go deletes referenced workflow templates without that guard
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
     update
   - source-baseline listener transport supports `use_temporary_ids`
   - current Go rejects temporary listener ids on `ListenerInit`
+- The prompt-template slice also shows one documented transport divergence
+  (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
+  defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
+  linked-template runtime/codegen source-of-truth path itself is proved.
 - The terminal slice mostly closes with proofs, but it adds:
   - one more implementation proof gap for invalid explicit terminal ids on
     `runCode`
@@ -173,6 +186,20 @@ Rows outside these slices are still pending.
 | `PS-14` | `deleteNotification` removes the targeted persisted notification entry. | `backend/setta/routers/projects.py::route_delete_notification`; `backend/setta/database/db_objs.py::delete_notification`. | Impl: `internal/notifications/store.go::Delete`; `internal/notifications/service.go::DeleteNotification`; proof: `internal/notifications/store_test.go::TestStoreListByProjectAndDelete`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesDeletesNotification`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellRenameAndNotificationRoutes`. | `Proved` | |
 | `PS-15` | Manual save emits a non-temporary `save` notification with id, project id, message, and timestamp on the frontend websocket. | `docs/reference/logging-and-error-handling.md` user-notifications guidance; `backend/setta/routers/projects.py::route_save_project`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_notification`. | Impl: `internal/app/app.go::broadcastSavedProjectNotification`; proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | The source baseline evidence proves a websocket notification contract, not persistence into `notifications.json`. |
 
+## Prompt Templates
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `PT-01` | Prompt-template listing reads `setta_files/prompts/*.json` in filename order and returns `[]` when the prompts directory is missing. | `backend/setta/database/db_objs.py::list_prompt_paths`; `backend/setta/agentic/store.py::list_prompt_templates`; `tests/agentic/test_agentic_store.py::test_prompt_templates_roundtrip`. | Impl: `internal/prompttemplates/store.go::List`; proof: `internal/prompttemplates/store_test.go::TestStoreListReturnsEmptyWhenDirectoryMissing`; `internal/prompttemplates/store_test.go::TestStoreRoundTripPromptTemplates`; route proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesListsTemplates`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsEmptyList`. | `Proved` | |
+| `PT-02` | Prompt-template create/update/delete round-trips preserve generated ids, default `description`/`format`/`inputSchema`/`metadata`, explicit empty strings when fields are present, and `null` delete responses. | `backend/setta/types/prompt.py::PromptTemplate`; `tests/routers/test_agentic_routes.py::test_prompt_template_crud`; `tests/agentic/test_agentic_store.py::test_prompt_templates_roundtrip`. | Impl: `internal/httpapi/prompt_template_routes.go`; `internal/prompttemplates/store.go::normalizeTemplate`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesCreatesTemplate`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesUpdatesTemplate`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesDeletesTemplate`; `internal/prompttemplates/store_test.go::TestStoreAllowsEmptyNameAndTemplate`. | `Proved` | |
+| `PT-03` | `getPromptTemplate`, update, and delete require the template to exist and return `404` when it does not. | `backend/setta/routers/agentic.py::route_get_prompt_template`; `backend/setta/routers/agentic.py::route_update_prompt_template`; `backend/setta/routers/agentic.py::route_delete_prompt_template`. | Impl: `internal/httpapi/prompt_template_routes.go`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsNotFoundForGet`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsNotFoundForUpdate`; `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesReturnsNotFoundForDelete`. | `Proved` | This row only claims the missing-template contract, not the exact framework-level missing-field validation shape. |
+| `PT-04` | Source-baseline `GET /getPromptTemplates` is LLM-gated rather than IDE-only; current Go intentionally narrows the list read to IDE mode for the surviving direct hydration caller. | `backend/setta/routers/agentic.py::route_get_prompt_templates`; `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations` only blocks mutations, not reads. | Current Go guard: `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesBlocksShareMode`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-read-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-crud-transport.md`. | `Intentional divergence` | The phase docs explicitly landed `GET /getPromptTemplates` as IDE-gated because the active hydration caller is the IDE-only Project AI surface. |
+| `PT-05` | Source-baseline `POST /getPromptTemplate` is also LLM-gated rather than IDE-only. | `backend/setta/routers/agentic.py::route_get_prompt_template`; `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations` does not cover single-item reads. | Current Go guard: `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesBlocksShareModeMutations`. | `Dormant / unproven caller` | Current Go narrows the single-item read to IDE mode too, but I do not yet have a rewrite doc or active-caller proof showing whether share-mode access still matters for this unused route. |
+| `PT-06` | Updating a saved prompt template automatically refreshes every linked Prompt section's cached `template`, `format`, and preview state. | `backend/setta/routers/agentic.py::route_update_prompt_template`; `docs/reference/prompt-sections.md` linked-template mode. | Current Go link model: `internal/projectstate/prompt_sections.go::SetPromptTemplateLink`; link proof: `internal/httpapi/project_prompt_routes_test.go::TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejectsMissingTemplate`; current frontend read path: `frontend/src/utils/promptSectionSource.ts`; `frontend/src/components/Section/Layouts/PromptArea.tsx`. | `Missing` | Current Go resolves and caches the template when the link is created, but there is no Go equivalent of `refresh_linked_prompt_sections_for_template(...)`. The frontend can display the latest template text from the prompt-template store, but cached project-state preview fields still go stale until another prompt-section mutation happens. |
+| `PT-07` | Prompt-template mutations refresh the prompt-template watcher and broadcast `PromptTemplatesUpdated` over the frontend websocket. | `backend/setta/routers/agentic.py::route_create_prompt_template`; `backend/setta/routers/agentic.py::route_update_prompt_template`; `backend/setta/routers/agentic.py::route_delete_prompt_template`; `backend/setta/agentic/prompt_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_prompt_templates_update`. | Current same-tab update path: `frontend/src/state/actions/ai.ts::{createPromptTemplate,updatePromptTemplate,deletePromptTemplate}`; websocket handler remains in `frontend/src/state/actions/websocketReceive.ts`; rewrite defer: `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-crud-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-read-transport.md`. | `Intentional divergence` | The rewrite docs explicitly deferred watcher refresh and websocket fan-out because current direct callers already update local prompt-template state from route results. |
+| `PT-08` | Deleting a prompt template that is still referenced by workflow edges is blocked with `409`, while prompt-section links do not block deletion. | `backend/setta/routers/agentic.py::route_delete_prompt_template`; `docs/reference/prompt-sections.md` template-deletion behavior. | Current Go delete path: `internal/httpapi/prompt_template_routes.go::deletePromptTemplateHandler`; current workflow/template linkage still exists in `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`. | `Missing` | Current Go deletes the template after an existence check and does not inspect workflow references, so it misses the source-baseline `409` guard. The prompt-section broken-link half of the doc still survives separately. |
+| `PT-09` | Linked prompt sections use the saved prompt template as the source of truth for runtime/codegen/workflow resolution and fail loudly when the linked template is missing. | `docs/reference/prompt-sections.md` linked-template and runtime/codegen sections. | Impl: `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`; frontend broken-link UI proof: `frontend/src/utils/promptSectionSource.ts`; `frontend/src/components/Section/Layouts/PromptArea.test.tsx::it(\"shows linked prompt templates as read-only source text\")`; `frontend/src/components/Section/Layouts/PromptArea.test.tsx::it(\"clears stale prompt text when a linked prompt template is missing\")`. | `Proved` | This keeps runtime/codegen parity even though `PT-06` still leaves cached project-state preview fields stale after template edits. |
+
 ## Listener Bootstrap, Coverage, And Frontend Emits
 
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
@@ -267,28 +294,35 @@ Rows outside these slices are still pending.
 
 ## Current Findings
 
-1. The matrix now contains four concrete source-parity gaps:
-   `CN-07`, `PS-08`, `LS-11`, and `LS-17`.
-2. The project-shell slice also surfaced one source behavior that is still
+1. The matrix now contains six concrete source-parity gaps:
+   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `LS-11`, and `LS-17`.
+2. The prompt-template slice matters because it split cleanly into:
+   - real missing parity on linked-section refresh and workflow-reference
+     delete protection (`PT-06`, `PT-08`)
+   - documented transport/realtime divergence (`PT-04`, `PT-07`)
+   - one narrowed read route whose old non-IDE contract is still dormant or
+     unproven as an active caller requirement (`PT-05`)
+   - preserved runtime/codegen source-of-truth behavior (`PT-09`)
+3. The project-shell slice also surfaced one source behavior that is still
    unproven on the current Go architecture:
    `PS-06`.
-3. The listener transport slices added six more rows that are implemented in Go but
+4. The listener transport slices added six more rows that are implemented in Go but
    still under-proved relative to `main`:
    `LS-04`, `LS-12`, `LS-13`, `LS-16`, `LR-05`, and `LC-05`.
-4. The terminal slice added one more under-proved row:
+5. The terminal slice added one more under-proved row:
    `TR-01`.
-5. The terminal slice also recorded two documented clean-break divergences:
+6. The terminal slice also recorded two documented clean-break divergences:
    `TT-03` and `TR-07`.
-6. The terminal slice surfaced two source behaviors that are now dormant or
+7. The terminal slice surfaced two source behaviors that are now dormant or
    still unproven as active Go-era caller requirements:
    `TT-04` and `TR-08`.
-7. The detached-run slice added one more under-proved row:
+8. The detached-run slice added one more under-proved row:
    `DR-05`.
-8. The remaining issues in the naming slice are still mostly proof gaps rather
+9. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
-9. The next high-value steps are:
-   - decide whether `CN-07` and `PS-08` should be restored or documented as
-     intentional divergences
+10. The next high-value steps are:
+   - decide whether `CN-07`, `PS-08`, `PT-06`, and `PT-08` should be restored
+     or documented as intentional divergences
    - decide whether `LS-11` and `LS-17` should be restored or documented as
      intentional divergences
    - close proof gaps for project/view-mode/window-space/section format-rule
