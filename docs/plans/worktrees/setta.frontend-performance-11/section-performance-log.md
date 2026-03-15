@@ -3170,3 +3170,32 @@ Append-only log for the section performance refactor.
 - Next action:
   - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
   - If the rerun is still only mixed, use the fresh trace to decide whether any further lower activation pass is justified before moving upward.
+
+### 2026-03-17 87
+
+- Item: Reconfirm that the lower CodeMirror activation seam is now locally exhausted pending CDP recovery.
+- Status: `blocked`
+- Details:
+  - Re-read the current lower activation files after the latest slices:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - Re-tried `chrome-devtools-mcp` before taking any new code path.
+  - Current tooling state:
+    - `chrome-devtools-mcp` transport still closes immediately on `list_pages`
+    - no fresh untouched-`main` vs worktree activation trace can be captured
+  - Current checkpoint read:
+    - the obvious local bootstrap seams named by the tracker are now already landed:
+      - synchronous activation handoff
+      - stable extension/completion setup across rerenders
+      - static extension caching
+      - plain-versus-autocomplete split
+      - scoped `getOnCreateEditor.ts` cursor/selection work
+    - without a fresh `main` vs worktree trace, another lower-seam refactor would now be speculative rather than evidence-driven
+  - Conclusion:
+    - checkpoint 1 remains open
+    - the blocker is now tooling and missing trace evidence, not another clearly justified local code slice
+- Next action:
+  - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+  - Use that trace to decide whether checkpoint 1 can be accepted, whether another lower activation pass is still justified, or whether the plan should finally move upward.
