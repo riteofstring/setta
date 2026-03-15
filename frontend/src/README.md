@@ -536,9 +536,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `aiChatSectionState.ts`, `aiPendingChatAppGenerationState.ts`,
     `aiPendingChatMessageLifecycle.ts`, `aiPendingChatMessageMutations.ts`,
     `aiPendingChatMessageState.ts`, and `aiPendingChatState.ts`.
-  - `state/actions/sectionProjectStateSync.ts` owns backend project-state
-    reconciliation, active-section sync, viewport updates, and project-chat
-    windowing coordination for authoritative project snapshots.
+  - `state/actions/sectionProjectStateSnapshot.ts` owns backend project-state
+    reconciliation, pending-op replay, comparable-state short-circuiting, and
+    node-map derivation for authoritative project snapshots.
+  - `state/actions/sectionProjectStateActiveSync.ts` owns active-section UI
+    reconciliation from authoritative project snapshots.
+  - `state/actions/sectionProjectStateViewportSync.ts` owns React Flow
+    viewport synchronization and fit-view planning for authoritative project
+    snapshots.
+  - `state/actions/sectionProjectStateWindowingSync.ts` owns authoritative
+    project-chat windowing recording plus ephemeral follow-up reconciliation.
+  - `state/actions/sectionProjectStateSync.ts` is now the thin orchestration
+    facade over those project-state snapshot owners.
   - `state/actions/sectionDisplayStructure.ts` owns top-level display
     selection, displayed-child tree derivation, node-map creation, and DnD
     child reset used by section rendering and project-state bootstrap flows.

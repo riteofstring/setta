@@ -62,12 +62,20 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `projectChatWindowingEmbeddedPaneVisibility.ts`, and
   `projectChatWindowingEphemeral.ts`; future cleanup should keep building on
   those seams.
-- `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
-  project-state reconciliation, active-section sync, viewport updates, and
-  project-chat windowing coordination that previously lived in
+- `frontend/src/state/actions/sectionProjectStateSnapshot.ts` now owns backend
+  project-state reconciliation, pending-op replay, comparable-state
+  short-circuiting, and node-map derivation for authoritative project
+  snapshots, `frontend/src/state/actions/sectionProjectStateActiveSync.ts`
+  now owns active-section UI reconciliation from authoritative project
+  snapshots, `frontend/src/state/actions/sectionProjectStateViewportSync.ts`
+  now owns React Flow viewport sync plus fit-view planning, and
+  `frontend/src/state/actions/sectionProjectStateWindowingSync.ts` now owns
+  authoritative project-chat windowing recording plus ephemeral
+  reconciliation that previously lived in
   `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep
-  importers on the dedicated sync entrypoint instead of routing snapshot
-  handling back through the query/mutation surface.
+  importers on `frontend/src/state/actions/sectionProjectStateSync.ts` as the
+  dedicated orchestration entrypoint instead of routing snapshot handling back
+  through the query/mutation surface.
 - `frontend/src/state/actions/projectStateCommands.ts` now owns shared
   project-state command entrypoints for section delete/group flows, param
   selection, viewport persistence, and all-project-metadata updates that
@@ -469,7 +477,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
@@ -480,6 +487,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` at 205 lines
   - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` at 205 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 205 lines
+  - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -838,11 +846,20 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `sectionInfos.ts` is now:
   - a thin compatibility facade that re-exports the narrower section helper owners
   - the last place carrying the legacy `updateProjectState` helper
-- `sectionProjectStateSync.ts` now owns:
+- `sectionProjectStateSnapshot.ts` now owns:
   - backend snapshot reconciliation
-  - active-section sync from authoritative project state
+  - pending-operation replay and comparable-state short-circuiting
+  - next node-map derivation for authoritative project snapshots
+- `sectionProjectStateActiveSync.ts` now owns:
+  - active-section UI reconciliation from authoritative project state
+- `sectionProjectStateViewportSync.ts` now owns:
   - viewport application during backend updates
-  - project-chat windowing authoritative and ephemeral coordination
+  - fit-view planning for visible sections when viewport state is unset
+- `sectionProjectStateWindowingSync.ts` now owns:
+  - authoritative project-chat windowing snapshot recording
+  - project-chat windowing ephemeral reconciliation after authoritative sync
+- `sectionProjectStateSync.ts` is now:
+  - the thin orchestration facade over the project-state snapshot sync owners
 - `projectStateCommands.ts` now owns:
   - shared section delete/group/ungroup commands
   - param selection and unselect-all command entrypoints

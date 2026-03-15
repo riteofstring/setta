@@ -258,10 +258,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   opening, diff hydration, diff-mode switching, and overlay close behavior,
   and `frontend/src/state/actions/gitStatusAndDiff.ts` is now the thin
   compatibility facade.
-- `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
-  project-state reconciliation, active-section sync, viewport updates, and
-  project-chat windowing coordination, reducing
-  `frontend/src/state/actions/sectionInfos.ts` to 1840 lines.
+- `frontend/src/state/actions/sectionProjectStateSnapshot.ts` now owns backend
+  project-state reconciliation, pending-op replay, comparable-state
+  short-circuiting, and node-map derivation for authoritative project
+  snapshots, `frontend/src/state/actions/sectionProjectStateActiveSync.ts`
+  now owns active-section UI reconciliation from authoritative project
+  snapshots, `frontend/src/state/actions/sectionProjectStateViewportSync.ts`
+  now owns React Flow viewport sync plus fit-view planning, and
+  `frontend/src/state/actions/sectionProjectStateWindowingSync.ts` now owns
+  authoritative project-chat windowing recording plus ephemeral
+  reconciliation, reducing `frontend/src/state/actions/sectionProjectStateSync.ts`
+  to a thin orchestration facade and leaving
+  `frontend/src/state/actions/sectionInfos.ts` at 1840 lines.
 - `frontend/src/state/actions/projectStateCommands.ts` now owns shared
   project-state command entrypoints for section delete/group flows, param
   selection, viewport persistence, and all-project-metadata updates, reducing
@@ -750,7 +758,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/sectionProjectStateSync.ts`, `state/actions/lspDiagnostics.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/actions/websocketLifecycleHandlers.ts`, `state/actions/edges.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/lspDiagnostics.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/actions/websocketLifecycleHandlers.ts`, `state/actions/edges.ts`, `state/actions/projectChatWindowingSectionState.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
