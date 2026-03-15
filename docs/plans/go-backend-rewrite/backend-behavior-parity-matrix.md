@@ -24,6 +24,8 @@ Last audited: `2026-03-16`
   profile capability/validation behavior, file-mode dictation flow, typed
   start/append/cancel errors, auto-mode fallback rules, and session scope
   isolation
+- plus the first bounded agent-profile slice: CRUD persistence, deployment
+  read-policy behavior, and IDE-only mutation guards
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -36,9 +38,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `227`
+- Rows audited in this pass: `232`
 - Status counts:
-  - `Proved`: `212`
+  - `Proved`: `217`
   - `Missing`: `1`
   - `Intentional divergence`: `5`
   - `Dormant / unproven caller`: `9`
@@ -129,6 +131,9 @@ Last audited: `2026-03-16`
   transcription-profile capability/validation behavior, provider-dictation
   file flow, typed transcription-session start/append/cancel errors, and
   session scope isolation.
+- This pass also extends the matrix into the first bounded agent-profile slice:
+  CRUD persistence, deployment/share read-policy behavior, and IDE-only write
+  guards.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -187,6 +192,8 @@ Last audited: `2026-03-16`
   - broader managed-chat, tool-preview, external-agent, agent-run,
     prompt-template, app-gen-skill, engine-config, and external-agent-config
     AI surface rows
+  - agent-profile transport-detail parity for missing-profile and mode-guard
+    messages beyond the CRUD/policy-status subset audited here
 
 ## Current Gaps
 
@@ -430,3 +437,8 @@ Last audited: `2026-03-16`
 | `transcription_sessions.auto.capability_failures_fall_back_to_file` | `tests/routers/test_ai_agent_run_chats.py::test_start_transcription_session_auto_falls_back_to_file`; `backend/setta/llm/transcription_sessions.py::_is_realtime_fallback_error`; `backend/setta/llm/transcription_sessions.py::TranscriptionSessionManager.start_session` | `internal/transcriptionsessions/service.go::buildSessionEngine` currently returns realtime-engine setup errors directly in auto mode instead of retrying file mode | `TestServiceAutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails`; `TestRegisterAIRoutesAutoTranscriptionReturnsTypedProviderFailureWithoutFallback` | the same provider-dictation start caller still reaches the Go auto-mode route boundary in `frontend/src/state/actions/ai.ts` | `Missing` | Python auto mode retries file transcription for bounded realtime-capability setup failures, but the current Go auto path still propagates the realtime setup error without a fallback retry. |
 | `transcription_sessions.cancel.missing_session_is_idempotent_ok` | `tests/routers/test_ai_agent_run_chats.py::test_transcription_session_cancel_is_idempotent`; `backend/setta/routers/ai.py::route_cancel_transcription_session` | `internal/httpapi/ai_transcription_routes.go::cancelTranscriptionSessionHandler` | `TestRegisterAIRoutesCancelTranscriptionSessionReturnsOKWhenSessionMissing` | `frontend/src/state/actions/ai.ts` still cancels provider dictation through the same endpoint during cleanup/error paths | `Proved` | Canceling an already-missing transcription session still returns `{"ok": true}` instead of surfacing a not-found error. |
 | `transcription_sessions.scope_mismatch_does_not_remove_owner_session` | `tests/routers/test_ai_agent_run_chats.py::test_transcription_session_scope_mismatch_does_not_remove_owner_session`; `backend/setta/llm/transcription_sessions.py::_mark_append_in_flight`; `_pop_active_session` | `internal/transcriptionsessions/service.go::{markInFlight,popSession}` | `TestServiceScopeMismatchDoesNotRemoveOwnerSession` | provider-dictation session ids remain scoped to the authenticated frontend session that created them | `Proved` | A scope mismatch still behaves like session-not-found to the wrong caller without removing the owning caller's transcription session. |
+| `agent_profiles.crud.round_trip_persists_profile_fields` | `tests/routers/test_agentic_routes.py::test_agent_profile_crud`; `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile,route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}` | `internal/httpapi/agent_profile_routes.go`; `internal/agentprofiles/store.go` | `TestRegisterAgentProfileRoutesListsProfiles`; `TestRegisterAgentProfileRoutesGetsProfile`; `TestRegisterAgentProfileRoutesCreatesProfile`; `TestRegisterAgentProfileRoutesUpdatesProfile`; `TestRegisterAgentProfileRoutesDeletesProfile` | `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` still creates, edits, and deletes agent profiles through the generated agent-profile endpoints | `Proved` | Agent profiles still create, list, fetch, update, and delete with persisted description/system-prompt/tool-allowlist/memory-scope data. |
+| `agent_profiles.reads_allowed_in_deployment_when_llm_enabled` | `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile}` only call `ctx.enforce_llm_allowed()`; `backend/setta/share/policy.py::ensure_share_llm_allowed` | `internal/httpapi/agent_profile_routes.go::ensureAgentProfileReadsAllowed` | `TestRegisterAgentProfileRoutesAllowDeploymentReadsWhenLLMAccessEnabled` | the generated `getAgentProfiles` and `getAgentProfile` routes remain frontend-visible transport surfaces | `Proved` | Agent-profile reads still remain available in share/app modes when deployment policy allows LLM access. |
+| `agent_profiles.reads_blocked_when_deployment_llm_disabled` | `backend/setta/runtime/context.py::enforce_llm_allowed`; `backend/setta/share/policy.py::ensure_share_llm_allowed` | `internal/httpapi/agent_profile_routes.go::ensureAgentProfileReadsAllowed` | `TestRegisterAgentProfileRoutesBlockDeploymentReadsWhenLLMAccessDisabled` | the same read routes still serve as the caller-visible transport boundary in deployment/share modes | `Proved` | Deployment/share agent-profile reads still fail closed when the deployment policy disables LLM access. |
+| `agent_profiles.mutations_remain_ide_only` | `backend/setta/routers/agentic.py::{route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}` call `ctx.require_ide_mode(...)` after `ctx.enforce_llm_allowed()` | `internal/httpapi/agent_profile_routes.go::RegisterAgentProfileRoutes` | `TestRegisterAgentProfileRoutesBlocksShareModeMutations` | the Project AI settings caller still reaches mutations through the same create/update/delete routes | `Proved` | Agent-profile mutations remain IDE-only even when deployment policy would otherwise allow LLM reads. |
+| `agent_profiles.missing_profile_returns_404` | `backend/setta/routers/agentic.py::{route_get_agent_profile,route_update_agent_profile,route_delete_agent_profile}` raise `HTTPException(status_code=404, detail=\"Agent profile not found\")` | `internal/httpapi/agent_profile_routes.go::writeAgentProfileStoreError` | `TestRegisterAgentProfileRoutesReturnsNotFoundForMissingProfile`; `TestRegisterAgentProfileRoutesReturnsNotFoundForGettingMissingProfile`; `TestRegisterAgentProfileRoutesReturnsNotFoundForDeletingMissingProfile` | the same read/write endpoints still surface missing-profile failures to the Project AI settings caller | `Proved` | Missing agent-profile ids still return `404` instead of being treated as validation or internal errors. |
