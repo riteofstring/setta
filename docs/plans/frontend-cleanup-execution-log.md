@@ -4894,3 +4894,30 @@ in `frontend/src/README.md` and the cleanup plans.
   - `05ed6e4ab337890f64f20a4d8fe869a1d9f33e03`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is now the largest remaining render-heavy hotspot and still mixes layout math, pointer resize or drag state, snap logic, animation state, tracked git-pane behavior, and render shells.
+
+## 2026-03-15 14:24:50 PDT
+
+- Slice completed: extracted dock keyboard shortcut parsing and keydown listener wiring out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was the highest-ranked unresolved hotspot in `frontend/src/README.md`. The dock’s global keyboard shortcut block was already a cohesive interaction seam with strong existing Playwright coverage, so pulling it into a local owner reduced mixed responsibilities in the top windowing surface without detouring into lower-level state churn.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts`
+  - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.test.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatWindowShortcuts.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat keyboard shortcuts"` attempted, but global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatWindowShortcuts.ts src/components/ChatWindowing/projectChatWindowShortcuts.test.tsx tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added. This was a behavior-preserving interaction ownership split with no intended render-path change.
+  - CDP verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank from the unrelated `aiConfigurationCatalogLoads.ts` import error.
+  - The harness verified that `Shift+Escape` toggled the dock state outside the input, the same shortcut was ignored while the input was focused, and maximize or snap shortcuts still fired through the extracted owner.
+- Commit hash:
+  - `17df1bc55a29074417cb1331e88a7dd30709b47a`
+- Next highest-value unblocked slice:
+  - Split timers and streaming-animation wiring out of `frontend/src/components/Chat/ChatMessages.tsx`, which is now back to the top unresolved hotspot after `ProjectChatBottomDock.tsx` dropped to about `4759` lines.
