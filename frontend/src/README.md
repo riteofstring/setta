@@ -10,10 +10,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1450`
-- Non-generated TS/TSX files at `1000+` lines: `42`
+- Authored TS/TSX files under `frontend/src`: `1454`
+- Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
-  - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
   - `plugins/runtime.ts` (`2237`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
   - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
   - `components/App/appRegistry.tsx` (`1753`)
+  - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
 
 ## Module Map
 
@@ -543,7 +543,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/params/moveParams.ts` is now the thin compatibility facade
     over those param move owners.
 
-- Browser and file management
+- Browser, task board, and file management
 
   - `components/Panes/Overview/FileBrowser/*` owns file browsing panes and file
     browser editors.
@@ -555,6 +555,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     preview URL loading, text-preview fetch state, and carousel selection.
   - `components/Section/Layouts/browserAreaPreviewModel.ts` owns preview-kind,
     extension-badge, file-size, and stale-preview helpers for that surface.
+  - `components/Section/Layouts/taskBoardTaskScheduleModel.ts` owns task-board
+    due or recurrence summary formatting, recurrence-order normalization, and
+    schedule value helpers used by `components/Section/Layouts/TaskBoardArea.tsx`.
+  - `components/Section/Layouts/taskBoardTaskSchedule.tsx` owns the task-board
+    schedule dropdown surface, due or repeat editors, and local recurrence
+    draft state used by `components/Section/Layouts/TaskBoardArea.tsx`.
+  - `components/Section/Layouts/TaskBoardArea.tsx` now coordinates task-board
+    list or kanban view state, drag or drop, column or task commands, and task
+    card composition over those local schedule owners.
   - `utils/fileBrowser*.ts`, `utils/browserPaths.ts`, and nearby helpers own the
     pure file-browser derivation and path utilities.
 

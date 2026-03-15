@@ -100,6 +100,13 @@ Make section chrome and param rendering easy to change without touching measurem
   `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`, and
   preview-kind plus extension/staleness helpers to
   `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts`.
+- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is no longer the
+  sole owner of task scheduling on this branch: it now delegates due or
+  recurrence summary formatting, recurrence ordering, and schedule value
+  helpers to
+  `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts` and
+  the schedule dropdown shell plus local recurrence editor state to
+  `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`.
 
 ## Current State (Observed)
 

@@ -69,7 +69,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data transport/view-model extraction
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines after the local preview-surface and preview-state extraction
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 2304 lines
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2237 lines after the local derived-view extraction
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
@@ -137,12 +137,20 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   default work in that domain should continue from the remaining runtime
   transport, frontend-load, host API, and project-state subscription clusters
   instead of re-cutting that new pure owner.
+- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` now delegates
+  task due or recurrence summary formatting, recurrence-order normalization, and
+  schedule value helpers to
+  `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts` and
+  the schedule dropdown shell plus local recurrence editor state to
+  `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`, so the
+  next default work in that domain should continue from the remaining board
+  layout, drag/drop, and task or column command clusters instead of re-cutting
+  those new local schedule owners.
 - Future cleanup should default to the remaining giant render-heavy entry
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
@@ -152,6 +160,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/components/Chat/chatAssistantActivityCard.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
@@ -898,7 +907,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Section/Layouts/TaskBoardArea.tsx`, `plugins/runtime.ts`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Git/GitGraphOverlay.tsx`, `components/Panes/Overview/Plugins/PluginsPane.tsx`, `components/Section/Layouts/ChatArea.tsx`, `components/Chat/chatAssistantActivityCard.tsx`, `components/App/appRegistry.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `plugins/runtime.ts`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Git/GitGraphOverlay.tsx`, `components/Panes/Overview/Plugins/PluginsPane.tsx`, `components/Section/Layouts/ChatArea.tsx`, `components/Chat/chatAssistantActivityCard.tsx`, `components/App/appRegistry.tsx`, `components/Section/Layouts/TaskBoardArea.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or `components/ChatWindowing/ProjectChatBottomDock.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a direct prerequisite for simplifying one of those larger hotspots or when it deletes a now-unnecessary compatibility surface after callers have converged.
 4. Continue project chat windowing, file browser, section layout, page, pane, and runtime cleanup from the companion plans once the highest current hotspot in that area is clear.
 5. Add feature READMEs as each area stabilizes.
