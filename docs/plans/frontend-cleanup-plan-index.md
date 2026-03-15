@@ -41,16 +41,16 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
-  `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and
-  `appRegistry.tsx` are now second-order work unless the same slice directly
-  shortens one of the entry surfaces above.
+  `GitGraphOverlay.tsx`, `ProjectChatHistory.tsx`, and `TaskBoardArea.tsx`
+  are now second-order work unless the same slice directly shortens one of the
+  entry surfaces above.
 - Once a root surface stabilizes, prefer domain subfolders in oversized flat
   namespaces over any new directory `README.md` files.
 
@@ -123,12 +123,15 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   the larger remaining front doors in
   [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) and
   [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
-- `GitGraphOverlay.tsx` now delegates the selected-commit summary, expanded
-  commit metadata or file list, and diff viewer to
-  `gitGraphOverlaySelectedCommitPane.tsx`; pane follow-through should now start
-  from the larger unresolved roots in
-  [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) unless the same slice
-  shortens the git overlay root again.
+- `GitGraphOverlay.tsx` is no longer a top hotspot after delegating commit
+  lookup, search-blob, digest, and decoration-chip ownership to
+  `gitGraphOverlayCommitIndex.ts`, the virtualized history-pane list plus
+  lane/gutter rendering to `gitGraphOverlayCommitListSurface.tsx`, and the
+  selected-commit summary/detail surface to
+  `gitGraphOverlaySelectedCommitPane.tsx`; pane follow-through should now
+  return to the larger unresolved roots in
+  [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) unless a same-turn
+  slice shortens one of those local git owners directly.
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
 - `HomePage.tsx` is no longer a top hotspot after the local home-page split
   into `homeProjectGallery.tsx`, `homeWorkspaceSidePanes.tsx`,

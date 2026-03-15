@@ -37,9 +37,9 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   `frontend/src/components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx`,
   and codegen registration/representation rules to
   `frontend/src/components/Panes/Overview/runInstructionsCodegenModel.ts`.
-- `GitGraphOverlay.tsx` is now 1224 lines after the local selected-commit-pane
-  extraction and remains a pane-side follow-through hotspot rather than the
-  default first target in this companion plan.
+- `GitGraphOverlay.tsx` is now 310 lines after the local commit-index,
+  commit-list-surface, and selected-commit-pane extraction and is no longer
+  the default pane-side hotspot in this companion plan.
 - `FileBrowserPane.tsx` now delegates tree-data transport and tree view-model
   ownership to `useFileBrowserPaneTreeData.ts` and
   `fileBrowserPaneTreeModel.ts`, the filter/save-search/search-scope UI to
@@ -48,17 +48,17 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   should extend those seams instead of reintroducing render or transport logic
   into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
-  to the largest pane and git entry surfaces contributors still open first:
-  `GitGraphOverlay.tsx`, then `AppConfigPane.tsx`,
-  `ViewingEditingMode.tsx`, and authoring follow-up work.
+  to the largest pane and authoring entry surfaces contributors still open
+  first: `AppConfigPane.tsx`, then `ViewingEditingMode.tsx`,
+  `PluginsPane.tsx`, and authoring follow-up work.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1224 lines after the local resize-model, resize-hook, and selected-commit-pane extraction
+  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 310 lines after the local resize-model, resize-hook, commit-index, commit-list-surface, and selected-commit-pane extraction and is no longer the default pane-side hotspot
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 646 lines after the local tree-data, list-surface, and search-filter extraction and is no longer the default pane-side hotspot
-  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 813 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
   - `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx` at 793 lines
   - `frontend/src/components/Panes/Overview/ProjectConfigs.tsx` at 656 lines
@@ -70,11 +70,20 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607
   lines after the local plugin-card, config-editor, config-schema, and
   shared-shell extraction and is no longer the default pane-side hotspot.
-- `GitGraphOverlay.tsx` mixes:
-  - search/indexing helpers and decoration formatting
-  - virtualization and row-height caching
-  - lane, gutter, and row render branches
-  - header/sidebar/empty-state shell composition over the new resize owners
+- `GitGraphOverlay.tsx` local owners now divide responsibilities as follows:
+- `gitGraphOverlayCommitIndex.ts` owns:
+  - commit lookup and search-blob helpers
+  - commit digest and row-height cache keys
+  - decoration parsing, remote-prefix detection, and chip summaries
+- `gitGraphOverlayCommitListSurface.tsx` owns:
+  - filtered-row derivation and list size observation
+  - dynamic row-height caching plus load-more status/retry behavior
+  - virtualized row shells and expanded selected-row composition
+  - lane, gutter, and per-decoration chip rendering
+- `GitGraphOverlay.tsx` now focuses on:
+  - overlay header/filter/ref actions
+  - split-pane/header resize composition over the local resize owners
+  - selected-commit resolution and right-pane handoff
 - `gitGraphOverlaySelectedCommitPane.tsx` now owns:
   - selected-commit header summary and reload affordance
   - expanded commit metadata and changed-file list rendering
@@ -172,25 +181,30 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 1. Split the remaining giant pane roots first
 
-- Keep `GitGraphOverlay.tsx` as the default pane-side entry surface inside
-  `frontend/src/components/Git/`.
+- Keep `GitGraphOverlay.tsx` as the stable pane-side entry surface inside
+  `frontend/src/components/Git/`, but it no longer needs to lead this
+  companion-plan queue.
 - `gitGraphOverlayResizeModel.ts` and `useGitGraphOverlayResize.ts` now own:
   - pane split and column-resize persistence
   - resize clamp math and double-click resets
   - drag cleanup and request-animation-frame resize application
+- `gitGraphOverlayCommitIndex.ts` now owns:
+  - commit lookup, filter-search, digest, and decoration chip summaries
+- `gitGraphOverlayCommitListSurface.tsx` now owns:
+  - filtered row derivation and row-height cache lifecycle
+  - virtualized list measurement plus load-more status/retry affordances
+  - row/lane/gutter rendering and expanded selected-row composition
 - `gitGraphOverlaySelectedCommitPane.tsx` now owns:
   - selected-commit summary, expanded details, changed-file list, and diff view
-- Continue extracting clearly named owners for:
-  - search/indexing and decoration view models
-  - virtualized row shells and lane/gutter rendering
 - `PluginsPane.tsx` now delegates:
   - per-plugin card/action rendering to `pluginsPanePluginCard.tsx`
   - schema-backed config and language-server settings editors to `pluginsPaneConfigEditors.tsx`
   - top-level config-schema field helpers to `pluginsPaneConfigSchema.ts`
   - shared action/capability/install-summary shells to `pluginsPaneShared.tsx`
-- In the same phase, keep the remaining `GitGraphOverlay.tsx` follow-through
-  work ahead of smaller authoring surfaces now that `FileBrowserPane.tsx` is no
-  longer the clearer pane-side front door.
+- With `GitGraphOverlay.tsx` now below the front-door threshold, keep
+  `AppConfigPane.tsx` and `ViewingEditingMode.tsx` ahead of smaller authoring
+  surfaces unless a same-turn slice directly shortens one of the local git
+  owners above.
 
 2. Continue `FileBrowserPane.tsx` only when it shortens the main path
 

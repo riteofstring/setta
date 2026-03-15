@@ -61,7 +61,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The next readability problem after file scope is oversized flat namespaces
   where too many sibling files compete as plausible entry points.
 - There are 1503 authored TS/TSX files under `frontend/src`.
-- There are 30 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1200 lines.
+- There are 29 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1200 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1185 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
@@ -77,9 +77,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1224 lines after the local resize-model, resize-hook, and selected-commit-pane extraction
+  - `frontend/src/components/App/appRegistry.tsx` at 888 lines after the local param-input, param-controls, and param-model extraction and still a real cross-domain front-door hotspot
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 813 lines and still a large overview-pane front door
 - `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after delegating gallery/list rendering to `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace/browser plus side-pane shells to `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`, selected-project metadata rendering to `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and shared path/count helpers to `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so it is no longer a top-size hotspot.
-- `frontend/src/components/App/appRegistry.tsx` is now 888 lines after the local param-input, param-controls, and param-model extraction and is no longer a top-size hotspot.
+- `frontend/src/components/Git/GitGraphOverlay.tsx` is now 310 lines after delegating commit lookup, search-blob, digest, and decoration-chip ownership to `frontend/src/components/Git/gitGraphOverlayCommitIndex.ts`, the virtualized history-pane list plus lane/gutter rendering to `frontend/src/components/Git/gitGraphOverlayCommitListSurface.tsx`, and selected-commit details to `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.tsx`, so it is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555 lines after the local codegen sections, codegen policy content, and codegen model extraction and is no longer a top-size hotspot.
 - `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607 lines after the local plugin-card, config-editor, config-schema, and shared-shell extraction and is no longer a top-size hotspot.
@@ -302,13 +303,17 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   so chat/project-AI follow-through should return to the remaining larger entry
   surfaces unless one of those extracted settings owners becomes the clearest
   blocker.
-- `frontend/src/components/Git/GitGraphOverlay.tsx` now delegates the
-  selected-commit summary, expanded commit metadata or file list, and diff
-  viewer to
-  `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.tsx`, so the
-  remaining git-overlay follow-through should focus on search/indexing,
-  decoration models, or virtualized row ownership rather than re-expanding the
-  selected-commit surface inside the root.
+- `frontend/src/components/Git/GitGraphOverlay.tsx` now delegates commit
+  lookup/search/digest/decoration view models to
+  `frontend/src/components/Git/gitGraphOverlayCommitIndex.ts`, the
+  virtualized history-pane list, row-height caching, load-more status, and
+  lane/gutter rendering to
+  `frontend/src/components/Git/gitGraphOverlayCommitListSurface.tsx`, and the
+  selected-commit summary/detail surface to
+  `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.tsx`, so
+  pane-domain follow-through should move back to the larger unresolved entry
+  surfaces unless a same-turn slice shortens one of those local git owners
+  directly.
 - Future cleanup should default to the remaining giant render-heavy entry
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
@@ -318,13 +323,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   Default to those before revisiting already-improved coordinators such as
   `ChatArea.tsx`, `ChatInput.tsx`, `ProjectChatBottomDock.tsx`,
   `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatHistory.tsx`,
-  `TaskBoardArea.tsx`, `RunInstructions.tsx`, or
-  `appRegistry.tsx`.
+  `TaskBoardArea.tsx`, `RunInstructions.tsx`, or `GitGraphOverlay.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
   `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `ChatMessages.tsx` as a

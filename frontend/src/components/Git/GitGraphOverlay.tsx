@@ -1,362 +1,26 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  List,
-  useDynamicRowHeight,
-  useListRef,
-  type RowComponentProps,
-} from "react-window";
+import { useMemo, useRef, type PointerEvent, type ReactNode } from "react";
 import { closeGitOverlay } from "state/actions/gitDiffOverlayActions";
 import { setGitGraphFilterText } from "state/actions/gitGraphFilterState";
 import {
   refreshGitGraphOverlay,
   toggleGitGraphAllRefs,
 } from "state/actions/gitGraphOverlayActions";
-import { loadMoreGitGraphCommits } from "state/actions/gitGraphPaginationRequests";
-import {
-  clearGitGraphSelectedCommit,
-  selectGitCommit,
-} from "state/actions/gitGraphSelection";
 import { useGitStore } from "state/git";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
-import type { GitCommit } from "utils/generatedTypes";
-import type { GitGraphRow } from "utils/gitGraph";
+import { buildGitCommitLookupByHash } from "./gitGraphOverlayCommitIndex";
+import { GitGraphOverlayCommitListSurface } from "./gitGraphOverlayCommitListSurface";
 import {
   COMMIT_GRID_TEMPLATE_COLUMNS,
   CSS_VAR_GIT_GRAPH_SPLIT_PCT,
   DEFAULT_GIT_GRAPH_SPLIT_PCT,
   GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX,
 } from "./gitGraphOverlayResizeModel";
-import {
-  GitGraphOverlaySelectedCommitDetails,
-  GitGraphOverlaySelectedCommitPane,
-} from "./gitGraphOverlaySelectedCommitPane";
+import { GitGraphOverlaySelectedCommitPane } from "./gitGraphOverlaySelectedCommitPane";
 import { useGitGraphOverlayResize } from "./useGitGraphOverlayResize";
 
-// GitGraphOverlay coordinates the history pane, virtualization, and layout
-// while local owners render the selected-commit surface.
-
-const ROW_HEIGHT = 28;
-const MAX_ROW_DECORATIONS = 3;
-const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "2-digit",
-  year: "numeric",
-});
-
-const LANE_COLORS_LIGHT = [
-  "#2563eb",
-  "#16a34a",
-  "#dc2626",
-  "#db2777",
-  "#7c3aed",
-  "#0ea5e9",
-  "#ca8a04",
-  "#0891b2",
-];
-
-const LANE_COLORS_DARK = [
-  "#60a5fa",
-  "#4ade80",
-  "#f87171",
-  "#fb7185",
-  "#c4b5fd",
-  "#38bdf8",
-  "#facc15",
-  "#22d3ee",
-];
-
-const GOLDEN_ANGLE_DEG = 137.508;
-const GENERATED_LANE_COLORS_LIGHT = new Map<number, string>();
-const GENERATED_LANE_COLORS_DARK = new Map<number, string>();
-const LOAD_MORE_THRESHOLD_ROWS = 40;
-
-function clampNonNegative(value: number): number {
-  return value < 0 ? 0 : value;
-}
-
-function hexByte(value: number): string {
-  const clamped = Math.max(0, Math.min(255, Math.round(value)));
-  return clamped.toString(16).padStart(2, "0");
-}
-
-function hexFromRgb(r: number, g: number, b: number): string {
-  return `#${hexByte(r)}${hexByte(g)}${hexByte(b)}`;
-}
-
-function hslToRgb(
-  hueDeg: number,
-  s: number,
-  l: number,
-): [number, number, number] {
-  const hueNormalized = ((hueDeg % 360) + 360) % 360;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((hueNormalized / 60) % 2) - 1));
-  const m = l - c / 2;
-
-  let r1 = 0;
-  let g1 = 0;
-  let b1 = 0;
-  if (hueNormalized < 60) {
-    r1 = c;
-    g1 = x;
-  } else if (hueNormalized < 120) {
-    r1 = x;
-    g1 = c;
-  } else if (hueNormalized < 180) {
-    g1 = c;
-    b1 = x;
-  } else if (hueNormalized < 240) {
-    g1 = x;
-    b1 = c;
-  } else if (hueNormalized < 300) {
-    r1 = x;
-    b1 = c;
-  } else {
-    r1 = c;
-    b1 = x;
-  }
-
-  return [
-    Math.round((r1 + m) * 255),
-    Math.round((g1 + m) * 255),
-    Math.round((b1 + m) * 255),
-  ];
-}
-
-function generatedLaneColor(colorId: number, darkMode: boolean): string {
-  const cache = darkMode
-    ? GENERATED_LANE_COLORS_DARK
-    : GENERATED_LANE_COLORS_LIGHT;
-  const cached = cache.get(colorId);
-  if (cached) {
-    return cached;
-  }
-
-  // Golden-angle hues distribute colors evenly without repeating.
-  const hue = (30 + colorId * GOLDEN_ANGLE_DEG) % 360;
-  const saturation = darkMode ? 0.72 : 0.78;
-  const lightnessBase = darkMode ? 0.66 : 0.44;
-  const lightness = lightnessBase + (colorId % 2 === 0 ? -0.04 : 0.04);
-  const [r, g, b] = hslToRgb(
-    hue,
-    saturation,
-    Math.min(0.78, Math.max(0.3, lightness)),
-  );
-  const color = hexFromRgb(r, g, b);
-
-  cache.set(colorId, color);
-  return color;
-}
-
-function laneColorForId(
-  colorId: number,
-  palette: readonly string[],
-  darkMode: boolean,
-): string {
-  if (colorId < palette.length) {
-    return palette[colorId] ?? palette[0] ?? "#000000";
-  }
-  return generatedLaneColor(colorId, darkMode);
-}
-
-type DecorationKind =
-  | "head"
-  | "branch"
-  | "remote"
-  | "tag"
-  | "symbolic"
-  | "other";
-
-type DecorationChip = {
-  label: string;
-  kind: DecorationKind;
-};
-
-type DecorationChipSummary = {
-  chips: DecorationChip[];
-  extraChipCount: number;
-};
-
-const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
-  head: 0,
-  branch: 1,
-  remote: 2,
-  tag: 3,
-  symbolic: 4,
-  other: 5,
-};
-const EMPTY_REMOTE_DECORATION_PREFIXES: ReadonlySet<string> = new Set();
-
-export function buildGitCommitSearchBlob(commit: GitCommit): string {
-  const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
-  return `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`.toLowerCase();
-}
-
-export function collectRemoteDecorationPrefixes(
-  decorations: readonly string[],
-): Set<string> {
-  const remotePrefixes = new Set<string>();
-
-  for (const raw of decorations) {
-    const text = raw.trim();
-    if (!text || text.startsWith("tag: ")) {
-      continue;
-    }
-
-    if (text.startsWith("origin/")) {
-      remotePrefixes.add("origin");
-      continue;
-    }
-    if (text.startsWith("upstream/")) {
-      remotePrefixes.add("upstream");
-      continue;
-    }
-
-    const arrowIdx = text.indexOf(" -> ");
-    if (arrowIdx === -1) {
-      continue;
-    }
-    const left = text.slice(0, arrowIdx).trim();
-    const right = text.slice(arrowIdx + " -> ".length).trim();
-    if (!left.endsWith("/HEAD")) {
-      continue;
-    }
-    const prefix = left.slice(0, -"/HEAD".length).trim();
-    if (!prefix) {
-      continue;
-    }
-    if (right.startsWith(`${prefix}/`)) {
-      remotePrefixes.add(prefix);
-    }
-  }
-
-  return remotePrefixes;
-}
-
-function parseDecorationChip(
-  raw: string,
-  remoteDecorationPrefixes: ReadonlySet<string>,
-): DecorationChip | null {
-  const text = raw.trim();
-  if (!text) {
-    return null;
-  }
-  if (text.startsWith("HEAD -> ")) {
-    const branch = text.slice("HEAD -> ".length).trim();
-    if (!branch) {
-      return null;
-    }
-    return { label: branch, kind: "head" };
-  }
-  if (text.startsWith("tag: ")) {
-    const tag = text.slice("tag: ".length).trim();
-    if (!tag) {
-      return null;
-    }
-    return { label: tag, kind: "tag" };
-  }
-  const arrowIdx = text.indexOf(" -> ");
-  if (arrowIdx !== -1) {
-    const left = text.slice(0, arrowIdx).trim();
-    if (!left) {
-      return null;
-    }
-    return { label: left, kind: "symbolic" };
-  }
-  const slashIdx = text.indexOf("/");
-  if (slashIdx > 0) {
-    const prefix = text.slice(0, slashIdx);
-    if (remoteDecorationPrefixes.has(prefix)) {
-      return { label: text, kind: "remote" };
-    }
-  }
-  if (text.startsWith("origin/") || text.startsWith("upstream/")) {
-    return { label: text, kind: "remote" };
-  }
-  return { label: text, kind: "branch" };
-}
-
-export function summarizeDecorationChips(
-  decorations: readonly string[],
-  remoteDecorationPrefixes: ReadonlySet<string> = EMPTY_REMOTE_DECORATION_PREFIXES,
-): DecorationChipSummary {
-  const allChips = decorations
-    .map((decoration) =>
-      parseDecorationChip(decoration, remoteDecorationPrefixes),
-    )
-    .filter((chip): chip is DecorationChip => chip !== null)
-    .sort(
-      (a, b) =>
-        DECORATION_KIND_PRIORITY[a.kind] - DECORATION_KIND_PRIORITY[b.kind],
-    );
-  const chips = allChips.slice(0, MAX_ROW_DECORATIONS);
-  return {
-    chips,
-    extraChipCount: Math.max(0, allChips.length - chips.length),
-  };
-}
-
-function buildDecorationChipSummaryByHash(
-  commits: readonly GitCommit[],
-): Map<string, DecorationChipSummary> {
-  const allDecorations: string[] = [];
-  for (const commit of commits) {
-    allDecorations.push(...commit.decorations);
-  }
-  const remoteDecorationPrefixes =
-    collectRemoteDecorationPrefixes(allDecorations);
-
-  const chipSummaryByHash = new Map<string, DecorationChipSummary>();
-  for (const commit of commits) {
-    chipSummaryByHash.set(
-      commit.hash,
-      summarizeDecorationChips(commit.decorations, remoteDecorationPrefixes),
-    );
-  }
-  return chipSummaryByHash;
-}
-
-export function buildGitCommitLookupByHash(
-  commits: readonly GitCommit[],
-): Map<string, GitCommit> {
-  const commitsByHash = new Map<string, GitCommit>();
-  for (const commit of commits) {
-    commitsByHash.set(commit.hash, commit);
-  }
-  return commitsByHash;
-}
-
-export function buildGitGraphRowHeightCacheKey({
-  commitDigest,
-  allRefs,
-  filterText,
-}: {
-  commitDigest: string;
-  allRefs: boolean;
-  filterText: string;
-}): string {
-  const normalizedFilter = filterText.trim().toLowerCase();
-  const refMode = allRefs ? "all" : "branch";
-  return `${commitDigest}:${refMode}:${normalizedFilter}`;
-}
-
-export function buildGitGraphCommitDigest(
-  commits: readonly GitCommit[],
-): string {
-  if (commits.length === 0) {
-    return "0";
-  }
-  let digest = 2166136261;
-  for (const commit of commits) {
-    for (let idx = 0; idx < commit.hash.length; idx += 1) {
-      digest ^= commit.hash.charCodeAt(idx);
-      digest = Math.imul(digest, 16777619) >>> 0;
-    }
-    digest ^= 124;
-    digest = Math.imul(digest, 16777619) >>> 0;
-  }
-  return `${commits.length}:${digest.toString(16)}`;
-}
+// GitGraphOverlay stays the first-hop pane entrypoint. Local owners now handle
+// commit indexing and the virtualized history list so this file can focus on
+// split-pane composition and selected-commit handoff.
 
 export function GitGraphOverlay({
   embedded = false,
@@ -386,12 +50,9 @@ export function GitGraphOverlay({
     hashColWidthPx: x.gitGraphHashWidthPx,
   }));
 
-  const listRef = useListRef(null);
   const overlayRef = useRef<HTMLElement | null>(null);
   const panesWrapperRef = useRef<HTMLDivElement | null>(null);
   const commitHeaderRef = useRef<HTMLDivElement | null>(null);
-  const listWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [listSize, setListSize] = useState({ height: 320, width: 320 });
   const { beginPaneSplitDrag, beginColumnResizeDrag, graphViewBoxWidth } =
     useGitGraphOverlayResize({
       overlayRef,
@@ -404,115 +65,22 @@ export function GitGraphOverlay({
       hashColWidthPx,
     });
 
-  useEffect(() => {
-    const wrapper = listWrapperRef.current;
-    if (!wrapper) {
-      return;
-    }
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) {
-        return;
-      }
-      setListSize({
-        height: entry.contentRect.height,
-        width: entry.contentRect.width,
-      });
-    });
-    observer.observe(wrapper);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  const rows = graphState?.rows ?? [];
   const commits = graphState?.response?.commits ?? [];
-  const filterText = graphState?.filterText ?? "";
   const commitsByHash = useMemo(() => {
     return buildGitCommitLookupByHash(commits);
   }, [commits]);
-  const commitSearchBlobByHash = useMemo(() => {
-    const byHash = new Map<string, string>();
-    for (const commit of commits) {
-      byHash.set(commit.hash, buildGitCommitSearchBlob(commit));
-    }
-    return byHash;
-  }, [commits]);
-  const selectedCommit = graphState?.selectedCommitHash
-    ? commitsByHash.get(graphState.selectedCommitHash) ?? null
-    : null;
-  const commitDigest = useMemo(() => {
-    return buildGitGraphCommitDigest(commits);
-  }, [commits]);
-  const dynamicRowHeightCacheKey = useMemo(() => {
-    return buildGitGraphRowHeightCacheKey({
-      commitDigest,
-      allRefs: graphState?.allRefs ?? false,
-      filterText,
-    });
-  }, [commitDigest, filterText, graphState?.allRefs]);
-  const dynamicRowHeight = useDynamicRowHeight({
-    defaultRowHeight: ROW_HEIGHT,
-    key: dynamicRowHeightCacheKey,
-  });
-
-  const filteredRows = useMemo(() => {
-    const q = filterText.trim().toLowerCase();
-    if (!q) {
-      return rows;
-    }
-    return rows.filter((row) => {
-      const blob =
-        commitSearchBlobByHash.get(row.commit.hash) ??
-        buildGitCommitSearchBlob(row.commit);
-      return blob.includes(q);
-    });
-  }, [commitSearchBlobByHash, rows, filterText]);
-  const decorationChipSummaryByHash = useMemo(() => {
-    return buildDecorationChipSummaryByHash(commits);
-  }, [commits]);
-
-  const maxLaneCount = useMemo(() => {
-    return rows.reduce(
-      (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
-      1,
-    );
-  }, [rows]);
-  const laneWidth = useMemo(() => {
-    return graphViewBoxWidth / Math.max(1, maxLaneCount);
-  }, [graphViewBoxWidth, maxLaneCount]);
-  const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
-  const commitRowProps = useMemo<GitCommitRowDataProps>(
-    () => ({
-      rows: filteredRows,
-      selectedHash: graphState?.selectedCommitHash ?? null,
-      palette,
-      darkMode,
-      graphViewBoxWidth,
-      laneWidth,
-      dynamicRowHeight,
-      decorationChipSummaryByHash,
-    }),
-    [
-      decorationChipSummaryByHash,
-      darkMode,
-      dynamicRowHeight,
-      filteredRows,
-      graphState?.selectedCommitHash,
-      graphViewBoxWidth,
-      laneWidth,
-      palette,
-    ],
-  );
 
   if (!graphState) {
     return null;
   }
 
+  const rows = graphState.rows;
+  const filterText = graphState.filterText;
+  const selectedCommit = graphState.selectedCommitHash
+    ? commitsByHash.get(graphState.selectedCommitHash) ?? null
+    : null;
   const repoRoot = graphState.response?.repoRoot ?? null;
   const headBranch = graphState.response?.headBranch ?? null;
-
-  const isFilterActive = filterText.trim().length > 0;
-  const loadedCommitCount = commits.length;
 
   return (
     <section
@@ -540,7 +108,7 @@ export function GitGraphOverlay({
             className="w-56 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs text-setta-900 placeholder:text-setta-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-50 dark:placeholder:text-setta-500"
             placeholder="Filter commits…"
             value={filterText}
-            onChange={(e) => setGitGraphFilterText(e.target.value)}
+            onChange={(event) => setGitGraphFilterText(event.target.value)}
           />
           <button
             type="button"
@@ -665,85 +233,23 @@ export function GitGraphOverlay({
                 <span>Hash</span>
               </div>
             </div>
-            <div
-              data-testid="git-graph-commit-list-wrapper"
-              className="min-h-0 min-w-0 flex-1 overflow-hidden"
-              ref={listWrapperRef}
-            >
-              {graphState.isLoading ? (
-                <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
-                  Loading commits…
-                </div>
-              ) : (
-                <List
-                  listRef={listRef}
-                  rowComponent={GitCommitRow}
-                  rowCount={filteredRows.length}
-                  rowHeight={dynamicRowHeight}
-                  className="nodrag"
-                  onRowsRendered={(visibleRows) => {
-                    if (
-                      graphState.isLoading ||
-                      graphState.isLoadingMore ||
-                      graphState.loadMoreError !== null ||
-                      graphState.nextOffset === null ||
-                      !graphState.hasMore ||
-                      isFilterActive
-                    ) {
-                      return;
-                    }
-                    const remaining =
-                      filteredRows.length - 1 - visibleRows.stopIndex;
-                    if (remaining <= LOAD_MORE_THRESHOLD_ROWS) {
-                      void loadMoreGitGraphCommits();
-                    }
-                  }}
-                  rowProps={commitRowProps}
-                  style={{
-                    height: listSize.height,
-                    width: listSize.width,
-                    overflowX: "hidden",
-                  }}
-                />
-              )}
-            </div>
-            {!graphState.isLoading && (
-              <div
-                data-testid="git-graph-load-more-status"
-                className="min-h-[24px] border-t border-setta-200/70 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800/70 dark:text-setta-400"
-              >
-                {graphState.loadMoreError ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate">{graphState.loadMoreError}</span>
-                    <button
-                      type="button"
-                      data-testid="git-graph-load-more-retry"
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                      onClick={() =>
-                        void loadMoreGitGraphCommits({ force: true })
-                      }
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : graphState.isLoadingMore ? (
-                  <span>Loading more commits…</span>
-                ) : isFilterActive ? (
-                  <span>Filtering loaded commits only.</span>
-                ) : loadedCommitCount === 0 && !graphState.error ? (
-                  <span>No commits yet on this ref.</span>
-                ) : graphState.isCapped ? (
-                  <span>
-                    Showing first {loadedCommitCount.toLocaleString()} commits
-                    (cap reached).
-                  </span>
-                ) : !graphState.hasMore && loadedCommitCount > 0 ? (
-                  <span>Start of history reached.</span>
-                ) : (
-                  <span className="opacity-0">.</span>
-                )}
-              </div>
-            )}
+
+            <GitGraphOverlayCommitListSurface
+              rows={rows}
+              commits={commits}
+              filterText={filterText}
+              allRefs={graphState.allRefs}
+              selectedCommitHash={graphState.selectedCommitHash}
+              darkMode={darkMode}
+              graphViewBoxWidth={graphViewBoxWidth}
+              isLoading={graphState.isLoading}
+              isLoadingMore={graphState.isLoadingMore}
+              loadMoreError={graphState.loadMoreError}
+              hasMore={graphState.hasMore}
+              nextOffset={graphState.nextOffset}
+              isCapped={graphState.isCapped}
+              error={graphState.error}
+            />
           </section>
 
           <div
@@ -776,202 +282,6 @@ export function GitGraphOverlay({
   );
 }
 
-type GitCommitRowDataProps = {
-  rows: GitGraphRow[];
-  selectedHash: string | null;
-  palette: readonly string[];
-  darkMode: boolean;
-  graphViewBoxWidth: number;
-  laneWidth: number;
-  dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
-  decorationChipSummaryByHash: Map<string, DecorationChipSummary>;
-};
-type GitCommitRowProps = RowComponentProps<GitCommitRowDataProps>;
-
-function GitCommitRow({
-  index,
-  style,
-  rows,
-  selectedHash,
-  palette,
-  darkMode,
-  graphViewBoxWidth,
-  laneWidth,
-  dynamicRowHeight,
-  decorationChipSummaryByHash,
-}: GitCommitRowProps) {
-  const row = rows[index];
-  if (!row) {
-    return null;
-  }
-  const commit = row.commit;
-  const isSelected = commit.hash === selectedHash;
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const el = rowRef.current;
-    if (!el) {
-      return;
-    }
-    return dynamicRowHeight.observeRowElements([el]);
-  }, [dynamicRowHeight, index]);
-
-  const date = DATE_FORMATTER.format(new Date(commit.authorTimeMs));
-  const shortHash = commit.hash.slice(0, 8);
-  const laneCount = row.laneColorIds.reduce(
-    (count, colorId) => (colorId >= 0 ? count + 1 : count),
-    0,
-  );
-  const rawCommitColorId = row.laneColorIds[row.laneIndex] ?? 0;
-  const commitColorId = clampNonNegative(rawCommitColorId);
-  const commitColor = laneColorForId(commitColorId, palette, darkMode);
-
-  const decorationSummary =
-    decorationChipSummaryByHash.get(commit.hash) ??
-    summarizeDecorationChips(commit.decorations);
-  const chips = decorationSummary.chips;
-  const extraChipCount = decorationSummary.extraChipCount;
-
-  const background = isSelected
-    ? "bg-blue-50 dark:bg-blue-950/40"
-    : "bg-transparent hover:bg-setta-50 dark:hover:bg-setta-900/60";
-
-  return (
-    <div
-      style={style}
-      ref={rowRef}
-      data-react-window-index={index}
-      className="w-full"
-    >
-      <button
-        type="button"
-        className={`grid h-[28px] w-full items-center gap-2 px-3 text-left text-xs text-setta-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-100 ${background}`}
-        style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
-        onClick={() => {
-          if (isSelected) {
-            clearGitGraphSelectedCommit();
-            return;
-          }
-          void selectGitCommit(commit.hash);
-        }}
-      >
-        <div className="flex items-center">
-          <GitGraphCell
-            laneIndex={row.laneIndex}
-            laneColorIds={row.laneColorIds}
-            laneStartIndices={row.laneStartIndices}
-            laneEndIndices={row.laneEndIndices}
-            joinFromLaneIndices={row.joinFromLaneIndices}
-            mergeToLaneIndices={row.mergeToLaneIndices}
-            palette={palette}
-            darkMode={darkMode}
-            viewBoxWidth={graphViewBoxWidth}
-            laneWidth={laneWidth}
-          />
-        </div>
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1 overflow-hidden">
-            {chips.map((chip) => (
-              <DecorationPill
-                key={`${chip.kind}-${chip.label}`}
-                chip={chip}
-                laneColor={commitColor}
-              />
-            ))}
-            {extraChipCount > 0 && (
-              <span className="inline-flex shrink-0 items-center rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300">
-                +{extraChipCount}
-              </span>
-            )}
-            <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
-          </div>
-        </div>
-        <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
-          {commit.authorName}
-        </div>
-        <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
-          {date}
-        </div>
-        <div className="min-w-0 truncate font-mono text-[11px] text-setta-500 dark:text-setta-400">
-          {shortHash}
-        </div>
-        <span className="sr-only">lanes {laneCount}</span>
-      </button>
-
-      {isSelected && (
-        <div className="border-b border-setta-200/70 bg-setta-50/60 px-3 dark:border-setta-800/70 dark:bg-setta-900/20">
-          <div
-            className="grid gap-2"
-            style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
-          >
-            <ExpandedGraphGutter
-              laneColorIds={row.laneColorIds}
-              laneEndIndices={row.laneEndIndices}
-              joinFromLaneIndices={row.joinFromLaneIndices}
-              palette={palette}
-              darkMode={darkMode}
-              viewBoxWidth={graphViewBoxWidth}
-              laneWidth={laneWidth}
-            />
-            <div className="col-span-4 min-w-0 py-3">
-              <GitGraphOverlaySelectedCommitDetails commitHash={commit.hash} />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ExpandedGraphGutter({
-  laneColorIds,
-  laneEndIndices,
-  joinFromLaneIndices,
-  palette,
-  darkMode,
-  viewBoxWidth,
-  laneWidth,
-}: {
-  laneColorIds: number[];
-  laneEndIndices: number[];
-  joinFromLaneIndices: number[];
-  palette: readonly string[];
-  darkMode: boolean;
-  viewBoxWidth: number;
-  laneWidth: number;
-}) {
-  const blockedLaneIndices = new Set<number>([
-    ...laneEndIndices,
-    ...joinFromLaneIndices,
-  ]);
-  const normalizedLaneWidth = Math.max(1, laneWidth);
-  const xForLane = (idx: number) =>
-    Math.round(idx * normalizedLaneWidth + normalizedLaneWidth / 2);
-  const normalizedWidth = Math.max(1, viewBoxWidth);
-
-  return (
-    <div
-      data-testid="git-graph-expanded-gutter"
-      className="pointer-events-none relative min-h-[52px]"
-      aria-hidden="true"
-    >
-      {laneColorIds.map((colorId, idx) => {
-        if (colorId < 0 || blockedLaneIndices.has(idx)) {
-          return null;
-        }
-        const color = laneColorForId(colorId, palette, darkMode);
-        const leftPct = (xForLane(idx) / normalizedWidth) * 100;
-        return (
-          <span
-            key={`expanded-lane-${idx}`}
-            className="absolute bottom-0 top-0 w-[2px] -translate-x-1/2 rounded-full"
-            style={{ left: `${leftPct}%`, backgroundColor: color }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 function ColumnResizeHandle({
   dataTestId,
   label,
@@ -981,10 +291,11 @@ function ColumnResizeHandle({
   dataTestId: string;
   label: string;
   edge: "left" | "right";
-  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   const rootPositionClass =
     edge === "left" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2";
+
   return (
     <div
       data-testid={dataTestId}
@@ -995,230 +306,5 @@ function ColumnResizeHandle({
     >
       <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-300 group-hover/col-resize:bg-blue-400 dark:bg-setta-700 dark:group-hover/col-resize:bg-blue-400" />
     </div>
-  );
-}
-
-function rgbFromHex(hex: string): [number, number, number] | null {
-  const value = hex.startsWith("#") ? hex.slice(1) : hex;
-  if (value.length !== 6) {
-    return null;
-  }
-  const r = Number.parseInt(value.slice(0, 2), 16);
-  const g = Number.parseInt(value.slice(2, 4), 16);
-  const b = Number.parseInt(value.slice(4, 6), 16);
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-    return null;
-  }
-  return [r, g, b];
-}
-
-function rgbaFromHex(hex: string, alpha: number): string {
-  const rgb = rgbFromHex(hex);
-  if (!rgb) {
-    return hex;
-  }
-  const [r, g, b] = rgb;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function DecorationPill({
-  chip,
-  laneColor,
-}: {
-  chip: DecorationChip;
-  laneColor: string;
-}) {
-  const base =
-    "inline-flex shrink-0 max-w-[160px] items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold";
-
-  if (
-    chip.kind === "head" ||
-    chip.kind === "branch" ||
-    chip.kind === "remote" ||
-    chip.kind === "symbolic"
-  ) {
-    return (
-      <span
-        className={base}
-        data-decoration-kind={chip.kind}
-        style={{
-          borderColor: rgbaFromHex(laneColor, 0.6),
-          backgroundColor: rgbaFromHex(laneColor, 0.12),
-          color: laneColor,
-        }}
-        title={chip.label}
-      >
-        {chip.label}
-      </span>
-    );
-  }
-  if (chip.kind === "tag") {
-    return (
-      <span
-        className={`${base} border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200`}
-        data-decoration-kind={chip.kind}
-        title={chip.label}
-      >
-        {chip.label}
-      </span>
-    );
-  }
-  return (
-    <span
-      className={`${base} border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-200`}
-      data-decoration-kind={chip.kind}
-      title={chip.label}
-    >
-      {chip.label}
-    </span>
-  );
-}
-
-function GitGraphCell({
-  laneIndex,
-  laneColorIds,
-  laneStartIndices,
-  laneEndIndices,
-  joinFromLaneIndices,
-  mergeToLaneIndices,
-  palette,
-  darkMode,
-  viewBoxWidth,
-  laneWidth,
-}: {
-  laneIndex: number;
-  laneColorIds: number[];
-  laneStartIndices: number[];
-  laneEndIndices: number[];
-  joinFromLaneIndices: number[];
-  mergeToLaneIndices: number[];
-  palette: readonly string[];
-  darkMode: boolean;
-  viewBoxWidth: number;
-  laneWidth: number;
-}) {
-  const height = ROW_HEIGHT;
-  const width = Math.max(1, viewBoxWidth);
-  const centerY = height / 2;
-  // Keep strokes fully opaque so curves don't blend with underlying lanes and
-  // appear to change color when crossing other branches.
-  const strokeOpacity = 1;
-  const normalizedLaneWidth = Math.max(1, laneWidth);
-  const xForLane = (idx: number) =>
-    Math.round(idx * normalizedLaneWidth + normalizedLaneWidth / 2);
-
-  const rawCommitColorId = laneColorIds[laneIndex] ?? 0;
-  const commitColorId = clampNonNegative(rawCommitColorId);
-  const commitColor = laneColorForId(commitColorId, palette, darkMode);
-  const laneStartSet = new Set(laneStartIndices);
-  const laneEndSet = new Set(laneEndIndices);
-  const joinFromSet = new Set(joinFromLaneIndices);
-  const mergeToSet = new Set(mergeToLaneIndices);
-
-  return (
-    <svg
-      width="100%"
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      className="block"
-      aria-hidden="true"
-    >
-      {laneColorIds.map((colorId, idx) => {
-        if (colorId < 0) {
-          return null;
-        }
-        let y1 = laneStartSet.has(idx) ? centerY : 0;
-        let y2 = laneEndSet.has(idx) ? centerY : height;
-        // Join curves occupy the top half of the row for the source lane;
-        // drawing the vertical lane segment here creates a "tail" artifact.
-        if (joinFromSet.has(idx)) {
-          y1 = Math.max(y1, centerY);
-        }
-        // For merge commits, the destination lane might already exist above this
-        // row (e.g., when showing `--all` refs and that branch continues after
-        // being merged). In that case we need to keep the lane continuous
-        // through the row, otherwise it looks like the lane has a "gap".
-        //
-        // However, when the destination lane *starts* at this row, drawing a
-        // vertical segment below the commit dot looks like a "tail" hanging off
-        // the merge curve endpoint. Avoid that by suppressing the vertical
-        // segment only for lanes that start at this row.
-        if (mergeToSet.has(idx) && laneStartSet.has(idx)) {
-          y2 = Math.min(y2, centerY);
-        }
-        if (y1 === y2) {
-          return null;
-        }
-        const x = xForLane(idx);
-        const color = laneColorForId(colorId, palette, darkMode);
-        return (
-          <line
-            key={`lane-${idx}`}
-            x1={x}
-            x2={x}
-            y1={y1}
-            y2={y2}
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            opacity={strokeOpacity}
-          />
-        );
-      })}
-
-      {joinFromLaneIndices.map((fromIdx) => {
-        const x1 = xForLane(fromIdx);
-        const x2 = xForLane(laneIndex);
-        // Use a cubic Bezier so the curve is tangent to the vertical lanes at
-        // both ends (avoids a right-angle join at the commit dot).
-        const controlY = centerY / 2;
-        const fromColorIdRaw = laneColorIds[fromIdx] ?? commitColorId;
-        const fromColorId =
-          fromColorIdRaw < 0 ? commitColorId : clampNonNegative(fromColorIdRaw);
-        const fromColor = laneColorForId(fromColorId, palette, darkMode);
-        return (
-          <path
-            key={`join-${fromIdx}-to-${laneIndex}`}
-            d={`M ${x1} 0 C ${x1} ${controlY} ${x2} ${controlY} ${x2} ${centerY}`}
-            stroke={fromColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            fill="none"
-            opacity={strokeOpacity}
-          />
-        );
-      })}
-
-      {mergeToLaneIndices.map((toIdx) => {
-        const x1 = xForLane(laneIndex);
-        const x2 = xForLane(toIdx);
-        // Use a cubic Bezier so the curve is tangent to the vertical lanes at
-        // both ends (avoids a right-angle turn at the commit dot).
-        const controlY = (centerY + height) / 2;
-        const toColorIdRaw = laneColorIds[toIdx] ?? commitColorId;
-        const toColorId =
-          toColorIdRaw < 0 ? commitColorId : clampNonNegative(toColorIdRaw);
-        const toColor = laneColorForId(toColorId, palette, darkMode);
-        return (
-          <path
-            key={`merge-${laneIndex}-${toIdx}`}
-            d={`M ${x1} ${centerY} C ${x1} ${controlY} ${x2} ${controlY} ${x2} ${height}`}
-            stroke={toColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            fill="none"
-            opacity={strokeOpacity}
-          />
-        );
-      })}
-
-      <circle
-        cx={xForLane(laneIndex)}
-        cy={centerY}
-        r={3.25}
-        fill={commitColor}
-      />
-    </svg>
   );
 }
