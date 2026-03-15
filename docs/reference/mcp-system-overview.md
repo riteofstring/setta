@@ -118,25 +118,20 @@ Tool enforcement details:
 - `run_stdio_bridge` allows Setta’s MCP server to look like a `stdio` transport. `python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp` pipes stdin/stdout to the SSE connection, which means third-party MCP orchestrators (OpenAI, Claude Desktop, Cursor, etc.) can act as if Setta were a local MCP tool host.
 - The command-line options (`--backend`, `--verbose`) make the bridge easy to embed in shell scripts or automation. Because the connection uses only SSE, the bridge works across machines as long as the HTTP endpoint is reachable.
 
-## Managed chat runtime (`backend/setta/llm/agent_runner.py` + `backend/setta/routers/ai.py`)
-- `route_get_llm_response`, `route_get_llm_chat`, and `route_stop_llm_chat` in `backend/setta/routers/ai.py` are the main managed-chat HTTP entrypoints. The send route validates `sectionId`/`allowUnscoped`, branch edits, and `continueFromChatId`, resolves the selected engine/profile, and starts the background run through `AgentRunner`.
-- `AgentRunner` is the managed Setta-LLM orchestrator that those routes invoke. It persists agent runs, streams litellm responses, manages `thinking` overrides, keeps per-run live chat state in memory, and communicates back to the UI via `WMHFrontendSender`.
-- Managed chat hydration now comes from persisted agent runs plus live overlays, not a separate `setta_files/chats/` store. `build_chat_state_from_run(...)` reconstructs chat state from the latest run, and `route_get_llm_chat` overlays `AgentRunner.get_live_chat_state(...)` while a run is still active.
-- `AgentRunner` always includes the full tool catalog in each request. For Anthropic tool search, it marks non-search tools with `defer_loading` and exposes a local search tool that returns tool references to load the exact tools needed.
+## Managed chat runtime (`internal/httpapi/llm_routes.go`, `internal/managedchat`, and `internal/managedllm`)
+- `RegisterLLMRoutes` exposes the IDE-only `getLLMResponse`, `getLLMChat`, and `stopLLMChat` handlers through the Go HTTP API.
+- `internal/managedchat/service.go` validates send/hydrate/stop inputs, persists agent runs, and reconstructs chat state from persisted runs.
+- `internal/managedchat/live_runtime.go` keeps the active in-memory overlay for running chats and broadcasts `LLMStreamingResponse` chunks over the frontend websocket.
+- Provider execution, tool-call streaming, tool previews, and tool-result follow updates live under `internal/managedllm/*`.
 - Tool names are always namespaced as `<serverId>__<toolName>` so the prompt never contains ambiguous tool names.
-- The first request for a chat injects the active `projectConfigId` into the system prompt (if available). Project summaries are fetched only when the model calls `get_latest_project_state_summary`.
-- `setta__search_mcp_tools` is handled inside `AgentRunner` (no MCP round-trip). It searches the aggregated tool registry and returns namespaced results so tool references stay consistent across servers.
-- When the LLM emits a tool call, `_dispatch_tool_call` routes namespaced tool calls through `MultiMCPClient.call_tool`. Arguments are sanitized via `convert_existing_canonical_ids_to_temporary` before being logged or persisted, and the results are streamed back to the UI as `ToolResultEvent`s.
-- Streaming deltas (`MessageStartEvent`, `MessageDeltaEvent`, `ToolCallDeltaEvent`, etc.) are forwarded to the websocket handler so the frontend can animate assistant text, thinking traces, and tool execution progress in real time.
-- The system prompt that anchors every chat request lives at `backend/setta/mcp/system_prompt.md`. `AgentRunner` loads this file at startup, trims it, and injects it as the first message in every completion request.
+- Project summaries, tool catalogs, and MCP-tool dispatch now stay entirely on the Go side through `internal/tools` and `internal/mcpx`.
 
 ## LLM configuration (`setta_files/llm_config.json`)
-- All provider definitions live in `setta_files/llm_config.json`. The `DBE` helper reads and writes the file, while `LLMConfigWatcher` sits on top of `SpecificFileWatcher` so it can push websocket updates whenever someone edits the JSON by hand.
-- The schema comes from `setta.types.llm_config.AllLLMConfigs`: each entry defines `model`, `provider`, optional `base_url`, arbitrary `other_params`, `api_key_env`, and optional `mcpServerIds` (null uses defaults, empty disables MCP tools).
+- All provider definitions live in `setta_files/llm_config.json`.
+- `internal/llmconfig/service.go` is the active read/write/validation owner, and `internal/httpapi/llm_routes.go` broadcasts `LLMConfigUpdated` and `LLMApiKeysUpdated` when config or managed keys change.
 - `mcpServers` defines the global MCP server registry (transport + connection settings), and `defaultMcpServerIds` selects the default server set when a config does not override it.
-- A pre-populated `setta_files/llm_config.example.json` ships with a Claude Sonnet 4.5 example config. Copy it to `llm_config.json` (or copy individual entries) and then replace the API keys/env var names with ones available in your `.env`.
-- Saving configs through the REST route (`route_set_llm_config`) strips transient fields before writing to disk, while manual edits benefit from validation because the watcher simply calls `load_llm_config` and only broadcasts when parsing succeeds.
-- `llm_config.json` stays in `setta_files/`, while managed key values are stored in workspace `.env` (`./.env`). Setta tracks managed ownership with `SETTA_MANAGED_LLM_API_KEY_NAMES`, and both `DotEnvWatcher` and `LLMConfigWatcher` sync key snapshots into runtime + websocket state (`LLMApiKeysUpdated`) with revision/corruption metadata.
+- A pre-populated `setta_files/llm_config.example.json` still ships as a starter file.
+- Managed key values live in workspace `.env` (`./.env`), and `internal/llmconfig/managed_api_keys.go` owns revisioned reads/writes plus process-env merging for runtime use.
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
 - The Overview `Project AI Chat` tab now renders `ProjectChatManager`, which is
@@ -175,7 +170,7 @@ Tool enforcement details:
 
 ## When to touch what
 - Adding or modifying tools → update `backend/setta/mcp/tools/*` or annotate project manager methods with `@project_state_tool`. Keep docstrings up to date so discovery remains accurate.
-- Changing how MCP calls are streamed to the UI for managed chats → edit `backend/setta/llm/agent_runner.py`, `backend/setta/routers/ai.py`, and the websocket reducers in `frontend/src/state/actions/ai.ts`.
+- Changing how MCP calls are streamed to the UI for managed chats → edit `internal/managedllm`, `internal/managedchat/live_runtime.go`, `internal/httpapi/llm_routes.go`, and the websocket reducers in `frontend/src/state/actions/ai.ts`.
 - Adapting the chat UI → adjust the components in `frontend/src/components/Panes/Overview/ProjectLevelAI/`.
 - Integrating a new external MCP consumer → either script against `python -m setta.mcp.client` or write a native SSE client that emulates what `MultiMCPClient` already does (initialize, cache tools, call tools, reconnect on failure).
 

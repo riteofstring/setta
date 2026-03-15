@@ -3,18 +3,17 @@
 This page explains how AIFollow works end-to-end, covering the backend metadata and update broadcasts plus the frontend follow + highlight behavior.
 
 ## Backend flow
-- Tool definitions attach AIFollow metadata via `project_state_tool(...)` so each MCP tool can declare where to find ids in arguments or results (`backend/setta/mcp/tools/project_state_registry.py`, `backend/setta/mcp/tool_metadata.py`).
-- The MCP server registers those annotations so the managed chat runtime can read `aiFollowToolArguments` and `aiFollowToolResult` for each tool name (`backend/setta/mcp/server.py`).
-- While the model streams tool calls, `AgentRunner` parses partial argument buffers, uses the metadata paths to extract ids, maps temporary ids to canonical ids, filters to known ids, and broadcasts `AIFollowToolArgumentsUpdate` when the follow set changes (`backend/setta/llm/agent_runner.py`).
-- After tool calls finalize, the runtime re-parses full arguments, re-canonicalizes ids, stores per-chat follow state, and broadcasts a stable `AIFollowToolArgumentsUpdate` (same file).
-- When a tool call returns and declares result metadata, the runtime parses the `CallToolResult` payload, extracts ids, and broadcasts `AIFollowToolResultUpdate` for highlight-only follow events (same file).
-- The websocket sender wraps these updates into typed frontend messages (`backend/setta/websockets/msg_handlers/frontend_sender.py`).
-- The `/getAIFollowSnapshot` route returns the in-memory per-chat follow state for a project config so the UI can hydrate on reload (`backend/setta/routers/ai.py`).
+- Go tool definitions attach AIFollow metadata through the canonical tool metadata layer (`internal/tools/metadata.go`) and the MCP tool catalog/runtime (`internal/mcpx`).
+- Managed chat tool-preview parsing lives in `internal/managedllm/tool_preview.go`, while tool-result follow emission lives in `internal/managedllm/result_follow.go`.
+- External-agent runs keep their per-chat follow snapshot in `internal/externalagents/follow.go`, which extracts ids from the live tool-call state and broadcasts `AIFollowToolArgumentsUpdate` whenever the effective follow set changes.
+- When a tool call returns and declares result metadata, the Go runtime parses the tool result payload and broadcasts `AIFollowToolResultUpdate` for highlight-only follow events (`internal/managedllm/result_follow.go`).
+- The websocket layer wraps these updates into typed frontend messages through `internal/realtime/messages.go`.
+- The `/getAIFollowSnapshot` route returns the in-memory per-chat follow state for a project config so the UI can hydrate on reload (`internal/httpapi/ai_routes.go` plus `internal/externalagents/follow.go`).
 
 ## Backend data model
-- Follow id types are currently `section` and `codeObj` (`backend/setta/mcp/tool_metadata.py`).
+- Follow id types are currently `section` and `codeObj` (`internal/tools/metadata.go`).
 - `pathsByIdType` values are dot-delimited JSON paths; `$` means the entire payload. Argument extraction allows dict keys to count as ids, while result extraction only reads values.
-- Follow state is stored per chat id in memory. It is not persisted and resets on server restart (`backend/setta/llm/agent_runner.py`).
+- Follow state is stored per chat id in memory. It is not persisted and resets on server restart (`internal/externalagents/follow.go`).
 
 ## Frontend flow
 - AIFollow state lives in a zustand store keyed by `projectConfigId` and `chatId`, plus a frontend-only follow mode (`off`, `all`, `selected`) and per-project selections (`frontend/src/state/definitions.ts`). The current frontend default is `all`.
