@@ -3621,6 +3621,67 @@ func TestRegisterProjectRoutesCreateChildSectionsRejectsDeploymentStructuralChan
 	}
 }
 
+func TestRegisterProjectRoutesDeleteSectionsRejectsDeploymentStructuralChanges(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			baselineProject := sectionStructureRouteTestProject(t)
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": baselineProject,
+					},
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteDeleteSections,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionIds":["top-group"]}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"structural_changes_forbidden"`) {
+				t.Fatalf("expected structural_changes_forbidden body, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment mode disallows structural changes.") {
+				t.Fatalf("expected deployment structural denial, got %q", response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if len(overlayProject.Sections) != len(baselineProject.Sections) {
+				t.Fatalf("expected rejected mutation to preserve overlay section count %d, got %d", len(baselineProject.Sections), len(overlayProject.Sections))
+			}
+			if _, ok := overlayProject.Sections["top-group"]; !ok {
+				t.Fatal("expected rejected mutation to preserve top-group in overlay")
+			}
+			if _, ok := overlayProject.Sections["top-child-a"]; !ok {
+				t.Fatal("expected rejected mutation to preserve top-child-a in overlay")
+			}
+			if _, ok := overlayProject.Sections["top-child-b"]; !ok {
+				t.Fatal("expected rejected mutation to preserve top-child-b in overlay")
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
