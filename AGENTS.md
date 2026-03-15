@@ -18,6 +18,8 @@
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
 - `./t.sh` runs all tests (backend pytest, frontend Vitest, Playwright E2E). Use `--b` for backend-only or `--f` for frontend + Playwright.
 - `./scripts/run_backend_tests.sh` runs the Python pytest suite only.
+- `./scripts/go.sh <go args>` is the default way to run Go in this repo. It resolves the version-pinned repo-local toolchain under `.tools/go/...`, so use it for `go test`, `go env`, and related commands instead of assuming `go` is on `PATH`.
+- `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>` is the default Go formatting command in this repo. Do not assume `gofmt` is on `PATH`.
 - `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root (see Generation & Cleanup for when and why to run cleanup).
 - Release smoke tests rely on `verify_install.sh`, which builds, installs the sdist with `uv pip`, and cleans up.
 - Note: the full test suite (and Playwright in particular) can take a long time to finish.

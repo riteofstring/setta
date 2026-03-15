@@ -1598,9 +1598,15 @@ func preferredCreatedSectionName(implType string) (string, bool) {
 	case "GlobalVariables":
 		return "Global Variables", true
 	case "GenPythonCode":
-		return GeneratedPythonCodeSectionName, true
+		return "Generated Python Code", true
 	case "GenPythonMetadata":
-		return GeneratedPythonMetadataSectionName, true
+		return "Generated Python Metadata", true
+	case "StateMachineStart":
+		return "State Machine Start", true
+	case "StateMachineGate":
+		return "State Machine Gate", true
+	case "StateMachineEnd":
+		return "State Machine End", true
 	default:
 		return "", false
 	}

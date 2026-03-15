@@ -459,24 +459,58 @@ func TestProjectCreateTopLevelSectionSupportsExpandedSectionTypes(t *testing.T) 
 func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing.T) {
 	t.Parallel()
 
+	stringPtr := func(value string) *string {
+		return &value
+	}
 	testCases := []struct {
 		name            string
-		controlCodeType string
+		controlCodeType *string
+		expectedType    string
 		assert          func(*testing.T, map[string]any)
 	}{
 		{
-			name:            "dropdown",
-			controlCodeType: "DropdownParam",
+			name:            "default omitted",
+			controlCodeType: nil,
+			expectedType:    "SliderParam",
 			assert: func(t *testing.T, payload map[string]any) {
 				t.Helper()
-				if !reflect.DeepEqual(payload["choices"], []any{}) {
-					t.Fatalf("expected empty dropdown choices, got %#v", payload["choices"])
+				if got := payload["min"]; got != float64(0) {
+					t.Fatalf("expected slider min 0, got %#v", got)
+				}
+				if got := payload["max"]; got != float64(100) {
+					t.Fatalf("expected slider max 100, got %#v", got)
+				}
+				if got := payloadRawStringField(payload, "value"); got != "0" {
+					t.Fatalf("expected slider default value 0, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "code",
+			controlCodeType: stringPtr("CodeParam"),
+			expectedType:    "CodeParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "passingStyle"); got != "DEFAULT" {
+					t.Fatalf("expected code param passingStyle DEFAULT, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "text",
+			controlCodeType: stringPtr("TextParam"),
+			expectedType:    "TextParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "uiType"); got != "plain" {
+					t.Fatalf("expected text param uiType plain, got %q", got)
 				}
 			},
 		},
 		{
 			name:            "date",
-			controlCodeType: "DateParam",
+			controlCodeType: stringPtr("DateParam"),
+			expectedType:    "DateParam",
 			assert: func(t *testing.T, payload map[string]any) {
 				t.Helper()
 				if got := payloadStringField(payload, "dateControlMode"); got != "input" {
@@ -488,8 +522,100 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 			},
 		},
 		{
+			name:            "time",
+			controlCodeType: stringPtr("TimeParam"),
+			expectedType:    "TimeParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "timeControlMode"); got != "input" {
+					t.Fatalf("expected time control mode input, got %q", got)
+				}
+				if got := payloadStringField(payload, "timeDisplayFormat"); got != "twenty_four_hour" {
+					t.Fatalf("expected time display format twenty_four_hour, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "text area",
+			controlCodeType: stringPtr("TextAreaParam"),
+			expectedType:    "TextAreaParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadRawStringField(payload, "defaultVal"); got != "" {
+					t.Fatalf("expected empty text area defaultVal, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "slider",
+			controlCodeType: stringPtr("SliderParam"),
+			expectedType:    "SliderParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payload["step"]; got != float64(1) {
+					t.Fatalf("expected slider step 1, got %#v", got)
+				}
+			},
+		},
+		{
+			name:            "rotary",
+			controlCodeType: stringPtr("RotaryParam"),
+			expectedType:    "RotaryParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payload["step"]; got != float64(0.1) {
+					t.Fatalf("expected rotary step 0.1, got %#v", got)
+				}
+			},
+		},
+		{
+			name:            "switch",
+			controlCodeType: stringPtr("SwitchParam"),
+			expectedType:    "SwitchParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadRawStringField(payload, "value"); got != "false" {
+					t.Fatalf("expected switch default value false, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "color picker",
+			controlCodeType: stringPtr("ColorPickerParam"),
+			expectedType:    "ColorPickerParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadRawStringField(payload, "value"); got != "#ff0000" {
+					t.Fatalf("expected color picker default #ff0000, got %q", got)
+				}
+			},
+		},
+		{
+			name:            "dropdown",
+			controlCodeType: stringPtr("DropdownParam"),
+			expectedType:    "DropdownParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if !reflect.DeepEqual(payload["choices"], []any{}) {
+					t.Fatalf("expected empty dropdown choices, got %#v", payload["choices"])
+				}
+			},
+		},
+		{
+			name:            "password",
+			controlCodeType: stringPtr("PasswordParam"),
+			expectedType:    "PasswordParam",
+			assert: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got, ok := payload["hasSecret"].(bool); !ok || got {
+					t.Fatalf("expected password hasSecret false, got %#v", payload["hasSecret"])
+				}
+			},
+		},
+		{
 			name:            "button",
-			controlCodeType: "ButtonParam",
+			controlCodeType: stringPtr("ButtonParam"),
+			expectedType:    "ButtonParam",
 			assert: func(t *testing.T, payload map[string]any) {
 				t.Helper()
 				if got := payloadStringField(payload, "actionMode"); got != "WEBSOCKET_LISTENER" {
@@ -502,7 +628,8 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 		},
 		{
 			name:            "dropzone",
-			controlCodeType: "DropzoneParam",
+			controlCodeType: stringPtr("DropzoneParam"),
+			expectedType:    "DropzoneParam",
 			assert: func(t *testing.T, payload map[string]any) {
 				t.Helper()
 				if got := payloadStringField(payload, "mode"); got != "STATEFUL" {
@@ -518,10 +645,13 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 	for _, tc := range testCases {
 		project := testCreateTopLevelSectionProject(t)
 
-		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
-			ImplType:           "MetaControl",
-			ControlCodeObjType: &tc.controlCodeType,
-		}, DefaultStructuralMutationSettings())
+		input := CreateTopLevelSectionInput{
+			ImplType: "MetaControl",
+		}
+		if tc.controlCodeType != nil {
+			input.ControlCodeObjType = tc.controlCodeType
+		}
+		result, err := project.CreateTopLevelSection(input, DefaultStructuralMutationSettings())
 		if err != nil {
 			t.Fatalf("create %s meta control section: %v", tc.name, err)
 		}
@@ -536,8 +666,8 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 		if err != nil {
 			t.Fatalf("resolve %s meta control code object: %v", tc.name, err)
 		}
-		if got := payloadStringField(codeObjPayload, "type"); got != tc.controlCodeType {
-			t.Fatalf("expected control type %q, got %q", tc.controlCodeType, got)
+		if got := payloadStringField(codeObjPayload, "type"); got != tc.expectedType {
+			t.Fatalf("expected control type %q, got %q", tc.expectedType, got)
 		}
 
 		tc.assert(t, codeObjPayload)
@@ -554,8 +684,11 @@ func TestProjectCreateTopLevelSectionUsesSourceDefaultNamesForSingletonAndGenera
 		expectedName string
 	}{
 		{implType: "GlobalVariables", expectedName: "Global Variables"},
-		{implType: "GenPythonCode", expectedName: GeneratedPythonCodeSectionName},
-		{implType: "GenPythonMetadata", expectedName: GeneratedPythonMetadataSectionName},
+		{implType: "GenPythonCode", expectedName: "Generated Python Code"},
+		{implType: "GenPythonMetadata", expectedName: "Generated Python Metadata"},
+		{implType: "StateMachineStart", expectedName: "State Machine Start"},
+		{implType: "StateMachineGate", expectedName: "State Machine Gate"},
+		{implType: "StateMachineEnd", expectedName: "State Machine End"},
 	}
 
 	for _, tc := range testCases {

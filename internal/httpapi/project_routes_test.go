@@ -2016,6 +2016,97 @@ func TestRegisterProjectRoutesCreateTopLevelSectionReturnsMetaControlParamIDAndH
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionSupportsFullMetaControlTypeFamily(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	testCases := []struct {
+		name         string
+		controlType  *string
+		expectedType string
+	}{
+		{name: "default omitted", expectedType: "SliderParam"},
+		{name: "code", controlType: stringPointer("CodeParam"), expectedType: "CodeParam"},
+		{name: "text", controlType: stringPointer("TextParam"), expectedType: "TextParam"},
+		{name: "date", controlType: stringPointer("DateParam"), expectedType: "DateParam"},
+		{name: "time", controlType: stringPointer("TimeParam"), expectedType: "TimeParam"},
+		{name: "text area", controlType: stringPointer("TextAreaParam"), expectedType: "TextAreaParam"},
+		{name: "slider", controlType: stringPointer("SliderParam"), expectedType: "SliderParam"},
+		{name: "rotary", controlType: stringPointer("RotaryParam"), expectedType: "RotaryParam"},
+		{name: "switch", controlType: stringPointer("SwitchParam"), expectedType: "SwitchParam"},
+		{name: "color picker", controlType: stringPointer("ColorPickerParam"), expectedType: "ColorPickerParam"},
+		{name: "dropdown", controlType: stringPointer("DropdownParam"), expectedType: "DropdownParam"},
+		{name: "password", controlType: stringPointer("PasswordParam"), expectedType: "PasswordParam"},
+		{name: "button", controlType: stringPointer("ButtonParam"), expectedType: "ButtonParam"},
+		{name: "dropzone", controlType: stringPointer("DropzoneParam"), expectedType: "DropzoneParam"},
+	}
+
+	for _, tc := range testCases {
+		requestPayload := map[string]any{
+			"projectConfigId": "project-alpha",
+			"implType":        "MetaControl",
+		}
+		if tc.controlType != nil {
+			requestPayload["controlCodeObjType"] = *tc.controlType
+		}
+		body, err := json.Marshal(requestPayload)
+		if err != nil {
+			t.Fatalf("marshal %s request: %v", tc.name, err)
+		}
+
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteCreateTopLevelSection,
+			strings.NewReader(string(body)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s meta control create, got %d with body %q", tc.name, response.Code, response.Body.String())
+		}
+
+		var payload projectstate.CreateTopLevelSectionResult
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode %s createTopLevelSection response: %v", tc.name, err)
+		}
+		if payload.MetaControlParamID == nil || strings.TrimSpace(*payload.MetaControlParamID) == "" {
+			t.Fatalf("expected meta control param id for %s, got %#v", tc.name, payload)
+		}
+
+		project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+		if err != nil {
+			t.Fatalf("project snapshot after %s meta control create: %v", tc.name, err)
+		}
+		codeObjPayload, _, _, _, err := project.ResolveSectionCodeObject(payload.SectionID, *payload.MetaControlParamID)
+		if err != nil {
+			t.Fatalf("resolve %s meta control code object: %v", tc.name, err)
+		}
+		if got := payloadStringField(codeObjPayload, "type"); got != tc.expectedType {
+			t.Fatalf("expected %s control type %q, got %q", tc.name, tc.expectedType, got)
+		}
+	}
+}
+
 func TestRegisterProjectRoutesCreateTopLevelSectionReturns422ForInvalidInitialName(t *testing.T) {
 	t.Parallel()
 
@@ -4976,14 +5067,14 @@ func TestRegisterProjectRoutesCreateChildSectionsSupportsSourceSingletonAndGener
 		{
 			name:         "generated python code",
 			implType:     "GenPythonCode",
-			expectedName: projectstate.GeneratedPythonCodeSectionName,
+			expectedName: "Generated Python Code",
 			expectedKind: projectstate.SectionKindGenerated,
 			expectedGen:  projectstate.GeneratedSectionKindPythonCode,
 		},
 		{
 			name:         "generated python metadata",
 			implType:     "GenPythonMetadata",
-			expectedName: projectstate.GeneratedPythonMetadataSectionName,
+			expectedName: "Generated Python Metadata",
 			expectedKind: projectstate.SectionKindGenerated,
 			expectedGen:  projectstate.GeneratedSectionKindPythonMetadata,
 		},
@@ -10242,6 +10333,14 @@ func decodeProjectRouteRawObject(t *testing.T, payload json.RawMessage) map[stri
 		t.Fatalf("decode raw object %q: %v", string(payload), err)
 	}
 	return object
+}
+
+func payloadStringField(payload map[string]any, key string) string {
+	if payload == nil {
+		return ""
+	}
+	value, _ := payload[key].(string)
+	return value
 }
 
 func mustMarshalProjectRouteObject(t *testing.T, value map[string]any) json.RawMessage {

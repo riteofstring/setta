@@ -383,6 +383,7 @@ func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *t
 	testCases := []struct {
 		name          string
 		implType      string
+		expectedName  string
 		expectedKind  SectionKind
 		expectedGen   GeneratedSectionKind
 		assertPayload func(*testing.T, map[string]any)
@@ -390,6 +391,7 @@ func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *t
 		{
 			name:         "global variables",
 			implType:     "GlobalVariables",
+			expectedName: "Global Variables",
 			expectedKind: SectionKind("frontend"),
 			assertPayload: func(t *testing.T, payload map[string]any) {
 				t.Helper()
@@ -404,6 +406,7 @@ func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *t
 		{
 			name:         "generated python code",
 			implType:     "GenPythonCode",
+			expectedName: "Generated Python Code",
 			expectedKind: SectionKindGenerated,
 			expectedGen:  GeneratedSectionKindPythonCode,
 			assertPayload: func(t *testing.T, payload map[string]any) {
@@ -419,6 +422,7 @@ func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *t
 		{
 			name:         "generated python metadata",
 			implType:     "GenPythonMetadata",
+			expectedName: "Generated Python Metadata",
 			expectedKind: SectionKindGenerated,
 			expectedGen:  GeneratedSectionKindPythonMetadata,
 			assertPayload: func(t *testing.T, payload map[string]any) {
@@ -456,6 +460,9 @@ func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *t
 		_, _, impl, err := project.ResolveSection(createdID)
 		if err != nil {
 			t.Fatalf("resolve %s child section: %v", tc.name, err)
+		}
+		if got := project.Sections[createdID].Name; got != tc.expectedName {
+			t.Fatalf("expected %s child name %q, got %q", tc.name, tc.expectedName, got)
 		}
 		if impl.Kind != tc.expectedKind {
 			t.Fatalf("expected %s kind %q, got %q", tc.name, tc.expectedKind, impl.Kind)
