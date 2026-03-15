@@ -122,3 +122,7 @@ categorize them.
   `ignorePatterns` override row are now proved too; keep harvesting these
   adjacent service-only proofs while the owner is open, but stop once the next
   remaining row would need broader surface setup rather than one focused test
+- The binary multipart >1 MB acceptance row is now proved too; the same rule
+  applies on the binary owner as on file browser: close the easy direct route
+  proofs while they are near each other, then pivot once only broader setup
+  remains
