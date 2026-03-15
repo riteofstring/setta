@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { loadProjectConfig } from "state/actions/project/loadProject";
-import { useProjectLoading, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { useHotReload } from "utils/hotReload";
