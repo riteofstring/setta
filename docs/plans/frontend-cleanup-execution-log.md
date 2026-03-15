@@ -4056,3 +4056,33 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/projectChatWindowingState.ts` so
     section binding/title-chatId reducers stop living beside section/canvas
     transition helpers.
+
+## 2026-03-15 10:50:27 PDT
+
+- Slice completed: split project chat windowing section and metadata state
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingState.ts`
+  - `frontend/src/state/actions/projectChatWindowingSectionState.ts`
+  - `frontend/src/state/actions/projectChatWindowingMetadataState.ts`
+  - `frontend/src/state/actions/projectChatWindowingMetadataState.test.ts`
+  - `frontend/src/state/actions/projectChatWindowSectionCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowMetadataCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
+  - `frontend/src/state/actions/projectChatWindowing.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowingMetadataState.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowingState.ts src/state/actions/projectChatWindowingSectionState.ts src/state/actions/projectChatWindowingMetadataState.ts src/state/actions/projectChatWindowingMetadataState.test.ts src/state/actions/projectChatWindowSectionCommands.ts src/state/actions/projectChatWindowMetadataCommands.ts src/state/actions/projectChatWindowingCanvasBoot.ts src/state/actions/projectChatWindowingTrackedGitPane.ts src/state/actions/projectChatWindowing.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `34dad359c80886d374045f72327717e819b216e8`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/websocketLifecycle.ts` so websocket
+    connection lifecycle, reconnect timing, and listener/status coordination
+    stop living in one shared file.
