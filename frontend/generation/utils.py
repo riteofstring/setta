@@ -7,7 +7,6 @@ from collections import defaultdict
 from collections.abc import Sequence as ABCSequence
 from dataclasses import MISSING, dataclass, fields, is_dataclass
 from enum import Enum
-from pathlib import Path
 from typing import (
     Annotated,
     Any,
@@ -26,10 +25,6 @@ from typing import (
 
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
-
-
-def resolve_generation_path(script_file: str, relative_path: Path) -> Path:
-    return (Path(script_file).resolve().parent / relative_path).resolve()
 
 
 def format_generated_code(output_file):
@@ -426,3 +421,26 @@ def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args}):
 """
 
     return code
+
+
+def get_impl_unions(name_filters: list[str], exclusion_filters: list[str]):
+    import setta.types.generated.unions
+
+    unions = []
+
+    for name in dir(setta.types.generated.unions):
+        if name.startswith("_"):
+            continue
+
+        if not all(n in name for n in name_filters):
+            continue
+        if any(n in name for n in exclusion_filters):
+            continue
+
+        attr = getattr(setta.types.generated.unions, name)
+
+        origin = get_origin(attr)
+        if origin in (Union, types.UnionType):
+            unions.append((name, attr))
+
+    return unions
