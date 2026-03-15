@@ -1503,6 +1503,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
 				ModePolicy: modePolicy,
 				Profiles:   agentProfileStore,
+				Deployment: deploymentRuntime,
 			}); err != nil {
 				panic(err)
 			}

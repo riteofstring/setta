@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 )
 
@@ -22,6 +23,7 @@ const RouteDeleteAgentProfile = "/deleteAgentProfile"
 type AgentProfileRouteDependencies struct {
 	ModePolicy modes.Policy
 	Profiles   *agentprofiles.Store
+	Deployment *deployments.Runtime
 }
 
 type createAgentProfileRequest struct {
@@ -69,25 +71,68 @@ func RegisterAgentProfileRoutes(router chi.Router, deps AgentProfileRouteDepende
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Profiles == nil {
-		return fmt.Errorf("agent profile store is required in ide mode")
+	if deps.Profiles == nil {
+		return fmt.Errorf("agent profile store is required")
+	}
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetAgentProfiles, getAgentProfilesHandler(deps.Profiles))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAgentProfile, getAgentProfileHandler(deps.Profiles))
+	router.Get(RouteGetAgentProfiles, getAgentProfilesHandler(deps))
+	router.Post(RouteGetAgentProfile, getAgentProfileHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateAgentProfile, createAgentProfileHandler(deps.Profiles))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateAgentProfile, updateAgentProfileHandler(deps.Profiles))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteAgentProfile, deleteAgentProfileHandler(deps.Profiles))
 	return nil
 }
 
-func getAgentProfilesHandler(store *agentprofiles.Store) http.HandlerFunc {
+func ensureAgentProfileReadsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AgentProfileRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if err := requestInfo.Policy.RequireNotLauncher(); err != nil {
+		if writeModesError(w, r, err) {
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
+func getAgentProfilesHandler(deps AgentProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if !ensureAgentProfileReadsAllowed(w, r, deps) {
+			return
+		}
+		if deps.Profiles == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		profiles, err := store.List()
+		profiles, err := deps.Profiles.List()
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -96,9 +141,12 @@ func getAgentProfilesHandler(store *agentprofiles.Store) http.HandlerFunc {
 	}
 }
 
-func getAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
+func getAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if !ensureAgentProfileReadsAllowed(w, r, deps) {
+			return
+		}
+		if deps.Profiles == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -114,7 +162,7 @@ func getAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "profile_id_required", "Profile id is required.")
 			return
 		}
-		profile, err := store.Get(profileID)
+		profile, err := deps.Profiles.Get(profileID)
 		if err != nil {
 			if writeAgentProfileStoreError(w, r, err) {
 				return

@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 )
 
@@ -407,16 +408,135 @@ func TestRegisterAgentProfileRoutesRejectMissingDeleteProfileID(t *testing.T) {
 	}
 }
 
-func TestRegisterAgentProfileRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterAgentProfileRoutesAllowDeploymentReadsWhenLLMAccessEnabled(t *testing.T) {
 	t.Parallel()
 
 	store := newAgentProfileRouteTestStore(t)
-	handler := newAgentProfileRouteTestHandler(t, config.ModeShare, store)
+	if err := store.Write([]agentprofiles.Profile{
+		newAgentProfileRouteTestProfile("profile-1", "Planner"),
+	}); err != nil {
+		t.Fatalf("write profiles: %v", err)
+	}
+	testCases := []struct {
+		name string
+		mode config.Mode
+		path string
+		body string
+	}{
+		{name: "share list", mode: config.ModeShare, path: RouteGetAgentProfiles},
+		{name: "share get", mode: config.ModeShare, path: RouteGetAgentProfile, body: `{"profileId":"profile-1"}`},
+		{name: "app list", mode: config.ModeApp, path: RouteGetAgentProfiles},
+		{name: "app get", mode: config.ModeApp, path: RouteGetAgentProfile, body: `{"profileId":"profile-1"}`},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:   testCase.mode,
+				Policy: map[string]any{"allowLLM": true},
+			})
+			handler := newAgentProfileRouteTestHandler(t, testCase.mode, store, deploymentRuntime)
+
+			method := http.MethodGet
+			var body io.Reader
+			if testCase.body != "" {
+				method = http.MethodPost
+				body = strings.NewReader(testCase.body)
+			}
+			request := httptest.NewRequest(method, "/api"+testCase.path, body)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+			if testCase.path == RouteGetAgentProfiles {
+				var profiles []agentprofiles.Profile
+				if err := json.Unmarshal(response.Body.Bytes(), &profiles); err != nil {
+					t.Fatalf("decode profiles: %v", err)
+				}
+				if len(profiles) != 1 || profiles[0].ID != "profile-1" {
+					t.Fatalf("unexpected profiles payload %#v", profiles)
+				}
+				return
+			}
+			var profile agentprofiles.Profile
+			if err := json.Unmarshal(response.Body.Bytes(), &profile); err != nil {
+				t.Fatalf("decode profile: %v", err)
+			}
+			if profile.ID != "profile-1" || profile.Name != "Planner" {
+				t.Fatalf("unexpected profile payload %#v", profile)
+			}
+		})
+	}
+}
+
+func TestRegisterAgentProfileRoutesBlockDeploymentReadsWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	testCases := []struct {
+		name string
+		mode config.Mode
+		path string
+		body string
+	}{
+		{name: "share list", mode: config.ModeShare, path: RouteGetAgentProfiles},
+		{name: "share get", mode: config.ModeShare, path: RouteGetAgentProfile, body: `{"profileId":"profile-1"}`},
+		{name: "app list", mode: config.ModeApp, path: RouteGetAgentProfiles},
+		{name: "app get", mode: config.ModeApp, path: RouteGetAgentProfile, body: `{"profileId":"profile-1"}`},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: testCase.mode,
+			})
+			handler := newAgentProfileRouteTestHandler(t, testCase.mode, store, deploymentRuntime)
+
+			method := http.MethodGet
+			var body io.Reader
+			if testCase.body != "" {
+				method = http.MethodPost
+				body = strings.NewReader(testCase.body)
+			}
+			request := httptest.NewRequest(method, "/api"+testCase.path, body)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "llm_access_forbidden" {
+				t.Fatalf("expected llm_access_forbidden, got %#v", payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAgentProfileRoutesBlocksShareModeMutations(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:   config.ModeShare,
+		Policy: map[string]any{"allowLLM": true},
+	})
+	handler := newAgentProfileRouteTestHandler(t, config.ModeShare, store, deploymentRuntime)
 	testCases := []struct {
 		path string
 		body string
 	}{
-		{path: RouteGetAgentProfile, body: `{"profileId":"profile-1"}`},
 		{path: RouteCreateAgentProfile, body: `{"name":"Planner"}`},
 		{path: RouteUpdateAgentProfile, body: `{"profile":{"id":"profile-1","name":"Planner"}}`},
 		{path: RouteDeleteAgentProfile, body: `{"profileId":"profile-1"}`},
@@ -441,8 +561,18 @@ func TestRegisterAgentProfileRoutesBlocksShareMode(t *testing.T) {
 	}
 }
 
-func newAgentProfileRouteTestHandler(t *testing.T, mode config.Mode, store *agentprofiles.Store) http.Handler {
+func newAgentProfileRouteTestHandler(t *testing.T, mode config.Mode, store *agentprofiles.Store, deploymentRuntimes ...*deployments.Runtime) http.Handler {
 	t.Helper()
+
+	var deploymentRuntime *deployments.Runtime
+	if len(deploymentRuntimes) != 0 {
+		deploymentRuntime = deploymentRuntimes[0]
+	}
+	if deploymentRuntime == nil && (mode == config.ModeShare || mode == config.ModeApp) {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Mode: mode,
+		})
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -452,6 +582,7 @@ func newAgentProfileRouteTestHandler(t *testing.T, mode config.Mode, store *agen
 			if err := RegisterAgentProfileRoutes(r, AgentProfileRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
 				Profiles:   store,
+				Deployment: deploymentRuntime,
 			}); err != nil {
 				t.Fatalf("register agent profile routes: %v", err)
 			}

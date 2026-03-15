@@ -219,10 +219,6 @@ It covers:
     `runId` for `report_state_machine_signal`
   - current Go drops `runId` from that request-body transport, so direct HTTP
     signal-tool calls cannot satisfy the source contract
-  - source-baseline `getAgentProfiles` / `getAgentProfile` remain available
-    anywhere LLM access is allowed, including share/deployment reads
-  - current Go hard-gates every agent-profile route to IDE mode even though
-    current share/deployment UI still hydrates profile reads
   - source-baseline `setChartAreaDataPath` persists the literal `dataPath`
     string provided by the caller
   - current Go trims leading and trailing whitespace before persisting that
@@ -388,8 +384,8 @@ It covers:
     transport (`WS-04`)
   - two more proof-gap clusters around signal-routing edge variants and
     websocket broadcast proof (`WS-02`, `WS-05`)
-- The agent-profile slice mostly closes with proofs, but it adds one concrete
-  share-read gap (`AP-02`) plus one dormant realtime watcher row (`AP-04`).
+- The agent-profile slice now closes with proofs and retains one dormant
+  realtime watcher row (`AP-04`).
 - The status/server-mode/launcher slice mostly closes with proofs and now
   carries two broader proof-gap rows (`ST-03`, `LM-01`) plus two dormant
   mode-guard rows (`LM-03`, `LH-04`).
@@ -825,7 +821,7 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `AP-01` | In IDE mode, `getAgentProfiles`, `getAgentProfile`, `createAgentProfile`, `updateAgentProfile`, and `deleteAgentProfile` roundtrip the full profile payload, preserve persisted order, and normalize empty `toolAllowlist` to `[]`. | Source route flow: `tests/routers/test_agentic_routes.py`; source routes: `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile,route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}`; source model: `backend/setta/types/agentic.py::AgentProfile`. | Impl: `internal/httpapi/agent_profile_routes.go`; `internal/agentprofiles/store.go`; proof: `internal/httpapi/agent_profile_routes_test.go::{TestRegisterAgentProfileRoutesListsProfiles,TestRegisterAgentProfileRoutesReturnsEmptyList,TestRegisterAgentProfileRoutesGetsProfile,TestRegisterAgentProfileRoutesCreatesProfile,TestRegisterAgentProfileRoutesUpdatesProfile,TestRegisterAgentProfileRoutesDeletesProfile}`; store proof: `internal/agentprofiles/store_test.go::{TestStoreWriteListAndGetRoundTrip,TestStoreCreateUpdateAndDeleteRoundTrip}`. | `Proved` | Current callers still hydrate and mutate profiles through `frontend/src/state/actions/ai.ts` and `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`. |
-| `AP-02` | Agent-profile reads are LLM-gated rather than IDE-gated, so share/deployment surfaces with allowed LLM access can still load profile lists/details even though mutations remain IDE-only. | Source read routes: `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile}`; source mutation routes: `backend/setta/routers/agentic.py::{route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}`; source/current frontend caller evidence: `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`; `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`. | Current Go wiring: `internal/httpapi/agent_profile_routes.go::RegisterAgentProfileRoutes` wraps every route in `RequireIDEMode`; current caller proof: `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`; `frontend/src/state/actions/ai.ts::loadAgentProfiles`. | `Missing` | Current share/deployment UI still performs profile-hydration reads, so this is a caller-backed read regression rather than a dormant source path. |
+| `AP-02` | Agent-profile reads are LLM-gated rather than IDE-gated, so share/deployment surfaces with allowed LLM access can still load profile lists/details even though mutations remain IDE-only. | Source read routes: `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile}`; source mutation routes: `backend/setta/routers/agentic.py::{route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}`; source/current frontend caller evidence: `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`; `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`. | Impl: `internal/httpapi/agent_profile_routes.go::{RegisterAgentProfileRoutes,ensureAgentProfileReadsAllowed}`; proof: `internal/httpapi/agent_profile_routes_test.go::{TestRegisterAgentProfileRoutesAllowDeploymentReadsWhenLLMAccessEnabled,TestRegisterAgentProfileRoutesBlockDeploymentReadsWhenLLMAccessDisabled,TestRegisterAgentProfileRoutesBlocksShareModeMutations}`; current caller proof: `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`; `frontend/src/state/actions/ai.ts::loadAgentProfiles`. | `Proved` | Go now allows `getAgentProfiles` and `getAgentProfile` in share/app mode when deployment policy enables LLM access, while keeping create/update/delete IDE-only. |
 | `AP-03` | MCP read tools `list_agent_profiles` and `get_agent_profile` list/fetch persisted profiles with read access metadata. | Source tools: `backend/setta/mcp/tools/agentic_tools.py::{list_agent_profiles,get_agent_profile}`. | Proof: `internal/mcpx/server_test.go::TestServerListAgentProfilesAndGetAgentProfile`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsAgentProfileReadToolsOverAuthenticatedSSE`. | `Proved` | |
 | `AP-04` | External edits to the stored agent-profile file push `AgentProfilesUpdated` websocket messages so connected frontends can refresh without an explicit reload. | Source watcher/broadcast path: `backend/setta/agentic/profile_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_agent_profiles_update`; source/current frontend receiver: `frontend/src/state/actions/websocketReceive.ts`. | Current Go evidence only retains the websocket enum in `internal/frontendbindings/websocket_support.go`; current frontend still has the receiver in `frontend/src/state/actions/websocketReceive.ts`, but current Go app/runtime has no equivalent watcher or broadcaster. | `Dormant / unproven caller` | Current frontend already hydrates profiles on load and applies optimistic create/update/delete updates locally, so this slice does not yet prove that external file-edit realtime remains required in the Go-era product. |
 
@@ -1209,9 +1205,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains thirty-seven concrete source-parity gaps:
+1. The matrix now contains thirty-six concrete source-parity gaps:
    `LS-11`, `LS-17`,
-   `US-05`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
+   `US-05`, `AH-04`, `FS-01`, `WS-01`, `WS-04`,
    `DP-08`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
@@ -1267,8 +1263,8 @@ It covers:
 18. The workflow-signal / AgentRunUpdated slice closes the scoped MCP-session
     contract, but it adds two real behavior gaps (`WS-01`, `WS-04`) plus two
     more proof-gap clusters (`WS-02`, `WS-05`).
-19. The agent-profile slice mostly closes with proofs, but it adds one real
-    behavior gap (`AP-02`) plus one dormant realtime row (`AP-04`).
+19. The agent-profile slice now closes with proofs and retains one dormant
+    realtime row (`AP-04`).
 20. The status/server-mode/launcher slice mostly closes with proofs, and it
     now carries two broader proof-gap rows (`ST-03`, `LM-01`) plus two
     dormant mode-guard rows (`LM-03`, `LH-04`).
@@ -1364,7 +1360,7 @@ It covers:
     than obvious implementation gaps.
 53. The next high-value steps are:
     - decide whether `US-05`,
-      `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
+      `AH-04`, `FS-01`, `WS-01`, `WS-04`,
       `DP-08`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
