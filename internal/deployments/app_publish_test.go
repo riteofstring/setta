@@ -1,0 +1,353 @@
+package deployments
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+	"time"
+
+	"setta/internal/appspec"
+	"setta/internal/projectstate"
+)
+
+func TestAppPublisherRequiresAppDefinition(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, simpleProjectDocument(false))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 0, 0, 0, time.UTC))
+
+	_, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-app",
+	})
+	if !errors.Is(err, ErrAppPublishAppDefinitionMissing) {
+		t.Fatalf("expected missing app definition error, got %v", err)
+	}
+}
+
+func TestAppPublisherRequiresConfiguredAppSpecPath(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{}))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 10, 0, 0, time.UTC))
+
+	_, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-app",
+	})
+	if !errors.Is(err, ErrAppPublishAppSpecPathRequired) {
+		t.Fatalf("expected missing app spec path error, got %v", err)
+	}
+}
+
+func TestAppPublisherRejectsInvalidStoredAppSpec(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	appSpecPath := "app_specs/custom.json"
+	writeAppSpecFile(t, settaFilesRoot, appSpecPath, map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "MissingComponent",
+		},
+		"elements": map[string]any{},
+	})
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
+		AppSpecPath: appSpecPath,
+	}))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 20, 0, 0, time.UTC))
+
+	_, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-app",
+	})
+	if !errors.Is(err, ErrAppPublishAppSpecInvalid) {
+		t.Fatalf("expected invalid app spec error, got %v", err)
+	}
+	var validationErr *AppPublishValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected app publish validation error, got %T", err)
+	}
+	if len(validationErr.Issues) == 0 {
+		t.Fatal("expected validation issues for invalid app spec")
+	}
+}
+
+func TestAppPublisherPublishesRelativeAppSpecPathWithAppPolicyDefaults(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	appSpecPath := "app_specs/custom.json"
+	appSpecPayload := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+	writeAppSpecFile(t, settaFilesRoot, appSpecPath, appSpecPayload)
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
+		AppSpecPath: appSpecPath,
+	}))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 30, 0, 0, time.UTC))
+
+	result, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-app",
+	})
+	if err != nil {
+		t.Fatalf("publish app deployment: %v", err)
+	}
+
+	if result.Manifest.DeploymentType != TypeApp {
+		t.Fatalf("expected app manifest type, got %q", result.Manifest.DeploymentType)
+	}
+	if result.Policy.AllowRun != true {
+		t.Fatalf("expected app deployments to allow run by default, got %#v", result.Policy)
+	}
+	if result.Policy.AllowVariantChanges {
+		t.Fatalf("expected app deployments to disable variant changes by default, got %#v", result.Policy)
+	}
+	if result.Policy.AllowLayoutChanges {
+		t.Fatalf("expected app deployments to disable layout changes by default, got %#v", result.Policy)
+	}
+
+	manifest, err := LoadManifest(result.Metadata.DeploymentRoot)
+	if err != nil {
+		t.Fatalf("load deployment manifest: %v", err)
+	}
+	if manifest.DeploymentType != TypeApp {
+		t.Fatalf("expected persisted app manifest type, got %q", manifest.DeploymentType)
+	}
+	policy, err := LoadPolicy(result.Metadata.DeploymentRoot)
+	if err != nil {
+		t.Fatalf("load deployment policy: %v", err)
+	}
+	if policy != result.Policy {
+		t.Fatalf("expected persisted app policy %#v, got %#v", result.Policy, policy)
+	}
+
+	publishedDocument := loadPublishedDocument(t, result.Metadata.DeploymentRoot)
+	if publishedDocument.AppDefinition == nil {
+		t.Fatal("expected published app definition")
+	}
+	if publishedDocument.AppDefinition.AppSpecPath != appSpecPath {
+		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, publishedDocument.AppDefinition.AppSpecPath)
+	}
+	publishedSpec, err := appspec.Read(result.Metadata.DeploymentRoot, appSpecPath)
+	if err != nil {
+		t.Fatalf("read published app spec: %v", err)
+	}
+	assertJSONValuesEqual(t, publishedSpec, appSpecPayload)
+}
+
+func TestAppPublisherPublishesAbsoluteAppSpecPathAsDeploymentRelativePath(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	appSpecPath := "app_specs/custom.json"
+	appSpecPayload := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+	writeAppSpecFile(t, settaFilesRoot, appSpecPath, appSpecPayload)
+	absoluteAppSpecPath := filepath.Join(settaFilesRoot, filepath.FromSlash(appSpecPath))
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
+		AppSpecPath: absoluteAppSpecPath,
+	}))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 40, 0, 0, time.UTC))
+
+	result, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-app",
+	})
+	if err != nil {
+		t.Fatalf("publish app deployment: %v", err)
+	}
+
+	publishedDocument := loadPublishedDocument(t, result.Metadata.DeploymentRoot)
+	if publishedDocument.AppDefinition == nil {
+		t.Fatal("expected published app definition")
+	}
+	if publishedDocument.AppDefinition.AppSpecPath != appSpecPath {
+		t.Fatalf("expected rebased app spec path %q, got %q", appSpecPath, publishedDocument.AppDefinition.AppSpecPath)
+	}
+
+	publishedSpec, err := appspec.Read(result.Metadata.DeploymentRoot, appSpecPath)
+	if err != nil {
+		t.Fatalf("read published app spec: %v", err)
+	}
+	assertJSONValuesEqual(t, publishedSpec, appSpecPayload)
+}
+
+func TestAppPublisherRejectsRunSnapshotModeNever(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	appSpecPath := "app_specs/custom.json"
+	writeAppSpecFile(t, settaFilesRoot, appSpecPath, map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	})
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
+		AppSpecPath: appSpecPath,
+	}))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 50, 0, 0, time.UTC))
+
+	never := RunSnapshotModeNever
+	_, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-app",
+		PolicyOverrides: &AppPolicyOverrides{
+			RunSnapshotMode: &never,
+		},
+	})
+	if !errors.Is(err, ErrDeploymentRunSnapshotModeNeverDenied) {
+		t.Fatalf("expected never snapshot mode rejection, got %v", err)
+	}
+}
+
+func TestAppPublisherCopiesListenerEntrypoint(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	appSpecPath := "app_specs/custom.json"
+	writeAppSpecFile(t, settaFilesRoot, appSpecPath, map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	})
+	listenerRelativePath := filepath.ToSlash(filepath.Join("listeners", "app.py"))
+	listenerSourcePath := filepath.Join(workspaceRoot, "listeners", "app.py")
+	writeTextFile(t, listenerSourcePath, "print('listener')\n")
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
+		AppSpecPath: appSpecPath,
+	}))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC))
+
+	result, err := publisher.Publish(context.Background(), AppPublishRequest{
+		ProjectState:       runtime,
+		ProjectID:          "project-alpha",
+		DeploymentName:     "demo-app",
+		ListenerEntrypoint: listenerRelativePath,
+		ListenerEnabled:    true,
+	})
+	if err != nil {
+		t.Fatalf("publish app deployment: %v", err)
+	}
+
+	if result.Manifest.Listener == nil {
+		t.Fatal("expected listener config in app manifest")
+	}
+	if result.Manifest.Listener.Entrypoint != "listener/app.py" {
+		t.Fatalf("expected listener entrypoint listener/app.py, got %q", result.Manifest.Listener.Entrypoint)
+	}
+	content, err := os.ReadFile(filepath.Join(result.Metadata.DeploymentRoot, "listener", "app.py"))
+	if err != nil {
+		t.Fatalf("read copied listener entrypoint: %v", err)
+	}
+	if string(content) != "print('listener')\n" {
+		t.Fatalf("unexpected listener file content %q", string(content))
+	}
+}
+
+func openTestAppPublisher(t *testing.T, settaFilesRoot string, workspaceRoot string, publishedAt time.Time) *AppPublisher {
+	t.Helper()
+
+	catalogRoot, err := DefaultCatalogRoot(settaFilesRoot)
+	if err != nil {
+		t.Fatalf("default catalog root: %v", err)
+	}
+	catalog, err := NewCatalog(CatalogOptions{Root: catalogRoot})
+	if err != nil {
+		t.Fatalf("new deployment catalog: %v", err)
+	}
+	publisher, err := NewAppPublisher(AppPublisherOptions{
+		Catalog:        catalog,
+		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
+		Now: func() time.Time {
+			return publishedAt
+		},
+	})
+	if err != nil {
+		t.Fatalf("new app publisher: %v", err)
+	}
+	return publisher
+}
+
+func appPublishDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
+	document := simpleProjectDocument(false)
+	document.AppDefinition = appDefinition
+	normalized, err := document.Normalized()
+	if err != nil {
+		panic(err)
+	}
+	return normalized
+}
+
+func writeAppSpecFile(t *testing.T, root string, path string, payload any) {
+	t.Helper()
+
+	if err := appspec.Write(root, path, payload); err != nil {
+		t.Fatalf("write app spec %q: %v", path, err)
+	}
+}
+
+func assertJSONValuesEqual(t *testing.T, got any, want any) {
+	t.Helper()
+
+	normalizedGot := normalizeJSONValue(t, got)
+	normalizedWant := normalizeJSONValue(t, want)
+	if !reflect.DeepEqual(normalizedGot, normalizedWant) {
+		t.Fatalf("expected json value %#v, got %#v", normalizedWant, normalizedGot)
+	}
+}
+
+func normalizeJSONValue(t *testing.T, value any) any {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("encode json value: %v", err)
+	}
+	var normalized any
+	if err := json.Unmarshal(encoded, &normalized); err != nil {
+		t.Fatalf("decode json value: %v", err)
+	}
+	return normalized
+}
