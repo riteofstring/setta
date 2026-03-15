@@ -608,6 +608,124 @@ func TestProjectSynchronizerTypeCheckProjectRefreshesProjectDocuments(t *testing
 	}
 }
 
+// Non-Python/plugin-language code sections should materialize through the same
+// project snapshot path as Python sections and update the shared diagnostics
+// registry through the stored callback.
+func TestProjectSynchronizerRoutesPluginLanguageDiagnosticsThroughProjectSnapshot(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        syncer,
+		Diagnostics:    diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	document, sectionPath := lspPluginLanguageDiagnosticsDocument(t, settaFilesRoot)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize plugin-language diagnostics document: %v", err)
+	}
+
+	tracked, ok := syncer.synced[sectionPath]
+	if !ok {
+		t.Fatalf("expected tracked plugin-language document at %q, got %#v", sectionPath, syncer.synced)
+	}
+	if tracked.LanguageID != "typescript" {
+		t.Fatalf("expected tracked languageID typescript, got %q", tracked.LanguageID)
+	}
+	if tracked.Callback == nil {
+		t.Fatal("expected plugin-language diagnostics callback")
+	}
+
+	version := 1
+	uri, err := pathToURI(sectionPath)
+	if err != nil {
+		t.Fatalf("path to uri: %v", err)
+	}
+	tracked.Callback(PublishDiagnosticsParams{
+		URI:     uri,
+		Version: &version,
+		Diagnostics: []Diagnostic{{
+			Message:  "Fixture TypeScript diagnostic",
+			Severity: 1,
+			Source:   "fixture-ts-lsp",
+			Code:     "fixture-ts",
+			Range: Range{
+				Start: Position{Line: 0, Character: 0},
+				End:   Position{Line: 0, Character: 5},
+			},
+		}},
+	})
+
+	snapshot := diagnostics.Snapshot("project-alpha")
+	stored := snapshot.CodeSections["typescript-runner"]
+	if len(stored) != 1 {
+		t.Fatalf("expected one plugin-language diagnostic, got %#v", snapshot.CodeSections)
+	}
+	if stored[0].Message != "Fixture TypeScript diagnostic" || stored[0].Code != "fixture-ts" {
+		t.Fatalf("unexpected stored plugin-language diagnostics %#v", stored)
+	}
+}
+
+// Manual type-check should refresh only the requested project's tracked
+// documents while still including plugin-language code sections alongside the
+// project's Python and generated Python documents.
+func TestProjectSynchronizerTypeCheckProjectRefreshesPluginAndGeneratedDocumentsWithoutOtherProjects(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        syncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	document, paths := lspTypeCheckPluginLanguageDocument(t, settaFilesRoot)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+
+	if err := synchronizer.TypeCheckProject(ctx, document, "project-alpha"); err != nil {
+		t.Fatalf("type check project: %v", err)
+	}
+
+	if syncer.synced != nil {
+		t.Fatalf("expected type check to use refresh, got sync %#v", syncer.synced)
+	}
+	if len(syncer.refreshed) != 4 {
+		t.Fatalf("expected four refreshed target-project documents, got %#v", syncer.refreshed)
+	}
+	for _, path := range []string{
+		paths.alphaPython,
+		paths.alphaTypeScript,
+		paths.alphaGenerated,
+		paths.alphaMetadata,
+	} {
+		if _, ok := syncer.refreshed[path]; !ok {
+			t.Fatalf("expected target project refresh to include %q, got %#v", path, syncer.refreshed)
+		}
+	}
+	if syncer.refreshed[paths.alphaTypeScript].LanguageID != "typescript" {
+		t.Fatalf("expected plugin-language refresh to keep typescript language id, got %#v", syncer.refreshed[paths.alphaTypeScript])
+	}
+	if _, ok := syncer.refreshed[paths.bravoPython]; ok {
+		t.Fatalf("did not expect unrelated project path %q in refresh set %#v", paths.bravoPython, syncer.refreshed)
+	}
+}
+
 // Manual restart should close existing sessions before re-materializing the
 // current tracked document set.
 func TestProjectSynchronizerRestartClosesBeforeRematerializing(t *testing.T) {
@@ -769,6 +887,207 @@ func lspDiskBackedTestDocument(t *testing.T, settaFilesRoot string) (projectstat
 
 	sectionPath := filepath.Join(settaFilesRoot, "code", "run.py")
 	return document, sectionPath
+}
+
+func lspPluginLanguageDiagnosticsDocument(t *testing.T, settaFilesRoot string) (projectstate.Document, string) {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Plugin Diagnostics Project",
+				SectionVariantMap: map[string]string{
+					"typescript-runner": "typescript-runner-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"typescript-runner": {
+						ID:               "typescript-runner",
+						Name:             "TypeScript Runner",
+						VariantIDs:       []string{"typescript-runner-variant"},
+						DefaultVariantID: "typescript-runner-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"typescript-runner-variant": {ID: "typescript-runner-variant", ImplID: "typescript-runner-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"typescript-runner-impl": {
+						ID:   "typescript-runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguage("typescript"),
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/plugin-typescript.ts",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"typescript-runner-impl",
+							"type":"Code",
+							"code":"const value: string = 'hi';\n",
+							"codeLanguage":"typescript",
+							"children":[]
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize plugin-language diagnostics document: %v", err)
+	}
+
+	return document, filepath.Join(settaFilesRoot, "code", "plugin-typescript.ts")
+}
+
+type lspTypeCheckPluginLanguagePaths struct {
+	alphaPython     string
+	alphaTypeScript string
+	alphaGenerated  string
+	alphaMetadata   string
+	bravoPython     string
+}
+
+func lspTypeCheckPluginLanguageDocument(t *testing.T, settaFilesRoot string) (projectstate.Document, lspTypeCheckPluginLanguagePaths) {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha Project",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: "python",
+						Payload: projectstate.RawJSON(`{
+							"language":"python",
+							"generateMetadata":true
+						}`),
+					},
+				},
+				SectionVariantMap: map[string]string{
+					"python-runner":     "python-runner-variant",
+					"typescript-runner": "typescript-runner-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"python-runner": {
+						ID:               "python-runner",
+						Name:             "Python Runner",
+						VariantIDs:       []string{"python-runner-variant"},
+						DefaultVariantID: "python-runner-variant",
+					},
+					"typescript-runner": {
+						ID:               "typescript-runner",
+						Name:             "TypeScript Runner",
+						VariantIDs:       []string{"typescript-runner-variant"},
+						DefaultVariantID: "typescript-runner-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"python-runner-variant":     {ID: "python-runner-variant", ImplID: "python-runner-impl"},
+					"typescript-runner-variant": {ID: "typescript-runner-variant", ImplID: "typescript-runner-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"python-runner-impl": {
+						ID:   "python-runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/alpha-runner.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"python-runner-impl",
+							"type":"Code",
+							"code":"print('alpha')\n",
+							"codeLanguage":"python",
+							"children":[]
+						}`),
+					},
+					"typescript-runner-impl": {
+						ID:   "typescript-runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguage("typescript"),
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/alpha-runner.ts",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"typescript-runner-impl",
+							"type":"Code",
+							"code":"const value: string = 'alpha';\n",
+							"codeLanguage":"typescript",
+							"children":[]
+						}`),
+					},
+				},
+			},
+			"project-bravo": {
+				ID:   "project-bravo",
+				Name: "Bravo Project",
+				SectionVariantMap: map[string]string{
+					"python-runner": "python-runner-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"python-runner": {
+						ID:               "python-runner",
+						Name:             "Python Runner",
+						VariantIDs:       []string{"python-runner-variant"},
+						DefaultVariantID: "python-runner-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"python-runner-variant": {ID: "python-runner-variant", ImplID: "python-runner-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"python-runner-impl": {
+						ID:   "python-runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/bravo-runner.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"python-runner-impl",
+							"type":"Code",
+							"code":"print('bravo')\n",
+							"codeLanguage":"python",
+							"children":[]
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize type-check plugin-language document: %v", err)
+	}
+
+	return document, lspTypeCheckPluginLanguagePaths{
+		alphaPython:     filepath.Join(settaFilesRoot, "code", "alpha-runner.py"),
+		alphaTypeScript: filepath.Join(settaFilesRoot, "code", "alpha-runner.ts"),
+		alphaGenerated: filepath.Join(
+			settaFilesRoot,
+			filepath.FromSlash(projectstate.GeneratedPythonCodeRelativePath("Alpha Project")),
+		),
+		alphaMetadata: filepath.Join(
+			settaFilesRoot,
+			filepath.FromSlash(projectstate.GeneratedPythonMetadataRelativePath("Alpha Project")),
+		),
+		bravoPython: filepath.Join(settaFilesRoot, "code", "bravo-runner.py"),
+	}
 }
 
 func lspCodeSectionDiagnosticsDocument(
