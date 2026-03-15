@@ -1404,9 +1404,18 @@ class SettaListener:
             )
             self._project_config_id = incoming_project_id
 
-        dependency_metadata = self._resolve_snapshot_dependency_metadata(
-            dependency_catalog
-        )
+        if dependency_catalog is not None:
+            dependency_metadata = ListenerDependencyMetadata.from_catalog(
+                dependency_catalog
+            )
+        elif self._latest_dependency_metadata is not None:
+            dependency_metadata = self._latest_dependency_metadata
+        else:
+            current_runtime_state = self._runtime_state
+            if current_runtime_state is None:
+                dependency_metadata = None
+            else:
+                dependency_metadata = current_runtime_state.dependency_metadata
         if dependency_metadata is None:
             logger.warning(
                 (
@@ -1550,19 +1559,6 @@ class SettaListener:
                 )
                 continue
         return values_by_name, resolved_dependency_keys
-
-    def _resolve_snapshot_dependency_metadata(
-        self,
-        dependency_catalog: ListenerDependencyCatalog | None,
-    ) -> ListenerDependencyMetadata | None:
-        if dependency_catalog is not None:
-            return ListenerDependencyMetadata.from_catalog(dependency_catalog)
-        if self._latest_dependency_metadata is not None:
-            return self._latest_dependency_metadata
-        runtime_state = self._runtime_state
-        if runtime_state is None:
-            return None
-        return runtime_state.dependency_metadata
 
     def _build_dependency_cache_from_runtime_state(
         self,
