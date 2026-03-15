@@ -43,7 +43,6 @@ import { shallow } from "zustand/shallow";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
-import { useProjectSurfaceGlobalListeners } from "./useProjectSurfaceGlobalListeners";
 
 type StandaloneSurfaceTarget =
   | {
@@ -261,8 +260,6 @@ type StandaloneProjectSurfacePageLoadState = {
   is404: boolean;
 };
 
-const UNTRACKED_STANDALONE_AGENT_RUNS = null;
-
 export function StandaloneProjectSurfacePage() {
   const [doneLoading, is404] = useLoadProjectConfig();
   return (
@@ -277,7 +274,6 @@ export function StandaloneProjectSurfacePageWithLoadState({
   doneLoading,
   is404,
 }: StandaloneProjectSurfacePageLoadState) {
-  useProjectSurfaceGlobalListeners();
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
   const navigate = useNavigate();
@@ -326,20 +322,14 @@ export function StandaloneProjectSurfacePageWithLoadState({
     }),
     shallow,
   );
-  const agentRuns = useAIStore((state) =>
-    target.kind === "project_chat_thread"
-      ? state.agentRuns
-      : UNTRACKED_STANDALONE_AGENT_RUNS,
-  );
+  const agentRuns = useAIStore((state) => state.agentRuns);
   const projectChatHistoryEntries = useMemo(
     () =>
-      target.kind === "project_chat_thread" && agentRuns
-        ? buildChatHistoryEntries(agentRuns, {
-            projectConfigId,
-            unscopedOnly: true,
-          })
-        : [],
-    [agentRuns, projectConfigId, target.kind],
+      buildChatHistoryEntries(agentRuns, {
+        projectConfigId,
+        unscopedOnly: true,
+      }),
+    [agentRuns, projectConfigId],
   );
   const standaloneProjectChatThreadEntry = useMemo(() => {
     if (target.kind !== "project_chat_thread") {
