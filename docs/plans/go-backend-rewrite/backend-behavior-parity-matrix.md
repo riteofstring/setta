@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`c55610c15e8fab0a980c29cfebb9239068827dcd`
+`30bc767cbf82c8947fe3c73f0aef03716f061008`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -61,6 +61,7 @@ It currently covers:
 - password reveal helper and password-secret store behavior
 - text-block mutation and deployment-policy behavior
 - chart metadata mutation and deployment-policy behavior
+- browser section metadata mutation and deployment-policy behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -106,10 +107,10 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- The chart-metadata slice mostly closes with proofs, but it adds two more
-  caller-backed transport/runtime gaps plus one more dormant deployment-mode
-  boundary row.
-- Twenty-nine concrete parity gaps are already visible:
+- The chart- and browser-metadata slices mostly close with proofs, but they
+  add three more caller-backed transport/runtime gaps, one more active
+  deployment-policy gap, and one more dormant deployment-mode boundary row.
+- Thirty-one concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -173,6 +174,15 @@ Rows outside these slices are still pending.
     fail FastAPI/Pydantic validation with `422`
   - current Go normalizes chart-type payloads after JSON decode and returns
     `400` chart-mutation errors instead
+  - source-baseline invalid browser `viewMode` / saved-search `searchScope`
+    payloads fail FastAPI/Pydantic validation with `422`
+  - current Go trims those values, returns `400` browser-mutation errors, and
+    also coerces blank `searchScope` strings to `recursive`
+  - source-baseline browser metadata mutation routes stay mounted in
+    share/app sessions under `allowLayoutChanges`
+  - current Go mounts those routes only in IDE even though the current browser
+    UI still wires view-mode, saved-search, hide-column, and width mutations
+    through the shared layout surface
   - source-baseline plugin install rejects removed legacy scope
     `environment` with FastAPI/Pydantic `422` validation
   - current Go plugin install maps that payload to `400 PLUGIN_SCOPE_INVALID`
@@ -867,13 +877,21 @@ Rows outside these slices are still pending.
 | `CH-03` | Invalid `chartType` / `chartSettings.type` request payloads should fail source FastAPI/Pydantic validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded chart-type strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetChartTypeRequest,SetChartSettingsRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_chart_type,route_set_chart_settings}`. | Current Go normalizes post-decode in `internal/projectstate/chart_sections.go::{normalizeChartType,parseChartSettingsUpdate}` and maps failures through `internal/httpapi/project_routes.go::writeChartMutationError`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: current Go trims and returns `400 chart_type_invalid`, while the source typed request body would reject the same payload at framework validation time with `422`. |
 | `CH-04` | Source share/app sessions keep chart metadata mutation routes mounted and gate them with `allowParamChanges` instead of restricting them to IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_chart_area_data_path,route_set_chart_type,route_set_chart_settings}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::test_param_routes_blocked`. | Current Go mounts all three routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the IDE `ChartAreaSettings` surface via `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` and `frontend/src/components/Panes/UiEditor/SectionConfig/{SectionConfig,ChartAreaSettings}.tsx`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove any active deployment/share caller still exposes chart metadata editing in the Go-era product. |
 
+## Browser Section Metadata And Deployment Policy
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `BR-01` | Browser metadata mutations persist through latest-state hydration: column widths, `viewMode`, `hideColumn`, and `savedSearches` roundtrip, and omitted saved-search `searchScope` / `typeFilters` fields default to recursive scope plus all-true type filters. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_browser_column_widths,set_browser_area_view_mode,set_browser_hide_column,set_browser_saved_searches}`; source models/defaults: `backend/setta/types/section_impls.py::{BrowserSavedSearchTypeFilters,BrowserSavedSearch}`; source request model: `backend/setta/project_state/project_manager_types.py::SetBrowserSavedSearchesRequest`. | Impl: `internal/projectstate/browser_sections.go::{SetBrowserColumnWidths,SetBrowserAreaViewMode,SetBrowserHideColumn,SetBrowserSavedSearches,normalizeBrowserSavedSearches}`; proof: `internal/projectstate/browser_sections_test.go::TestRuntimeBrowserSectionMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState`. | `Proved` | Current Go proof covers width persistence, `viewMode` / `hideColumn` updates, and saved-search defaulting for omitted `searchScope` and `typeFilters`. |
+| `BR-02` | Invalid browser `viewMode` / saved-search `searchScope` payloads should fail source FastAPI/Pydantic validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded values or coerce blank `searchScope` strings when that field is present. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetBrowserAreaViewModeRequest,SetBrowserSavedSearchesRequest}`; source models: `backend/setta/types/section_impls.py::{BrowserSavedSearch,BrowserSearchScope}`; source routes: `backend/setta/routers/project_manager.py::{route_set_browser_area_view_mode,route_set_browser_saved_searches}`. | Current Go normalizes post-decode in `internal/projectstate/browser_sections.go::{normalizeBrowserAreaViewMode,normalizeBrowserSearchScope}` and maps failures through `internal/httpapi/project_routes.go::writeBrowserSectionMutationError`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: current Go trims the enum-like values, reports `400`, and also treats blank `searchScope` as recursive, while the source typed request body would reject invalid present-field values at framework validation time with `422`. |
+| `BR-03` | In share/app sessions, browser metadata mutation routes stay mounted and are gated by `allowLayoutChanges` instead of being IDE-only. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_browser_column_widths,route_set_browser_area_view_mode,route_set_browser_hide_column,route_set_browser_saved_searches}`. | Current Go mounts all four routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still has deployment-aware callers via `frontend/src/components/Section/Layouts/BrowserArea.tsx`, `frontend/src/state/hooks/useBrowserColumnWidth.ts`, `frontend/src/components/Section/Header/MenuButton/HideColumn.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/BrowserAreaSettings.tsx`, and `frontend/src/state/hooks/share.ts`. | `Missing` | This is an active parity gap: source share/app sessions allow these browser-section metadata mutations under the layout policy gate, but current Go drops the transport entirely outside IDE while the shared browser UI still wires those mutations through the layout-edit surface. |
+
 ## Current Findings
 
-1. The matrix now contains twenty-nine concrete source-parity gaps:
+1. The matrix now contains thirty-one concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
-   `AU-11`, `TB-03`, `TB-04`, `CH-01`, and `CH-03`.
+   `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, and `BR-03`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -964,17 +982,20 @@ Rows outside these slices are still pending.
 29. The chart-metadata slice mostly closes with proofs, but it adds two real
     transport/runtime gaps (`CH-01`, `CH-03`) plus one dormant
     deployment-mode route-boundary row (`CH-04`).
-30. Git route behavior is now largely proved, including literal pathspec
+30. The browser-section metadata slice mostly closes with proofs, but it adds
+    one real transport-contract gap (`BR-02`) plus one active deployment
+    policy-gated mounting gap (`BR-03`).
+31. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-31. The remaining issues in the naming slice are still mostly proof gaps rather
+32. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-32. The next high-value steps are:
+33. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
-      `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, and `CH-03` should be
-      restored or documented as intentional divergences
+      `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, and
+      `BR-03` should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
