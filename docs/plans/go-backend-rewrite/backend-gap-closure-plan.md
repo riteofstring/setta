@@ -89,3 +89,6 @@ categorize them.
   config/CLI proof-only rows in small slices while the larger remaining work
   stays on deployment, websocket, watch-code, external-agent, and packaged-CLI
   gaps
+- The trimmed/env-expanded `SETTA_HOME` resolution row is now proved by direct
+  helper coverage too; keep harvesting these shared config rows when they can
+  be closed with focused tests faster than a new harness slice
