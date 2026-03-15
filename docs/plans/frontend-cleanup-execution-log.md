@@ -3084,3 +3084,27 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared state hotspot at 353 lines, by separating
     websocket transport/session bootstrap from terminal lookup, buffering, and
     lifecycle bookkeeping helpers.
+
+## 2026-03-15 06:40:18 PDT
+
+- Slice completed: split terminal session transport from terminal session lifecycle
+- Key files touched:
+  - `frontend/src/state/hooks/terminals/terminalSessionTransport.ts`
+  - `frontend/src/state/hooks/terminals/terminalSessionTransport.test.ts`
+  - `frontend/src/state/hooks/terminals/terminalSessions.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/hooks/terminals/terminalSessionTransport.test.ts src/state/hooks/terminals/terminalSessions.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/hooks/terminals/terminalSessions.ts src/state/hooks/terminals/terminalSessionTransport.ts src/state/hooks/terminals/terminalSessionTransport.test.ts src/state/hooks/terminals/terminalSessions.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/hook ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `f976f74da3`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/hooks/sectionMinMaxDims.ts`, now the largest
+    authored/shared state hotspot at 316 lines, by separating sizing-policy
+    reads from measured min/max derivation helpers.
