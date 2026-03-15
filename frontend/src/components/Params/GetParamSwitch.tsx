@@ -16,6 +16,7 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   onResizeStart,
   isTopLevel = false,
+  isNestedChildInTree = false,
   listKey,
   hasSectionStyleTheme,
 }: {
@@ -24,6 +25,7 @@ export function GetParamSwitch({
   requiredParamIdsToPaths: Record<string, Array<string>>;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
+  isNestedChildInTree?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 }) {
@@ -113,6 +115,7 @@ export function GetParamSwitch({
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
+      isNestedChildInTree={isNestedChildInTree}
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
     />

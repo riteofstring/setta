@@ -69,16 +69,6 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-In this branch the Go rewrite is broad but not behaviorally closed. Start with `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md` and treat it as the source of truth for remaining rewrite debt.
-
-Work from rows marked `Missing` or `Implemented, proof incomplete`. Pick one small coherent slice of active, caller-backed gaps and close it end-to-end:
-- read the cited source-baseline evidence plus the current Go code/tests and current frontend callers
-- implement the missing behavior or, if the product should differ now, document it as an intentional divergence with proof
-- add or update the relevant Go, Python, frontend, Playwright, or doc tests
-- update the parity matrix and any touched source-of-truth docs in the same change
-
-Prioritize active product/runtime gaps over dormant legacy transports. Read Go code/tests first; read Python only as behavior reference or for retained Python boundaries. Preserve current callers and documented product behavior, not incidental Python implementation details. Do not ask me to restate rewrite context unless the local state is genuinely ambiguous. Run the most relevant tests, and in your final summary tell me which matrix rows moved and what remains for the chosen slice.
-
 Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
 Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
@@ -101,8 +91,3 @@ Compare the current branch with `main` and write a detailed branch-intent summar
   - Overwrite `branch_intent.md` with this branch's current summary.
   - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
   - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
-
-
-
-Merge main into this branch. The main branch is still using a python backend, while this branch is rewriting the entire backend in Go. Therefore, the main goal of merging main into this branch is to make sure we keep our Go rewrite "up to date" in terms of features etc.
- 

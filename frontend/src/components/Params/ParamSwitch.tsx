@@ -40,6 +40,7 @@ type ParamSwitchProps = {
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
+  isNestedChildInTree?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 };
@@ -53,9 +54,13 @@ function _ParamSwitch(props: ParamSwitchProps) {
 
 function TempParamSwitch({
   sectionId,
+  isNestedChildInTree = false,
   paramInfoId,
   listKey,
-}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId" | "listKey">) {
+}: Pick<
+  ParamSwitchProps,
+  "sectionId" | "paramInfoId" | "listKey" | "isNestedChildInTree"
+>) {
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
   const activeListKey = listKey ?? dndContext?.listKey ?? null;
@@ -108,15 +113,10 @@ function TempParamSwitch({
     height: normalizedHeight ?? undefined,
     width: normalizedWidth ?? undefined,
   };
-  const columnWidth = "var(--param-column-width, 200px)";
-
   return (
     <article
-      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
+      className={`section-key-value section-param-row section-min-rows relative grid min-w-0 items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40 ${isNestedChildInTree ? "ml-[0.9rem] before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20" : ""}`}
+      style={dndStyle}
       data-param-row="true"
       ref={setNodeRef}
       {...(restAttributes ?? {})}
@@ -126,7 +126,13 @@ function TempParamSwitch({
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
+  const {
+    sectionId,
+    paramInfoId,
+    hasSectionStyleTheme,
+    isNestedChildInTree,
+    listKey,
+  } = props;
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -225,43 +231,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
     />
   );
 
-  const sharedProps = {
-    ...props,
-    bg,
-    border,
-    hasSectionStyleTheme,
-    isKwarg,
-    isNestedParam,
-    label,
-    maybeErrorMessage,
-    onClick: handleParamClick,
-    onMouseDown: onMouseDownAlways,
-    paramChildren,
-  };
-
-  return <SortableRealParamSwitchRow {...sharedProps} />;
-}
-
-export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
-
-function SortableRealParamSwitchRow({
-  sectionId,
-  paramInfoId,
-  listKey,
-  paramChildren,
-  label,
-  ...props
-}: ParamSwitchProps & {
-  bg: string;
-  border: string;
-  isKwarg: boolean;
-  isNestedParam: boolean;
-  label: React.ReactNode;
-  maybeErrorMessage: string;
-  onClick: React.MouseEventHandler;
-  onMouseDown: React.MouseEventHandler;
-  paramChildren: string[];
-}) {
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
   const dndId = getParamDndItemId(paramInfoId, listKey);
@@ -297,11 +266,22 @@ function SortableRealParamSwitchRow({
 
   return (
     <ParamContainer
-      {...props}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
+      requiredParamIdsToPaths={props.requiredParamIdsToPaths}
+      onResizeStart={props.onResizeStart}
+      isTopLevelWithPad={props.isTopLevelWithPad}
+      isNestedChildInTree={isNestedChildInTree}
       listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       paramChildren={paramChildren}
+      bg={bg}
+      border={border}
+      isKwarg={isKwarg}
+      isNestedParam={isNestedParam}
+      maybeErrorMessage={maybeErrorMessage}
+      onClick={handleParamClick}
+      onMouseDown={onMouseDownAlways}
       dndAttributes={restAttributes}
       dndListeners={listeners}
       dndRef={setNodeRef}
@@ -312,3 +292,5 @@ function SortableRealParamSwitchRow({
     </ParamContainer>
   );
 }
+
+export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
