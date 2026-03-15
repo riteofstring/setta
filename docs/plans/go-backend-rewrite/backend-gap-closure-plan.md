@@ -203,3 +203,7 @@ categorize them.
   requests, and trusted-origin store-read failure; the next small proof-only
   slices should keep following that pattern of route-visible negative branches
   on already-implemented owners
+- The watchcode runtime ignored-dir family and unrelated user `runtime/`
+  folder false-positive guard are now proved too; the remaining watchcode
+  backlog is the real resolved-root exclusion work rather than the generic
+  hard-coded basename behavior
