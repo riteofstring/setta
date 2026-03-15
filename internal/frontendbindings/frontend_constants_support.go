@@ -79,18 +79,19 @@ func uiEditorTabSupportDeclarations() []TypeDeclaration {
 func buildFrontendConstantsExprTS() string {
 	authRefreshWindowSeconds := int(auth.DefaultAuthRefreshWindow / time.Second)
 	genCodeSeparatorNewlines := strings.Count(codegen.PythonGeneratedCodeSeparator, "\n")
+	uploadPolicies := artifacts.DefaultUploadPolicies()
 
 	fields := []tsLiteralField{
 		{Name: "AUTH_COOKIE_REFRESH_WINDOW_SECONDS", Value: strconv.Itoa(authRefreshWindowSeconds)},
-		{Name: "CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES", Value: "[]"},
+		{Name: "CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES", Value: tsStringArrayExpr(uploadPolicies.Chat.AllowedMimePrefixes)},
 		{Name: "CHAT_ATTACHMENTS_MAX_FILES", Value: strconv.Itoa(frontendChatAttachmentsMaxFiles)},
-		{Name: "CHAT_ATTACHMENTS_MAX_FILE_BYTES", Value: strconv.Itoa(artifacts.DefaultMaxChatFileBytes)},
-		{Name: "CHAT_ATTACHMENTS_MAX_FILE_LABEL", Value: tsStringLiteralExpr(frontendMegabyteLabel(artifacts.DefaultMaxChatFileBytes))},
+		{Name: "CHAT_ATTACHMENTS_MAX_FILE_BYTES", Value: strconv.Itoa(uploadPolicies.Chat.MaxFileBytes)},
+		{Name: "CHAT_ATTACHMENTS_MAX_FILE_LABEL", Value: tsStringLiteralExpr(uploadPolicies.Chat.MaxFileLabel)},
 		{Name: "DEFAULT_HOST", Value: tsStringLiteralExpr(config.DefaultServerHost)},
 		{Name: "DEFAULT_PORT", Value: strconv.Itoa(config.DefaultServerPort)},
-		{Name: "DROPZONE_ALLOWED_MIME_PREFIXES", Value: "[]"},
-		{Name: "DROPZONE_STATEFUL_MAX_FILE_BYTES", Value: strconv.Itoa(artifacts.DefaultMaxGenericFileBytes)},
-		{Name: "DROPZONE_STATEFUL_MAX_FILE_LABEL", Value: tsStringLiteralExpr(frontendMegabyteLabel(artifacts.DefaultMaxGenericFileBytes))},
+		{Name: "DROPZONE_ALLOWED_MIME_PREFIXES", Value: tsStringArrayExpr(uploadPolicies.Generic.AllowedMimePrefixes)},
+		{Name: "DROPZONE_STATEFUL_MAX_FILE_BYTES", Value: strconv.Itoa(uploadPolicies.Generic.MaxFileBytes)},
+		{Name: "DROPZONE_STATEFUL_MAX_FILE_LABEL", Value: tsStringLiteralExpr(uploadPolicies.Generic.MaxFileLabel)},
 		{Name: "DROPZONE_STATELESS_MAX_FILE_BYTES", Value: strconv.Itoa(frontendDropzoneStatelessMaxFileBytes)},
 		{Name: "DROPZONE_STATELESS_MAX_FILE_LABEL", Value: tsStringLiteralExpr(frontendMegabyteLabel(frontendDropzoneStatelessMaxFileBytes))},
 		{Name: "DROPZONE_STATELESS_MAX_TOTAL_BYTES", Value: strconv.Itoa(frontendDropzoneStatelessMaxTotalBytes)},
@@ -140,6 +141,17 @@ func frontendMegabyteLabel(bytes int) string {
 
 func tsStringLiteralExpr(value string) string {
 	return strconv.Quote(value)
+}
+
+func tsStringArrayExpr(values []string) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, strconv.Quote(value))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 func tsEnumMemberArrayExpr(enumName string, members []string) string {

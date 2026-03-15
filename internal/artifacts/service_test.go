@@ -289,6 +289,189 @@ func TestServiceRejectsOversizedFileArtifactsAndOutsideRootDeletes(t *testing.T)
 	}
 }
 
+func TestServiceUpdateEnforcesConfiguredUploadPolicies(t *testing.T) {
+	t.Parallel()
+
+	oversizedGenericPolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: 5,
+			MaxFileLabel: "5 bytes",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: 10,
+			MaxFileLabel: "10 bytes",
+		},
+	}
+	oversizedGenericService, oversizedGenericPaths := newArtifactTestServiceWithPolicies(t, oversizedGenericPolicies)
+	oversizedGenericRef, err := oversizedGenericPaths.binaryStore.StoreBytes(make([]byte, 11), "application/octet-stream", false)
+	if err != nil {
+		t.Fatalf("store oversized generic payload: %v", err)
+	}
+	oversizedGenericValue := mustRawJSON(t, oversizedGenericRef)
+	if _, err := oversizedGenericService.Update(context.Background(), UpdateRequest{
+		Artifacts:   []RawArtifact{{Type: ArtifactTypeFile, ID: "artifacts/dropzone.bin", Value: &oversizedGenericValue}},
+		UploadScope: UploadScopeGeneric,
+	}); err == nil {
+		t.Fatalf("expected oversized dropzone update rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorTooLarge)
+	}
+
+	disabledGenericPolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: 5,
+			MaxFileLabel: "5 bytes",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: 0,
+			MaxFileLabel: "0 B",
+		},
+	}
+	disabledGenericService, disabledGenericPaths := newArtifactTestServiceWithPolicies(t, disabledGenericPolicies)
+	disabledGenericRef, err := disabledGenericPaths.binaryStore.StoreBytes([]byte("x"), "application/octet-stream", false)
+	if err != nil {
+		t.Fatalf("store disabled generic payload: %v", err)
+	}
+	disabledGenericValue := mustRawJSON(t, disabledGenericRef)
+	if _, err := disabledGenericService.Update(context.Background(), UpdateRequest{
+		Artifacts:   []RawArtifact{{Type: ArtifactTypeFile, ID: "artifacts/blocked.bin", Value: &disabledGenericValue}},
+		UploadScope: UploadScopeGeneric,
+	}); err == nil {
+		t.Fatalf("expected disabled dropzone update rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorTooLarge)
+	}
+
+	oversizedChatPolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: 5,
+			MaxFileLabel: "5 bytes",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: 10,
+			MaxFileLabel: "10 bytes",
+		},
+	}
+	oversizedChatService, oversizedChatPaths := newArtifactTestServiceWithPolicies(t, oversizedChatPolicies)
+	oversizedChatRef, err := oversizedChatPaths.binaryStore.StoreBytes([]byte("123456"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store oversized chat payload: %v", err)
+	}
+	oversizedChatValue := mustRawJSON(t, oversizedChatRef)
+	if _, err := oversizedChatService.Update(context.Background(), UpdateRequest{
+		Artifacts:   []RawArtifact{{Type: ArtifactTypeFile, ID: "artifacts/too-big.txt", Value: &oversizedChatValue}},
+		UploadScope: UploadScopeChat,
+	}); err == nil {
+		t.Fatalf("expected oversized chat update rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorTooLarge)
+	}
+
+	disabledChatPolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: 0,
+			MaxFileLabel: "0 B",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: 10,
+			MaxFileLabel: "10 bytes",
+		},
+	}
+	disabledChatService, disabledChatPaths := newArtifactTestServiceWithPolicies(t, disabledChatPolicies)
+	disabledChatRef, err := disabledChatPaths.binaryStore.StoreBytes([]byte("x"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store disabled chat payload: %v", err)
+	}
+	disabledChatValue := mustRawJSON(t, disabledChatRef)
+	if _, err := disabledChatService.Update(context.Background(), UpdateRequest{
+		Artifacts:   []RawArtifact{{Type: ArtifactTypeFile, ID: "artifacts/blocked.txt", Value: &disabledChatValue}},
+		UploadScope: UploadScopeChat,
+	}); err == nil {
+		t.Fatalf("expected disabled chat update rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorTooLarge)
+	}
+
+	disallowedChatMimePolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes:        10,
+			MaxFileLabel:        "10 bytes",
+			AllowedMimePrefixes: []string{"image/"},
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: 10,
+			MaxFileLabel: "10 bytes",
+		},
+	}
+	disallowedChatMimeService, disallowedChatMimePaths := newArtifactTestServiceWithPolicies(t, disallowedChatMimePolicies)
+	disallowedChatMimeRef, err := disallowedChatMimePaths.binaryStore.StoreBytes([]byte("12345"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store disallowed chat payload: %v", err)
+	}
+	disallowedChatMimeValue := mustRawJSON(t, disallowedChatMimeRef)
+	if _, err := disallowedChatMimeService.Update(context.Background(), UpdateRequest{
+		Artifacts:   []RawArtifact{{Type: ArtifactTypeFile, ID: "artifacts/notes.txt", Value: &disallowedChatMimeValue}},
+		UploadScope: UploadScopeChat,
+	}); err == nil {
+		t.Fatalf("expected disallowed chat mime rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorMimeNotAllowed)
+	}
+}
+
+func TestServiceImportFilesEnforcesConfiguredUploadPolicies(t *testing.T) {
+	t.Parallel()
+
+	disallowedDropzoneMimePolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: 5,
+			MaxFileLabel: "5 bytes",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes:        10,
+			MaxFileLabel:        "10 bytes",
+			AllowedMimePrefixes: []string{"image/"},
+		},
+	}
+	disallowedDropzoneService, disallowedDropzonePaths := newArtifactTestServiceWithPolicies(t, disallowedDropzoneMimePolicies)
+	disallowedDropzonePath := filepath.Join(disallowedDropzonePaths.workspaceRoot, "notes.txt")
+	if err := os.WriteFile(disallowedDropzonePath, []byte("12345"), 0o644); err != nil {
+		t.Fatalf("write disallowed dropzone file: %v", err)
+	}
+	if _, err := disallowedDropzoneService.ImportFiles(context.Background(), ImportFilesRequest{
+		Paths:       []string{disallowedDropzonePath},
+		UploadScope: UploadScopeGeneric,
+	}); err == nil {
+		t.Fatalf("expected disallowed dropzone import rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorMimeNotAllowed)
+	}
+
+	chatLimitPolicies := &UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: 4,
+			MaxFileLabel: "4 bytes",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: 10,
+			MaxFileLabel: "10 bytes",
+		},
+	}
+	chatLimitService, chatLimitPaths := newArtifactTestServiceWithPolicies(t, chatLimitPolicies)
+	chatLimitPath := filepath.Join(chatLimitPaths.workspaceRoot, "oversized.txt")
+	if err := os.WriteFile(chatLimitPath, []byte("12345"), 0o644); err != nil {
+		t.Fatalf("write oversized chat file: %v", err)
+	}
+	if _, err := chatLimitService.ImportFiles(context.Background(), ImportFilesRequest{
+		Paths:       []string{chatLimitPath},
+		UploadScope: UploadScopeChat,
+	}); err == nil {
+		t.Fatalf("expected chat import size rejection")
+	} else {
+		assertArtifactErrorKind(t, err, ErrorTooLarge)
+	}
+}
+
 type artifactTestPaths struct {
 	workspaceRoot  string
 	settaFilesRoot string
@@ -297,6 +480,12 @@ type artifactTestPaths struct {
 }
 
 func newArtifactTestService(t *testing.T) (*Service, artifactTestPaths) {
+	t.Helper()
+
+	return newArtifactTestServiceWithPolicies(t, nil)
+}
+
+func newArtifactTestServiceWithPolicies(t *testing.T, uploadPolicies *UploadPolicies) (*Service, artifactTestPaths) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -317,6 +506,7 @@ func newArtifactTestService(t *testing.T) (*Service, artifactTestPaths) {
 		SettaFilesRoot: settaFilesRoot,
 		ArtifactsRoot:  artifactsRoot,
 		BinaryStore:    binaryStore,
+		UploadPolicies: uploadPolicies,
 		TimeNow: func() time.Time {
 			return time.Date(2026, time.March, 10, 9, 8, 7, 0, time.UTC)
 		},
@@ -329,6 +519,15 @@ func newArtifactTestService(t *testing.T) (*Service, artifactTestPaths) {
 		settaFilesRoot: settaFilesRoot,
 		artifactsRoot:  artifactsRoot,
 		binaryStore:    binaryStore,
+	}
+}
+
+func assertArtifactErrorKind(t *testing.T, err error, kind ErrorKind) {
+	t.Helper()
+
+	var artifactErr *Error
+	if !errors.As(err, &artifactErr) || artifactErr.Kind != kind {
+		t.Fatalf("expected %s error, got %v", kind, err)
 	}
 }
 

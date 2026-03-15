@@ -316,7 +316,78 @@ func TestRegisterArtifactRoutesShareModeRejectsPolicyDenied(t *testing.T) {
 	}
 }
 
+func TestRegisterArtifactRoutesMapUploadPolicyErrors(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	uploadPolicies := &artifacts.UploadPolicies{
+		Chat: artifacts.ScopeUploadPolicy{
+			MaxFileBytes: 5,
+			MaxFileLabel: "5 bytes",
+		},
+		Generic: artifacts.ScopeUploadPolicy{
+			MaxFileBytes:        10,
+			MaxFileLabel:        "10 bytes",
+			AllowedMimePrefixes: []string{"image/"},
+		},
+	}
+	service, workspaceRoot, _, binaryStore := newArtifactRouteServiceWithPolicies(t, uploadPolicies)
+	handler := newArtifactRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	disallowedPath := filepath.Join(workspaceRoot, "notes.txt")
+	if err := os.WriteFile(disallowedPath, []byte("12345"), 0o644); err != nil {
+		t.Fatalf("write disallowed import file: %v", err)
+	}
+	importRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["`+disallowedPath+`"],"uploadScope":"generic"}`))
+	importRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, importRequest, authService)
+
+	importResponse := httptest.NewRecorder()
+	handler.ServeHTTP(importResponse, importRequest)
+	if importResponse.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("expected 415, got %d with body %q", importResponse.Code, importResponse.Body.String())
+	}
+	var importPayload errorResponse
+	if err := json.Unmarshal(importResponse.Body.Bytes(), &importPayload); err != nil {
+		t.Fatalf("decode import error payload: %v", err)
+	}
+	if importPayload.Error.Code != "artifact_mime_not_allowed" {
+		t.Fatalf("expected artifact_mime_not_allowed, got %#v", importPayload)
+	}
+
+	oversizedRef, err := binaryStore.StoreBytes([]byte("123456"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store oversized update payload: %v", err)
+	}
+	oversizedValue, err := json.Marshal(oversizedRef)
+	if err != nil {
+		t.Fatalf("marshal oversized update payload: %v", err)
+	}
+	updateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"File","id":"artifacts/too-big.txt","value":`+string(oversizedValue)+`}],"uploadScope":"chat"}`))
+	updateRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, updateRequest, authService)
+
+	updateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+	var updatePayload errorResponse
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updatePayload); err != nil {
+		t.Fatalf("decode update error payload: %v", err)
+	}
+	if updatePayload.Error.Code != "artifact_payload_too_large" {
+		t.Fatalf("expected artifact_payload_too_large, got %#v", updatePayload)
+	}
+}
+
 func newArtifactRouteService(t *testing.T) (*artifacts.Service, string, string, *binarypayload.Store) {
+	t.Helper()
+
+	return newArtifactRouteServiceWithPolicies(t, nil)
+}
+
+func newArtifactRouteServiceWithPolicies(t *testing.T, uploadPolicies *artifacts.UploadPolicies) (*artifacts.Service, string, string, *binarypayload.Store) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -337,6 +408,7 @@ func newArtifactRouteService(t *testing.T) (*artifacts.Service, string, string, 
 		SettaFilesRoot: settaFilesRoot,
 		ArtifactsRoot:  artifactsRoot,
 		BinaryStore:    binaryStore,
+		UploadPolicies: uploadPolicies,
 	})
 	if err != nil {
 		t.Fatalf("new artifact service: %v", err)
@@ -345,6 +417,12 @@ func newArtifactRouteService(t *testing.T) (*artifacts.Service, string, string, 
 }
 
 func newShareArtifactRouteService(t *testing.T, allowParamChanges bool) (*shareartifacts.Service, *deployments.Runtime, string, *binarypayload.Store) {
+	t.Helper()
+
+	return newShareArtifactRouteServiceWithPolicies(t, allowParamChanges, nil)
+}
+
+func newShareArtifactRouteServiceWithPolicies(t *testing.T, allowParamChanges bool, uploadPolicies *artifacts.UploadPolicies) (*shareartifacts.Service, *deployments.Runtime, string, *binarypayload.Store) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -370,8 +448,9 @@ func newShareArtifactRouteService(t *testing.T, allowParamChanges bool) (*sharea
 		t.Fatalf("new binary store: %v", err)
 	}
 	service, err := shareartifacts.NewService(shareartifacts.ServiceOptions{
-		Deployment:  deploymentRuntime,
-		BinaryStore: binaryStore,
+		Deployment:     deploymentRuntime,
+		BinaryStore:    binaryStore,
+		UploadPolicies: uploadPolicies,
 	})
 	if err != nil {
 		t.Fatalf("new share artifact service: %v", err)

@@ -56,6 +56,7 @@ type ServiceOptions struct {
 	SettaFilesRoot string
 	ArtifactsRoot  string
 	BinaryStore    *binarypayload.Store
+	UploadPolicies *UploadPolicies
 	TimeNow        func() time.Time
 }
 
@@ -64,6 +65,7 @@ type Service struct {
 	settaFilesRoot string
 	artifactsRoot  string
 	binaryStore    *binarypayload.Store
+	uploadPolicies UploadPolicies
 	timeNow        func() time.Time
 
 	mu            sync.RWMutex
@@ -127,6 +129,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		settaFilesRoot: settaFilesRoot,
 		artifactsRoot:  artifactsRoot,
 		binaryStore:    options.BinaryStore,
+		uploadPolicies: cloneUploadPolicies(options.UploadPolicies),
 		timeNow:        timeNow,
 		metadata:       map[string]artifactMetadata{},
 		images:         map[string]ImageArtifact{},
@@ -174,7 +177,7 @@ func (s *Service) ImportFiles(_ context.Context, request ImportFilesRequest) ([]
 			}
 		}
 		mimeType := guessMimeType(resolvedPath, "")
-		if err := enforceUploadPolicy(request.UploadScope, filepath.Base(resolvedPath), mimeType, len(content)); err != nil {
+		if err := EnforceUploadPolicy(s.uploadPolicies, request.UploadScope, filepath.Base(resolvedPath), mimeType, len(content)); err != nil {
 			return nil, err
 		}
 		artifactID, targetPath, err := s.newArtifactTargetPath(joinedExtensions(filepath.Base(resolvedPath)))
@@ -371,7 +374,7 @@ func (s *Service) buildUpdateAction(artifact RawArtifact, scope UploadScope) (up
 			}
 		}
 		mimeType := guessMimeType(targetPath, ref.MimeType)
-		if err := enforceUploadPolicy(scope, artifactID, mimeType, len(content)); err != nil {
+		if err := EnforceUploadPolicy(s.uploadPolicies, scope, artifactID, mimeType, len(content)); err != nil {
 			return updateAction{}, err
 		}
 		return updateAction{

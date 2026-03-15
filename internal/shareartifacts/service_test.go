@@ -197,7 +197,69 @@ func TestServiceUpdateRejectsPolicyDenied(t *testing.T) {
 	}
 }
 
+func TestServiceUpdateUsesSharedUploadPolicies(t *testing.T) {
+	t.Parallel()
+
+	uploadPolicies := &artifacts.UploadPolicies{
+		Chat: artifacts.ScopeUploadPolicy{
+			MaxFileBytes:        10,
+			MaxFileLabel:        "10 bytes",
+			AllowedMimePrefixes: []string{"image/"},
+		},
+		Generic: artifacts.ScopeUploadPolicy{
+			MaxFileBytes: 4,
+			MaxFileLabel: "4 bytes",
+		},
+	}
+	service, runtime, _ := newShareArtifactTestServiceWithPolicies(t, true, uploadPolicies)
+	if _, err := runtime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	disallowedChatRef, err := service.binaryStore.StoreBytes([]byte("12345"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store disallowed chat payload: %v", err)
+	}
+	disallowedChatValue := mustShareArtifactRawJSON(t, disallowedChatRef)
+	if _, err := service.Update(context.Background(), "share-a", artifacts.UpdateRequest{
+		Artifacts: []artifacts.RawArtifact{{
+			Type:  artifacts.ArtifactTypeFile,
+			ID:    "artifacts/notes.txt",
+			Value: &disallowedChatValue,
+		}},
+		UploadScope: artifacts.UploadScopeChat,
+	}); err == nil {
+		t.Fatal("expected disallowed chat mime rejection")
+	} else {
+		assertShareArtifactErrorKind(t, err, artifacts.ErrorMimeNotAllowed)
+	}
+
+	oversizedGenericRef, err := service.binaryStore.StoreBytes([]byte("12345"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store oversized generic payload: %v", err)
+	}
+	oversizedGenericValue := mustShareArtifactRawJSON(t, oversizedGenericRef)
+	if _, err := service.Update(context.Background(), "share-a", artifacts.UpdateRequest{
+		Artifacts: []artifacts.RawArtifact{{
+			Type:  artifacts.ArtifactTypeFile,
+			ID:    "artifacts/too-big.txt",
+			Value: &oversizedGenericValue,
+		}},
+		UploadScope: artifacts.UploadScopeGeneric,
+	}); err == nil {
+		t.Fatal("expected oversized generic rejection")
+	} else {
+		assertShareArtifactErrorKind(t, err, artifacts.ErrorTooLarge)
+	}
+}
+
 func newShareArtifactTestService(t *testing.T, allowParamChanges bool) (*Service, *deployments.Runtime, string) {
+	t.Helper()
+
+	return newShareArtifactTestServiceWithPolicies(t, allowParamChanges, nil)
+}
+
+func newShareArtifactTestServiceWithPolicies(t *testing.T, allowParamChanges bool, uploadPolicies *artifacts.UploadPolicies) (*Service, *deployments.Runtime, string) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -223,8 +285,9 @@ func newShareArtifactTestService(t *testing.T, allowParamChanges bool) (*Service
 		t.Fatalf("new binary store: %v", err)
 	}
 	service, err := NewService(ServiceOptions{
-		Deployment:  deploymentRuntime,
-		BinaryStore: binaryStore,
+		Deployment:     deploymentRuntime,
+		BinaryStore:    binaryStore,
+		UploadPolicies: uploadPolicies,
 	})
 	if err != nil {
 		t.Fatalf("new share artifact service: %v", err)
@@ -257,6 +320,25 @@ func writeShareArtifactDeploymentFixture(t *testing.T, deploymentRoot string, al
 		"allowParamChanges": allowParamChanges,
 		"allowRun":          true,
 	})
+}
+
+func mustShareArtifactRawJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+
+	content, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json: %v", err)
+	}
+	return json.RawMessage(content)
+}
+
+func assertShareArtifactErrorKind(t *testing.T, err error, kind artifacts.ErrorKind) {
+	t.Helper()
+
+	var artifactErr *artifacts.Error
+	if !errors.As(err, &artifactErr) || artifactErr.Kind != kind {
+		t.Fatalf("expected %s error, got %v", kind, err)
+	}
 }
 
 func writeShareArtifactJSON(t *testing.T, path string, payload any) {

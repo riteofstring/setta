@@ -13,50 +13,77 @@ const (
 	DefaultMaxGenericFileBytes = defaultMaxGenericFileBytes
 )
 
-type uploadPolicy struct {
-	scope               UploadScope
-	maxFileBytes        int
-	maxFileLabel        string
-	allowedMimePrefixes []string
+type ScopeUploadPolicy struct {
+	MaxFileBytes        int
+	MaxFileLabel        string
+	AllowedMimePrefixes []string
 }
 
-func resolveUploadPolicy(scope UploadScope) (uploadPolicy, error) {
+type UploadPolicies struct {
+	Chat    ScopeUploadPolicy
+	Generic ScopeUploadPolicy
+}
+
+func DefaultUploadPolicies() UploadPolicies {
+	return UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes: defaultMaxChatFileBytes,
+			MaxFileLabel: "25 MB",
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes: defaultMaxGenericFileBytes,
+			MaxFileLabel: "25 MB",
+		},
+	}
+}
+
+func cloneUploadPolicies(policies *UploadPolicies) UploadPolicies {
+	if policies == nil {
+		return DefaultUploadPolicies()
+	}
+	return UploadPolicies{
+		Chat: ScopeUploadPolicy{
+			MaxFileBytes:        policies.Chat.MaxFileBytes,
+			MaxFileLabel:        policies.Chat.MaxFileLabel,
+			AllowedMimePrefixes: append([]string(nil), policies.Chat.AllowedMimePrefixes...),
+		},
+		Generic: ScopeUploadPolicy{
+			MaxFileBytes:        policies.Generic.MaxFileBytes,
+			MaxFileLabel:        policies.Generic.MaxFileLabel,
+			AllowedMimePrefixes: append([]string(nil), policies.Generic.AllowedMimePrefixes...),
+		},
+	}
+}
+
+func resolveUploadPolicy(policies UploadPolicies, scope UploadScope) (ScopeUploadPolicy, error) {
 	switch scope {
 	case UploadScopeChat:
-		return uploadPolicy{
-			scope:        scope,
-			maxFileBytes: defaultMaxChatFileBytes,
-			maxFileLabel: "25 MB",
-		}, nil
+		return policies.Chat, nil
 	case UploadScopeGeneric:
-		return uploadPolicy{
-			scope:        scope,
-			maxFileBytes: defaultMaxGenericFileBytes,
-			maxFileLabel: "25 MB",
-		}, nil
+		return policies.Generic, nil
 	default:
-		return uploadPolicy{}, &Error{
+		return ScopeUploadPolicy{}, &Error{
 			Kind:    ErrorInvalidRequest,
 			Message: fmt.Sprintf("Invalid upload scope: %q", scope),
 		}
 	}
 }
 
-func enforceUploadPolicy(scope UploadScope, label string, mimeType string, byteLength int) error {
-	policy, err := resolveUploadPolicy(scope)
+func EnforceUploadPolicy(policies UploadPolicies, scope UploadScope, label string, mimeType string, byteLength int) error {
+	policy, err := resolveUploadPolicy(policies, scope)
 	if err != nil {
 		return err
 	}
-	if byteLength > policy.maxFileBytes {
+	if byteLength > policy.MaxFileBytes {
 		return &Error{
 			Kind:    ErrorTooLarge,
-			Message: fmt.Sprintf("File exceeds %s limit: %s", policy.maxFileLabel, label),
+			Message: fmt.Sprintf("File exceeds %s limit: %s", policy.MaxFileLabel, label),
 		}
 	}
-	if !isMimeAllowed(strings.TrimSpace(mimeType), policy.allowedMimePrefixes) {
+	if !isMimeAllowed(strings.TrimSpace(mimeType), policy.AllowedMimePrefixes) {
 		return &Error{
 			Kind:    ErrorMimeNotAllowed,
-			Message: fmt.Sprintf("Attachment type %s is not allowed for %s. Allowed prefixes: %s.", mimeType, label, strings.Join(policy.allowedMimePrefixes, ", ")),
+			Message: fmt.Sprintf("Attachment type %s is not allowed for %s. Allowed prefixes: %s.", mimeType, label, strings.Join(policy.AllowedMimePrefixes, ", ")),
 		}
 	}
 	return nil

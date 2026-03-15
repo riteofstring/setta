@@ -24,16 +24,18 @@ import (
 )
 
 type ServiceOptions struct {
-	Deployment   *deployments.Runtime
-	BinaryStore  *binarypayload.Store
-	WebsocketHub *realtime.WebsocketHub
+	Deployment     *deployments.Runtime
+	BinaryStore    *binarypayload.Store
+	UploadPolicies *artifacts.UploadPolicies
+	WebsocketHub   *realtime.WebsocketHub
 }
 
 type Service struct {
-	paths        projectstate.DeploymentPathPolicy
-	policy       deployments.Policy
-	binaryStore  *binarypayload.Store
-	websocketHub *realtime.WebsocketHub
+	paths          projectstate.DeploymentPathPolicy
+	policy         deployments.Policy
+	binaryStore    *binarypayload.Store
+	uploadPolicies artifacts.UploadPolicies
+	websocketHub   *realtime.WebsocketHub
 
 	mu            sync.RWMutex
 	metadata      map[string]artifactMetadata
@@ -67,16 +69,32 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if options.BinaryStore == nil {
 		return nil, fmt.Errorf("binary store is required")
 	}
+	uploadPolicies := artifacts.DefaultUploadPolicies()
+	if options.UploadPolicies != nil {
+		uploadPolicies = artifacts.UploadPolicies{
+			Chat: artifacts.ScopeUploadPolicy{
+				MaxFileBytes:        options.UploadPolicies.Chat.MaxFileBytes,
+				MaxFileLabel:        options.UploadPolicies.Chat.MaxFileLabel,
+				AllowedMimePrefixes: append([]string(nil), options.UploadPolicies.Chat.AllowedMimePrefixes...),
+			},
+			Generic: artifacts.ScopeUploadPolicy{
+				MaxFileBytes:        options.UploadPolicies.Generic.MaxFileBytes,
+				MaxFileLabel:        options.UploadPolicies.Generic.MaxFileLabel,
+				AllowedMimePrefixes: append([]string(nil), options.UploadPolicies.Generic.AllowedMimePrefixes...),
+			},
+		}
+	}
 	return &Service{
-		paths:         options.Deployment.Paths(),
-		policy:        options.Deployment.Policy(),
-		binaryStore:   options.BinaryStore,
-		websocketHub:  options.WebsocketHub,
-		metadata:      map[string]artifactMetadata{},
-		images:        map[string]artifacts.ImageArtifact{},
-		chartData:     map[string]artifacts.ChartDataArtifact{},
-		jsonArtifacts: map[string]artifacts.JSONArtifact{},
-		sessions:      map[string]*sessionOverlay{},
+		paths:          options.Deployment.Paths(),
+		policy:         options.Deployment.Policy(),
+		binaryStore:    options.BinaryStore,
+		uploadPolicies: uploadPolicies,
+		websocketHub:   options.WebsocketHub,
+		metadata:       map[string]artifactMetadata{},
+		images:         map[string]artifacts.ImageArtifact{},
+		chartData:      map[string]artifacts.ChartDataArtifact{},
+		jsonArtifacts:  map[string]artifacts.JSONArtifact{},
+		sessions:       map[string]*sessionOverlay{},
 	}, nil
 }
 
@@ -386,7 +404,7 @@ func (s *Service) buildOverlayEntry(artifactID string, resolvedPath string, arti
 		if err != nil {
 			return overlayEntry{}, nil, err
 		}
-		if err := enforceUploadPolicy(scope, artifactID, guessMimeType(resolvedPath, ref.MimeType), len(content)); err != nil {
+		if err := artifacts.EnforceUploadPolicy(s.uploadPolicies, scope, artifactID, guessMimeType(resolvedPath, ref.MimeType), len(content)); err != nil {
 			return overlayEntry{}, nil, err
 		}
 		fileArtifact := artifacts.FileArtifact{
@@ -662,24 +680,6 @@ func (s *Service) storeJSONCache(path string, artifact artifacts.JSONArtifact, h
 	defer s.mu.Unlock()
 	s.jsonArtifacts[path] = cloneJSONArtifact(artifact)
 	s.metadata[path] = artifactMetadata{LastKnownHash: hash}
-}
-
-func enforceUploadPolicy(scope artifacts.UploadScope, label string, mimeType string, byteLength int) error {
-	switch scope {
-	case artifacts.UploadScopeChat, artifacts.UploadScopeGeneric:
-	default:
-		return &artifacts.Error{
-			Kind:    artifacts.ErrorInvalidRequest,
-			Message: fmt.Sprintf("Invalid upload scope: %q", scope),
-		}
-	}
-	if byteLength > 25*1024*1024 {
-		return &artifacts.Error{
-			Kind:    artifacts.ErrorTooLarge,
-			Message: fmt.Sprintf("File exceeds 25 MB limit: %s", label),
-		}
-	}
-	return nil
 }
 
 func guessMimeType(path string, fallback string) string {
