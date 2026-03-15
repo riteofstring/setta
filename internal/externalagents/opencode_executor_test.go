@@ -124,6 +124,56 @@ func TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestOpenCodeExecutorPassesSessionScopedConfigPathToProcessEnv(t *testing.T) {
+	// Verify the OpenCode sidecar sees the generated session config through the
+	// process env contract rather than rediscovering it out of band.
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "env_handoff"})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Report your runtime config path"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode env-handoff run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	expectedConfigPath := filepath.Join(
+		fixture.root,
+		codexSettingsRootName,
+		"opencode",
+		fixture.configID,
+		"sessions",
+		result.ChatID,
+		openCodeConfigFileName,
+	)
+	if got := extractMessageText(lastMessage); got != expectedConfigPath {
+		t.Fatalf("expected assistant to report OPENCODE_CONFIG %q, got %q", expectedConfigPath, got)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestOpenCodeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 	// Verify the OpenCode executor registers a pending question, accepts the Go
 	// runtime response, and persists both the tool result and assistant follow-up.
@@ -832,6 +882,18 @@ func runOpenCodeFixtureProcess(scenario string) error {
 						},
 					},
 				}); err != nil {
+					return err
+				}
+				return nil
+			case "env_handoff":
+				configPath := strings.TrimSpace(os.Getenv("OPENCODE_CONFIG"))
+				if configPath == "" {
+					return fmt.Errorf("missing OPENCODE_CONFIG")
+				}
+				if _, err := os.Stat(configPath); err != nil {
+					return fmt.Errorf("stat OPENCODE_CONFIG: %w", err)
+				}
+				if err := emitOpenCodeAssistantTurn(emit, "session-env-handoff", "assistant-env", "part-env-1", configPath); err != nil {
 					return err
 				}
 				return nil

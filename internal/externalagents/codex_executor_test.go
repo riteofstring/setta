@@ -173,6 +173,53 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestCodexExecutorPassesSessionScopedCODEXHOMEToProcessEnv(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "env_handoff")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Report your runtime home"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start codex env-handoff run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	expectedHome := filepath.Join(
+		fixture.root,
+		codexSettingsRootName,
+		"codex",
+		fixture.configID,
+		"sessions",
+		result.ChatID,
+	)
+	if got := extractMessageText(lastMessage); got != expectedHome {
+		t.Fatalf("expected assistant to report CODEX_HOME %q, got %q", expectedHome, got)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
@@ -926,6 +973,18 @@ func runCodexFixtureProcess(scenario string) error {
 			case "rich":
 			case "raw":
 				if err := emitCodexRawTurn(writer); err != nil {
+					return err
+				}
+				return nil
+			case "env_handoff":
+				codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+				if codexHome == "" {
+					return fmt.Errorf("missing CODEX_HOME")
+				}
+				if _, err := os.Stat(filepath.Join(codexHome, codexConfigFileName)); err != nil {
+					return fmt.Errorf("stat CODEX_HOME config: %w", err)
+				}
+				if err := emitAssistantTurn(writer, "assistant-env", codexHome); err != nil {
 					return err
 				}
 				return nil
