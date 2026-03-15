@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.types.id import ID
-from setta.types.prompt import PromptFormat
+from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.section_impls import PromptSectionImpl
 
 if TYPE_CHECKING:
@@ -16,6 +16,13 @@ class ResolvedPromptSectionSource:
     format: PromptFormat
     prompt_template_id: ID | None
     prompt_template_name: str | None
+
+
+def load_prompt_template(dbe: "DBE", prompt_id: ID) -> PromptTemplate | None:
+    payload = dbe.read_prompt(prompt_id)
+    if payload is None:
+        return None
+    return PromptTemplate.model_validate(payload)
 
 
 def build_prompt_section_preview(
@@ -36,8 +43,6 @@ def resolve_prompt_section_source(
     dbe: "DBE",
     prompt_impl: PromptSectionImpl,
 ) -> ResolvedPromptSectionSource:
-    from setta.agentic.store import load_prompt_template
-
     prompt_template_id = prompt_impl.promptTemplateId
     if prompt_template_id is None:
         return ResolvedPromptSectionSource(
