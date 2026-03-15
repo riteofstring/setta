@@ -2,7 +2,6 @@ import pytest
 from setta.types.generated.settings_state import SettingsState
 from setta.types.project_chat_windowing import (
     normalize_project_chat_windowing,
-    validate_project_chat_thread_bindings_unchanged,
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
@@ -16,11 +15,51 @@ from setta.types.section_impls import SectionType
 from tests.helpers.project_state_sections import create_top_level_section
 
 
+def _normalize_thread_bound_chat_id(
+    instance: ProjectChatWindowInstance | None,
+) -> str | None:
+    if instance is None:
+        return None
+    if getattr(instance.mode, "value", instance.mode) != "project_ai_mode":
+        return None
+    return instance.chatId
+
+
+def _validate_project_chat_thread_bindings_unchanged(
+    current_windowing: ProjectChatWindowingState,
+    next_windowing: ProjectChatWindowingState,
+) -> None:
+    for instance_id, current_instance in current_windowing.instancesById.items():
+        current_chat_id = _normalize_thread_bound_chat_id(current_instance)
+        if current_chat_id is None:
+            continue
+        next_instance = next_windowing.instancesById.get(instance_id)
+        if next_instance is None:
+            raise ValueError(
+                f"Project chat window {instance_id} cannot be removed via layout updates while it still has a bound chatId."
+            )
+        next_chat_id = _normalize_thread_bound_chat_id(next_instance)
+        if current_chat_id == next_chat_id:
+            continue
+        raise ValueError(
+            f"Project chat window {instance_id} cannot change chatId via layout updates."
+        )
+    for instance_id, next_instance in next_windowing.instancesById.items():
+        if instance_id in current_windowing.instancesById:
+            continue
+        next_chat_id = _normalize_thread_bound_chat_id(next_instance)
+        if next_chat_id is None:
+            continue
+        raise ValueError(
+            f"Project chat window {instance_id} cannot change chatId via layout updates."
+        )
+
+
 def _apply_project_chat_windowing_state(
     project_state: ProjectStateSingleConfig,
     next_state: ProjectChatWindowingState,
 ) -> None:
-    validate_project_chat_thread_bindings_unchanged(
+    _validate_project_chat_thread_bindings_unchanged(
         project_state.projectChatWindowing,
         next_state,
     )
