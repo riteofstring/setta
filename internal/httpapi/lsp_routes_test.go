@@ -141,6 +141,114 @@ func TestRegisterLSPRoutesRejectsLauncherModeRequests(t *testing.T) {
 	assertDetailBody(t, response.Body.Bytes(), "Launcher mode does not allow this endpoint.")
 }
 
+func TestRegisterLSPRoutesProjectRequestsReturnValidationEnvelopeForMalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := lspDiagnosticsMutationRouteRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+
+	cases := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "diagnostics snapshot",
+			path: RouteGetLatestLSPDiagnostics,
+			body: `{"projectConfigId":`,
+		},
+		{
+			name: "text field completion",
+			path: RouteTextFieldCompletion,
+			body: `{"projectConfigId":"project-alpha",`,
+		},
+		{
+			name: "diagnostics mute",
+			path: RouteSetCodeSectionDiagnosticsMute,
+			body: `{"projectConfigId":"project-alpha",`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertLSPValidationEnvelope(t, response, "")
+		})
+	}
+}
+
+func TestRegisterLSPRoutesProjectRequestsReturnValidationEnvelopeForMissingRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := lspDiagnosticsMutationRouteRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+
+	cases := []struct {
+		name            string
+		path            string
+		body            string
+		expectedMessage string
+	}{
+		{
+			name:            "diagnostics snapshot missing project id",
+			path:            RouteGetLatestLSPDiagnostics,
+			body:            `{}`,
+			expectedMessage: "projectConfigId: Field required",
+		},
+		{
+			name:            "text field completion missing full text",
+			path:            RouteTextFieldCompletion,
+			body:            `{"projectConfigId":"project-alpha","sectionId":"section-1","position":1}`,
+			expectedMessage: "fullText: Field required",
+		},
+		{
+			name:            "diagnostics mute missing section id",
+			path:            RouteSetCodeSectionDiagnosticsMute,
+			body:            `{"projectConfigId":"project-alpha","mute":true}`,
+			expectedMessage: "sectionId: Field required",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertLSPValidationEnvelope(t, response, tc.expectedMessage)
+		})
+	}
+}
+
 // Diagnostics ignore-state routes should persist the project-state mutation and
 // immediately reapply filtering against the stored raw diagnostics payload.
 func TestRegisterLSPRoutesMutatesCodeSectionDiagnosticsIgnoreState(t *testing.T) {
@@ -316,6 +424,58 @@ func TestRegisterLSPRoutesTypeChecksProject(t *testing.T) {
 	}
 }
 
+func TestRegisterLSPRoutesTypeCheckReturnsValidationEnvelopeForMalformedJSONAndMissingProjectID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+
+	cases := []struct {
+		name            string
+		body            string
+		expectedMessage string
+	}{
+		{
+			name:            "malformed json",
+			body:            `{"projectConfigId":`,
+			expectedMessage: "",
+		},
+		{
+			name:            "missing project id",
+			body:            `{}`,
+			expectedMessage: "projectConfigId: Field required",
+		},
+		{
+			name:            "null project id",
+			body:            `{"projectConfigId":null}`,
+			expectedMessage: "projectConfigId: Field required",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteTypeCheck, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertLSPValidationEnvelope(t, response, tc.expectedMessage)
+		})
+	}
+}
+
 // The admin-side LSP routes follow the source full-runtime router policy:
 // deployment/share and launcher failures must return a plain detail body.
 func TestRegisterLSPRoutesAdminModeGuardsReturnSourceDetailBodies(t *testing.T) {
@@ -477,6 +637,32 @@ func newLSPRouteTestHandlerWithAdmin(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func assertLSPValidationEnvelope(t *testing.T, response *httptest.ResponseRecorder, expectedMessage string) {
+	t.Helper()
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload validationErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode validation envelope: %v", err)
+	}
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if expectedMessage == "" {
+		if payload.Message == "" {
+			t.Fatalf("expected validation message, got %#v", payload)
+		}
+	} else if payload.Message != expectedMessage {
+		t.Fatalf("expected validation message %q, got %#v", expectedMessage, payload)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
+	}
 }
 
 func lspDiagnosticsMutationRouteRuntime(t *testing.T) *projectstate.Runtime {

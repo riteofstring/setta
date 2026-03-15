@@ -166,6 +166,102 @@ func TestRegisterProjectShellRoutesLoadsProjectConfigByName(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectShellRoutesRequiresExactNameWithoutTrim(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":" Alpha "}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing project payload: %v", err)
+	}
+	if payload["detail"] != "Project config not found." {
+		t.Fatalf("unexpected exact-name payload %#v", payload)
+	}
+}
+
+func TestRegisterProjectShellRoutesRejectsAmbiguousProjectConfigName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Shared",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Shared",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"Shared"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode ambiguous payload: %v", err)
+	}
+	if payload.Error.Code != "project_config_name_ambiguous" {
+		t.Fatalf("expected project_config_name_ambiguous, got %#v", payload)
+	}
+}
+
 func TestRegisterProjectShellRoutesReturnsNotFoundForMissingProjectConfig(t *testing.T) {
 	t.Parallel()
 

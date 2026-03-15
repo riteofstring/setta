@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -222,9 +225,9 @@ func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
 
 func typeCheckHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[TypeCheckRequest](r)
+		payload, err := decodeLSPRequest[TypeCheckRequest](r, "projectConfigId")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -253,9 +256,9 @@ func typeCheckHandler(deps LSPRouteDependencies) http.HandlerFunc {
 
 func clearTextFieldCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[ClearTextFieldCompletionRequest](r)
+		payload, err := decodeLSPRequest[ClearTextFieldCompletionRequest](r, "projectConfigId", "sectionId")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -290,9 +293,9 @@ func clearTextFieldCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc
 
 func textFieldCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[TextFieldCompletionRequest](r)
+		payload, err := decodeLSPRequest[TextFieldCompletionRequest](r, "projectConfigId", "sectionId", "fullText", "position")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -330,9 +333,9 @@ func textFieldCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 
 func outputAccessorCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[OutputAccessorCompletionRequest](r)
+		payload, err := decodeLSPRequest[OutputAccessorCompletionRequest](r, "projectConfigId", "sectionId", "fullText", "position")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -369,9 +372,9 @@ func outputAccessorCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc
 
 func codeAreaCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[CodeAreaCompletionRequest](r)
+		payload, err := decodeLSPRequest[CodeAreaCompletionRequest](r, "projectConfigId", "sectionId", "fullText", "position")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -408,9 +411,9 @@ func codeAreaCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 
 func genCodePrefixCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[GenCodePrefixCompletionRequest](r)
+		payload, err := decodeLSPRequest[GenCodePrefixCompletionRequest](r, "projectConfigId", "fullText", "position")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -441,9 +444,9 @@ func genCodePrefixCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc 
 
 func genCodeSuffixCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[GenCodeSuffixCompletionRequest](r)
+		payload, err := decodeLSPRequest[GenCodeSuffixCompletionRequest](r, "projectConfigId", "fullText", "position")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -474,9 +477,9 @@ func genCodeSuffixCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc 
 
 func getLatestLSPDiagnosticsHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[GetLatestLSPDiagnosticsRequest](r)
+		payload, err := decodeLSPRequest[GetLatestLSPDiagnosticsRequest](r, "projectConfigId")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -502,9 +505,9 @@ func getLatestLSPDiagnosticsHandler(deps LSPRouteDependencies) http.HandlerFunc 
 
 func setCodeSectionDiagnosticsMuteHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[SetCodeSectionDiagnosticsMuteRequest](r)
+		payload, err := decodeLSPRequest[SetCodeSectionDiagnosticsMuteRequest](r, "projectConfigId", "sectionId", "mute")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -543,9 +546,9 @@ func setCodeSectionDiagnosticsMuteHandler(deps LSPRouteDependencies) http.Handle
 
 func setCodeSectionDiagnosticCodeSuppressionHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[SetCodeSectionDiagnosticCodeSuppressionRequest](r)
+		payload, err := decodeLSPRequest[SetCodeSectionDiagnosticCodeSuppressionRequest](r, "projectConfigId", "sectionId", "code", "suppress")
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -601,6 +604,44 @@ func optionalTrimmedStringPointer(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func decodeLSPRequest[T any](r *http.Request, requiredFields ...string) (T, error) {
+	var payload T
+	if r.Body == nil {
+		if len(requiredFields) > 0 {
+			return payload, fmt.Errorf("%s: Field required", requiredFields[0])
+		}
+		return payload, nil
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return payload, err
+	}
+	trimmedBody := bytes.TrimSpace(body)
+	if len(trimmedBody) == 0 {
+		trimmedBody = []byte("{}")
+	}
+
+	if err := json.Unmarshal(trimmedBody, &payload); err != nil {
+		return payload, err
+	}
+	if len(requiredFields) == 0 {
+		return payload, nil
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(trimmedBody, &fields); err != nil {
+		return payload, err
+	}
+	for _, field := range requiredFields {
+		value, ok := fields[field]
+		if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return payload, fmt.Errorf("%s: Field required", field)
+		}
+	}
+	return payload, nil
 }
 
 func writeLSPCompletionError(w http.ResponseWriter, r *http.Request, err error) {

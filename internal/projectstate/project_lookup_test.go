@@ -32,20 +32,25 @@ func TestDocumentProjectIDByNameReturnsMatchedID(t *testing.T) {
 	}
 }
 
-func TestDocumentProjectIDByNameRejectsBlankName(t *testing.T) {
+func TestDocumentProjectIDByNameRequiresExactMatchWithoutTrim(t *testing.T) {
 	t.Parallel()
 
 	document := Document{
 		SchemaVersion: CurrentSchemaVersion,
-		Projects:      map[string]Project{},
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
 	}
 
-	_, err := document.ProjectIDByName(" ")
+	_, err := document.ProjectIDByName(" Alpha ")
 	if err == nil {
-		t.Fatal("expected blank project name error")
+		t.Fatal("expected exact-match lookup error")
 	}
-	if !errors.Is(err, ErrProjectLookupNameRequired) {
-		t.Fatalf("expected ErrProjectLookupNameRequired, got %v", err)
+	if !errors.Is(err, ErrProjectNotFound) {
+		t.Fatalf("expected ErrProjectNotFound, got %v", err)
 	}
 }
 

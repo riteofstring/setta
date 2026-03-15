@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/modes"
@@ -154,7 +153,7 @@ func loadProjectConfigHandler(deps ProjectShellRouteDependencies) http.HandlerFu
 			return
 		}
 
-		projectStateView, err := deps.Shell.LoadProjectConfig(r.Context(), strings.TrimSpace(payload.ProjectConfigName))
+		projectStateView, err := deps.Shell.LoadProjectConfig(r.Context(), payload.ProjectConfigName)
 		if err != nil {
 			if errors.Is(err, projectstate.ErrProjectNotFound) {
 				writeJSON(w, http.StatusNotFound, map[string]string{"detail": "Project config not found."})
@@ -333,8 +332,6 @@ func deleteNotificationHandler(deps ProjectShellRouteDependencies) http.HandlerF
 
 func writeProjectShellRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, projectstate.ErrProjectLookupNameRequired):
-		writeError(w, r, http.StatusBadRequest, "project_config_name_required", "Project config name is required.")
 	case errors.Is(err, projectstate.ErrProjectIDRequired),
 		errors.Is(err, notifications.ErrProjectConfigIDRequired):
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")

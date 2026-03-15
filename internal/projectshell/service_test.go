@@ -94,6 +94,42 @@ func TestServiceLoadProjectConfigLoadsByName(t *testing.T) {
 	}
 }
 
+func TestServiceLoadProjectConfigRequiresExactNameMatchWithoutTrim(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := NewService(ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.LoadProjectConfig(context.Background(), " Alpha ")
+	if err == nil {
+		t.Fatal("expected exact-match lookup error")
+	}
+	if !errors.Is(err, projectstate.ErrProjectNotFound) {
+		t.Fatalf("expected ErrProjectNotFound, got %v", err)
+	}
+}
+
 func TestServiceLoadProjectConfigReturnsProjectNotFound(t *testing.T) {
 	t.Parallel()
 
