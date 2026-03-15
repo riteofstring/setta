@@ -73,6 +73,9 @@ Last audited: `2026-03-17`
 - plus the targeted direct settings / app-definition required-field
   validation slice: `saveSettings` missing-`settings` transport and direct
   `validateAppDefinition` / `setAppDefinition` missing-`appSpec` transport
+- plus the targeted settings-project view-mode follow-up slice: active
+  `Core` / `Param Defaults` / `All Settings` tab filtering and partial-layout
+  repair on the current `/settings` caller surface
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -89,9 +92,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `318`
+- Rows audited in this pass: `320`
 - Status counts:
-  - `Proved`: `289`
+  - `Proved`: `291`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `1`
   - `Retained Python boundary`: `8`
@@ -270,6 +273,10 @@ Last audited: `2026-03-17`
   request-field transport on `saveSettings`, plus missing `appSpec`
   request-field transport on the direct `validateAppDefinition` and
   `setAppDefinition` HTTP routes.
+- This pass also extends the matrix into a targeted settings-project
+  view-mode follow-up slice: caller-visible tab filtering for `Core`, `Param
+  Defaults`, and `All Settings`, plus partial-layout repair that preserves the
+  active tab's visible section set on the `/settings` surface.
 - This pass also extends the matrix into the first bounded transcription slice:
   transcription-profile capability/validation behavior, provider-dictation
   file flow, typed transcription-session start/append/cancel errors, and
@@ -348,6 +355,10 @@ Last audited: `2026-03-17`
     subset audited here
   - remaining settings typed-validation / invalid-JSON transport-detail rows
     beyond the mode-guard subset audited here
+  - remaining settings-project scaffold rows beyond the active `/settings`
+    tab-filter / partial-layout subset audited here, including initial tab
+    layout coordinates, broader reset conditions, and required-section /
+    code-object integrity failures
   - remaining app-definition invalid-JSON and not-found/detail rows beyond the
     catalog / mode-guard / invalid-set / missing-file-read subset audited here
   - remaining UI-setting reveal-after-set lease/detail rows beyond the
@@ -423,6 +434,11 @@ Last audited: `2026-03-17`
   `app_definition.http_validate_set.required_app_spec.transport_422_validation_envelope`
   are now explicit proved rows instead of leaving those request-parse
   validation contracts implicit behind broader malformed-JSON coverage.
+- `settings_project.view_modes.core_param_all_tabs_filter_visible_sections`
+  and
+  `settings_project.view_modes.partial_layout_payload_repairs_visible_sections`
+  are now explicit proved rows instead of leaving the active `/settings`
+  tab/filter behavior buried in frontend E2E coverage.
 - The legacy direct `updateAppDefinition` HTTP route now has explicit
   `Dormant / unproven caller` transport/detail rows instead of staying folded
   into the broader dormant-surface note.
@@ -655,6 +671,8 @@ Last audited: `2026-03-17`
 | `settings.save.persists_runtime_snapshot_and_broadcasts_update` | `backend/setta/routers/settings.py::route_save_settings`; `backend/setta/database/settings_file.py::save_settings` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/settingsstate/runtime.go::ReplaceAndSave` | `TestRegisterSettingsRoutesSavePersistsSnapshot`; `TestAppSaveSettingsBroadcastsUpdateSettings` | `frontend/src/state/actions/settings.ts`; `frontend/src/state/actions/websocketReceive.ts` still rely on the HTTP save plus `UpdateSettings` websocket broadcast | `Proved` | Direct settings saves still persist the canonical snapshot and immediately fan out the updated document over the frontend websocket. |
 | `settings.save.mode_guard_preserves_share_specific_detail` | `tests/routers/test_settings_mode_guard.py::test_save_settings_is_blocked_in_launcher_mode`; `backend/setta/routers/settings.py::route_save_settings`; `backend/setta/runtime/context.py::RuntimeContext.require_ide_mode` | `internal/httpapi/settings_routes.go::settingsSaveModeDetail` | `TestRegisterSettingsRoutesBlocksSaveOutsideFullIDE` | `frontend/src/state/actions/settings.ts` still posts `saveSettings` directly from the settings pane | `Proved` | Save-settings mode guards now return Python-style detail bodies again, including the source share-mode-specific `"Share mode does not allow updating settings."` message. |
 | `settings_project.save.materializes_live_settings_snapshot` | `tests/project_state/test_settings_project_json_source_load.py::test_settings_project_loads_json_sources_before_save`; `backend/setta/database/settings_file.py::save_updated_json_source_sections` | `internal/settingsstate/materializer.go::ApplySettingsProjectDocument`; app-owned settings-project save hook | `TestApplySettingsProjectDocumentOverlaysJSONSourceSections`; `TestAppSaveSettingsProjectMaterializesLiveSettings` | the IDE app still owns the settings-project save path that pushes live settings updates | `Proved` | Saving the editable settings project still overlays JSON-source sections onto live settings, persists `setta-settings.json`, and broadcasts the resulting runtime snapshot. |
+| `settings_project.view_modes.core_param_all_tabs_filter_visible_sections` | `tests/project_state/test_settings_project_view_modes.py::test_settings_view_modes_layout_and_viewport`; `backend/setta/project_state/settings_project.py::{SETTINGS_VIEW_MODE_GROUPS,_create_settings_view_modes}` | settings project view-mode payload currently survives on the Go-owned `/settings` project surface loaded through `internal/projectshell/service.go::LoadProjectConfig` and `internal/projectview/single_config.go` | `frontend/tests/e2e/settings/settings-view-modes.spec.ts::test(\"settings view tabs filter sections and minimap\")`; `frontend/tests/e2e/settings/settings-tab-persistence.spec.ts::test(\"settings tabs are selectable via UI tab buttons\")` | the current frontend still routes `/settings` through `loadProjectConfig` with project name `settings` and renders tab buttons from the backend-provided view-mode payload | `Proved` | The active Go-owned settings project still exposes caller-visible `Core`, `Param Defaults`, and `All Settings` tabs that filter the rendered node set and minimap counts instead of collapsing into one undifferentiated settings canvas. |
+| `settings_project.view_modes.partial_layout_payload_repairs_visible_sections` | `tests/project_state/test_settings_project_view_modes.py::test_settings_view_modes_reset_when_view_layout_missing_visible_sections`; `backend/setta/project_state/settings_project.py::ensure_settings_view_modes` | active settings-project view-mode/layout persistence through `internal/httpapi/project_routes.go::setTopLevelSectionLayoutHandler` and `internal/projectshell/service.go::LoadProjectConfig` on the `/settings` project surface | `frontend/tests/e2e/settings/settings-view-modes.spec.ts::test(\"settings view modes keep visible sections when layout payload is partial\")` | `/settings` still mutates layout through the standard project-state routes, then rehydrates the repaired view-mode state from `getLatestProjectState` | `Proved` | When a partial layout payload omits visible sections from the active settings tab, the current Go-backed `/settings` flow still recovers a view-mode state that preserves the active tab's visible section set instead of leaving the tab partially blank. |
 | `settings_project.http_load_route_legacy_surface_is_dormant` | `backend/setta/types/routes.py::Route.LOAD_SETTINGS_PROJECT`; source frontend bindings include `loadSettingsProject` in `frontend/src/utils/generatedTypes.ts` | no direct Go HTTP route; superseded by the Go-owned live settings load path in `internal/httpapi/settings_routes.go` plus app-owned settings-project runtime/materialization in `internal/projectstate` and `internal/settingsstate` | `TestRegisterSettingsRoutesReturnsCurrentSnapshot`; `TestApplySettingsProjectDocumentOverlaysJSONSourceSections`; `TestAppSaveSettingsProjectMaterializesLiveSettings` | `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` explicitly classifies `loadSettingsProject` as an older reverse-sync helper with no proven current caller | `Dormant / unproven caller` | The source transport surface existed, but the current rewrite evidence only proves the live settings owner and app-owned settings-project materialization path, not a surviving direct `loadSettingsProject` caller. |
 | `settings_project.http_save_route_legacy_surface_is_dormant` | `backend/setta/types/routes.py::Route.SAVE_SETTINGS_PROJECT`; source frontend bindings include `saveSettingsProject` in `frontend/src/utils/generatedTypes.ts` | no direct Go HTTP route; superseded by the app-owned settings-project persistence hook in `internal/app/app.go` and `internal/settingsstate/materializer.go` | `TestApplySettingsProjectDocumentOverlaysJSONSourceSections`; `TestAppSaveSettingsProjectMaterializesLiveSettings`; `TestAppSaveSettingsBroadcastsUpdateSettings` | rewrite caller-backed docs explicitly classify `saveSettingsProject` as an older reverse-sync helper with no proven current caller | `Dormant / unproven caller` | The rewrite intentionally proves settings-project persistence through the app-owned save/materialization hook rather than porting an otherwise unproven legacy direct `saveSettingsProject` HTTP helper. |
 | `app_definition.http_catalog_route_available_outside_ide` | `backend/setta/routers/project_manager.py::route_get_app_catalog`; `backend/setta/types/routes.py::Route.GET_APP_CATALOG` | `internal/httpapi/app_definition_routes.go::RegisterAppDefinitionRoutes`; `getAppCatalogHandler` | `TestRegisterAppDefinitionRoutesReturnsCatalog`; `TestRegisterAppDefinitionRoutesAllowsCatalogOutsideIDE` | `frontend/src/utils/generatedEndpoints.ts` still exposes `route_get_app_catalog` on the HTTP route surface | `Proved` | The direct HTTP app-catalog route is no longer incorrectly IDE-gated and now matches the source route’s unrestricted availability. |
