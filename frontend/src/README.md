@@ -557,10 +557,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     selector surface.
   - `state/actions/sectionEffectiveImpls.ts` is now a thin compatibility facade
     over the effective-impl core, typed selector, and feature-selector owners.
-  - `state/actions/sectionLayoutQueries.ts` owns terminal attachment, section
-    orientation, section type, and section-child queries that still depend on
-    effective-impl selectors but no longer live beside the core derivation
-    helpers.
+  - `state/actions/sectionStructureQueries.ts` owns section orientation,
+    section type, section-child queries, and the shared base-code type guard.
+  - `state/actions/sectionTerminalAttachmentQueries.ts` owns terminal
+    attachment and embedded-terminal queries for code-section layouts.
+  - `state/actions/sectionLayoutQueries.ts` is now the thin compatibility
+    facade over those layout-query owners.
   - `state/actions/sectionEffectiveImplMutations.ts` owns low-level
     section/code-object impl mutation helpers and cache invalidation for local
     impl writes.

@@ -1,12 +1,5 @@
-import {
-  getAttachedTerminalParentIdForTerminalSection,
-  getEmbeddedAttachedTerminalForCodeSection,
-  getEmbeddedAttachedTerminalParentIdForTerminalSection,
-  getSectionChildren,
-  getSectionIsHorizontalOrientation,
-  getSectionType,
-} from "state/actions/sectionLayoutQueries";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import {
   createCodeSectionImpl,
   createCore,
@@ -19,9 +12,20 @@ import {
   ListRootViewModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-describe("getSectionIsHorizontalOrientation", () => {
+import {
+  getSectionChildren,
+  getSectionIsHorizontalOrientation,
+  getSectionType,
+  isBaseCodeSectionType,
+} from "./sectionStructureQueries";
+
+describe("sectionStructureQueries", () => {
+  beforeEach(() => {
+    resetProjectStores();
+  });
+
   it("treats list root kanban view as horizontal", () => {
     const sectionId = "list-root-1";
     const variantId = "variant-1";
@@ -62,27 +66,21 @@ describe("getSectionIsHorizontalOrientation", () => {
 
     expect(getSectionIsHorizontalOrientation(sectionId)).toBe(true);
   });
-});
 
-describe("section layout queries", () => {
-  const codeSectionId = "code-1";
-  const terminalSectionId = "terminal-1";
-  const codeVariantId = "code-variant-1";
-  const terminalVariantId = "terminal-variant-1";
-  const codeImplId = "code-impl-1";
-  const terminalImplId = "terminal-impl-1";
-
-  function createStateForEmbeddedLookup(
-    codeChildren: string[],
-  ): ZustandProjectState {
-    const sectionVariantMap = {
-      [codeSectionId]: codeVariantId,
-      [terminalSectionId]: terminalVariantId,
-    };
-    return {
+  it("supports the existing getSectionType call signatures", () => {
+    const codeSectionId = "code-1";
+    const terminalSectionId = "terminal-1";
+    const codeVariantId = "code-variant-1";
+    const terminalVariantId = "terminal-variant-1";
+    const codeImplId = "code-impl-1";
+    const terminalImplId = "terminal-impl-1";
+    const state = {
       projectConfig: createProjectConfig({
         id: "project-1",
-        sectionVariantMap,
+        sectionVariantMap: {
+          [codeSectionId]: codeVariantId,
+          [terminalSectionId]: terminalVariantId,
+        },
       }),
       sections: {
         [codeSectionId]: createCore({
@@ -92,7 +90,7 @@ describe("section layout queries", () => {
           defaultVariant: codeVariantId,
           sharedModifier: {
             attachedTerminalSectionId: terminalSectionId,
-            children: codeChildren,
+            children: [terminalSectionId],
           },
           unsharedKeys: [],
         }),
@@ -143,10 +141,6 @@ describe("section layout queries", () => {
       previewSectionVariantMap: {},
       requiredDecodedImages: [],
     } as ZustandProjectState;
-  }
-
-  it("supports the existing getSectionType call signatures", () => {
-    const state = createStateForEmbeddedLookup([terminalSectionId]);
     useProjectState.setState(state);
 
     expect(getSectionType(state, codeSectionId)).toBe(SectionTypeEnum.Code);
@@ -157,43 +151,10 @@ describe("section layout queries", () => {
     ]);
   });
 
-  it("returns embedded attachment details for a single attached terminal child", () => {
-    const state = createStateForEmbeddedLookup([terminalSectionId]);
-
-    expect(
-      getAttachedTerminalParentIdForTerminalSection(state, terminalSectionId),
-    ).toBe(codeSectionId);
-    expect(
-      getEmbeddedAttachedTerminalParentIdForTerminalSection(
-        state,
-        terminalSectionId,
-      ),
-    ).toBe(codeSectionId);
-    expect(
-      getEmbeddedAttachedTerminalForCodeSection(state, codeSectionId),
-    ).toEqual({
-      attachedTerminalId: terminalSectionId,
-      isTerminalMinimized: false,
-    });
-  });
-
-  it("treats second-child terminals as attached but not embedded", () => {
-    const state = createStateForEmbeddedLookup([
-      terminalSectionId,
-      "section-2",
-    ]);
-
-    expect(
-      getAttachedTerminalParentIdForTerminalSection(state, terminalSectionId),
-    ).toBe(codeSectionId);
-    expect(
-      getEmbeddedAttachedTerminalParentIdForTerminalSection(
-        state,
-        terminalSectionId,
-      ),
-    ).toBeNull();
-    expect(
-      getEmbeddedAttachedTerminalForCodeSection(state, codeSectionId),
-    ).toBeNull();
+  it("treats code and generated python sections as base code types", () => {
+    expect(isBaseCodeSectionType(SectionTypeEnum.Code)).toBe(true);
+    expect(isBaseCodeSectionType(SectionTypeEnum.GenPythonCode)).toBe(true);
+    expect(isBaseCodeSectionType(SectionTypeEnum.GenPythonMetadata)).toBe(true);
+    expect(isBaseCodeSectionType(SectionTypeEnum.Chat)).toBe(false);
   });
 });

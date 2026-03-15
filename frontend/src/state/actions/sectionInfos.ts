@@ -34,19 +34,21 @@ export {
   setSectionChildren,
 } from "./sectionHierarchy";
 export {
-  getAttachedTerminalParentIdForTerminalSection,
-  getEmbeddedAttachedTerminalForCodeSection,
-  getEmbeddedAttachedTerminalParentIdForTerminalSection,
-  getSectionChildren,
-  getSectionIsHorizontalOrientation,
-  getSectionType,
-  isBaseCodeSectionType,
-} from "./sectionLayoutQueries";
-export {
   getCurrShownParamIds,
   updateShownParamIdsForPinnedParams,
 } from "./sectionShownParams";
 export { mergeStreamingChatSections } from "./sectionStreamingMerge";
+export {
+  getSectionChildren,
+  getSectionIsHorizontalOrientation,
+  getSectionType,
+  isBaseCodeSectionType,
+} from "./sectionStructureQueries";
+export {
+  getAttachedTerminalParentIdForTerminalSection,
+  getEmbeddedAttachedTerminalForCodeSection,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
+} from "./sectionTerminalAttachmentQueries";
 export { clearToolArgumentPreviewForProjectState } from "./sectionToolArgumentPreview";
 
 export function updateProjectState({

@@ -1,7 +1,7 @@
 import { type ZustandProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { getCurrEffectiveSectionImpl } from "../sectionEffectiveImplSelectors";
-import { isBaseCodeSectionType } from "../sectionLayoutQueries";
+import { isBaseCodeSectionType } from "../sectionStructureQueries";
 
 export function isCodeSection(
   state: ZustandProjectState,

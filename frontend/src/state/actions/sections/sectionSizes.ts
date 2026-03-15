@@ -5,7 +5,7 @@ import {
   getHighestAncestor,
   getSectionDescendants,
 } from "state/actions/sectionHierarchy";
-import { getEmbeddedAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionLayoutQueries";
+import { getEmbeddedAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionTerminalAttachmentQueries";
 import { ZustandProjectState } from "state/definitions";
 import {
   createSectionSize,

@@ -83,9 +83,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/sectionFeatureSelectors.ts` now owns
   managed-chat checks and param display-name helpers; `frontend/src/state/actions/sectionEffectiveImpls.ts`
   is now a thin compatibility facade over those owners, while
-  `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal
-  attachment, section orientation, section type, and section-child queries that
-  previously lived in `frontend/src/state/actions/sectionInfos.ts` and
+  `frontend/src/state/actions/sectionStructureQueries.ts` now owns section
+  orientation, section type, section-child queries, and the shared base-code
+  type guard, `frontend/src/state/actions/sectionTerminalAttachmentQueries.ts`
+  now owns terminal attachment and embedded-terminal queries, and
+  `frontend/src/state/actions/sectionLayoutQueries.ts` is now the thin
+  compatibility facade over those read-side layout queries that previously
+  lived in `frontend/src/state/actions/sectionInfos.ts` and
   `frontend/src/state/actions/sectionEffectiveImpls.ts`; future cleanup should
   keep new effective-impl reads, section layout queries, and local impl writes
   on those dedicated surfaces instead of adding them back to the remaining
@@ -397,13 +401,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionLayoutQueries.ts` at 233 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/customRuns.ts` at 227 lines
   - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
-  - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
+  - `frontend/src/state/actions/sections/sectionSizes.ts` at 218 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/customRuns.ts` at 227 lines
@@ -624,10 +627,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - param display-name helpers
 - `sectionEffectiveImpls.ts` is now:
   - a thin compatibility facade over the effective-impl core, typed selector, and feature-selector owners
-- `sectionLayoutQueries.ts` now owns:
-  - terminal attachment helpers for embedded code/terminal relationships
+- `sectionStructureQueries.ts` now owns:
   - section-orientation, section-type, and section-child queries
   - compatibility-preserving `getSectionType` overloads used across existing callers
+  - the shared base-code type guard used by layout and move queries
+- `sectionTerminalAttachmentQueries.ts` now owns:
+  - terminal attachment helpers for embedded code/terminal relationships
+- `sectionLayoutQueries.ts` is now:
+  - the thin compatibility facade over those section layout query owners
 - `sectionEffectiveImplMutations.ts` now owns:
   - in-place impl mutation helpers for section/code-object writes
   - cache invalidation after shared, base-impl, or variant-modifier updates

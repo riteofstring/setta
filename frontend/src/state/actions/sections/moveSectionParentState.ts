@@ -5,7 +5,7 @@ import { insertIntoArray } from "utils/utils";
 import { setCurrEffectiveSectionImplValue } from "../sectionEffectiveImplMutations";
 import { getCurrEffectiveSectionImpl } from "../sectionEffectiveImplSelectors";
 import { setSectionChildren } from "../sectionHierarchy";
-import { isBaseCodeSectionType } from "../sectionLayoutQueries";
+import { isBaseCodeSectionType } from "../sectionStructureQueries";
 import { isCodeSection, isTerminalSection } from "./moveSectionQueries";
 
 export function moveSectionsIntoParent({

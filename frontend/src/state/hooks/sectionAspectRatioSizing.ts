@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { getSectionType } from "state/actions/sectionLayoutQueries";
+import { getSectionType } from "state/actions/sectionStructureQueries";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
