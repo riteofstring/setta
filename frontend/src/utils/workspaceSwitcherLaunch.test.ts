@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { LaunchRequestInput } from "./generatedTypes";
 import {
   consumeOpenWorkspaceSwitcherRequest,
@@ -7,6 +15,10 @@ import {
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
 } from "./workspaceSwitcherLaunch";
+
+vi.mock("utils/constants", () => ({
+  HOME_ROUTER_PATH: "/home",
+}));
 
 function buildWorkspaceLaunchIntentHash({
   launchIntentToken,
