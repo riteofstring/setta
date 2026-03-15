@@ -383,6 +383,13 @@ Gate:
 
 Purpose: optimize scripting cost only after the DOM and layout contracts are stable.
 
+Current status after the accepted Phase 3 checkpoints:
+
+- Treat Phase 3 as complete once the latest accepted filter/reorder traces no longer point at a clear callable-owned seam.
+- Do not start Phase 4 just to keep pushing numbers down.
+- Only continue callable-specific Phase 4 work when a fresh trace proves the next dominant scripting hotspot is still inside the callable subtree.
+- If the next dominant signal has moved to shared page chrome or editor work, record that boundary in the log/report and stop the callable-specific track there rather than refactoring speculative targets.
+
 Targets:
 
 - `frontend/src/components/Params/GetParamSwitch.tsx`

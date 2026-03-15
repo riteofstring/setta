@@ -806,3 +806,36 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
     - the settled trace rerun stayed close to the previous accepted result
     - the repeated reruns included one materially faster `81.0ms` pass
   - the remaining forced reflow signal is now in page chrome rather than the callable controls cluster, which is the key architectural outcome of this checkpoint
+
+### Phase 3 boundary assessment: no next trace-backed callable-owned seam
+
+- Date/time: 2026-03-16
+- Scope:
+  - re-read the latest accepted Phase 3 traces and the remaining broad callable shell in `frontend/src/components/Section/SectionParts/Search.tsx`
+  - captured one more live reorder trace on the existing worktree workspace-route `math.sqrt` scene:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-reorder-boundary.trace.json`
+- Measurement read:
+  - DevTools summary for the longest interaction on that rerun:
+    - event: `pointerdown`
+    - INP: `184ms`
+    - input delay: `9ms`
+    - processing duration: `131ms`
+    - presentation delay: `44ms`
+  - Used a coarse module-name scan on the same trace file as a secondary ownership check:
+    - `Search`: `0`
+    - `SectionSearch`: `0`
+    - `ProjectChatBottomDock`: `55`
+    - `CodeMirror`: `7`
+    - `TextInputCodeMirror`: `2`
+    - `GroupContainer`: `24`
+    - `scheduleMeasure`: `8`
+    - `KwargsControls`: `1`
+    - `ParamFilter`: `1`
+- Interpretation:
+  - `Search` is still broad in code, but the accepted trace evidence does not make it the next credible callable-specific checkpoint.
+  - The boundary rerun is consistent with the earlier accepted Phase 3 result:
+    - the strongest remaining signal is shared page chrome / editor work
+    - not a newly isolated callable shell or selector seam
+  - `GroupContainer` still appears in the trace artifact, but the accepted post-checkpoint reruns already removed its earlier broad measurement signature as the dominant reorder issue, and this boundary rerun did not produce a clearer callable-owned successor seam.
+  - Treat this as the end of justified callable-specific Phase 3 work for now.
+  - Any Phase 4 callable work should require a fresh trace that proves the next dominant hotspot is actually inside the callable subtree.

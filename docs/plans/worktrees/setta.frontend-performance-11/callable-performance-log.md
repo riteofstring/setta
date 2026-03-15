@@ -900,3 +900,52 @@ Append-only log for the callable DOM-first performance refactor.
   - The remaining forced reflow signal is now outside `KwargsControls` and `ParamFilter`, which is the important architectural result for this phase.
 - Next action:
   - Continue Phase 3 by following the next trace-backed callable hot path after `KwargsControls`, with attention on remaining non-callable page-chrome work only if it is still blocking callable interaction measurements.
+
+### 2026-03-16 39
+
+- Item: Phase 3 boundary assessment closed the callable render-path pass without starting speculative `Search` work.
+- Status: `done`
+- Details:
+  - Re-read the current plan, the latest accepted Phase 3 results, and the remaining broad callable shell in `frontend/src/components/Section/SectionParts/Search.tsx`.
+  - `SectionSearch` is still a broad component on paper:
+    - style-theme subscription
+    - search-height measurement
+    - agentic-handle positioning
+    - callable/code-object info subscription
+  - But the accepted Phase 3 traces still did not identify `Search` as the next credible callable-owned seam:
+    - the settled filter/reorder reruns from checkpoint 4 already removed `KwargsControls` / `ParamFilter` from the reorder hotspot
+    - those accepted reruns left the remaining forced-reflow signal in shared page chrome and editor work:
+      - `ProjectChatBottomDock`
+      - `eq` in `chunk-MB4RGFJ3.js`
+  - Captured one more live worktree reorder trace on the existing workspace `math.sqrt` scene:
+    - artifact:
+      - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-reorder-boundary.trace.json`
+    - trace summary:
+      - longest interaction: `pointerdown`
+      - INP: `184ms`
+      - input delay: `9ms`
+      - processing duration: `131ms`
+      - presentation delay: `44ms`
+  - Used a coarse string scan on the new trace artifact as a tie-breaker for module ownership, not as the primary acceptance metric:
+    - `Search`: `0`
+    - `SectionSearch`: `0`
+    - `ProjectChatBottomDock`: `55`
+    - `CodeMirror`: `7`
+    - `TextInputCodeMirror`: `2`
+    - `GroupContainer`: `24`
+    - `scheduleMeasure`: `8`
+    - `KwargsControls`: `1`
+    - `ParamFilter`: `1`
+  - Interpretation of that boundary rerun:
+    - it does not prove `Search` is the next hotspot
+    - it does reinforce that the remaining dominant signal is shared page chrome / editor work rather than a newly surfaced callable-only seam
+    - `GroupContainer` still appears in the trace, but the accepted reorder reruns after checkpoint 3 already reduced its previous broad-measurement signature and no new isolated regression was identified here
+  - Recorded the Phase 3 boundary in the plan so Phase 4 only continues if a fresh trace proves the next dominant hotspot is callable-owned.
+- Interpretation:
+  - Phase 3 exit criteria are met:
+    - the callable render path now subscribes through materially narrower boundaries than untouched `main`
+    - the next remaining hot path is identified by trace evidence instead of assumption
+    - no further callable shell/script checkpoint is justified today without reopening speculative work
+  - The correct next move is not "optimize `Search` because it is broad"; the correct next move is "stop the callable-specific track unless a new trace shows the callable subtree is still the owner of the next dominant cost."
+- Next action:
+  - Do not start callable Phase 4 code changes until a fresh trace shows a callable-owned scripting hotspot that is stronger than the shared page chrome / editor signal.
