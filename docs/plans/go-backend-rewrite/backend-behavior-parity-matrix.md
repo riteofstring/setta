@@ -5,20 +5,26 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `87d9c0bd6042c0be72d88933d59f33cc29f92a69`
-- Slice covered in this pass: the first recommended naming/default-name/error-contract/realtime slice from `backend-behavior-parity-matrix-plan.md`
+- Target head: `6a2f061ba1781994d754e8cba199b692b75857cc`
+- Slice covered in this pass: the first recommended
+  naming/default-name/error-contract/realtime slice, the project-shell slice,
+  and the websocket/realtime/listener bootstrap/coverage/force-refresh/frontend-emit/plugin-transport slice from `backend-behavior-parity-matrix-plan.md`
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
+    `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
     `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`,
-    and `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
-  - no retained Python boundary is relevant to this slice; the retained listener
-    and MCP notes are separate surfaces
+    `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`, and
+    `docs/plans/go-backend-rewrite/setta-listener-protocol-redesign-plan.md`
+  - the listener websocket is an active retained Python caller surface in the
+    current rewrite docs, so listener-specific intentional divergences are
+    recorded explicitly instead of being treated as implicit scope changes
 
 ## Status Summary
 
-- Rows audited in this pass: `41`
+- Rows audited in this pass: `71`
 - Status counts:
-  - `Proved`: `41`
+  - `Proved`: `69`
+  - `Intentional divergence`: `2`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
     preserves the Python-source blank root name instead of inventing `"params"`
@@ -30,6 +36,11 @@ Last audited: `2026-03-16`
   - `internal/httpapi/project_shell_routes.go`: `loadProjectConfig` now returns
     a detail-style 404 body, `deleteProjectConfigs` now returns `true`, and
     `deleteNotification` now returns `{"success": bool}` to match the source
+  - `internal/httpapi/listener_routes.go`: `forceRefreshListener` missing-project
+    failures now return the Python-style `404 {"detail": ...}` body
+  - `internal/wsapi/routes.go`: listener init missing-project error payloads now
+    omit the extra Go-only `"message"` field so the retained websocket transport
+    matches the source contract
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -41,20 +52,32 @@ Last audited: `2026-03-16`
 - This pass also extends the matrix into the next suggested bounded slice:
   project-shell metadata/load/save/save-as/default-project/delete-project and
   notifications behavior.
+- This pass also extends the matrix into the listener/websocket slice:
+  frontend identity, listener force-refresh transport, listener coverage
+  snapshots, listener bootstrap/register/frontend-emit error contracts, and
+  plugin listener endpoint transport.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
   - section-variant sort-order transport/details
   - broader non-naming layout mutation rules outside the create/rename/default
     slice
+  - listener artifact-update transport and persistence rows
+  - listener built-in/chat-toolkit endpoint inventory beyond the plugin/error
+    rows audited here
+  - listener realtime delta / dependency-event sequencing and dependency-closure
+    delivery rules beyond the force-refresh and coverage rows audited here
   - project-shell exact-name whitespace/duplicate lookup nuances beyond the
     currently cited load/save/delete transport rows
 
 ## Current Gaps
 
 - None in the rows audited so far.
-- Deferred follow-up still exists for unaudited slices and for the project-shell
-  exact-name whitespace/duplicate lookup nuances called out in Scope Notes.
+- The two listener websocket behavior changes that do not match the source
+  baseline are recorded explicitly as `Intentional divergence`, not left as
+  silent drift.
+- Deferred follow-up still exists for unaudited slices and for the
+  project-shell/listener rows called out in Scope Notes.
 
 ## Matrix
 
@@ -103,3 +126,31 @@ Last audited: `2026-03-16`
 | `project_shell.notifications.list_filtered_by_project` | `backend/setta/routers/projects.py::route_get_notifications` returns `read_notifications(projectConfigId)` | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesReturnsProjectNotifications`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane calls `route_get_notifications` | `Proved` | The Go notifications read path keeps per-project filtering. |
 | `project_shell.notifications.delete_persists` | `backend/setta/routers/projects.py::route_delete_notification` deletes the notification through the DB | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane removes locally, then posts the delete | `Proved` | The delete side effect itself survives in Go. |
 | `project_shell.notifications.delete_transport_success_bool` | `backend/setta/routers/projects.py::route_delete_notification` returns `{"success": success}` | `internal/httpapi/project_shell_routes.go::deleteNotificationHandler` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | `frontend/src/components/Panes/Overview/NotificationsArea.tsx` ignores the response today | `Proved` | Go now returns the source success object. |
+| `frontend.ws.frontend_identity.server_owned_affinity_token` | `tests/websockets/test_frontend_receiver_share_mode.py::test_frontend_receiver_on_connect_sends_frontend_identity_message` | `internal/realtime/websocket_hub.go`; `internal/wsapi/routes.go` | `TestWebsocketHubSendFrontendIdentityPublishesServerOwnedAffinityToken`; `TestAppServesFrontendWebsocketRoute`; `...ForConfiguredDevFrontendOrigin` | `frontend/src/state/actions/websocketReceive.ts`; `frontend/src/state/actions/websocketReceive.test.ts` | `Proved` | Go still sends a server-owned affinity token that resolves back to the frontend websocket instead of echoing the raw connection id. |
+| `listener.force_refresh.route_latest_snapshot` | `backend/setta/routers/project_manager.py::route_force_refresh_listener`; `tests/routers/test_project_manager_force_refresh.py::test_force_refresh_broadcasts_latest_snapshot` | `internal/httpapi/listener_routes.go`; `internal/listenersnapshot` | `TestAppServesListenerForceRefreshRoute` | `frontend/src/state/actions/listeners.ts`; `frontend/src/utils/generatedEndpoints.ts` | `Proved` | The HTTP force-refresh route still loads the latest single-project snapshot and pushes it to listener clients. |
+| `listener.force_refresh.route_missing_project.transport_404_detail` | `backend/setta/routers/project_manager.py::route_force_refresh_listener` raises `HTTPException(status_code=404, detail=f"project state unavailable for {x.projectConfigId}")`; `tests/routers/test_project_manager_force_refresh.py::test_force_refresh_missing_project_raises_http_error` | `internal/httpapi/listener_routes.go` | `TestRegisterListenerRoutesRejectsUnknownProjectConfig` | `frontend/src/state/actions/listeners.ts` only checks success/failure today | `Proved` | Go now returns the Python-style detail body for missing-project force-refresh failures. |
+| `listener.force_refresh.targets_bootstrapped_sockets_only` | `tests/websockets/test_python_script_receiver.py::test_send_force_refresh_targets_bootstrapped_sockets` | `internal/realtime/listener_broadcaster.go` | `TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSequence` | bootstrap tracking flows through `internal/wsapi/routes.go::handleListenerInit` | `Proved` | Force refresh still targets only listener sockets bootstrapped for the requested project/session. |
+| `listener.force_refresh.skips_without_bootstrap` | `tests/websockets/test_python_script_receiver.py::test_send_force_refresh_skips_when_no_bootstrap` | `internal/realtime/listener_broadcaster.go` | `TestListenerBroadcasterForceRefreshResetsSequenceWithoutTargets` | no frontend fallback is needed because the listener broadcaster simply delivers nothing | `Proved` | Go preserves the source no-op behavior when no bootstrapped listeners exist. |
+| `listener.coverage.explicit_dependencies_and_wildcard` | `tests/websockets/test_listener_coverage.py::test_returns_snapshot_for_new_dependencies`; `...test_handles_wildcard_callbacks`; `backend/setta/websockets/listener_coverage.py` | `internal/realtime/listener_coverage.go` | `TestBuildListenerCoverageSnapshotIgnoresRefreshOnlyCallbacks`; `...TracksRealtimeWildcard` | `frontend/src/state/actions/listenerCoverage.ts`; `frontend/src/state/actions/realtimeDependencySend.ts` | `Proved` | Coverage snapshots still surface explicit realtime dependencies separately from the wildcard bit and exclude refresh-only callbacks. |
+| `listener.coverage.reset_snapshot_on_disconnect` | `tests/websockets/test_listener_coverage.py::test_emits_reset_snapshot_when_no_registrations` | `internal/wsapi/routes.go`; `internal/realtime/listener_coverage.go` | `TestRegisterRoutesListenerRegisterBroadcastsCoverageSnapshotToFrontendAndClearsOnDisconnect` | frontend receives `ListenerCoverageSnapshot` over `/ws/frontend` | `Proved` | Disconnecting the last registration still emits the reset snapshot rather than leaving stale dependency coverage in place. |
+| `listener.coverage.share_session_broadcast_scope` | `tests/websockets/test_python_script_receiver_share_mode.py` listener-coverage assertions around `ListenerCoverageSnapshot` delivery | `internal/wsapi/routes.go`; `internal/realtime/websocket_hub.go` | `TestRegisterRoutesShareListenerCoverageBroadcastsOnlyToMatchingSessionFrontend` | share frontend bootstrap in `frontend/src/state/hooks/share.ts` reloads coverage for the active session only | `Proved` | Share-session coverage broadcasts still reach only matching-session frontends and exclude unrelated sessions. |
+| `listener.coverage.route_refresh_only_filter_and_session_scope` | `backend/setta/routers/listener.py::route_get_listener_coverage`; `tests/websockets/test_listener_coverage.py`; `tests/websockets/test_python_script_receiver_share_mode.py` | `internal/httpapi/listener_routes.go`; `internal/realtime/listener_coverage.go` | `TestRegisterListenerRoutesReturnsCoverageSnapshot`; `TestRegisterListenerRoutesShareCoverageRespectsSessionScope`; `TestBuildListenerCoverageSnapshotIgnoresRefreshOnlyCallbacks` | `frontend/src/state/actions/listenerCoverage.ts::fetchListenerCoverageSnapshot` | `Proved` | The read route still returns the structured coverage snapshot with refresh-only callbacks filtered out and share-session scoping preserved. |
+| `listener.bootstrap.by_project_name_sends_targeted_force_refresh` | `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_bootstrap_snapshot` | `internal/wsapi/routes.go::handleListenerInit`; `internal/listenersnapshot` | `TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh` | retained listener bootstrap happens on `/ws/listeners/{listenerID}` | `Proved` | Project-name listener init still resolves the target project and replies with a targeted bootstrap force refresh. |
+| `listener.bootstrap.by_project_id_sends_targeted_force_refresh` | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_init` project-id branch | `internal/wsapi/routes.go::handleListenerInit`; `internal/listenersnapshot` | `TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh` | active listener websocket callers can bootstrap by explicit `projectConfigId` | `Proved` | Explicit project ids remain authoritative at listener bootstrap. |
+| `listener.bootstrap.default_project_fallback` | `backend/setta/types/listener.py::ListenerInitContent` requires either `projectConfigId` or `projectName` on the source baseline | `internal/wsapi/routes.go::resolveListenerBootstrap` | `TestRegisterRoutesListenerInitFallsBackToDefaultProject` | `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`; `docs/plans/go-backend-rewrite/setta-listener-protocol-redesign-plan.md` | `Intentional divergence` | The rewrite intentionally broadened listener init to support default-project fallback for the active retained caller surface. |
+| `listener.bootstrap.missing_project_name_error_details` | `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_error_when_project_name_missing` | `internal/wsapi/routes.go::handleListenerInit`; `resolveListenerBootstrap` | `TestRegisterRoutesListenerInitMissingProjectSendsListenerError` | retained Python listeners consume `ListenerError` on the websocket boundary | `Proved` | Missing project-name bootstrap failures again send `project_state_unavailable` with only the source `projectName` detail. |
+| `listener.bootstrap.missing_project_id_error_details` | `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_error_when_project_missing` | `internal/wsapi/routes.go::handleListenerInit`; `resolveListenerBootstrap` | `TestRegisterRoutesListenerInitMissingProjectIDSendsListenerError` | same retained websocket error boundary as above | `Proved` | Missing explicit project ids again return only the source `projectConfigId` detail. |
+| `listener.bootstrap.temporary_id_translates_force_refresh` | `tests/websockets/test_python_script_receiver.py::test_listener_init_maps_temporary_project_id` | `internal/wsapi/routes.go`; `internal/realtime/listener_temporary_ids.go` | `TestRegisterRoutesListenerInitAcceptsTemporaryProjectIDAndTranslatesForceRefresh` | temporary-id translation stays on the listener websocket transport | `Proved` | Temporary project ids still resolve canonically for runtime lookup and are remapped back onto the bootstrap force-refresh payload. |
+| `listener.bootstrap.force_refresh_dependency_catalog_and_values` | `backend/setta/types/listener.py::ListenerForceRefreshContent` only carried `projectState`/`shareSessionId` on the source baseline | `internal/realtime/listener_messages.go`; `internal/listenersnapshot`; `internal/wsapi/routes.go` | `TestRegisterRoutesListenerInitIncludesDependencyCatalog`; `TestListenerBroadcasterForceRefreshIncludesDependencyCatalog` | `docs/plans/go-backend-rewrite/setta-listener-protocol-redesign-plan.md`; `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` | `Intentional divergence` | Go intentionally adds authoritative `dependencyCatalog` and rendered `dependencyValues` fields to bootstrap/force-refresh snapshots for the retained listener client. |
+| `listener.register.stores_registration_and_ack` | `tests/websockets/test_python_script_receiver.py::test_listener_register_stores_registration_and_sends_ack` | `internal/wsapi/routes.go::handleListenerRegister`; `internal/realtime/listener_registry.go` | `TestRegisterRoutesListenerRegisterBroadcastsCoverageSnapshotToFrontendAndClearsOnDisconnect`; `TestAppServesListenerCoverageRoute` | coverage and realtime delivery both depend on the retained registration state | `Proved` | Listener register still records callback coverage and replies with an ack instead of a separate mutation payload. |
+| `listener.register.ack_uses_bootstrapped_project_after_init` | source bootstrap/register flow in `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_register` plus `test_listener_init_sends_bootstrap_snapshot` | `internal/wsapi/routes.go::handleListenerRegister` | `TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit` | retained clients may omit `projectConfigId` after successful init | `Proved` | Register acks still resolve against the bootstrapped project when init established the project context first. |
+| `listener.register.temporary_id_ack_and_live_message_translation` | `tests/websockets/test_python_script_receiver.py::test_listener_register_ack_uses_temporary_project_id` | `internal/wsapi/routes.go`; `internal/realtime/listener_temporary_ids.go` | `TestRegisterRoutesListenerRegisterAndLiveMessagesUseTemporaryIDs` | translated realtime and dependency-event payloads remain on the listener websocket boundary | `Proved` | Temporary-id listener registrations still receive translated acks and translated live follow-up messages. |
+| `listener.frontend_emit.updates_project_state_without_ack` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_forwards_to_frontend_without_ack` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFrontend` | frontend websocket consumers handle the resulting `UpdateFrontendProjectState` broadcast | `Proved` | Listener frontend emits still mutate project state and broadcast the authoritative frontend update without sending a listener ack. |
+| `listener.frontend_emit.rejects_unregistered_socket` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_unregistered_socket` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsUnregisteredSocket` | retained websocket transport returns `ListenerError` directly on the listener socket | `Proved` | Unregistered emitters still fail closed with `listener_not_registered`. |
+| `listener.frontend_emit.rejects_project_mismatch` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_project_config_mismatch` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsProjectMismatch` | same websocket error boundary as above | `Proved` | Listener emits remain scoped to the registered project and reject mismatched project ids before mutation work begins. |
+| `listener.frontend_emit.rejects_empty_payload` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_empty_payload` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsEmptyPayload` | raw websocket callers cannot bypass the retained client precondition | `Proved` | Empty listener emit payloads still fail with the explicit invalid-payload transport error. |
+| `listener.frontend_emit.rejects_unknown_dependency` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_unknown_dependency` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency` | retained websocket transport returns the dependency name in the error details | `Proved` | Unknown dependency names still fail with `listener_emit_unknown_dependency`. |
+| `listener.frontend_emit.rejects_invalid_value` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_invalid_value` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsInvalidDependencyValue` | retained websocket transport returns the dependency name plus expected type | `Proved` | Invalid dependency payload types still fail with `listener_emit_invalid_value`. |
+| `listener.router_endpoint.plugin_dispatch_and_result` | `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_dispatches_plugin_endpoint` | `internal/wsapi/routes.go`; app listener-endpoint wiring in `internal/app/app.go` | `TestAppListenerWebsocketDispatchesPluginListenerEndpoint` | retained caller surface is the listener websocket endpoint path documented in `caller-backed-backend-surface-checklist.md` | `Proved` | Plugin listener endpoint calls still dispatch once with the project id injected into the payload and the result returned on the websocket. |
+| `listener.router_endpoint.unknown_endpoint_returns_listener_call_failed` | `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_returns_error_for_unknown_plugin_endpoint` | `internal/wsapi/routes.go` | `TestRegisterRoutesListenerEndpointCallReturnsUnknownEndpointError` | retained websocket callers receive a structured listener result error instead of a socket close | `Proved` | Unknown listener endpoints still return `listener_call_failed` with the endpoint error message in details. |
+| `listener.router_endpoint.temporary_id_remap_for_plugin_calls` | `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_maps_temporary_project_id_for_plugin_endpoint` | `internal/wsapi/routes.go`; `internal/realtime/listener_temporary_ids.go` | `TestRegisterRoutesListenerEndpointCallAcceptsTemporaryProjectID`; `TestAppListenerWebsocketDispatchesPluginListenerEndpoint` | the ws route translates temporary ids before invoking the app-owned listener endpoint surface | `Proved` | Temporary listener project ids are still canonicalized for dispatch and remapped back onto the websocket response path. |
