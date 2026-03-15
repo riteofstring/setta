@@ -267,6 +267,43 @@ func TestLoadPreservesProfileLookupHomeWhenProfileOverridesRuntimeHome(t *testin
 	}
 }
 
+func TestLoadIgnoresProfileLookupHomeWithoutSelectedProfile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	runtimeHome := filepath.Join(tmpDir, ".setta")
+	lookupHome := filepath.Join(tmpDir, ".setta-development")
+
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(runtimeHome, 0o755); err != nil {
+		t.Fatalf("mkdir runtime home: %v", err)
+	}
+	if err := os.MkdirAll(lookupHome, 0o755); err != nil {
+		t.Fatalf("mkdir lookup home: %v", err)
+	}
+
+	cfg, err := Load(LoadOptions{
+		CWD: workspaceRoot,
+		EnvLookup: testEnv{
+			settaHomeEnv:         runtimeHome,
+			profileLookupHomeEnv: lookupHome,
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.SettaHome != runtimeHome {
+		t.Fatalf("expected runtime setta home %q, got %q", runtimeHome, cfg.Paths.SettaHome)
+	}
+	if cfg.Paths.ProfileLookupHome != runtimeHome {
+		t.Fatalf("expected profile lookup home to follow runtime setta home %q, got %q", runtimeHome, cfg.Paths.ProfileLookupHome)
+	}
+}
+
 func TestLoadRejectsConflictingSettaFilesFlags(t *testing.T) {
 	t.Parallel()
 
