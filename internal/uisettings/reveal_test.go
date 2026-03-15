@@ -260,6 +260,82 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 	}
 }
 
+func TestRevealServicePrefersExplicitRightPaneSectionOverContextAndActiveSelection(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token"),
+	})
+	connection, err := registry.Register(realtime.RegisterParams{
+		ID:   "frontend-1",
+		Type: realtime.ConnectionTypeFrontend,
+	})
+	if err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+	token, ok := registry.FrontendAffinityToken(connection.ID)
+	if !ok {
+		t.Fatal("expected frontend affinity token")
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if revealMessage.Content.ActiveSectionID == nil || *revealMessage.Content.ActiveSectionID != "callable-section" {
+			t.Fatalf("expected explicit activeSectionId callable-section, got %#v", revealMessage.Content.ActiveSectionID)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected reveal result resolution to succeed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           revealTestProjectViewWithSections(t, map[string]string{"callable-section": "Callable", "code-section": "Code"}, []string{"code-section"}),
+		Registry:              revealTestRegistry(t),
+		SettingID:             "core.project.show_param_display_names",
+		SectionIDToActivate:   "callable-section",
+		ContextSectionID:      "code-section",
+		FrontendAffinityToken: token,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if result.EmittedRevealCount != 1 {
+		t.Fatalf("expected emittedRevealCount=1, got %d", result.EmittedRevealCount)
+	}
+	if len(result.Statuses) != 1 || result.Statuses[0].Status != "revealed" {
+		t.Fatalf("expected single revealed status, got %#v", result.Statuses)
+	}
+}
+
 func TestRevealServiceRejectsMissingActiveSectionForRightPaneReveal(t *testing.T) {
 	t.Parallel()
 
@@ -838,37 +914,46 @@ func revealTestRegistry(t *testing.T) *Registry {
 }
 
 func revealTestProjectView(t *testing.T, sectionID string, sectionType string, activeIDs []string) *projectview.SingleConfig {
+	return revealTestProjectViewWithSections(t, map[string]string{sectionID: sectionType}, activeIDs)
+}
+
+func revealTestProjectViewWithSections(t *testing.T, sectionTypes map[string]string, activeIDs []string) *projectview.SingleConfig {
 	t.Helper()
 
-	defaultVariantID := sectionID + "-variant"
-	implID := sectionID + "-impl"
+	sections := make(map[string]projectview.Core, len(sectionTypes))
+	sectionImpls := make(map[string]json.RawMessage, len(sectionTypes))
+	sectionVariants := make(map[string]projectview.Variant, len(sectionTypes))
+	sectionVariantMap := make(map[string]string, len(sectionTypes))
+
+	for sectionID, sectionType := range sectionTypes {
+		defaultVariantID := sectionID + "-variant"
+		implID := sectionID + "-impl"
+		sections[sectionID] = projectview.Core{
+			ID:             sectionID,
+			Name:           sectionID,
+			DisplayName:    sectionID,
+			Variants:       []string{defaultVariantID},
+			DefaultVariant: &defaultVariantID,
+		}
+		sectionImpls[implID] = mustRevealRawJSON(t, map[string]any{
+			"id":   implID,
+			"type": sectionType,
+		})
+		sectionVariants[defaultVariantID] = projectview.Variant{
+			ID:   defaultVariantID,
+			Name: defaultVariantID,
+			Impl: implID,
+		}
+		sectionVariantMap[sectionID] = defaultVariantID
+	}
 
 	return &projectview.SingleConfig{
-		Sections: map[string]projectview.Core{
-			sectionID: {
-				ID:             sectionID,
-				Name:           sectionID,
-				DisplayName:    sectionID,
-				Variants:       []string{defaultVariantID},
-				DefaultVariant: &defaultVariantID,
-			},
-		},
-		SectionImpls: map[string]json.RawMessage{
-			implID: mustRevealRawJSON(t, map[string]any{
-				"id":   implID,
-				"type": sectionType,
-			}),
-		},
-		SectionVariants: map[string]projectview.Variant{
-			defaultVariantID: {
-				ID:   defaultVariantID,
-				Name: defaultVariantID,
-				Impl: implID,
-			},
-		},
+		Sections:        sections,
+		SectionImpls:    sectionImpls,
+		SectionVariants: sectionVariants,
 		ProjectConfig: projectview.ProjectConfig{
 			ID:                "project-alpha",
-			SectionVariantMap: map[string]string{sectionID: defaultVariantID},
+			SectionVariantMap: sectionVariantMap,
 			ActiveIDs:         append([]string(nil), activeIDs...),
 		},
 	}
