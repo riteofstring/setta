@@ -6,6 +6,7 @@ import os
 from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -169,12 +170,6 @@ class ListenerDependencyMetadataEntry:
     sectionRepresentation: SectionRepresentationMode | None = None
     controlValueRepresentation: CodeObjValueRepresentationMode | None = None
     valueRepresentation: CodeObjValueRepresentationMode | None = None
-
-
-@dataclass(slots=True)
-class _MetadataOnlyDependencyGraph:
-    graph: dict[BaseDependencyKeyUnion, Node]
-
 
 class ListenerDependencyMetadata:
     def __init__(self, entries: Sequence[ListenerDependencyMetadataEntry]) -> None:
@@ -2165,7 +2160,7 @@ class SettaListener:
 
     def _new_metadata_value_codec(self) -> PythonValueCodec:
         return PythonValueCodec(
-            _MetadataOnlyDependencyGraph(graph={}),
+            SimpleNamespace(graph={}),
             self._unexpected_metadata_dependency_lookup,
             mode=PythonValueMode.LIVE_RUNTIME,
         )
