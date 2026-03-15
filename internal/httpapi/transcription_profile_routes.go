@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/transcriptionprofiles"
 )
@@ -21,22 +21,33 @@ const RouteDeleteTranscriptionProfile = "/deleteTranscriptionProfile"
 type TranscriptionProfileRouteDependencies struct {
 	ModePolicy modes.Policy
 	Profiles   *transcriptionprofiles.Service
+	Deployment *deployments.Runtime
 }
 
 type createTranscriptionProfileRequest struct {
-	Name                     string                              `json:"name"`
-	TranscriptionLLMConfigID string                              `json:"transcriptionLlmConfigId"`
-	TransportMode            transcriptionprofiles.TransportMode `json:"transportMode"`
-	ChunkMs                  int                                 `json:"chunkMs"`
-	Language                 *string                             `json:"language"`
+	Name                     *string                              `json:"name"`
+	TranscriptionLLMConfigID *string                              `json:"transcriptionLlmConfigId"`
+	TransportMode            *transcriptionprofiles.TransportMode `json:"transportMode"`
+	ChunkMs                  *int                                 `json:"chunkMs"`
+	Language                 *string                              `json:"language"`
 }
 
 type updateTranscriptionProfileRequest struct {
-	Profile *transcriptionprofiles.Profile `json:"profile"`
+	Profile *transcriptionProfilePayload `json:"profile"`
 }
 
 type deleteTranscriptionProfileRequest struct {
-	ProfileID string `json:"profileId"`
+	ProfileID *string `json:"profileId"`
+}
+
+type transcriptionProfilePayload struct {
+	ID                       *string                              `json:"id"`
+	Name                     *string                              `json:"name"`
+	TranscriptionLLMConfigID *string                              `json:"transcriptionLlmConfigId"`
+	TransportMode            *transcriptionprofiles.TransportMode `json:"transportMode"`
+	ChunkMs                  *int                                 `json:"chunkMs"`
+	SupportsRealtime         *bool                                `json:"supportsRealtimeTranscription"`
+	Language                 *string                              `json:"language"`
 }
 
 func RegisterTranscriptionProfileRoutes(router chi.Router, deps TranscriptionProfileRouteDependencies) error {
@@ -46,16 +57,94 @@ func RegisterTranscriptionProfileRoutes(router chi.Router, deps TranscriptionPro
 	if deps.ModePolicy.IsIDE() && deps.Profiles == nil {
 		return fmt.Errorf("transcription profile service is required in ide mode")
 	}
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+		return fmt.Errorf("deployment runtime is required in deployment mode")
+	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetTranscriptionProfiles, getTranscriptionProfilesHandler(deps.Profiles))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTranscriptionProfile, createTranscriptionProfileHandler(deps.Profiles))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateTranscriptionProfile, updateTranscriptionProfileHandler(deps.Profiles))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteTranscriptionProfile, deleteTranscriptionProfileHandler(deps.Profiles))
+	router.Get(RouteGetTranscriptionProfiles, getTranscriptionProfilesHandler(deps))
+	router.Post(RouteCreateTranscriptionProfile, createTranscriptionProfileHandler(deps))
+	router.Post(RouteUpdateTranscriptionProfile, updateTranscriptionProfileHandler(deps))
+	router.Post(RouteDeleteTranscriptionProfile, deleteTranscriptionProfileHandler(deps))
 	return nil
 }
 
-func getTranscriptionProfilesHandler(service *transcriptionprofiles.Service) http.HandlerFunc {
+func ensureTranscriptionProfileReadsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps TranscriptionProfileRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		requestInfo = modes.RequestInfo{Policy: modes.NewPolicy(deps.ModePolicy.Mode())}
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
+func ensureTranscriptionProfileMutationAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps TranscriptionProfileRouteDependencies,
+	detail string,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		requestInfo = modes.RequestInfo{Policy: modes.NewPolicy(deps.ModePolicy.Mode())}
+	}
+	if err := requestInfo.Policy.RequireNotLauncher(); err != nil {
+		var violation *modes.Violation
+		if errors.As(err, &violation) {
+			writeDetail(w, violation.StatusCode, violation.Message)
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if requestInfo.Policy.IsDeployment() {
+		if deps.Deployment == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return false
+		}
+		if !deps.Deployment.Policy().AllowLLM {
+			writeError(
+				w,
+				r,
+				http.StatusForbidden,
+				"llm_access_forbidden",
+				"Deployment policy disallows LLM access.",
+			)
+			return false
+		}
+	}
+	if requestInfo.Policy.IsIDE() {
+		return true
+	}
+	writeDetail(w, http.StatusForbidden, detail)
+	return false
+}
+
+func getTranscriptionProfilesHandler(deps TranscriptionProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureTranscriptionProfileReadsAllowed(w, r, deps) {
+			return
+		}
+		service := deps.Profiles
 		if service == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -69,8 +158,12 @@ func getTranscriptionProfilesHandler(service *transcriptionprofiles.Service) htt
 	}
 }
 
-func createTranscriptionProfileHandler(service *transcriptionprofiles.Service) http.HandlerFunc {
+func createTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureTranscriptionProfileMutationAllowed(w, r, deps, "Share mode does not allow creating transcription profiles.") {
+			return
+		}
+		service := deps.Profiles
 		if service == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -78,17 +171,12 @@ func createTranscriptionProfileHandler(service *transcriptionprofiles.Service) h
 
 		payload, err := decodeStrictJSONBody[createTranscriptionProfileRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
-
-		profile := transcriptionprofiles.Profile{
-			ID:                       newTranscriptionProfileID(),
-			Name:                     payload.Name,
-			TranscriptionLLMConfigID: payload.TranscriptionLLMConfigID,
-			TransportMode:            payload.TransportMode,
-			ChunkMs:                  payload.ChunkMs,
-			Language:                 payload.Language,
+		profile, ok := buildCreatedTranscriptionProfile(w, payload)
+		if !ok {
+			return
 		}
 		created, err := service.Create(profile)
 		if err != nil {
@@ -102,8 +190,12 @@ func createTranscriptionProfileHandler(service *transcriptionprofiles.Service) h
 	}
 }
 
-func updateTranscriptionProfileHandler(service *transcriptionprofiles.Service) http.HandlerFunc {
+func updateTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureTranscriptionProfileMutationAllowed(w, r, deps, "Share mode does not allow updating transcription profiles.") {
+			return
+		}
+		service := deps.Profiles
 		if service == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -111,19 +203,19 @@ func updateTranscriptionProfileHandler(service *transcriptionprofiles.Service) h
 
 		payload, err := decodeStrictJSONBody[updateTranscriptionProfileRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if payload.Profile == nil {
-			writeError(w, r, http.StatusBadRequest, "transcription_profile_required", "Transcription profile is required.")
+			writeValidationError(w, http.StatusUnprocessableEntity, "profile: Field required")
 			return
 		}
-		if strings.TrimSpace(payload.Profile.ID) == "" {
-			writeError(w, r, http.StatusBadRequest, "profile_id_required", "Profile id is required.")
+		profile, ok := buildUpdatedTranscriptionProfile(w, payload.Profile)
+		if !ok {
 			return
 		}
 
-		updated, err := service.Update(*payload.Profile)
+		updated, err := service.Update(profile)
 		if err != nil {
 			if writeTranscriptionProfileServiceError(w, r, err) {
 				return
@@ -135,8 +227,12 @@ func updateTranscriptionProfileHandler(service *transcriptionprofiles.Service) h
 	}
 }
 
-func deleteTranscriptionProfileHandler(service *transcriptionprofiles.Service) http.HandlerFunc {
+func deleteTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureTranscriptionProfileMutationAllowed(w, r, deps, "Share mode does not allow deleting transcription profiles.") {
+			return
+		}
+		service := deps.Profiles
 		if service == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -144,15 +240,14 @@ func deleteTranscriptionProfileHandler(service *transcriptionprofiles.Service) h
 
 		payload, err := decodeStrictJSONBody[deleteTranscriptionProfileRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
-		profileID := strings.TrimSpace(payload.ProfileID)
-		if profileID == "" {
-			writeError(w, r, http.StatusBadRequest, "profile_id_required", "Profile id is required.")
+		if payload.ProfileID == nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, "profileId: Field required")
 			return
 		}
-		if err := service.Delete(profileID); err != nil {
+		if err := service.Delete(*payload.ProfileID); err != nil {
 			if writeTranscriptionProfileServiceError(w, r, err) {
 				return
 			}
@@ -177,6 +272,109 @@ func writeTranscriptionProfileServiceError(w http.ResponseWriter, r *http.Reques
 		return false
 	}
 	return true
+}
+
+func buildCreatedTranscriptionProfile(
+	w http.ResponseWriter,
+	payload createTranscriptionProfileRequest,
+) (transcriptionprofiles.Profile, bool) {
+	name, llmConfigID, transportMode, chunkMs, ok := validateTranscriptionProfileFields(
+		w,
+		payload.Name,
+		payload.TranscriptionLLMConfigID,
+		payload.TransportMode,
+		payload.ChunkMs,
+		"name",
+		"transcriptionLlmConfigId",
+		"transportMode",
+		"chunkMs",
+	)
+	if !ok {
+		return transcriptionprofiles.Profile{}, false
+	}
+	return transcriptionprofiles.Profile{
+		ID:                       newTranscriptionProfileID(),
+		Name:                     name,
+		TranscriptionLLMConfigID: llmConfigID,
+		TransportMode:            transportMode,
+		ChunkMs:                  chunkMs,
+		Language:                 payload.Language,
+	}, true
+}
+
+func buildUpdatedTranscriptionProfile(
+	w http.ResponseWriter,
+	payload *transcriptionProfilePayload,
+) (transcriptionprofiles.Profile, bool) {
+	name, llmConfigID, transportMode, chunkMs, ok := validateTranscriptionProfileFields(
+		w,
+		payload.Name,
+		payload.TranscriptionLLMConfigID,
+		payload.TransportMode,
+		payload.ChunkMs,
+		"profile.name",
+		"profile.transcriptionLlmConfigId",
+		"profile.transportMode",
+		"profile.chunkMs",
+	)
+	if !ok {
+		return transcriptionprofiles.Profile{}, false
+	}
+	profileID := newTranscriptionProfileID()
+	if payload.ID != nil {
+		profileID = *payload.ID
+	}
+	supportsRealtime := false
+	if payload.SupportsRealtime != nil {
+		supportsRealtime = *payload.SupportsRealtime
+	}
+	return transcriptionprofiles.Profile{
+		ID:                            profileID,
+		Name:                          name,
+		TranscriptionLLMConfigID:      llmConfigID,
+		TransportMode:                 transportMode,
+		ChunkMs:                       chunkMs,
+		SupportsRealtimeTranscription: supportsRealtime,
+		Language:                      payload.Language,
+	}, true
+}
+
+func validateTranscriptionProfileFields(
+	w http.ResponseWriter,
+	name *string,
+	transcriptionLLMConfigID *string,
+	transportMode *transcriptionprofiles.TransportMode,
+	chunkMs *int,
+	nameField string,
+	configField string,
+	transportField string,
+	chunkField string,
+) (string, string, transcriptionprofiles.TransportMode, int, bool) {
+	if name == nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, nameField+": Field required")
+		return "", "", "", 0, false
+	}
+	if transcriptionLLMConfigID == nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, configField+": Field required")
+		return "", "", "", 0, false
+	}
+	if transportMode == nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, transportField+": Field required")
+		return "", "", "", 0, false
+	}
+	if chunkMs == nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, chunkField+": Field required")
+		return "", "", "", 0, false
+	}
+	if *chunkMs < 200 {
+		writeValidationError(w, http.StatusUnprocessableEntity, chunkField+": Input should be greater than or equal to 200")
+		return "", "", "", 0, false
+	}
+	if *chunkMs > 10_000 {
+		writeValidationError(w, http.StatusUnprocessableEntity, chunkField+": Input should be less than or equal to 10000")
+		return "", "", "", 0, false
+	}
+	return *name, *transcriptionLLMConfigID, *transportMode, *chunkMs, true
 }
 
 func newTranscriptionProfileID() string {

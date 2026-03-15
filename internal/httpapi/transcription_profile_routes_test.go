@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/transcriptionprofiles"
@@ -288,15 +289,21 @@ func TestRegisterTranscriptionProfileRoutesRejectsInvalidJSON(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload validationErrorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+		t.Fatalf("decode validation envelope: %v", err)
 	}
-	if payload.Error.Code != "invalid_json" {
-		t.Fatalf("expected invalid_json, got %#v", payload)
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if payload.Message == "" {
+		t.Fatalf("expected validation message, got %#v", payload)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
 	}
 }
 
@@ -310,15 +317,21 @@ func TestRegisterTranscriptionProfileRoutesRejectMissingProfilePayloads(t *testi
 
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload validationErrorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+		t.Fatalf("decode validation envelope: %v", err)
 	}
-	if payload.Error.Code != "transcription_profile_required" {
-		t.Fatalf("expected transcription_profile_required, got %#v", payload)
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if payload.Message != "profile: Field required" {
+		t.Fatalf("expected missing profile validation message, got %#v", payload)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
 	}
 }
 
@@ -332,15 +345,75 @@ func TestRegisterTranscriptionProfileRoutesRejectMissingDeleteProfileID(t *testi
 
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload validationErrorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+		t.Fatalf("decode validation envelope: %v", err)
 	}
-	if payload.Error.Code != "profile_id_required" {
-		t.Fatalf("expected profile_id_required, got %#v", payload)
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if payload.Message != "profileId: Field required" {
+		t.Fatalf("expected missing profileId validation message, got %#v", payload)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
+	}
+}
+
+func TestRegisterTranscriptionProfileRoutesRejectInvalidChunkBounds(t *testing.T) {
+	t.Parallel()
+
+	service := newTranscriptionProfileRouteTestService(t, nil, map[string]llmconfig.Config{})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeIDE, service)
+
+	testCases := []struct {
+		name            string
+		body            string
+		expectedMessage string
+	}{
+		{
+			name:            "too low",
+			body:            `{"name":"Realtime","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":199}`,
+			expectedMessage: "chunkMs: Input should be greater than or equal to 200",
+		},
+		{
+			name:            "too high",
+			body:            `{"name":"Realtime","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":10001}`,
+			expectedMessage: "chunkMs: Input should be less than or equal to 10000",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteCreateTranscriptionProfile,
+				strings.NewReader(tc.body),
+			)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation envelope: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message != tc.expectedMessage {
+				t.Fatalf("expected validation message %q, got %#v", tc.expectedMessage, payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
 	}
 }
 
@@ -447,11 +520,53 @@ func TestRegisterTranscriptionProfileRoutesReturnsInternalErrorForInvalidPayload
 	}
 }
 
-func TestRegisterTranscriptionProfileRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterTranscriptionProfileRoutesAllowDeploymentReadsWhenLLMAccessEnabled(t *testing.T) {
+	t.Parallel()
+
+	service := newTranscriptionProfileRouteTestService(t, []transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-1",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+	})
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": true},
+	})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeShare, service, deploymentRuntime)
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetTranscriptionProfiles, nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var profiles []transcriptionprofiles.Profile
+	if err := json.Unmarshal(response.Body.Bytes(), &profiles); err != nil {
+		t.Fatalf("decode profiles: %v", err)
+	}
+	if len(profiles) != 1 {
+		t.Fatalf("expected one profile, got %#v", profiles)
+	}
+}
+
+func TestRegisterTranscriptionProfileRoutesBlockDeploymentReadsWhenLLMAccessDisabled(t *testing.T) {
 	t.Parallel()
 
 	service := newTranscriptionProfileRouteTestService(t, []transcriptionprofiles.Profile{}, map[string]llmconfig.Config{})
-	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeShare, service)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": false},
+	})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeShare, service, deploymentRuntime)
 	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetTranscriptionProfiles, nil)
 	response := httptest.NewRecorder()
 
@@ -464,16 +579,19 @@ func TestRegisterTranscriptionProfileRoutesBlocksShareMode(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "mode_forbidden" {
-		t.Fatalf("expected mode_forbidden, got %#v", payload)
+	if payload.Error.Code != "llm_access_forbidden" {
+		t.Fatalf("expected llm_access_forbidden, got %#v", payload)
 	}
 }
 
-func TestRegisterTranscriptionProfileRoutesBlocksShareModeForCRUD(t *testing.T) {
+func TestRegisterTranscriptionProfileRoutesBlocksShareModeMutations(t *testing.T) {
 	t.Parallel()
 
 	service := newTranscriptionProfileRouteTestService(t, nil, map[string]llmconfig.Config{})
-	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeShare, service)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": true},
+	})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeShare, service, deploymentRuntime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteCreateTranscriptionProfile,
@@ -486,17 +604,73 @@ func TestRegisterTranscriptionProfileRoutesBlocksShareModeForCRUD(t *testing.T) 
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload map[string]string
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+		t.Fatalf("decode detail payload: %v", err)
 	}
-	if payload.Error.Code != "mode_forbidden" {
-		t.Fatalf("expected mode_forbidden, got %#v", payload)
+	if payload["detail"] != "Share mode does not allow creating transcription profiles." {
+		t.Fatalf("expected source detail body, got %#v", payload)
 	}
 }
 
-func newTranscriptionProfileRouteTestHandler(t *testing.T, mode config.Mode, service *transcriptionprofiles.Service) http.Handler {
+func TestRegisterTranscriptionProfileRoutesAllowLauncherReadsAndBlockMutations(t *testing.T) {
+	t.Parallel()
+
+	service := newTranscriptionProfileRouteTestService(t, []transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-1",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+	})
+	handler := newTranscriptionProfileRouteTestHandler(t, config.ModeLauncher, service)
+
+	readRequest := httptest.NewRequest(http.MethodGet, "/api"+RouteGetTranscriptionProfiles, nil)
+	readResponse := httptest.NewRecorder()
+	handler.ServeHTTP(readResponse, readRequest)
+	if readResponse.Code != http.StatusOK {
+		t.Fatalf("expected launcher reads to return 200, got %d with body %q", readResponse.Code, readResponse.Body.String())
+	}
+
+	writeRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTranscriptionProfile,
+		strings.NewReader(`{"name":"Realtime","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":1200}`),
+	)
+	writeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(writeResponse, writeRequest)
+	if writeResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected launcher writes to return 403, got %d with body %q", writeResponse.Code, writeResponse.Body.String())
+	}
+	var payload map[string]string
+	if err := json.Unmarshal(writeResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode detail payload: %v", err)
+	}
+	if payload["detail"] != "Launcher mode does not allow this endpoint." {
+		t.Fatalf("expected launcher detail body, got %#v", payload)
+	}
+}
+
+func newTranscriptionProfileRouteTestHandler(t *testing.T, mode config.Mode, service *transcriptionprofiles.Service, deploymentRuntimes ...*deployments.Runtime) http.Handler {
 	t.Helper()
+
+	var deploymentRuntime *deployments.Runtime
+	if len(deploymentRuntimes) != 0 {
+		deploymentRuntime = deploymentRuntimes[0]
+	}
+	if deploymentRuntime == nil && (mode == config.ModeShare || mode == config.ModeApp) {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Policy: map[string]any{"allowLLM": true},
+		})
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -506,6 +680,7 @@ func newTranscriptionProfileRouteTestHandler(t *testing.T, mode config.Mode, ser
 			if err := RegisterTranscriptionProfileRoutes(r, TranscriptionProfileRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
 				Profiles:   service,
+				Deployment: deploymentRuntime,
 			}); err != nil {
 				t.Fatalf("register transcription profile routes: %v", err)
 			}
