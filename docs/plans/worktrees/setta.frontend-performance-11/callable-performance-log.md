@@ -1116,3 +1116,21 @@ Append-only log for the callable DOM-first performance refactor.
   - It should reduce the risk of redesigning the top-level shell around inner contracts that are still unstable.
 - Next action:
   - Continue the shared section-shell baseline with the explicit deepest-first execution order.
+
+### 2026-03-16 46
+
+- Item: Added an explicit multi-pass expectation to the active sections-wide plan.
+- Status: `done`
+- Details:
+  - Updated the active plan so the broadened section-shell refactor is now explicitly iterative rather than assumed to be one clean sweep.
+  - Recorded the rule that after the top-most shared grid layer is removed, the next step is not automatic:
+    - pause
+    - re-analyze the remaining DOM/layout ownership
+    - decide whether another simplification pass is needed
+  - Added that expectation to the active goal, implementation order, and shared phases so the plan now treats "remove top grid, then re-read the structure" as normal rather than as an exception.
+- Interpretation:
+  - This matches the actual risk profile better:
+    - removing the upper grid layer will likely change which wrappers and ownership seams still matter
+    - the next correct pass may only become obvious after that layer is gone
+- Next action:
+  - Continue the shared section-shell baseline with the explicit assumption that multiple passes may be required.

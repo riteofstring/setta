@@ -18,6 +18,7 @@ Active goal now:
 - Treat performance wins as likely upside, but not as guaranteed proof before the shared section-shell work is complete.
 - Keep comparing untouched `main` vs this worktree in Chrome DevTools at each accepted checkpoint.
 - Work from the deepest nested structures outward/upward into the shared section shell.
+- Expect multiple passes. Do not assume the first grid-removal pass will reveal the final target structure.
 
 Historical callable-only phases below remain valid as an append-only record of the pilot work that already landed.
 
@@ -525,6 +526,7 @@ Implementation order for the broadened pass:
 1. Start at the deepest nested layout ownership in the selected representative sections.
 2. Move outward/upward only after the inner contract for that slice is stable and screenshot-verified.
 3. Do not start by flattening the top-level section shell while the inner row/group contract is still noisy.
+4. After the top-most shared grid layer is removed, pause and re-analyze the remaining structure before committing to the next pass.
 
 ### Representative scenarios
 
@@ -567,6 +569,7 @@ Exit criteria:
 
 - The shared section-shell hotspot map is written down.
 - The representative scene set is locked.
+- The deepest-first attack order for the first pass is written down.
 
 #### Phase S1: Decorative And Wrapper Flattening Across Shared Section Shells
 
@@ -592,6 +595,7 @@ Exit criteria:
 
 - Visual-only wrappers are materially reduced across the shared shell.
 - No user-facing behavior changes.
+- A follow-up structural audit is recorded before moving to the next pass if the removal changes the visible shell contract.
 
 #### Phase S2: Shared Row / Shell Contract Simplification
 
@@ -616,6 +620,7 @@ Exit criteria:
 
 - The shared row/shell contract is materially simpler than untouched `main`.
 - Grid remains only where it clearly carries real structural value.
+- After the top-most shared grid layer is removed, a fresh structural read determines whether another simplification pass is needed.
 
 #### Phase S3: Shared Resizable / Container Simplification
 
@@ -648,6 +653,7 @@ Tasks:
 1. Re-run Chrome DevTools traces on `main` vs this worktree.
 2. Continue only where the next hotspot is proven by measurement.
 3. Do not keep refactoring by aesthetics alone once the structural work is done.
+4. If the previous pass materially changed the shell shape, start this phase with another DOM/ownership audit before deciding what the next pass should be.
 
 Exit criteria:
 
