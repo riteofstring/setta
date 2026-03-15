@@ -2239,3 +2239,68 @@ Append-only log for the section performance refactor.
   - The remaining `Phase S3` work now looks like real wrapper reduction or higher shared-shell invalidation, not more surface-class plumbing.
 - Next action:
   - Continue `Phase S3` by targeting real removable wrappers and invalidation work in `SectionContainerCoreResizabe`, `SectionContainerCore`, and the shared window-surface shell without reopening the accepted controller or chrome seams unless a later trace proves it necessary.
+
+### 2026-03-17 70
+
+- Item: Accept `Phase S3` checkpoint 3 after extracting a shared `SectionAreaSwitch` and inlining the canvas body gate.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Section/Container/SectionAreaSwitch.tsx` so the shared section-type switch and chat-area handoff now live outside the canvas wrapper module.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so the canvas shell now owns only:
+    - shared canvas chrome
+    - the canvas-only externalized-window placeholder gate
+    - the minimized gate
+  - Removed the extra `CanvasSectionBody` component boundary and its separate placeholder subscription from `SectionContainerCoreResizabe.tsx`.
+  - Updated `frontend/src/components/Section/Container/SectionWindowSurface.tsx` so window surfaces now import the shared area switch directly instead of depending on the canvas wrapper module.
+  - Updated focused coverage in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/sectionChrome.test.ts src/components/Utils/Resizable/useSectionResizeController.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `5` files passed, `34` tests passed
+  - Re-ran the representative browser resize suite:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `8 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Reused the representative `S0 Dict` bottom-handle shrink replay from `300px` to `225px`.
+  - Verified on both branches at the accepted shrunk state:
+    - root size `260 x 225`
+    - root `scrollHeight` `235`
+    - root `clientHeight` `225`
+    - root `overflow-y` `visible`
+  - Focused DOM read at the accepted shrunk state:
+    - `main`: `68` nodes, max depth `9`
+    - worktree: `58` nodes, max depth `7`
+  - Centered Chrome DevTools screenshots showed the section header chrome, filter field, toolbar row, and visible `gamma` row remained aligned between untouched `main` and the worktree.
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint3/`
+  - Accepted target-renderer interaction-window totals from the shrink pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `720.999`
+      - `UpdateLayoutTree`: `237.763`
+      - `Layout`: `10.342`
+      - `Paint`: `3.150`
+      - `RunTask`: `718.029`
+      - `EventDispatch`: `20.408`
+      - `TimerFire`: `0.029`
+      - `FireAnimationFrame`: `88.553`
+      - `Commit`: `1.273`
+    - worktree
+      - `FunctionCall`: `652.133`
+      - `UpdateLayoutTree`: `168.682`
+      - `Layout`: `9.129`
+      - `Paint`: `2.246`
+      - `RunTask`: `624.335`
+      - `EventDispatch`: `15.672`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `119.388`
+      - `Commit`: `1.027`
+- Interpretation:
+  - Checkpoint 3 is accepted.
+  - The worktree keeps the flatter representative subtree and materially improves the heavier resize-path renderer totals after the shared switch extraction.
+  - `FireAnimationFrame` remains somewhat higher on the worktree, but it does not outweigh the broad improvement across `FunctionCall`, `UpdateLayoutTree`, `Layout`, `Paint`, `RunTask`, `EventDispatch`, and `Commit`.
+  - The accepted direction now points above this seam: remaining `Phase S3` work should focus on higher shared-shell wrapper reduction or invalidation, not reopen the area-switch extraction immediately.
+- Next action:
+  - Continue `Phase S3` by targeting the remaining shared header/body shell ownership and invalidation in `SectionContainerCore.tsx`, `SectionWindowSurface.tsx`, and the wrappers above the accepted `SectionAreaSwitch` seam.

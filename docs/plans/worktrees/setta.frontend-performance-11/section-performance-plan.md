@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 2 moved canvas surface chrome ownership out of `CustomResizable` and into `sectionChrome.ts` / `SectionContainerCoreResizabe.tsx`
-- Current `Phase S3` state: checkpoint 2 accepted; the next serious step is real shared-shell wrapper reduction or higher invalidation work above the accepted chrome seams
+- Latest accepted checkpoint: `Phase S3` checkpoint 3 extracted `SectionAreaSwitch`, removed the extra `CanvasSectionBody` boundary, and kept canvas-only placeholder/minimized gating in `SectionContainerCoreResizabe.tsx`
+- Current `Phase S3` state: checkpoint 3 accepted; the next serious step is higher shared-shell wrapper reduction or invalidation above the accepted controller/chrome/area-switch seams
 
 Non-negotiable constraints:
 
@@ -92,6 +92,27 @@ Immediate next step:
      - higher shell invalidation around `frontend/src/components/Section/Container/SectionContainerCore.tsx`
      - any follow-on shared-surface simplification needed by `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
    - do not reopen the accepted controller or chrome plumbing seams unless a later trace shows a boundary-specific regression
+15. Current post-checkpoint-3 direction:
+   - `frontend/src/components/Section/Container/SectionAreaSwitch.tsx` now owns the shared section-type switch and chat-area handoff for both canvas and window surfaces
+   - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now owns only the canvas-specific placeholder/minimized gate above the shared area switch
+   - `frontend/src/components/Section/Container/SectionWindowSurface.tsx` no longer depends on the canvas wrapper module to render shared section bodies
+   - the locked representative `S0 Dict` subtree is flatter on the worktree at the accepted shrunk state:
+     - `main`: `68` nodes, max depth `9`
+     - worktree: `58` nodes, max depth `7`
+   - the target-renderer resize trace now favors the worktree on:
+     - `FunctionCall`
+     - `UpdateLayoutTree`
+     - `Layout`
+     - `Paint`
+     - `RunTask`
+     - `EventDispatch`
+     - `Commit`
+   - `FireAnimationFrame` is the only notable watch item left from this checkpoint, and it is not large enough to reject the extraction
+   - the next serious `Phase S3` pass should target higher shared-shell wrapper reduction or invalidation in:
+     - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+     - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+     - the remaining shared header/body shells around the accepted `SectionAreaSwitch` seam
+   - do not reopen the accepted controller, chrome, or area-switch seams unless a later trace shows a boundary-specific regression
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
