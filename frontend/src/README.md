@@ -377,11 +377,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
     `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal
     orchestration, `uiSettingRevealMutationOwnership.ts` owns lease sequence and
-    touched-field ownership, `uiSettingRevealMutationSnapshots.ts` owns
-    snapshot capture and rollback application, `uiSettingRevealActivation.ts`
-    owns pane activation writes, `uiSettingRevealDom.ts` owns DOM
-    anchor/highlight behavior, and `uiSettingRevealShared.ts` owns
-    execution-status helpers.
+    touched-field ownership, `uiSettingRevealMutationCapture.ts` owns snapshot
+    capture plus failure-result assembly, `uiSettingRevealMutationRestore.ts`
+    owns rollback and owned restore application,
+    `uiSettingRevealMutationSnapshots.ts` is now the compatibility facade,
+    `uiSettingRevealActivation.ts` owns pane activation writes,
+    `uiSettingRevealDom.ts` owns DOM anchor/highlight behavior, and
+    `uiSettingRevealShared.ts` owns execution-status helpers.
   - `state/hooks/sectionMinMaxDims.ts` owns section sizing-policy reads plus
     measured min/max dimension derivation for section surfaces.
   - `state/hooks/sectionScrollability.ts` owns the shared overflow observer used
@@ -468,10 +470,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/agenticEdgeMutations.ts` now owns optimistic create/update/
   delete/selection commands; follow-up cleanup there should stay local to one
   of those owners instead of regrowing `state/actions/agenticEdges.ts`.
-- `state/actions/uiSettingRevealMutationSnapshots.ts` now owns the largest
-  remaining reveal snapshot/rollback cluster, so any follow-up there should
-  stay local to snapshot capture and restore helpers instead of regrowing the
-  broader reveal orchestration surface.
+- `state/actions/uiSettingRevealMutationCapture.ts` now owns reveal snapshot
+  capture plus failure-result assembly, while
+  `state/actions/uiSettingRevealMutationRestore.ts` now owns rollback and owned
+  restore helpers; follow-up cleanup there should stay local to one of those
+  owners instead of regrowing `state/actions/uiSettingRevealMutationSnapshots.ts`.
+- `state/actions/aiChatSubmission.ts` now owns the largest remaining chat
+  submission/edit orchestration cluster, so any follow-up there should stay
+  local to submission payload assembly and pending-surface setup instead of
+  regrowing the old `ai.ts` surface.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

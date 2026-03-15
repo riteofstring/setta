@@ -5,16 +5,16 @@ import {
   openPaneForRevealTarget,
 } from "./uiSettingRevealActivation";
 import {
-  clearRevealMutationOwnershipForLease,
-  registerRevealMutationLease,
-} from "./uiSettingRevealMutationOwnership";
-import {
   buildRevealMutationFailureResult,
   captureRevealLocalStorageSnapshot,
   captureRevealProjectStateSnapshot,
   createEmptyRevealMutationDiff,
-  rollbackRevealMutationSnapshotsForLease,
-} from "./uiSettingRevealMutationSnapshots";
+} from "./uiSettingRevealMutationCapture";
+import {
+  clearRevealMutationOwnershipForLease,
+  registerRevealMutationLease,
+} from "./uiSettingRevealMutationOwnership";
+import { rollbackRevealMutationSnapshotsForLease } from "./uiSettingRevealMutationRestore";
 import type {
   RevealMutationLease,
   RevealMutationResult,

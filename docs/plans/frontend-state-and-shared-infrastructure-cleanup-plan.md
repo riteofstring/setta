@@ -203,9 +203,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
   entrypoint; `uiSettingRevealMutations.ts` now owns the mutation lock plus
   high-level reveal orchestration, `uiSettingRevealMutationOwnership.ts` owns
-  lease sequence and touched-field ownership, `uiSettingRevealMutationSnapshots.ts`
-  owns snapshot capture and rollback application, `uiSettingRevealActivation.ts`
-  owns pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
+  lease sequence and touched-field ownership,
+  `uiSettingRevealMutationCapture.ts` owns snapshot capture plus
+  failure-result assembly, `uiSettingRevealMutationRestore.ts` owns rollback
+  and owned restore application, `uiSettingRevealMutationSnapshots.ts` is now
+  the compatibility facade, `uiSettingRevealActivation.ts` owns
+  pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
   lookup and highlighting, and `uiSettingRevealShared.ts` owns
   execution-context/status helpers.
 - `frontend/src/state/actions/keyActivations.ts` is now a 284-line listener
@@ -226,7 +229,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
@@ -234,14 +236,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
+  - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
+  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
+  - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
+  - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,

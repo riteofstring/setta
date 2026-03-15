@@ -6,7 +6,7 @@ import {
   clearRevealMutationOwnershipForLease,
   registerRevealMutationLease,
 } from "./uiSettingRevealMutationOwnership";
-import { rollbackRevealMutationSnapshotsForLease } from "./uiSettingRevealMutationSnapshots";
+import { rollbackRevealMutationSnapshotsForLease } from "./uiSettingRevealMutationRestore";
 import type {
   RevealLocalStorageSnapshot,
   RevealMutationDiff,
