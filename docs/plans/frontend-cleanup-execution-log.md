@@ -3964,3 +3964,33 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/chatBranches.ts` so branch
     initialization or message-sync logic stops living beside edited-message
     branch creation and branch-index derivation helpers.
+
+## 2026-03-15 10:33:37 PDT
+
+- Slice completed: split chat branch state from edit and index helpers
+- Key files touched:
+  - `frontend/src/state/actions/chatBranches.ts`
+  - `frontend/src/state/actions/chatBranchState.ts`
+  - `frontend/src/state/actions/chatBranchEditing.ts`
+  - `frontend/src/state/actions/chatBranchIndexState.ts`
+  - `frontend/src/state/actions/chatBranchState.test.ts`
+  - `frontend/src/state/actions/chatBranches.test.ts`
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/chatBranches.test.ts src/state/actions/chatBranchState.test.ts src/state/actions/aiChatSubmissionPayload.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/chatBranches.ts src/state/actions/chatBranchState.ts src/state/actions/chatBranchEditing.ts src/state/actions/chatBranchIndexState.ts src/state/actions/chatBranches.test.ts src/state/actions/chatBranchState.test.ts src/state/actions/aiChatSubmissionPayload.ts src/state/actions/aiChatSubmissionPayload.test.ts src/components/Section/Layouts/ChatArea.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `93a289bbf41c140ce9e842e64aca760c7ffd3765`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/websocketRealtime.ts` so literal and
+    dependency-event sends stop living beside binary-upload fallback,
+    oversize-warning throttling, and payload upload helpers.
