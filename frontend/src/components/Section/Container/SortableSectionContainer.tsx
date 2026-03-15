@@ -8,7 +8,7 @@ import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
-import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
+import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandlePositionScheduler";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId, className }) {

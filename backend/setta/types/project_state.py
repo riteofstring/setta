@@ -7,9 +7,10 @@ from pydantic import (
     PrivateAttr,
     model_validator,
 )
+
 from setta.code_gen.utils import sanitize_slug
+from setta.types.app_definition import AppDefinition
 from setta.types.artifact import ArtifactType
-from setta.types.chat_messages import JSONValue
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import set_effective_impl_value
@@ -25,9 +26,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     BaseCodeSectionImplArgsWithCallable,
     get_section_path_full_name,
-    get_top_level_param_ids,
 )
-from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_chat_windowing import (
     normalize_project_chat_windowing,
@@ -56,6 +55,10 @@ from setta.types.section_impls import (
     SectionType,
     code_language_to_string,
     normalize_code_language,
+)
+from setta.types.shown_params import (
+    ShownParamIds,
+    get_param_ids_to_show,
 )
 from setta.utils.constants import C
 from setta.utils.name_validation import (
@@ -90,6 +93,7 @@ CODE_LANGUAGE_EXTENSIONS = {
     CodeLanguage.plaintext: "txt",
 }
 
+RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
 DEFAULT_CODE_LANGUAGE_EXTENSION = "txt"
 
 
@@ -131,148 +135,6 @@ def _should_prefer_window_space_section_binding(
     if candidate.zIndex != current_best.zIndex:
         return candidate.zIndex > current_best.zIndex
     return str(candidate_instance_id) > str(current_best_instance_id)
-
-
-class AppRoute(BaseModel, extra="forbid"):
-    path: str
-    name: str | None = None
-    rootKey: str | None = None
-
-
-class AppDefinition(BaseModel, extra="forbid"):
-    appSpecVersion: str = "v1"
-    catalogId: str = "setta.app.default"
-    appSpecPath: str | None = None
-    routes: list[AppRoute] = Field(default_factory=list)
-    dataBindings: dict[str, JSONValue] = Field(default_factory=dict)
-    actions: dict[str, JSONValue] = Field(default_factory=dict)
-    theme: dict[str, JSONValue] | None = None
-    assets: list[JSONValue] = Field(default_factory=list)
-
-
-class ShownParamIdDetails(BaseModel, extra="forbid"):
-    requiredParamIdsToPaths: dict[ID, tuple[ID, ...]] = Field(default_factory=dict)
-    topLevelParamIds: list[ID] = Field(default_factory=list)
-
-
-class ShownParamIds(BaseModel, extra="forbid"):
-    pinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
-    unpinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
-
-
-def get_param_ids_to_show(
-    p: "ProjectStateSingleConfig", impl: BaseSectionWithParamsImpl
-) -> ShownParamIds:
-    top_level_ids = get_top_level_param_ids(p, impl)
-    result = traverse_hierarchy(
-        p.codeObjs,
-        p.codeObjImpls,
-        p.codeObjVariants,
-        impl.codeObjVariantMap,
-        top_level_ids,
-        options=TraversalOptions(
-            collect_filter=lambda x: isinstance(x, BaseParamCodeObjImpl),
-            track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
-            build_id_to_id_path=True,
-            build_children_map=True,
-        ),
-    )
-
-    return filter_for_ui_display(
-        param_ids=result.collected_ids,
-        id_to_id_path=result.id_to_id_path,
-        children_map=result.children_map,
-        pinned_params=set(impl.pinnedParams),
-    )
-
-
-def filter_for_ui_display(
-    param_ids: list[ID],
-    id_to_id_path: dict[ID, tuple[ID, ...]],
-    children_map: dict[ID, list[ID]],
-    pinned_params: set[ID],
-) -> ShownParamIds:
-    params_for_pinned_area: set[ID] = set()
-    params_for_unpinned_area: set[ID] = set()
-
-    for param_id in param_ids:
-        if param_id in pinned_params:
-            curr_path = id_to_id_path.get(param_id, [])
-            for path_param_id in curr_path:
-                params_for_pinned_area.add(path_param_id)
-            _add_descendants(param_id, children_map, params_for_pinned_area)
-
-    for param_id in param_ids:
-        if param_id not in pinned_params:
-            curr_path = id_to_id_path.get(param_id, [])
-            for path_param_id in curr_path:
-                params_for_unpinned_area.add(path_param_id)
-
-    pinned_result = _build_area(
-        param_ids, params_for_pinned_area, id_to_id_path, children_map
-    )
-    unpinned_result = _build_area(
-        param_ids, params_for_unpinned_area, id_to_id_path, children_map
-    )
-
-    return ShownParamIds(
-        pinned=pinned_result,
-        unpinned=unpinned_result,
-    )
-
-
-def _add_descendants(
-    param_id: ID, children_map: dict[ID, list[ID]], target_set: set[ID]
-):
-    for child_id in children_map.get(param_id, []):
-        target_set.add(child_id)
-        _add_descendants(child_id, children_map, target_set)
-
-
-def _should_include_param(
-    param_id: ID, candidates: set[ID], children_map: dict[ID, list[ID]]
-) -> bool:
-    if param_id not in candidates:
-        return False
-
-    children = children_map.get(param_id, [])
-    if not children:
-        return True
-
-    return any(
-        _should_include_param(child, candidates, children_map)
-        for child in children
-        if child in candidates
-    )
-
-
-def _build_area(
-    param_ids: list[ID],
-    candidates: set[ID],
-    id_to_id_path: dict[ID, tuple[ID, ...]],
-    children_map: dict[ID, list[ID]],
-) -> ShownParamIdDetails:
-    result = ShownParamIdDetails()
-    included = set()
-
-    for param_id in param_ids:
-        if _should_include_param(param_id, candidates, children_map):
-            path = id_to_id_path.get(param_id, [])
-            for path_param_id in path:
-                result.requiredParamIdsToPaths[path_param_id] = id_to_id_path.get(
-                    path_param_id, ()
-                )
-            included.add(param_id)
-
-    for param_id in param_ids:
-        if param_id in included:
-            has_parent = any(
-                param_id in children_map.get(other, []) for other in included
-            )
-            if not has_parent:
-                result.topLevelParamIds.append(param_id)
-
-    return result
 
 
 class SingletonSections(BaseModel, extra="forbid"):

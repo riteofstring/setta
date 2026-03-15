@@ -2,20 +2,20 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
-import { loadAgentRuns } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { getTopLevelSectionIdsForDisplay } from "state/actions/sectionDisplayStructure";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveSectionImplIfPresent,
   getSectionShouldRender,
-  getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionViewModeVisibility";
 import {
   useAIStore,
   useProjectState,
-  useSettings,
   ZustandProjectState,
 } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import {
   createSettingsState,
   isBaseParentSectionImpl,

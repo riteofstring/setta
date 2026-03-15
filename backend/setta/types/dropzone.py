@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, ValidationError
@@ -79,4 +80,27 @@ def normalize_dropzone_value(value: str, max_attachments: int | None) -> str:
     payload = payload.model_copy(
         update={"attachments": payload.attachments[:max_attachments]}
     )
+    return dropzone_payload_to_value(payload)
+
+
+def rewrite_dropzone_attachment_paths(
+    value: str, resolve_artifact_path: Callable[[str], str]
+) -> str:
+    payload = parse_dropzone_value(value)
+    if payload is None:
+        return value
+    if not payload.attachments:
+        return ""
+    updated: list[DropzoneAttachment] = []
+    changed = False
+    for attachment in payload.attachments:
+        if isinstance(attachment, DropzoneFileAttachment):
+            new_id = resolve_artifact_path(attachment.id)
+            if new_id != attachment.id:
+                attachment = attachment.model_copy(update={"id": new_id})
+                changed = True
+        updated.append(attachment)
+    if not changed:
+        return value
+    payload = payload.model_copy(update={"attachments": updated})
     return dropzone_payload_to_value(payload)

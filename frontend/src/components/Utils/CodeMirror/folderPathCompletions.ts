@@ -4,12 +4,9 @@ import {
   normalizeBrowserPath,
   resolvePathWithinRoot,
 } from "utils/browserPaths";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import { route_get_folder_contents } from "utils/generatedEndpoints";
-import type {
-  FolderContentItem,
-  GetFolderContentsResponse,
-} from "utils/generatedTypes";
+import type { FolderContentItem } from "utils/generatedTypes";
 
 type FolderPathCompletionOptions = {
   rootPath: string | null;
@@ -21,8 +18,6 @@ type FolderPathCompletionOptions = {
 
 const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:$/;
 const WINDOWS_DRIVE_ABSOLUTE_REGEX = /^[A-Za-z]:\//;
-type GetFolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
 
 function resolveSeparator(text: string, fallback: string): string {
   const lastSlash = text.lastIndexOf("/");
@@ -75,7 +70,7 @@ async function loadFolderEntries({
   maxEntries: number | undefined;
   allowOutsideWorkspaceRoot: boolean | undefined;
 }): Promise<FolderContentItem[]> {
-  const res: GetFolderContentsRouteResponse = await route_get_folder_contents({
+  const res = await route_get_folder_contents({
     folderPath,
     ignorePatterns: ignorePatterns ?? null,
     maxEntries: maxEntries ?? null,

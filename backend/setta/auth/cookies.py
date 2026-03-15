@@ -10,6 +10,10 @@ def auth_cookie_name(session_id: str) -> str:
     return f"{C.AUTH_COOKIE_NAME}_{trimmed}"
 
 
+def read_auth_cookie(request: Request, *, session_id: str) -> str | None:
+    return request.cookies.get(auth_cookie_name(session_id))
+
+
 def _is_request_secure(request: Request) -> bool:
     if request.url.scheme == "https":
         return True

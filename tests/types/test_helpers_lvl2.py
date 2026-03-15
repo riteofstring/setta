@@ -25,9 +25,12 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_children_of_callable,
     add_kwarg,
+    apply_top_level_section_layout_snapshot,
     change_param_impl,
+    compute_smart_top_level_section_position,
     create_child_sections_via_incrementer,
     create_top_level_section,
+    delete_sections,
     delete_selected_params,
     get_curr_top_level_param_ids,
     get_first_markdown_heading,
@@ -35,9 +38,12 @@ from setta.types.helpers_lvl2 import (
     move_params_to_parent,
     move_params_within_parent,
     set_chat_section_chat_id,
+    set_chat_section_settings,
     set_list_root_view_mode,
     set_param_entered_value,
     set_parent_default_child_section_type,
+    set_prompt_section_format,
+    set_prompt_section_template,
     set_section_param_filter,
     set_spreadsheet_section_settings,
     set_text_block_heading_as_section_name,
@@ -51,18 +57,27 @@ from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
+    ViewportBounds,
 )
 from setta.types.project_state import (
+    ChatWindowPlacement,
+    ProjectChatWindowingState,
+    ProjectChatWindowInstance,
     ProjectStateSingleConfig,
 )
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     CallableSectionImpl,
+    ChatDictationMode,
+    ChatPermissionMode,
     ChatSectionImpl,
     ListRootSectionImpl,
     ListRootViewMode,
     MetaControlSectionImpl,
+    PromptSectionImpl,
+    SectionSize,
     SectionType,
     SpreadsheetGridDensity,
     SpreadsheetSectionImpl,
@@ -259,6 +274,58 @@ class TestAddKwarg:
         assert shown.unpinned.requiredParamIdsToPaths[kwarg_id] == (kwarg_id,)
 
 
+class TestDeleteSections:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_delete_sections_cleans_section_variant_map(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        assert section_id in self.project_state.projectConfig.sectionVariantMap
+
+        delete_sections(self.project_state, [section_id])
+
+        assert section_id not in self.project_state.sections
+        assert section_id not in self.project_state.projectConfig.sectionVariantMap
+        self.project_state.validate_code_file_bindings()
+
+    def test_delete_sections_prunes_project_chat_windowing_for_removed_sections(
+        self,
+    ) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        window = ProjectChatWindowInstance(
+            instanceId="project-chat-window-1",
+            placement=ChatWindowPlacement.floating,
+            sectionIdOrNull=section_id,
+        )
+        self.project_state.projectChatWindowing = ProjectChatWindowingState(
+            instancesById={window.instanceId: window},
+            order=[window.instanceId],
+            nextInstanceNumber=2,
+        )
+        self.project_state.validate_parent_section_map()
+
+        delete_sections(self.project_state, [section_id])
+
+        assert self.project_state.projectChatWindowing.instancesById == {}
+        assert self.project_state.projectChatWindowing.order == []
+        assert self.project_state.projectChatWindowing.nextInstanceNumber == 2
+
+
 class TestChatSectionChatId:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
@@ -284,6 +351,124 @@ class TestChatSectionChatId:
             ChatSectionImpl,
         )
         assert section_impl.chatId == chat_id
+
+    def test_set_chat_section_settings_updates_agent_profile(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        agent_profile_id = ID("agent-1")
+        engine_config_id = ID("engine-1")
+        transcription_profile_id = ID("transcription-1")
+
+        set_chat_section_settings(
+            self.project_state,
+            section_id,
+            managed=True,
+            engineConfigId=engine_config_id,
+            transcriptionProfileId=transcription_profile_id,
+            agentProfileId=agent_profile_id,
+            thinking=True,
+            permissionMode=ChatPermissionMode.yolo,
+            searchEnabled=False,
+            dictationMode=ChatDictationMode.provider,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        assert section_impl.managed
+        assert section_impl.engineConfigId == engine_config_id
+        assert section_impl.transcriptionProfileId == transcription_profile_id
+        assert section_impl.agentProfileId == agent_profile_id
+        assert section_impl.thinking
+        assert section_impl.permissionMode == ChatPermissionMode.yolo
+        assert not section_impl.searchEnabled
+        assert section_impl.dictationMode == ChatDictationMode.provider
+
+
+class TestPromptSection:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_prompt_section_preview_reports_missing_variables(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name }}",
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
+
+    def test_prompt_section_reports_syntax_errors(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name ",
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        assert impl.renderedText == ""
+        assert impl.missingVariables == []
+        assert impl.renderError is not None
+
+    def test_prompt_section_format_updates_rendering(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name }}",
+        )
+        set_prompt_section_format(
+            self.project_state,
+            section_id,
+            PromptFormat.Jinja,
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
 
 
 class TestChangeParamImpl:
@@ -854,6 +1039,84 @@ class TestParamMove:
             NestedParamCodeObjImpl,
         )
         assert parent_impl.children == [self.param_ids[1], self.param_ids[2]]
+
+
+class TestSmartLayout:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_smart_layout_places_inside_viewport(self) -> None:
+        viewport_bounds = ViewportBounds(x=0, y=0, w=300, h=240)
+        overrides = {"size": SectionSize(width=100, height=80)}
+
+        position, pan_to = compute_smart_top_level_section_position(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            overrides,
+            None,
+            viewport_bounds,
+        )
+
+        assert position.x == pytest.approx(24.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is None
+
+    def test_smart_layout_positions_right_and_pans_when_viewport_too_narrow(
+        self,
+    ) -> None:
+        viewport_bounds = ViewportBounds(x=0, y=0, w=100, h=240)
+        overrides = {"size": SectionSize(width=160, height=100)}
+
+        position, pan_to = compute_smart_top_level_section_position(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            overrides,
+            None,
+            viewport_bounds,
+        )
+
+        assert position.x == pytest.approx(124.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is not None
+        assert pan_to.x == pytest.approx(position.x + 100.0)
+        assert pan_to.y == pytest.approx(position.y + 50.0)
+
+    def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        existing_layout = self.project_state.projectConfig.topLevelSections[section_id]
+        existing_layout.w = 200
+        existing_layout.h = 200
+        viewport_bounds = ViewportBounds(x=0, y=0, w=148, h=148)
+        overrides = {"size": SectionSize(width=100, height=100)}
+        layout_snapshot = {section_id: TopLevelSectionLayout(x=300, y=0, w=200, h=200)}
+        apply_top_level_section_layout_snapshot(self.project_state, layout_snapshot)
+
+        position, pan_to = compute_smart_top_level_section_position(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            overrides,
+            None,
+            viewport_bounds,
+        )
+
+        assert position.x == pytest.approx(300.0)
+        assert position.y == pytest.approx(224.0)
+        assert pan_to is not None
+        assert pan_to.x == pytest.approx(400.0)
+        assert pan_to.y == pytest.approx(274.0)
 
 
 class TestTextBlockHeadingAsName:
