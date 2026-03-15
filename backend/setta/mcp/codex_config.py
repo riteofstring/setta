@@ -205,7 +205,11 @@ def _parse_codex_mcp_server_entry(
     if command and url:
         raise ValueError(f"server '{server_id}' cannot declare both command and url")
 
-    http_headers = _parse_http_headers(raw_entry, server_id=server_id)
+    http_headers = _parse_http_headers_payload(
+        raw_entry.get("http_headers"),
+        server_id=server_id,
+        field_name="http_headers",
+    )
 
     resolved_transport = transport
     if not resolved_transport:
@@ -235,7 +239,14 @@ def _parse_codex_mcp_server_entry(
                 server_id=server_id,
                 field_name="cwd",
             ),
-            encoding=_parse_encoding(raw_entry, server_id=server_id),
+            encoding=(
+                _parse_optional_nonempty_string_field(
+                    raw_entry,
+                    server_id=server_id,
+                    field_name="encoding",
+                )
+                or "utf-8"
+            ),
             encoding_error_handler=_parse_encoding_error_handler(
                 raw_entry,
                 server_id=server_id,
@@ -255,20 +266,6 @@ def _parse_codex_mcp_server_entry(
         url=url,
         http_headers=http_headers,
     )
-
-
-def _parse_http_headers(
-    raw_entry: dict[str, Any],
-    *,
-    server_id: str,
-) -> dict[str, str] | None:
-    return _parse_http_headers_payload(
-        raw_entry.get("http_headers"),
-        server_id=server_id,
-        field_name="http_headers",
-    )
-
-
 def _parse_http_headers_payload(
     raw_http_headers: Any,
     *,
@@ -339,19 +336,6 @@ def _parse_env(raw_entry: dict[str, Any], *, server_id: str) -> dict[str, str] |
     if not normalized_env:
         return None
     return normalized_env
-
-
-def _parse_encoding(raw_entry: dict[str, Any], *, server_id: str) -> str:
-    encoding = _parse_optional_nonempty_string_field(
-        raw_entry,
-        server_id=server_id,
-        field_name="encoding",
-    )
-    if encoding is None:
-        return "utf-8"
-    return encoding
-
-
 def _parse_encoding_error_handler(raw_entry: dict[str, Any], *, server_id: str) -> str:
     raw_value = raw_entry.get("encoding_error_handler")
     if raw_value is None:
