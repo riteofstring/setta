@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`78696bae3e346830bdddcaf6c275da163f8c6aa9`
+`4b7766243db60194ddff32d6a174763935847ad2`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -49,6 +49,9 @@ It currently covers:
 - UI-setting search/read/write/reveal behavior
 - app-definition read/validate/write/update behavior
 - app-spec patch-stream behavior and legacy stream-app-spec transport
+- app-gen skill discovery/content/upsert behavior
+- Project AI viewer support routes for setta-home info, MCP runtime status, and path reveal
+- surviving MCP init-tool behavior for project metadata, installed packages, and runtime status
 
 Rows outside these slices are still pending.
 
@@ -79,7 +82,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Nine concrete parity gaps are already visible:
+- Ten concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -107,6 +110,10 @@ Rows outside these slices are still pending.
     active `shareSessionId`
   - current Go reveal routing ignores share-session scope and treats frontend
     selection globally
+  - source-baseline reveal-path routing returns the same allowlist `400` for
+    missing paths outside approved roots
+  - current Go reveals leak `404 path_not_found` before the allowlist check on
+    those missing outside-root paths
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -143,6 +150,14 @@ Rows outside these slices are still pending.
   - current Go documents that the active app-config flow no longer depends on
     that route and instead uses `/api/getLLMResponse`, `/ws/frontend`
     tool-preview events, and `stream_app_definition`
+- The app-gen skills / viewer-support slice mostly closes at the implementation
+  level, but it adds:
+  - one more concrete behavior gap around reveal-path allowlist enforcement for
+    missing outside-root paths
+  - six more proof-gap clusters around skill discovery/editability coverage,
+    create-root reporting, skill preview/read errors, custom-skill upsert edge
+    handling, reveal-path failure mapping, and custom-root MCP runtime-status
+    reporting
 
 ## Project Names
 
@@ -417,11 +432,38 @@ Rows outside these slices are still pending.
 | `AS-01` | `stream_app_definition` patch parsing ignores blank/comment lines, accepts the JSONL JSON-Pointer patch contract, uses either the provided base spec or stored spec as the patch base, falls back to an empty spec when the configured file is missing, and rejects invalid nested-element patches with typed invalid-arguments behavior. | `tests/routers/test_app_spec_streaming_parsing.py::{test_parses_valid_root_patch,test_parses_valid_element_patch,test_parses_valid_nested_element_patch,test_parses_valid_remove_patch,test_ignores_blank_and_comments,test_rejects_invalid_payloads}`; `docs/reference/app-spec-patching.md` streaming-preview section. | Impl: `internal/appspec/patch_stream.go`; `internal/projectstate/app_definition_stream.go`; proof: `internal/appspec/patch_stream_test.go::{TestParsePatchLinesIgnoresCommentsAndBlanks,TestParsePatchLineReturnsNilForInvalidPayloads,TestApplyPatchOpsRequiresExistingNestedElement}`; `internal/projectstate/app_definition_stream_test.go::{TestRuntimeStreamAppDefinitionUsesProvidedBaseSpecAndPersistsResult,TestRuntimeStreamAppDefinitionUsesStoredSpecWhenBaseSpecOmitted,TestRuntimeStreamAppDefinitionFallsBackToEmptySpecWhenConfiguredFileIsMissing,TestRuntimeStreamAppDefinitionRejectsInvalidNestedElementPatch}`; MCP proof: `internal/mcpx/app_definition_stream_test.go::{TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID,TestServerStreamAppDefinitionRejectsInvalidPatchPayload}`; transport proof: `internal/httpapi/mcp_tool_stream_app_definition_test.go::TestMCPToolCallRouteSupportsStreamAppDefinition`; app proof: `internal/app/mcp_stream_app_definition_test.go::TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE`. | `Proved` | |
 | `AS-02` | The legacy `/api/streamAppSpec` HTTP route on `main` enforced prompt/current-spec/reference-image request validation and image-mode capability guards before any model call. | `tests/routers/test_app_spec_streaming_route.py::{test_returns_message_when_no_llm_config_available,test_returns_message_for_empty_prompt,test_rejects_non_json_serializable_current_spec,test_rejects_large_current_spec,test_rejects_large_catalog_summary,test_rejects_large_sections_summary,test_rejects_large_reference_image_url,test_rejects_large_reference_image_notes,test_rejects_image_mode_when_model_lacks_vision_support,test_ignores_reference_image_payload_outside_image_mode}`; source route: `backend/setta/routers/app_spec_streaming.py`; docs: `docs/reference/app-spec-patching.md` `/api/streamAppSpec` section. | Current rewrite docs explicitly classify that route as superseded for active callers: `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` app-config pane row; `docs/reference/urls-and-routes.md` `/api/streamAppSpec` note. Current Go app generation uses `/api/getLLMResponse`, `/ws/frontend` tool-preview events, and `stream_app_definition` persistence instead of a direct replacement HTTP route. | `Dormant / unproven caller` | The older route-specific request guards are still well specified on `main`, but this slice does not prove any active Go-era caller still needs the legacy HTTP generator transport now that the current flow is chat/MCP driven. |
 
+## App-Gen Skills
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `SK-01` | Skill discovery walks workspace/user/admin/env roots, deduplicates by resolved root path, skips ignored/unreadable roots, extracts the first non-heading description line, and surfaces editability metadata including the root-level `SKILL.md` non-editable case. | `tests/routers/test_app_gen_extensions_routes.py::{test_lists_workspace_skills,test_lists_workspace_claude_and_opencode_skills,test_lists_user_claude_and_user_opencode_skills,test_lists_skills_from_env_home_roots,test_skips_unreadable_skill_root_during_listing,test_skips_ignored_directories_during_walk,test_marks_root_level_custom_skill_as_non_editable,test_marks_existing_custom_skill_as_editable_when_skill_doc_is_read_only_but_directory_is_writable,test_marks_existing_custom_skill_as_non_editable_when_skill_directory_is_not_writable,test_lists_workspace_skills_when_description_file_is_invalid_utf8}`; source owner: `backend/setta/routers/app_gen_extensions.py::{list_app_gen_skills,_resolve_skill_editability,_extract_skill_description}`. | Impl: `internal/appgenskills/service.go::{skillRoots,List,iterSkillDocs,resolveSkillEditability,extractSkillDescription}`; current proof: `internal/appgenskills/service_test.go::{TestServiceListDiscoversWorkspaceUserAndEnvRoots,TestServiceMarksRootLevelSkillNonEditable}`; transport proof: `internal/httpapi/app_gen_skill_routes_test.go::TestRegisterAppGenSkillRoutesListsSkills`; app proof: `internal/app/app_test.go::TestAppServesAppGenSkillRoutes`. | `Implemented, proof incomplete` | The current Go owner mirrors the source discovery model, but this slice does not yet have direct Go proof for ignored-directory filtering, unreadable-root resilience, invalid-UTF8 description fallback, or the non-writable-directory editability branch. |
+| `SK-02` | `getAppGenSkills` advertises the authoritative custom-skill create root plus the `customSkillCreateRootActionable` flag without probing writes, and the advertised root matches the actual create fallback priority. | `tests/routers/test_app_gen_extensions_routes.py::{test_resolve_app_gen_skills_response_uses_authoritative_create_root,test_resolve_app_gen_skills_response_does_not_probe_writes,test_resolve_app_gen_skills_response_matches_create_root_when_higher_priority_root_is_unwritable,test_get_app_gen_skills_route_does_not_probe_writes,test_get_app_gen_skills_route_matches_create_route_under_fallback_root}`; source docs: `docs/reference/urls-and-routes.md` app-gen extension endpoints. | Impl: `internal/appgenskills/service.go::{ResolveSkillsResponse,resolveCustomSkillCreateRoot,checkCustomSkillRootCandidate}`; current proof: `internal/appgenskills/service_test.go::TestServiceResolveSkillsResponseReportsMissingCreateRootWithoutProbingWrites`; route proof: `internal/httpapi/app_gen_skill_routes_test.go::TestRegisterAppGenSkillRoutesListsSkills`. | `Implemented, proof incomplete` | Current Go proves the non-probing path and the response shape, but this slice does not yet have direct Go proof that list-time root reporting stays aligned with the source fallback-root priority matrix when higher-priority roots are present but unusable. |
+| `SK-03` | `getAppGenSkillContent` resolves by `skillId`, rejects traversal/non-discoverable targets with the source `400`/plain-detail `404` mapping, and truncates large `SKILL.md` previews while reporting original size metadata. | `tests/routers/test_app_gen_extensions_routes.py::{test_reads_skill_content_by_skill_id,test_rejects_path_traversal,test_truncates_large_skill_content_with_metadata,test_read_skill_content_raises_valueerror_when_exists_check_is_denied,test_skill_content_route_returns_plain_keyerror_detail,test_skill_content_route_returns_400_for_permission_error}`; source route: `backend/setta/routers/app_gen_extensions.py::{read_app_gen_skill_content,route_get_app_gen_skill_content}`. | Impl: `internal/appgenskills/service.go::ReadContent`; route mapping: `internal/httpapi/app_gen_skill_routes.go::{getAppGenSkillContentHandler,writeAppGenSkillError}`; current proof: `internal/appgenskills/service_test.go::TestServiceReadContentTruncatesPreviewWithMetadata`; `internal/httpapi/app_gen_skill_routes_test.go::TestRegisterAppGenSkillRoutesReturnsPlainNotFoundDetail`; app proof: `internal/app/app_test.go::TestAppServesAppGenSkillRoutes`. | `Implemented, proof incomplete` | The current Go code appears to preserve the source read contract, but this slice lacks direct Go proof for traversal rejection, invalid-UTF8/permission failures, and the exact route-level `400` mapping for those error branches. |
+| `SK-04` | `upsertAppGenCustomSkill` enforces the one-of `skillId`/`relativePath` request contract, creates in the first writable custom root without overwrite, updates only discoverable editable custom skills, and preserves existing state on temp-write or race failures. | `tests/routers/test_app_gen_extensions_routes.py::{test_creates_custom_skill_in_user_agents_root_when_missing,test_create_custom_skill_rejects_name_collisions_without_overwrite,test_create_custom_skill_removes_partial_outputs_when_temp_write_fails,test_create_custom_skill_uses_prioritized_root_even_when_agents_home_aliases_workspace,test_updates_existing_workspace_custom_skill_by_skill_id,test_updates_existing_workspace_custom_skill_when_skill_doc_is_read_only,test_update_custom_skill_preserves_existing_content_when_temp_write_fails,test_update_custom_skill_by_skill_id_fails_when_target_disappears_before_open,test_create_custom_skill_fails_when_target_appears_before_open_without_overwrite,test_rejects_skill_id_target_when_skill_is_not_discoverable,test_rejects_hidden_skill_id_targets_even_when_skill_doc_exists,test_updates_skill_id_target_when_agents_home_root_is_unwritable,test_creates_custom_skill_in_next_writable_priority_root,test_create_custom_skill_fails_when_no_writable_root_exists,test_rejects_updates_for_non_custom_skill_root,test_rejects_updates_when_existing_custom_skill_directory_is_no_longer_writable,test_upsert_custom_skill_route_creates_skill,test_upsert_custom_skill_route_rejects_create_collisions_without_overwrite,test_upsert_custom_skill_route_returns_400_and_no_skill_doc_when_create_temp_write_fails,test_upsert_custom_skill_route_rejects_late_create_collisions_without_overwrite,test_upsert_custom_skill_route_returns_400_and_preserves_existing_content_when_update_temp_write_fails,test_upsert_custom_skill_route_returns_missing_when_update_target_disappears_before_open,test_upsert_custom_skill_route_uses_workspace_root_when_agents_home_aliases_workspace,test_upsert_custom_skill_route_rejects_non_custom_roots,test_upsert_custom_skill_route_updates_selected_skill_when_agents_home_is_unwritable,test_upsert_custom_skill_route_rejects_non_discoverable_skill_id_target,test_upsert_custom_skill_route_rejects_hidden_skill_id_target_even_when_file_exists,test_upsert_custom_skill_route_returns_400_when_no_writable_roots}`; source owner: `backend/setta/routers/app_gen_extensions.py::upsert_app_gen_custom_skill`. | Impl: `internal/appgenskills/service.go::UpsertCustomSkill`; write helpers: `internal/appgenskills/service.go::{writeNewCustomSkillDoc,writeExistingCustomSkillDoc,resolveCustomSkillCreateRootForWrite}`; current proof: `internal/appgenskills/service_test.go::{TestServiceUpsertCreatesCustomSkillInUserAgentsRootWhenMissing,TestServiceUpsertUsesDiscoverableRootIDWhenAgentsHomeAliasesWorkspace,TestServiceUpsertUpdatesExistingWorkspaceSkillWhenDocReadOnly,TestServiceUpsertRejectsCreateCollisionsWithoutOverwrite}`; route proof: `internal/httpapi/app_gen_skill_routes_test.go::TestRegisterAppGenSkillRoutesCreatesCustomSkill`; app proof: `internal/app/app_test.go::TestAppServesAppGenSkillRoutes`. | `Implemented, proof incomplete` | Current Go matches the main create/update architecture, but this slice still lacks direct Go proof for next-writable-root fallback, hidden/non-custom target rejection, temp-write cleanup, and disappearing-target race handling. |
+
+## Viewer Support Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `SH-01` | `settaHomeInfo` returns resolved `settaHome`, global setta-files base, active setta-files location, and `llmConfigPath`, and the route stays blocked outside IDE mode. | `tests/routers/test_setta_home_info_route.py::{test_setta_home_info_route_returns_resolved_paths,test_setta_home_info_route_blocked_in_deployment_mode,test_setta_home_info_route_blocked_in_launcher_mode,test_setta_home_info_route_reports_custom_setta_files_location_when_explicit_root}`; source route: `backend/setta/routers/status.py::route_get_setta_home_info`. | Impl: `internal/httpapi/status_routes.go::getSettaHomeInfoHandler`; app wiring: `internal/app/app.go`; proof: `internal/httpapi/status_routes_test.go::{TestRegisterStatusRoutesReturnsSettaHomeInfoInIDEMode,TestRegisterStatusRoutesBlocksSettaHomeInfoOutsideIDEMode}`. | `Proved` | The Go app wiring already normalizes explicit setta-files roots to `"custom"` through `config.Paths.ActiveSettaFilesLocation()`. |
+| `MR-01` | `mcpServerRuntimeStatus` returns internal server statuses plus request-scoped external runtime statuses, includes `llmConfigPath` / `activeSettaFilesLocation`, and is blocked outside the full IDE runtime. | `tests/routers/test_mcp_server_runtime_status_route.py::{test_mcp_runtime_status_route_returns_server_and_external_statuses,test_mcp_runtime_status_route_blocked_in_deployment_mode,test_mcp_runtime_status_route_blocked_in_launcher_mode}`; source route: `backend/setta/routers/status.py::route_get_mcp_server_runtime_status`. | Impl: `internal/httpapi/mcp_routes.go`; external runtime bridge: `internal/externalagents/external_mcp_status.go::ExternalRuntimeStatuses`; proof: `internal/httpapi/mcp_routes_test.go::{TestMCPRuntimeStatusRouteReturnsCurrentStatuses,TestMCPRuntimeStatusRouteReturnsExternalStatuses,TestMCPRuntimeStatusRouteBlockedOutsideFullIDE}`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient`. | `Proved` | |
+| `MR-02` | `mcpServerRuntimeStatus` reports `"custom"` and the explicit-root `llmConfigPath` when the active setta-files root is overridden away from the standard global/local location. | `tests/routers/test_mcp_server_runtime_status_route.py::test_mcp_runtime_status_route_reports_custom_setta_files_location_when_explicit_root`. | Impl: `internal/httpapi/mcp_routes.go::MCPRuntimeStatusResponse`; app wiring: `internal/app/app.go`; current proof: `internal/httpapi/mcp_routes_test.go::TestMCPRuntimeStatusRouteReturnsCurrentStatuses`; `internal/app/mcp_test.go::TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient`. | `Implemented, proof incomplete` | Current Go passes the same `config.Paths.ActiveSettaFilesLocation()` contract into the route, but this slice does not yet have a direct Go test for the explicit custom-root case from `main`. |
+| `RV-01` | `revealPathInOsFileExplorer` allows workspace, `setta_files`, and discovered skill-root paths, and opener command failures/timeouts surface the explicit backend error text rather than succeeding silently. | `tests/routers/test_reveal_path_in_os_file_explorer_route.py::{test_reveal_path_allows_workspace_and_setta_files_paths,test_reveal_path_allows_discovered_skill_root_path,test_reveal_path_returns_error_when_explorer_command_fails,test_reveal_path_returns_error_when_explorer_command_times_out}`; source route: `backend/setta/routers/status.py::route_reveal_path_in_os_file_explorer`; docs: `docs/reference/setta-files.md` path-reveal endpoint section. | Impl: `internal/pathreveal/service.go`; transport mapping: `internal/httpapi/status_routes.go::{revealPathInOSFileExplorerHandler,writeRevealPathError}`; current proof: `internal/pathreveal/service_test.go::TestRevealAllowsSkillRoots`; `internal/httpapi/status_routes_test.go::{TestRegisterStatusRoutesRevealsPathsInIDEMode,TestRegisterStatusRoutesRejectsRevealPathOutsideAllowedRoots}`. | `Implemented, proof incomplete` | Current Go proves the allowlist happy path and existing outside-root rejection, but this slice does not yet have direct Go proof for opener failure/timeout mapping or the workspace-plus-setta-files dual-root allowlist contract. |
+| `RV-02` | Missing paths outside the allowed reveal roots return the same allowlist `400` as existing outside-root paths, so the route does not leak existence information for disallowed locations. | `tests/routers/test_reveal_path_in_os_file_explorer_route.py::test_reveal_path_outside_allowlist_returns_same_error_for_missing_path`; source route: `backend/setta/routers/status.py::route_reveal_path_in_os_file_explorer`. | Current Go reveal flow checks filesystem existence before the allowlist boundary: `internal/pathreveal/service.go::Reveal` calls `os.Stat(resolvedPath)` before `allowedRoots()` / `isWithinAnyRoot(...)`; route mapping: `internal/httpapi/status_routes.go::writeRevealPathError`. | `Missing` | This is a concrete parity gap. The source route intentionally returned the same allowlist error for missing outside-root paths, but current Go emits `404 path_not_found` before it reaches the allowlist check. |
+
+## MCP Init Tools
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `MT-01` | The init tool `getProjectConfigNamesAndIds` returns sorted project metadata entries so callers can bootstrap a stable `projectConfigId`. | `tests/mcp/test_base_tools.py::TestGetProjectConfigNamesAndIds::test_returns_id_name_dicts`; source tool: `backend/setta/mcp/tools/base_tools.py::getProjectConfigNamesAndIds`. | Impl: `internal/mcpx/utility_read_tools.go::newGetProjectConfigNamesAndIDsHandler`; proof: `internal/mcpx/server_test.go::TestServerGetProjectConfigNamesAndIDsReturnsSortedMetadata`; route proof: `internal/httpapi/mcp_tool_routes_test.go::TestMCPToolCallRouteSupportsUtilityReadInitTools`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE`; `internal/app/mcp_test.go::TestAppIDEMCPToolCallRouteSupportsUtilityReadInitTools`. | `Proved` | |
+| `MT-02` | The init tool `getInstalledPythonPackages` returns case-insensitively sorted `name=version` strings for the active Python environment. | `tests/mcp/test_base_tools.py::TestGetInstalledPythonPackages::test_returns_sorted_package_strings`; source tool: `backend/setta/mcp/tools/base_tools.py::getInstalledPythonPackages`. | Impl: `internal/pythonenv/runtime.go::InstalledPackages`; tool bridge: `internal/mcpx/utility_read_tools.go::newGetInstalledPythonPackagesHandler`; proof: `internal/pythonenv/runtime_test.go::TestRuntimeInstalledPackagesReturnsSortedNameVersions`; `internal/mcpx/server_test.go::TestServerGetInstalledPythonPackagesReturnsProviderPayload`; route proof: `internal/httpapi/mcp_tool_routes_test.go::TestMCPToolCallRouteSupportsUtilityReadInitTools`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE`; `internal/app/mcp_test.go::TestAppIDEMCPToolCallRouteSupportsUtilityReadInitTools`. | `Proved` | |
+| `MT-03` | The init tool `get_mcp_server_runtime_status` returns the current internal MCP client statuses without crashing and keeps the source payload narrowed to `serverId`, `state`, `toolCount`, `lastError`, and `missingEnvVar`. | `tests/mcp/test_base_tools.py::TestGetMCPServerRuntimeStatus::test_returns_statuses_from_multi_mcp_client_without_crashing`; source tool: `backend/setta/mcp/tools/base_tools.py::get_mcp_server_runtime_status`. | Impl: `internal/mcpx/utility_read_tools.go::newGetMCPServerRuntimeStatusHandler`; proof: `internal/mcpx/server_test.go::TestServerGetMCPServerRuntimeStatusReturnsClientStatuses`; route proof: `internal/httpapi/mcp_tool_routes_test.go::TestMCPToolCallRouteSupportsUtilityReadInitTools`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE`; `internal/app/mcp_test.go::TestAppIDEMCPToolCallRouteSupportsGetMCPServerRuntimeStatus`. | `Proved` | |
+
 ## Current Findings
 
-1. The matrix now contains nine concrete source-parity gaps:
-   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`, and
-   `US-05`.
+1. The matrix now contains ten concrete source-parity gaps:
+   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
+   `US-05`, and `RV-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -456,14 +498,19 @@ Rows outside these slices are still pending.
     proofs, but it adds one real behavior gap around share-session-scoped
     reveal routing (`US-05`) plus one more dormant transport row around the
     superseded `/api/streamAppSpec` HTTP generator (`AS-02`).
-12. Git route behavior is now largely proved, including literal pathspec
+12. The app-gen skills and viewer-support slice mostly closes at the
+    implementation level, but it adds one more real behavior gap (`RV-02`)
+    plus six more proof-gap clusters (`SK-01`, `SK-02`, `SK-03`, `SK-04`,
+    `MR-02`, `RV-01`).
+13. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-13. The remaining issues in the naming slice are still mostly proof gaps rather
+14. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-14. The next high-value steps are:
-    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`, and
-      `US-05` should be restored or documented as intentional divergences
+15. The next high-value steps are:
+    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
+      `US-05`, and `RV-02` should be restored or documented as intentional
+      divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
@@ -475,6 +522,7 @@ Rows outside these slices are still pending.
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
       `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
       binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
-      `AT-05`, `FB-04`)
+      `AT-05`, `FB-04`) and the new Project-AI tooling proof gaps (`SK-01`,
+      `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
