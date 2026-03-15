@@ -19,6 +19,13 @@ type BootstrapTokenPayload struct {
 	Nonce     string
 }
 
+type LaunchIntentTokenPayload struct {
+	SessionID string
+	Exp       int64
+	Nonce     string
+	Purpose   string
+}
+
 type AuthCookiePayload struct {
 	SessionID string
 	Exp       int64
@@ -78,6 +85,10 @@ type BootstrapTokenManager struct {
 	nonceTracker *NonceTracker
 }
 
+type LaunchIntentTokenManager struct {
+	ttlSeconds int64
+}
+
 func NewBootstrapTokenManager(ttl time.Duration, nonceTracker *NonceTracker) *BootstrapTokenManager {
 	if nonceTracker == nil {
 		nonceTracker = NewNonceTracker()
@@ -85,6 +96,12 @@ func NewBootstrapTokenManager(ttl time.Duration, nonceTracker *NonceTracker) *Bo
 	return &BootstrapTokenManager{
 		ttlSeconds:   int64(ttl / time.Second),
 		nonceTracker: nonceTracker,
+	}
+}
+
+func NewLaunchIntentTokenManager(ttl time.Duration) *LaunchIntentTokenManager {
+	return &LaunchIntentTokenManager{
+		ttlSeconds: int64(ttl / time.Second),
 	}
 }
 
@@ -108,6 +125,33 @@ func (m *BootstrapTokenManager) Mint(sessionID string, secret []byte, now time.T
 		Nonce:     nonce,
 	}
 	return encodeSignedToken(payload.bootstrapMap(), secret)
+}
+
+func (m *LaunchIntentTokenManager) Mint(sessionID string, secret []byte, now time.Time) (string, int64, error) {
+	if strings.TrimSpace(sessionID) == "" {
+		return "", 0, errors.New("session id is required")
+	}
+	if len(secret) == 0 {
+		return "", 0, errors.New("secret is required")
+	}
+
+	issuedAt := effectiveNow(now)
+	nonce, err := randomToken(16)
+	if err != nil {
+		return "", 0, fmt.Errorf("generate launch intent nonce: %w", err)
+	}
+
+	payload := LaunchIntentTokenPayload{
+		SessionID: strings.TrimSpace(sessionID),
+		Exp:       issuedAt.Unix() + m.ttlSeconds,
+		Nonce:     nonce,
+		Purpose:   "launch_intent",
+	}
+	token, err := encodeSignedToken(payload.launchIntentMap(), secret)
+	if err != nil {
+		return "", 0, err
+	}
+	return token, payload.Exp, nil
 }
 
 func (m *BootstrapTokenManager) Consume(token string, secret []byte, now time.Time) (BootstrapTokenPayload, error) {
@@ -134,11 +178,15 @@ func (m *BootstrapTokenManager) Validate(token string, secret []byte, now time.T
 		SessionID string `json:"sessionId"`
 		Exp       int64  `json:"exp"`
 		Nonce     string `json:"nonce"`
+		Purpose   string `json:"purpose"`
 	}
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
 		return BootstrapTokenPayload{}, errors.New("invalid bootstrap token payload")
 	}
-	if strings.TrimSpace(payload.SessionID) == "" || payload.Exp <= 0 || strings.TrimSpace(payload.Nonce) == "" {
+	if strings.TrimSpace(payload.SessionID) == "" ||
+		payload.Exp <= 0 ||
+		strings.TrimSpace(payload.Nonce) == "" ||
+		strings.TrimSpace(payload.Purpose) != "" {
 		return BootstrapTokenPayload{}, errors.New("invalid bootstrap token payload")
 	}
 
@@ -157,6 +205,47 @@ func (m *BootstrapTokenManager) Validate(token string, secret []byte, now time.T
 		SessionID: payload.SessionID,
 		Exp:       payload.Exp,
 		Nonce:     payload.Nonce,
+	}, nil
+}
+
+func (m *LaunchIntentTokenManager) Validate(token string, secret []byte, now time.Time) (LaunchIntentTokenPayload, error) {
+	payloadBytes, signature, err := decodeTokenParts(token)
+	if err != nil {
+		return LaunchIntentTokenPayload{}, err
+	}
+
+	var payload struct {
+		SessionID string `json:"sessionId"`
+		Exp       int64  `json:"exp"`
+		Nonce     string `json:"nonce"`
+		Purpose   string `json:"purpose"`
+	}
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		return LaunchIntentTokenPayload{}, errors.New("invalid launch intent token payload")
+	}
+	if strings.TrimSpace(payload.SessionID) == "" ||
+		payload.Exp <= 0 ||
+		strings.TrimSpace(payload.Nonce) == "" ||
+		strings.TrimSpace(payload.Purpose) != "launch_intent" {
+		return LaunchIntentTokenPayload{}, errors.New("invalid launch intent token payload")
+	}
+
+	expected, err := signPayload(payloadBytes, secret)
+	if err != nil {
+		return LaunchIntentTokenPayload{}, err
+	}
+	if !hmac.Equal(signature, expected) {
+		return LaunchIntentTokenPayload{}, errors.New("invalid launch intent token signature")
+	}
+	if effectiveNow(now).Unix() >= payload.Exp {
+		return LaunchIntentTokenPayload{}, errors.New("launch intent token has expired")
+	}
+
+	return LaunchIntentTokenPayload{
+		SessionID: payload.SessionID,
+		Exp:       payload.Exp,
+		Nonce:     payload.Nonce,
+		Purpose:   payload.Purpose,
 	}, nil
 }
 
@@ -223,6 +312,15 @@ func (p BootstrapTokenPayload) bootstrapMap() map[string]any {
 	return map[string]any{
 		"exp":       p.Exp,
 		"nonce":     p.Nonce,
+		"sessionId": p.SessionID,
+	}
+}
+
+func (p LaunchIntentTokenPayload) launchIntentMap() map[string]any {
+	return map[string]any{
+		"exp":       p.Exp,
+		"nonce":     p.Nonce,
+		"purpose":   p.Purpose,
 		"sessionId": p.SessionID,
 	}
 }

@@ -101,7 +101,7 @@ type IntentService struct {
 	store          *intentStore
 	trustedOrigins *frontendorigins.Service
 	now            func() time.Time
-	tokenManager   *auth.BootstrapTokenManager
+	tokenManager   *auth.LaunchIntentTokenManager
 }
 
 type intentStore struct {
@@ -139,7 +139,7 @@ func NewIntentService(options IntentServiceOptions) (*IntentService, error) {
 		},
 		trustedOrigins: options.TrustedOrigins,
 		now:            now,
-		tokenManager:   auth.NewBootstrapTokenManager(defaultIntentTTLSeconds, auth.NewNonceTracker()),
+		tokenManager:   auth.NewLaunchIntentTokenManager(defaultIntentTTLSeconds),
 	}, nil
 }
 
@@ -168,14 +168,7 @@ func (s *IntentService) CreateIntent(input CreateIntentInput) (CreateIntentResul
 		}
 	}
 	requestedAt := s.now().UTC()
-	token, err := s.tokenManager.Mint(input.CurrentSession.Metadata.ID, input.CurrentSession.Secret, requestedAt)
-	if err != nil {
-		return CreateIntentResult{}, &IntentError{
-			Code:    "InternalError",
-			Message: "Internal Server Error",
-		}
-	}
-	validatedToken, err := s.tokenManager.Validate(token, input.CurrentSession.Secret, requestedAt)
+	token, exp, err := s.tokenManager.Mint(input.CurrentSession.Metadata.ID, input.CurrentSession.Secret, requestedAt)
 	if err != nil {
 		return CreateIntentResult{}, &IntentError{
 			Code:    "InternalError",
@@ -187,7 +180,7 @@ func (s *IntentService) CreateIntent(input CreateIntentInput) (CreateIntentResul
 		input.CurrentSession.Metadata.ID,
 		input.Request.StoredPayload(),
 		returnURL,
-		validatedToken.Exp,
+		exp,
 		requestedAt.Unix(),
 	); err != nil {
 		switch typed := err.(type) {

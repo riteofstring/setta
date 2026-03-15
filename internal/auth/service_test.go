@@ -126,6 +126,46 @@ func TestLoadCurrentSessionReturnsNilWhenSecretMissing(t *testing.T) {
 	}
 }
 
+func TestLoadCurrentSessionReturnsNilAfterSecretDeletedOnLaterCall(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	sessionID := "abc123"
+	secret := []byte("test-secret")
+	metadata := writeSessionFixture(t, runtimeRoot, sessionID, secret)
+
+	envLookup := envMap{
+		sessionIDEnv: sessionID,
+	}.lookup
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup:   envLookup,
+	})
+	if err != nil {
+		t.Fatalf("initial load current session: %v", err)
+	}
+	if currentSession == nil {
+		t.Fatal("expected initial current session")
+	}
+
+	if err := os.Remove(metadata.SecretPath); err != nil {
+		t.Fatalf("remove session secret: %v", err)
+	}
+
+	currentSession, err = LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup:   envLookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session after deleting secret: %v", err)
+	}
+	if currentSession != nil {
+		t.Fatalf("expected nil current session after deleting secret, got %#v", currentSession)
+	}
+}
+
 func TestServiceBootstrapTokenRoundTripRejectsReplay(t *testing.T) {
 	t.Parallel()
 
@@ -193,6 +233,57 @@ func TestServiceBootstrapTokenRejectsTamperedSignature(t *testing.T) {
 	}
 	if err != ErrInvalidBootstrapToken {
 		t.Fatalf("expected invalid bootstrap token, got %v", err)
+	}
+}
+
+func TestLaunchIntentTokenRoundTripUsesPurposeScopedPayload(t *testing.T) {
+	t.Parallel()
+
+	manager := NewLaunchIntentTokenManager(10 * time.Minute)
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, exp, err := manager.Mint("session-1", []byte("test-secret"), issuedAt)
+	if err != nil {
+		t.Fatalf("mint launch intent token: %v", err)
+	}
+
+	payload, err := manager.Validate(token, []byte("test-secret"), issuedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("validate launch intent token: %v", err)
+	}
+	if payload.SessionID != "session-1" {
+		t.Fatalf("expected session-1 session id, got %q", payload.SessionID)
+	}
+	if payload.Exp != exp {
+		t.Fatalf("expected exp %d, got %d", exp, payload.Exp)
+	}
+	if payload.Purpose != "launch_intent" {
+		t.Fatalf("expected launch_intent purpose, got %q", payload.Purpose)
+	}
+	if payload.Nonce == "" {
+		t.Fatal("expected launch intent nonce")
+	}
+}
+
+func TestServiceBootstrapTokenRejectsLaunchIntentToken(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	currentSession, ok := service.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	manager := NewLaunchIntentTokenManager(10 * time.Minute)
+	token, _, err := manager.Mint(currentSession.Metadata.ID, currentSession.Secret, issuedAt)
+	if err != nil {
+		t.Fatalf("mint launch intent token: %v", err)
+	}
+
+	_, err = service.ConsumeBootstrapToken(token, issuedAt.Add(time.Minute))
+	if err != ErrInvalidBootstrapToken {
+		t.Fatalf("expected launch intent token to be rejected as bootstrap token, got %v", err)
 	}
 }
 
