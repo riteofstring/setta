@@ -957,6 +957,34 @@ class TestSettaListenerRealtimeIntegration:
 
         assert refresh_calls == [{}]
 
+    async def test_default_dependency_mode_with_deps_is_always(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        @listener.listen(deps=("Welcome",))
+        def on_change(_state, _ctx) -> None:
+            return None
+
+        spec = next(iter(listener._callbacks.values()))
+        assert spec.dependency_mode == ListenerDependencyMode.ALWAYS
+
+    async def test_listener_rejects_invalid_dependency_mode_inputs(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        with pytest.raises(ValueError, match="Unknown dependency mode"):
+
+            @listener.listen(dependency_mode="not-a-mode")
+            def _invalid_mode(_state, _ctx) -> None:
+                return None
+
+        with pytest.raises(
+            ValueError,
+            match="Listener dependency_mode requires deps",
+        ):
+
+            @listener.listen(dependency_mode=ListenerDependencyMode.REALTIME_ONLY)
+            def _missing_deps(_state, _ctx) -> None:
+                return None
+
     async def test_realtime_only_wildcard_skips_snapshot(self) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(project_name=project_state.projectConfig.name)

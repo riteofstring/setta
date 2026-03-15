@@ -1145,10 +1145,28 @@ class SettaListener:
         def decorator(func: ListenerCallback) -> ListenerCallback:
             deps_provided = deps is not None
             dependencies = tuple(deps) if deps is not None else ()
-            normalized_mode = self._normalize_dependency_mode(
-                dependency_mode,
-                deps_provided=deps_provided,
-            )
+            if dependency_mode is None:
+                if deps_provided:
+                    normalized_mode = ListenerDependencyMode.ALWAYS
+                else:
+                    normalized_mode = ListenerDependencyMode.REFRESH_ONLY
+            else:
+                try:
+                    normalized_mode = ListenerDependencyMode(dependency_mode)
+                except ValueError as error:
+                    choices = ", ".join(
+                        member.value for member in ListenerDependencyMode
+                    )
+                    raise ValueError(
+                        f"Unknown dependency mode {dependency_mode!r}. Expected one of: {choices}"
+                    ) from error
+                if (
+                    not deps_provided
+                    and normalized_mode is not ListenerDependencyMode.REFRESH_ONLY
+                ):
+                    raise ValueError(
+                        "Listener dependency_mode requires deps (use deps=[] for all dependencies)"
+                    )
             callback_id = uuid4().hex
             spec = ListenerCallbackSpec(
                 function=func,
@@ -1279,29 +1297,6 @@ class SettaListener:
                         f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
                     ) from error
             spec.dependency_names = tuple(names)
-
-    @staticmethod
-    def _normalize_dependency_mode(
-        mode: ListenerDependencyMode | str | None,
-        *,
-        deps_provided: bool,
-    ) -> ListenerDependencyMode:
-        if mode is None:
-            if deps_provided:
-                return ListenerDependencyMode.ALWAYS
-            return ListenerDependencyMode.REFRESH_ONLY
-        try:
-            normalized = ListenerDependencyMode(mode)
-        except ValueError as error:
-            choices = ", ".join(member.value for member in ListenerDependencyMode)
-            raise ValueError(
-                f"Unknown dependency mode {mode!r}. Expected one of: {choices}"
-            ) from error
-        if not deps_provided and normalized is not ListenerDependencyMode.REFRESH_ONLY:
-            raise ValueError(
-                "Listener dependency_mode requires deps (use deps=[] for all dependencies)"
-            )
-        return normalized
 
     async def _send_bootstrap_init(self) -> None:
         """Send an initial bootstrap handshake to identify the target project."""
