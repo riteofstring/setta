@@ -94,6 +94,34 @@ class ListenerHotReloader:
             ignore = tuple(
                 pattern.replace("\\", "/") for pattern in ignore_patterns
             )
+
+        def parse_extra_watch_path(
+            raw_path: str,
+        ) -> Iterable[tuple[Path, str | None]]:
+            path_string = str(Path(raw_path).expanduser())
+            if has_magic(path_string):
+                expanded = Path(path_string).expanduser()
+                parts = expanded.parts
+                root_parts: list[str] = []
+                pattern_parts: list[str] = []
+                for part in parts:
+                    if has_magic(part) or pattern_parts:
+                        pattern_parts.append(part)
+                    else:
+                        root_parts.append(part)
+                if not root_parts:
+                    root = Path(".")
+                else:
+                    root = Path(*root_parts)
+                root = self._resolve_path(root)
+                pattern = (
+                    Path(*pattern_parts).as_posix() if pattern_parts else "**"
+                )
+                yield root, pattern
+                return
+            normalized = self._resolve_path(Path(path_string))
+            yield normalized, None
+
         for root_path, includes in self._infer_module_watch_roots(module):
             spec = specs.get(root_path)
             include_tuple = includes if includes is not None else ()
@@ -108,7 +136,7 @@ class ListenerHotReloader:
             specs[root_path] = spec.merged_with(include_tuple, ignore)
         if extra_watch_paths:
             for raw in extra_watch_paths:
-                for root_path, include in self._parse_extra_watch_path(raw):
+                for root_path, include in parse_extra_watch_path(raw):
                     spec = specs.get(root_path)
                     include_tuple = (include,) if include is not None else ()
                     if spec is None:
@@ -157,32 +185,6 @@ class ListenerHotReloader:
         for candidate in candidate_paths:
             normalized = self._resolve_path(candidate)
             yield normalized, None
-
-    def _parse_extra_watch_path(
-        self,
-        raw_path: str,
-    ) -> Iterable[tuple[Path, str | None]]:
-        path_string = str(Path(raw_path).expanduser())
-        if has_magic(path_string):
-            expanded = Path(path_string).expanduser()
-            parts = expanded.parts
-            root_parts: list[str] = []
-            pattern_parts: list[str] = []
-            for part in parts:
-                if has_magic(part) or pattern_parts:
-                    pattern_parts.append(part)
-                else:
-                    root_parts.append(part)
-            if not root_parts:
-                root = Path(".")
-            else:
-                root = Path(*root_parts)
-            root = self._resolve_path(root)
-            pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
-            yield root, pattern
-            return
-        normalized = self._resolve_path(Path(path_string))
-        yield normalized, None
 
     async def stop(self) -> None:
         """Signal the watcher loop to stop."""
