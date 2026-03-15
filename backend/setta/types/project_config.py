@@ -479,28 +479,6 @@ def get_python_codegen_target(
     return None
 
 
-def get_plugin_codegen_targets(
-    project_config: "ProjectConfig",
-) -> list[ProjectCodegenPluginTarget]:
-    targets: list[ProjectCodegenPluginTarget] = []
-    for target in project_config.codegenTargets:
-        if target.language == ProjectCodegenLanguage.python:
-            continue
-        if not isinstance(target, ProjectCodegenPluginTarget):
-            raise TypeError("Expected plugin codegen target.")
-        targets.append(target)
-    return targets
-
-
-def get_python_codegen_target_with_type_guard(
-    project_config: "ProjectConfig",
-) -> ProjectCodegenPythonTarget:
-    target = get_python_codegen_target(project_config)
-    if target is None:
-        raise KeyError("Project config missing python codegen target.")
-    return target
-
-
 class ProjectConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)

@@ -90,7 +90,6 @@ CODE_LANGUAGE_EXTENSIONS = {
     CodeLanguage.plaintext: "txt",
 }
 
-RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
 DEFAULT_CODE_LANGUAGE_EXTENSION = "txt"
 
 

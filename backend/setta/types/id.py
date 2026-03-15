@@ -15,7 +15,3 @@ class ID(str):
 
 def create_new_id() -> ID:
     return ID(uuid4())
-
-
-TemporaryToCanonicalIDMap = dict[ID, ID]
-CanonicalToTemporaryIDMap = dict[ID, ID]

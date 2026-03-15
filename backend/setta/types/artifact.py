@@ -1,5 +1,4 @@
 from enum import Enum
-from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -176,10 +175,3 @@ class FileArtifact(BaseArtifact):
     type: Literal[ArtifactType.File] = ArtifactType.File
     id: str = Field(default_factory=create_file_artifact_id)
     value: BinaryContentRef
-
-
-ImageMapping = dict[Path, ImageArtifact]
-BrushStrokeMapping = dict[Path, BrushStrokeArtifact]
-DrawAreaLayerItemTransformMapping = dict[Path, DrawAreaLayerItemTransformArtifact]
-ChartDataMapping = dict[Path, ChartDataArtifact]
-FileMapping = dict[Path, FileArtifact]
