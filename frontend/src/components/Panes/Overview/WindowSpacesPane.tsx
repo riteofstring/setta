@@ -8,16 +8,14 @@ import { FiEdit3, FiSave, FiTrash2 } from "react-icons/fi";
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import {
+  createWindowSpaceFromCurrentFloatingWindows,
   deleteWindowSpace,
-  persistWindowSpaceSortOrder,
-  setWindowSpaceName,
-} from "state/actions/windowSpaceMutationPersistence";
-import {
   getProjectWindowSpaces,
+  persistWindowSpaceSortOrder,
+  restoreWindowSpaceInWorkspace,
+  setWindowSpaceName,
   sortWindowSpaces,
-} from "state/actions/windowSpaceQueries";
-import { createWindowSpaceFromCurrentFloatingWindows } from "state/actions/windowSpaceSave";
-import { restoreWindowSpaceInWorkspace } from "state/actions/windowSpaces";
+} from "state/actions/windowSpaces";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {
