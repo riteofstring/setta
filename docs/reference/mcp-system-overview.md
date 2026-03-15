@@ -1,9 +1,9 @@
 # Setta MCP System
 
-Setta exposes its agent surface through the Model Context Protocol (MCP). The backend runs a FastMCP-compatible server, the chat stack consumes it through an internal MCP client, and the React UI streams the resulting conversations. This document captures how the major pieces fit together and how third-party tools can take advantage of the server.
+Setta exposes its agent surface through the Model Context Protocol (MCP). The active MCP transport/runtime is now Go-owned under `internal/mcpx` and `internal/tools`; the Python modules referenced below are legacy/test-side reference where they still remain in-tree. This document captures that older Python MCP implementation shape for cleanup/audit work, not the active ownership map.
 
 ## Server runtime (`backend/setta/mcp/server.py`)
-- `SettaFastMCP` subclasses `mcp.server.fastmcp.FastMCP` and is mounted under `/mcp` by `SettaFastAPIState`. The FastAPI app registers an SSE endpoint at `/mcp/messages/` so MCP clients can stream requests and responses over Server-Sent Events.
+- Legacy note: `SettaFastMCP` subclasses `mcp.server.fastmcp.FastMCP` in the older Python implementation. The packaged runtime no longer mounts it through `SettaFastAPIState`; active MCP ownership now lives in Go.
 - The constructor wires together Setta-specific state: it loads the canonical ↔ temporary ID map from the database (`dbe.read_temporary_id_map()`), stores a reference to the FastAPI state object, and broadcasts a `SettaNotification` once the server is ready so the UI can show “MCP Server Ready”.
 - Tool registration happens immediately via `add_setta_tools()`. Functions decorated with `@setta_init_tool` become always-on “init” tools, while `@setta_tool` registrations are marked as “discoverable”. The `SettaToolType` annotation is injected into each tool’s metadata so clients can split the sets.
 - `setta_id_transformer` wraps every tool callable so we can transparently convert between canonical IDs and the temporary IDs that LLMs see. After each call we persist the latest ID map to keep the client and server aligned.
