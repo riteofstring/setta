@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 5 moved shared surface-chrome ownership into `sectionChrome` so the canvas and window shells now consume the same base chrome model
-- Current `Phase S3` state: checkpoint 5 accepted; the next serious step is real body-shell or theme-state invalidation reduction above the accepted controller/chrome/area-switch/active-shell/surface-chrome seams
+- Latest accepted checkpoint: `Phase S3` checkpoint 6 isolates the floating `SectionWindowSurface` body path from durable active-id and preview-theme churn
+- Current `Phase S3` state: checkpoint 6 accepted; the next serious step is higher shared floating/window shell ownership above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body seams
 
 Non-negotiable constraints:
 
@@ -148,6 +148,26 @@ Immediate next step:
      - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
      - the remaining shared section shell consumers above `sectionChrome.ts`
    - do not reopen the accepted controller, chrome, area-switch, active-shell, or shared surface-chrome seams unless a later trace shows a boundary-specific regression
+18. Current post-checkpoint-6 direction:
+   - `frontend/src/components/Section/Container/SectionWindowSurface.tsx` now keeps:
+     - the outer floating shell
+     - section-style vars
+     - `SectionHeader`
+   - a memoized floating body child now owns:
+     - the body wrapper
+     - `bodyOverride`
+     - the shared `SectionAreaSwitch` path
+   - focused invalidation coverage now proves the floating body subtree does not rerender when only:
+     - durable `activeIds` change
+     - preview style-color state changes
+   - the representative marked active-id trace now favors the worktree on:
+     - `FunctionCall`
+     - `UpdateLayoutTree`
+     - `Paint`
+     - `RunTask`
+     - `FireAnimationFrame`
+   - `Commit` is the only small watch item left from this checkpoint, and it is not large enough to reject the pass
+   - the next serious `Phase S3` step should move outward into higher shared floating/window consumers above `SectionWindowSurface.tsx`, not reopen the accepted floating-body memo seam unless a later trace proves it necessary
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 

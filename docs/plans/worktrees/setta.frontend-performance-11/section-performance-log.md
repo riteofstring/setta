@@ -2433,3 +2433,77 @@ Append-only log for the section performance refactor.
   - This is still not the final shell simplification. The next serious `Phase S3` step should target real body-shell or theme-state invalidation reduction above the accepted shared surface-chrome seam.
 - Next action:
   - Continue `Phase S3` by targeting the remaining body-shell and theme-state duplication in `SectionWindowSurface.tsx` and the shared shell consumers above `sectionChrome.ts` without reopening the accepted controller, chrome, area-switch, active-shell, or shared surface-chrome seams unless a later trace proves it necessary.
+
+### 2026-03-17 73
+
+- Item: Accept `Phase S3` checkpoint 6 after isolating the floating `SectionWindowSurface` body path from durable active-id and preview-theme churn.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/SectionWindowSurface.tsx` so the floating surface now:
+    - keeps the outer shell, section-style vars, and `SectionHeader` in the parent
+    - moves the body wrapper plus `SectionAreaSwitch` / `bodyOverride` handoff into a memoized child
+    - stops subscribing to `state.projectConfig.activeIds.includes(sectionId)` directly
+  - Extended `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx` with focused invalidation coverage proving the floating body subtree stays stable when only:
+    - durable `activeIds` change
+    - preview style-color state changes
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx`
+    - result: `4` files passed, `18` tests passed
+  - Re-ran representative Playwright coverage:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat windows reopen canvas-bound sections as centered floating windows while keeping section chrome"`
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "keeps standalone project surfaces isolated from workspace selection and windowing state"`
+    - result: `1 passed` plus `1 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Used the representative floated `S0 Dict` active-id replay instead of the resize gate because this checkpoint targets floating-window invalidation rather than resize:
+    - open `S0 Dict` as a floating section window on both branches
+    - precondition both branches to `S0 Code` active with `setActiveSectionIds([codeSectionId], { syncMode: "ui-only" })`
+    - mark the replay boundary with `performance.mark("s3-window-active-start")`
+    - switch the active section to the floated `S0 Dict` with `setActiveSectionIds([dictSectionId], { syncMode: "ui-only" })`
+    - mark the first post-update RAF with `performance.mark("s3-window-active-after-raf")`
+    - read the target renderer from `TracingStartedInBrowser` and compare the marked `start -> start + 100ms` window
+  - Live CDP floated-window validation:
+    - both branches kept the same floated window content:
+      - title `S0 Dict`
+      - `ARGS`
+      - filter `gamma`
+      - `IN beta`
+      - `OUT`
+      - `PINNED PARAMS`
+      - visible `gamma` row
+    - both branches kept the same floated window size:
+      - width `820`
+      - height `687.3984375`
+    - node-cropped screenshot capture was unreliable on this scene, so the final parity read used live accessibility snapshots plus DOM geometry readback of the same floated surface
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint6/`
+  - Accepted marked target-renderer totals from the active-id pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `49.891`
+      - `UpdateLayoutTree`: `1.738`
+      - `Layout`: `0.000`
+      - `Paint`: `0.238`
+      - `RunTask`: `37.321`
+      - `EventDispatch`: `0.000`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.106`
+      - `Commit`: `0.116`
+    - worktree
+      - `FunctionCall`: `48.823`
+      - `UpdateLayoutTree`: `1.592`
+      - `Layout`: `0.000`
+      - `Paint`: `0.192`
+      - `RunTask`: `3.125`
+      - `EventDispatch`: `0.000`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.083`
+      - `Commit`: `0.167`
+- Interpretation:
+  - Checkpoint 6 is accepted.
+  - The worktree materially improves the marked floating-window invalidation window on `FunctionCall`, `UpdateLayoutTree`, `Paint`, `RunTask`, and `FireAnimationFrame`.
+  - `Commit` is slightly higher on the worktree, but it is too small to reject the pass.
+  - The stronger evidence is the new focused guardrail proving that active-only and preview-theme-only changes no longer rerender the floating body subtree.
+  - This is still only a narrow `SectionWindowSurface` pass. The next serious `Phase S3` step should move outward into higher shared floating/window consumers above the accepted body seam.
+- Next action:
+  - Continue `Phase S3` by targeting higher shared floating/window shell ownership above `SectionWindowSurface.tsx` without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, or floating-body seams unless a later trace proves it necessary.
