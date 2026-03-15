@@ -14,6 +14,8 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/localsessions"
+	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.T) {
@@ -350,6 +352,129 @@ func TestLocalIDESessionLauncherEnsureSessionSurfacesLaunchFailureTailAndLogPath
 	}
 }
 
+func TestLocalIDESessionLauncherEnsureSessionReturnsTypedOutdatedSettingsError(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, settaHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	location := "local"
+	input := IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+	}
+	cfg, err := loadIDELaunchConfig(input)
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+	writeCorruptedSettingsProjectForLauncher(t, cfg.Paths.SettaFilesRoot)
+
+	processStarterCalled := false
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		ProcessStarter: func(processStartRequest) (startedProcess, error) {
+			processStarterCalled = true
+			return nil, errors.New("unexpected process start")
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	_, err = launcher.EnsureSession(input)
+	if err == nil {
+		t.Fatal("expected outdated settings launch failure")
+	}
+	var launchErr *SessionLaunchError
+	if !errors.As(err, &launchErr) {
+		t.Fatalf("expected SessionLaunchError, got %T: %v", err, err)
+	}
+	if launchErr.Code != "OutdatedProjectSettings" {
+		t.Fatalf("expected OutdatedProjectSettings, got %q (%v)", launchErr.Code, err)
+	}
+	if !strings.Contains(launchErr.Message, "older Setta settings/project format") {
+		t.Fatalf("expected migration guidance, got %q", launchErr.Message)
+	}
+	if !strings.Contains(launchErr.Message, "spreadsheetSectionDefault") {
+		t.Fatalf("expected missing section name in message, got %q", launchErr.Message)
+	}
+	if processStarterCalled {
+		t.Fatal("expected outdated settings preflight to stop before process start")
+	}
+}
+
+func TestLocalIDESessionLauncherEnsureSessionIgnoresMalformedSettingsProjectPreflightErrors(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, settaHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	location := "local"
+	input := IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+	}
+	cfg, err := loadIDELaunchConfig(input)
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+	projectPaths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project paths: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(projectPaths.Settings), 0o755); err != nil {
+		t.Fatalf("mkdir settings project dir: %v", err)
+	}
+	if err := os.WriteFile(projectPaths.Settings, []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("write malformed settings project payload: %v", err)
+	}
+
+	processStarterCalled := false
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		ProcessStarter: func(processStartRequest) (startedProcess, error) {
+			processStarterCalled = true
+			return &testStartedProcess{exited: true, logPath: filepath.Join(root, "launch.log")}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	_, err = launcher.EnsureSession(input)
+	if err == nil {
+		t.Fatal("expected launch failure after process start")
+	}
+	var launchErr *SessionLaunchError
+	if !errors.As(err, &launchErr) {
+		t.Fatalf("expected SessionLaunchError, got %T: %v", err, err)
+	}
+	if launchErr.Code == "OutdatedProjectSettings" {
+		t.Fatalf("expected malformed settings project errors to be ignored, got %q", launchErr.Code)
+	}
+	if !processStarterCalled {
+		t.Fatal("expected malformed settings project preflight to allow process start")
+	}
+}
+
 func TestStartLauncherProcessCreatesRuntimeLogFile(t *testing.T) {
 	t.Parallel()
 
@@ -458,5 +583,74 @@ func writeSessionLauncherProfile(t *testing.T, profileLookupHome string, workspa
 	}
 	if err := os.WriteFile(filepath.Join(profilesDir, "dev.json"), payload, 0o644); err != nil {
 		t.Fatalf("write profile config: %v", err)
+	}
+}
+
+func writeCorruptedSettingsProjectForLauncher(t *testing.T, settaFilesRoot string) {
+	t.Helper()
+
+	settingsDocument, err := settingsstate.DefaultDocument()
+	if err != nil {
+		t.Fatalf("default settings document: %v", err)
+	}
+	projectDocument, err := settingsstate.BuildProjectDocument(settingsDocument)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsProject := projectDocument.Projects[settingsstate.SettingsProjectID]
+	removeLauncherSettingsProjectSectionByName(&settingsProject, "spreadsheetSectionDefault")
+	projectDocument.Projects[settingsstate.SettingsProjectID] = settingsProject
+
+	projectPaths, err := projectstate.ResolvePaths(settaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project paths: %v", err)
+	}
+	store, err := projectstate.NewStore(projectPaths.Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectDocument); err != nil {
+		t.Fatalf("save corrupted settings project document: %v", err)
+	}
+}
+
+func removeLauncherSettingsProjectSectionByName(project *projectstate.Project, sectionName string) {
+	sectionID := ""
+	for candidateID, section := range project.Sections {
+		if section.Name == sectionName {
+			sectionID = candidateID
+			break
+		}
+	}
+	if sectionID == "" {
+		return
+	}
+
+	variantID := project.SectionVariantMap[sectionID]
+	delete(project.SectionVariantMap, sectionID)
+	delete(project.Sections, sectionID)
+	delete(project.TopLevelSections, sectionID)
+
+	filteredSectionIDs := make([]string, 0, len(project.TopLevelSectionIDs))
+	for _, topLevelSectionID := range project.TopLevelSectionIDs {
+		if topLevelSectionID == sectionID {
+			continue
+		}
+		filteredSectionIDs = append(filteredSectionIDs, topLevelSectionID)
+	}
+	project.TopLevelSectionIDs = filteredSectionIDs
+
+	if variantID != "" {
+		sectionVariant := project.SectionVariants[variantID]
+		delete(project.SectionVariants, variantID)
+		if sectionVariant.ImplID != "" {
+			delete(project.SectionImpls, sectionVariant.ImplID)
+		}
+	}
+
+	for viewModeID, viewMode := range project.ViewModes {
+		delete(viewMode.VisibilityBySectionID, sectionID)
+		delete(viewMode.TopLevelSections, sectionID)
+		project.ViewModes[viewModeID] = viewMode
 	}
 }

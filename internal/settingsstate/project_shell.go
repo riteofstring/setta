@@ -305,6 +305,21 @@ func validateSettingsProjectShellSections(
 	return nil
 }
 
+func ValidatePersistedSettingsProjectDocument(document projectstate.Document) error {
+	project, err := document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		return nil
+	}
+	if project.Name != SettingsProjectName {
+		return nil
+	}
+	settingsDocument, err := DefaultDocument()
+	if err != nil {
+		return err
+	}
+	return validateSettingsProjectShellSections(settingsDocument, project)
+}
+
 func overlayProjectShellState(
 	fresh projectstate.Project,
 	current projectstate.Project,

@@ -658,6 +658,77 @@ func TestRegisterWorkspaceLaunchRoutesRejectsInlineOverrides(t *testing.T) {
 	}
 }
 
+func TestRegisterWorkspaceLaunchRoutesLaunchMapsTypedOutdatedSettingsError(t *testing.T) {
+	t.Parallel()
+
+	services := newWorkspaceLaunchTestServices(t)
+	services.sessions.err = &launcher.SessionLaunchError{
+		Code:    "OutdatedProjectSettings",
+		Message: "This workspace uses an older Setta settings/project format (missing settings section spreadsheetSectionDefault). Please migrate the project metadata and try again.",
+	}
+
+	router := chi.NewRouter()
+	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
+	}); err != nil {
+		t.Fatalf("register workspace launch routes: %v", err)
+	}
+
+	intentRequest := httptest.NewRequest(
+		http.MethodPost,
+		RouteCreateWorkspaceLaunchIntent,
+		strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace"},"returnUrl":"http://launcher.example:7999/home"}`),
+	)
+	intentRequest.Header.Set("Content-Type", "application/json")
+	intentRequest.Header.Set("Origin", "http://launcher.example:7999")
+	intentResponse := httptest.NewRecorder()
+	router.ServeHTTP(intentResponse, intentRequest)
+	if intentResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
+	}
+
+	var intentPayload createWorkspaceLaunchIntentResponse
+	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
+		t.Fatalf("decode intent response: %v", err)
+	}
+	if !intentPayload.Ok || intentPayload.LaunchIntentToken == nil {
+		t.Fatalf("expected launch intent token, got %#v", intentPayload)
+	}
+
+	launchRequest := httptest.NewRequest(
+		http.MethodPost,
+		RouteLaunch,
+		strings.NewReader(`{"launchIntentToken":"`+*intentPayload.LaunchIntentToken+`"}`),
+	)
+	launchRequest.Header.Set("Content-Type", "application/json")
+	launchRequest.Header.Set("Origin", "http://launcher.example:7999")
+	launchResponseRecorder := httptest.NewRecorder()
+	router.ServeHTTP(launchResponseRecorder, launchRequest)
+	if launchResponseRecorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
+	}
+
+	var payload launchResponse
+	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode launch response: %v", err)
+	}
+	if payload.Ok {
+		t.Fatalf("expected failure payload, got %#v", payload)
+	}
+	if payload.Error == nil || payload.Error.Code != "OutdatedProjectSettings" {
+		t.Fatalf("expected typed outdated settings payload, got %#v", payload)
+	}
+	if !strings.Contains(payload.Error.Message, "spreadsheetSectionDefault") {
+		t.Fatalf("expected missing section detail, got %#v", payload)
+	}
+	if payload.ReturnURL == nil || *payload.ReturnURL != "http://launcher.example:7999/home" {
+		t.Fatalf("expected stored return URL, got %#v", payload.ReturnURL)
+	}
+}
+
 func TestRegisterWorkspaceLaunchRoutesSkipsDeploymentMode(t *testing.T) {
 	t.Parallel()
 

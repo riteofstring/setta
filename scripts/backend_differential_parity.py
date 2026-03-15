@@ -50,6 +50,8 @@ ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
 ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
+ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT = "/api/createWorkspaceLaunchIntent"
+ROUTE_LAUNCH = "/api/launch"
 
 
 class ParityHarnessError(RuntimeError):
@@ -761,6 +763,8 @@ def execute_scenario(
         return execute_settings_project_valid_view_mode_noop(backend)
     if scenario.kind == "settings_project_top_level_layout_repair":
         return execute_settings_project_top_level_layout_repair(backend)
+    if scenario.kind == "workspace_launch_outdated_settings_error":
+        return execute_workspace_launch_outdated_settings_error(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -1409,6 +1413,84 @@ def execute_settings_project_top_level_layout_repair(
     }
 
 
+def execute_workspace_launch_outdated_settings_error(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_settings_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_settings_load_payload = normalize_response_json_allow_status(
+        initial_settings_load_response
+    )
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    corrupted_payload = remove_settings_section_from_store_payload(
+        persisted_payload,
+        section_name="spreadsheetSectionDefault",
+    )
+
+    launch_workspace_root = backend.temp_root / "launch-target-workspace"
+    launch_setta_files_root = launch_workspace_root / "setta_files"
+    launch_workspace_root.mkdir(parents=True, exist_ok=True)
+    launch_setta_files_root.mkdir(parents=True, exist_ok=True)
+    write_json(
+        launch_setta_files_root / SETTINGS_PROJECT_FILE_NAME,
+        corrupted_payload,
+    )
+
+    return_url = backend.frontend_origin + "/home"
+    create_intent_response = post_json_with_origin_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT,
+        payload={
+            "launchRequest": {
+                "workspaceRoot": str(launch_workspace_root),
+                "settaFilesLocation": "local",
+            },
+            "returnUrl": return_url,
+        },
+        origin=backend.frontend_origin,
+    )
+    create_intent_payload = normalize_response_json_allow_status(create_intent_response)
+
+    launch_response = None
+    launch_payload = None
+    if create_intent_response.status_code == 200 and isinstance(create_intent_payload, dict):
+        launch_intent_token = normalized_string(
+            create_intent_payload.get("launchIntentToken")
+        )
+        if launch_intent_token:
+            launch_response = post_json_with_origin_allow_status(
+                session=backend.session,
+                base_url=backend.base_url,
+                route=ROUTE_LAUNCH,
+                payload={"launchIntentToken": launch_intent_token},
+                origin=backend.frontend_origin,
+            )
+            launch_payload = normalize_response_json_allow_status(launch_response)
+
+    summary = summarize_workspace_launch_outdated_settings_error(
+        initial_settings_load_http_status=initial_settings_load_response.status_code,
+        create_intent_http_status=create_intent_response.status_code,
+        create_intent_payload=create_intent_payload,
+        launch_http_status=None if launch_response is None else launch_response.status_code,
+        launch_payload=launch_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_settings_load_response.status_code,
+        "initialLoadProjectConfig": initial_settings_load_payload,
+        "corruptedSettingsProjectDocument": corrupted_payload,
+        "createWorkspaceLaunchIntentStatus": create_intent_response.status_code,
+        "createWorkspaceLaunchIntent": create_intent_payload,
+        "launchStatus": None if launch_response is None else launch_response.status_code,
+        "launch": launch_payload,
+    }
+
+
 def create_and_load_project(backend: BackendSession) -> tuple[str, dict[str, Any]]:
     create_response = post_json(
         session=backend.session,
@@ -1491,6 +1573,21 @@ def post_json_allow_status(
     return session.post(
         base_url + route,
         json=payload,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+
+
+def post_json_with_origin_allow_status(
+    session: requests.Session,
+    base_url: str,
+    route: str,
+    payload: dict[str, Any],
+    origin: str,
+) -> requests.Response:
+    return session.post(
+        base_url + route,
+        json=payload,
+        headers={"Origin": origin},
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
 
@@ -2025,6 +2122,53 @@ def summarize_settings_project_top_level_layout_repair(
     summary["persistedTopLevelSectionCount"] = settings_store_top_level_section_count(
         persisted_after_payload
     )
+    return summary
+
+
+def summarize_workspace_launch_outdated_settings_error(
+    initial_settings_load_http_status: int,
+    create_intent_http_status: int,
+    create_intent_payload: Any,
+    launch_http_status: int | None,
+    launch_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialSettingsLoadHttpStatus": initial_settings_load_http_status,
+        "createIntentHttpStatus": create_intent_http_status,
+        "launchHttpStatus": launch_http_status,
+    }
+
+    if create_intent_http_status == 200 and isinstance(create_intent_payload, dict):
+        summary["createIntentOk"] = bool(create_intent_payload.get("ok"))
+        summary["createIntentHasToken"] = bool(
+            normalized_string(create_intent_payload.get("launchIntentToken"))
+        )
+    else:
+        summary["createIntentErrorSummary"] = normalize_error_summary(
+            create_intent_payload
+        )
+
+    if launch_http_status == 200 and isinstance(launch_payload, dict):
+        summary["launchOk"] = bool(launch_payload.get("ok"))
+        error_payload = expect_object(
+            launch_payload.get("error"),
+            "launch.error",
+            allow_missing=True,
+        )
+        error_code = normalized_string(error_payload.get("code"))
+        error_message = normalized_string(error_payload.get("message"))
+        if error_code:
+            summary["launchErrorCode"] = error_code
+        if error_message:
+            summary["launchErrorHasMigrationCopy"] = (
+                "older Setta settings/project format" in error_message
+            )
+            summary["launchErrorHasSectionName"] = (
+                "spreadsheetSectionDefault" in error_message
+            )
+    elif launch_http_status is not None:
+        summary["launchErrorSummary"] = normalize_error_summary(launch_payload)
+
     return summary
 
 

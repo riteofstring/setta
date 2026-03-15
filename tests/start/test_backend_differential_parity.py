@@ -1193,6 +1193,50 @@ class Route:
             },
         )
 
+    def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        create_intent_payload = {
+            "ok": True,
+            "launchIntentToken": "launch-intent-token",
+        }
+        launch_payload = {
+            "ok": False,
+            "error": {
+                "code": "OutdatedProjectSettings",
+                "message": (
+                    "This workspace uses an older Setta settings/project format "
+                    "(missing settings section spreadsheetSectionDefault). "
+                    "Please migrate the project metadata and try again."
+                ),
+            },
+        }
+
+        summary = harness.summarize_workspace_launch_outdated_settings_error(
+            initial_settings_load_http_status=200,
+            create_intent_http_status=200,
+            create_intent_payload=create_intent_payload,
+            launch_http_status=200,
+            launch_payload=launch_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialSettingsLoadHttpStatus": 200,
+                "createIntentHttpStatus": 200,
+                "launchHttpStatus": 200,
+                "createIntentOk": True,
+                "createIntentHasToken": True,
+                "launchOk": False,
+                "launchErrorCode": "OutdatedProjectSettings",
+                "launchErrorHasMigrationCopy": True,
+                "launchErrorHasSectionName": True,
+            },
+        )
+
     @staticmethod
     def _restore_env(key: str, value: str | None) -> None:
         if value is None:

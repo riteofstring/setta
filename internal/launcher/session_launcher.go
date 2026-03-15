@@ -1,6 +1,8 @@
 package launcher
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -16,6 +18,8 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/localsessions"
+	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -207,6 +211,10 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 		}
 	}
 
+	if err := ensureSettingsProjectLaunchPreflight(targetConfig.Paths); err != nil {
+		return IDELaunchResult{}, err
+	}
+
 	process, err := l.processStarter(processStartRequest{
 		Args:        l.buildLaunchArgs(input),
 		Env:         l.launchEnv(),
@@ -259,6 +267,38 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 		}
 		l.sleep(l.pollInterval)
 	}
+}
+
+func ensureSettingsProjectLaunchPreflight(paths config.Paths) error {
+	projectPaths, err := projectstate.ResolvePaths(paths.SettaFilesRoot)
+	if err != nil {
+		return nil
+	}
+	if _, err := os.Stat(projectPaths.Settings); err != nil {
+		return nil
+	}
+
+	store, err := projectstate.NewStore(projectPaths.Settings, projectstate.StoreOptions{})
+	if err != nil {
+		return nil
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		return nil
+	}
+	if err := settingsstate.ValidatePersistedSettingsProjectDocument(document); err != nil {
+		var missingSectionErr settingsstate.MissingSettingsSectionError
+		if errors.As(err, &missingSectionErr) {
+			return &SessionLaunchError{
+				Code: "OutdatedProjectSettings",
+				Message: fmt.Sprintf(
+					"This workspace uses an older Setta settings/project format (missing settings section %s). Please migrate the project metadata and try again.",
+					missingSectionErr.SectionName,
+				),
+			}
+		}
+	}
+	return nil
 }
 
 func (l *LocalIDESessionLauncher) matchingSessions(registry *localsessions.Registry, paths config.Paths, mode config.Mode) ([]auth.SessionMetadata, error) {

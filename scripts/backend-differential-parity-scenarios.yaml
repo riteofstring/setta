@@ -47,3 +47,7 @@ scenarios:
     kind: settings_project_top_level_layout_repair
     seed: none
     description: Restarting after the persisted settings shell loses its top-level layouts should rebuild the active layouts and persist the repaired settings shell.
+  - name: workspace_launch_outdated_settings_error
+    kind: workspace_launch_outdated_settings_error
+    seed: none
+    description: Launching a workspace with a stale persisted settings project missing a required section should fail with the typed OutdatedProjectSettings contract instead of spawning a backend.
