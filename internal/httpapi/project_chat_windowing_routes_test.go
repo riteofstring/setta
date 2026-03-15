@@ -279,6 +279,99 @@ func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *test
 	}
 }
 
+func TestRegisterProjectRoutesWindowSpaceRoutesReturnTyped404And422Mappings(t *testing.T) {
+	t.Parallel()
+
+	document := projectChatWindowingRouteTestDocument()
+	project := document.Projects["project-alpha"]
+	project.WindowSpaces["space-b"] = projectstate.WindowSpaceConfig{
+		ID:        "space-b",
+		Name:      "Secondary",
+		SortIndex: 1,
+	}
+	document.Projects["project-alpha"] = project
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	testCases := []struct {
+		name         string
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			name:         "rename missing window space",
+			route:        RouteSetWindowSpaceName,
+			body:         `{"projectConfigId":"project-alpha","windowSpaceId":"missing-space","name":"Renamed Layout"}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"window_space_not_found"`,
+		},
+		{
+			name:         "delete missing window space",
+			route:        RouteDeleteWindowSpace,
+			body:         `{"projectConfigId":"project-alpha","windowSpaceId":"missing-space"}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"window_space_not_found"`,
+		},
+		{
+			name:         "sort missing window space",
+			route:        RouteSetWindowSpaceSortOrder,
+			body:         `{"projectConfigId":"project-alpha","orderedWindowSpaceIds":["space-a","missing-space"]}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"window_space_not_found"`,
+		},
+		{
+			name:         "sort duplicate window spaces",
+			route:        RouteSetWindowSpaceSortOrder,
+			body:         `{"projectConfigId":"project-alpha","orderedWindowSpaceIds":["space-a","space-a"]}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"invalid_window_space_sort_order"`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+testCase.route,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != testCase.expectedCode {
+				t.Fatalf("expected %d, got %d with body %q", testCase.expectedCode, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), testCase.expectedBody) {
+				t.Fatalf("expected body to contain %s, got %q", testCase.expectedBody, response.Body.String())
+			}
+		})
+	}
+
+	persisted := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if got := persisted.WindowSpaces["space-a"].Name; got != "Primary" {
+		t.Fatalf("expected failed window-space mutations to keep Primary, got %q", got)
+	}
+	if got := persisted.WindowSpaces["space-a"].SortIndex; got != 0 {
+		t.Fatalf("expected failed window-space mutations to keep space-a sort index 0, got %d", got)
+	}
+	if got := persisted.WindowSpaces["space-b"].SortIndex; got != 1 {
+		t.Fatalf("expected failed window-space mutations to keep space-b sort index 1, got %d", got)
+	}
+}
+
 func TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy(t *testing.T) {
 	t.Parallel()
 
