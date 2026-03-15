@@ -4,7 +4,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     SliderParamCodeObjImpl,
 )
-from setta.types.core import Core, Variant
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -18,7 +18,6 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import CallableSectionImpl
-from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
 def build_project_state(

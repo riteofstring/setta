@@ -78,7 +78,7 @@ Watch Code uses a dedicated `watchdog.Observer` (separate from
 - Respects the `recursive` flag per folder.
 - If a watched dir does not exist yet, it watches the nearest existing ancestor
   and resyncs once the directory appears.
-- Debounces file events in the Go watch-code runtime before applying updates.
+- Debounces file events with a 0.3s `AsyncDebouncer`.
 
 The manager is started during `BaseProjectManager` initialization and resynced
 whenever project configs change.
@@ -108,8 +108,7 @@ codegen prefix:
 - Avoids duplicate import lines.
 
 If the LSP signature help cannot resolve a callable, a warning notification is
-emitted: "Watch Code could not resolve params ...". Repeated `no_match`
-warnings are deduped until the callable state changes.
+emitted: "Watch Code could not resolve params ...".
 
 ## Deletions
 When a watched file is deleted:
@@ -124,9 +123,6 @@ Watch Code responds to **both**:
   `handle_code_section_update`.
 - On-disk edits for bound code files: the `CodeFiles` watcher reloads sections
   and then calls `handle_code_section_update`.
-
-For bound Python code sections, the LSP sync happens before Watch Code processes
-the updated file contents.
 
 This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 
