@@ -5,7 +5,7 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `68c3e5f55c1a52ad0fdf9e18f31fa7d5f34a6c8d`
+- Target head: `fe0a1c32b1693c078b098d641ccf79736c274809`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -45,6 +45,9 @@ Last audited: `2026-03-16`
   `set_ui_setting_value` `revealAfterSet` support, nested reveal result
   propagation, and allow-unscoped section-context parity for write-plus-reveal
   calls
+- plus the bounded plugin backend codegen refresh slice: backend codegen-target
+  generation transport, canonical output-path hygiene, main-save
+  materialization, and cache invalidation / stale-output pruning behavior
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -63,9 +66,9 @@ Last audited: `2026-03-16`
 
 - Rows audited in this pass: `283`
 - Status counts:
-  - `Proved`: `258`
+  - `Proved`: `260`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `3`
+  - `Missing`: `1`
   - `Retained Python boundary`: `7`
   - `Intentional divergence`: `5`
   - `Dormant / unproven caller`: `10`
@@ -125,6 +128,12 @@ Last audited: `2026-03-16`
     `internal/transcriptionsessions/realtime_engine.go`: auto-mode
     transcription now retries file mode for bounded realtime-capability setup
     failures instead of surfacing those startup failures as terminal errors
+  - `internal/plugins/codegen_generation.go`,
+    `internal/codegen/plugin_materializer.go`, and `internal/app/app.go`:
+    plugin backend codegen targets now materialize on persisted main-runtime
+    save, canonicalize relative output paths, reject absolute or escaping
+    output paths, and reuse cached outputs only until missing/modified/extra
+    outputs or implementation-key changes require regeneration
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -194,6 +203,10 @@ Last audited: `2026-03-16`
 - This pass also extends the matrix into the targeted deferred-gap slice:
   UI-setting reveal affinity/fail-closed/corrupt-config rows, settings
   autosave cancellation, and plugin codegen refresh path/cache behavior.
+- This pass also extends the matrix into a bounded plugin backend codegen
+  refresh slice: backend codegen-target generation, persisted main-save
+  materialization, output-path normalization/rejection, and cache
+  invalidation/pruning behavior.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -260,10 +273,12 @@ Last audited: `2026-03-16`
 
 ## Current Gaps
 
-- `settings.save.disabling_autosave_cancels_pending_project_autosaves`,
-  `codegen.refresh.plugin_output_path_canonicalization_and_absolute_path_rejection`,
-  and `codegen.refresh.plugin_output_cache_invalidation_rules` are now explicit
-  `Missing` rows instead of being left as deferred notes.
+- `settings.save.disabling_autosave_cancels_pending_project_autosaves` remains
+  the only explicit `Missing` row in this audited slice.
+- `codegen.refresh.plugin_output_path_canonicalization_and_absolute_path_rejection`
+  and `codegen.refresh.plugin_output_cache_invalidation_rules` are now proved
+  through the Go-owned plugin backend codegen generation/materialization path
+  instead of remaining deferred notes.
 - Retained Python boundaries are now recorded explicitly for
   `setta.api.SettaListener`, `setta.api.chat_toolkit`,
   `setta.api.SettaRunner`, the share listener runtime, and the packaged
@@ -559,5 +574,5 @@ Last audited: `2026-03-16`
 | `ui_settings.write.reveal_after_set_fail_closed_preserves_write_result` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_reveal_after_set_rolls_back_section_on_undeliverable_dispatch` | `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; `internal/mcpx/ui_setting_tools.go::runUISettingReveal`; `internal/uisettings/reveal.go` | `TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenRevealFails`; `TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenFrontendDispatchFails`; `TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult` | the standalone `set_ui_setting_value` MCP tool remains active, and the Go rewrite now returns nested reveal status without discarding the successful write result | `Proved` | Go now has direct proof that write-plus-reveal preserves the successful write while surfacing nested reveal failure status, including the real undeliverable-dispatch branch. |
 | `ui_settings.plugin.corrupt_config_root_fail_fast_without_rewrite` | `tests/mcp/test_ui_setting_tools.py::test_plugin_ui_settings_fail_closed_when_config_root_is_not_an_object`; `::test_plugin_ui_settings_fail_closed_when_plugin_root_is_not_an_object` | `internal/plugins/discovery.go::validatePersistedPluginConfigRoot`; `internal/uisettings/registry.go::MissingSettingError`; `internal/mcpx/ui_setting_tools.go` | `TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid`; `TestServerUISettingToolsRejectPersistedCorruptPluginConfigRootWithoutRewrite` | plugin UI-setting read/write flows still expose plugin-config failures through the MCP tool boundary | `Proved` | Persisted non-object plugin config roots now invalidate the plugin before runtime exposure, so both UI-setting reads and writes fail closed with the same `plugin_unavailable (state=invalid)` contract and leave the corrupt persisted root untouched. |
 | `settings.save.disabling_autosave_cancels_pending_project_autosaves` | `backend/setta/routers/settings.py::route_save_settings`; source-side autosave cancellation behavior in the live settings save path | no equivalent cancel-pending-autosave behavior was found in `internal/httpapi/settings_routes.go`, `internal/settingsstate`, or `internal/app` | no Go proof exists because no matching behavior was found | the direct `saveSettings` route remains an active frontend surface in `frontend/src/state/actions/settings.ts` | `Missing` | The source save-settings path cancels pending project autosaves when autosave is disabled, but the current Go settings-save flow only persists and broadcasts the snapshot. |
-| `codegen.refresh.plugin_output_path_canonicalization_and_absolute_path_rejection` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_rejects_absolute_output_paths`; `::test_refresh_plugin_codegen_canonicalizes_output_paths` | no equivalent parity proof was found beyond the existing target-validation path in `internal/projectstate/codegen_targets.go` | no matching Go tests were found for plugin-output path canonicalization or absolute-path rejection during refresh | plugin codegen refresh remains an in-scope backend behavior even though the current matrix only proved target selection/write rules | `Missing` | The matrix still lacks a proved Go equivalent for the source plugin-codegen refresh path-hygiene contract. |
-| `codegen.refresh.plugin_output_cache_invalidation_rules` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_skips_unchanged_outputs`; `::test_refresh_plugin_codegen_regenerates_missing_outputs`; `::test_refresh_plugin_codegen_regenerates_modified_outputs`; `::test_refresh_plugin_codegen_detects_extra_output_files` | no equivalent parity proof was found for plugin-output cache reuse/regeneration behavior in the current Go codegen refresh surface | no matching Go tests were found for plugin-output cache invalidation semantics | current rewrite docs still treat codegen refresh as part of backend behavior parity rather than an ignorable cleanup detail | `Missing` | The source refresh contract around unchanged/missing/modified/extra plugin outputs is still unmapped on the Go side. |
+| `codegen.refresh.plugin_output_path_canonicalization_and_absolute_path_rejection` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_rejects_absolute_output_paths`; `::test_refresh_plugin_codegen_canonicalizes_output_paths` | `internal/plugins/codegen_generation.go::GeneratePluginCodegenTarget`; `internal/codegen/plugin_materializer.go::MaterializeDocument`; `internal/app/app.go` main-runtime `AfterSave` hook | `TestServiceGeneratePluginCodegenTargetUsesDefaultFileName`; `TestServiceGeneratePluginCodegenTargetCanonicalizesRelativePath`; `TestServiceGeneratePluginCodegenTargetRejectsAbsolutePath`; `TestPluginMaterializerMaterializeDocumentWritesCanonicalPluginOutputs`; `TestPluginMaterializerRejectsAbsoluteAndEscapingOutputPaths`; `TestAppMainRuntimeSaveMaterializesPluginCodegenOutputsToCanonicalPath`; `TestAppMainRuntimeSaveRejectsAbsolutePluginCodegenOutputPath` | plugin backend codegen refresh now rides the persisted main-runtime save surface, which remains the Go-owned path that materializes generated outputs under `setta_files/code/sections/.../plugin_codegen/...` | `Proved` | Go now matches the source refresh path-hygiene contract on the surviving main-save materialization surface: backend codegen targets default and canonicalize relative output paths, and absolute or escaping paths fail closed before write. |
+| `codegen.refresh.plugin_output_cache_invalidation_rules` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_skips_unchanged_outputs`; `::test_refresh_plugin_codegen_regenerates_missing_outputs`; `::test_refresh_plugin_codegen_regenerates_modified_outputs`; `::test_refresh_plugin_codegen_detects_extra_output_files` | `internal/codegen/plugin_materializer.go::MaterializeDocument`; fingerprint/cache helpers in the same file; `internal/app/app.go` main-runtime `AfterSave` hook | `TestPluginMaterializerSkipsUnchangedOutputs`; `TestPluginMaterializerRegeneratesMissingOutput`; `TestPluginMaterializerRegeneratesModifiedOutput`; `TestPluginMaterializerRegeneratesWhenExtraOutputExists`; `TestPluginMaterializerRegeneratesWhenImplementationKeyChanges`; `TestAppMainRuntimeSaveMaterializesPluginCodegenOutputsToCanonicalPath` | plugin codegen refresh remains part of backend behavior parity, and the surviving Go proof now lives on the main-save materialization path rather than a separate refresh endpoint | `Proved` | The surviving Go refresh surface now reuses cached outputs only while the fingerprinted target and on-disk outputs still match, and it regenerates on missing/modified/extra outputs or implementation-key changes while pruning stale target dirs. |
