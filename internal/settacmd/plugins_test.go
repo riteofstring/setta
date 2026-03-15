@@ -275,7 +275,7 @@ func TestRunPluginsInitAndValidateText(t *testing.T) {
 
 	cwd := t.TempDir()
 
-	initStdout, initStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "init", "setta-cli-init-fixture", "--template", "frontend", "--out", cwd)
+	initStdout, initStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "init", "setta-cli-init-fixture", "--template", "full", "--out", cwd)
 	if err != nil {
 		t.Fatalf("run plugins init: %v", err)
 	}
@@ -286,6 +286,9 @@ func TestRunPluginsInitAndValidateText(t *testing.T) {
 	pluginRoot := filepath.Join(cwd, "setta-cli-init-fixture")
 	if !strings.Contains(initStdout, "Initialized plugin template at "+pluginRoot) {
 		t.Fatalf("expected init output to mention plugin root, got %q", initStdout)
+	}
+	if _, err := os.Stat(filepath.Join(pluginRoot, "backend", "main.go")); err != nil {
+		t.Fatalf("expected Go backend scaffold file: %v", err)
 	}
 
 	validateStdout, validateStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "validate", pluginRoot)
@@ -300,27 +303,39 @@ func TestRunPluginsInitAndValidateText(t *testing.T) {
 	}
 }
 
-// Plugins init should reject the removed backend scaffold instead of generating new Python backend templates.
-func TestRunPluginsInitRejectsBackendTemplate(t *testing.T) {
+// Plugins init should scaffold a Go-backed backend template instead of rejecting backend authoring outright.
+func TestRunPluginsInitSupportsBackendTemplate(t *testing.T) {
 	t.Parallel()
 
 	cwd := t.TempDir()
 
 	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "init", "setta-cli-init-fixture", "--template", "backend", "--out", cwd)
-	if err == nil {
-		t.Fatal("expected backend template rejection")
-	}
-	if ExitCode(err) != 1 {
-		t.Fatalf("expected exit code 1, got %d", ExitCode(err))
-	}
-	if stdout != "" {
-		t.Fatalf("expected empty stdout, got %q", stdout)
+	if err != nil {
+		t.Fatalf("run backend plugins init: %v", err)
 	}
 	if stderr != "" {
 		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
-	if got := DisplayError(err); !strings.Contains(got, "PLUGIN_SOURCE_INVALID: Plugin backend scaffolding is no longer supported.") {
-		t.Fatalf("unexpected backend template error %q", got)
+	pluginRoot := filepath.Join(cwd, "setta-cli-init-fixture")
+	if !strings.Contains(stdout, "Initialized plugin template at "+pluginRoot) {
+		t.Fatalf("expected init output to mention plugin root, got %q", stdout)
+	}
+	if _, err := os.Stat(filepath.Join(pluginRoot, "backend", "go.mod")); err != nil {
+		t.Fatalf("expected backend go.mod scaffold: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(pluginRoot, "backend", "main.go")); err != nil {
+		t.Fatalf("expected backend main scaffold: %v", err)
+	}
+
+	validateStdout, validateStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "validate", pluginRoot)
+	if err != nil {
+		t.Fatalf("run backend plugins validate: %v", err)
+	}
+	if validateStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", validateStderr)
+	}
+	if !strings.Contains(validateStdout, "Plugin manifest is valid: "+pluginRoot) {
+		t.Fatalf("expected validate output to mention plugin root, got %q", validateStdout)
 	}
 }
 
@@ -916,12 +931,13 @@ func writeBackendPluginFixture(t *testing.T, root string, pluginID string, name 
 		"settaVersionRange": ">=0.0.0",
 		"enabledByDefault":  true,
 		"backend": map[string]any{
-			"entrypoint": "backend/entrypoint.py",
+			"entrypoint": "backend/main.go",
 		},
 		"capabilities": []string{},
 	}
 	writePluginFixture(t, root, manifest, map[string]string{
-		"backend/entrypoint.py": "def register(app):\n    return None\n",
+		"backend/go.mod":  "module example.com/" + pluginID + "/backend\n\ngo 1.26.0\n",
+		"backend/main.go": "package main\n\nfunc main() {}\n",
 	})
 }
 

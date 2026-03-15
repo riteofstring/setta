@@ -72,6 +72,13 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 	}
 
 	switch template {
+	case "backend":
+		if err := scaffoldBackendTemplate(root, normalizedID); err != nil {
+			return "", err
+		}
+		manifest.Backend = &PluginBackendManifest{
+			Entrypoint: "backend/main.go",
+		}
 	case "frontend":
 		if err := scaffoldFrontendTemplate(root); err != nil {
 			return "", err
@@ -90,11 +97,17 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 			PromptsDir:          "content/prompts",
 		}
 	case "full":
+		if err := scaffoldBackendTemplate(root, normalizedID); err != nil {
+			return "", err
+		}
 		if err := scaffoldFrontendTemplate(root); err != nil {
 			return "", err
 		}
 		if err := scaffoldContentTemplate(root); err != nil {
 			return "", err
+		}
+		manifest.Backend = &PluginBackendManifest{
+			Entrypoint: "backend/main.go",
 		}
 		manifest.Frontend = &PluginFrontendManifest{
 			Entrypoint: "frontend/dist/index.js",
@@ -116,7 +129,7 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 	if err := os.WriteFile(filepath.Join(root, pluginManifestFileName), manifestPayload, 0o644); err != nil {
 		return "", fmt.Errorf("write plugin manifest: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(buildInitTemplatePyproject(normalizedID)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(buildInitTemplatePyproject(normalizedID, manifest)), 0o644); err != nil {
 		return "", fmt.Errorf("write pyproject.toml: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(root, ".github", "workflows"), 0o755); err != nil {
@@ -125,7 +138,7 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 	if err := os.WriteFile(filepath.Join(root, ".github", "workflows", "release.yml"), []byte(initTemplateWorkflow), 0o644); err != nil {
 		return "", fmt.Errorf("write release workflow: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte(buildInitTemplateREADME(normalizedID)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte(buildInitTemplateREADME(normalizedID, manifest)), 0o644); err != nil {
 		return "", fmt.Errorf("write plugin README: %w", err)
 	}
 	return root, nil
@@ -578,13 +591,8 @@ func normalizeInitTemplate(raw string) (string, error) {
 		return "full", nil
 	}
 	switch trimmed {
-	case "frontend", "full", "content":
+	case "frontend", "backend", "full", "content":
 		return trimmed, nil
-	case "backend":
-		return "", newServiceError(
-			ServiceErrorCodeSourceInvalid,
-			"Plugin backend scaffolding is no longer supported. Use --template frontend, --template content, or --template full.",
-		)
 	default:
 		return "", newServiceError(ServiceErrorCodeSourceInvalid, "Invalid plugin init template: %q", raw)
 	}
@@ -615,6 +623,20 @@ func scaffoldFrontendTemplate(root string) error {
 	return nil
 }
 
+func scaffoldBackendTemplate(root string, pluginID string) error {
+	backendDir := filepath.Join(root, "backend")
+	if err := os.MkdirAll(backendDir, 0o755); err != nil {
+		return fmt.Errorf("create backend template directory: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(backendDir, "go.mod"), []byte(buildInitTemplateBackendGoMod(pluginID)), 0o644); err != nil {
+		return fmt.Errorf("write backend go.mod: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(backendDir, "main.go"), []byte(initTemplateBackendMainGo), 0o644); err != nil {
+		return fmt.Errorf("write backend main.go: %w", err)
+	}
+	return nil
+}
+
 func scaffoldContentTemplate(root string) error {
 	blueprintsDir := filepath.Join(root, "content", "blueprints")
 	templatesDir := filepath.Join(root, "content", "project_templates")
@@ -636,8 +658,9 @@ func scaffoldContentTemplate(root string) error {
 	return nil
 }
 
-func buildInitTemplatePyproject(pluginID string) string {
-	return "[build-system]\n" +
+func buildInitTemplatePyproject(pluginID string, manifest PluginManifest) string {
+	var builder strings.Builder
+	builder.WriteString("[build-system]\n" +
 		"requires = [\"setuptools>=68\", \"wheel\"]\n" +
 		"build-backend = \"setuptools.build_meta\"\n\n" +
 		"[project]\n" +
@@ -649,11 +672,19 @@ func buildInitTemplatePyproject(pluginID string) string {
 		"[tool.setuptools]\n" +
 		"py-modules = []\n\n" +
 		"[tool.setuptools.data-files]\n" +
-		"\".\" = [\"setta.plugin.json\", \"README.md\"]\n" +
-		"\"frontend/dist\" = [\"frontend/dist/*\"]\n" +
-		"\"content/blueprints\" = [\"content/blueprints/*\"]\n" +
-		"\"content/project_templates\" = [\"content/project_templates/*\"]\n" +
-		"\"content/prompts\" = [\"content/prompts/*\"]\n"
+		"\".\" = [\"setta.plugin.json\", \"README.md\"]\n")
+	if manifest.Backend != nil {
+		builder.WriteString("\"backend\" = [\"backend/*\"]\n")
+	}
+	if manifest.Frontend != nil {
+		builder.WriteString("\"frontend/dist\" = [\"frontend/dist/*\"]\n")
+	}
+	if manifest.Content != nil {
+		builder.WriteString("\"content/blueprints\" = [\"content/blueprints/*\"]\n")
+		builder.WriteString("\"content/project_templates\" = [\"content/project_templates/*\"]\n")
+		builder.WriteString("\"content/prompts\" = [\"content/prompts/*\"]\n")
+	}
+	return builder.String()
 }
 
 const initTemplateWorkflow = "name: publish-plugin\n\n" +
@@ -670,19 +701,34 @@ const initTemplateWorkflow = "name: publish-plugin\n\n" +
 	"      - uses: actions/setup-python@v5\n" +
 	"        with:\n" +
 	"          python-version: \"3.12\"\n" +
+	"      - uses: actions/setup-go@v5\n" +
+	"        if: ${{ hashFiles('backend/go.mod') != '' }}\n" +
+	"        with:\n" +
+	"          go-version: \"1.26.1\"\n" +
 	"      - run: python -m pip install --upgrade build twine setta\n" +
 	"      - run: setta plugins validate .\n" +
+	"      - run: |\n" +
+	"          if [ -f backend/go.mod ]; then\n" +
+	"            (cd backend && go build ./...)\n" +
+	"          fi\n" +
 	"      - run: python -m build\n" +
 	"      - run: python -m twine check dist/*\n" +
 	"      # Configure publish credentials/secrets for your registry.\n"
 
-func buildInitTemplateREADME(pluginID string) string {
-	return "# Setta Plugin\n\n" +
+func buildInitTemplateREADME(pluginID string, manifest PluginManifest) string {
+	var builder strings.Builder
+	builder.WriteString("# Setta Plugin\n\n" +
 		"## Validate\n\n" +
 		"```bash\n" +
 		"setta plugins validate .\n" +
-		"```\n\n" +
-		"## Build\n\n" +
+		"```\n\n")
+	if manifest.Backend != nil {
+		builder.WriteString("## Build backend\n\n" +
+			"```bash\n" +
+			"(cd backend && go build ./...)\n" +
+			"```\n\n")
+	}
+	builder.WriteString("## Build package\n\n" +
 		"```bash\n" +
 		"python -m build\n" +
 		"```\n\n" +
@@ -693,5 +739,13 @@ func buildInitTemplateREADME(pluginID string) string {
 		"```bash\n" +
 		"setta plugins install github:OWNER/REPO#v0.1.0\n" +
 		fmt.Sprintf("setta plugins install pypi:%s==0.1.0\n", pluginID) +
-		"```\n"
+		"```\n")
+	return builder.String()
 }
+
+func buildInitTemplateBackendGoMod(pluginID string) string {
+	return "module example.com/" + pluginID + "/backend\n\n" +
+		"go 1.26.0\n"
+}
+
+const initTemplateBackendMainGo = "package main\n\nfunc main() {}\n"

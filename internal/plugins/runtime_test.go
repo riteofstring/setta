@@ -233,7 +233,7 @@ func TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles(t *testing.T
 		t.Fatalf("expected asset invalid path error, got %v", err)
 	}
 
-	_, err = service.ResolveAssetPath("setta-fixture-full", "backend/entrypoint.py")
+	_, err = service.ResolveAssetPath("setta-fixture-full", "backend/main.go")
 	if err == nil {
 		t.Fatal("expected backend file lookup to fail")
 	}

@@ -102,8 +102,7 @@ not complete.
   feature set now needs Go-native replacements rather than product-level
   deletion, including backend routes/static assets, listener/runtime hooks,
   backend MCP tools, codegen targets, language-server integration,
-  external-agent integration, and the Go-native backend plugin authoring/runtime
-  model itself.
+  external-agent integration, and the Go-native backend plugin runtime model.
 - The rewrite is not complete until those paths are either removed, moved to
   Go, or narrowed to the documented retained Python SDK surface only, and until
   the missing backend plugin feature set is restored in Go.

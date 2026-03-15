@@ -10,7 +10,7 @@ import (
 	"setta/internal/config"
 )
 
-// Init should scaffold a publish-ready plugin template that validates immediately.
+// Init should scaffold a publish-ready full plugin template, including a Go backend, that validates immediately.
 func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -29,6 +29,8 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 		"pyproject.toml",
 		"README.md",
 		filepath.Join(".github", "workflows", "release.yml"),
+		filepath.Join("backend", "go.mod"),
+		filepath.Join("backend", "main.go"),
 		filepath.Join("frontend", "dist", "index.js"),
 		filepath.Join("content", "blueprints", "starter-blueprint.json"),
 	} {
@@ -44,6 +46,9 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	if !strings.Contains(string(workflowPayload), "python -m pip install --upgrade build twine setta") {
 		t.Fatalf("expected publish workflow prerequisites, got %q", string(workflowPayload))
 	}
+	if !strings.Contains(string(workflowPayload), "(cd backend && go build ./...)") {
+		t.Fatalf("expected backend go build step, got %q", string(workflowPayload))
+	}
 	if !strings.Contains(string(workflowPayload), "setta plugins validate .") {
 		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
 	}
@@ -52,8 +57,11 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load scaffold manifest: %v", err)
 	}
-	if manifest.Backend != nil {
-		t.Fatalf("expected full scaffold to omit backend manifest, got %#v", manifest.Backend)
+	if manifest.Backend == nil {
+		t.Fatalf("expected full scaffold to include backend manifest, got %#v", manifest)
+	}
+	if manifest.Backend.Entrypoint != "backend/main.go" {
+		t.Fatalf("expected Go backend entrypoint, got %#v", manifest.Backend)
 	}
 	if manifest.Frontend == nil || manifest.Content == nil {
 		t.Fatalf("expected full scaffold to include frontend and content, got %#v", manifest)
@@ -88,19 +96,39 @@ func TestServiceInitTemplateRejectsInvalidIDsAndExistingTarget(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInitTargetExists)
 }
 
-// Init should reject the removed Python-backend scaffold so new authoring does not target that path.
-func TestServiceInitTemplateRejectsBackendTemplate(t *testing.T) {
+// Init should scaffold a Go-backed backend template instead of pointing new authoring at Python.
+func TestServiceInitTemplateGeneratesGoBackendScaffold(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 
-	_, err := service.InitTemplate(InitTemplateOptions{
+	pluginRoot, err := service.InitTemplate(InitTemplateOptions{
 		PluginID: "setta-backend-fixture",
 		Template: "backend",
 		OutDir:   roots.workspaceRoot,
 	})
-	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceInvalid)
-	if !strings.Contains(err.Error(), "backend scaffolding is no longer supported") {
-		t.Fatalf("expected backend scaffold rejection message, got %v", err)
+	if err != nil {
+		t.Fatalf("init backend template: %v", err)
+	}
+	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load backend scaffold manifest: %v", err)
+	}
+	if manifest.Backend == nil || manifest.Backend.Entrypoint != "backend/main.go" {
+		t.Fatalf("expected Go backend scaffold manifest, got %#v", manifest.Backend)
+	}
+	if manifest.Frontend != nil || manifest.Content != nil {
+		t.Fatalf("expected backend-only scaffold, got %#v", manifest)
+	}
+	for _, relativePath := range []string{
+		filepath.Join("backend", "go.mod"),
+		filepath.Join("backend", "main.go"),
+	} {
+		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); err != nil {
+			t.Fatalf("expected backend scaffold file %s: %v", relativePath, err)
+		}
+	}
+	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate backend scaffolded plugin: %v", err)
 	}
 }
 

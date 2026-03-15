@@ -11,13 +11,13 @@ setta plugins init setta-my-plugin --template full --out .
 This generates:
 
 - `setta.plugin.json`
+- `backend/` Go scaffolding when using `--template backend` or `--template full`
 - `frontend/dist/` and `content/` scaffolding when using `--template full`
 - `pyproject.toml` with package metadata aligned to manifest `id` and `version`
 
-`setta plugins init` no longer generates `backend/entrypoint.py`. That is a
-temporary rewrite limitation, not the target product model. Backend plugin
-support remains in scope, but the backend authoring path is being moved to Go
-rather than Python.
+`setta plugins init` now generates a Go-backed `backend/main.go` scaffold for
+backend-capable templates. Backend plugin support remains in scope, and new
+backend authoring should target Go rather than Python.
 
 ## 2. Implement plugin logic
 
@@ -25,6 +25,7 @@ rather than Python.
   - `apiVersion`
   - `register(host)`
   - optional CSS: `frontend/dist/index.css` and set `frontend.style` in manifest
+- Backend: edit `backend/main.go` and `backend/go.mod`.
 - Content: add templates/assets under `content/`.
 
 ### Optional: define plugin UI settings from config schema
@@ -149,7 +150,5 @@ setta plugins restart-required
 ```
 
 Use fixture references in `tests/fixtures/plugins/` for known-good examples.
-Prefer `frontend` and `content` for the currently landed authoring path.
-Backend plugin parity still needs a Go-native authoring/runtime path; the old
-Python backend plugin fixtures are rewrite reference material, not the target
-end state.
+Backend runtime parity still needs more Go rewrite work, but the authoring path
+for backend plugins is now Go-native.

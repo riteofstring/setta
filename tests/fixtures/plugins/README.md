@@ -11,7 +11,7 @@ Principles:
 
 Current fixtures:
 
-- `backend/`: backend-only plugin shell with a minimal Python entrypoint.
+- `backend/`: backend-only plugin shell with a minimal Go entrypoint.
 - `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
 - `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
@@ -27,7 +27,7 @@ Target fixture catalog (coverage baseline):
 
 - Maintain at least 15 fixture plugins under `tests/fixtures/plugins/`.
 - Include fixtures for each category:
-- backend success paths (minimal backend shells)
+- backend success paths (minimal Go backend shells)
 - frontend success paths (sections/panes/commands/top-nav)
 - full-stack success paths
 - content-only paths

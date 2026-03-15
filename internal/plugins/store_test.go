@@ -203,7 +203,7 @@ func TestStoreCreateHistorySnapshotCopiesInstalledPluginTree(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(historyEntry.SnapshotPath, pluginManifestFileName)); err != nil {
 		t.Fatalf("expected snapshot manifest copy: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(historyEntry.SnapshotPath, "backend", "entrypoint.py")); err != nil {
+	if _, err := os.Stat(filepath.Join(historyEntry.SnapshotPath, "backend", "main.go")); err != nil {
 		t.Fatalf("expected snapshot backend entrypoint copy: %v", err)
 	}
 }

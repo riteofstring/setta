@@ -192,7 +192,7 @@ until a Go-native backend plugin equivalent lands.
 | Missing  | Plugin backend runtime refresh after plugin mutations    | Install/link/update/uninstall/restart flows still need to refresh any Go-native backend plugin registrations and runtime state. The previous backend refresh path was removed before the replacement landed.             |
 | Missing  | Plugin-defined language-server and codegen integration   | Full plugin parity still requires Go-native plugin language-server integration, code-language routing, and plugin codegen target support. The earlier Python-backed product surfaces were removed prematurely.           |
 | Missing  | Plugin-defined external-agent execution                  | Full plugin parity still requires Go-native plugin-backed external-agent adapters/execution. The earlier Python-backed plugin external-agent path was removed prematurely.                                                |
-| Missing  | Go-native backend plugin authoring path                  | Current CLI/docs only scaffold frontend + content. Backend plugin authors should ultimately have a Go-native authoring path rather than a Python worker path or no backend authoring path at all.                      |
+| Complete | Go-native backend plugin authoring path                  | `setta plugins init --template backend` now scaffolds `backend/go.mod` plus `backend/main.go`, and `--template full` again includes the backend scaffold. New backend plugin authoring no longer targets Python.      |
 
 ## 8. File browser, binary payloads, attachments, artifacts, and git
 
