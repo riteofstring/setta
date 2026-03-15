@@ -211,3 +211,6 @@ categorize them.
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
   non-launcher gate
+- That next listener policy branch is now proved too: deployment listener
+  emits fail closed when `allowParamChanges=false`, so the remaining websocket
+  backlog is narrower and more transport-specific than before

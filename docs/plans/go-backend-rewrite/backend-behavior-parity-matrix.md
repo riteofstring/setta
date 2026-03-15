@@ -5,7 +5,7 @@ Last audited: `2026-03-18`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `553a8e64d45c884e296bc664e559a8d42c0efd61`
+- Target head: `4df4523e432db3be89cc9357591e7a839e889935`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -93,6 +93,9 @@ Last audited: `2026-03-18`
 - plus the targeted websocket launcher-guard proof slice:
   non-launcher frontend, listener, and terminal websocket routes rejecting
   launcher mode before their route-specific side effects start
+- plus the targeted listener deployment-policy proof slice:
+  listener frontend emits failing closed in share/app mode when deployment
+  policy disables param changes
 - plus the targeted file-browser follow-up slice: `createFile`
   workspace-relative path guards, `checkIfFileExists`
   workspace-relative / blank-path behavior and share-mode deployment-path
@@ -702,8 +705,8 @@ Last audited: `2026-03-18`
 
 - Rows audited in this pass: `1253`
 - Status counts:
-  - `Proved`: `999`
-  - `Implemented, proof incomplete`: `29`
+  - `Proved`: `1000`
+  - `Implemented, proof incomplete`: `28`
   - `Missing`: `70`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
@@ -2157,7 +2160,7 @@ Last audited: `2026-03-18`
 | `listener.frontend_emit.rejects_empty_payload` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_empty_payload` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsEmptyPayload` | raw websocket callers cannot bypass the retained client precondition | `Proved` | Empty listener emit payloads still fail with the explicit invalid-payload transport error. |
 | `listener.frontend_emit.rejects_unknown_dependency` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_unknown_dependency` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency` | retained websocket transport returns the dependency name in the error details | `Proved` | Unknown dependency names still fail with `listener_emit_unknown_dependency`. |
 | `listener.frontend_emit.rejects_invalid_value` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_invalid_value` | `internal/wsapi/listener_frontend_emit.go` | `TestRegisterRoutesListenerFrontendEmitRejectsInvalidDependencyValue` | retained websocket transport returns the dependency name plus expected type | `Proved` | Invalid dependency payload types still fail with `listener_emit_invalid_value`. |
-| `listener.frontend_emit.deployment_policy_follows_allow_param_changes` | `docs/reference/share-policy-flags.md` and `docs/reference/sharing-mode-vs-ide-mode.md` keep listener emits on the share/app content-mutation policy surface gated by `allowParamChanges` | `internal/wsapi/listener_frontend_emit.go::handleListenerFrontendEmit` rejects deployment-mode emits when `deps.Deployment.Policy().AllowParamChanges` is false | there is still no dedicated Go websocket test isolating the `allowParamChanges=false` listener-emit branch; current coverage proves neighboring share-session scoping and happy-path emit behavior only | deployment/share listener processes still send `ListenerFrontendEmit` over the same websocket transport, so policy gating remains caller-visible rather than an internal-only guard | `Implemented, proof incomplete` | Deployment-mode listener emits now appear to honor the same `allowParamChanges` policy gate as other share/app content mutations, but the matrix tracks this branch separately until a direct Go websocket test proves the fail-closed error contract. |
+| `listener.frontend_emit.deployment_policy_follows_allow_param_changes` | `docs/reference/share-policy-flags.md` and `docs/reference/sharing-mode-vs-ide-mode.md` keep listener emits on the share/app content-mutation policy surface gated by `allowParamChanges` | `internal/wsapi/listener_frontend_emit.go::handleListenerFrontendEmit` rejects deployment-mode emits when `deps.Deployment.Policy().AllowParamChanges` is false | `TestRegisterRoutesShareListenerFrontendEmitRejectsWhenDeploymentPolicyDisallowsParamChanges` | deployment/share listener processes still send `ListenerFrontendEmit` over the same websocket transport, so policy gating remains caller-visible rather than an internal-only guard | `Proved` | Deployment-mode listener emits now have direct Go websocket proof for the policy gate too: when `allowParamChanges=false`, the listener socket receives `listener_emit_failed` with the expected deployment-policy message and the share-session overlay remains unchanged. |
 | `listener.frontend_emit.only_params_text_block_chat_and_plugin_targets_are_writable` | `docs/reference/listener-flows.md` keeps listener frontend emits bounded to writable param dependencies plus selected section payload targets rather than arbitrary dependency graph nodes | `internal/wsapi/listener_frontend_emit.go::{applyListenerDependencyValue,isSupportedDependencyTarget,sendResolvedListenerEmitError}` | `TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFrontendUpdate`; `TestRegisterRoutesListenerFrontendEmitUpdatesChatSectionState`; `TestRegisterRoutesListenerFrontendEmitUpdatesPluginSectionData`; `TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedWritableSectionTarget` | retained listener callbacks still call `emit_to_frontend(...)` on the live websocket surface, so this writable-target boundary remains part of the caller-visible contract instead of a dead internal guard | `Proved` | Go now has direct websocket proof for the writable-target boundary: listener frontend emits still accept params plus `TextBlock`, `Chat`, and `Plugin` payload targets, and unsupported writable targets still fail closed with `listener_emit_unsupported_dependency`. |
 | `listener.frontend_emit.project_state_unavailable_when_registered_project_disappears` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_handles_missing_dependency_graph` | `internal/wsapi/listener_frontend_emit.go::handleListenerFrontendEmit` | `TestRegisterRoutesListenerFrontendEmitReportsMissingProjectState` | same retained websocket listener-error boundary as the other frontend-emit failures | `Proved` | If the registered project state disappears before dependency updates are resolved, the listener socket still receives `project_state_unavailable` with the source-style quoted project id in `details.message`. |
 | `listener.frontend_emit.artifact_updates_forward_without_ack_and_scope_to_registered_session` | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_forwards_artifact_updates_to_manager` | `internal/wsapi/listener_frontend_emit.go::{handleListenerFrontendEmit,validateListenerArtifactUpdates,applyListenerArtifactUpdates}` | `TestRegisterRoutesListenerFrontendEmitBroadcastsArtifactUpdates`; `TestRegisterRoutesShareListenerFrontendEmitScopesArtifactUpdatesToSession` | frontend websocket consumers still consume `UpdateArtifacts` broadcasts triggered from listener emits on both IDE and share surfaces | `Proved` | Artifact-only listener emits still normalize and forward artifact updates without sending a listener ack, persist those updates through the artifact manager, and in share mode scope the resulting artifact broadcast plus stored overlay data to the registered share session only. |
