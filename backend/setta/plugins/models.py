@@ -17,6 +17,13 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "readProjectState",
     "subscribeProjectState",
     "emitListenerEvents",
+    "registerMcpTools",
+    "registerLanguageServer",
+    "registerExternalAgentAdapter",
+    "registerCodegenTarget",
+    "registerRouter",
+    "registerListenerEndpoint",
+    "registerStaticDir",
     "writeWorkspacePlugins",
 )
 PLUGIN_CAPABILITIES_SET = frozenset(PLUGIN_CAPABILITIES)
@@ -146,6 +153,16 @@ class PluginBlockedCapability(BaseModel):
     reason: BlockedCapabilityReason
 
 
+class PluginRegisteredLanguageServer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    language: str
+    command: str
+    args: list[str] = Field(default_factory=list)
+    settingsKey: str | None = None
+
+
 class PluginRegisteredExternalAgentAdapter(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -167,6 +184,22 @@ class PluginRegisteredCodegenTarget(BaseModel):
     language: str
     name: str
     defaultFileName: str
+
+
+class PluginRegisteredUISetting(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    localSettingId: str
+    pluginId: str
+    title: str
+    description: str
+    synonyms: list[str] = Field(default_factory=list)
+    paneId: str
+    revealKey: str
+    mutability: Literal["readOnly", "writable"]
+    valueSchema: dict[str, Any]
+    readHandlerId: str
+    writeHandlerId: str | None = None
 
 
 class PluginRestartCapability(BaseModel):
@@ -249,6 +282,9 @@ class PluginStatusEntry(BaseModel):
     requestedCapabilities: list[str]
     effectiveCapabilities: list[str]
     blockedCapabilities: list[PluginBlockedCapability]
+    registeredLanguageServers: list[PluginRegisteredLanguageServer] = Field(
+        default_factory=list
+    )
     registeredExternalAgentAdapters: list[PluginRegisteredExternalAgentAdapter] = Field(
         default_factory=list
     )

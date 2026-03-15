@@ -2,12 +2,12 @@ import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectCha
 import { getWindowControlQuickInfoHandlers } from "components/Utils/windowControlQuickInfo";
 import _ from "lodash";
 import {
-  bootProjectChatWindowToCanvasSection,
   focusProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-  undockProjectChatWindowFromCanvasSection,
-} from "state/actions/projectChatWindowing";
+} from "state/actions/projectChatWindowLifecycleCommands";
+import { undockProjectChatWindowFromCanvasSection } from "state/actions/projectChatWindowSectionCommands";
+import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
