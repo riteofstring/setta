@@ -10,10 +10,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1479`
-- Non-generated TS/TSX files at `1000+` lines: `40`
+- Authored TS/TSX files under `frontend/src`: `1483`
+- Non-generated TS/TSX files at `1000+` lines: `39`
 - Biggest current front-door hotspots:
-  - `plugins/runtime.ts` (`1948`)
   - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1848`)
   - `components/App/appRegistry.tsx` (`1753`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Pages/Home/HomePage.tsx` (`1620`)
   - `components/Git/GitGraphOverlay.tsx` (`1550`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`1471`)
+  - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`1399`)
 
 ## Module Map
 
@@ -687,18 +687,28 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - Plugin runtime
 
+  - `plugins/runtimeHostTypes.ts` owns the shared plugin-host type contracts,
+    registered plugin entity types, empty registry-accumulator builder, and
+    section-kind key helper used by the local runtime owners.
   - `plugins/runtimeValidation.ts` owns shared plugin-runtime error codes,
     runtime error typing, string/record validation helpers, and promise-shape
-    checks used by the runtime local owners.
+    checks used by the runtime validation and host owners.
+  - `plugins/runtimeHostValidation.ts` owns capability gating, plugin API-path
+    normalization, realtime payload serialization, and pane/section/command or
+    top-nav registration validation used by `plugins/runtimePluginHost.ts`.
   - `plugins/runtimeProjectStateBridge.ts` owns plugin project-state selector
     normalization, raw project-state selection, subscription equality, and
-    cloned snapshot shaping used by `plugins/runtime.ts`.
+    cloned snapshot shaping used by `plugins/runtimePluginHost.ts`.
+  - `plugins/runtimePluginHost.ts` owns plugin frontend load side effects,
+    cleanup and setting-reveal handler registration, plugin host API
+    implementation, realtime or section emit validation, and module
+    registration used by `plugins/runtime.ts`.
   - `plugins/runtimeDerivedViews.ts` owns stable plugin-list or status entry
     reuse plus sorted section-kind, pane-tab, command, and top-nav view
     derivation used by `plugins/runtime.ts`.
-  - `plugins/runtime.ts` now focuses on runtime refresh transport, plugin
-    frontend load/reuse, registry merge, capability gating, and host API
-    assembly over those local runtime owners.
+  - `plugins/runtime.ts` now focuses on runtime refresh transport, frontend
+    signature reuse, registry merge, fallback reasoning, and the public plugin
+    runtime selectors/hooks over those local runtime owners.
   - `components/Section/Layouts/PluginArea.tsx` and
     `components/Panes/Overview/Plugins/*` render plugin-backed surfaces.
 

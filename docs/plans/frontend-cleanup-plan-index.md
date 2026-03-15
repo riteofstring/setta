@@ -44,7 +44,6 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-15)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
@@ -53,9 +52,10 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
-  `ChatArea.tsx`, `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`,
-  `ChatInput.tsx`, `ChatMessages.tsx`, `FileBrowserPane.tsx`, and
+  `runtime.ts`, `ChatArea.tsx`, `ProjectChatCore.tsx`,
+  `ProjectChatHistory.tsx`, `ChatInput.tsx`, `ChatMessages.tsx`, and
   `BrowserArea.tsx` are now second-order work unless the same slice directly
   shortens one of the entry surfaces above.
 - Local feature `README.md` files are useful once a root surface stabilizes,
@@ -71,5 +71,5 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   the now-localized `ChatArea.tsx` owner path remain covered in
   [frontend-sections-and-params-cleanup-plan.md](./frontend-sections-and-params-cleanup-plan.md).
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
-- State/shared-infrastructure plans are usually secondary reading at this stage. Default to them only when a state or utility split is a direct prerequisite for shrinking a still-large UI entry surface, or when the slice starts directly from `frontend/src/plugins/runtime.ts`.
+- State/shared-infrastructure plans are usually secondary reading at this stage. Default to them only when a state or utility split is a direct prerequisite for shrinking a still-large UI entry surface, or when a same-turn slice still starts directly from a large shared-state front door.
 - The companion plans cover the rest of the authored frontend surface so the cleanup roadmap is distributed rather than concentrated in one document.

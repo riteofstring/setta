@@ -54,8 +54,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1479 authored TS/TSX files under `frontend/src`.
-- There are 40 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
+- There are 1483 authored TS/TSX files under `frontend/src`.
+- There are 39 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1848 lines after the local settings, engine-selection, and inline-thread layout extraction
@@ -71,11 +71,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/plugins/runtime.ts` at 1948 lines after the local project-state bridge extraction
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
+- `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607 lines after the local plugin-card, config-editor, config-schema, and shared-shell extraction and is no longer a top-size hotspot.
 
 ## Current Pivot (2026-03-15)
@@ -177,20 +177,22 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   next default work in that domain should continue from the remaining larger
   front-door surfaces instead of immediately re-cutting those new local browser
   preview owners.
-- `frontend/src/plugins/runtime.ts` now delegates stable plugin-list and status
+- `frontend/src/plugins/runtime.ts` now delegates shared plugin-host type
+  contracts, empty registry-accumulator construction, and section-kind key
+  building to `frontend/src/plugins/runtimeHostTypes.ts`, capability gating,
+  plugin API-path normalization, realtime payload serialization, and
+  pane/section/command or top-nav registration validation to
+  `frontend/src/plugins/runtimeHostValidation.ts`, plugin frontend load side
+  effects, cleanup and setting-reveal handler registration, plugin host API
+  assembly, and module registration to
+  `frontend/src/plugins/runtimePluginHost.ts`, stable plugin-list and status
   reference reuse plus sorted section-kind, pane-tab, command, and top-nav
-  derivation to `frontend/src/plugins/runtimeDerivedViews.ts`, so the next
-  default work in that domain should continue from the remaining runtime
-  transport, frontend-load, host API, and project-state subscription clusters
-  instead of re-cutting that new pure owner.
-- `frontend/src/plugins/runtime.ts` now also delegates plugin project-state
-  selector normalization, raw state selection, subscription equality, and
-  cloned snapshot shaping to
-  `frontend/src/plugins/runtimeProjectStateBridge.ts`, with shared runtime
-  error/validation primitives in `frontend/src/plugins/runtimeValidation.ts`,
-  so the next default work in that domain should continue from the remaining
-  frontend-load, registry registration, and realtime or section host API
-  clusters instead of re-cutting those new local runtime owners.
+  derivation to `frontend/src/plugins/runtimeDerivedViews.ts`, and plugin
+  project-state selector normalization, raw state selection, subscription
+  equality, and cloned snapshot shaping to
+  `frontend/src/plugins/runtimeProjectStateBridge.ts`, so the next default
+  work should continue from the remaining larger UI front doors instead of
+  re-cutting those new local runtime owners immediately.
 - `frontend/src/components/Chat/ChatInput.tsx` now delegates the composer
   footer/meta row, context-left badge formatting/toggle behavior, runtime
   activity counters/dropdowns, and permission/thinking/search controls to
@@ -215,10 +217,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   UI front doors and a small set of still-large cross-domain entry surfaces.
   Default to those before revisiting already-improved coordinators such as
   `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`,
-  `ChatInput.tsx`, `ChatMessages.tsx`, `FileBrowserPane.tsx`, or
-  `BrowserArea.tsx`.
+  `ChatInput.tsx`, `ChatMessages.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
@@ -895,7 +895,6 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
@@ -912,7 +911,6 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
@@ -998,8 +996,7 @@ Notes:
 1. Refresh or add the module map, placement rules, and execution log only if
    they are missing, stale, or changed by your slice.
 2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
-   usually `plugins/runtime.ts`,
-   `components/Panes/Overview/RunInstructions.tsx`,
+   usually `components/Panes/Overview/RunInstructions.tsx`,
    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
    `components/App/appRegistry.tsx`,
    `components/Section/Layouts/TaskBoardArea.tsx`,
