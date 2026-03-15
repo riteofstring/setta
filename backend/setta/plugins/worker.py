@@ -196,29 +196,12 @@ class _WorkerState:
         return module
 
     def _build_handshake_payload(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {
+        return {
             "pluginId": self.plugin_id,
             "pluginVersion": self.plugin_version,
             "backendPluginApiVersion": BACKEND_PLUGIN_API_VERSION,
             "supportedRpcMethods": list(SUPPORTED_RPC_METHODS),
         }
-        override_path = self.plugin_root / "backend" / "handshake.override.json"
-        if not override_path.exists() or not override_path.is_file():
-            return payload
-        try:
-            override_payload = json.loads(override_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            raise WorkerError(
-                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
-                f"Invalid handshake override JSON for {self.plugin_id}: {exc}",
-            ) from exc
-        if not isinstance(override_payload, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
-                f"Handshake override payload must be an object for {self.plugin_id}.",
-            )
-        payload.update(override_payload)
-        return payload
 
     def _allocate_route_id(self) -> str:
         route_id = f"route_{self._next_route_counter}"

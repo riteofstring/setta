@@ -123,32 +123,6 @@ func TestWorkerLauncherStartAndRegisterWithPythonWorker(t *testing.T) {
 	}
 }
 
-// Launch-time handshake validation should reject live worker API mismatches before a caller sees a started session.
-func TestWorkerLauncherStartRejectsHandshakeAPIVersionMismatch(t *testing.T) {
-	host := newWorkerRPCTestHost(t)
-	launcher, err := NewWorkerLauncher(WorkerLauncherOptions{Host: host})
-	if err != nil {
-		t.Fatalf("new worker launcher: %v", err)
-	}
-
-	spec, pluginRoot := newWorkerLauncherTestSpec(t, "")
-	overridePath := filepath.Join(pluginRoot, "backend", "handshake.override.json")
-	if err := os.WriteFile(overridePath, []byte("{\n  \"backendPluginApiVersion\": 99\n}\n"), 0o644); err != nil {
-		t.Fatalf("write handshake override: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	started, err := launcher.Start(ctx, spec)
-	if started != nil {
-		t.Fatal("expected nil started session")
-	}
-	if !errors.Is(err, ErrWorkerHandshakeAPIVersionMismatch) {
-		t.Fatalf("expected backend API version mismatch, got %v", err)
-	}
-}
-
 // Handshake validation should keep worker startup semantics typed and deterministic.
 func TestDecodeWorkerHandshakeRejectsInvalidPayloads(t *testing.T) {
 	t.Parallel()

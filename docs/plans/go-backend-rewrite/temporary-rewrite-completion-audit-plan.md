@@ -636,3 +636,13 @@ for that dead path were deleted. This does not change the remaining blocker
 status, because plugin UI settings were already Go-owned, but it narrows the
 Python worker runtime to the still-live route/MCP/codegen/language-server/
 external-agent surface.
+
+A twenty-sixth follow-up rewrite step removed the Python worker's
+`handshake.override.json` test hook. `backend/setta/plugins/worker.py` now
+emits only the real handshake payload, the dedicated Python worker tests for
+override parsing/application are gone, the launcher integration test no longer
+depends on mutating a production worker hook to force a mismatch, and the dead
+handshake-failure fixture directories were removed from
+`tests/fixtures/plugins/`. Typed handshake mismatch coverage remains in the Go
+`decodeWorkerHandshake` tests, but the retained Python worker runtime no longer
+contains a production path that exists only for those tests.

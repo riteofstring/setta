@@ -898,59 +898,6 @@ def test_worker_register_surfaces_host_rpc_transport_close(tmp_path: Path) -> No
         _stop_worker(worker)
 
 
-@pytest.mark.parametrize(
-    ("override_content", "expected_message_fragment"),
-    [
-        ("{not-json", "Invalid handshake override JSON"),
-        ("[]", "must be an object"),
-    ],
-)
-def test_worker_initialize_rejects_invalid_handshake_override_payload(
-    tmp_path: Path,
-    override_content: str,
-    expected_message_fragment: str,
-) -> None:
-    # Handshake override payload must be valid JSON object when override file is present.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    override_path = plugin_root / "backend" / "handshake.override.json"
-    override_path.write_text(override_content, encoding="utf-8")
-
-    worker = _start_worker(plugin_root)
-    try:
-        response = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        assert response["id"] == 1
-        assert response["error"]["code"] == "PLUGIN_BACKEND_HANDSHAKE_INVALID"
-        assert expected_message_fragment in response["error"]["message"]
-    finally:
-        _stop_worker(worker)
-
-
-def test_worker_handshake_override_payload(tmp_path: Path) -> None:
-    # Worker handshake should include override payload data when present.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    override_path = plugin_root / "backend" / "handshake.override.json"
-    override_path.write_text(
-        json.dumps({"backendPluginApiVersion": 99}, indent=2),
-        encoding="utf-8",
-    )
-
-    worker = _start_worker(plugin_root)
-    try:
-        response = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        assert response["id"] == 1
-        assert response["result"]["backendPluginApiVersion"] == 99
-    finally:
-        _stop_worker(worker)
-
-
 def test_worker_register_codegen_target_and_invoke_codegen_target(
     tmp_path: Path,
 ) -> None:
