@@ -51,9 +51,7 @@ categorize them.
   deleted-active-tab-repair / missing-required-section /
   code-obj-backfill / workspace-launch outdated-settings slice
 - Add executable proof for the remaining dedicated-`/settings` rows that are
-  still open, especially:
-  `settings_project.code_objs.field_type_to_param_impl_mapping_preserved_on_create_and_backfill`,
-  and
+  still open, especially
   `settings_project.display_names.reload_backfill_only_fills_new_blank_labels`
 - Keep newly isolated non-caller-visible mismatches explicit instead of folding
   them back into broader live-contract rows; the next example is
