@@ -400,6 +400,9 @@ This verdict holds under both of the only reasonable definitions:
   metadata from `projectState`:
   - `backend/setta/api/listener.py`
   - `backend/setta/api/listener_endpoint_client.py`
+  - `backend/setta/listeners/listener_router_endpoint_registry.py` is now an
+    explicit narrow registry for the retained chat/chat-section endpoint set,
+    not a scan over the broader dormant Python route inventory
 - Share listener runtime still instantiates and runs `SettaListener`:
   - `backend/setta/share/listener_runtime.py`
 
@@ -934,3 +937,13 @@ no `.websocket(...)` route definitions left under `backend/setta/routers`.
 The same focused router/share/server pytest slice (`60 passed`) still passes
 after that cleanup. After this step, the remaining Python rewrite blocker is
 not a Python router websocket transport path.
+
+A later follow-up cleanup slice narrowed the retained listener endpoint
+registry to the active Python caller surface only. The registry in
+`backend/setta/listeners/listener_router_endpoint_registry.py` now enumerates
+just the retained chat/chat-section endpoint functions used by
+`backend/setta/api/listener_endpoint_client.py`, instead of scanning the
+broader `project_manager`, `terminals`, and `lsp` routers. The focused
+listener registry/call tests (`10 passed`) still pass after that change. After
+this step, the remaining Python rewrite blocker is no longer inflated by the
+broader dormant built-in listener endpoint inventory.

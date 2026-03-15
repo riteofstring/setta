@@ -4,26 +4,37 @@ from functools import lru_cache
 from typing import Any, Callable, get_type_hints
 
 from fastapi import BackgroundTasks
-from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.runtime.context import RuntimeContext
-from setta.routers.listener import router as listener_router
-from setta.routers.lsp import router as lsp_router
-from setta.routers.project_manager import router as project_manager_router
-from setta.routers.terminals import terminals_http_router
+from setta.routers.listener import (
+    route_append_chat_messages,
+    route_create_chat,
+    route_delete_chat,
+    route_emit_chat_stream_delta,
+    route_get_all_chat_metadata,
+    route_get_chat,
+    route_run_mcp_tools,
+    route_set_chat_system_prompt,
+)
+from setta.routers.project_manager import (
+    route_get_chat_section_chat_id,
+    route_set_chat_section_chat_id,
+    route_set_chat_section_state,
+)
 from setta.server_state import SettaFastAPIState
 
-_ALLOWED_ENDPOINT_MODULE_PREFIXES = (
-    "setta.routers.project_manager",
-    "setta.routers.terminals",
-    "setta.routers.listener",
-    "setta.routers.lsp",
-)
-_LISTENER_ENDPOINT_ROUTERS = (
-    project_manager_router,
-    terminals_http_router,
-    listener_router,
-    lsp_router,
+_LISTENER_ENDPOINTS = (
+    route_create_chat,
+    route_get_chat,
+    route_append_chat_messages,
+    route_delete_chat,
+    route_set_chat_system_prompt,
+    route_get_all_chat_metadata,
+    route_run_mcp_tools,
+    route_emit_chat_stream_delta,
+    route_get_chat_section_chat_id,
+    route_set_chat_section_chat_id,
+    route_set_chat_section_state,
 )
 
 
@@ -35,20 +46,7 @@ class ListenerRouterEndpointSpec:
     request_param_name: str
     state_param_name: str | None
     runtime_context_param_name: str | None
-
-
-def _is_allowed_module(module_name: str) -> bool:
-    for prefix in _ALLOWED_ENDPOINT_MODULE_PREFIXES:
-        if module_name.startswith(prefix):
-            return True
-    return False
-
-
-def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
-    endpoint = route.endpoint
-    if not _is_allowed_module(endpoint.__module__):
-        return None
-
+def _build_spec(endpoint: Callable[..., Any]) -> ListenerRouterEndpointSpec | None:
     signature = inspect.signature(endpoint)
     type_hints = get_type_hints(endpoint)
     request_param_name: str | None = None
@@ -96,12 +94,9 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
 @lru_cache(maxsize=1)
 def get_listener_router_endpoint_specs() -> dict[str, ListenerRouterEndpointSpec]:
     specs: dict[str, ListenerRouterEndpointSpec] = {}
-    for router in _LISTENER_ENDPOINT_ROUTERS:
-        for route in router.routes:
-            if not isinstance(route, APIRoute):
-                continue
-            spec = _build_spec(route)
-            if spec is None:
-                continue
-            specs[spec.endpoint_name] = spec
+    for endpoint in _LISTENER_ENDPOINTS:
+        spec = _build_spec(endpoint)
+        if spec is None:
+            continue
+        specs[spec.endpoint_name] = spec
     return specs
