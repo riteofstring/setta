@@ -60,6 +60,34 @@ func TestProjectSetCodeObjectNameAllowsMetaControlFormatRename(t *testing.T) {
 	}
 }
 
+// Editable kwargs intentionally allow blank names so the UI can keep the
+// placeholder editing state without forcing a generated param name.
+func TestProjectSetCodeObjectNameAllowsEmptyEditableKwarg(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	if err := project.SetCodeObjectName("editable-kwarg", "   "); err != nil {
+		t.Fatalf("set editable kwarg code object name: %v", err)
+	}
+	if got := project.CodeObjs["editable-kwarg"].Name; got != "" {
+		t.Fatalf("expected editable kwarg code object name to stay empty, got %q", got)
+	}
+}
+
+// Dict root params also permit empty names because the dict namespace is
+// explicit through the section structure rather than the param label itself.
+func TestProjectSetCodeObjectNameAllowsEmptyDictRoot(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	if err := project.SetCodeObjectName("shared-root", "   "); err != nil {
+		t.Fatalf("set dict root code object name: %v", err)
+	}
+	if got := project.CodeObjs["shared-root"].Name; got != "" {
+		t.Fatalf("expected dict root code object name to stay empty, got %q", got)
+	}
+}
+
 func codeObjectNameTestProject(t *testing.T) Project {
 	t.Helper()
 
@@ -111,7 +139,7 @@ func codeObjectNameTestProject(t *testing.T) Project {
 			"callable-impl": {
 				ID:      "callable-impl",
 				Kind:    SectionKind("callable"),
-				Payload: mustMarshalProjectObject(map[string]any{"id": "callable-impl", "type": "Callable", "callable": "callable-root", "codeObjVariantMap": map[string]string{"callable-root": "callable-root-variant", "callable-param": "callable-param-variant"}}),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "callable-impl", "type": "Callable", "callable": "callable-root", "codeObjVariantMap": map[string]string{"callable-root": "callable-root-variant", "callable-param": "callable-param-variant", "editable-kwarg": "editable-kwarg-variant"}}),
 			},
 			"dict-a-impl": {
 				ID:      "dict-a-impl",
@@ -142,6 +170,12 @@ func codeObjectNameTestProject(t *testing.T) Project {
 				VariantIDs:       []string{"callable-param-variant"},
 				DefaultVariantID: "callable-param-variant",
 			},
+			"editable-kwarg": {
+				ID:               "editable-kwarg",
+				Name:             "editable_kwarg",
+				VariantIDs:       []string{"editable-kwarg-variant"},
+				DefaultVariantID: "editable-kwarg-variant",
+			},
 			"shared-root": {
 				ID:               "shared-root",
 				Name:             "shared_root",
@@ -170,6 +204,7 @@ func codeObjectNameTestProject(t *testing.T) Project {
 		CodeObjVariants: map[string]CodeObjectVariant{
 			"callable-root-variant":  {ID: "callable-root-variant", ImplID: "callable-root-impl"},
 			"callable-param-variant": {ID: "callable-param-variant", ImplID: "callable-param-impl"},
+			"editable-kwarg-variant": {ID: "editable-kwarg-variant", ImplID: "editable-kwarg-impl"},
 			"shared-root-variant":    {ID: "shared-root-variant", ImplID: "shared-root-impl"},
 			"shared-child-variant":   {ID: "shared-child-variant", ImplID: "shared-child-impl"},
 			"shared-other-variant":   {ID: "shared-other-variant", ImplID: "shared-other-impl"},
@@ -179,12 +214,17 @@ func codeObjectNameTestProject(t *testing.T) Project {
 			"callable-root-impl": {
 				ID:      "callable-root-impl",
 				Type:    "CodeCallable",
-				Payload: mustMarshalProjectObject(map[string]any{"id": "callable-root-impl", "type": "CodeCallable", "children": []string{"callable-param"}}),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "callable-root-impl", "type": "CodeCallable", "children": []string{"callable-param", "editable-kwarg"}}),
 			},
 			"callable-param-impl": {
 				ID:      "callable-param-impl",
 				Type:    "CodeParam",
 				Payload: mustMarshalProjectObject(map[string]any{"id": "callable-param-impl", "type": "CodeParam", "coreNameEditable": false, "passingStyle": "DEFAULT", "value": "seed"}),
+			},
+			"editable-kwarg-impl": {
+				ID:      "editable-kwarg-impl",
+				Type:    "CodeParam",
+				Payload: mustMarshalProjectObject(map[string]any{"id": "editable-kwarg-impl", "type": "CodeParam", "coreNameEditable": true, "passingStyle": "KWARG", "value": "seed"}),
 			},
 			"shared-root-impl": {
 				ID:      "shared-root-impl",
