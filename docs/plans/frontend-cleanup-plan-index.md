@@ -41,7 +41,6 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
@@ -79,6 +78,14 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   window lifecycle commands plus animation bookkeeping to
   `projectChatBottomDockWindowLifecycle.ts`; chat/windowing follow-through
   should now start from the larger remaining front doors in
+  [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- `ProjectAISettings.tsx` is no longer a top hotspot after delegating
+  accordion section routing to `projectAISettingsSections.tsx`, guardrail
+  persistence to `projectAISettingsGuardrails.tsx`, agent-profile CRUD to
+  `projectAISettingsAgentProfiles.tsx`, transcription-profile CRUD plus chunk
+  validation to `projectAISettingsTranscriptionProfiles.tsx`, and prompt
+  template CRUD to `projectAISettingsPromptTemplates.tsx`; chat/project-AI
+  follow-through should now return to the larger remaining front doors in
   [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
 - `GitGraphOverlay.tsx` now delegates the selected-commit summary, expanded
   commit metadata or file list, and diff viewer to

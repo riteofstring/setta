@@ -68,7 +68,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer a top-size hotspot
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer a top-size hotspot
   - `frontend/src/components/Chat/ChatInput.tsx` at 1605 lines after the local composer meta-controls extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 63 lines after the local settings-section and manager extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a top-size hotspot
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
@@ -269,6 +269,22 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   future work in that domain should continue from the remaining larger layout
   front doors unless a same-turn follow-through shortens the task-board root
   again.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  now delegates accordion section routing and deployment-mode gating to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsSections.tsx`,
+  guardrail persistence to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsGuardrails.tsx`,
+  agent-profile CRUD to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAgentProfiles.tsx`,
+  transcription-profile CRUD plus chunk validation to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfiles.tsx`,
+  prompt-template CRUD to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsPromptTemplates.tsx`,
+  and external-agent configuration to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx`,
+  so chat/project-AI follow-through should return to the remaining larger entry
+  surfaces unless one of those extracted settings owners becomes the clearest
+  blocker.
 - `frontend/src/components/Git/GitGraphOverlay.tsx` now delegates the
   selected-commit summary, expanded commit metadata or file list, and diff
   viewer to
@@ -288,13 +304,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ProjectChatCore.tsx`, `TaskBoardArea.tsx`, `RunInstructions.tsx`, or
   `appRegistry.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
@@ -969,9 +985,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -1073,11 +1089,12 @@ Notes:
    file names, clearer subfolders, and colocated tests.
 2. Choose the highest unresolved UI hotspot from the current tree and the
    companion plans,
-   usually `components/Git/GitGraphOverlay.tsx`,
-   `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or
+   usually `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`,
    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
-   `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`,
-   `components/Section/Layouts/BrowserArea.tsx`, or
+   `components/Section/Layouts/BrowserArea.tsx`,
+   `components/Chat/ChatInput.tsx`,
+   `components/Git/GitGraphOverlay.tsx`, or
+   `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`,
    `components/Pages/Project/StandaloneWindowSpaceSurface.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a
    direct prerequisite for simplifying one of those larger hotspots or when it
