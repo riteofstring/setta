@@ -375,6 +375,13 @@ This verdict holds under both of the only reasonable definitions:
     websocket-only `SettaNonLauncherAPIRouter`
   - the dedicated websocket guard coverage for that deleted Python route was
     removed from `tests/routers/test_non_launcher_router_websocket_guards.py`
+- No Python router websocket helpers remain in the retained route package:
+  - `backend/setta/routers/setta_api_router.py` no longer exposes a
+    `.websocket(Route, ...)` convenience wrapper
+  - the dead `Route.WEBSOCKET_FRONTEND` enum value was removed from
+    `backend/setta/types/routes.py`
+  - production code search no longer finds any `.websocket(...)` route
+    definitions under `backend/setta/routers`
 
 ### Verified retained Python boundaries
 
@@ -918,3 +925,12 @@ tests for that deleted Python transport were removed. The focused
 router/share/server pytest slice (`60 passed`) still passes after that
 cleanup. After this step, the remaining Python rewrite blocker is narrower
 again: it no longer includes the old Python terminal websocket transport.
+
+A later follow-up cleanup slice removed the last dead Python router websocket
+helper surface too. `backend/setta/routers/setta_api_router.py` no longer
+exposes a `.websocket(Route, ...)` wrapper, `Route.WEBSOCKET_FRONTEND` is gone
+from `backend/setta/types/routes.py`, and a production code search now shows
+no `.websocket(...)` route definitions left under `backend/setta/routers`.
+The same focused router/share/server pytest slice (`60 passed`) still passes
+after that cleanup. After this step, the remaining Python rewrite blocker is
+not a Python router websocket transport path.

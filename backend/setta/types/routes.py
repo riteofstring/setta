@@ -54,7 +54,6 @@ class Route(str, Enum):
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
     LOAD_SETTINGS_PROJECT = "/loadSettingsProject"
     DELETE_TERMINALS = "/deleteTerminals"
-    WEBSOCKET_FRONTEND = "/frontend"
     WEBSOCKET_LISTENER = "/ws/listeners/{id}"
     SAVE_CODE_INFO = "/codeInfo/save"
     KILL_SUBPROCESSES = "/killSubprocesses"

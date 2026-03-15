@@ -20,9 +20,6 @@ def _prepend_router_dependency(
 
 
 class SettaAPIRouter(APIRouter):
-    def websocket(self, path: Route, **kwargs: Any) -> Callable:  # type: ignore
-        return super().websocket(path.value, **kwargs)
-
     def get(self, path: Route, **kwargs: Any) -> Callable:  # type: ignore
         return super().get(path.value, **kwargs)
 
