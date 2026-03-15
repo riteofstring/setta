@@ -545,7 +545,7 @@ It covers:
 | `DR-02` | Invalid detached-run commands still create failed metadata with `exitCode=-1`, no pid, and no `startedAtMs`. | `tests/run_manager/test_detached_run_manager.py::test_start_run_invalid_command_marks_failed`; `backend/setta/run_manager.py::start_run`. | Impl/proof: `internal/detachedruns/manager_test.go::TestManagerStartRunInvalidCommandMarksFailed`. | `Proved` | |
 | `DR-03` | `getRunStatus` marks an untracked running detached run as `lost`. | `tests/run_manager/test_detached_run_manager.py::test_get_status_untracked_run_marks_lost`; `backend/setta/run_manager.py::get_status`. | Impl/proof: `internal/detachedruns/manager_test.go::TestManagerGetStatusUntrackedRunMarksLost`; route proof for unknown ids: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesReturnsNotFoundForUnknownRun`. | `Proved` | |
 | `DR-04` | `cancelRun` marks an active detached run as `canceled` and eventually records an exit code. | `tests/run_manager/test_detached_run_manager.py::test_cancel_run_marks_canceled`; `tests/run_manager/test_detached_run_manager.py::test_canceled_run_records_exit_code`; `backend/setta/run_manager.py::cancel_run`. | Impl/proof: `internal/detachedruns/manager_test.go::TestManagerCancelRunMarksCanceled`; route proof: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesCancelsRun`. | `Proved` | |
-| `DR-05` | Canceling an already-exited detached run keeps the exited status, and canceling an untracked run reports `lost` instead of inventing a new terminal state. | `tests/run_manager/test_detached_run_manager.py::test_cancel_after_exit_keeps_exited_status`; `tests/run_manager/test_detached_run_manager.py::test_cancel_untracked_run_marks_lost`; `backend/setta/run_manager.py::cancel_run`. | Impl: `internal/detachedruns/manager.go::CancelRun`. | `Implemented, proof incomplete` | Current Go code has the corresponding branches, but this slice has no direct Go tests yet for the already-exited and untracked-cancel variants from `main`. |
+| `DR-05` | Canceling an already-exited detached run keeps the exited status, and canceling an untracked run reports `lost` instead of inventing a new terminal state. | `tests/run_manager/test_detached_run_manager.py::test_cancel_after_exit_keeps_exited_status`; `tests/run_manager/test_detached_run_manager.py::test_cancel_untracked_run_marks_lost`; `backend/setta/run_manager.py::cancel_run`. | Impl/proof: `internal/detachedruns/manager.go::CancelRun`; `internal/detachedruns/manager_test.go::{TestManagerCancelRunKeepsExitedStatus,TestManagerCancelRunUntrackedRunMarksLost}`. | `Proved` | |
 | `DR-06` | `runDetached` always uses a snapshot, rejects `runSnapshotMode=never`, and maps invalid override requests to `invalid_run_detached_request`. | `backend/setta/routers/runs.py::route_run_detached`; source planner/override behavior: `tests/project_state/test_run_overrides.py`; source manager bridge: `backend/setta/project_state/session_project_manager.py::create_run_command_with_overrides`. | Impl/proof: `internal/httpapi/detached_run_routes.go::runDetachedHandler`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey`. | `Proved` | |
 | `DR-07` | The public `runDetached` transport is unavailable in deployment mode, and the detached-run router remains forbidden in launcher mode. | `backend/setta/routers/runs.py::route_run_detached`; `backend/setta/routers/setta_api_router.py` non-launcher project router boundary. | Impl/proof: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsDeploymentMode`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsLauncherMode`. | `Proved` | This row is intentionally scoped to the public `runDetached` entrypoint, not to hypothetical deployment-only status lookups. |
 
@@ -1143,8 +1143,7 @@ It covers:
 8. The terminal slice surfaced two source behaviors that are now dormant or
    still unproven as active Go-era caller requirements:
    `TT-04` and `TR-08`.
-9. The detached-run slice added one more under-proved row:
-   `DR-05`.
+9. The detached-run slice now closes with proofs.
 10. The binary/artifact/attachment/file-browser/git slice mostly closes with
     proofs, and it adds:
     - one new dormant share/runtime question around binary downloads
@@ -1264,8 +1263,7 @@ It covers:
       explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
-    - close the remaining listener/terminal proof gaps (`DR-05`) plus the new
-      code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
+    - close the new code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
       `WC-02`), the new docstring/completion proof gap (`CP-02`),
       the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher

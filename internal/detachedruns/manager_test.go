@@ -153,6 +153,51 @@ func TestManagerCancelRunMarksCanceled(t *testing.T) {
 	}
 }
 
+func TestManagerCancelRunKeepsExitedStatus(t *testing.T) {
+	t.Parallel()
+
+	manager := newTestManager(t, "run-exited")
+
+	run, err := manager.StartRun(Spec{
+		Command:         testDetachedRunHelperCommand("print"),
+		SnapshotPath:    filepath.Join(t.TempDir(), "snapshot.py"),
+		ProjectConfigID: "project-a",
+	})
+	if err != nil {
+		t.Fatalf("start detached run: %v", err)
+	}
+
+	// Wait for the helper to exit so CancelRun exercises the already-exited path.
+	exited := waitForDetachedRunStatus(t, manager, run.RunID, func(run Run) bool {
+		return run.Status == StatusExited
+	})
+
+	canceled, err := manager.CancelRun(run.RunID)
+	if err != nil {
+		t.Fatalf("cancel detached run after exit: %v", err)
+	}
+	if canceled.Status != StatusExited {
+		t.Fatalf("expected exited status after cancel, got %#v", canceled)
+	}
+	if canceled.ExitCode == nil || *canceled.ExitCode != 0 {
+		t.Fatalf("expected exit code 0 after cancel, got %#v", canceled.ExitCode)
+	}
+	if canceled.ExitedAtMS == nil {
+		t.Fatalf("expected exitedAtMs to remain set, got %#v", canceled)
+	}
+	if exited.ExitedAtMS == nil || *canceled.ExitedAtMS != *exited.ExitedAtMS {
+		t.Fatalf("expected cancel to preserve exited metadata, before=%#v after=%#v", exited, canceled)
+	}
+
+	status, err := manager.GetStatus(run.RunID)
+	if err != nil {
+		t.Fatalf("get status after canceling exited run: %v", err)
+	}
+	if status.Status != StatusExited {
+		t.Fatalf("expected persisted exited status, got %#v", status)
+	}
+}
+
 func TestManagerGetStatusUntrackedRunMarksLost(t *testing.T) {
 	t.Parallel()
 
@@ -185,6 +230,57 @@ func TestManagerGetStatusUntrackedRunMarksLost(t *testing.T) {
 	}
 	if status.Status != StatusLost {
 		t.Fatalf("expected lost status, got %#v", status)
+	}
+}
+
+func TestManagerCancelRunUntrackedRunMarksLost(t *testing.T) {
+	t.Parallel()
+
+	manager := newTestManager(t, "run-cancel-lost")
+
+	run, err := manager.StartRun(Spec{
+		Command:         testDetachedRunHelperCommand("sleep"),
+		SnapshotPath:    filepath.Join(t.TempDir(), "snapshot.py"),
+		ProjectConfigID: "project-a",
+	})
+	if err != nil {
+		t.Fatalf("start detached run: %v", err)
+	}
+
+	manager.mu.Lock()
+	tracked := manager.processes[run.RunID]
+	delete(manager.processes, run.RunID)
+	manager.mu.Unlock()
+	if tracked == nil {
+		t.Fatal("expected tracked process")
+	}
+
+	// Keep the helper process from leaking after the manager reports the run as lost.
+	t.Cleanup(func() {
+		_ = killProcess(tracked.cmd)
+		<-tracked.done
+	})
+
+	status, err := manager.CancelRun(run.RunID)
+	if err != nil {
+		t.Fatalf("cancel untracked detached run: %v", err)
+	}
+	if status.Status != StatusLost {
+		t.Fatalf("expected lost status, got %#v", status)
+	}
+	if status.ExitCode != nil {
+		t.Fatalf("expected lost status to avoid inventing an exit code, got %#v", status.ExitCode)
+	}
+	if status.ExitedAtMS == nil {
+		t.Fatalf("expected lost status to record exitedAtMs, got %#v", status)
+	}
+
+	persisted, err := manager.GetStatus(run.RunID)
+	if err != nil {
+		t.Fatalf("get status after canceling untracked run: %v", err)
+	}
+	if persisted.Status != StatusLost {
+		t.Fatalf("expected persisted lost status, got %#v", persisted)
 	}
 }
 
