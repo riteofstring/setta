@@ -2632,3 +2632,31 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared state hotspot at 365 lines, by separating section
     parent-resolution and pane-placement reads from optimistic move command
     orchestration.
+
+## 2026-03-15 04:25:44 PDT
+
+- Slice completed: split section move route-selection reads away from in-state
+  move reducers and optimistic backend command orchestration
+- Key files touched:
+  - `frontend/src/state/actions/sections/moveSectionQueries.ts`
+  - `frontend/src/state/actions/sections/moveSectionState.ts`
+  - `frontend/src/state/actions/sections/moveSections.ts`
+  - `frontend/src/state/actions/sections/moveSectionQueries.test.ts`
+  - `frontend/src/state/actions/sections/moveSections.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/moveSectionQueries.test.ts src/state/actions/sections/moveSections.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sections/moveSections.ts src/state/actions/sections/moveSectionQueries.ts src/state/actions/sections/moveSectionState.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/moveSectionQueries.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `577ce7705`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/uiSettingRevealMutationRestore.ts`, now
+    the largest authored/shared state hotspot at 362 lines, by separating
+    local-storage restore and project-state restore helpers from the shared
+    owned-record revert utilities.
