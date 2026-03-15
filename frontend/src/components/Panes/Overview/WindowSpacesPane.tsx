@@ -12,10 +12,10 @@ import {
   deleteWindowSpace,
   getProjectWindowSpaces,
   persistWindowSpaceSortOrder,
+  restoreWindowSpaceInWorkspace,
   setWindowSpaceName,
   sortWindowSpaces,
-} from "state/actions/windowSpacePersistence";
-import { restoreWindowSpaceInWorkspace } from "state/actions/windowSpaces";
+} from "state/actions/windowSpaces";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {

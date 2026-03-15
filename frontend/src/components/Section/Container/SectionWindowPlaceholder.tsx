@@ -1,10 +1,10 @@
 import { getWindowControlQuickInfoHandlers } from "components/Utils/windowControlQuickInfo";
 import { RiExternalLinkLine } from "react-icons/ri";
 import {
+  bootProjectChatWindowToCanvasSection,
   focusProjectChatWindow,
   reopenProjectChatWindow,
-} from "state/actions/projectChatWindowLifecycleCommands";
-import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
+} from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 

@@ -11,21 +11,17 @@ import {
   type RowComponentProps,
 } from "react-window";
 import {
-  loadMoreGitGraphCommits,
-  setGitGraphFilterText,
-} from "state/actions/gitGraphLoadState";
-import {
-  refreshGitGraphOverlay,
-  toggleGitGraphAllRefs,
-} from "state/actions/gitGraphOverlayActions";
-import {
   clearGitGraphSelectedCommit,
+  closeGitOverlay,
+  loadMoreGitGraphCommits,
+  refreshGitGraphOverlay,
   selectGitCommit,
   selectGitCommitFile,
-} from "state/actions/gitGraphSelection";
-import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
+  setGitGraphFilterText,
+  toggleGitGraphAllRefs,
+} from "state/actions/git";
+import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type {
   GetGitCommitDetailsResponse,
   GitCommit,

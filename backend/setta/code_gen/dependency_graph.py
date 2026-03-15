@@ -97,6 +97,7 @@ class Node(ABC):
 @dataclass
 class SectionNode(Node):
     control_code_obj_type: CodeObjType | None = None
+    control_code_obj_id: ID | None = None
     control_code_obj_impl_id: ID | None = None
     control_value_representation: CodeObjValueRepresentationMode | None = None
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
@@ -623,6 +624,7 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=control_value,
             control_code_obj_type=control_impl.type,
+            control_code_obj_id=control_param_id,
             control_code_obj_impl_id=control_impl.id,
             control_value_representation=control_value_representation,
             deps={},
