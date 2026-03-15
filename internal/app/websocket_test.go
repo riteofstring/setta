@@ -2128,6 +2128,37 @@ func TestAppListenerWebsocketDispatchesScriptableChatBuiltIns(t *testing.T) {
 	if metadataEntry["id"] != chatID {
 		t.Fatalf("expected metadata id %q, got %#v", chatID, metadataEntry["id"])
 	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-delete","endpointName":"route_delete_chat","payload":{"chatId":"`+chatID+`"}}}`)); err != nil {
+		t.Fatalf("write listener delete-chat endpoint call: %v", err)
+	}
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var deleteContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deleteContent); err != nil {
+		t.Fatalf("decode listener delete-chat result: %v", err)
+	}
+	if deleteContent.ProjectConfigID != "project-alpha" || deleteContent.CallID != "call-delete" || !deleteContent.OK {
+		t.Fatalf("unexpected delete-chat listener result %#v", deleteContent)
+	}
+	if deleteContent.Result != nil {
+		t.Fatalf("expected delete-chat listener result to be null, got %#v", deleteContent.Result)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-metadata-after-delete","endpointName":"route_get_all_chat_metadata","payload":{}}}`)); err != nil {
+		t.Fatalf("write listener metadata-after-delete endpoint call: %v", err)
+	}
+	metadataAfterDeleteEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var metadataAfterDeleteContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(metadataAfterDeleteEnvelope.Content, &metadataAfterDeleteContent); err != nil {
+		t.Fatalf("decode listener metadata-after-delete result: %v", err)
+	}
+	metadataAfterDelete, ok := metadataAfterDeleteContent.Result.([]any)
+	if !ok {
+		t.Fatalf("expected metadata-after-delete payload slice, got %#v", metadataAfterDeleteContent.Result)
+	}
+	if len(metadataAfterDelete) != 0 {
+		t.Fatalf("expected no chat metadata after delete, got %#v", metadataAfterDelete)
+	}
 }
 
 func TestAppListenerWebsocketRunsScriptableChatMCPTools(t *testing.T) {
