@@ -100,14 +100,22 @@ else
   SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")
 fi
 
-SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" \
-  "${HOST_ARGS[@]}" \
-  "${PORT_ARGS[@]}" \
-  "${NO_OPEN_ARGS[@]}" \
-  "${PROFILE_ARGS[@]}" \
-  "${SETTA_HOME_ARGS[@]}" \
-  "${SETTA_FILES_ROOT_ARGS[@]}" \
-  "${SETTA_FILES_LOCATION_ARGS[@]}" \
-  "${RUNTIME_ROOT_ARGS[@]}" \
-  "$@" \
+SETTA_ARGS=(
+  "${HOST_ARGS[@]}"
+  "${PORT_ARGS[@]}"
+  "${NO_OPEN_ARGS[@]}"
+  "${PROFILE_ARGS[@]}"
+  "${SETTA_HOME_ARGS[@]}"
+  "${SETTA_FILES_ROOT_ARGS[@]}"
+  "${SETTA_FILES_LOCATION_ARGS[@]}"
+  "${RUNTIME_ROOT_ARGS[@]}"
+  "$@"
   --log-level debug
+)
+
+if [[ "${#NO_OPEN_ARGS[@]}" -eq 0 && -r /dev/tty ]]; then
+  # `concurrently` detaches stdin, but the Go server only auto-opens when it sees a TTY.
+  SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" "${SETTA_ARGS[@]}" </dev/tty
+else
+  SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" "${SETTA_ARGS[@]}"
+fi

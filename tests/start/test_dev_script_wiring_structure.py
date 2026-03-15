@@ -23,6 +23,7 @@ def test_backend_start_uses_go_entrypoint() -> None:
     root = repo_root()
     backend_start = (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
     assert 'SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")' in backend_start
+    assert '/dev/tty' in backend_start
     assert "SETTA_PYTHON_BIN" not in backend_start
     assert ". ./activate.sh" not in backend_start
 
