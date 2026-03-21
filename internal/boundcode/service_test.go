@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -54,6 +55,100 @@ func TestServiceBaselinesTrackedFilesWithoutImmediateCallback(t *testing.T) {
 	case update := <-updates:
 		t.Fatalf("did not expect initial baseline callback, got %#v", update)
 	case <-time.After(80 * time.Millisecond):
+	}
+}
+
+// Syncing inputs should register the tracked path immediately and replace its
+// bindings when the saved document later points that same path at new owners.
+func TestServiceSyncInputsTracksAndReplacesBindings(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(ServiceOptions{
+		PollInterval: time.Hour,
+		OnFileUpdate: func(context.Context, FileUpdate) error { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("close service: %v", err)
+		}
+	})
+
+	path := filepath.Join(t.TempDir(), "pkg", "bound.py")
+	firstBindings := []Binding{{ProjectID: "project-alpha", SectionID: "section-main"}}
+	if err := service.SyncInputs([]FileInput{{Path: path, Bindings: firstBindings}}); err != nil {
+		t.Fatalf("sync initial inputs: %v", err)
+	}
+
+	service.mu.Lock()
+	initialTrack, ok := service.tracks[path]
+	service.mu.Unlock()
+	if !ok {
+		t.Fatalf("expected tracked path %q after initial sync", path)
+	}
+	if !reflect.DeepEqual(initialTrack.bindings, firstBindings) {
+		t.Fatalf("expected initial bindings %#v, got %#v", firstBindings, initialTrack.bindings)
+	}
+
+	replacementBindings := []Binding{{ProjectID: "project-beta", SectionID: "section-alt"}}
+	if err := service.SyncInputs([]FileInput{{Path: path, Bindings: replacementBindings}}); err != nil {
+		t.Fatalf("sync replacement inputs: %v", err)
+	}
+
+	service.mu.Lock()
+	replacementTrack, ok := service.tracks[path]
+	service.mu.Unlock()
+	if !ok {
+		t.Fatalf("expected tracked path %q after replacement sync", path)
+	}
+	if !reflect.DeepEqual(replacementTrack.bindings, replacementBindings) {
+		t.Fatalf("expected replacement bindings %#v, got %#v", replacementBindings, replacementTrack.bindings)
+	}
+}
+
+// Removing a bound file from the saved document should drop its tracking entry
+// so later polls stop treating that path as an active reload owner.
+func TestServiceSyncInputsDropsRemovedPaths(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(ServiceOptions{
+		PollInterval: time.Hour,
+		OnFileUpdate: func(context.Context, FileUpdate) error { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("close service: %v", err)
+		}
+	})
+
+	path := filepath.Join(t.TempDir(), "pkg", "bound.py")
+	if err := service.SyncInputs([]FileInput{{
+		Path:     path,
+		Bindings: []Binding{{ProjectID: "project-alpha", SectionID: "section-main"}},
+	}}); err != nil {
+		t.Fatalf("sync initial inputs: %v", err)
+	}
+
+	service.mu.Lock()
+	_, trackedBefore := service.tracks[path]
+	service.mu.Unlock()
+	if !trackedBefore {
+		t.Fatalf("expected tracked path %q before removal", path)
+	}
+
+	if err := service.SyncInputs(nil); err != nil {
+		t.Fatalf("sync empty inputs: %v", err)
+	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if len(service.tracks) != 0 {
+		t.Fatalf("expected removed paths to clear tracking, got %#v", service.tracks)
 	}
 }
 
