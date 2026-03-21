@@ -815,3 +815,79 @@ Record:
   - Use the retained simplified dense-row baseline to choose the next Tier 1 slice:
     - remove or simplify additional repeated row chrome that is not paying for itself
     - or deepen the shared param-row/body ownership so the next DOM or paint reduction lands with less seam overhead
+
+## 2026-03-20 018
+
+- Item: Benchmark dense text-input underline simplification and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - in `frontend/src/components/Params/ParamUIs/ParamUI.tsx`, replace the dense text-input wrapper underline pseudo-element with a direct `border-bottom`
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - result:
+        - `6` files passed
+        - `19` tests passed
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `1` file passed
+        - `10` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-text-input-border-simplification-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-text-input-border-simplification-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `138.465ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3155.709ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `823.881ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `13297.560ms`
+  - Because the first paired matrix split in opposite directions, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - confirmation:
+          - `139.139ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - confirmation:
+          - `3160.628ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - confirmation:
+          - `833.867ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - confirmation:
+          - `13599.069ms`
+  - Decision:
+    - reject this text-input underline simplification
+    - keep the retained nested-guide-removal baseline at `HEAD`
+    - preserve this rerun only as an append-only dead-end record
+- Next action:
+  - Revert the uncommitted text-input underline simplification and continue from the retained dense-row baseline.

@@ -581,6 +581,10 @@ Current execution note:
   - this intentionally drops the thin nested guide cue for dense param rows
   - the paired rerun improved `settings`
   - the confirmation rerun improved both `settings` and `tier1Synthetic`
+- the next text-input underline simplification was benchmarked and rejected:
+  - replacing the dense text-input wrapper pseudo underline with a direct border helped `settings`
+  - but it did not hold up on the canonical `tier1Synthetic` confirmation rerun
+  - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
