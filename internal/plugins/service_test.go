@@ -230,6 +230,89 @@ func TestServiceInstallPyPIPluginFromLocalWheel(t *testing.T) {
 	}
 }
 
+// A scaffolded full plugin should survive the current Go authoring -> wheel install -> runtime refresh path.
+func TestServiceInitTemplateGoldenPathWheelInstallAndRuntimeRefresh(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	initService := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginID := "setta-golden-path-plugin"
+	pluginRoot, err := initService.InitTemplate(InitTemplateOptions{
+		PluginID: pluginID,
+		Template: "full",
+		OutDir:   roots.workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("init full template: %v", err)
+	}
+	if _, err := initService.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate scaffolded full plugin: %v", err)
+	}
+
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelFromRoot(t, artifactDir, pluginRoot, pluginID, "0.1.0")
+
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	service := mustNewPluginMutationService(t, roots, provider, config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: fmt.Sprintf("pypi:%s==0.1.0", pluginID),
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Installer:  installerPointer(PluginInstallerBackendPip),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install scaffolded full plugin wheel: %v", err)
+	}
+	if installResult.PluginID != pluginID || installResult.Version != "0.1.0" {
+		t.Fatalf("unexpected install result %#v", installResult)
+	}
+	if installResult.State != PluginRuntimeStatePendingRestart || !installResult.RestartRequired {
+		t.Fatalf("expected backend-capable full plugin install to require restart, got %#v", installResult)
+	}
+	if installResult.SourceDigestSHA256 == nil || strings.TrimSpace(*installResult.SourceDigestSHA256) == "" {
+		t.Fatalf("expected scaffolded full install source digest to be populated")
+	}
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("runtime after scaffolded full install: %v", err)
+	}
+	listEntry := mustFindRuntimeListEntry(t, runtimeResponse.List.Plugins, pluginID)
+	if listEntry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected workspace scope runtime entry, got %#v", listEntry.SourceScope)
+	}
+	if listEntry.Frontend.EntrypointURL == nil || !strings.Contains(*listEntry.Frontend.EntrypointURL, "/plugins/"+pluginID+"/frontend/dist/index.js?v=") {
+		t.Fatalf("expected runtime entrypoint url for scaffolded full plugin, got %#v", listEntry.Frontend.EntrypointURL)
+	}
+	if !listEntry.Content.HasBlueprints || !listEntry.Content.HasProjectTemplates || !listEntry.Content.HasPrompts {
+		t.Fatalf("expected full scaffold content descriptor, got %#v", listEntry.Content)
+	}
+
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh for scaffolded full plugin: %v", err)
+	}
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("status after scaffolded full plugin runtime refresh: %v", err)
+	}
+	statusEntry := mustFindStatusEntry(t, status.Plugins, pluginID, PluginRuntimeStateActive)
+	if statusEntry.RestartRequired {
+		t.Fatalf("expected active scaffolded full plugin after refresh, got %#v", statusEntry)
+	}
+	if statusEntry.SourceScope != PluginScopeWorkspace || statusEntry.ShadowedBySourcePath != nil {
+		t.Fatalf("expected active workspace status entry after refresh, got %#v", statusEntry)
+	}
+}
+
 // The mutation service should support an install/update/rollback/uninstall lifecycle over real plugin fixtures.
 func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

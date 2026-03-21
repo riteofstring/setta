@@ -483,6 +483,12 @@ func buildLocalPyPIWheelFromFixture(t *testing.T, artifactDir string, fixtureNam
 	stagingRoot := filepath.Join(t.TempDir(), "wheel-source")
 	copyBackendCodegenFixtureDir(t, sourceRoot, stagingRoot)
 	rewriteFrontendFixtureManifestPaths(t, stagingRoot)
+	return buildLocalPyPIWheelFromRoot(t, artifactDir, stagingRoot, packageName, version)
+}
+
+func buildLocalPyPIWheelFromRoot(t *testing.T, artifactDir string, sourceRoot string, packageName string, version string) string {
+	t.Helper()
+
 	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
 		t.Fatalf("mkdir artifact dir: %v", err)
 	}
@@ -494,14 +500,14 @@ func buildLocalPyPIWheelFromFixture(t *testing.T, artifactDir string, fixtureNam
 		t.Fatalf("create wheel artifact: %v", err)
 	}
 	archive := zip.NewWriter(file)
-	err = filepath.Walk(stagingRoot, func(path string, info os.FileInfo, walkErr error) error {
+	err = filepath.Walk(sourceRoot, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if info.IsDir() {
 			return nil
 		}
-		relativePath, err := filepath.Rel(stagingRoot, path)
+		relativePath, err := filepath.Rel(sourceRoot, path)
 		if err != nil {
 			return err
 		}
