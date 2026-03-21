@@ -285,6 +285,23 @@ func TestBuildOpenCodeStartPayloadRewritesMCPToolNamespaceInSystemPrompt(t *test
 	}
 }
 
+func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{}
+	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{
+		ApprovalPolicy: stringPtr(`{"shell":"ask","edit":"deny"}`),
+	}, map[string]any{})
+
+	permission, ok := mapValue(payload["permission"])
+	if !ok {
+		t.Fatalf("expected structured permission payload, got %#v", payload["permission"])
+	}
+	if stringValue(permission["shell"]) != "ask" || stringValue(permission["edit"]) != "deny" {
+		t.Fatalf("expected parsed JSON permission payload, got %#v", permission)
+	}
+}
+
 func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
 	// Verify completed tool-part state becomes a persisted tool result plus a
 	// summarized run event through the Go-owned OpenCode executor path.
