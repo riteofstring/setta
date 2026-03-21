@@ -574,6 +574,53 @@ func TestRuntimeMutateAndSaveDoesNotCompleteFailedFrontendOp(t *testing.T) {
 	}
 }
 
+func TestRuntimeMutationFailureDoesNotStallLaterMutations(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntime(t, store)
+
+	expectedErr := errors.New("mutation failed")
+	_, err := runtime.MutateAndSave(
+		ContextWithFrontendOpID(context.Background(), "frontend-op-failed"),
+		func(document Document) (Document, error) {
+			return document, expectedErr
+		},
+	)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected mutation failure %v, got %v", expectedErr, err)
+	}
+
+	snapshot, err := runtime.MutateAndSave(
+		ContextWithFrontendOpID(context.Background(), "frontend-op-success"),
+		func(document Document) (Document, error) {
+			document.Projects["project-alpha"] = Project{
+				ID:   "project-alpha",
+				Name: "Alpha",
+			}
+			document.DefaultProjectID = "project-alpha"
+			return document, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("mutate and save runtime after failure: %v", err)
+	}
+	if snapshot.Revision != 2 {
+		t.Fatalf("expected revision 2 after successful follow-up mutation, got %d", snapshot.Revision)
+	}
+	if _, ok := snapshot.Document.Projects["project-alpha"]; !ok {
+		t.Fatal("expected successful follow-up mutation to persist project-alpha")
+	}
+
+	status := runtime.FrontendOpStatus()
+	if len(status.Pending) != 0 {
+		t.Fatalf("expected no pending frontend ops after follow-up mutation, got %#v", status.Pending)
+	}
+	if len(status.Completed) != 1 || status.Completed[0] != "frontend-op-success" {
+		t.Fatalf("expected only successful follow-up op to complete, got %#v", status.Completed)
+	}
+}
+
 func openTestRuntime(t *testing.T, store *Store) *Runtime {
 	t.Helper()
 
