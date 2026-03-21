@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -246,16 +247,28 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 		t.Fatalf("new registry: %v", err)
 	}
 
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
 	validSessionDir := filepath.Join(sessionsRoot, "valid")
 	if err := os.MkdirAll(validSessionDir, 0o755); err != nil {
 		t.Fatalf("mkdir valid session dir: %v", err)
 	}
+	validSecretPath := filepath.Join(validSessionDir, sessionSecretFileName)
+	if err := os.WriteFile(validSecretPath, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("write valid secret: %v", err)
+	}
 	validMetadata := auth.SessionMetadata{
-		ID:         "valid-session",
-		Host:       "127.0.0.1",
-		Port:       61234,
-		ServerMode: "ide",
-		StartedAt:  time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		ID:                     "valid-session",
+		WorkspacePath:          workspaceRoot,
+		WorkspacePathCanonical: workspaceRoot,
+		Host:                   "127.0.0.1",
+		Port:                   61234,
+		SecretPath:             validSecretPath,
+		ServerMode:             "ide",
+		StartedAt:              time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
 	}
 	validBytes, err := json.Marshal(validMetadata)
 	if err != nil {
@@ -270,11 +283,18 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 	if err := os.MkdirAll(missingModeDir, 0o755); err != nil {
 		t.Fatalf("mkdir missing-mode session dir: %v", err)
 	}
+	missingModeSecretPath := filepath.Join(missingModeDir, sessionSecretFileName)
+	if err := os.WriteFile(missingModeSecretPath, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("write missing-mode secret: %v", err)
+	}
 	missingModeMetadata := auth.SessionMetadata{
-		ID:        "missing-mode-session",
-		Host:      "127.0.0.1",
-		Port:      61235,
-		StartedAt: time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
+		ID:                     "missing-mode-session",
+		WorkspacePath:          workspaceRoot,
+		WorkspacePathCanonical: workspaceRoot,
+		Host:                   "127.0.0.1",
+		Port:                   61235,
+		SecretPath:             missingModeSecretPath,
+		StartedAt:              time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
 	}
 	missingModeBytes, err := json.Marshal(missingModeMetadata)
 	if err != nil {
@@ -294,6 +314,177 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 	}
 	if loaded[0].ID != validMetadata.ID {
 		t.Fatalf("expected valid session %q, got %#v", validMetadata.ID, loaded[0])
+	}
+}
+
+func TestRegistryLoadSessionsSkipsMetadataMissingCanonicalWorkspaceOrRelativeSecretPath(t *testing.T) {
+	t.Parallel()
+
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	registry, err := NewRegistry(RegistryOptions{
+		SessionsRoot: sessionsRoot,
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	// Launcher and CLI session lookup should never surface malformed session
+	// metadata that the source Python registry would skip up front.
+	validSessionDir := filepath.Join(sessionsRoot, "valid")
+	if err := os.MkdirAll(validSessionDir, 0o755); err != nil {
+		t.Fatalf("mkdir valid session dir: %v", err)
+	}
+	validMetadata := auth.SessionMetadata{
+		ID:                     "valid-session",
+		WorkspacePath:          workspaceRoot,
+		WorkspacePathCanonical: workspaceRoot,
+		Host:                   "127.0.0.1",
+		Port:                   61234,
+		SecretPath:             filepath.Join(validSessionDir, sessionSecretFileName),
+		ServerMode:             "ide",
+		StartedAt:              time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+	}
+	validBytes, err := json.Marshal(validMetadata)
+	if err != nil {
+		t.Fatalf("marshal valid metadata: %v", err)
+	}
+	validBytes = append(validBytes, '\n')
+	if err := os.WriteFile(filepath.Join(validSessionDir, sessionMetadataFileName), validBytes, 0o644); err != nil {
+		t.Fatalf("write valid metadata: %v", err)
+	}
+
+	missingCanonicalDir := filepath.Join(sessionsRoot, "missing-canonical")
+	if err := os.MkdirAll(missingCanonicalDir, 0o755); err != nil {
+		t.Fatalf("mkdir missing-canonical session dir: %v", err)
+	}
+	missingCanonicalMetadata := auth.SessionMetadata{
+		ID:            "missing-canonical-session",
+		WorkspacePath: workspaceRoot,
+		Host:          "127.0.0.1",
+		Port:          61235,
+		SecretPath:    filepath.Join(missingCanonicalDir, sessionSecretFileName),
+		ServerMode:    "ide",
+		StartedAt:     time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
+	}
+	missingCanonicalBytes, err := json.Marshal(missingCanonicalMetadata)
+	if err != nil {
+		t.Fatalf("marshal missing-canonical metadata: %v", err)
+	}
+	missingCanonicalBytes = append(missingCanonicalBytes, '\n')
+	if err := os.WriteFile(filepath.Join(missingCanonicalDir, sessionMetadataFileName), missingCanonicalBytes, 0o644); err != nil {
+		t.Fatalf("write missing-canonical metadata: %v", err)
+	}
+
+	relativeSecretDir := filepath.Join(sessionsRoot, "relative-secret")
+	if err := os.MkdirAll(relativeSecretDir, 0o755); err != nil {
+		t.Fatalf("mkdir relative-secret session dir: %v", err)
+	}
+	relativeSecretMetadata := auth.SessionMetadata{
+		ID:                     "relative-secret-session",
+		WorkspacePath:          workspaceRoot,
+		WorkspacePathCanonical: workspaceRoot,
+		Host:                   "127.0.0.1",
+		Port:                   61236,
+		SecretPath:             "secret",
+		ServerMode:             "launcher",
+		StartedAt:              time.Date(2026, time.March, 8, 12, 2, 0, 0, time.UTC),
+	}
+	relativeSecretBytes, err := json.Marshal(relativeSecretMetadata)
+	if err != nil {
+		t.Fatalf("marshal relative-secret metadata: %v", err)
+	}
+	relativeSecretBytes = append(relativeSecretBytes, '\n')
+	if err := os.WriteFile(filepath.Join(relativeSecretDir, sessionMetadataFileName), relativeSecretBytes, 0o644); err != nil {
+		t.Fatalf("write relative-secret metadata: %v", err)
+	}
+
+	loaded, err := registry.LoadSessions()
+	if err != nil {
+		t.Fatalf("load sessions: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("expected one valid session after skipping invalid metadata, got %#v", loaded)
+	}
+	if loaded[0].ID != validMetadata.ID {
+		t.Fatalf("expected valid session %q, got %#v", validMetadata.ID, loaded[0])
+	}
+}
+
+func TestRegistryLoadSessionsSkipsRelativeSecretPathMetadata(t *testing.T) {
+	t.Parallel()
+
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	registry, err := NewRegistry(RegistryOptions{
+		SessionsRoot: sessionsRoot,
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	sessionDir := filepath.Join(sessionsRoot, "relative-secret")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sessionDir, sessionSecretFileName), []byte("secret"), 0o600); err != nil {
+		t.Fatalf("write secret: %v", err)
+	}
+	metadata := auth.SessionMetadata{
+		ID:                     "relative-secret",
+		WorkspacePath:          filepath.Join(t.TempDir(), "workspace"),
+		WorkspacePathCanonical: filepath.Join(t.TempDir(), "workspace"),
+		Host:                   "127.0.0.1",
+		Port:                   61234,
+		PID:                    12345,
+		SecretPath:             sessionSecretFileName,
+		ServerMode:             "ide",
+		StartedAt:              time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
+	}
+	metadataBytes, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+	metadataBytes = append(metadataBytes, '\n')
+	if err := os.WriteFile(filepath.Join(sessionDir, sessionMetadataFileName), metadataBytes, 0o644); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+
+	loaded, err := registry.LoadSessions()
+	if err != nil {
+		t.Fatalf("load sessions: %v", err)
+	}
+	if len(loaded) != 0 {
+		t.Fatalf("expected relative secret-path metadata to be skipped, got %#v", loaded)
+	}
+	if _, err := os.Stat(sessionDir); err != nil {
+		t.Fatalf("expected session dir to remain on skipped relative secret path, stat err=%v", err)
+	}
+}
+
+func TestRegistryLoadSecretRejectsRelativeSecretPath(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(RegistryOptions{
+		SessionsRoot: filepath.Join(t.TempDir(), "sessions"),
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	_, err = registry.LoadSecret(auth.SessionMetadata{
+		ID:         "relative-secret",
+		SecretPath: sessionSecretFileName,
+		ServerMode: "ide",
+	})
+	if err == nil {
+		t.Fatal("expected relative secret path to fail closed")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("expected absolute-path error, got %v", err)
 	}
 }
 

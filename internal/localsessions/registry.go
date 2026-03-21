@@ -171,6 +171,9 @@ func (r *Registry) CreateSession(input CreateSessionInput) (auth.SessionMetadata
 }
 
 func (r *Registry) LoadSecret(metadata auth.SessionMetadata) ([]byte, error) {
+	if err := validatePersistedSessionSecretMetadata(metadata); err != nil {
+		return nil, err
+	}
 	secretPath, err := statefs.NormalizePath(metadata.SecretPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("resolve session secret path: %w", err)
@@ -216,7 +219,7 @@ func (r *Registry) LoadSessions() ([]auth.SessionMetadata, error) {
 		if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 			continue
 		}
-		if strings.TrimSpace(metadata.ID) == "" || strings.TrimSpace(metadata.ServerMode) == "" {
+		if err := validatePersistedSessionLookupMetadata(metadata); err != nil {
 			continue
 		}
 		sessions = append(sessions, metadata)
@@ -247,11 +250,7 @@ func (r *Registry) FindSessionsByWorkspaceAndMode(workspaceRoot string, serverMo
 		if trimmedMode != "" && session.ServerMode != trimmedMode {
 			continue
 		}
-		canonicalPath := strings.TrimSpace(session.WorkspacePathCanonical)
-		if canonicalPath == "" {
-			canonicalPath = strings.TrimSpace(session.WorkspacePath)
-		}
-		resolvedSessionWorkspace, err := statefs.NormalizePath(canonicalPath, "")
+		resolvedSessionWorkspace, err := statefs.NormalizePath(session.WorkspacePathCanonical, "")
 		if err != nil {
 			continue
 		}
@@ -312,6 +311,32 @@ func randomHex(reader io.Reader, count int) (string, error) {
 
 func emptyToString(value string) string {
 	return strings.TrimSpace(value)
+}
+
+func validatePersistedSessionLookupMetadata(metadata auth.SessionMetadata) error {
+	if strings.TrimSpace(metadata.ID) == "" {
+		return fmt.Errorf("session id is required")
+	}
+	if strings.TrimSpace(metadata.WorkspacePathCanonical) == "" {
+		return fmt.Errorf("session canonical workspace path is required for session %q", metadata.ID)
+	}
+	if strings.TrimSpace(metadata.ServerMode) == "" {
+		return fmt.Errorf("session server mode is required for session %q", metadata.ID)
+	}
+	if !filepath.IsAbs(strings.TrimSpace(metadata.SecretPath)) {
+		return fmt.Errorf("session secret path must be absolute for session %q", metadata.ID)
+	}
+	return nil
+}
+
+func validatePersistedSessionSecretMetadata(metadata auth.SessionMetadata) error {
+	if strings.TrimSpace(metadata.ID) == "" {
+		return fmt.Errorf("session id is required")
+	}
+	if !filepath.IsAbs(strings.TrimSpace(metadata.SecretPath)) {
+		return fmt.Errorf("session secret path must be absolute for session %q", metadata.ID)
+	}
+	return nil
 }
 
 func FilterActiveSessions(sessions []auth.SessionMetadata) []auth.SessionMetadata {
