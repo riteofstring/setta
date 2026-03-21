@@ -845,6 +845,50 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenProbeFailsForRequestedRegist
 	}
 }
 
+func TestServiceRuntimeMarksBackendPluginInvalidWhenBackendBuildFails(t *testing.T) {
+	// Backend build failures should surface as invalid plugins instead of crashing runtime reads.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte("package main\n\nfunc main( {\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend fixture with invalid Go syntax: %v", err)
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 {
+		t.Fatalf("expected no active list plugins, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid status entry, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.Errors) != 1 {
+		t.Fatalf("expected one backend build error, got %#v", statusEntry.Errors)
+	}
+	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
+	}
+	if !strings.Contains(statusEntry.Errors[0].Message, "Plugin backend entrypoint must be valid Go source") {
+		t.Fatalf("expected backend build failure message, got %#v", statusEntry.Errors[0].Message)
+	}
+}
+
 func TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles(t *testing.T) {
 	// Asset resolution should allow declared frontend files only.
 	roots := newFilesystemResolverTestRoots(t)

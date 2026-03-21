@@ -113,3 +113,24 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 		t.Fatalf("expected custom settings key to be preserved, got %#v", normalized.SettingsKey)
 	}
 }
+
+func TestDecodeBackendProbeResponseRejectsLanguageServerArgsNotArrayOfStrings(t *testing.T) {
+	// Malformed language-server payloads should fail decode before they reach runtime status.
+	_, err := decodeBackendProbeResponse([]byte(`{
+		"schemaVersion": 1,
+		"languageServers": [
+			{
+				"name": "Fixture DSL",
+				"language": "typescript",
+				"command": "python3",
+				"args": "--stdio"
+			}
+		]
+	}`))
+	if err == nil {
+		t.Fatal("expected malformed language-server args payload to fail decode")
+	}
+	if !strings.Contains(err.Error(), "args") {
+		t.Fatalf("expected args decode error, got %v", err)
+	}
+}
