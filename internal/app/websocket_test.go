@@ -1665,7 +1665,10 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
 	if _, err := app.ProjectStates().Settings().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		return appSettingsProjectMaterializerTestDocument(t), nil
+		return appSettingsProjectMaterializerTestDocument(
+			t,
+			filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
+		), nil
 	}); err != nil {
 		t.Fatalf("save settings project runtime: %v", err)
 	}
@@ -1792,7 +1795,7 @@ func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
 	assertAppLSPDiagnosticsPayload(t, routePayload)
 }
 
-func appSettingsProjectMaterializerTestDocument(t *testing.T) projectstate.Document {
+func appSettingsProjectMaterializerTestDocument(t *testing.T, sharedSettingsPath string) projectstate.Document {
 	t.Helper()
 
 	document, err := projectstate.Document{
@@ -1827,10 +1830,12 @@ func appSettingsProjectMaterializerTestDocument(t *testing.T) projectstate.Docum
 				SectionVariants: map[string]projectstate.SectionVariant{
 					"backend-variant": {
 						ID:     "backend-variant",
+						Name:   sharedSettingsPath,
 						ImplID: "backend-impl",
 					},
 					"terminal-variant": {
 						ID:     "terminal-variant",
+						Name:   sharedSettingsPath,
 						ImplID: "terminal-impl",
 					},
 				},
