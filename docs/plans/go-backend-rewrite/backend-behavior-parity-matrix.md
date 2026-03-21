@@ -5,7 +5,7 @@ Last audited: `2026-03-21`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `f8c437e26f7ce0b5ba74ac862a4916be20ffa144`
+- Target head: `ab84b23bc1b0ef1cd29d715c51943e32e1508a07`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -45,7 +45,12 @@ Last audited: `2026-03-21`
   frontend-origin disposition follow-up for ignored invalid launcher proofs,
   bootstrap-page trailing-slash and default-http redirects, trusted-origin
   session-scope / stale-lock / typed-unavailable branches, helper validation
-  happy paths, and the explicit websocket `4401` citation closure
+  happy paths, and the explicit websocket `4401` citation closure, plus the
+  targeted stale-backlog re-audit of transcription-session realtime setup
+  cleanup, fallback classification, API-key trimming, unsupported-model,
+  cumulative-audio-cap, and prune-in-flight candidates confirming those rows
+  remained already-terminal `Proved` dispositions with direct
+  `internal/transcriptionsessions` executable proof
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
