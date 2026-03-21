@@ -49,17 +49,21 @@ categorize them.
   `json_source_key_change_refresh` or
   `json_source_save_missing_key_path` or
   `json_source_save_same_key_path_last_write_wins` or
-  `json_source_startup_shared_pair_load` mismatches. Existing-file
+  `json_source_startup_shared_pair_load` or
+  `json_source_shared_pair_route_refresh_keeps_peer_tree` or
+  `json_source_shared_pair_route_missing_preserves_loaded_tree` mismatches.
+  Existing-file
   `setVariantJsonSourceKeys` edits now match `main`, ordinary project save
   now recreates missing `jsonSourceKeys` objects in backing `.json` files
   before writing values while keeping same-path shared-file collisions
-  last-write-wins, and app startup now hydrates shared `(file,
-  jsonSourceKeys)` pairs into distinct section trees while leaving persisted
-  project state untouched until a later save.
-- The remaining JSON-source backlog is now narrower and should stay split:
-  selective single-section shared-file reload
-  (`json_source.load.unrequested_shared_variant_preserves_existing_tree_while_matching_pairs_share_missing_flag`),
-  watcher/autosave reload behavior (`json_source.watcher.*`), and the broader
+  last-write-wins, app startup now hydrates shared `(file, jsonSourceKeys)`
+  pairs into distinct section trees while leaving persisted project state
+  untouched until a later save, successful one-section shared-file route
+  refreshes leave peer trees untouched, and same-key re-submits after a
+  loaded backing file disappears now preserve the live tree instead of
+  persisting a new missing flag.
+- The remaining JSON-source backlog is now the broader
+  watcher/autosave reload behavior (`json_source.watcher.*`) plus the
   canonical-storage/clear-values round-trip row
   (`json_source.sections.file_backed_load_merge_and_save_round_trip_canonical_storage`).
 - The default differential manifest now matches `main` again after tightening
