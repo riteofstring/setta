@@ -3872,7 +3872,8 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -4029,7 +4030,8 @@ func TestAppRunCodeBroadcastsBackendLogEvent(t *testing.T) {
 
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {

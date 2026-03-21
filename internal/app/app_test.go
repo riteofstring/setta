@@ -8417,6 +8417,7 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -8860,6 +8861,7 @@ func TestAppServesRunCodeRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9193,6 +9195,7 @@ func TestAppMainRuntimeSaveMaterializesPythonCodegenOutputs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9727,6 +9730,7 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9859,6 +9863,7 @@ func TestAppServesRunCodeRouteWithSectionVariantOverrides(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9941,6 +9946,7 @@ func TestAppRunCodeRouteRejectsUnsupportedCLIID(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
