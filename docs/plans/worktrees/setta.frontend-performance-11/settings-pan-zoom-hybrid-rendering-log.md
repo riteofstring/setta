@@ -2588,3 +2588,73 @@ Record:
     - the next viable path should come from fresh seam discovery on a different always-mounted dense row/body ownership path
 - Next action:
   - Restore the retained baseline, run focused verification, and use fresh seam discovery to choose the next Tier 1 experiment before making another code change.
+
+## 2026-03-21 061
+
+- Item: Benchmark the broader Tier 1 row-metadata ownership cut, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Live experiment:
+    - moved row display-name ownership into `ParamSwitch`
+    - passed tooltip title/content into `ParamContainer`
+    - made `ParamTextLabel` render-only
+    - kept `.section-param-row`, `.section-key`, and `.section-value` geometry unchanged
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-row-metadata-ownership-rerun.md`
+  - Focused live verification passed before benchmarking:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamItems/ParamTextLabel.test.tsx`
+    - `2` files passed
+    - `2` tests passed
+  - Filtered typecheck while the experiment was live:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "ParamContainer\\.tsx|ParamTextLabel\\.tsx|ParamSwitch\\.tsx"`
+    - no matching diagnostics were emitted during the filtered check
+  - Fresh subagent CDP check while the experiment was live:
+    - `/settings` and `/benchmark-tier1` both loaded successfully at normal zoom
+    - no obvious row or label layout breakage was visible in the snapshot inspection
+  - First paired rerun versus the recalibrated retained baseline looked promising:
+    - `settings`
+      - benchmark `Paint`:
+        - `436.851ms -> 422.064ms`
+      - benchmark `RunTask`:
+        - `31132.744ms -> 30311.332ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.197ms -> 484.959ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `749.086ms -> 723.553ms`
+      - benchmark `RunTask`:
+        - `14593.848ms -> 14227.327ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.243ms -> 18.925ms`
+  - Same-code worktree confirmation failed hard:
+    - `settings`
+      - benchmark `Paint`:
+        - `436.851ms -> 472.841ms`
+      - benchmark `RunTask`:
+        - `31132.744ms -> 35644.759ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.197ms -> 566.455ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `749.086ms -> 963.770ms`
+      - benchmark `RunTask`:
+        - `14593.848ms -> 17968.749ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.243ms -> 396.144ms`
+  - Decision:
+    - reject the broad row-metadata ownership cut as a keep for `HEAD`
+    - the first run looked real, but the confirmation rerun showed the path is too unstable and too costly on the synthetic scene
+- Next action:
+  - Revert this experiment cleanly, rerun focused reverted-baseline verification, and narrow the next Tier 1 probe to a smaller specialized fast path inside the existing row geometry.
+
+## 2026-03-21 062
+
+- Item: Narrow the next Tier 1 probe after rejecting the broad row-metadata ownership cut.
+- Status: `in_progress`
+- Details:
+  - Current read:
+    - do not go back to kwargs-shell trimming
+    - do not broaden ownership relocation across every row again
+    - the most plausible next target is a smaller specialized non-CodeMirror `textLabelLeaf` fast path for top-level switch/dropdown-heavy rows inside the existing geometry
+- Next action:
+  - Restore the retained baseline, rerun focused verification, and choose the narrow specialized fast-path experiment before making the next code change.

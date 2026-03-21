@@ -1021,6 +1021,39 @@ Current execution note:
           - the kwargs-shell seam now looks unstable rather than categorically bad, but instability on the mandatory real `settings` target is still enough to reject it
         - do not keep the kwargs wrapper collapse at `HEAD`, even on the recalibrated baseline
         - the next Tier 1 move should reopen seam discovery on a different dense row/body ownership path instead of spending another immediate cycle on kwargs-shell trimming
+      - the next deeper row-metadata ownership experiment then made `ParamContainer` and `ParamTextLabel` render-only while moving row name/tooltip ownership into `ParamSwitch`, and it was rejected too:
+        - recorded report:
+          - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-row-metadata-ownership-rerun.md`
+        - experimental files:
+          - `frontend/src/components/Params/ParamSwitch.tsx`
+          - `frontend/src/components/Params/ParamContainer.tsx`
+          - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+        - mechanism under test:
+          - resolve the row display name once in `ParamSwitch`
+          - pass tooltip title/content into `ParamContainer` instead of letting it re-subscribe
+          - make `ParamTextLabel` render the provided label text
+          - keep row geometry unchanged
+        - paired benchmark read:
+          - the first paired matrix looked like a real win on both canonical worktree scenes versus the recalibrated retained baseline
+          - the same-code confirmation rerun did not hold, and the synthetic scene regressed sharply
+        - authoritative worktree confirmation deltas versus the recalibrated retained baseline:
+          - `settings` benchmark `Paint`:
+            - `436.851ms -> 472.841ms`
+          - `settings` benchmark `RunTask`:
+            - `31132.744ms -> 35644.759ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `493.197ms -> 566.455ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `749.086ms -> 963.770ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `14593.848ms -> 17968.749ms`
+          - `tier1Synthetic` benchmark `UpdateLayoutTree`:
+            - `20.243ms -> 396.144ms`
+        - mechanism read:
+          - broad ownership relocation across every Tier 1 row is too unstable to keep
+          - this path did reduce duplicated row subscriptions on paper, but the confirmation rerun shows it can broaden aggregate work instead of trimming it
+        - do not keep this row-metadata ownership cut at `HEAD`
+        - the next Tier 1 probe should stay inside the existing row geometry but narrow the blast radius, most likely via a specialized top-level non-CodeMirror `textLabelLeaf` fast path for switch/dropdown-heavy rows
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 
