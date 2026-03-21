@@ -12,11 +12,18 @@ import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.id import ID
+from setta.types.listener import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+)
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from watchfiles import Change
 
 if TYPE_CHECKING:
@@ -111,6 +118,51 @@ class TestSettaListenerHotReload:
             raise AssertionError("Unexpected callback payload shape")
         return next(iter(callbacks.keys()))
 
+    def _build_authoritative_snapshot_payload(
+        self,
+        listener: SettaListener,
+        project_state: ProjectStateSingleConfig,
+    ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
+        runtime_state = listener._build_runtime_state(project_state)
+        dependency_metadata = runtime_state.dependency_metadata
+        dependency_cache = listener._build_dependency_cache_from_runtime_state(
+            runtime_state
+        )
+        return (
+            ListenerDependencyCatalog(
+                entries=[
+                    ListenerDependencyCatalogEntry(
+                        dependencyKey=entry.dependencyKey,
+                        name=entry.name,
+                        fullPathName=entry.fullPathName,
+                        dependencies=list(entry.dependencies),
+                        sectionType=entry.sectionType,
+                        codeObjType=entry.codeObjType,
+                        controlCodeObjId=entry.controlCodeObjId,
+                        controlCodeObjType=entry.controlCodeObjType,
+                        sectionRepresentation=entry.sectionRepresentation,
+                        controlValueRepresentation=entry.controlValueRepresentation,
+                        valueRepresentation=entry.valueRepresentation,
+                    )
+                    for entry in [
+                        dependency_metadata.entry_for_name(name)
+                        for name in dependency_metadata.names()
+                    ]
+                ]
+            ),
+            ListenerRenderedDependencyValues(
+                entries=[
+                    ListenerRenderedDependencyValue(
+                        dependencyKey=dependency_metadata.dependency_key(
+                            dependency_name
+                        ),
+                        renderedValue=repr(value),
+                    )
+                    for dependency_name, value in dependency_cache.items()
+                ]
+            ),
+        )
+
     async def test_reloader_cycles_update_callback_registration(self) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(project_name=project_state.projectConfig.name)
@@ -136,7 +188,17 @@ class TestSettaListenerHotReload:
                 )
                 await reloader.reload_now(reload_module=False)
 
-                await listener._refresh_from_snapshot(project_state)
+                dependency_catalog, dependency_values = (
+                    self._build_authoritative_snapshot_payload(
+                        listener,
+                        project_state,
+                    )
+                )
+                await listener._refresh_from_snapshot(
+                    project_state,
+                    dependency_catalog=dependency_catalog,
+                    dependency_values=dependency_values,
+                )
                 await asyncio.sleep(0)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
                 assert self._get_listener_invocations(listener) == ["v1"]

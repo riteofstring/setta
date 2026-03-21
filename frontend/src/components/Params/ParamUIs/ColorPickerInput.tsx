@@ -292,9 +292,9 @@ function ColorPicker({
       theme={theme}
     />
   ) : (
-    <div className="relative h-full min-h-7 w-full min-w-0 overflow-hidden rounded-lg">
+    <>
       <i
-        className="gg-color-picker pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 translate-x-px translate-y-px"
+        className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
         style={style}
       />
       {/*
@@ -321,7 +321,7 @@ function ColorPicker({
                 onChange(nextColor);
               }
             }}
-            className={`absolute inset-0 flex !h-full min-h-7 !w-full min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
+            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
             disabled={isDisabled}
             onKeyDown={(e) => {
               if (e.code === "Escape") {
@@ -331,7 +331,7 @@ function ColorPicker({
           />
         );
       })()}
-    </div>
+    </>
   );
 }
 
@@ -394,10 +394,10 @@ function ColorPickerFromColorChoices({
         }}
       >
         <div
-          className={`pointer-events-none absolute inset-0 rounded-lg !border !border-solid ${triggerBorderClassName}`}
+          className={`single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid ${triggerBorderClassName}`}
           style={{ backgroundColor: selectedItem.color }}
         />
-        <div className="relative z-10 flex h-full min-h-0 w-full min-w-0 items-center justify-between overflow-hidden">
+        <div className="single-cell-child flex items-center justify-between overflow-hidden">
           <p
             className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
             style={style}

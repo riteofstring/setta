@@ -121,19 +121,21 @@ export function SectionStyleColorSettings({
       </div>
 
       <div className="flex items-center gap-2">
-        <ColorPickerInput
-          colorChoices={[]}
-          value={localStyleColor ?? "#3b82f6"}
-          onChange={(v) => previewStyleColor(v)}
-          onCommit={(v) => commitStyleColor(v)}
-          onEscape={() => {
-            setLocalStyleColor(styleColor);
-            clearPreviewStyleColor();
-          }}
-          isDisabled={!canEditStyleColor}
-          wrapperClassName="relative flex h-8 min-h-0 w-36 min-w-0 items-stretch"
-          colorPickerChoicesClasses="colorpicker relative flex h-8 min-h-0 w-full min-w-0 cursor-pointer items-center overflow-hidden rounded-lg text-white disabled:cursor-not-allowed disabled:opacity-70"
-        />
+        <div className="single-cell-container h-8 min-h-0 w-36 min-w-0">
+          <ColorPickerInput
+            colorChoices={[]}
+            value={localStyleColor ?? "#3b82f6"}
+            onChange={(v) => previewStyleColor(v)}
+            onCommit={(v) => commitStyleColor(v)}
+            onEscape={() => {
+              setLocalStyleColor(styleColor);
+              clearPreviewStyleColor();
+            }}
+            isDisabled={!canEditStyleColor}
+            wrapperClassName="single-cell-container h-8 min-h-0 w-full min-w-0"
+            colorPickerChoicesClasses="flex w-full cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 min-w-0 items-center text-white disabled:cursor-not-allowed disabled:opacity-70"
+          />
+        </div>
 
         <div className="min-w-0">
           {localStyleColor ? (
