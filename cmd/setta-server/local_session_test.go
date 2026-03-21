@@ -147,6 +147,8 @@ func TestAppNewAfterLocalSessionBootstrapConsumesStartupToken(t *testing.T) {
 		t.Fatalf("listen: %v", err)
 	}
 	defer listener.Close()
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
 
 	localSession, err := maybeBootstrapLocalSession(cfg, listener)
 	if err != nil {

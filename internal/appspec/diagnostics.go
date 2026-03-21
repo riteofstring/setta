@@ -227,7 +227,7 @@ func CollectSpecValidationIssues(appSpec any, options ValidationOptions) []AppVa
 	}
 	if catalogID != catalog.ID {
 		return []AppValidationIssue{{
-			Message: "Unknown app catalog id: " + catalogID,
+			Message: "unknown catalog id: " + catalogID,
 		}}
 	}
 

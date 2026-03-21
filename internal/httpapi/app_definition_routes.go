@@ -84,9 +84,6 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDepen
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.ProjectState == nil {
-		return fmt.Errorf("project-state app-definition runtime is required in ide mode")
-	}
 
 	router.Get(RouteGetAppCatalog, getAppCatalogHandler())
 	router.Post(RouteGetAppDefinition, getAppDefinitionHandler(deps))

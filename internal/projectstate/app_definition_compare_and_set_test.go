@@ -177,7 +177,7 @@ func TestRuntimeCompareAndSetAppDefinitionCatalogIDRejectsUnknownCatalog(t *test
 		"setta.app.alt",
 		&expectedOldValue,
 	)
-	if err == nil || !strings.Contains(err.Error(), "Unknown app catalog id") {
+	if err == nil || !strings.Contains(err.Error(), "unknown catalog id") {
 		t.Fatalf("expected unknown app catalog id error, got %v", err)
 	}
 	if runtime.Snapshot().Document.AppDefinition != nil {

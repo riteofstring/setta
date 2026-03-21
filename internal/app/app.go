@@ -1401,12 +1401,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		TrustedOrigins: trustedOrigins,
 		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
 		RegisterRoot: func(r chi.Router) {
-			if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
-				Service:        pluginRouteService,
-				Auth:           authService,
-				TrustedOrigins: trustedOrigins,
-			}); err != nil {
-				panic(err)
+			if pluginRouteService != nil {
+				if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
+					Service:        pluginRouteService,
+					Auth:           authService,
+					TrustedOrigins: trustedOrigins,
+				}); err != nil {
+					panic(err)
+				}
 			}
 			if attachmentService != nil {
 				if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
@@ -1479,11 +1481,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
-			if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
-				ModePolicy: modePolicy,
-				Service:    pluginRouteService,
-			}); err != nil {
-				panic(err)
+			if pluginRouteService != nil {
+				if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
+					ModePolicy: modePolicy,
+					Service:    pluginRouteService,
+				}); err != nil {
+					panic(err)
+				}
 			}
 			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
 				ModePolicy:          modePolicy,

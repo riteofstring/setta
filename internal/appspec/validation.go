@@ -148,7 +148,7 @@ func ValidateSpec(appSpec any, options ValidationOptions) error {
 		catalogID = DefaultCatalogID
 	}
 	if catalogID != catalog.ID {
-		return fmt.Errorf("Unknown app catalog id: %s", catalogID)
+		return fmt.Errorf("unknown catalog id: %s", catalogID)
 	}
 
 	rootElement, elements, err := resolveAppSpec(appSpec)

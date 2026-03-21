@@ -6914,22 +6914,9 @@ func mustSetRouteWatchCodeState(
 func mustSetRouteCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {
 	t.Helper()
 
-	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		project, err := document.ProjectByID(projectID)
-		if err != nil {
-			return document, err
-		}
-		_, _, impl, err := project.ResolveSection(sectionID)
-		if err != nil {
-			return document, err
-		}
-		impl.Code.Binding = &projectstate.CodeFileBinding{
-			Path:       "code/readonly.py",
-			AccessMode: projectstate.CodeFileAccessModeReadOnly,
-		}
-		project.SectionImpls[impl.ID] = impl
-		document.Projects[project.ID] = project
-		return document, nil
+	_, err := runtime.SetCodeFileBinding(context.Background(), projectID, sectionID, projectstate.CodeFileBinding{
+		Path:       "code/readonly.py",
+		AccessMode: projectstate.CodeFileAccessModeReadOnly,
 	})
 	if err != nil {
 		t.Fatalf("mark route code section %q read-only: %v", sectionID, err)
