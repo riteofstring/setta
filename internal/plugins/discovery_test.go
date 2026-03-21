@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -187,6 +188,17 @@ func TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid(t *t
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
 		delete(payload, "backend")
 	})
+	schemaPath := filepath.Join(pluginRoot, "content", "config", "schema.json")
+	schemaPayloadBytes, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatalf("read plugin schema: %v", err)
+	}
+	var schemaPayload map[string]any
+	if err := json.Unmarshal(schemaPayloadBytes, &schemaPayload); err != nil {
+		t.Fatalf("decode plugin schema: %v", err)
+	}
+	schemaPayload["required"] = []any{}
+	writeJSONFile(t, schemaPath, schemaPayload)
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
 			string(PluginScopeWorkspace) + ":setta-fixture-full": "invalid-root",
