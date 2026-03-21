@@ -52,6 +52,45 @@ func TestServiceGeneratePluginCodegenTargetUsesDefaultFileName(t *testing.T) {
 	}
 }
 
+func TestServiceResolvePluginCodegenTargetImplementationKeyIncludesPluginAndSourceDigest(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins: %v", err)
+	}
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if entry.SourceDigestSHA256 == nil || strings.TrimSpace(*entry.SourceDigestSHA256) == "" {
+		t.Fatalf("expected source digest on backend fixture entry, got %#v", entry.SourceDigestSHA256)
+	}
+
+	resolved, ok, err := service.ResolvePluginCodegenTarget(context.Background(), "setta-fixture-backend-codegen:typescript")
+	if err != nil {
+		t.Fatalf("resolve plugin codegen target: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected resolved plugin codegen target")
+	}
+
+	for _, fragment := range []string{
+		entry.PluginID,
+		"typescript",
+		"setta-fixture-backend-codegen:typescript",
+		*entry.SourceDigestSHA256,
+	} {
+		if !strings.Contains(resolved.ImplementationKey, fragment) {
+			t.Fatalf("expected implementation key %q to contain %q", resolved.ImplementationKey, fragment)
+		}
+	}
+}
+
 func TestServiceGeneratePluginCodegenTargetCanonicalizesRelativePath(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +139,33 @@ func TestServiceGeneratePluginCodegenTargetRejectsAbsolutePath(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot be absolute") {
 		t.Fatalf("expected absolute path rejection, got %v", err)
+	}
+}
+
+func TestServiceGeneratePluginCodegenTargetHonorsCanceledContext(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := service.GeneratePluginCodegenTarget(
+		ctx,
+		"setta-fixture-backend-codegen:typescript",
+		map[string]any{"name": "Alpha"},
+		map[string]any{"className": "FixtureState"},
+	)
+	if err == nil {
+		t.Fatal("expected canceled context to abort plugin codegen generation")
+	}
+	if !strings.Contains(err.Error(), "context canceled") {
+		t.Fatalf("expected context canceled error, got %v", err)
 	}
 }
 

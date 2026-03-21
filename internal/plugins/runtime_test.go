@@ -569,6 +569,51 @@ func TestServiceRuntimeBlocksExternalAgentAdapterCapabilityByHostPolicy(t *testi
 	}
 }
 
+func TestServiceRuntimeBlocksCodegenTargetCapabilityByModePolicy(t *testing.T) {
+	// Share/app runtime should block backend codegen target registration and surface deterministic status.
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				payload["capabilities"] = []string{"registerCodegenTarget"}
+			})
+
+			service := mustNewPluginMutationService(t, roots, nil, mode)
+			runtimeResponse, err := service.Runtime(RuntimeOptions{})
+			if err != nil {
+				t.Fatalf("load runtime payload: %v", err)
+			}
+			if len(runtimeResponse.List.Plugins) != 1 {
+				t.Fatalf("expected one plugin, got %#v", runtimeResponse.List.Plugins)
+			}
+			if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 0 {
+				t.Fatalf("expected no effective codegen capability, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+			}
+
+			statusEntry := runtimeResponse.Status.Plugins[0]
+			if statusEntry.State != PluginRuntimeStateActive {
+				t.Fatalf("expected active status entry, got %#v", statusEntry.State)
+			}
+			if len(statusEntry.RequestedCapabilities) != 1 || statusEntry.RequestedCapabilities[0] != "registerCodegenTarget" {
+				t.Fatalf("expected requested codegen capability, got %#v", statusEntry.RequestedCapabilities)
+			}
+			if len(statusEntry.RegisteredCodegenTargets) != 0 {
+				t.Fatalf("expected no registered codegen targets in %s, got %#v", mode, statusEntry.RegisteredCodegenTargets)
+			}
+			if len(statusEntry.BlockedCapabilities) != 1 {
+				t.Fatalf("expected one blocked capability, got %#v", statusEntry.BlockedCapabilities)
+			}
+			if statusEntry.BlockedCapabilities[0].Capability != "registerCodegenTarget" {
+				t.Fatalf("expected registerCodegenTarget to be blocked, got %#v", statusEntry.BlockedCapabilities[0])
+			}
+			if statusEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonModePolicy {
+				t.Fatalf("expected mode-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
+			}
+		})
+	}
+}
+
 func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	// IDE runtime should expose the routed backend capability set directly from the Go-owned backend contract.
 	roots := newFilesystemResolverTestRoots(t)
@@ -669,6 +714,93 @@ func TestServiceRuntimeReportsBackendRegistrationsFromProbe(t *testing.T) {
 	}
 	if got := statusEntry.RegisteredListenerEndpoints[0].Name; got != "route_backend_fixture_ping" {
 		t.Fatalf("unexpected listener endpoint %q", got)
+	}
+}
+
+func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing.T) {
+	// Backend runtime refresh after uninstall should clear the live registration surface.
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
+	linkedRoot := filepath.Join(t.TempDir(), "backend-linked")
+	copyBackendCodegenFixtureDir(t, sourceRoot, linkedRoot)
+	rewritePluginManifest(t, linkedRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{
+			"registerCodegenTarget",
+			"registerLanguageServer",
+			"registerRouter",
+			"registerStaticDir",
+			"registerListenerEndpoint",
+		}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	linkResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: linkedRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+	})
+	if err != nil {
+		t.Fatalf("link backend plugin: %v", err)
+	}
+	if !linkResult.RestartRequired || linkResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected linked backend plugin to require refresh, got %#v", linkResult)
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after link: %v", err)
+	}
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload after link refresh: %v", err)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one runtime status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+	languageServerSpecs, err := service.LanguageServerSpecs(context.Background())
+	if err != nil {
+		t.Fatalf("load language server specs after link refresh: %v", err)
+	}
+	if len(languageServerSpecs) != 1 {
+		t.Fatalf("expected one language server spec after link refresh, got %#v", languageServerSpecs)
+	}
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if len(statusEntry.RegisteredCodegenTargets) != 1 ||
+		len(statusEntry.RegisteredBackendRoutes) != 2 ||
+		len(statusEntry.RegisteredStaticDirs) != 1 ||
+		len(statusEntry.RegisteredListenerEndpoints) != 1 {
+		t.Fatalf("expected backend registrations after refresh, got %#v", statusEntry)
+	}
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-backend",
+		Scope:    scopePointer(PluginScopeWorkspace),
+	})
+	if err != nil {
+		t.Fatalf("uninstall backend plugin: %v", err)
+	}
+	if !uninstallResult.RestartRequired {
+		t.Fatalf("expected backend uninstall to require refresh")
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after uninstall: %v", err)
+	}
+
+	runtimeResponse, err = service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload after uninstall refresh: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 || len(runtimeResponse.Status.Plugins) != 0 {
+		t.Fatalf("expected backend registrations to clear after uninstall refresh, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
+	}
+	languageServerSpecs, err = service.LanguageServerSpecs(context.Background())
+	if err != nil {
+		t.Fatalf("load language server specs after uninstall refresh: %v", err)
+	}
+	if len(languageServerSpecs) != 0 {
+		t.Fatalf("expected language server specs to clear after uninstall refresh, got %#v", languageServerSpecs)
 	}
 }
 

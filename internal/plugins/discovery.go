@@ -407,12 +407,22 @@ func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin)
 	if err != nil {
 		return err
 	}
-	entry.RegisteredCodegenTargets = probe.CodegenTargets
-	entry.RegisteredLanguageServers = probe.LanguageServers
+	if containsString(entry.EffectiveCapabilities, "registerCodegenTarget") {
+		entry.RegisteredCodegenTargets = probe.CodegenTargets
+	}
+	if containsString(entry.EffectiveCapabilities, "registerLanguageServer") {
+		entry.RegisteredLanguageServers = probe.LanguageServers
+	}
 	entry.RegisteredUISettings = cloneRegisteredUISettings(probe.UISettings)
-	entry.RegisteredBackendRoutes = probe.Routes
-	entry.RegisteredStaticDirs = probe.StaticDirs
-	entry.RegisteredListenerEndpoints = probe.ListenerEndpoints
+	if containsString(entry.EffectiveCapabilities, "registerRouter") {
+		entry.RegisteredBackendRoutes = probe.Routes
+	}
+	if containsString(entry.EffectiveCapabilities, "registerStaticDir") {
+		entry.RegisteredStaticDirs = probe.StaticDirs
+	}
+	if containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
+		entry.RegisteredListenerEndpoints = probe.ListenerEndpoints
+	}
 	return nil
 }
 
