@@ -257,6 +257,39 @@ func TestBuildToolDefinitionsFiltersNonDefaultCompletionStatusWithoutAllowlist(t
 	}
 }
 
+func TestBuildToolDefinitionsOmitsDefaultCompletionStatusWhenGuardDisabled(t *testing.T) {
+	t.Parallel()
+
+	payload, _, _, err := buildToolDefinitions(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{"other", mcpx.DefaultServerID},
+		CompletionGuardEnabled: false,
+	}, &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"other__report_completion_status": {
+				ServerID:       "other",
+				NamespacedName: "other__report_completion_status",
+				RemoteName:     "report_completion_status",
+				InputSchema:    map[string]any{},
+			},
+			"setta__report_completion_status": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__report_completion_status",
+				RemoteName:     "report_completion_status",
+				InputSchema:    map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tool definitions: %v", err)
+	}
+
+	got := toolNamesFromPayload(payload)
+	want := []string{"other__report_completion_status"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected tool names %#v", got)
+	}
+}
+
 func TestBuildToolDefinitionsKeepsCompletionStatusToolForScopedRun(t *testing.T) {
 	t.Parallel()
 
