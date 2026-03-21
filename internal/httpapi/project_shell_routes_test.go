@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -502,14 +503,29 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	if clonedProject.ProjectChatWindowing == nil {
 		t.Fatal("expected cloned live windowing state")
 	}
-	if len(clonedProject.ProjectChatWindowing.Order) != 1 || clonedProject.ProjectChatWindowing.Order[0] != "project-window" {
+	if !reflect.DeepEqual(clonedProject.ProjectChatWindowing.Order, []string{"project-window", "section-window"}) {
 		t.Fatalf("expected live window layout to be copied, got %#v", clonedProject.ProjectChatWindowing.Order)
 	}
 	if clonedProject.ProjectChatWindowing.InstancesByID["project-window"].ChatID != nil {
 		t.Fatalf("expected copied live chat id cleared, got %#v", clonedProject.ProjectChatWindowing.InstancesByID["project-window"].ChatID)
 	}
+	if clonedProject.ProjectChatWindowing.InstancesByID["section-window"].ChatID != nil {
+		t.Fatalf("expected copied live section chat id cleared, got %#v", clonedProject.ProjectChatWindowing.InstancesByID["section-window"].ChatID)
+	}
+	if clonedProject.ProjectChatWindowing.InstancesByID["section-window"].SectionIDOrNull == nil || *clonedProject.ProjectChatWindowing.InstancesByID["section-window"].SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected copied live section binding to stay project-scoped, got %#v", clonedProject.ProjectChatWindowing.InstancesByID["section-window"].SectionIDOrNull)
+	}
+	if _, ok := clonedProject.Sections["chat-section"]; !ok {
+		t.Fatalf("expected cloned project to retain section ids, got %#v", clonedProject.Sections)
+	}
 	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
 		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
+	}
+	if clonedProject.WindowSpaces["space-1"].WindowsByID["section-window"].ChatID != nil {
+		t.Fatalf("expected saved window-space section chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["section-window"].ChatID)
+	}
+	if clonedProject.WindowSpaces["space-1"].WindowsByID["section-window"].SectionIDOrNull == nil || *clonedProject.WindowSpaces["space-1"].WindowsByID["section-window"].SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected saved section binding to stay project-scoped, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["section-window"].SectionIDOrNull)
 	}
 }
 
@@ -563,6 +579,12 @@ func projectShellRouteTestProjectWithWindowing() projectstate.Project {
 		ID:                      "project-alpha",
 		Name:                    "Alpha",
 		AllowJSONSourceKeyEdits: true,
+		Sections: map[string]projectstate.Section{
+			"chat-section": {
+				ID:   "chat-section",
+				Name: "Chat Section",
+			},
+		},
 		ViewModes: map[string]projectstate.ViewMode{
 			"focus": {
 				ID:   "focus",
@@ -575,7 +597,7 @@ func projectShellRouteTestProjectWithWindowing() projectstate.Project {
 				ID:        "space-1",
 				Name:      "Copied Layout",
 				SortIndex: 0,
-				Order:     []string{"chat-window"},
+				Order:     []string{"chat-window", "section-window"},
 				WindowsByID: map[string]projectstate.WindowSpaceWindow{
 					"chat-window": {
 						SurfaceKind:      projectstate.WindowSpaceSurfaceKindProjectChat,
@@ -584,6 +606,15 @@ func projectShellRouteTestProjectWithWindowing() projectstate.Project {
 						ChatID:           projectShellRouteTestStringPointer("saved-chat"),
 						ZIndex:           2,
 						NormalizedBounds: projectstate.NormalizedFloatingWindowBounds{X: 0.1, Y: 0.2, Width: 0.5, Height: 0.4},
+					},
+					"section-window": {
+						SurfaceKind:      projectstate.WindowSpaceSurfaceKindSection,
+						Mode:             projectstate.ChatWindowModeSection,
+						SectionIDOrNull:  projectShellRouteTestStringPointer("chat-section"),
+						Title:            projectShellRouteTestStringPointer("Section Chat"),
+						ChatID:           projectShellRouteTestStringPointer("saved-section-chat"),
+						ZIndex:           3,
+						NormalizedBounds: projectstate.NormalizedFloatingWindowBounds{X: 0.2, Y: 0.3, Width: 0.4, Height: 0.5},
 					},
 				},
 			},
@@ -604,8 +635,23 @@ func projectShellRouteTestProjectWithWindowing() projectstate.Project {
 						Height: 360,
 					},
 				},
+				"section-window": {
+					InstanceID:      "section-window",
+					Placement:       projectstate.ChatWindowPlacementFloating,
+					Mode:            projectstate.ChatWindowModeSection,
+					SectionIDOrNull: projectShellRouteTestStringPointer("chat-section"),
+					Title:           projectShellRouteTestStringPointer("Section Chat"),
+					ChatID:          projectShellRouteTestStringPointer("live-section-chat"),
+					ZIndex:          5,
+					Bounds: projectstate.ChatWindowBounds{
+						X:      640,
+						Y:      96,
+						Width:  420,
+						Height: 320,
+					},
+				},
 			},
-			Order:              []string{"project-window"},
+			Order:              []string{"project-window", "section-window"},
 			NextInstanceNumber: 3,
 		},
 	}
