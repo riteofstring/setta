@@ -280,6 +280,10 @@ categorize them.
   point the cheap proof-only queue is exhausted on the current host OS and the
   next practical work should shift back to real `Missing` implementation gaps
   unless we deliberately add cross-platform config-path proof infrastructure
+- The settings-load default-key writeback row is now closed too, so the next
+  practical queue remains real `Missing` implementation work on active caller
+  surfaces rather than more proof cleanup, aside from the still-awkward
+  cross-platform `SETTA_HOME` proof row
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
