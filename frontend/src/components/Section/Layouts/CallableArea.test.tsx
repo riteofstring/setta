@@ -1,0 +1,221 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { useProjectState, useSettings } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import {
+  CodeObjTypeEnum,
+  ConfigLanguageEnum,
+  ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
+  SectionTypeEnum,
+  createProjectConfig,
+  createSettingsState,
+  type Core,
+  type Variant,
+} from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { CallableArea } from "./CallableArea";
+
+function syncStoreInitialState(store: {
+  getState: () => Record<string, unknown>;
+  getInitialState?: () => Record<string, unknown>;
+}) {
+  if (!store.getInitialState) {
+    return;
+  }
+  const initial = store.getInitialState();
+  Object.assign(initial, store.getState());
+}
+
+describe("CallableArea layout", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    useSettings.setState(createSettingsState());
+    syncStoreInitialState(useSettings);
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("keeps the shared params area on the flex-based nested row shell", () => {
+    const sectionId = "section-1";
+    const variantId = "variant-1";
+    const implId = "impl-1";
+    const callableId = "callable-1";
+    const callableVariantId = "callable-variant-1";
+    const callableImplId = "callable-impl-1";
+    const paramId = "param-1";
+    const paramVariantId = "param-variant-1";
+    const paramImplId = "param-impl-1";
+
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const sectionCore: Core = {
+      id: sectionId,
+      name: "Callable",
+      displayName: "",
+      variants: [variantId],
+      defaultVariant: variantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+
+    const sectionVariant: Variant = {
+      id: variantId,
+      name: "Variant",
+      impl: implId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+
+    const callableImpl = {
+      type: SectionTypeEnum.Callable,
+      id: implId,
+      name: "Callable",
+      callable: callableId,
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      tagColor: null,
+      size: { width: 240, height: 160 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {
+        [callableId]: callableVariantId,
+        [paramId]: paramVariantId,
+      },
+      hideParams: false,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      topLevelParamId: null,
+      styleColor: null,
+    };
+
+    const callableCore: Core = {
+      id: callableId,
+      name: "callable",
+      displayName: "",
+      variants: [callableVariantId],
+      defaultVariant: callableVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+
+    const paramCore: Core = {
+      id: paramId,
+      name: "param",
+      displayName: "",
+      variants: [paramVariantId],
+      defaultVariant: paramVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+
+    const callableVariant: Variant = {
+      id: callableVariantId,
+      name: "CallableVariant",
+      impl: callableImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+
+    const paramVariant: Variant = {
+      id: paramVariantId,
+      name: "ParamVariant",
+      impl: paramImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+
+    const callableCodeObjImpl = {
+      type: CodeObjTypeEnum.CodeCallable,
+      id: callableImplId,
+      name: "callable",
+      description: "",
+      isPreset: false,
+      children: [paramId],
+    };
+
+    const paramImpl = {
+      type: CodeObjTypeEnum.CodeParam,
+      id: paramImplId,
+      name: "Param",
+      description: "",
+      isPreset: false,
+      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameEditable: true,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      defaultVal: "",
+      value: "",
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: sectionCore };
+      state.sectionVariants = { [variantId]: sectionVariant };
+      state.sectionImpls = { [implId]: callableImpl };
+      state.codeObjs = {
+        [callableId]: callableCore,
+        [paramId]: paramCore,
+      };
+      state.codeObjVariants = {
+        [callableVariantId]: callableVariant,
+        [paramVariantId]: paramVariant,
+      };
+      state.codeObjImpls = {
+        [callableImplId]: callableCodeObjImpl,
+        [paramImplId]: paramImpl,
+      };
+      state.parentSectionMap = { [sectionId]: null };
+      state.previewSectionVariantMap = {};
+      state.shownParamIds = {
+        [variantId]: {
+          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+          unpinned: {
+            requiredParamIdsToPaths: { [paramId]: [callableId, paramId] },
+            topLevelParamIds: [paramId],
+          },
+        },
+      };
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(
+      <CallableArea
+        sectionId={sectionId}
+        bgColor="bg-transparent"
+        isMinimized={false}
+      />,
+    );
+
+    const match = markup.match(
+      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-scroll[^\"]*)\"/,
+    );
+    expect(match).not.toBeNull();
+    const classes = (match?.[1] ?? "").split(" ");
+    expect(classes).toContain("section-args-nested");
+    expect(classes).toContain("flex");
+    expect(classes).toContain("flex-col");
+    expect(classes).toContain("overflow-y-scroll");
+    expect(markup).not.toContain("section-param-row section-min-rows relative grid");
+  });
+});
