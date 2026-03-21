@@ -1640,3 +1640,77 @@ Record:
       - another immediate global `textLabelLeaf` restore
 - Next action:
   - Turn the next narrower value-side or section-family-specific row-contract seam into a measured experiment, then rerun authoritative `All Settings` plus `tier1Synthetic`.
+
+## 2026-03-20 037
+
+- Item: Benchmark the broad text-family plain-preview simplification under the canonical `settings` and `tier1Synthetic` scenes, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - Structural change under test:
+    - add an `inactivePreviewMode` seam so blurred `CodeParam`, `TextParam`, and `TextAreaParam` values stop rendering tokenized dummy CodeMirror markup
+    - replace the inactive text-family preview subtree with a single focusable plain-text root
+    - keep the activated real CodeMirror path unchanged
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - `6` files passed
+      - `21` tests passed
+  - Live CDP structural sanity while the experiment was active:
+    - worktree `settings`:
+      - `[id$="-ParamInput"]`: `215`
+      - `[id$="-ParamInput"] .cm-line`: `0`
+      - sampled inactive value roots were direct `DIV` nodes with `childCount: 0`
+    - worktree `benchmark-tier1` after broadening the experiment to the whole text family:
+      - `[id$="-ParamInput"]`: `210`
+      - roots with `.cm-line`: `0`
+      - flat value roots: `210`
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-text-family-plain-preview-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 182.787ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 4171.807ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 34.110ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 32.977ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 1056.290ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 23590.827ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 217.232ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 206.445ms`
+  - Decision:
+    - reject this text-family plain-preview experiment
+    - no same-code confirmation rerun was justified because the first paired matrix already regressed both canonical scenes strongly
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Continue the next Tier 1 pass outside the immediate text-family inactive-preview simplification lane.
+
+## 2026-03-20 038
+
+- Item: Refine the next Tier 1 target after rejecting the broad text-family plain-preview simplification.
+- Status: `in_progress`
+- Details:
+  - Updated read after the authoritative rejection:
+    - even zeroing the value-side `.cm-line` path on both canonical worktree scenes made `Paint` and `RunTask` materially worse
+    - the next worthwhile Tier 1 change should not be another local `TextInputCodeMirror` / `DummyCodeMirror` preview simplification
+  - Current likely direction:
+    - stay in the repeated leaf-row/body ownership seam
+    - focus on non-preview repeated structure or ownership that every dense row still pays for
+    - continue to avoid the rejected lanes:
+      - inactive-preview-only dummy simplifications
+      - broader `contain` boundary retunes on the same row shell
+      - another immediate global top-level leaf-grid restore
+- Next action:
+  - Turn the next non-preview repeated row/body seam into a measured experiment, then rerun authoritative `settings` plus `tier1Synthetic`.
