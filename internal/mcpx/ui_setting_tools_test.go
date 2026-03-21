@@ -175,6 +175,25 @@ func setUISettingAgenticContextWithShareSessionAndFrontendAffinity(
 	}
 }
 
+func mustCloneScopedTestProject(t *testing.T, runtime *projectstate.Runtime, projectID string, sourceProjectID string) {
+	t.Helper()
+
+	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		source, err := document.ProjectByID(sourceProjectID)
+		if err != nil {
+			return document, err
+		}
+		cloned := source
+		cloned.ID = projectID
+		cloned.Name = fmt.Sprintf("%s clone", source.Name)
+		document.Projects[projectID] = cloned
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("clone scoped test project %q from %q: %v", projectID, sourceProjectID, err)
+	}
+}
+
 func (s uiSettingDriftProjectState) CompareAndSetShowParamDisplayNames(
 	ctx context.Context,
 	projectID string,
@@ -688,6 +707,119 @@ func TestServerRevealUISettingReturnsStructuredPayload(t *testing.T) {
 	}
 }
 
+func TestServerRevealUISettingUsesRequestMetaProjectAndSectionWhenSessionMissing(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustCloneScopedTestProject(t, projectRuntime, "project-beta", "project-alpha")
+
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-meta-project",
+			ProjectConfigID:    "project-beta",
+			DurationMS:         1500,
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-beta",
+			"sectionId":       "chat-section",
+		},
+		Arguments: map[string]any{
+			"settingId":           "core.project.show_param_display_names",
+			"sectionIdToActivate": "allowed-callable-section",
+			"durationMs":          1500,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting with request-meta project/section context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting with request-meta project/section context success, got %#v", result.StructuredContent)
+	}
+
+	if revealService.input.ProjectConfigID != "project-beta" {
+		t.Fatalf("expected request-meta projectConfigId project-beta, got %q", revealService.input.ProjectConfigID)
+	}
+	if revealService.input.ContextSectionID != "chat-section" {
+		t.Fatalf("expected request-meta sectionId chat-section, got %q", revealService.input.ContextSectionID)
+	}
+	if revealService.input.SectionIDToActivate != "allowed-callable-section" {
+		t.Fatalf("expected explicit section override allowed-callable-section, got %q", revealService.input.SectionIDToActivate)
+	}
+}
+
+func TestServerRevealUISettingDefaultsProjectAndSectionFromAgenticContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustCloneScopedTestProject(t, projectRuntime, "project-beta", "project-alpha")
+
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-agentic-project",
+			ProjectConfigID:    "project-beta",
+			DurationMS:         1500,
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-beta", "chat-1", "chat-section", false)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"settingId":  "core.project.show_param_display_names",
+			"durationMs": 1500,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting with agentic-context defaults: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting with agentic-context defaults success, got %#v", result.StructuredContent)
+	}
+
+	if revealService.input.ProjectConfigID != "project-beta" {
+		t.Fatalf("expected agentic-context projectConfigId project-beta, got %q", revealService.input.ProjectConfigID)
+	}
+	if revealService.input.ContextSectionID != "chat-section" {
+		t.Fatalf("expected agentic-context sectionId chat-section, got %q", revealService.input.ContextSectionID)
+	}
+	if revealService.input.SectionIDToActivate != "" {
+		t.Fatalf("expected no explicit section override, got %q", revealService.input.SectionIDToActivate)
+	}
+}
+
 func TestServerRevealUISettingForwardsShareSessionID(t *testing.T) {
 	t.Parallel()
 
@@ -1193,6 +1325,169 @@ func TestServerUISettingToolsPreferSessionProjectConfigIDOverRequestMeta(t *test
 	results := mustStructuredList(t, payload["results"])
 	if len(results) == 0 || mustStructuredMap(t, results[0])["settingId"] != "core.watch_code.enabled" {
 		t.Fatalf("expected watch-code search result, got %#v", results)
+	}
+}
+
+func TestServerUISettingToolsRejectProjectArgumentMismatchingAgenticContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustCloneScopedTestProject(t, projectRuntime, "project-beta", "project-alpha")
+
+	testCases := []struct {
+		name          string
+		toolName      string
+		arguments     map[string]any
+		revealService *recordingRevealService
+	}{
+		{
+			name:     "search",
+			toolName: "search_ui_settings",
+			arguments: map[string]any{
+				"projectConfigId": "project-beta",
+				"query":           "watch code",
+			},
+		},
+		{
+			name:     "get",
+			toolName: "get_ui_setting_value",
+			arguments: map[string]any{
+				"projectConfigId": "project-beta",
+				"settingId":       "core.watch_code.enabled",
+			},
+		},
+		{
+			name:     "set",
+			toolName: "set_ui_setting_value",
+			arguments: map[string]any{
+				"projectConfigId": "project-beta",
+				"settingId":       "core.watch_code.enabled",
+				"value":           true,
+			},
+		},
+		{
+			name:     "reveal",
+			toolName: "reveal_ui_setting",
+			arguments: map[string]any{
+				"projectConfigId": "project-beta",
+				"settingId":       "core.project.show_param_display_names",
+			},
+			revealService: &recordingRevealService{
+				result: uisettings.RevealResult{
+					RequestID:       "unexpected",
+					ProjectConfigID: "project-alpha",
+					Statuses: []uisettings.RevealStatus{
+						{SettingID: "core.project.show_param_display_names", Status: "revealed"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+				WorkspaceRoot:    t.TempDir(),
+				ProjectState:     projectRuntime,
+				UISettingReveals: tc.revealService,
+			})
+			defer clientSession.Close()
+
+			setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+			beforeAlpha, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+			if err != nil {
+				t.Fatalf("project-alpha before mismatched UI-setting call: %v", err)
+			}
+			beforeBeta, err := projectRuntime.Snapshot().Document.ProjectByID("project-beta")
+			if err != nil {
+				t.Fatalf("project-beta before mismatched UI-setting call: %v", err)
+			}
+
+			result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+				Name:      tc.toolName,
+				Arguments: tc.arguments,
+			})
+			if err != nil {
+				t.Fatalf("call %s with mismatched projectConfigId: %v", tc.toolName, err)
+			}
+			if !result.IsError {
+				t.Fatalf("expected %s with mismatched projectConfigId to fail, got %#v", tc.toolName, result.StructuredContent)
+			}
+
+			payload := mustStructuredMap(t, result.StructuredContent)
+			if payload["code"] != "invalid_arguments" {
+				t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+			}
+			message, _ := payload["message"].(string)
+			if !strings.Contains(message, "projectConfigId argument") || !strings.Contains(message, "does not match agentic context projectConfigId") {
+				t.Fatalf("expected project mismatch message, got %#v", payload["message"])
+			}
+
+			afterAlpha, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+			if err != nil {
+				t.Fatalf("project-alpha after mismatched UI-setting call: %v", err)
+			}
+			afterBeta, err := projectRuntime.Snapshot().Document.ProjectByID("project-beta")
+			if err != nil {
+				t.Fatalf("project-beta after mismatched UI-setting call: %v", err)
+			}
+			if beforeAlpha.WatchCodeEnabled != afterAlpha.WatchCodeEnabled {
+				t.Fatalf("expected project-alpha watchCodeEnabled to remain unchanged, before=%v after=%v", beforeAlpha.WatchCodeEnabled, afterAlpha.WatchCodeEnabled)
+			}
+			if beforeBeta.WatchCodeEnabled != afterBeta.WatchCodeEnabled {
+				t.Fatalf("expected project-beta watchCodeEnabled to remain unchanged, before=%v after=%v", beforeBeta.WatchCodeEnabled, afterBeta.WatchCodeEnabled)
+			}
+			if tc.revealService != nil && tc.revealService.input.ProjectConfigID != "" {
+				t.Fatalf("expected reveal service not to be invoked on project mismatch, got %#v", tc.revealService.input)
+			}
+		})
+	}
+}
+
+func TestServerGetUISettingValueRejectsProjectArgumentMismatchInShareSession(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustCloneScopedTestProject(t, projectRuntime, "project-beta", "project-alpha")
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectRuntime,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSession(
+		t,
+		clientSession,
+		"project-alpha",
+		"chat-1",
+		"chat-section",
+		"share-session-1",
+		true,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-beta",
+			"settingId":       "core.watch_code.enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value with mismatched share-session projectConfigId: %v", err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected get_ui_setting_value with mismatched share-session projectConfigId to fail, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	message, _ := payload["message"].(string)
+	if !strings.Contains(message, "projectConfigId argument") || !strings.Contains(message, "does not match agentic context projectConfigId") {
+		t.Fatalf("expected project mismatch message, got %#v", payload["message"])
 	}
 }
 
