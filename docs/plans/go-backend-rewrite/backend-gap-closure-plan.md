@@ -372,3 +372,7 @@ categorize them.
   Codex/OpenCode scoped-header injection and user-config
   bootstrap/reconciliation slices rather than more Claude-specific temp-config
   shaping
+- The shared Codex/OpenCode scoped-header row is now closed too, so the
+  adjacent external-agent runtime queue is now down to the OpenCode linked-
+  chat recursion-header row plus the remaining Codex user-config
+  bootstrap/import-marker reconciliation slices
