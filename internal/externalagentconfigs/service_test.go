@@ -533,6 +533,141 @@ url = "http://localhost:1234"
 	}
 }
 
+func TestValidateCodexMCPServersPayloadDoesNotMutatePayload(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"mcp_servers": map[string]any{
+			"figma-desktop": map[string]any{
+				"command": "figma",
+				"args":    []any{"mcp"},
+			},
+		},
+	}
+	snapshot := cloneJSONMap(payload)
+
+	if err := validateCodexMCPServersPayload(payload); err != nil {
+		t.Fatalf("validate codex payload: %v", err)
+	}
+	if !reflect.DeepEqual(payload, snapshot) {
+		t.Fatalf("expected validation to leave payload unchanged, got %#v", payload)
+	}
+}
+
+func TestLoadCodexMCPServerPayloadsFromConfigDoesNotFallbackWhenExplicitCODEXHOMEMissingFile(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), "missing-codex-home")
+	t.Setenv("CODEX_HOME", codexHome)
+	homeDir := filepath.Join(t.TempDir(), "home")
+	t.Setenv("HOME", homeDir)
+	if err := os.MkdirAll(filepath.Join(homeDir, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir fallback home codex dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".codex", codexConfigFileName), []byte(strings.TrimSpace(`
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write fallback home codex config: %v", err)
+	}
+
+	payloads := loadCodexMCPServerPayloadsFromConfig()
+	if len(payloads) != 0 {
+		t.Fatalf("expected explicit CODEX_HOME missing config to fail closed without HOME fallback, got %#v", payloads)
+	}
+}
+
+func TestServiceCreateBootstrapsOnlyNonCollidingCanonicalCodexServerIDs(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+		t.Fatalf("mkdir codex home: %v", err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", t.TempDir())
+	if err := os.WriteFile(filepath.Join(codexHome, codexConfigFileName), []byte(strings.TrimSpace(`
+[mcp_servers.foo]
+command = "alpha"
+
+[mcp_servers." foo "]
+command = "beta"
+
+[mcp_servers.pencil]
+command = "node"
+args = ["pencil-mcp.js"]
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write codex home config: %v", err)
+	}
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+	created, err := service.Create(Config{
+		ID:                 "codex-canonical-collision",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	payload := readCodexConfigPayload(t, filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName))
+	mcpServers, ok := payload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
+	}
+	if _, ok := mcpServers["foo"]; ok {
+		t.Fatalf("expected colliding canonical server id to be skipped, got %#v", mcpServers)
+	}
+	if _, ok := mcpServers["pencil"].(map[string]any); !ok {
+		t.Fatalf("expected non-colliding canonical server id to remain, got %#v", mcpServers)
+	}
+	if marker, ok := payload[codexMCPImportedAtKey].(string); !ok || marker == "" {
+		t.Fatalf("expected bootstrap marker when a non-colliding user server is imported, got %#v", payload[codexMCPImportedAtKey])
+	}
+}
+
+func TestServiceCreateSkipsInvalidScalarTypedCodexHomeServersAndOmitsImportMarker(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+		t.Fatalf("mkdir codex home: %v", err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", t.TempDir())
+	if err := os.WriteFile(filepath.Join(codexHome, codexConfigFileName), []byte(strings.TrimSpace(`
+[mcp_servers]
+figma-desktop = "figma"
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write invalid codex home config: %v", err)
+	}
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+	created, err := service.Create(Config{
+		ID:                 "codex-invalid-scalar-server",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	payload := readCodexConfigPayload(t, filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName))
+	if _, ok := payload[codexMCPImportedAtKey]; ok {
+		t.Fatalf("expected invalid scalar-only user config to omit import marker, got %#v", payload[codexMCPImportedAtKey])
+	}
+	mcpServers, ok := payload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
+	}
+	if _, ok := mcpServers["figma-desktop"]; ok {
+		t.Fatalf("expected invalid scalar-typed user server to be skipped, got %#v", mcpServers)
+	}
+	settaServer, ok := mcpServers["setta"].(map[string]any)
+	if !ok || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected only the managed setta server to remain, got %#v", mcpServers)
+	}
+}
+
 func TestServiceUpdateRetriesCodexUserMCPBootstrapAfterUserConfigIsFixed(t *testing.T) {
 	codexHome := filepath.Join(t.TempDir(), "codex-home")
 	if err := os.MkdirAll(codexHome, 0o755); err != nil {
