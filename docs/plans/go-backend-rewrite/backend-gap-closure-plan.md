@@ -259,6 +259,10 @@ categorize them.
   clearly bounded Codex runtime proof slice is mostly the session-home auth
   inheritance/login branch rather than config-source precedence or prompt
   merge behavior
+- That Codex auth-bootstrap row is now proved too, so the obvious bounded
+  Codex runtime proof backlog is largely exhausted and the next cheap queue
+  should likely move back to the remaining non-Codex proof rows or into the
+  heavier missing implementation areas
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
