@@ -651,16 +651,23 @@ Current execution note:
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
-      - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
-      - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
       - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+      - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
     - current read:
       - bg/border/hover/selection ownership is still fragmented across those modules
       - every Tier 1 leaf row pays for that split
+      - authoritative live `All Settings` counts after the shared-handle checkpoint narrow the next hotspot to the value-side path, not the name-label path:
+        - `760` row shells
+        - `682` `.section-value` nodes
+        - `468` dummy CodeMirror value inputs
+        - `0` active name editors
       - the next worthwhile experiment should remove or hide more of that repeated structure than the rejected isolated style-token passes could reach
       - the accepted shared-overlay handle checkpoint reduces one repeated row affordance already, so the next slice should try to compound that kind of win on other always-mounted dense-row surfaces
       - but it should do so without moving the full row shell responsibility onto `TextInputCodeMirror` itself
-      - and it should hit the row families that still dominate `settings`, especially non-preview repeated row/body surfaces instead of another immediate inactive-preview-only tweak or another `contain` retune on the same row shell
+      - and it should hit the row families that still dominate `settings`, especially non-preview repeated value/body surfaces instead of another immediate inactive-preview-only tweak or another `contain` retune on the same row shell
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

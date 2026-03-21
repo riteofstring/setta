@@ -1518,3 +1518,30 @@ Record:
     - prefer another always-mounted dense-row/body simplification over another immediate preview-only experiment
 - Next action:
   - Turn the next repeated dense-row/body seam into a measured experiment, then rerun authoritative `All Settings` plus `tier1Synthetic` again.
+
+## 2026-03-20 034
+
+- Item: Narrow the next Tier 1 hotspot from the broad leaf-row cluster to the always-mounted value-side path.
+- Status: `done`
+- Details:
+  - Re-read the live worktree `All Settings` page after the accepted shared-handle checkpoint and sampled the authoritative DOM counts:
+    - `760` rendered row shells
+    - `682` `.section-value` nodes
+    - `468` dummy CodeMirror value inputs
+    - `45` shared resize overlays
+    - `0` active name editors
+  - This changes the next-read priority:
+    - the broad leaf-row cluster still matters
+    - but the next likely win is no longer on the name-label side
+    - it is on the always-mounted value-side path split across:
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+      - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - Read:
+    - the authoritative benchmark does not currently justify spending the next cycle on `ParamNameInput` / `ParamTextLabel`
+    - the value-side path is the denser repeated seam and should be the next measured Tier 1 target
+- Next action:
+  - Turn the value-side dense-row seam into the next measured experiment, then rerun authoritative `All Settings` plus `tier1Synthetic`.
