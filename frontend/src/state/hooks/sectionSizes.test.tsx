@@ -1,6 +1,7 @@
 import { SectionSizingPolicy, SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  getDrawAreaCanvasSize,
   getMaxSectionHeight,
   getMaxSectionWidth,
   getMinSectionHeight,
@@ -175,5 +176,29 @@ describe("section sizing helpers", () => {
     });
     expect(minHeight).toBe(sizingPolicy.byType.MetaControl.minHeight);
     expect(minWidth).toBe(sizingPolicy.byType.MetaControl.minWidth);
+  });
+
+  it("uses the configured draw auto canvas defaults", () => {
+    expect(
+      getDrawAreaCanvasSize({
+        width: "auto",
+        height: "auto",
+      }),
+    ).toEqual({
+      width: 500,
+      height: 500,
+    });
+  });
+
+  it("preserves the browser canvas fallback when fixed draw size goes invalid", () => {
+    expect(
+      getDrawAreaCanvasSize({
+        width: 402,
+        height: 100,
+      }),
+    ).toEqual({
+      width: 378,
+      height: 150,
+    });
   });
 });

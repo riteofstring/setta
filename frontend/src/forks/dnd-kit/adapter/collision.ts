@@ -415,6 +415,8 @@ const MAX_ABS_TRIGGER_DIST = 10000;
 const MAX_INTERSECTION_RATIO = 1_000_000;
 const SIGN_WEIGHT = 1_000_000_000_000_000;
 const DIST_WEIGHT = MAX_INTERSECTION_RATIO + 1;
+const SAME_COLLISION_HYSTERESIS_PX = 10;
+const SAME_COLLISION_HYSTERESIS_RATIO = 0.25;
 
 function getCollisionScore({
   isSortable,
@@ -519,13 +521,14 @@ function getPastHalfway({
     }
   }
 
-  if (state.prevCollisionId && state.prevCollisionId === currentId) {
-    if (state.prevPastHalfway === true) {
-      buffer = 10;
-    } else if (state.prevPastHalfway === false) {
-      buffer = -10;
-    }
-  }
+  buffer = getSameCollisionHysteresis({
+    activeRect,
+    droppableRect: effectiveDroppableRect,
+    containerIsHorizontal,
+    currentId,
+    prevCollisionId: state.prevCollisionId,
+    prevPastHalfway: state.prevPastHalfway,
+  });
 
   if (!containerIsHorizontal) {
     return (
@@ -538,6 +541,47 @@ function getPastHalfway({
     referenceAxisValue + buffer >
     (effectiveDroppableRect.left + effectiveDroppableRect.right) / 2
   );
+}
+
+function getSameCollisionHysteresis({
+  activeRect,
+  droppableRect,
+  containerIsHorizontal,
+  currentId,
+  prevCollisionId,
+  prevPastHalfway,
+}: {
+  activeRect: ClientRect;
+  droppableRect: ClientRect;
+  containerIsHorizontal: boolean;
+  currentId: Draggable["id"];
+  prevCollisionId: Draggable["id"] | null;
+  prevPastHalfway: boolean | null;
+}): number {
+  if (!prevCollisionId || prevCollisionId !== currentId) {
+    return 0;
+  }
+
+  if (prevPastHalfway === null) {
+    return 0;
+  }
+
+  const activeAxisSize = containerIsHorizontal
+    ? activeRect.width
+    : activeRect.height;
+  const droppableAxisSize = containerIsHorizontal
+    ? droppableRect.width
+    : droppableRect.height;
+  const compactAxisSize = Math.min(activeAxisSize, droppableAxisSize);
+  const magnitude = Math.max(
+    0,
+    Math.min(
+      SAME_COLLISION_HYSTERESIS_PX,
+      compactAxisSize * SAME_COLLISION_HYSTERESIS_RATIO,
+    ),
+  );
+
+  return prevPastHalfway ? magnitude : -magnitude;
 }
 
 function updatePointerDirections(
