@@ -255,6 +255,35 @@ func TestBuildToolDefinitionsFiltersNonDefaultCompletionStatusWithoutAllowlist(t
 	}
 }
 
+func TestBuildToolDefinitionsKeepsCompletionStatusToolForScopedRun(t *testing.T) {
+	t.Parallel()
+
+	sectionID := "section-chat"
+	payload, _, _, err := buildToolDefinitions(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: true,
+		SectionID:              &sectionID,
+	}, &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__report_completion_status": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__report_completion_status",
+				RemoteName:     "report_completion_status",
+				InputSchema:    map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tool definitions: %v", err)
+	}
+
+	got := toolNamesFromPayload(payload)
+	want := []string{"setta__report_completion_status"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected tool names %#v", got)
+	}
+}
+
 func toolNamesFromPayload(payload []map[string]any) []string {
 	names := make([]string, 0, len(payload))
 	for _, tool := range payload {
