@@ -94,6 +94,35 @@ func TestClientToolCacheNamespacesAndFilters(t *testing.T) {
 	}
 }
 
+func TestClientToolCacheKeepsSearchToolInitOnly(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	client.updateToolCacheForServer(DefaultServerID, []remoteTool{
+		{
+			Name:     "search_mcp_tools",
+			Kind:     tools.KindInit,
+			ReadOnly: true,
+			Metadata: mustMetadata(t, "search_mcp_tools", tools.Metadata{
+				Kind:       tools.KindInit,
+				AccessType: tools.AccessTypeRead,
+			}),
+		},
+	})
+
+	namespacedName := BuildNamespacedToolName(DefaultServerID, "search_mcp_tools")
+	if _, ok := client.InitToolsForServers(nil)[namespacedName]; !ok {
+		t.Fatal("expected search_mcp_tools in init tool cache")
+	}
+	if _, ok := client.DiscoverableToolsForServers(nil)[namespacedName]; ok {
+		t.Fatal("did not expect search_mcp_tools in discoverable tool cache")
+	}
+}
+
 func TestClientCallToolRetriesReadOnlyAfterReconnect(t *testing.T) {
 	t.Parallel()
 
@@ -198,6 +227,39 @@ func TestClientBuildHTTPHeadersMergesProviderAndConfig(t *testing.T) {
 	}
 }
 
+func TestClientBuildHTTPHeadersExcludesSettaAuthForNonSettaServer(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{
+		HeaderProvider: func(serverID string) (http.Header, error) {
+			if serverID != DefaultServerID {
+				return nil, nil
+			}
+			headers := http.Header{}
+			headers.Set("Cookie", "setta_auth=cookie-value")
+			return headers, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	headers, err := client.buildHTTPHeaders("github", ServerConfig{
+		Transport:   TransportStreamableHTTP,
+		URL:         "http://127.0.0.1:9001/mcp",
+		HTTPHeaders: map[string]string{"X-Api-Key": "github-token"},
+	})
+	if err != nil {
+		t.Fatalf("build headers: %v", err)
+	}
+	if got := headers.Get("X-Api-Key"); got != "github-token" {
+		t.Fatalf("expected X-Api-Key header, got %q", got)
+	}
+	if got := headers.Get("Cookie"); got != "" {
+		t.Fatalf("expected no setta auth cookie for non-setta server, got %q", got)
+	}
+}
+
 func TestClientStartConnectsAndCloseMarksDisabled(t *testing.T) {
 	t.Parallel()
 
@@ -284,6 +346,127 @@ func TestClientMissingEnvFailureDoesNotRetry(t *testing.T) {
 	}
 	if status.ConsecutiveFailures != 1 {
 		t.Fatalf("expected one recorded failure, got %d", status.ConsecutiveFailures)
+	}
+}
+
+func TestClientInitialRuntimeStatusesIncludeConfiguredServers(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{
+		Servers: map[string]ServerConfig{
+			DefaultServerID: {
+				Transport: TransportSSE,
+				URL:       "http://127.0.0.1:8000/mcp",
+			},
+			"local_stdio": {
+				Transport: TransportStdio,
+				Command:   "node",
+				Args:      []string{"server.js"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	statuses := map[string]ServerRuntimeStatus{}
+	for _, status := range client.RuntimeStatuses() {
+		statuses[status.ServerID] = status
+	}
+	if len(statuses) != 2 {
+		t.Fatalf("expected two runtime statuses, got %d", len(statuses))
+	}
+	if statuses[DefaultServerID].State != RuntimeStateUnknown {
+		t.Fatalf("expected setta status unknown, got %q", statuses[DefaultServerID].State)
+	}
+	if statuses["local_stdio"].Endpoint != "node" {
+		t.Fatalf("expected stdio endpoint node, got %q", statuses["local_stdio"].Endpoint)
+	}
+}
+
+func TestClientRuntimeStatusTransitionsResetFailureMetadata(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{
+		Servers: map[string]ServerConfig{
+			"github": {
+				Transport: TransportStreamableHTTP,
+				URL:       "http://localhost:9000/mcp",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	client.markConnecting("github")
+	status := client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateConnecting {
+		t.Fatalf("expected connecting state, got %q", status.State)
+	}
+	if status.LastAttemptAt == nil {
+		t.Fatal("expected last attempt timestamp")
+	}
+
+	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
+	status = client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateError {
+		t.Fatalf("expected error state, got %q", status.State)
+	}
+	if status.LastError == nil || *status.LastError != "connect failed" {
+		t.Fatalf("expected last error metadata, got %#v", status.LastError)
+	}
+	if status.MissingEnvVar == nil || *status.MissingEnvVar != "GITHUB_TOKEN" {
+		t.Fatalf("expected missing env metadata, got %#v", status.MissingEnvVar)
+	}
+	if status.ConsecutiveFailures != 1 {
+		t.Fatalf("expected one failure, got %d", status.ConsecutiveFailures)
+	}
+
+	client.markRetrying("github")
+	status = client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateRetrying {
+		t.Fatalf("expected retrying state, got %q", status.State)
+	}
+
+	client.markConnected("github", 5)
+	status = client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateConnected {
+		t.Fatalf("expected connected state, got %q", status.State)
+	}
+	if status.ToolCount != 5 {
+		t.Fatalf("expected tool count 5, got %d", status.ToolCount)
+	}
+	if status.LastConnectedAt == nil {
+		t.Fatal("expected last connected timestamp")
+	}
+	if status.LastError != nil {
+		t.Fatalf("expected last error cleared on connect, got %#v", status.LastError)
+	}
+	if status.MissingEnvVar != nil {
+		t.Fatalf("expected missing env cleared on connect, got %#v", status.MissingEnvVar)
+	}
+	if status.ConsecutiveFailures != 0 {
+		t.Fatalf("expected failures reset on connect, got %d", status.ConsecutiveFailures)
+	}
+
+	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
+	client.markDisabled("github")
+	status = client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateDisabled {
+		t.Fatalf("expected disabled state, got %q", status.State)
+	}
+	if status.ToolCount != 0 {
+		t.Fatalf("expected zero tool count after disable, got %d", status.ToolCount)
+	}
+	if status.LastError != nil {
+		t.Fatalf("expected last error cleared on disable, got %#v", status.LastError)
+	}
+	if status.MissingEnvVar != nil {
+		t.Fatalf("expected missing env cleared on disable, got %#v", status.MissingEnvVar)
+	}
+	if status.ConsecutiveFailures != 0 {
+		t.Fatalf("expected failures reset on disable, got %d", status.ConsecutiveFailures)
 	}
 }
 
@@ -441,6 +624,39 @@ func TestClientCallToolDoesNotRetryWriteTools(t *testing.T) {
 	_, err = client.CallTool(context.Background(), BuildNamespacedToolName(DefaultServerID, "write_file"), map[string]any{})
 	if !errors.Is(err, writeErr) {
 		t.Fatalf("expected write call error, got %v", err)
+	}
+}
+
+func TestClientCallToolReturnsDisconnectWhenReconnectUnavailable(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{ReconnectWait: 50 * time.Millisecond})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	client.updateToolCacheForServer(DefaultServerID, []remoteTool{
+		{
+			Name:     "read_file_range",
+			Kind:     tools.KindDiscoverable,
+			ReadOnly: true,
+			Metadata: mustMetadata(t, "read_file_range", tools.Metadata{
+				Kind:       tools.KindDiscoverable,
+				AccessType: tools.AccessTypeRead,
+			}),
+		},
+	})
+	client.mu.Lock()
+	client.sessions[DefaultServerID] = &activeSession{session: &stubSession{
+		call: func(context.Context, string, map[string]any, map[string]any) (ToolCallResult, error) {
+			return ToolCallResult{}, sdkmcp.ErrConnectionClosed
+		},
+	}}
+	client.mu.Unlock()
+
+	_, err = client.CallTool(context.Background(), BuildNamespacedToolName(DefaultServerID, "read_file_range"), map[string]any{"path": "README.md"})
+	if !errors.Is(err, sdkmcp.ErrConnectionClosed) {
+		t.Fatalf("expected connection closed error when reconnect is unavailable, got %v", err)
 	}
 }
 
