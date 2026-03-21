@@ -52,6 +52,15 @@ type ScopedRegistryOptions struct {
 	ProjectAISettings ProjectAISettingProviders
 }
 
+type pluginBackendInvalidValueError struct {
+	pluginID     string
+	settingID    string
+	prefix       string
+	causeCode    ErrorCode
+	causeMessage string
+	settingErr   *SettingError
+}
+
 func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
 	if err != nil {
@@ -500,9 +509,23 @@ func normalizePluginConfigMutationError(pluginID string, settingID string, err e
 func wrapPluginBackendInvalidValueError(pluginID string, settingID string, prefix string, err error) error {
 	var settingErr *SettingError
 	if errors.As(err, &settingErr) {
-		return newSettingError(settingErr.Code, "Plugin %s setting %s %s: %s", pluginID, settingID, prefix, settingErr.Message)
+		return newPluginBackendInvalidValueError(pluginID, settingID, prefix, settingErr.Code, settingErr.Message)
 	}
-	return newSettingError(ErrorCodeMutationFailed, "Plugin %s setting %s %s: %v", pluginID, settingID, prefix, err)
+	return newPluginBackendInvalidValueError(pluginID, settingID, prefix, ErrorCodeMutationFailed, fmt.Sprint(err))
+}
+
+func RecontextualizePluginBackendInvalidValueError(err error, prefix string) error {
+	var backendErr *pluginBackendInvalidValueError
+	if !errors.As(err, &backendErr) {
+		return err
+	}
+	return newPluginBackendInvalidValueError(
+		backendErr.pluginID,
+		backendErr.settingID,
+		prefix,
+		backendErr.causeCode,
+		backendErr.causeMessage,
+	)
 }
 
 func rollbackPluginBackendUISettingValue(
@@ -614,6 +637,39 @@ func newSettingErrorValue(code ErrorCode, format string, args ...any) SettingErr
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),
 	}
+}
+
+func newPluginBackendInvalidValueError(pluginID string, settingID string, prefix string, causeCode ErrorCode, causeMessage string) *pluginBackendInvalidValueError {
+	settingErr := newSettingErrorValue(
+		causeCode,
+		"Plugin %s setting %s %s: %s",
+		pluginID,
+		settingID,
+		prefix,
+		causeMessage,
+	)
+	return &pluginBackendInvalidValueError{
+		pluginID:     pluginID,
+		settingID:    settingID,
+		prefix:       prefix,
+		causeCode:    causeCode,
+		causeMessage: causeMessage,
+		settingErr:   &settingErr,
+	}
+}
+
+func (e *pluginBackendInvalidValueError) Error() string {
+	if e == nil || e.settingErr == nil {
+		return ""
+	}
+	return e.settingErr.Message
+}
+
+func (e *pluginBackendInvalidValueError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.settingErr
 }
 
 func parsePluginUISettingDefinition(pluginID string, schemaJSON map[string]any, index int, raw any) (pluginUISettingDefinition, error) {

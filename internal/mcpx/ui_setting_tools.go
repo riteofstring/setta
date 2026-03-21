@@ -223,6 +223,12 @@ func newSetUISettingValueHandler(server *Server, workspaceRoot string) tools.Han
 
 		currentValue, err := registry.ReadValue(ctx, projectConfigID, entry.Metadata.SettingID)
 		if err != nil {
+			if entry.Metadata.Source == uisettings.SourcePlugin && entry.WriteValue != nil {
+				err = uisettings.RecontextualizePluginBackendInvalidValueError(
+					err,
+					"pre-write oldValue read returned an invalid value",
+				)
+			}
 			return setUISettingValueResult{
 				Setting:         summary,
 				OldValue:        nil,

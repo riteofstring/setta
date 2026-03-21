@@ -3163,6 +3163,135 @@ func TestServerUISettingToolsSupportBackendRegisteredPluginSettings(t *testing.T
 	}
 }
 
+func TestServerUISettingToolsBackendRegisteredReadTypeMismatchReturnsStructuredError(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGo(t, installResult.SourcePath, false)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan backend-registered plugin runtime: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureState(t, installResult.SourcePath, "invalid-string")
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call read-mismatch get_ui_setting_value for backend-registered plugin setting: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected structured read-mismatch response, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	getError := mustStructuredMap(t, getPayload["error"])
+	if getError["code"] != string(uisettings.ErrorCodeInvalidValueType) {
+		t.Fatalf("expected invalid_value_type for backend-registered read mismatch, got %#v", getError["code"])
+	}
+	message, ok := getError["message"].(string)
+	if !ok || !strings.Contains(message, "returned an invalid value") {
+		t.Fatalf("expected invalid-value read message, got %#v", getError["message"])
+	}
+}
+
+func TestServerUISettingToolsRejectInvalidExistingValueBeforeBackendRegisteredWrite(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGo(t, installResult.SourcePath, false)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan backend-registered plugin runtime: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureState(t, installResult.SourcePath, "invalid-before-write")
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid-existing-value set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured invalid-existing-value response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodeInvalidValueType) {
+		t.Fatalf("expected invalid_value_type for invalid existing backend value, got %#v", setError["code"])
+	}
+	message, ok := setError["message"].(string)
+	if !ok || !strings.Contains(message, "pre-write oldValue read returned an invalid value") {
+		t.Fatalf("expected invalid pre-write validation message, got %#v", setError["message"])
+	}
+
+	var state struct {
+		Enabled any `json:"enabled"`
+	}
+	statePayload, err := os.ReadFile(filepath.Join(installResult.SourcePath, "backend_ui_setting_state.json"))
+	if err != nil {
+		t.Fatalf("read backend state after failed pre-write validation: %v", err)
+	}
+	if err := json.Unmarshal(statePayload, &state); err != nil {
+		t.Fatalf("decode backend state after failed pre-write validation: %v", err)
+	}
+	if state.Enabled != "invalid-before-write" {
+		t.Fatalf("expected invalid existing backend value to remain unchanged, got %#v", state.Enabled)
+	}
+}
+
 func TestServerUISettingToolsBackendRegisteredSameValueWriteIsNoOpWithoutBackendWrite(t *testing.T) {
 	t.Parallel()
 
@@ -4315,5 +4444,17 @@ func fail(format string, args ...any) {
 
 	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "main.go"), []byte(source), 0o644); err != nil {
 		t.Fatalf("write scoped backend ui setting fixture main.go: %v", err)
+	}
+}
+
+func writeScopedPluginBackendUISettingFixtureState(t *testing.T, pluginRoot string, enabled any) {
+	t.Helper()
+
+	payload, err := json.Marshal(map[string]any{"enabled": enabled})
+	if err != nil {
+		t.Fatalf("encode scoped backend ui setting state: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pluginRoot, "backend_ui_setting_state.json"), payload, 0o644); err != nil {
+		t.Fatalf("write scoped backend ui setting state: %v", err)
 	}
 }
