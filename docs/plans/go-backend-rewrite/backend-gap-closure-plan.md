@@ -435,3 +435,7 @@ categorize them.
   closed too, so the remaining practical queue should stay on the heavier
   external-agent runtime, launcher/process-cleanup, and JSON-source runtime
   rows rather than reopening the core UI-setting registry owner
+- The launcher process-tree cleanup row is now closed too, so the remaining
+  practical queue should stay on the heavier external-agent runtime and
+  JSON-source/runtime gaps rather than reopening the launch owner unless a new
+  harness mismatch points back there
