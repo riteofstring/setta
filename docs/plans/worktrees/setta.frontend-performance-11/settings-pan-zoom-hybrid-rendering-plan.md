@@ -606,6 +606,10 @@ Current execution note:
   - replacing inactive `CodeParam` / `TextParam` / `TextAreaParam` previews with a direct plain-text root did remove the targeted `.cm-line` path on both canonical worktree scenes
   - but it still regressed both canonical scenes strongly on aggregate `Paint` and `RunTask`, plus every representative slow pan/zoom phase in the first paired rerun
   - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
+- the next row paint-containment experiment was also benchmarked and rejected:
+  - broadening the accepted row containment from `contain: layout` to `contain: layout paint` on the same repeated Tier 1 row shells made both canonical scenes materially worse
+  - `settings` and `tier1Synthetic` both regressed on aggregate `Paint`, `RunTask`, and `UpdateLayoutTree` in the first paired rerun
+  - keep the accepted `layout` containment only and do not carry the `paint` containment change at `HEAD`
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -615,6 +619,7 @@ Current execution note:
   - avoid another immediate attempt to push the full label/value shell ownership directly onto the CodeMirror roots; that specific collapse regressed both canonical scenes badly enough to reject as a local seam strategy
   - avoid another immediate dummy-preview-only syntax tweak unless it clearly reaches the real `settings` hotspot rows; the rejected preview-language pass mainly changed `benchmark-tier1` name rows and missed the heavier `settings` code-param path
   - avoid another immediate text-family inactive-preview simplification pass in `TextInputCodeMirror` / `DummyCodeMirror`; the broader plain-preview pass hit the intended value rows directly and still regressed both canonical scenes badly
+  - avoid another immediate expansion of the accepted row-containment boundary; the `contain: layout paint` pass was decisively worse on both canonical scenes
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
@@ -626,7 +631,7 @@ Current execution note:
       - every Tier 1 leaf row pays for that split
       - the next worthwhile experiment should remove or hide more of that repeated structure than the rejected isolated style-token passes could reach
       - but it should do so without moving the full row shell responsibility onto `TextInputCodeMirror` itself
-      - and it should hit the row families that still dominate `settings`, especially non-preview repeated row/body surfaces instead of another immediate inactive-preview-only tweak
+      - and it should hit the row families that still dominate `settings`, especially non-preview repeated row/body surfaces instead of another immediate inactive-preview-only tweak or another `contain` retune on the same row shell
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

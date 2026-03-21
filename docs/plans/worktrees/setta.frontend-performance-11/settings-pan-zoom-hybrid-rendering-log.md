@@ -1314,3 +1314,90 @@ Record:
     - target repeated row/body ownership or non-preview shared structure instead of another blurred text-family preview simplification
 - Next action:
   - Turn the next candidate into a row/body-ownership experiment outside the immediate inactive preview lane, then rerun the same canonical benchmark pair.
+
+## 2026-03-20 028
+
+- Item: Benchmark the row paint-containment experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - change the existing accepted row containment in `frontend/index.css` from:
+      - `contain: layout`
+    - to:
+      - `contain: layout paint`
+    - on the same repeated Tier 1 row surfaces:
+      - `.section-param-row`
+      - `.section-param-row > .section-key.param-row-label`
+      - `.section-param-row > .section-key-value.param-row-label`
+      - `.section-param-row > .section-value`
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamRowShell.test.tsx src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/sectionBodyModePolicy.test.ts`
+      - result:
+        - `9` files passed
+        - `34` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-paint-containment-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-paint-containment-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `374.874ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `4170.026ms`
+      - benchmark `UpdateLayoutTree`:
+        - before:
+          - `66.774ms`
+        - after:
+          - `79.648ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `918.066ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `23110.536ms`
+      - benchmark `UpdateLayoutTree`:
+        - before:
+          - `18.282ms`
+        - after:
+          - `27.561ms`
+  - Decision:
+    - reject this row paint-containment experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the CSS change and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - worktree `settings` returned to the retained baseline:
+      - `.react-flow__viewport` present:
+        - `true`
+      - `[id$="-ParamInput"]` count:
+        - `215`
+      - `[id$="-ParamInput"] .cm-line` count:
+        - `215`
+- Next action:
+  - Continue from the retained dense-row baseline and move away from the immediate row-containment family; the next Tier 1 candidate should change a different repeated row/body seam.
+
+## 2026-03-20 029
+
+- Item: Choose the next Tier 1 target after the rejected row paint-containment experiment.
+- Status: `in_progress`
+- Details:
+  - Updated read after the rejection:
+    - the accepted `layout` containment should stay
+    - broadening that same boundary to `paint` made both canonical scenes materially worse
+    - the immediate row-containment family is now exhausted for quick wins
+  - Current likely direction:
+    - stay in Phase 5
+    - target different repeated row/body ownership or structure instead of more `contain` tuning on the same shells
+- Next action:
+  - Narrow the next candidate onto a different shared row/body seam, then rerun the same canonical benchmark pair.
