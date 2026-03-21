@@ -1393,3 +1393,28 @@ That means:
 - Which `Prompt` / `TextBlock` issues are true pan/zoom-motion problems versus separate typing/editing-performance problems?
 
 These questions should be answered with traces and direct visual verification, not by intuition alone.
+
+## 2026-03-21 Current Execution Note
+
+- The next live Tier 1 probe is now committed as:
+  - `391f548f4` `Split the dense text-family ParamUI path before generic leaf selectors`
+- Scope of the live experiment:
+  - split the dominant text-family leaf path out of the generic `ParamUI` selector bundle
+  - stop non-python text rows from mounting the `useTextFieldWaitingForLSPResult` subscription
+  - keep the existing row geometry and text-input DOM contract unchanged
+- Focused verification completed before the benchmark gate:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Params/ParamUIs/TextParamInput.test.tsx`
+    - `3` files passed
+    - `17` tests passed
+  - filtered `tsc` on `ParamUI` returned only the same pre-existing baseline `ParamUI.tsx` diagnostics unrelated to this new narrowing
+- Fresh discovery immediately before this probe:
+  - a fresh browser subagent inspection of live `All Settings` found the dominant visible repeated row family was text-input leaf rows, not switch rows
+  - a fresh explorer pass independently recommended the text-family selector split as the strongest remaining small probe after the rejected switch-only fast path
+- Benchmark and browser-verification state:
+  - the authoritative paired benchmark matrix for this live experiment has not run yet
+  - a fresh Chrome DevTools MCP sanity pass for this live experiment has not run yet
+  - both are currently blocked because the worktree CDP endpoint `http://127.0.0.1:9233/json/version` is timing out while untouched `main` remains healthy on `http://127.0.0.1:9309/json/version`
+- Resume order once the worktree CDP endpoint is restored:
+  - rerun the canonical paired matrix for `settings` and `tier1Synthetic`
+  - run a fresh subagent Chrome DevTools MCP sanity pass on `/settings` `All Settings` plus `/benchmark-tier1`
+  - append the measured keep/reject decision before making any new Tier 1 code change

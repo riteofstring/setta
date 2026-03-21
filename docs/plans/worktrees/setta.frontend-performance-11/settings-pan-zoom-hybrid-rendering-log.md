@@ -2712,3 +2712,32 @@ Record:
     - the next candidate needs a different repeated subtype or a different leaf-path mechanism
 - Next action:
   - Restore the retained baseline, rerun focused verification, and choose the next small Tier 1 leaf-path probe before making another code change.
+
+## 2026-03-21 065
+
+- Item: Commit the text-family `ParamUI` narrowing experiment and pause at the benchmark gate when the worktree CDP endpoint is unavailable.
+- Status: `blocked`
+- Details:
+  - Live experiment committed as:
+    - `391f548f4` `Split the dense text-family ParamUI path before generic leaf selectors`
+  - Experimental change under test:
+    - split the dominant text-family leaf path out of the generic `ParamUI` selector bundle
+    - stop non-python text rows from mounting `useTextFieldWaitingForLSPResult`
+    - keep the existing row geometry and text-input DOM contract unchanged
+  - Why this probe was chosen:
+    - fresh browser inspection of live `All Settings` showed text-input leaf rows were the dominant visible repeated family
+    - fresh code exploration independently pointed to the text-family selector split as the strongest remaining small probe after the rejected switch-only fast path
+  - Focused verification completed on the live experiment before the benchmark gate:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - `3` files passed
+      - `17` tests passed
+    - filtered `tsc` on `ParamUI` and the new test returned only the same pre-existing baseline `ParamUI.tsx` diagnostics outside this new narrowing
+  - Benchmark / browser-verification blocker:
+    - the authoritative paired matrix for `settings` plus `tier1Synthetic` could not run because the worktree CDP endpoint `http://127.0.0.1:9233/json/version` timed out
+    - untouched `main` remained healthy on `http://127.0.0.1:9309/json/version`
+    - a fresh Chrome DevTools MCP subagent also reported the browser bridge was inaccessible for the required live sanity pass
+  - Decision:
+    - keep the text-family split committed for now
+    - do not make a keep/reject call until the paired benchmark matrix and fresh browser sanity pass complete
+- Next action:
+  - Restart `ai.sh` for this worktree, rerun the paired `settings` plus `tier1Synthetic` benchmark matrix for commit `391f548f4`, then run a fresh subagent Chrome DevTools MCP sanity check before deciding whether to keep or revert the experiment.
