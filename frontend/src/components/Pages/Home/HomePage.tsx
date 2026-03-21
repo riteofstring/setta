@@ -53,7 +53,7 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { route_set_as_default_project } from "utils/generatedEndpoints";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
@@ -376,7 +376,7 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await route_set_as_default_project({ projectConfigId });
+    await router_set_as_default_project({ projectConfigId });
   }
 
   const commonGalleryProps = {
