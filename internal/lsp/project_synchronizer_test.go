@@ -520,6 +520,91 @@ func TestProjectSynchronizerAutoRefetchesNewCallableMismatchesOnce(t *testing.T)
 	}
 }
 
+// Re-materializing project documents should keep the previously-seen mismatch
+// set so duplicate mismatch publishes do not re-trigger auto-refetch on every
+// ordinary document refresh.
+func TestProjectSynchronizerMaterializeDocumentPreservesCallableMismatchSections(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	var mismatchEvents [][]string
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        syncer,
+		Diagnostics:    diagnostics,
+		OnCallableSignatureMismatch: func(_ context.Context, projectID string, sectionIDs []string) {
+			if projectID != "project-alpha" {
+				t.Fatalf("unexpected project id %q", projectID)
+			}
+			mismatchEvents = append(mismatchEvents, append([]string(nil), sectionIDs...))
+		},
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	document, generatedPath, _ := lspGeneratedDiagnosticsDocument(t, settaFilesRoot, false, false)
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize generated diagnostics document: %v", err)
+	}
+
+	generatedCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read generated code file: %v", err)
+	}
+	params := buildGeneratedPublishDiagnostics(
+		t,
+		generatedPath,
+		string(generatedCode),
+		"MissingFunc",
+		`Argument missing for parameter "param"`,
+		"reportCallIssue",
+	)
+
+	tracked, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected tracked generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	if tracked.Callback == nil {
+		t.Fatal("expected generated code diagnostics callback")
+	}
+	tracked.Callback(params)
+
+	if !reflect.DeepEqual(mismatchEvents, [][]string{{"section-1"}}) {
+		t.Fatalf("unexpected initial mismatch refetch events %#v", mismatchEvents)
+	}
+
+	if err := synchronizer.MaterializeDocument(ctx, document.Clone()); err != nil {
+		t.Fatalf("rematerialize generated diagnostics document: %v", err)
+	}
+
+	rematerialized, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected rematerialized generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	if rematerialized.Callback == nil {
+		t.Fatal("expected rematerialized generated code diagnostics callback")
+	}
+	rematerialized.Callback(params)
+
+	if !reflect.DeepEqual(mismatchEvents, [][]string{{"section-1"}}) {
+		t.Fatalf("expected mismatch state to survive rematerialization, got %#v", mismatchEvents)
+	}
+}
+
 // Turning metadata generation off should clear stale metadata diagnostics when
 // the generated metadata document disappears from the tracked LSP set.
 func TestProjectSynchronizerClearsGeneratedMetadataDiagnosticsWhenMetadataDisabled(t *testing.T) {

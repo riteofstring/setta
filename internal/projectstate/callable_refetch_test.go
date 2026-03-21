@@ -75,6 +75,85 @@ func TestProjectRefetchCallableParamsFailsOnMissingCallableCodeObject(t *testing
 	}
 }
 
+// Skipped auto-refetches should leave runtime history untouched so the source
+// no-op branch does not create undo noise in Go either.
+func TestRuntimeRefetchCallableParamsSkippedKeepsRevisionAndHistory(t *testing.T) {
+	t.Parallel()
+
+	runtime := openCallableTestRuntime(t)
+	initialSnapshot := runtime.Snapshot()
+	initialHistoryLen := runtimeHistoryLen(t, runtime)
+	resolver := &stubCallableSignatureResolver{ok: false}
+
+	snapshot, didUpdate, err := runtime.RefetchCallableParams(
+		context.Background(),
+		"project-alpha",
+		[]string{"callable-section"},
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("runtime refetch callable params: %v", err)
+	}
+	if didUpdate {
+		t.Fatal("expected skipped refetch to report no update")
+	}
+	if snapshot.Revision != initialSnapshot.Revision {
+		t.Fatalf("expected skipped refetch revision %d, got %d", initialSnapshot.Revision, snapshot.Revision)
+	}
+	if got := runtimeHistoryLen(t, runtime); got != initialHistoryLen {
+		t.Fatalf("expected skipped refetch history len %d, got %d", initialHistoryLen, got)
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+}
+
+// Missing section ids should be ignored instead of mutating project history or
+// raising a route-visible error for an otherwise valid project.
+func TestRuntimeRefetchCallableParamsIgnoresMissingSection(t *testing.T) {
+	t.Parallel()
+
+	runtime := openCallableTestRuntime(t)
+	initialSnapshot := runtime.Snapshot()
+	initialHistoryLen := runtimeHistoryLen(t, runtime)
+
+	snapshot, didUpdate, err := runtime.RefetchCallableParams(
+		context.Background(),
+		"project-alpha",
+		[]string{"missing-section"},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("runtime refetch callable params missing section: %v", err)
+	}
+	if didUpdate {
+		t.Fatal("expected missing section refetch to report no update")
+	}
+	if snapshot.Revision != initialSnapshot.Revision {
+		t.Fatalf("expected missing section revision %d, got %d", initialSnapshot.Revision, snapshot.Revision)
+	}
+	if got := runtimeHistoryLen(t, runtime); got != initialHistoryLen {
+		t.Fatalf("expected missing section history len %d, got %d", initialHistoryLen, got)
+	}
+}
+
+// Go rejects malformed callable code-object names during normalization, so the
+// blank-name source branch fails closed before runtime auto-refetch can run.
+func TestDocumentNormalizedRejectsBlankCallableCodeObjectName(t *testing.T) {
+	t.Parallel()
+
+	document := rawCallableTestDocument(t)
+	project := document.Projects["project-alpha"]
+	callable := project.CodeObjs["callable-1"]
+	callable.Name = "   "
+	project.CodeObjs["callable-1"] = callable
+	document.Projects["project-alpha"] = project
+
+	if _, err := document.Normalized(); !errors.Is(err, ErrCodeObjNameRequired) {
+		t.Fatalf("expected blank callable name normalization error, got %v", err)
+	}
+}
+
 // Empty settings documents should fall back to the schema default so mismatch
 // refetch keeps working before a settings project is ever saved.
 func TestAutoRefetchCallableParamsOnLSPMismatchEnabledDefaultsTrue(t *testing.T) {
@@ -173,6 +252,58 @@ func settingsBackendTestDocument(t *testing.T, rawValue string) Document {
 		"autoRefetchCallableParamsOnLSPMismatch",
 		rawValue,
 	)
+}
+
+func openCallableTestRuntime(t *testing.T) *Runtime {
+	t.Helper()
+
+	runtime, err := OpenOverlayRuntime(callableTestDocument(t))
+	if err != nil {
+		t.Fatalf("open callable test runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close callable test runtime: %v", err)
+		}
+	})
+	return runtime
+}
+
+func callableTestDocument(t *testing.T) Document {
+	t.Helper()
+
+	document, err := rawCallableTestDocument(t).Normalized()
+	if err != nil {
+		t.Fatalf("normalize callable test document: %v", err)
+	}
+	return document
+}
+
+func rawCallableTestDocument(t *testing.T) Document {
+	t.Helper()
+
+	return Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": callableTestProject(t),
+		},
+	}
+}
+
+func runtimeHistoryLen(t *testing.T, runtime *Runtime) int {
+	t.Helper()
+
+	historyLen := 0
+	if _, err := runtime.submit(operation{
+		run: func(state *runtimeState) (Snapshot, error) {
+			historyLen = len(state.history)
+			return snapshotFromState(*state), nil
+		},
+	}); err != nil {
+		t.Fatalf("inspect runtime history len: %v", err)
+	}
+	return historyLen
 }
 
 func settingsBackendSettingTestDocument(t *testing.T, settingName string, rawValue string) Document {
