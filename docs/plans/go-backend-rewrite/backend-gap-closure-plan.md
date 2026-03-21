@@ -266,6 +266,10 @@ categorize them.
 - That OpenCode JSON-permission row is now proved too, so the remaining
   proof-incomplete backlog is less about executor config-shaping minutiae and
   more about broader config-health/codegen/platform slices
+- Those Codex read-only runtime rows are now proved too, so the remaining
+  proof-incomplete backlog is down to the platform-default `SETTA_HOME` row,
+  the two external-agent preflight health rows, and the plugin-codegen
+  stale-root cleanup proof
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
