@@ -110,6 +110,7 @@ type Session struct {
 	mu      sync.Mutex
 
 	started    bool
+	closing    bool
 	closed     bool
 	cmd        *exec.Cmd
 	stdin      io.WriteCloser
@@ -178,7 +179,7 @@ func (s *Session) Start(ctx context.Context) error {
 	}
 
 	s.mu.Lock()
-	if s.closed {
+	if s.closed || s.closing {
 		s.mu.Unlock()
 		return ErrSessionClosed
 	}
@@ -438,15 +439,19 @@ func (s *Session) Close(ctx context.Context) error {
 	}
 
 	s.mu.Lock()
-	if s.closed {
+	if s.closed || s.closing {
 		s.mu.Unlock()
 		return nil
 	}
-	s.closed = true
+	s.closing = true
 	started := s.started
 	s.mu.Unlock()
 
 	if !started {
+		s.mu.Lock()
+		s.closed = true
+		s.closing = false
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -458,14 +463,20 @@ func (s *Session) Close(ctx context.Context) error {
 	shutdownCtx, cancel = context.WithTimeout(shutdownCtx, defaultShutdownTimeout)
 	defer cancel()
 
-	_ = s.callStarted(shutdownCtx, "shutdown", map[string]any{}, nil)
-	_ = s.notify("exit", map[string]any{})
+	_ = s.callStartedWithMode(shutdownCtx, "shutdown", map[string]any{}, nil, true)
+	_ = s.notifyWithMode("exit", map[string]any{}, true)
 
 	s.mu.Lock()
 	cmd := s.cmd
+	stdin := s.stdin
 	readerDone := s.readerDone
 	stderrDone := s.stderrDone
+	s.stdin = nil
 	s.mu.Unlock()
+
+	if stdin != nil {
+		_ = stdin.Close()
+	}
 
 	if cmd != nil && cmd.Process != nil {
 		waitDone := make(chan error, 1)
@@ -488,6 +499,13 @@ func (s *Session) Close(ctx context.Context) error {
 	}
 
 	s.failPending(ErrSessionClosed)
+	s.mu.Lock()
+	s.closed = true
+	s.closing = false
+	s.cmd = nil
+	s.readerDone = nil
+	s.stderrDone = nil
+	s.mu.Unlock()
 	return nil
 }
 
@@ -502,6 +520,10 @@ func (s *Session) call(ctx context.Context, method string, params any, result an
 }
 
 func (s *Session) callStarted(ctx context.Context, method string, params any, result any) error {
+	return s.callStartedWithMode(ctx, method, params, result, false)
+}
+
+func (s *Session) callStartedWithMode(ctx context.Context, method string, params any, result any, allowClosing bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -509,19 +531,19 @@ func (s *Session) callStarted(ctx context.Context, method string, params any, re
 	responseCh := make(chan rpcEnvelope, 1)
 
 	s.mu.Lock()
-	if s.closed {
+	if s.closed || (s.closing && !allowClosing) {
 		s.mu.Unlock()
 		return ErrSessionClosed
 	}
 	s.pending[requestID] = responseCh
 	s.mu.Unlock()
 
-	if err := s.writeEnvelope(map[string]any{
+	if err := s.writeEnvelopeWithMode(map[string]any{
 		"jsonrpc": "2.0",
 		"id":      requestID,
 		"method":  method,
 		"params":  params,
-	}); err != nil {
+	}, allowClosing); err != nil {
 		s.mu.Lock()
 		delete(s.pending, requestID)
 		s.mu.Unlock()
@@ -739,14 +761,22 @@ func (s *Service) Close(ctx context.Context) error {
 }
 
 func (s *Session) notify(method string, params any) error {
-	return s.writeEnvelope(map[string]any{
+	return s.notifyWithMode(method, params, false)
+}
+
+func (s *Session) notifyWithMode(method string, params any, allowClosing bool) error {
+	return s.writeEnvelopeWithMode(map[string]any{
 		"jsonrpc": "2.0",
 		"method":  method,
 		"params":  params,
-	})
+	}, allowClosing)
 }
 
 func (s *Session) writeEnvelope(payload map[string]any) error {
+	return s.writeEnvelopeWithMode(payload, false)
+}
+
+func (s *Session) writeEnvelopeWithMode(payload map[string]any, allowClosing bool) error {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("lsp: encode request: %w", err)
@@ -754,7 +784,7 @@ func (s *Session) writeEnvelope(payload map[string]any) error {
 	header := []byte(fmt.Sprintf("Content-Length: %d\r\n\r\n", len(encoded)))
 
 	s.mu.Lock()
-	if s.closed {
+	if s.closed || (s.closing && !allowClosing) {
 		s.mu.Unlock()
 		return ErrSessionClosed
 	}

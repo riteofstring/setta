@@ -209,6 +209,97 @@ while True:
 	}
 }
 
+// Close must send shutdown/exit before sealing the session so app cleanup does
+// not fall back to the slow kill timeout for every LSP-backed test.
+func TestSessionCloseDeliversShutdownAndExit(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	shutdownMarker := filepath.Join(t.TempDir(), "shutdown.txt")
+	exitMarker := filepath.Join(t.TempDir(), "exit.txt")
+	serverScript := writeTestScript(t, `
+import json
+import pathlib
+import sys
+
+shutdown_marker = pathlib.Path(sys.argv[1])
+exit_marker = pathlib.Path(sys.argv[2])
+
+def send(payload):
+    data = json.dumps(payload).encode("utf-8")
+    sys.stdout.buffer.write(f"Content-Length: {len(data)}\r\n\r\n".encode("utf-8"))
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
+
+def read_message():
+    headers = {}
+    while True:
+        line = sys.stdin.buffer.readline()
+        if line == b"":
+            return None
+        if line in {b"\n", b"\r\n"}:
+            break
+        key, _, value = line.decode("utf-8").partition(":")
+        if _ == ":":
+            headers[key.lower().strip()] = value.strip()
+    length = int(headers.get("content-length", "0"))
+    if length <= 0:
+        return None
+    body = sys.stdin.buffer.read(length)
+    if len(body) < length:
+        return None
+    return json.loads(body.decode("utf-8"))
+
+while True:
+    message = read_message()
+    if message is None:
+        raise SystemExit(0)
+    method = message.get("method")
+    message_id = message.get("id")
+    if method == "initialize" and message_id is not None:
+        send({"jsonrpc": "2.0", "id": message_id, "result": {"capabilities": {"textDocumentSync": 2}}})
+        continue
+    if method == "shutdown" and message_id is not None:
+        shutdown_marker.write_text("shutdown\n")
+        send({"jsonrpc": "2.0", "id": message_id, "result": None})
+        continue
+    if method == "exit":
+        exit_marker.write_text("exit\n")
+        raise SystemExit(0)
+`)
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot: workspaceRoot,
+		Command:       pythonBinary,
+		Args:          []string{serverScript, shutdownMarker, exitMarker},
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := session.Start(ctx); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	start := time.Now()
+	if err := session.Close(context.Background()); err != nil {
+		t.Fatalf("close session: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed >= time.Second {
+		t.Fatalf("expected graceful close before fallback timeout, took %s", elapsed)
+	}
+
+	if _, err := os.Stat(shutdownMarker); err != nil {
+		t.Fatalf("expected shutdown marker, got %v", err)
+	}
+	if _, err := os.Stat(exitMarker); err != nil {
+		t.Fatalf("expected exit marker, got %v", err)
+	}
+}
+
 // Shared LSP sessions should outlive the request context that first started
 // them so later save/completion routes can reuse the same process.
 func TestSessionStartDoesNotTieProcessLifetimeToStartContext(t *testing.T) {
