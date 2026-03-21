@@ -251,6 +251,10 @@ categorize them.
   bounded proof-only queue inside external-agent runtime should likely focus
   on the remaining Codex prompt/auth branches rather than the already-proved
   per-chat artifact and subprocess-env plumbing
+- That Codex runtime prompt-order row is now proved too, so the next bounded
+  proof-only queue inside external-agent runtime is narrower again: the
+  remaining cheap-looking slices are explicit-path no-bootstrap and session-
+  home auth inheritance/login rather than prompt/config merge behavior
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
