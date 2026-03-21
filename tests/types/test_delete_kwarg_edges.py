@@ -1,26 +1,23 @@
 import pytest
-
-from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
-from setta.types.edges import Edge, EdgePort
-from setta.types.generated.settings_state import SettingsState
+from setta.types.edges import Edge
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
     get_curr_section_variant,
 )
-from setta.types.helpers_lvl2 import (
+from tests.helpers.project_state_mutations import (
     add_kwarg,
-    create_edge,
-    create_top_level_section,
     delete_kwarg,
     set_param_entered_value,
     set_section_edge_inputs,
-    set_section_edge_outputs,
 )
+from setta.types.id import create_new_id
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, SectionType
+from tests.helpers.project_state_sections import create_top_level_section
 
 
 class TestDeleteKwargEdges:
@@ -53,25 +50,19 @@ class TestDeleteKwargEdges:
             target_section_id,
             [target_param_id],
         )
-        output_port_id = create_new_id()
-        set_section_edge_outputs(
-            self.project_state,
-            source_section_id,
-            [EdgePort(id=output_port_id, accessor="")],
-        )
         edge = Edge(
             sourceSectionId=source_section_id,
             sourceVariantId=get_curr_section_variant(
                 self.project_state, source_section_id
             ).id,
-            sourcePortId=output_port_id,
+            sourcePortId=create_new_id(),
             targetSectionId=target_section_id,
             targetVariantId=get_curr_section_variant(
                 self.project_state, target_section_id
             ).id,
             targetPortId=target_param_id,
         )
-        create_edge(self.project_state, edge)
+        self.project_state.projectConfig.edges = [edge]
         set_param_entered_value(
             self.project_state, target_section_id, target_param_id, "connected"
         )

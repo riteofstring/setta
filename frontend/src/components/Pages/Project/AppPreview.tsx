@@ -8,9 +8,15 @@ import {
   useAppPreview,
   useProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_load_project_config } from "utils/generatedEndpoints";
-import { createAppDefinition } from "utils/generatedTypes";
+import {
+  createAppDefinition,
+  type ProjectStateSingleConfig,
+} from "utils/generatedTypes";
+
+type LoadProjectConfigRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfig>;
 
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);
@@ -88,9 +94,10 @@ export function AppPreview() {
     }
     let cancelled = false;
     async function loadConfig() {
-      const res = await route_load_project_config({
-        projectConfigName: configName,
-      });
+      const res: LoadProjectConfigRouteResponse =
+        await route_load_project_config({
+          projectConfigName: configName,
+        });
       if (!res200(res) || cancelled) {
         return;
       }
