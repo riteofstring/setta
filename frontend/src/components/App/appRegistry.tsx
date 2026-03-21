@@ -43,7 +43,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_get_password_param_value,
   route_load_cached_image_artifacts,
@@ -51,7 +51,6 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   DateParamCodeObjImpl,
-  LoadCachedImageArtifactsResponse,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -126,9 +125,6 @@ const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   surfaceAlt: "var(--app-surface-alt)",
   card: "var(--app-card-bg)",
 };
-
-type LoadCachedImageArtifactsRouteResponse =
-  ResponseDataAndStatus<LoadCachedImageArtifactsResponse>;
 
 function resolveConfigId(
   bindingConfigId: string | null,
@@ -1167,8 +1163,8 @@ function AppParamUI({
           value={stringValue}
           onChange={onChange}
           onEscape={onEscape}
-          wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
-          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center"
+          wrapperClassName="section-value relative flex min-h-0 h-[calc(100%_-_4px)] w-[calc(100%_-_2px)] min-w-0 justify-self-start self-center items-stretch"
+          colorPickerChoicesClasses="colorpicker relative flex h-full min-h-0 w-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-lg"
           isDisabled={isDisabled}
           theme={{
             inputBorderClassName: "!border-[color:var(--app-border)]",
@@ -1535,8 +1531,7 @@ async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse =
-    await route_load_cached_image_artifacts({ paths });
+  const res = await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
