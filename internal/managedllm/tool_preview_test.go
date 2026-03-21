@@ -94,6 +94,37 @@ func TestExtractPreviewTargetIDsFromTokensCollectsArrayValuesAndObjectKeys(t *te
 	}
 }
 
+func TestCanonicalizePreviewTargetIDsByTypeResolvesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	got, ok := canonicalizePreviewTargetIDsByType(
+		map[tools.IDType][]string{
+			tools.IDTypeSection:    {"14", "section-1"},
+			tools.IDTypeCodeObject: {"27"},
+		},
+		map[tools.IDType][]string{
+			tools.IDTypeSection:    {"sectionId"},
+			tools.IDTypeCodeObject: {"paramInfoId"},
+		},
+		map[string]string{
+			"14":        "section-1",
+			"27":        "param-7",
+			"section-1": "section-1",
+			"param-7":   "param-7",
+		},
+	)
+	if !ok {
+		t.Fatal("expected canonicalized preview ids")
+	}
+	want := map[string][]string{
+		"section": {"section-1"},
+		"codeObj": {"param-7"},
+	}
+	if !previewStringSliceMapsEqual(got, want) {
+		t.Fatalf("unexpected canonicalized preview ids %#v", got)
+	}
+}
+
 func TestExtractPreviewValueFromTokensReturnsPartialString(t *testing.T) {
 	t.Parallel()
 
