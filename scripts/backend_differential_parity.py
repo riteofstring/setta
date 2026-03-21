@@ -60,10 +60,15 @@ ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_SAVE_PROJECT = "/api/saveProject"
 ROUTE_ADD_KWARG = "/api/addKwarg"
+ROUTE_CREATE_VIEW_MODE = "/api/createViewMode"
+ROUTE_SET_ACTIVE_VIEW_MODE = "/api/setActiveViewMode"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
 ROUTE_TOGGLE_VIEW_MODE_USER_FACING = "/api/toggleViewModeUserFacing"
 ROUTE_TOGGLE_VIEW_MODE_TAB = "/api/toggleViewModeTab"
+ROUTE_SET_VIEW_MODE_SORT_ORDER = "/api/setViewModeSortOrder"
 ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
+ROUTE_SET_TOP_LEVEL_SECTION_LAYOUT = "/api/setTopLevelSectionLayout"
+ROUTE_SET_VIEWPORT = "/api/setViewport"
 ROUTE_SET_PROJECT_CONFIG_CODEGEN_TARGETS = "/api/setProjectConfigCodegenTargets"
 ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT = "/api/createWorkspaceLaunchIntent"
 ROUTE_LAUNCH = "/api/launch"
@@ -2103,6 +2108,8 @@ def execute_scenario(
         return execute_toggle_view_mode_broadcast(backend)
     if scenario.kind == "view_mode_user_facing_and_tab_broadcast":
         return execute_view_mode_user_facing_and_tab_broadcast(backend)
+    if scenario.kind == "view_mode_delete_active_fallback":
+        return execute_view_mode_delete_active_fallback(backend)
     if scenario.kind == "project_history_undo_redo_route_contract":
         return execute_project_history_undo_redo_route_contract(backend)
     if scenario.kind == "latest_state_after_create_project":
@@ -2450,6 +2457,184 @@ def execute_view_mode_user_facing_and_tab_broadcast(
         "toggleUserFacingWebsocketMessages": user_facing_messages,
         "toggleTabResponse": normalize_response_json(tab_response),
         "toggleTabWebsocketMessages": tab_messages,
+        "latestProjectState": latest_payload,
+    }
+    return summary, raw
+
+
+def execute_view_mode_delete_active_fallback(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, _ = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+
+    before_payload = get_latest_project_state(backend, project_id)
+    project_state = object_field(before_payload, "projectState")
+    project_config = object_field(project_state, "projectConfig")
+    initial_view_mode_id = expect_non_empty_string(
+        project_config.get("activeViewModeId"),
+        "projectState.projectConfig.activeViewModeId",
+    )
+    top_level_sections = object_field(
+        project_config,
+        "topLevelSections",
+        allow_missing=True,
+    )
+    if not top_level_sections:
+        raise ParityHarnessError("Expected a fresh project to have top-level sections.")
+    tracked_section_id = next(iter(top_level_sections))
+    tracked_layout = expect_object(
+        top_level_sections.get(tracked_section_id),
+        f"projectState.projectConfig.topLevelSections.{tracked_section_id}",
+    )
+    tracked_x = expect_number(tracked_layout.get("x"), "tracked layout x")
+    tracked_y = expect_number(tracked_layout.get("y"), "tracked layout y")
+
+    create_second_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_CREATE_VIEW_MODE,
+        payload={"projectConfigId": project_id},
+    )
+    second_view_mode_id = normalize_response_json(create_second_response)
+    if not isinstance(second_view_mode_id, str) or not second_view_mode_id.strip():
+        raise ParityHarnessError(
+            f"createViewMode returned unexpected second id: {second_view_mode_id!r}"
+        )
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_ACTIVE_VIEW_MODE,
+        payload={
+            "projectConfigId": project_id,
+            "activeViewModeId": second_view_mode_id,
+        },
+    )
+    second_layout = {
+        tracked_section_id: {
+            "x": tracked_x + 250.0,
+            "y": tracked_y + 125.0,
+            "zIndex": 4,
+        }
+    }
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_TOP_LEVEL_SECTION_LAYOUT,
+        payload={
+            "projectConfigId": project_id,
+            "topLevelSections": second_layout,
+        },
+    )
+    second_viewport = {"x": 40.0, "y": -10.0, "zoom": 0.75}
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_VIEWPORT,
+        payload={
+            "projectConfigId": project_id,
+            "viewport": second_viewport,
+        },
+    )
+
+    create_third_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_CREATE_VIEW_MODE,
+        payload={"projectConfigId": project_id},
+    )
+    third_view_mode_id = normalize_response_json(create_third_response)
+    if not isinstance(third_view_mode_id, str) or not third_view_mode_id.strip():
+        raise ParityHarnessError(
+            f"createViewMode returned unexpected third id: {third_view_mode_id!r}"
+        )
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_ACTIVE_VIEW_MODE,
+        payload={
+            "projectConfigId": project_id,
+            "activeViewModeId": third_view_mode_id,
+        },
+    )
+    third_layout = {
+        tracked_section_id: {
+            "x": tracked_x + 410.0,
+            "y": tracked_y + 210.0,
+            "zIndex": 8,
+        }
+    }
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_TOP_LEVEL_SECTION_LAYOUT,
+        payload={
+            "projectConfigId": project_id,
+            "topLevelSections": third_layout,
+        },
+    )
+    third_viewport = {"x": -80.0, "y": 60.0, "zoom": 1.4}
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_VIEWPORT,
+        payload={
+            "projectConfigId": project_id,
+            "viewport": third_viewport,
+        },
+    )
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_VIEW_MODE_SORT_ORDER,
+        payload={
+            "projectConfigId": project_id,
+            "orderedViewModeIds": [
+                second_view_mode_id,
+                third_view_mode_id,
+                initial_view_mode_id,
+            ],
+        },
+    )
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_DELETE_VIEW_MODE,
+        payload={
+            "projectConfigId": project_id,
+            "viewModeId": third_view_mode_id,
+        },
+    )
+
+    latest_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    latest_payload = normalize_response_json(latest_response)
+    if not isinstance(latest_payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {latest_payload!r}"
+        )
+
+    summary = summarize_view_mode_delete_active_fallback(
+        latest_http_status=latest_response.status_code,
+        latest_payload=latest_payload,
+        initial_view_mode_id=initial_view_mode_id,
+        second_view_mode_id=second_view_mode_id,
+        deleted_view_mode_id=third_view_mode_id,
+        tracked_section_id=tracked_section_id,
+    )
+    raw = {
+        "createdProjectName": created_name,
+        "beforeLatestProjectState": before_payload,
+        "createSecondViewModeResponse": second_view_mode_id,
+        "secondViewModeLayout": second_layout,
+        "secondViewModeViewport": second_viewport,
+        "createThirdViewModeResponse": third_view_mode_id,
+        "thirdViewModeLayout": third_layout,
+        "thirdViewModeViewport": third_viewport,
         "latestProjectState": latest_payload,
     }
     return summary, raw
@@ -5784,6 +5969,81 @@ def summarize_view_mode_user_facing_and_tab_broadcast(
         "latestIsTab": latest_flags["isTab"],
         "latestActiveViewModeMatchesBefore": (
             latest_flags["activeViewModeId"] == before_flags["activeViewModeId"]
+        ),
+    }
+
+
+def summarize_view_mode_delete_active_fallback(
+    latest_http_status: int,
+    latest_payload: dict[str, Any],
+    initial_view_mode_id: str,
+    second_view_mode_id: str,
+    deleted_view_mode_id: str,
+    tracked_section_id: str,
+) -> dict[str, Any]:
+    project_state = object_field(latest_payload, "projectState")
+    project_config = object_field(project_state, "projectConfig")
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    active_view_mode_id = expect_non_empty_string(
+        project_config.get("activeViewModeId"),
+        "projectState.projectConfig.activeViewModeId",
+    )
+    second_view_mode = expect_object(
+        view_modes.get(second_view_mode_id),
+        f"projectState.projectConfig.viewModes.{second_view_mode_id}",
+    )
+    initial_view_mode = expect_object(
+        view_modes.get(initial_view_mode_id),
+        f"projectState.projectConfig.viewModes.{initial_view_mode_id}",
+    )
+    role_by_view_mode_id = {
+        initial_view_mode_id: "initial",
+        second_view_mode_id: "second",
+        deleted_view_mode_id: "deleted",
+    }
+    ordered_view_mode_roles = [
+        role_by_view_mode_id.get(view_mode_id, "unexpected")
+        for view_mode_id in ordered_view_mode_ids(view_modes)
+    ]
+
+    return {
+        "latestHttpStatus": latest_http_status,
+        "activeViewModeRole": role_by_view_mode_id.get(
+            active_view_mode_id,
+            "unexpected",
+        ),
+        "remainingViewModeCount": len(view_modes),
+        "orderedRemainingViewModeRoles": ordered_view_mode_roles,
+        "initialViewModePresent": initial_view_mode_id in view_modes,
+        "secondViewModePresent": second_view_mode_id in view_modes,
+        "deletedViewModePresent": deleted_view_mode_id in view_modes,
+        "remainingSortIndicesByRole": {
+            "initial": int(initial_view_mode.get("sortIndex") or 0),
+            "second": int(second_view_mode.get("sortIndex") or 0),
+        },
+        "projectLayout": summarize_top_level_section_layout_entry(
+            object_field(project_config, "topLevelSections", allow_missing=True),
+            tracked_section_id,
+            "projectState.projectConfig.topLevelSections",
+        ),
+        "secondViewModeLayout": summarize_top_level_section_layout_entry(
+            object_field(second_view_mode, "topLevelSections", allow_missing=True),
+            tracked_section_id,
+            f"projectState.projectConfig.viewModes.{second_view_mode_id}.topLevelSections",
+        ),
+        "projectViewport": summarize_viewport_value(
+            project_config.get("viewport"),
+            "projectState.projectConfig.viewport",
+        ),
+        "secondViewModeViewport": summarize_viewport_value(
+            second_view_mode.get("viewport"),
+            f"projectState.projectConfig.viewModes.{second_view_mode_id}.viewport",
+        ),
+        "projectViewportInitialized": bool(
+            project_config.get("viewportInitialized", False)
+        ),
+        "secondViewModeViewportInitialized": bool(
+            second_view_mode.get("viewportInitialized", False)
         ),
     }
 
@@ -9136,17 +9396,65 @@ def remove_code_object_child_reference(
 
 
 def ordered_view_mode_names(view_modes: dict[str, Any]) -> list[str]:
-    ordered: list[dict[str, Any]] = []
+    ordered = ordered_view_mode_entries(view_modes)
+    return [normalized_string(view_mode.get("name")) for _, view_mode in ordered]
+
+
+def ordered_view_mode_ids(view_modes: dict[str, Any]) -> list[str]:
+    ordered = ordered_view_mode_entries(view_modes)
+    return [
+        expect_non_empty_string(
+            view_mode.get("id") or view_mode_id,
+            f"viewModes.{view_mode_id}.id",
+        )
+        for view_mode_id, view_mode in ordered
+    ]
+
+
+def ordered_view_mode_entries(
+    view_modes: dict[str, Any],
+) -> list[tuple[str, dict[str, Any]]]:
+    ordered: list[tuple[str, dict[str, Any]]] = []
     for view_mode_id, raw_view_mode in view_modes.items():
-        ordered.append(expect_object(raw_view_mode, f"viewModes.{view_mode_id}"))
+        ordered.append(
+            (view_mode_id, expect_object(raw_view_mode, f"viewModes.{view_mode_id}"))
+        )
     ordered.sort(
-        key=lambda view_mode: (
-            int(view_mode.get("sortIndex") or 0),
-            normalized_string(view_mode.get("name")),
-            normalized_string(view_mode.get("id")),
+        key=lambda entry: (
+            int(entry[1].get("sortIndex") or 0),
+            normalized_string(entry[1].get("name")),
+            normalized_string(entry[1].get("id") or entry[0]),
         )
     )
-    return [normalized_string(view_mode.get("name")) for view_mode in ordered]
+    return ordered
+
+
+def summarize_top_level_section_layout_entry(
+    top_level_sections: dict[str, Any],
+    section_id: str,
+    label: str,
+) -> dict[str, Any] | None:
+    if section_id not in top_level_sections:
+        return None
+    layout = expect_object(top_level_sections.get(section_id), f"{label}.{section_id}")
+    return {
+        "x": expect_number(layout.get("x"), f"{label}.{section_id}.x"),
+        "y": expect_number(layout.get("y"), f"{label}.{section_id}.y"),
+        "zIndex": int(
+            expect_number(layout.get("zIndex"), f"{label}.{section_id}.zIndex")
+        ),
+    }
+
+
+def summarize_viewport_value(value: Any, label: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    viewport = expect_object(value, label)
+    return {
+        "x": expect_number(viewport.get("x"), f"{label}.x"),
+        "y": expect_number(viewport.get("y"), f"{label}.y"),
+        "zoom": expect_number(viewport.get("zoom"), f"{label}.zoom"),
+    }
 
 
 def settings_view_mode_viewport_states(
@@ -9753,6 +10061,14 @@ def expect_non_empty_string(value: Any, label: str) -> str:
     if not normalized:
         raise ParityHarnessError(f"Expected non-empty string for {label}")
     return normalized
+
+
+def expect_number(value: Any, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ParityHarnessError(
+            f"Expected number for {label}, got {type(value).__name__}"
+        )
+    return float(value)
 
 
 def normalized_string(value: Any) -> str:

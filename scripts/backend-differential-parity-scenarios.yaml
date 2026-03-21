@@ -15,6 +15,10 @@ scenarios:
     kind: view_mode_user_facing_and_tab_broadcast
     seed: none
     description: Toggling the active view mode's user-facing and tab flags should persist in latest state and rebroadcast the updated view-mode payload with completed op ids.
+  - name: view_mode_delete_active_fallback
+    kind: view_mode_delete_active_fallback
+    seed: none
+    description: Deleting the active view mode after reordering should fall back to the first remaining sorted mode and reproject that mode's layout and viewport into latest state.
   - name: latest_state_after_create_project
     kind: latest_state_after_create_project
     seed: none

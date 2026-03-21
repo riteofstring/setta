@@ -363,6 +363,104 @@ scenarios:
             },
         )
 
+    def test_summarize_view_mode_delete_active_fallback(self) -> None:
+        harness = load_harness_module()
+
+        latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "activeViewModeId": "view-mode-second",
+                    "viewport": {"x": 40, "y": -10, "zoom": 0.75},
+                    "viewportInitialized": True,
+                    "topLevelSections": {
+                        "generated-section": {
+                            "x": 250,
+                            "y": 125,
+                            "zIndex": 4,
+                        }
+                    },
+                    "viewModes": {
+                        "view-mode-initial": {
+                            "id": "view-mode-initial",
+                            "name": "Initial",
+                            "sortIndex": 1,
+                            "viewport": None,
+                            "viewportInitialized": False,
+                            "topLevelSections": {
+                                "generated-section": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "zIndex": 0,
+                                }
+                            },
+                        },
+                        "view-mode-second": {
+                            "id": "view-mode-second",
+                            "name": "Second",
+                            "sortIndex": 0,
+                            "viewport": {"x": 40, "y": -10, "zoom": 0.75},
+                            "viewportInitialized": True,
+                            "topLevelSections": {
+                                "generated-section": {
+                                    "x": 250,
+                                    "y": 125,
+                                    "zIndex": 4,
+                                }
+                            },
+                        },
+                    },
+                }
+            }
+        }
+
+        summary = harness.summarize_view_mode_delete_active_fallback(
+            latest_http_status=200,
+            latest_payload=latest_payload,
+            initial_view_mode_id="view-mode-initial",
+            second_view_mode_id="view-mode-second",
+            deleted_view_mode_id="view-mode-deleted",
+            tracked_section_id="generated-section",
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "latestHttpStatus": 200,
+                "activeViewModeRole": "second",
+                "remainingViewModeCount": 2,
+                "orderedRemainingViewModeRoles": ["second", "initial"],
+                "initialViewModePresent": True,
+                "secondViewModePresent": True,
+                "deletedViewModePresent": False,
+                "remainingSortIndicesByRole": {
+                    "initial": 1,
+                    "second": 0,
+                },
+                "projectLayout": {
+                    "x": 250.0,
+                    "y": 125.0,
+                    "zIndex": 4,
+                },
+                "secondViewModeLayout": {
+                    "x": 250.0,
+                    "y": 125.0,
+                    "zIndex": 4,
+                },
+                "projectViewport": {
+                    "x": 40.0,
+                    "y": -10.0,
+                    "zoom": 0.75,
+                },
+                "secondViewModeViewport": {
+                    "x": 40.0,
+                    "y": -10.0,
+                    "zoom": 0.75,
+                },
+                "projectViewportInitialized": True,
+                "secondViewModeViewportInitialized": True,
+            },
+        )
+
     def test_summarize_project_history_undo_redo_route_contract(self) -> None:
         harness = load_harness_module()
 
