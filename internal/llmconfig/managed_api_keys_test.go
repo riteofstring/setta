@@ -248,3 +248,41 @@ func TestWriteManagedAPIKeysWithExpectedRevisionInLockRootStoresLockUnderRuntime
 		t.Fatalf("expected hashed runtime lock file name, got %q", lockEntries[0].Name())
 	}
 }
+
+func TestManagedAPIKeysPathAnchorsWorkspaceRootDotEnv(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaFilesRoot := filepath.Join(root, "state")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	if err := os.MkdirAll(settaFilesRoot, 0o755); err != nil {
+		t.Fatalf("mkdir setta files root: %v", err)
+	}
+
+	envPath := ManagedAPIKeysPath(workspaceRoot)
+	expectedPath := filepath.Join(workspaceRoot, ".env")
+	if envPath != expectedPath {
+		t.Fatalf("expected workspace-root .env path %q, got %q", expectedPath, envPath)
+	}
+
+	result := WriteManagedAPIKeysWithExpectedRevision(envPath, map[string]string{
+		"SETTA_TEST_KEY": "value",
+	}, 0, nil)
+	if result.Status != ManagedAPIKeysWriteStatusSuccess {
+		t.Fatalf("expected managed api key write success, got %#v", result)
+	}
+
+	content, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatalf("read workspace .env: %v", err)
+	}
+	if !strings.Contains(string(content), "SETTA_TEST_KEY=value") {
+		t.Fatalf("expected managed key in workspace .env, got %q", string(content))
+	}
+	if _, err := os.Stat(filepath.Join(settaFilesRoot, ".env")); !os.IsNotExist(err) {
+		t.Fatalf("expected no .env under setta_files root, got err=%v", err)
+	}
+}
