@@ -54,17 +54,14 @@ def diagnostic_payload_for_content(content):
     ]
 
 
-def publish_diagnostics(uri, content):
-    send(
-        {
-            "jsonrpc": "2.0",
-            "method": "textDocument/publishDiagnostics",
-            "params": {
-                "uri": uri,
-                "diagnostics": diagnostic_payload_for_content(content),
-            },
-        }
-    )
+def publish_diagnostics(uri, content, version):
+    params = {
+        "uri": uri,
+        "diagnostics": diagnostic_payload_for_content(content),
+    }
+    if version is not None:
+        params["version"] = version
+    send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": params})
 
 
 def completion_delay_seconds():
@@ -132,17 +129,31 @@ while True:
     if method == "textDocument/didOpen":
         text_document = params.get("textDocument") or {}
         uri = text_document.get("uri", "")
-        documents[uri] = text_document.get("text", "")
-        publish_diagnostics(uri, documents[uri])
+        documents[uri] = {
+            "text": text_document.get("text", ""),
+            "version": text_document.get("version"),
+        }
+        publish_diagnostics(
+            uri,
+            documents[uri]["text"],
+            documents[uri]["version"],
+        )
         continue
 
     if method == "textDocument/didChange":
         text_document = params.get("textDocument") or {}
         uri = text_document.get("uri", "")
         changes = params.get("contentChanges") or []
+        current = documents.get(uri, {"text": "", "version": None})
         if changes:
-            documents[uri] = changes[-1].get("text", "")
-        publish_diagnostics(uri, documents.get(uri, ""))
+            current["text"] = changes[-1].get("text", "")
+        current["version"] = text_document.get("version", current.get("version"))
+        documents[uri] = current
+        publish_diagnostics(
+            uri,
+            current.get("text", ""),
+            current.get("version"),
+        )
         continue
 
     if method == "textDocument/didClose":
@@ -180,7 +191,9 @@ while True:
             {
                 "jsonrpc": "2.0",
                 "id": message_id,
-                "result": signature_help_for_content(documents.get(uri, "")),
+                "result": signature_help_for_content(
+                    (documents.get(uri) or {}).get("text", "")
+                ),
             }
         )
         continue

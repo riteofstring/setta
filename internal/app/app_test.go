@@ -8572,6 +8572,7 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 func TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	addRepoVenvRuffToPath(t)
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
 

@@ -1892,6 +1892,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE(t *te
 func TestAppIDEMCPServerSupportsFormatCodeOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 
@@ -1961,6 +1962,7 @@ func TestAppIDEMCPServerSupportsFormatCodeOverAuthenticatedSSE(t *testing.T) {
 func TestAppIDEMCPServerSupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 
@@ -4370,6 +4372,7 @@ func TestAppIDEMCPServerSupportsLinkedPluginSetProjectConfigCodegenTargetsWithTe
 func TestAppIDEMCPServerSupportsGeneratedFormatCodeOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
@@ -8469,6 +8472,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {
 func TestAppIDEMCPToolCallRouteSupportsFormatCode(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 
