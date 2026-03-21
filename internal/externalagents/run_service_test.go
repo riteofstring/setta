@@ -11,6 +11,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/projectstate"
 )
 
 type asyncRunController struct {
@@ -253,6 +254,125 @@ func TestRunServiceValidateRunRejectsInvalidMessageContentShape(t *testing.T) {
 	}
 }
 
+func TestRunServiceStartsExternalRunWithExplicitChatAndSectionIDs(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+
+	service, executor := newAsyncRunServiceForTest(t, fixture, newRunServiceProjectRuntimeWithSection(t))
+
+	started, err := service.StartRun(context.Background(), profile, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sectionId":       "section-1",
+		"chatId":          "chat-explicit",
+		"messages": []any{
+			map[string]any{
+				"id":   "user-explicit",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Continue in this explicit chat and section."},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("start run with explicit chat and section ids: %v", err)
+	}
+	if executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	if got := strings.TrimSpace(stringValue(executor.last.Inputs["projectConfigId"])); got != "project-alpha" {
+		t.Fatalf("expected explicit projectConfigId to survive, got %q", got)
+	}
+	if got := strings.TrimSpace(stringValue(executor.last.Inputs["chatId"])); got != "chat-explicit" {
+		t.Fatalf("expected explicit chatId to survive, got %q", got)
+	}
+	if got := strings.TrimSpace(stringValue(executor.last.Inputs["sectionId"])); got != "section-1" {
+		t.Fatalf("expected explicit sectionId to survive, got %q", got)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	completed, err := service.WaitForRun(waitCtx, started.ID)
+	if err != nil {
+		t.Fatalf("wait for explicit-id run: %v", err)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed run, got %#v", completed)
+	}
+}
+
+func TestRunServiceValidateRunRejectsNonStringProjectConfigID(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+
+	service, _ := newAsyncRunServiceForTest(t, fixture, nil)
+
+	err = service.ValidateRun(profile, map[string]any{
+		"projectConfigId": 123,
+		"allowUnscoped":   true,
+	})
+	if !errors.Is(err, ErrInvalidRunInput) {
+		t.Fatalf("expected invalid run input error, got %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "projectConfigId must be a string") {
+		t.Fatalf("expected non-string projectConfigId detail, got %v", err)
+	}
+}
+
+func TestRunServiceCreatesDistinctRunIDsWhenChatIDIsReused(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+
+	service, _ := newAsyncRunServiceForTest(t, fixture, nil)
+
+	first, err := service.StartRun(context.Background(), profile, map[string]any{
+		"projectConfigId": "project-alpha",
+		"allowUnscoped":   true,
+		"chatId":          "chat-reused",
+		"prompt":          "First direct run on this chat.",
+	})
+	if err != nil {
+		t.Fatalf("start first run: %v", err)
+	}
+	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := service.WaitForRun(waitCtx, first.ID); err != nil {
+		t.Fatalf("wait for first run: %v", err)
+	}
+
+	second, err := service.StartRun(context.Background(), profile, map[string]any{
+		"projectConfigId": "project-alpha",
+		"allowUnscoped":   true,
+		"chatId":          "chat-reused",
+		"prompt":          "Second direct run on the same chat.",
+	})
+	if err != nil {
+		t.Fatalf("start second run: %v", err)
+	}
+	if _, err := service.WaitForRun(waitCtx, second.ID); err != nil {
+		t.Fatalf("wait for second run: %v", err)
+	}
+
+	if first.ID == second.ID {
+		t.Fatalf("expected repeated chat id to create a new run id, got %q", first.ID)
+	}
+	if got := resolveRunInputString(first, "chatId"); got != "chat-reused" {
+		t.Fatalf("expected first run chat id to persist, got %q", got)
+	}
+	if got := resolveRunInputString(second, "chatId"); got != "chat-reused" {
+		t.Fatalf("expected second run chat id to persist, got %q", got)
+	}
+}
+
 func TestRunServiceValidateRunReturnsPreflightUnavailable(t *testing.T) {
 	fixture := newSendServiceFixture(t, sendFixtureOptions{
 		preflightStatus: &externalagentconfigs.Status{
@@ -296,4 +416,84 @@ func TestRunServiceValidateRunReturnsPreflightUnavailable(t *testing.T) {
 	if !errors.As(err, &preflightErr) {
 		t.Fatalf("expected preflight unavailable error, got %v", err)
 	}
+}
+
+func newAsyncRunServiceForTest(
+	t *testing.T,
+	fixture sendServiceFixture,
+	projectRuntime *projectstate.Runtime,
+) (*RunService, *asyncExternalRunExecutor) {
+	t.Helper()
+
+	if projectRuntime == nil {
+		projectRuntime = fixture.service.projectState
+	}
+	executor := &asyncExternalRunExecutor{
+		runs:    fixture.runs,
+		runtime: fixture.runtime,
+		timeNow: func() time.Time { return fixture.now },
+	}
+	service, err := NewRunService(RunServiceOptions{
+		ProjectState: projectRuntime,
+		Engines:      fixture.service.engines,
+		Runs:         fixture.runs,
+		Configs:      fixture.service.configs,
+		Runtime:      fixture.runtime,
+		Preflight:    fixture.service.preflight,
+		Attachments:  fixture.service.attachments,
+		Executor:     executor,
+		TimeNow:      func() time.Time { return fixture.now },
+	})
+	if err != nil {
+		t.Fatalf("new run service: %v", err)
+	}
+	return service, executor
+}
+
+func newRunServiceProjectRuntimeWithSection(t *testing.T) *projectstate.Runtime {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"section-1": "variant-1",
+		},
+		Sections: map[string]projectstate.Section{
+			"section-1": {
+				ID:               "section-1",
+				Name:             "Section One",
+				VariantIDs:       []string{"variant-1"},
+				DefaultVariantID: "variant-1",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"variant-1": {
+				ID:     "variant-1",
+				ImplID: "impl-1",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"impl-1": {
+				ID:      "impl-1",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: projectstate.RawJSON([]byte(`{"id":"impl-1","type":"TextBlock"}`)),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project with explicit section: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime with explicit section: %v", err)
+	}
+	return projectRuntime
 }
