@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import copy
 import argparse
 import ast
 import json
@@ -641,13 +642,193 @@ def seed_setta_files(
             raise ParityHarnessError(
                 f"Scenario {scenario.name} requires a fixture path."
             )
-        payload = json.loads(scenario.fixture.read_text(encoding="utf-8"))
+        payload = normalize_fixture_seed_payload_for_target(
+            payload=json.loads(scenario.fixture.read_text(encoding="utf-8")),
+            target=target,
+        )
         write_json(setta_files_root / PROJECT_FILE_NAME, payload)
     else:
         raise ParityHarnessError(
             f"Unsupported seed mode {scenario.seed!r} for scenario {scenario.name}"
         )
     write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+
+
+def normalize_fixture_seed_payload_for_target(
+    payload: Any,
+    target: RefTarget,
+) -> dict[str, Any]:
+    fixture_payload = expect_object(
+        copy.deepcopy(payload),
+        "fixture payload",
+    )
+    if target_uses_go_launcher(target.root):
+        return fixture_payload
+    return convert_go_persisted_project_store_to_python_source_shape(fixture_payload)
+
+
+def convert_go_persisted_project_store_to_python_source_shape(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    projects = object_field(payload, "projects", allow_missing=True)
+    if not projects:
+        payload.pop("schemaVersion", None)
+        if "defaultProjectConfigId" not in payload and "defaultProjectId" in payload:
+            payload["defaultProjectConfigId"] = payload["defaultProjectId"]
+        payload.pop("defaultProjectId", None)
+        return payload
+
+    project_configs = object_field(payload, "projectConfigs", allow_missing=True)
+    project_windowing_by_id = object_field(
+        payload,
+        "projectChatWindowingByProjectConfigId",
+        allow_missing=True,
+    )
+    section_impls = object_field(payload, "sectionImpls", allow_missing=True)
+    section_variants = object_field(payload, "sectionVariants", allow_missing=True)
+    sections = object_field(payload, "sections", allow_missing=True)
+    code_obj_impls = object_field(payload, "codeObjImpls", allow_missing=True)
+    code_obj_variants = object_field(payload, "codeObjVariants", allow_missing=True)
+    code_objs = object_field(payload, "codeObjs", allow_missing=True)
+
+    for project_id, raw_project in projects.items():
+        project = expect_object(raw_project, f"projects.{project_id}")
+        project_configs[project_id] = extract_source_project_config(project)
+
+        if "projectChatWindowing" in project:
+            project_windowing_by_id[project_id] = expect_object(
+                project["projectChatWindowing"],
+                f"projects.{project_id}.projectChatWindowing",
+            )
+
+        merge_nested_store_map(
+            destination=section_impls,
+            nested=project.get("sectionImpls"),
+            path=f"projects.{project_id}.sectionImpls",
+            transform=convert_persisted_impl_entry,
+        )
+        merge_nested_store_map(
+            destination=section_variants,
+            nested=project.get("sectionVariants"),
+            path=f"projects.{project_id}.sectionVariants",
+            transform=convert_persisted_variant_entry,
+        )
+        merge_nested_store_map(
+            destination=sections,
+            nested=project.get("sections"),
+            path=f"projects.{project_id}.sections",
+            transform=convert_persisted_core_entry,
+        )
+        merge_nested_store_map(
+            destination=code_obj_impls,
+            nested=project.get("codeObjImpls"),
+            path=f"projects.{project_id}.codeObjImpls",
+            transform=convert_persisted_impl_entry,
+        )
+        merge_nested_store_map(
+            destination=code_obj_variants,
+            nested=project.get("codeObjVariants"),
+            path=f"projects.{project_id}.codeObjVariants",
+            transform=convert_persisted_variant_entry,
+        )
+        merge_nested_store_map(
+            destination=code_objs,
+            nested=project.get("codeObjs"),
+            path=f"projects.{project_id}.codeObjs",
+            transform=convert_persisted_core_entry,
+        )
+
+    payload["projectConfigs"] = project_configs
+    payload["projectChatWindowingByProjectConfigId"] = project_windowing_by_id
+    payload["sectionImpls"] = section_impls
+    payload["sectionVariants"] = section_variants
+    payload["sections"] = sections
+    payload["codeObjImpls"] = code_obj_impls
+    payload["codeObjVariants"] = code_obj_variants
+    payload["codeObjs"] = code_objs
+
+    if "defaultProjectConfigId" not in payload and "defaultProjectId" in payload:
+        payload["defaultProjectConfigId"] = payload["defaultProjectId"]
+    payload.pop("defaultProjectId", None)
+    payload.pop("projects", None)
+    payload.pop("schemaVersion", None)
+    return payload
+
+
+def extract_source_project_config(project: dict[str, Any]) -> dict[str, Any]:
+    excluded_keys = {
+        "projectChatWindowing",
+        "sectionImpls",
+        "sectionVariants",
+        "sections",
+        "codeObjImpls",
+        "codeObjVariants",
+        "codeObjs",
+    }
+    return {
+        key: value
+        for key, value in project.items()
+        if key not in excluded_keys
+    }
+
+
+def merge_nested_store_map(
+    destination: dict[str, Any],
+    nested: Any,
+    path: str,
+    transform: Any,
+) -> None:
+    nested_map = expect_object(nested, path, allow_missing=True)
+    for entry_id, raw_entry in nested_map.items():
+        destination[entry_id] = transform(raw_entry, f"{path}.{entry_id}")
+
+
+def convert_persisted_impl_entry(raw_entry: Any, path: str) -> dict[str, Any]:
+    entry = expect_object(raw_entry, path)
+    payload = entry.get("payload")
+    if payload is None:
+        return entry
+    converted = expect_object(payload, f"{path}.payload")
+    if "id" not in converted and "id" in entry:
+        converted["id"] = entry["id"]
+    return converted
+
+
+def convert_persisted_variant_entry(raw_entry: Any, path: str) -> dict[str, Any]:
+    entry = expect_object(raw_entry, path)
+    converted = dict(entry)
+    if "impl" not in converted and "implId" in converted:
+        converted["impl"] = converted["implId"]
+    converted.pop("implId", None)
+
+    if "nonPresetImpls" not in converted:
+        raw_non_preset_impls = converted.pop("nonPresetImplIds", None)
+        if raw_non_preset_impls is None:
+            impl_id = converted.get("impl")
+            converted["nonPresetImpls"] = [] if impl_id is None else [impl_id]
+        else:
+            converted["nonPresetImpls"] = expect_string_list(
+                raw_non_preset_impls,
+                f"{path}.nonPresetImplIds",
+            )
+    else:
+        converted.pop("nonPresetImplIds", None)
+    return converted
+
+
+def convert_persisted_core_entry(raw_entry: Any, path: str) -> dict[str, Any]:
+    entry = expect_object(raw_entry, path)
+    converted = dict(entry)
+    if "defaultVariant" not in converted and "defaultVariantId" in converted:
+        converted["defaultVariant"] = converted["defaultVariantId"]
+    converted.pop("defaultVariantId", None)
+    if "variants" not in converted and "variantIds" in converted:
+        converted["variants"] = expect_string_list(
+            converted["variantIds"],
+            f"{path}.variantIds",
+        )
+    converted.pop("variantIds", None)
+    return converted
 
 
 def build_json_source_key_change_refresh_store_payload(

@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 import tempfile
 import unittest
@@ -67,6 +68,132 @@ scenarios:
 
             self.assertEqual(len(scenarios), 1)
             self.assertEqual(scenarios[0].fixture, fixture_path.resolve())
+
+    def test_seed_setta_files_fixture_converts_go_payload_for_python_target(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixture_path = (
+                repo_root() / "scripts" / "parity-fixtures" / "empty-callable-project.json"
+            )
+            scenario = harness.ScenarioConfig(
+                name="fixture_scenario",
+                kind="latest_state_empty_callable_shown_param_ids",
+                seed="fixture",
+                fixture=fixture_path,
+                description=None,
+            )
+            target_root = root / "baseline"
+            target_root.mkdir(parents=True)
+            setta_files_root = root / "workspace" / "setta_files"
+
+            harness.seed_setta_files(
+                setta_files_root=setta_files_root,
+                scenario=scenario,
+                target=harness.RefTarget(label="baseline:main", root=target_root),
+            )
+
+            payload = json.loads(
+                (setta_files_root / harness.PROJECT_FILE_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            self.assertEqual(payload["defaultProjectConfigId"], "project-alpha")
+            self.assertNotIn("defaultProjectId", payload)
+            self.assertNotIn("projects", payload)
+            self.assertNotIn("schemaVersion", payload)
+            self.assertEqual(
+                payload["projectChatWindowingByProjectConfigId"]["project-alpha"],
+                {"instancesById": {}, "order": []},
+            )
+            self.assertEqual(
+                payload["projectConfigs"]["project-alpha"],
+                {
+                    "allowJsonSourceKeyEdits": True,
+                    "id": "project-alpha",
+                    "name": "Project Alpha",
+                    "sectionVariantMap": {
+                        "empty-callable-section": "empty-callable-variant"
+                    },
+                },
+            )
+            self.assertEqual(
+                payload["sectionImpls"]["empty-callable-impl"],
+                {
+                    "callable": None,
+                    "codeObjVariantMap": {},
+                    "id": "empty-callable-impl",
+                    "type": "Callable",
+                },
+            )
+            self.assertEqual(
+                payload["sectionVariants"]["empty-callable-variant"],
+                {
+                    "id": "empty-callable-variant",
+                    "impl": "empty-callable-impl",
+                    "name": "Empty Callable Variant",
+                    "nonPresetImpls": ["empty-callable-impl"],
+                },
+            )
+            self.assertEqual(
+                payload["sections"]["empty-callable-section"],
+                {
+                    "defaultVariant": "empty-callable-variant",
+                    "id": "empty-callable-section",
+                    "name": "Empty Callable Section",
+                    "variants": ["empty-callable-variant"],
+                },
+            )
+
+    def test_seed_setta_files_fixture_preserves_go_payload_for_go_target(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixture_path = (
+                repo_root() / "scripts" / "parity-fixtures" / "empty-callable-project.json"
+            )
+            scenario = harness.ScenarioConfig(
+                name="fixture_scenario",
+                kind="latest_state_empty_callable_shown_param_ids",
+                seed="fixture",
+                fixture=fixture_path,
+                description=None,
+            )
+            target_root = root / "current"
+            go_entrypoint = target_root / "cmd" / "setta" / "main.go"
+            go_entrypoint.parent.mkdir(parents=True)
+            go_entrypoint.write_text("package main\n", encoding="utf-8")
+            setta_files_root = root / "workspace" / "setta_files"
+
+            harness.seed_setta_files(
+                setta_files_root=setta_files_root,
+                scenario=scenario,
+                target=harness.RefTarget(label="current", root=target_root),
+            )
+
+            payload = json.loads(
+                (setta_files_root / harness.PROJECT_FILE_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            self.assertEqual(payload["defaultProjectId"], "project-alpha")
+            self.assertEqual(
+                payload["projects"]["project-alpha"]["sectionVariants"][
+                    "empty-callable-variant"
+                ],
+                {
+                    "id": "empty-callable-variant",
+                    "implId": "empty-callable-impl",
+                    "name": "Empty Callable Variant",
+                },
+            )
+            self.assertNotIn("defaultProjectConfigId", payload)
 
     def test_summarize_frontend_inventory_normalizes_connection_type_case(self) -> None:
         harness = load_harness_module()

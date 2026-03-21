@@ -76,6 +76,11 @@ following are true:
   `json_source_watcher_live_reload` and matches `main`, including the live
   websocket project-state update after a watched backing `.json` file changes
   on disk.
+- The latest-state corpus manifest is runnable again against `main`: fixture
+  seeding now normalizes Go-shaped persisted project documents into the Python
+  source-store shape when the baseline target still boots the Python backend,
+  so the empty-callable latest-state corpus scenario reaches comparison
+  instead of failing during startup.
 - The explicit current-caller gap queue is now exhausted:
   `backend-behavior-parity-matrix.md` is at `Missing = 0` and
   `Implemented, proof incomplete = 0`.
@@ -98,24 +103,18 @@ following are true:
 
 ## Current Known Blockers
 
-- As of `2026-03-19`, the latest-state corpus manifest is not a reliable green
-  signal yet. Running
-  `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
-  currently fails during Python `main` baseline startup before comparison,
-  with a `ProjectStateBackend` validation error against
-  `parity-fixtures/empty-callable-project.json` (`defaultProjectId`,
-  `projects`, and `schemaVersion` are rejected as extra fields).
-- Treat that as baseline/harness maintenance work until resolved. Do not
-  report the corpus path as "green" without rerunning it successfully, and do
-  not treat the baseline failure itself as evidence of a Go parity gap.
+- No default-manifest or latest-state corpus-manifest harness blockers are
+  currently recorded. Future sessions still need to rerun both required parity
+  commands for the current branch state before treating them as green.
 
 ## Next Expansion Backlog
 
-- Repair the latest-state corpus parity path so the corpus manifest becomes a
-  usable executable check again.
 - Add new executable harness slices for still-risky surfaces that are mostly
   covered today by source inspection, retained Python boundaries, or dormant
   callers.
+- Expand the latest-state corpus beyond the empty-callable shown-param-ids
+  scenario so more retained-boundary-adjacent surfaces move from inspection to
+  executable proof.
 - Prioritize new slices by current caller risk, not by matrix row counts.
 - Revisit retained-boundary classifications only when a real live caller
   disproves the current scope decision.
