@@ -111,6 +111,9 @@ var (
 		"Plugin",
 		"TaskBoard",
 		"Spreadsheet",
+		"StateMachineStart",
+		"StateMachineGate",
+		"StateMachineEnd",
 	}
 	allPythonCodeObjTypes = []string{
 		"CodeCallable",

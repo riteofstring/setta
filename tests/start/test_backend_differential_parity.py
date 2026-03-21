@@ -609,6 +609,88 @@ class Route:
             },
         )
 
+    def test_summarize_codegen_targets_python_route_projects_target_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        before_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "codegenTargets": [
+                        {
+                            "language": "python",
+                            "genCodePrefix": "",
+                            "genCodeSuffix": "state = SettaState()",
+                            "generateMetadata": False,
+                        }
+                    ]
+                }
+            }
+        }
+        latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "codegenTargets": [
+                        {
+                            "language": "python",
+                            "genCodePrefix": "",
+                            "genCodeSuffix": "state = SettaState()",
+                            "generateMetadata": False,
+                            "codeObjValuePolicy": {
+                                "codeObjOverrides": {},
+                                "typePolicies": {
+                                    "TextParam": {
+                                        "representation": "expression"
+                                    }
+                                },
+                            },
+                        }
+                    ]
+                }
+            }
+        }
+
+        summary = harness.summarize_codegen_targets_python_route_projects_target_shape(
+            invalid_http_status=200,
+            before_payload=before_payload,
+            latest_http_status=200,
+            latest_payload=latest_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "setCodegenTargetsHttpStatus": 200,
+                "beforeCodegenTargets": [
+                    {
+                        "genCodePrefix": "",
+                        "genCodeSuffix": "state = SettaState()",
+                        "generateMetadata": False,
+                        "language": "python",
+                    }
+                ],
+                "latestHttpStatus": 200,
+                "afterCodegenTargets": [
+                    {
+                        "codeObjValuePolicy": {
+                            "codeObjOverrides": {},
+                            "typePolicies": {
+                                "TextParam": {
+                                    "representation": "expression"
+                                }
+                            },
+                        },
+                        "genCodePrefix": "",
+                        "genCodeSuffix": "state = SettaState()",
+                        "generateMetadata": False,
+                        "language": "python",
+                    }
+                ],
+                "codegenTargetsChanged": True,
+            },
+        )
+
     def test_summarize_settings_project_shell_detects_expected_contract(self) -> None:
         harness = load_harness_module()
         workspace_root = "/tmp/workspace"

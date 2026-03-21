@@ -16,6 +16,77 @@ var (
 	ErrFrontendObjectRequired  = errors.New("frontend payload must be a JSON object")
 )
 
+var (
+	pythonSectionTypeOrder = []string{
+		"Callable",
+		"Dict",
+		"ListRoot",
+		"Group",
+		"Image",
+		"Chart",
+		"Draw",
+		"TextBlock",
+		"Prompt",
+		"MetaControl",
+		"Social",
+		"GlobalVariables",
+		"Code",
+		"GenPythonCode",
+		"GenPythonMetadata",
+		"Terminal",
+		"IFrame",
+		"Chat",
+		"Browser",
+		"Plugin",
+		"TaskBoard",
+		"Spreadsheet",
+	}
+	defaultPythonSectionAllowlistOrder = []string{
+		"Callable",
+		"Dict",
+		"ListRoot",
+		"Group",
+		"GlobalVariables",
+		"TextBlock",
+		"Draw",
+		"MetaControl",
+		"TaskBoard",
+		"Spreadsheet",
+	}
+	pythonCodeObjTypeOrder = []string{
+		"CodeCallable",
+		"CodeParam",
+		"TextParam",
+		"DateParam",
+		"TimeParam",
+		"ButtonParam",
+		"SliderParam",
+		"RotaryParam",
+		"SwitchParam",
+		"ColorPickerParam",
+		"DropdownParam",
+		"PasswordParam",
+		"TextAreaParam",
+		"DropzoneParam",
+		"NestedParam",
+	}
+	defaultPythonMetaControlAllowlistOrder = []string{
+		"CodeParam",
+		"TextParam",
+		"DateParam",
+		"TimeParam",
+		"TextAreaParam",
+		"SliderParam",
+		"RotaryParam",
+		"SwitchParam",
+		"ColorPickerParam",
+		"DropdownParam",
+		"PasswordParam",
+		"ButtonParam",
+		"DropzoneParam",
+	}
+)
+
 type SingleConfig struct {
 	Sections              map[string]Core                        `json:"sections"`
 	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls"`
@@ -803,12 +874,368 @@ func fallbackSectionType(impl projectstate.SectionImpl) string {
 }
 
 func codegenTargetPayload(target projectstate.ProjectCodegenTarget) json.RawMessage {
+	if strings.TrimSpace(target.Language) == string(projectstate.CodeLanguagePython) {
+		payload, ok := pythonCodegenTargetPayload(target)
+		if ok {
+			return payload
+		}
+	}
 	if len(target.Payload) > 0 {
 		return cloneRawJSON(target.Payload)
 	}
 	return mustMarshal(map[string]any{
 		"language": target.Language,
 	})
+}
+
+func pythonCodegenTargetPayload(
+	target projectstate.ProjectCodegenTarget,
+) (json.RawMessage, bool) {
+	config, err := projectstate.DecodePythonCodegenTarget(target)
+	if err != nil {
+		return nil, false
+	}
+	sectionPolicy, err := config.DecodedSectionPolicy()
+	if err != nil {
+		return nil, false
+	}
+	codeObjValuePolicy, err := config.DecodedCodeObjValuePolicy()
+	if err != nil {
+		return nil, false
+	}
+	return mustMarshal(map[string]any{
+		"language":         string(projectstate.CodeLanguagePython),
+		"genCodePrefix":    config.GenCodePrefix,
+		"genCodeSuffix":    config.GenCodeSuffix,
+		"generateMetadata": config.GenerateMetadata,
+		"sectionPolicy": frontendPythonSectionPolicy(
+			config.SectionPolicy,
+			sectionPolicy,
+		),
+		"codeObjValuePolicy": frontendPythonCodeObjValuePolicy(
+			config.CodeObjValuePolicy,
+			codeObjValuePolicy,
+		),
+	}), true
+}
+
+func frontendPythonSectionPolicy(
+	raw projectstate.RawJSON,
+	policy projectstate.PythonSectionCodegenPolicy,
+) map[string]any {
+	rawFields, ok := rawJSONObjectFields(raw)
+	if !ok {
+		return map[string]any{
+			"allowlist":            orderedPolicyList(policy.Allowlist, defaultPythonSectionAllowlistOrder, policy.AllowlistAllowAll),
+			"metaControlAllowlist": orderedPolicyList(policy.MetaControlAllowlist, defaultPythonMetaControlAllowlistOrder, policy.MetaControlAllowlistAllowAll),
+			"exclude":              orderedSetValues(policy.Exclude),
+			"typePolicies":         frontendPythonSectionTypePolicies(policy.TypePolicies),
+			"sectionOverrides":     frontendPythonSectionOverrides(policy.SectionOverrides),
+		}
+	}
+
+	allowlist := orderedPolicyList(
+		policy.Allowlist,
+		defaultPythonSectionAllowlistOrder,
+		policy.AllowlistAllowAll,
+	)
+	if rawAllowlist, exists := rawFields["allowlist"]; exists {
+		allowlist = decodeOrderedStringList(rawAllowlist, allowlist)
+	}
+	metaControlAllowlist := orderedPolicyList(
+		policy.MetaControlAllowlist,
+		defaultPythonMetaControlAllowlistOrder,
+		policy.MetaControlAllowlistAllowAll,
+	)
+	if rawAllowlist, exists := rawFields["metaControlAllowlist"]; exists {
+		metaControlAllowlist = decodeOrderedStringList(
+			rawAllowlist,
+			metaControlAllowlist,
+		)
+	}
+	exclude := orderedSetValues(policy.Exclude)
+	if rawExclude, exists := rawFields["exclude"]; exists {
+		exclude = decodeOrderedStringList(rawExclude, exclude)
+	}
+	typePolicies := frontendPythonSectionTypePolicies(policy.TypePolicies)
+	if rawTypePolicies, exists := rawFields["typePolicies"]; exists {
+		typePolicies = frontendPythonSectionTypePoliciesFromRaw(
+			rawTypePolicies,
+			policy.TypePolicies,
+		)
+	}
+	sectionOverrides := frontendPythonSectionOverrides(policy.SectionOverrides)
+	if rawOverrides, exists := rawFields["sectionOverrides"]; exists {
+		sectionOverrides = frontendPythonSectionOverridesFromRaw(
+			rawOverrides,
+			policy.SectionOverrides,
+		)
+	}
+	return map[string]any{
+		"allowlist":            allowlist,
+		"metaControlAllowlist": metaControlAllowlist,
+		"exclude":              exclude,
+		"typePolicies":         typePolicies,
+		"sectionOverrides":     sectionOverrides,
+	}
+}
+
+func frontendPythonCodeObjValuePolicy(
+	raw projectstate.RawJSON,
+	policy projectstate.PythonCodeObjValuePolicy,
+) map[string]any {
+	rawFields, ok := rawJSONObjectFields(raw)
+	if !ok {
+		return map[string]any{
+			"typePolicies":     frontendPythonCodeObjTypePolicies(policy.TypePolicies),
+			"codeObjOverrides": frontendPythonCodeObjOverrides(policy.CodeObjOverrides),
+		}
+	}
+
+	typePolicies := frontendPythonCodeObjTypePolicies(policy.TypePolicies)
+	if rawTypePolicies, exists := rawFields["typePolicies"]; exists {
+		typePolicies = frontendPythonCodeObjTypePoliciesFromRaw(
+			rawTypePolicies,
+			policy.TypePolicies,
+		)
+	}
+	codeObjOverrides := frontendPythonCodeObjOverrides(policy.CodeObjOverrides)
+	if rawOverrides, exists := rawFields["codeObjOverrides"]; exists {
+		codeObjOverrides = frontendPythonCodeObjOverridesFromRaw(
+			rawOverrides,
+			policy.CodeObjOverrides,
+		)
+	}
+	return map[string]any{
+		"typePolicies":     typePolicies,
+		"codeObjOverrides": codeObjOverrides,
+	}
+}
+
+func frontendPythonSectionTypePolicies(
+	policies map[string]projectstate.PythonSectionTypeCodegenPolicy,
+) map[string]any {
+	result := make(map[string]any, len(policies))
+	for _, key := range orderedPolicyKeys(policies, pythonSectionTypeOrder) {
+		policy := policies[key]
+		result[key] = map[string]any{
+			"mode":           string(policy.Mode),
+			"representation": string(policy.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonSectionOverrides(
+	overrides map[string]projectstate.PythonSectionCodegenOverride,
+) map[string]any {
+	result := make(map[string]any, len(overrides))
+	for _, key := range orderedMapKeys(overrides) {
+		override := overrides[key]
+		result[key] = map[string]any{
+			"mode":           string(override.Mode),
+			"representation": string(override.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonSectionTypePoliciesFromRaw(
+	raw json.RawMessage,
+	policies map[string]projectstate.PythonSectionTypeCodegenPolicy,
+) map[string]any {
+	fields, ok := rawJSONObjectFields(raw)
+	if !ok {
+		return frontendPythonSectionTypePolicies(policies)
+	}
+	result := make(map[string]any, len(fields))
+	for _, key := range orderedPolicyKeys(fields, pythonSectionTypeOrder) {
+		policy := policies[key]
+		result[key] = map[string]any{
+			"mode":           string(policy.Mode),
+			"representation": string(policy.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonSectionOverridesFromRaw(
+	raw json.RawMessage,
+	overrides map[string]projectstate.PythonSectionCodegenOverride,
+) map[string]any {
+	fields, ok := rawJSONObjectFields(raw)
+	if !ok {
+		return frontendPythonSectionOverrides(overrides)
+	}
+	result := make(map[string]any, len(fields))
+	for _, key := range orderedPolicyKeys(fields, nil) {
+		override := overrides[key]
+		result[key] = map[string]any{
+			"mode":           string(override.Mode),
+			"representation": string(override.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonCodeObjTypePolicies(
+	policies map[string]projectstate.PythonCodeObjTypeValuePolicy,
+) map[string]any {
+	result := make(map[string]any, len(policies))
+	for _, key := range orderedPolicyKeys(policies, pythonCodeObjTypeOrder) {
+		policy := policies[key]
+		result[key] = map[string]any{
+			"representation": string(policy.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonCodeObjTypePoliciesFromRaw(
+	raw json.RawMessage,
+	policies map[string]projectstate.PythonCodeObjTypeValuePolicy,
+) map[string]any {
+	fields, ok := rawJSONObjectFields(raw)
+	if !ok {
+		return frontendPythonCodeObjTypePolicies(policies)
+	}
+	result := make(map[string]any, len(fields))
+	for _, key := range orderedPolicyKeys(fields, pythonCodeObjTypeOrder) {
+		policy := policies[key]
+		result[key] = map[string]any{
+			"representation": string(policy.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonCodeObjOverrides(
+	overrides map[string]projectstate.PythonCodeObjValueOverride,
+) map[string]any {
+	result := make(map[string]any, len(overrides))
+	for _, key := range orderedMapKeys(overrides) {
+		override := overrides[key]
+		result[key] = map[string]any{
+			"representation": string(override.Representation),
+		}
+	}
+	return result
+}
+
+func frontendPythonCodeObjOverridesFromRaw(
+	raw json.RawMessage,
+	overrides map[string]projectstate.PythonCodeObjValueOverride,
+) map[string]any {
+	fields, ok := rawJSONObjectFields(raw)
+	if !ok {
+		return frontendPythonCodeObjOverrides(overrides)
+	}
+	result := make(map[string]any, len(fields))
+	for _, key := range orderedPolicyKeys(fields, nil) {
+		override := overrides[key]
+		result[key] = map[string]any{
+			"representation": string(override.Representation),
+		}
+	}
+	return result
+}
+
+func orderedPolicyList(
+	values map[string]struct{},
+	reference []string,
+	allowAll bool,
+) []string {
+	if allowAll {
+		return nil
+	}
+	return orderedSetValuesByReference(values, reference)
+}
+
+func orderedSetValues(values map[string]struct{}) []string {
+	return orderedSetValuesByReference(values, nil)
+}
+
+func orderedSetValuesByReference(
+	values map[string]struct{},
+	reference []string,
+) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	ordered := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, key := range reference {
+		if _, ok := values[key]; !ok {
+			continue
+		}
+		ordered = append(ordered, key)
+		seen[key] = struct{}{}
+	}
+	extras := make([]string, 0, len(values)-len(seen))
+	for key := range values {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		extras = append(extras, key)
+	}
+	sort.Strings(extras)
+	return append(ordered, extras...)
+}
+
+func rawJSONObjectFields(raw json.RawMessage) (map[string]json.RawMessage, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+		return nil, false
+	}
+	return fields, true
+}
+
+func decodeOrderedStringList(raw json.RawMessage, fallback []string) []string {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "null" {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return fallback
+	}
+	return values
+}
+
+func orderedPolicyKeys[T any](values map[string]T, reference []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	ordered := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, key := range reference {
+		if _, ok := values[key]; !ok {
+			continue
+		}
+		ordered = append(ordered, key)
+		seen[key] = struct{}{}
+	}
+	extras := make([]string, 0, len(values)-len(seen))
+	for key := range values {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		extras = append(extras, key)
+	}
+	sort.Strings(extras)
+	return append(ordered, extras...)
+}
+
+func orderedMapKeys[T any](values map[string]T) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func codeFileBindingFromProjectState(binding *projectstate.CodeFileBinding) *CodeFileBinding {

@@ -60,6 +60,7 @@ ROUTE_SAVE_PROJECT = "/api/saveProject"
 ROUTE_ADD_KWARG = "/api/addKwarg"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
 ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
+ROUTE_SET_PROJECT_CONFIG_CODEGEN_TARGETS = "/api/setProjectConfigCodegenTargets"
 ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT = "/api/createWorkspaceLaunchIntent"
 ROUTE_LAUNCH = "/api/launch"
 
@@ -2102,6 +2103,10 @@ def execute_scenario(
         return execute_window_space_create_invalid_owner_mode_write_contract(backend)
     if scenario.kind == "prompt_template_link_rejects_non_prompt_sections":
         return execute_prompt_template_link_rejects_non_prompt_sections(backend)
+    if scenario.kind == "codegen_targets_python_route_projects_target_shape":
+        return execute_codegen_targets_python_route_projects_target_shape(
+            backend
+        )
     if scenario.kind == "window_spaces_duplicate_sort_indices_on_load":
         return execute_window_spaces_duplicate_sort_indices_on_load(backend)
     if scenario.kind == "settings_project_shell":
@@ -2339,6 +2344,75 @@ def execute_latest_state_add_kwarg_shown_param_ids(
             "status": add_response.status_code,
         },
         "beforeLatestProjectState": before_payload,
+        "latestProjectState": latest_payload,
+    }
+
+
+def execute_codegen_targets_python_route_projects_target_shape(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, _ = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+
+    before_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    before_payload = normalize_response_json(before_response)
+    if not isinstance(before_payload, dict):
+        raise ParityHarnessError(
+            "getLatestProjectState before invalid codegen target mutation "
+            f"returned unexpected payload: {before_payload!r}"
+        )
+
+    invalid_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CONFIG_CODEGEN_TARGETS,
+        payload={
+            "projectConfigId": project_id,
+            "codegenTargets": [
+                {
+                    "language": "python",
+                    "codeObjValuePolicy": {
+                        "typePolicies": {
+                            "TextParam": {"representation": "expression"}
+                        }
+                    },
+                }
+            ],
+        },
+    )
+    invalid_payload = normalize_response_json(invalid_response)
+
+    latest_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    latest_payload = normalize_response_json(latest_response)
+    if not isinstance(latest_payload, dict):
+        raise ParityHarnessError(
+            "getLatestProjectState after invalid codegen target mutation "
+            f"returned unexpected payload: {latest_payload!r}"
+        )
+
+    summary = summarize_codegen_targets_python_route_projects_target_shape(
+        invalid_http_status=invalid_response.status_code,
+        before_payload=before_payload,
+        latest_http_status=latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "beforeLatestProjectState": before_payload,
+        "invalidSetProjectConfigCodegenTargets": {
+            "payload": invalid_payload,
+            "status": invalid_response.status_code,
+        },
         "latestProjectState": latest_payload,
     }
 
@@ -5728,6 +5802,31 @@ def summarize_prompt_template_link_rejects_non_prompt_sections(
     }
 
 
+def summarize_codegen_targets_python_route_projects_target_shape(
+    invalid_http_status: int,
+    before_payload: dict[str, Any],
+    latest_http_status: int,
+    latest_payload: Any,
+) -> dict[str, Any]:
+    before_project_state = object_field(before_payload, "projectState")
+    before_codegen_targets = summarize_project_codegen_targets(before_project_state)
+    summary: dict[str, Any] = {
+        "setCodegenTargetsHttpStatus": invalid_http_status,
+        "beforeCodegenTargets": before_codegen_targets,
+        "latestHttpStatus": latest_http_status,
+    }
+
+    if latest_http_status == 200 and isinstance(latest_payload, dict):
+        latest_project_state = object_field(latest_payload, "projectState")
+        after_codegen_targets = summarize_project_codegen_targets(latest_project_state)
+        summary["afterCodegenTargets"] = after_codegen_targets
+        summary["codegenTargetsChanged"] = before_codegen_targets != after_codegen_targets
+    else:
+        summary["latestErrorSummary"] = normalize_error_summary(latest_payload)
+
+    return summary
+
+
 def summarize_window_space_duplicate_sort_indices_on_load(
     load_http_status: int,
     load_payload: dict[str, Any],
@@ -8568,6 +8667,24 @@ def has_duplicate_sort_indices(window_spaces: dict[str, Any]) -> bool:
             return True
         seen.add(sort_index)
     return False
+
+
+def summarize_project_codegen_targets(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    project_config = object_field(payload, "projectConfig")
+    codegen_targets = expect_list(
+        project_config.get("codegenTargets"),
+        "projectConfig.codegenTargets",
+        allow_missing=True,
+    )
+    normalized_targets: list[dict[str, Any]] = []
+    for index, raw_target in enumerate(codegen_targets):
+        normalized_targets.append(
+            expect_object(raw_target, f"projectConfig.codegenTargets[{index}]")
+        )
+    return sorted(
+        normalized_targets,
+        key=lambda target: json.dumps(target, sort_keys=True, separators=(",", ":")),
+    )
 
 
 def normalize_error_summary(payload: Any) -> str:

@@ -37,6 +37,9 @@ func TestDecodePythonSectionCodegenPolicyUsesDefaults(t *testing.T) {
 	if got := policy.TypePolicies["Callable"].Representation; got != PythonSectionRepresentationExpression {
 		t.Fatalf("expected Callable default representation expression, got %q", got)
 	}
+	if got := policy.TypePolicies["StateMachineGate"].Representation; got != PythonSectionRepresentationExpression {
+		t.Fatalf("expected StateMachineGate default representation expression, got %q", got)
+	}
 }
 
 // Section policy resolution should respect the meta-control allowlist and reject unsupported type/representation pairs.

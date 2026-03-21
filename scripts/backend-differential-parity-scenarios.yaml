@@ -59,6 +59,10 @@ scenarios:
     kind: prompt_template_link_rejects_non_prompt_sections
     seed: none
     description: Linking a prompt template onto a non-prompt section should fail closed with the source transport contract.
+  - name: codegen_targets_python_route_projects_target_shape
+    kind: codegen_targets_python_route_projects_target_shape
+    seed: none
+    description: Editing the Python target through setProjectConfigCodegenTargets should keep the caller-visible target shape aligned with source defaults and partial nested policy projection.
   - name: window_spaces_duplicate_sort_indices_on_load
     kind: window_spaces_duplicate_sort_indices_on_load
     seed: none

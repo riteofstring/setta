@@ -422,6 +422,22 @@ func TestSingleConfigByProjectIDIncludesCreatedProjectDefaultScaffold(t *testing
 	if len(view.ProjectConfig.CodegenTargets) != 1 {
 		t.Fatalf("expected one default codegen target, got %#v", view.ProjectConfig.CodegenTargets)
 	}
+	defaultPythonTarget := decodeProjectCodegenTargetPayload(t, view.ProjectConfig.CodegenTargets[0])
+	if defaultPythonTarget["genCodePrefix"] != "" {
+		t.Fatalf("expected default python codegen target prefix to be empty, got %#v", defaultPythonTarget["genCodePrefix"])
+	}
+	if defaultPythonTarget["genCodeSuffix"] != projectstate.DefaultPythonCodegenSuffix {
+		t.Fatalf("expected default python codegen target suffix %q, got %#v", projectstate.DefaultPythonCodegenSuffix, defaultPythonTarget["genCodeSuffix"])
+	}
+	if defaultPythonTarget["generateMetadata"] != false {
+		t.Fatalf("expected default python codegen target to disable metadata, got %#v", defaultPythonTarget["generateMetadata"])
+	}
+	if _, ok := defaultPythonTarget["sectionPolicy"].(map[string]any); !ok {
+		t.Fatalf("expected default python codegen target to include sectionPolicy, got %#v", defaultPythonTarget["sectionPolicy"])
+	}
+	if _, ok := defaultPythonTarget["codeObjValuePolicy"].(map[string]any); !ok {
+		t.Fatalf("expected default python codegen target to include codeObjValuePolicy, got %#v", defaultPythonTarget["codeObjValuePolicy"])
+	}
 	if view.GenCodeBinding == nil {
 		t.Fatal("expected generated code binding")
 	}
@@ -436,6 +452,77 @@ func TestSingleConfigByProjectIDIncludesCreatedProjectDefaultScaffold(t *testing
 	}
 	if derefString(view.SingletonSections.GenPythonCode) == "" {
 		t.Fatalf("expected generated python singleton section, got %#v", view.SingletonSections)
+	}
+}
+
+func TestSingleConfigByProjectIDExpandsPythonCodegenPolicyDefaultsForFrontend(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.CodegenTargets = []projectstate.ProjectCodegenTarget{
+		{
+			Language: string(projectstate.CodeLanguagePython),
+			Payload: mustRawJSON(t, map[string]any{
+				"language": "python",
+				"codeObjValuePolicy": map[string]any{
+					"typePolicies": map[string]any{
+						"TextParam": map[string]any{
+							"representation": "expression",
+						},
+					},
+				},
+			}),
+		},
+	}
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	payload := decodeProjectCodegenTargetPayload(t, view.ProjectConfig.CodegenTargets[0])
+	if payload["language"] != string(projectstate.CodeLanguagePython) {
+		t.Fatalf("expected python codegen target language, got %#v", payload["language"])
+	}
+	if payload["genCodePrefix"] != "" {
+		t.Fatalf("expected empty python prefix, got %#v", payload["genCodePrefix"])
+	}
+	if payload["genCodeSuffix"] != projectstate.DefaultPythonCodegenSuffix {
+		t.Fatalf("expected default suffix %q, got %#v", projectstate.DefaultPythonCodegenSuffix, payload["genCodeSuffix"])
+	}
+
+	sectionPolicy, ok := payload["sectionPolicy"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sectionPolicy object, got %#v", payload["sectionPolicy"])
+	}
+	if allowlist, ok := sectionPolicy["allowlist"].([]any); !ok || len(allowlist) == 0 {
+		t.Fatalf("expected populated section allowlist defaults, got %#v", sectionPolicy["allowlist"])
+	}
+
+	codeObjValuePolicy, ok := payload["codeObjValuePolicy"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected codeObjValuePolicy object, got %#v", payload["codeObjValuePolicy"])
+	}
+	typePolicies, ok := codeObjValuePolicy["typePolicies"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected codeObjValuePolicy.typePolicies object, got %#v", codeObjValuePolicy["typePolicies"])
+	}
+	textPolicy, ok := typePolicies["TextParam"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected TextParam policy, got %#v", typePolicies["TextParam"])
+	}
+	if textPolicy["representation"] != "expression" {
+		t.Fatalf("expected explicit TextParam override to survive, got %#v", textPolicy["representation"])
+	}
+	if _, ok := typePolicies["DropzoneParam"]; ok {
+		t.Fatalf("expected explicit codeObjValuePolicy.typePolicies payload to keep only supplied entries, got %#v", typePolicies)
+	}
+	codeObjOverrides, ok := codeObjValuePolicy["codeObjOverrides"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected defaulted codeObjOverrides map, got %#v", codeObjValuePolicy["codeObjOverrides"])
+	}
+	if len(codeObjOverrides) != 0 {
+		t.Fatalf("expected empty defaulted codeObjOverrides map, got %#v", codeObjOverrides)
 	}
 }
 
@@ -660,6 +747,16 @@ func testProjectViewDocument(t *testing.T) projectstate.Document {
 		t.Fatalf("Normalize document: %v", err)
 	}
 	return document
+}
+
+func decodeProjectCodegenTargetPayload(t *testing.T, raw json.RawMessage) map[string]any {
+	t.Helper()
+
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode project codegen target payload: %v", err)
+	}
+	return payload
 }
 
 func mustRawJSON(t *testing.T, payload any) json.RawMessage {

@@ -85,6 +85,12 @@ following are true:
   branch and a non-empty `addKwarg` refresh branch, where the next
   latest-state read keeps the pinned/unpinned split and projects the created
   param into the unpinned `shownParamIds` payload.
+- The default differential manifest now proves the Python codegen-target
+  projection contract too: latest-state and post-mutation project snapshots
+  once again expose the source default Python target fields plus the source
+  partial nested `codeObjValuePolicy` shape, while the source route's `null`
+  body versus the current authoritative Go snapshot return is recorded as an
+  intentional current-caller divergence instead of a parity bug.
 - The explicit current-caller gap queue is now exhausted:
   `backend-behavior-parity-matrix.md` is at `Missing = 0` and
   `Implemented, proof incomplete = 0`.
