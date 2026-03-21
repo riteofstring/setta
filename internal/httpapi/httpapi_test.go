@@ -541,6 +541,65 @@ func TestHandlerReturnsJSONNotFoundEnvelope(t *testing.T) {
 	}
 }
 
+func TestHandlerInjectsDistinctRequestMetadataIntoAPIRoutes(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Register: func(r chi.Router) {
+			r.Get("/projects/{projectID}/status", func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]string{
+					"requestId":    requestIDFromContext(r.Context()),
+					"method":       r.Method,
+					"path":         r.URL.Path,
+					"routePattern": chi.RouteContext(r.Context()).RoutePattern(),
+				})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	readPayload := func(projectID string) (string, map[string]string) {
+		request := httptest.NewRequest(http.MethodGet, "/api/projects/"+projectID+"/status", nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+		}
+		requestID := strings.TrimSpace(response.Header().Get("X-Request-Id"))
+		if requestID == "" {
+			t.Fatal("expected X-Request-Id header")
+		}
+
+		var payload map[string]string
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		if payload["requestId"] != requestID {
+			t.Fatalf("expected body request id %q to match header, got %#v", requestID, payload)
+		}
+		if payload["method"] != http.MethodGet {
+			t.Fatalf("expected GET method, got %#v", payload)
+		}
+		if payload["path"] != "/api/projects/"+projectID+"/status" {
+			t.Fatalf("expected request path for %q, got %#v", projectID, payload)
+		}
+		if payload["routePattern"] != "/api/projects/{projectID}/status" {
+			t.Fatalf("expected route pattern, got %#v", payload)
+		}
+		return requestID, payload
+	}
+
+	firstID, _ := readPayload("alpha")
+	secondID, _ := readPayload("beta")
+	if firstID == secondID {
+		t.Fatalf("expected distinct request ids, got %q", firstID)
+	}
+}
+
 func TestHandlerRecoversPanics(t *testing.T) {
 	t.Parallel()
 
