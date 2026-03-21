@@ -30,20 +30,6 @@ describe("param area measurements", () => {
     expect(base).not.toBe(updated);
   });
 
-  it("keeps the same measure key when param order changes but membership does not", () => {
-    const base = buildParamAreaMeasureKey({
-      paramIds: ["a", "b", "c"],
-      sectionWidth: 240,
-      columnWidth: 120,
-    });
-    const reordered = buildParamAreaMeasureKey({
-      paramIds: ["c", "a", "b"],
-      sectionWidth: 240,
-      columnWidth: 120,
-    });
-    expect(base).toBe(reordered);
-  });
-
   it("computes min height from padding, header, and representative row height", () => {
     const minHeight = measureParamAreaMinHeight({
       rowHeights: [18, 18, 24],

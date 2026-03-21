@@ -179,7 +179,7 @@ function _SectionHeader({
   return (
     <header
       {...headerProps}
-      className={`section-title mx-2 flex min-h-[22px] min-w-0 shrink-0 flex-row items-center self-stretch ${headerClassName}`}
+      className={`section-title mx-2 flex flex-row items-center ${headerClassName}`}
       ref={headerRef}
       style={
         hasSectionStyleTheme
@@ -663,8 +663,8 @@ export function getTitleStyles({
   hasSectionStyleTheme,
 }) {
   const editing = hasSectionStyleTheme
-    ? "block min-w-0 cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
-    : "block min-w-0 cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
+    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
+    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
 
   const notEditing = getNotEditingStyle({
     isActiveSection,
