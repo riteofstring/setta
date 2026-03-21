@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"os"
@@ -236,6 +237,224 @@ func TestServiceRuntimeRedactsConfigAndSourceOutsideIDE(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeConfigDigestsChangeAfterConfigWrite(t *testing.T) {
+	// Runtime list entries should expose config digests and change the current-config digest after writes.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		frontend := payload["frontend"].(map[string]any)
+		frontend["entrypoint"] = "frontend/src/index.js"
+		frontend["style"] = "frontend/src/index.css"
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+		},
+	}); err != nil {
+		t.Fatalf("write initial plugin config: %v", err)
+	}
+
+	firstRuntime, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load first runtime payload: %v", err)
+	}
+	firstEntry := mustFindRuntimeListEntry(t, firstRuntime.List.Plugins, "setta-fixture-full")
+	if firstEntry.Config.SchemaJSONDigestSHA256 == nil || len(*firstEntry.Config.SchemaJSONDigestSHA256) != 64 {
+		t.Fatalf("expected schema digest on first runtime read, got %#v", firstEntry.Config.SchemaJSONDigestSHA256)
+	}
+	if firstEntry.Config.CurrentConfigDigestSHA256 == nil || len(*firstEntry.Config.CurrentConfigDigestSHA256) != 64 {
+		t.Fatalf("expected current-config digest on first runtime read, got %#v", firstEntry.Config.CurrentConfigDigestSHA256)
+	}
+	firstSchemaDigest := *firstEntry.Config.SchemaJSONDigestSHA256
+	firstCurrentConfigDigest := *firstEntry.Config.CurrentConfigDigestSHA256
+
+	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "digest-change",
+		},
+	}); err != nil {
+		t.Fatalf("write updated plugin config: %v", err)
+	}
+
+	secondRuntime, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load second runtime payload: %v", err)
+	}
+	secondEntry := mustFindRuntimeListEntry(t, secondRuntime.List.Plugins, "setta-fixture-full")
+	if secondEntry.Config.SchemaJSONDigestSHA256 == nil || *secondEntry.Config.SchemaJSONDigestSHA256 != firstSchemaDigest {
+		t.Fatalf("expected stable schema digest after config write, got first=%q second=%#v", firstSchemaDigest, secondEntry.Config.SchemaJSONDigestSHA256)
+	}
+	if secondEntry.Config.CurrentConfigDigestSHA256 == nil {
+		t.Fatalf("expected updated current-config digest, got %#v", secondEntry.Config.CurrentConfigDigestSHA256)
+	}
+	if *secondEntry.Config.CurrentConfigDigestSHA256 == firstCurrentConfigDigest {
+		t.Fatalf("expected current-config digest to change after config write, got first=%q second=%q", firstCurrentConfigDigest, *secondEntry.Config.CurrentConfigDigestSHA256)
+	}
+	if got := secondEntry.Config.CurrentConfig["label"]; got != "digest-change" {
+		t.Fatalf("expected updated config label, got %#v", got)
+	}
+}
+
+func TestServiceRuntimeRedactionKeepsEntriesDistinctAcrossScopes(t *testing.T) {
+	// Share/app redaction should keep duplicate plugin ids in different scopes distinguishable.
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			workspaceRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+			settaFilesRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "frontend")
+			for _, pluginRoot := range []string{workspaceRoot, settaFilesRoot} {
+				rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+					frontend := payload["frontend"].(map[string]any)
+					frontend["entrypoint"] = "frontend/src/index.js"
+					frontend["style"] = "frontend/src/index.css"
+				})
+			}
+
+			service := mustNewPluginMutationService(t, roots, nil, mode)
+			runtimeResponse, err := service.Runtime(RuntimeOptions{})
+			if err != nil {
+				t.Fatalf("load redacted runtime payload: %v", err)
+			}
+
+			sourcePaths := map[string]struct{}{}
+			canonicalSourceKeys := map[string]struct{}{}
+			entryCount := 0
+			for _, entry := range runtimeResponse.Status.Plugins {
+				if entry.PluginID != "setta-fixture-frontend" {
+					continue
+				}
+				entryCount++
+				sourcePaths[entry.SourcePath] = struct{}{}
+				canonicalSourceKeys[entry.CanonicalSourceKey] = struct{}{}
+			}
+			if entryCount != 2 {
+				t.Fatalf("expected two redacted status entries, got %#v", runtimeResponse.Status.Plugins)
+			}
+			if len(sourcePaths) != 2 {
+				t.Fatalf("expected distinct redacted source paths across scopes, got %#v", sourcePaths)
+			}
+			if len(canonicalSourceKeys) != 2 {
+				t.Fatalf("expected distinct redacted canonical source keys across scopes, got %#v", canonicalSourceKeys)
+			}
+
+			activeEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
+			shadowedEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-frontend", PluginRuntimeStateShadowed)
+			if activeEntry.SourceScope != PluginScopeWorkspace {
+				t.Fatalf("expected workspace entry to stay active, got %#v", activeEntry.SourceScope)
+			}
+			if shadowedEntry.SourceScope != PluginScopeSettaFiles {
+				t.Fatalf("expected setta_files entry to stay shadowed, got %#v", shadowedEntry.SourceScope)
+			}
+			if !strings.Contains(activeEntry.SourcePath, "[redacted]:workspace:setta:setta-fixture-frontend:") {
+				t.Fatalf("expected workspace redacted source path, got %q", activeEntry.SourcePath)
+			}
+			if !strings.Contains(activeEntry.CanonicalSourceKey, "redacted:workspace:setta:setta-fixture-frontend:") {
+				t.Fatalf("expected workspace redacted canonical source key, got %q", activeEntry.CanonicalSourceKey)
+			}
+			if !strings.Contains(shadowedEntry.SourcePath, "[redacted]:setta_files:setta:setta-fixture-frontend:") {
+				t.Fatalf("expected setta_files redacted source path, got %q", shadowedEntry.SourcePath)
+			}
+			if !strings.Contains(shadowedEntry.CanonicalSourceKey, "redacted:setta_files:setta:setta-fixture-frontend:") {
+				t.Fatalf("expected setta_files redacted canonical source key, got %q", shadowedEntry.CanonicalSourceKey)
+			}
+			if shadowedEntry.ShadowedBySourcePath == nil || *shadowedEntry.ShadowedBySourcePath != activeEntry.SourcePath {
+				t.Fatalf("expected redacted shadow path %q, got %#v", activeEntry.SourcePath, shadowedEntry.ShadowedBySourcePath)
+			}
+		})
+	}
+}
+
+func TestServiceRuntimeRedactionKeepsSameScopeSourceManagersDistinct(t *testing.T) {
+	// Share/app redaction should keep same-scope setta and package-manager duplicates distinguishable.
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			sitePackages, _ := installPackageManagerFixture(
+				t,
+				"frontend",
+				"setta-fixture-frontend",
+				"0.1.0",
+				func(pluginRoot string) {
+					rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+						frontend := payload["frontend"].(map[string]any)
+						frontend["entrypoint"] = "frontend/src/index.js"
+						frontend["style"] = "frontend/src/index.css"
+					})
+				},
+			)
+			localRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "frontend")
+			rewritePluginManifest(t, localRoot, func(payload map[string]any) {
+				frontend := payload["frontend"].(map[string]any)
+				frontend["entrypoint"] = "frontend/src/index.js"
+				frontend["style"] = "frontend/src/index.css"
+			})
+
+			service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, mode, []string{sitePackages})
+			runtimeResponse, err := service.Runtime(RuntimeOptions{})
+			if err != nil {
+				t.Fatalf("load redacted runtime payload with package manager entry: %v", err)
+			}
+
+			sourcePaths := map[string]struct{}{}
+			canonicalSourceKeys := map[string]struct{}{}
+			entryCount := 0
+			for _, entry := range runtimeResponse.Status.Plugins {
+				if entry.PluginID != "setta-fixture-frontend" || entry.SourceScope != PluginScopeSettaFiles {
+					continue
+				}
+				entryCount++
+				sourcePaths[entry.SourcePath] = struct{}{}
+				canonicalSourceKeys[entry.CanonicalSourceKey] = struct{}{}
+			}
+			if entryCount != 2 {
+				t.Fatalf("expected two same-scope status entries, got %#v", runtimeResponse.Status.Plugins)
+			}
+			if len(sourcePaths) != 2 {
+				t.Fatalf("expected distinct redacted source paths across source managers, got %#v", sourcePaths)
+			}
+			if len(canonicalSourceKeys) != 2 {
+				t.Fatalf("expected distinct redacted canonical source keys across source managers, got %#v", canonicalSourceKeys)
+			}
+
+			activeEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
+			shadowedEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-frontend", PluginRuntimeStateShadowed)
+			if activeEntry.SourceScope != PluginScopeSettaFiles || activeEntry.SourceManager != PluginSourceManagerSetta {
+				t.Fatalf("expected active setta entry in setta_files scope, got scope=%q manager=%q", activeEntry.SourceScope, activeEntry.SourceManager)
+			}
+			if shadowedEntry.SourceScope != PluginScopeSettaFiles || shadowedEntry.SourceManager != PluginSourceManagerPackageManager {
+				t.Fatalf("expected shadowed package-manager entry in setta_files scope, got scope=%q manager=%q", shadowedEntry.SourceScope, shadowedEntry.SourceManager)
+			}
+			if !strings.Contains(activeEntry.SourcePath, "[redacted]:setta_files:setta:setta-fixture-frontend:") {
+				t.Fatalf("expected setta redacted source path, got %q", activeEntry.SourcePath)
+			}
+			if !strings.Contains(activeEntry.CanonicalSourceKey, "redacted:setta_files:setta:setta-fixture-frontend:") {
+				t.Fatalf("expected setta redacted canonical source key, got %q", activeEntry.CanonicalSourceKey)
+			}
+			if !strings.Contains(shadowedEntry.SourcePath, "[redacted]:setta_files:package_manager:setta-fixture-frontend:") {
+				t.Fatalf("expected package-manager redacted source path, got %q", shadowedEntry.SourcePath)
+			}
+			if !strings.Contains(shadowedEntry.CanonicalSourceKey, "redacted:setta_files:package_manager:setta-fixture-frontend:") {
+				t.Fatalf("expected package-manager redacted canonical source key, got %q", shadowedEntry.CanonicalSourceKey)
+			}
+			if shadowedEntry.ShadowedBySourcePath == nil || *shadowedEntry.ShadowedBySourcePath != activeEntry.SourcePath {
+				t.Fatalf("expected redacted shadow path %q, got %#v", activeEntry.SourcePath, shadowedEntry.ShadowedBySourcePath)
+			}
+			if *shadowedEntry.ShadowedBySourcePath == shadowedEntry.SourcePath {
+				t.Fatalf("expected shadowed entry to keep a distinct shadow target, got source=%q shadow=%q", shadowedEntry.SourcePath, *shadowedEntry.ShadowedBySourcePath)
+			}
+		})
+	}
+}
+
 func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	// Runtime status should surface deterministic blocked-capability reasons outside IDE mode.
 	roots := newFilesystemResolverTestRoots(t)
@@ -466,4 +685,16 @@ func testRuntimeAssetURLBuilder(pluginID string, relativePath string, sourceDige
 		return baseURL
 	}
 	return baseURL + "?v=" + url.QueryEscape(*sourceDigestSHA256)
+}
+
+func mustFindRuntimeListEntry(t *testing.T, entries []ListEntry, pluginID string) ListEntry {
+	t.Helper()
+
+	for _, entry := range entries {
+		if entry.PluginID == pluginID {
+			return entry
+		}
+	}
+	t.Fatalf("expected runtime list entry %q", pluginID)
+	return ListEntry{}
 }
