@@ -19,6 +19,7 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 	"setta/internal/settingsstate"
@@ -95,23 +96,27 @@ func (e *MultiExecutor) Start(ctx context.Context, request StartRequest) (StartR
 }
 
 type CodexExecutorOptions struct {
-	Runs           *agentruns.RunStore
-	Runtime        *Runtime
-	WorkspaceRoot  string
-	SettaFilesRoot string
-	RuntimeRoot    string
-	ProcessEnv     map[string]string
-	TimeNow        func() time.Time
+	Runs               *agentruns.RunStore
+	Runtime            *Runtime
+	WorkspaceRoot      string
+	SettaFilesRoot     string
+	CurrentSession     *auth.CurrentSession
+	AuthCookieBaseName string
+	RuntimeRoot        string
+	ProcessEnv         map[string]string
+	TimeNow            func() time.Time
 }
 
 type CodexExecutor struct {
-	runs           *agentruns.RunStore
-	runtime        *Runtime
-	workspaceRoot  string
-	settaFilesRoot string
-	runtimeRoot    string
-	processEnv     map[string]string
-	timeNow        func() time.Time
+	runs               *agentruns.RunStore
+	runtime            *Runtime
+	workspaceRoot      string
+	settaFilesRoot     string
+	currentSession     *auth.CurrentSession
+	authCookieBaseName string
+	runtimeRoot        string
+	processEnv         map[string]string
+	timeNow            func() time.Time
 }
 
 func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
@@ -136,13 +141,15 @@ func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
 		}
 	}
 	return &CodexExecutor{
-		runs:           options.Runs,
-		runtime:        options.Runtime,
-		workspaceRoot:  workspaceRoot,
-		settaFilesRoot: settaFilesRoot,
-		runtimeRoot:    strings.TrimSpace(options.RuntimeRoot),
-		processEnv:     cloneStringAnyMapToStringMap(options.ProcessEnv),
-		timeNow:        timeNow,
+		runs:               options.Runs,
+		runtime:            options.Runtime,
+		workspaceRoot:      workspaceRoot,
+		settaFilesRoot:     settaFilesRoot,
+		currentSession:     cloneCurrentSession(options.CurrentSession),
+		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
+		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
+		processEnv:         cloneStringAnyMapToStringMap(options.ProcessEnv),
+		timeNow:            timeNow,
 	}, nil
 }
 
@@ -174,6 +181,11 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		cleanupStart()
 		return StartResponse{}, err
 	}
+	headers, err := e.buildCodexMCPHeaders(request)
+	if err != nil {
+		cleanupStart()
+		return StartResponse{}, err
+	}
 	codexHome, err := e.prepareCodexHome(
 		request.ExternalConfig,
 		request.ChatID,
@@ -181,6 +193,7 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		request.Inputs,
 		request.Profile,
 		completionGuardEnabled,
+		headers,
 	)
 	if err != nil {
 		cleanupStart()
@@ -617,6 +630,7 @@ func (e *CodexExecutor) prepareCodexHome(
 	inputs map[string]any,
 	profile *agentprofiles.Profile,
 	completionGuardEnabled bool,
+	settaHeaders map[string]string,
 ) (string, error) {
 	baseHome := filepath.Join(e.settaFilesRoot, codexSettingsRootName, "codex", config.ID)
 	runtimeHome := filepath.Join(baseHome, "sessions", chatID)
@@ -633,7 +647,7 @@ func (e *CodexExecutor) prepareCodexHome(
 		}
 		payload = loaded
 	}
-	if err := applyCodexRuntimeConfig(payload, config, workingDir, inputs, profile, completionGuardEnabled); err != nil {
+	if err := applyCodexRuntimeConfig(payload, config, workingDir, inputs, profile, completionGuardEnabled, settaHeaders); err != nil {
 		return "", err
 	}
 
@@ -1153,6 +1167,7 @@ func applyCodexRuntimeConfig(
 	inputs map[string]any,
 	profile *agentprofiles.Profile,
 	completionGuardEnabled bool,
+	settaHeaders map[string]string,
 ) error {
 	if payload == nil {
 		return nil
@@ -1200,6 +1215,17 @@ func applyCodexRuntimeConfig(
 	}
 	if strings.TrimSpace(stringValue(payload["model_reasoning_summary"])) == "" {
 		payload["model_reasoning_summary"] = "none"
+	}
+	if len(settaHeaders) > 0 {
+		mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
+		serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
+		headerEntry := ensureAnyMapFromValue(serverEntry["http_headers"])
+		for key, value := range settaHeaders {
+			headerEntry[key] = value
+		}
+		serverEntry["http_headers"] = headerEntry
+		mcpServers[mcpx.DefaultServerID] = serverEntry
+		payload["mcp_servers"] = mcpServers
 	}
 	projects := ensureAnyMapFromValue(payload["projects"])
 	projectEntry := ensureAnyMapFromValue(projects[workingDir])
@@ -1275,6 +1301,44 @@ func buildCodexToolAllowlist(profile *agentprofiles.Profile, completionGuardEnab
 	return &codexToolAllowlist{
 		toolNames: resolved,
 	}, nil
+}
+
+func (e *CodexExecutor) buildCodexMCPHeaders(request StartRequest) (map[string]string, error) {
+	headers := map[string]string{}
+	if e != nil && e.currentSession != nil {
+		cookieName, err := auth.CookieName(e.authCookieBaseName, e.currentSession.Metadata.ID)
+		if err != nil {
+			return nil, err
+		}
+		cookieValue, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(
+			e.currentSession.Metadata.ID,
+			e.currentSession.Secret,
+			e.timeNow(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		headers["Cookie"] = cookieName + "=" + cookieValue
+	}
+	if projectConfigID := strings.TrimSpace(request.ProjectConfigID); projectConfigID != "" {
+		headers[mcpx.AgenticContextProjectConfigIDHeader] = projectConfigID
+	}
+	if chatID := strings.TrimSpace(request.ChatID); chatID != "" {
+		headers[mcpx.AgenticContextChatIDHeader] = chatID
+	}
+	if runID := strings.TrimSpace(request.Run.ID); runID != "" {
+		headers[mcpx.AgenticContextRunIDHeader] = runID
+	}
+	if sectionID := strings.TrimSpace(derefOptionalString(request.SectionID)); sectionID != "" {
+		headers[mcpx.AgenticContextSectionIDHeader] = sectionID
+	}
+	if frontendAffinityToken := strings.TrimSpace(stringValue(request.Inputs["frontendAffinityToken"])); frontendAffinityToken != "" {
+		headers[mcpx.AgenticContextFrontendAffinityHeader] = frontendAffinityToken
+	}
+	if boolValue(request.Inputs["allowUnscoped"]) {
+		headers[mcpx.AgenticContextAllowUnscopedHeader] = "true"
+	}
+	return headers, nil
 }
 
 func copyCodexAuthFile(baseAuthDir string, runtimeHome string) error {

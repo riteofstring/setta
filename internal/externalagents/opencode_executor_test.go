@@ -15,6 +15,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
@@ -291,7 +292,7 @@ func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
 	payload := map[string]any{}
 	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{
 		ApprovalPolicy: stringPtr(`{"shell":"ask","edit":"deny"}`),
-	}, map[string]any{})
+	}, map[string]any{}, nil)
 
 	permission, ok := mapValue(payload["permission"])
 	if !ok {
@@ -321,7 +322,7 @@ func TestApplyOpenCodeRuntimeConfigForcesOpenAITextVerbosity(t *testing.T) {
 		},
 	}
 
-	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{}, map[string]any{})
+	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{}, map[string]any{}, nil)
 
 	provider, ok := mapValue(payload["provider"])
 	if !ok {
@@ -348,6 +349,113 @@ func TestApplyOpenCodeRuntimeConfigForcesOpenAITextVerbosity(t *testing.T) {
 	}
 	if _, ok := mapValue(options["text"]); ok {
 		t.Fatalf("expected legacy text.verbosity payload to be removed, got %#v", options["text"])
+	}
+}
+
+func TestPrepareOpenCodeConfigInjectsAuthAndAgenticHeaders(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	configID := "opencode-config"
+	baseConfigPath := filepath.Join(root, codexSettingsRootName, "opencode", configID, openCodeConfigFileName)
+	if err := os.MkdirAll(filepath.Dir(baseConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir opencode base config dir: %v", err)
+	}
+	baseConfig, err := json.MarshalIndent(map[string]any{
+		"mcp": map[string]any{
+			"setta": map[string]any{
+				"url": "http://127.0.0.1:8000/mcp",
+			},
+		},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("encode opencode base config: %v", err)
+	}
+	baseConfig = append(baseConfig, '\n')
+	if err := os.WriteFile(baseConfigPath, baseConfig, 0o644); err != nil {
+		t.Fatalf("write opencode base config: %v", err)
+	}
+
+	now := time.Date(2026, 3, 19, 18, 30, 0, 0, time.UTC)
+	sectionID := "section-alpha"
+	request := StartRequest{
+		Run:             agentruns.Run{ID: "run-alpha"},
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       &sectionID,
+		Inputs: map[string]any{
+			"frontendAffinityToken": "frontend-alpha",
+			"allowUnscoped":         true,
+		},
+	}
+	executor := &OpenCodeExecutor{
+		settaFilesRoot:     root,
+		currentSession:     &auth.CurrentSession{Metadata: auth.SessionMetadata{ID: "session-1"}, Secret: []byte("session-secret")},
+		authCookieBaseName: auth.DefaultAuthCookieName,
+		timeNow: func() time.Time {
+			return now
+		},
+	}
+	headers, err := executor.buildOpenCodeMCPHeaders(request)
+	if err != nil {
+		t.Fatalf("build opencode mcp headers: %v", err)
+	}
+
+	configPath, err := executor.prepareOpenCodeConfig(externalagentconfigs.Config{
+		ID:           configID,
+		ToolType:     externalagentconfigs.ToolTypeOpenCode,
+		RunMode:      externalagentconfigs.RunModeSDK,
+		SettingsMode: externalagentconfigs.SettingsModeManagedLocal,
+	}, request.ChatID, request.Inputs, headers)
+	if err != nil {
+		t.Fatalf("prepare opencode config: %v", err)
+	}
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read runtime opencode config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode runtime opencode config: %v", err)
+	}
+	mcpEntries, ok := mapValue(payload["mcp"])
+	if !ok {
+		t.Fatalf("expected runtime mcp payload, got %#v", payload["mcp"])
+	}
+	settaEntry, ok := mapValue(mcpEntries["setta"])
+	if !ok || stringValue(settaEntry["url"]) != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected runtime setta mcp url, got %#v", mcpEntries["setta"])
+	}
+	headerPayload, ok := mapValue(settaEntry["headers"])
+	if !ok {
+		t.Fatalf("expected runtime setta headers, got %#v", settaEntry["headers"])
+	}
+	cookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "session-1")
+	if err != nil {
+		t.Fatalf("resolve auth cookie name: %v", err)
+	}
+	cookie := strings.TrimSpace(stringValue(headerPayload["Cookie"]))
+	if !strings.HasPrefix(cookie, cookieName+"=") {
+		t.Fatalf("expected runtime auth cookie header to start with %q, got %q", cookieName+"=", cookie)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextProjectConfigIDHeader]); got != "project-alpha" {
+		t.Fatalf("expected project-config header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextChatIDHeader]); got != "chat-alpha" {
+		t.Fatalf("expected chat header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextRunIDHeader]); got != "run-alpha" {
+		t.Fatalf("expected run header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextSectionIDHeader]); got != "section-alpha" {
+		t.Fatalf("expected section header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextFrontendAffinityHeader]); got != "frontend-alpha" {
+		t.Fatalf("expected frontend-affinity header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextAllowUnscopedHeader]); got != "true" {
+		t.Fatalf("expected allow-unscoped header, got %#v", headerPayload)
 	}
 }
 
@@ -637,11 +745,13 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 		t.Fatalf("new runtime: %v", err)
 	}
 	openCodeExecutor, err := NewOpenCodeExecutor(OpenCodeExecutorOptions{
-		Runs:           runs,
-		Runtime:        runtime,
-		WorkspaceRoot:  root,
-		SettaFilesRoot: root,
-		ProcessEnv:     llmconfig.CurrentProcessEnv(),
+		Runs:               runs,
+		Runtime:            runtime,
+		WorkspaceRoot:      root,
+		SettaFilesRoot:     root,
+		CurrentSession:     &auth.CurrentSession{Metadata: auth.SessionMetadata{ID: "session-1"}, Secret: []byte("fixture-secret")},
+		AuthCookieBaseName: auth.DefaultAuthCookieName,
+		ProcessEnv:         llmconfig.CurrentProcessEnv(),
 		TimeNow: func() time.Time {
 			return now
 		},

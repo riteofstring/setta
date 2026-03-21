@@ -1024,12 +1024,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		codexExecutor, err := externalagents.NewCodexExecutor(externalagents.CodexExecutorOptions{
-			Runs:           agentRunStore,
-			Runtime:        externalAgentRuntime,
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			ProcessEnv:     llmconfig.CurrentProcessEnv(),
+			Runs:               agentRunStore,
+			Runtime:            externalAgentRuntime,
+			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+			CurrentSession:     authServiceCurrentSessionOrNil(authService),
+			AuthCookieBaseName: authService.AuthCookieBaseName(),
+			RuntimeRoot:        cfg.Paths.RuntimeRoot,
+			ProcessEnv:         llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1050,12 +1052,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		openCodeExecutor, err := externalagents.NewOpenCodeExecutor(externalagents.OpenCodeExecutorOptions{
-			Runs:           agentRunStore,
-			Runtime:        externalAgentRuntime,
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			ProcessEnv:     llmconfig.CurrentProcessEnv(),
+			Runs:               agentRunStore,
+			Runtime:            externalAgentRuntime,
+			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+			CurrentSession:     authServiceCurrentSessionOrNil(authService),
+			AuthCookieBaseName: authService.AuthCookieBaseName(),
+			RuntimeRoot:        cfg.Paths.RuntimeRoot,
+			ProcessEnv:         llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

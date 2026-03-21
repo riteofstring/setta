@@ -14,6 +14,7 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
@@ -169,6 +170,30 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	if !ok || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected runtime setta mcp url, got %#v", mcpServers["setta"])
 	}
+	headers, ok := mapValue(settaServer["http_headers"])
+	if !ok {
+		t.Fatalf("expected runtime setta http_headers, got %#v", settaServer["http_headers"])
+	}
+	cookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "session-1")
+	if err != nil {
+		t.Fatalf("resolve auth cookie name: %v", err)
+	}
+	cookie := strings.TrimSpace(stringValue(headers["Cookie"]))
+	if !strings.HasPrefix(cookie, cookieName+"=") {
+		t.Fatalf("expected runtime auth cookie header to start with %q, got %q", cookieName+"=", cookie)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextProjectConfigIDHeader]); got != "project-alpha" {
+		t.Fatalf("expected project-config header, got %#v", headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextChatIDHeader]); got != result.ChatID {
+		t.Fatalf("expected chat header %q, got %#v", result.ChatID, headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextRunIDHeader]); got != result.Run.ID {
+		t.Fatalf("expected run header %q, got %#v", result.Run.ID, headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextAllowUnscopedHeader]); got != "true" {
+		t.Fatalf("expected allow-unscoped header, got %#v", headers)
+	}
 	if got := stringSliceValue(settaServer["enabled_tools"]); !equalStringSlices(got, []string{
 		"getProjectState",
 		"report_completion_status",
@@ -319,7 +344,7 @@ func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInst
 	}
 	applyCodexRuntimeConfig(payload, externalagentconfigs.Config{}, "/tmp/workspace", map[string]any{
 		"systemPrompt": "Runtime system prompt",
-	}, nil, false)
+	}, nil, false, nil)
 
 	if got := stringValue(payload["developer_instructions"]); got != "Runtime system prompt\n\nBase developer instructions" {
 		t.Fatalf("expected system prompt to prepend existing developer instructions, got %q", got)
@@ -374,7 +399,7 @@ func TestCodexExecutorPrepareCodexHomePrefersExplicitBaseConfigPath(t *testing.T
 		ID:               configID,
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false)
+	}, "chat-1", root, map[string]any{}, nil, false, nil)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -422,7 +447,7 @@ func TestCodexExecutorPrepareCodexHomeCopiesAuthFileIntoSessionHome(t *testing.T
 		ID:               "external-config",
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false)
+	}, "chat-1", root, map[string]any{}, nil, false, nil)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -468,7 +493,7 @@ func TestCodexExecutorPrepareCodexHomeLeavesExplicitSourceConfigUnchanged(t *tes
 		SettingsFilePath: stringPtr(explicitConfigPath),
 	}, "chat-1", root, map[string]any{
 		"systemPrompt": "Runtime prompt",
-	}, nil, false)
+	}, nil, false, nil)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -529,7 +554,7 @@ func TestCodexExecutorPrepareCodexHomeLeavesCanonicalConfigBytesUnchanged(t *tes
 		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
 	}, "chat-1", root, map[string]any{
 		"systemPrompt": "Runtime prompt",
-	}, nil, false)
+	}, nil, false, nil)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -557,7 +582,7 @@ func TestCodexExecutorPrepareCodexHomeDoesNotCreateMissingCanonicalConfigInManag
 		ID:                      configID,
 		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
 		SettingsAllowSettaEdits: false,
-	}, "chat-1", root, map[string]any{}, nil, false)
+	}, "chat-1", root, map[string]any{}, nil, false, nil)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -589,7 +614,7 @@ func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersRootKey(t *testi
 		ID:               "external-config",
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false)
+	}, "chat-1", root, map[string]any{}, nil, false, nil)
 	if err == nil {
 		t.Fatal("expected camel-case mcpServers root to be rejected")
 	}
@@ -622,7 +647,7 @@ func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersTables(t *testin
 		ID:               "external-config",
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false)
+	}, "chat-1", root, map[string]any{}, nil, false, nil)
 	if err == nil {
 		t.Fatal("expected camel-case mcpServers tables to be rejected")
 	}
@@ -1236,11 +1261,13 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 		t.Fatalf("new runtime: %v", err)
 	}
 	codexExecutor, err := NewCodexExecutor(CodexExecutorOptions{
-		Runs:           runs,
-		Runtime:        runtime,
-		WorkspaceRoot:  root,
-		SettaFilesRoot: root,
-		ProcessEnv:     llmconfig.CurrentProcessEnv(),
+		Runs:               runs,
+		Runtime:            runtime,
+		WorkspaceRoot:      root,
+		SettaFilesRoot:     root,
+		CurrentSession:     &auth.CurrentSession{Metadata: auth.SessionMetadata{ID: "session-1"}, Secret: []byte("fixture-secret")},
+		AuthCookieBaseName: auth.DefaultAuthCookieName,
+		ProcessEnv:         llmconfig.CurrentProcessEnv(),
 		TimeNow: func() time.Time {
 			return now
 		},

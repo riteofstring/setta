@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 )
@@ -36,25 +37,29 @@ var (
 )
 
 type OpenCodeExecutorOptions struct {
-	Runs           *agentruns.RunStore
-	Runtime        *Runtime
-	WorkspaceRoot  string
-	SettaFilesRoot string
-	RuntimeRoot    string
-	ProcessEnv     map[string]string
-	SidecarPath    string
-	TimeNow        func() time.Time
+	Runs               *agentruns.RunStore
+	Runtime            *Runtime
+	WorkspaceRoot      string
+	SettaFilesRoot     string
+	CurrentSession     *auth.CurrentSession
+	AuthCookieBaseName string
+	RuntimeRoot        string
+	ProcessEnv         map[string]string
+	SidecarPath        string
+	TimeNow            func() time.Time
 }
 
 type OpenCodeExecutor struct {
-	runs           *agentruns.RunStore
-	runtime        *Runtime
-	workspaceRoot  string
-	settaFilesRoot string
-	runtimeRoot    string
-	processEnv     map[string]string
-	sidecarPath    string
-	timeNow        func() time.Time
+	runs               *agentruns.RunStore
+	runtime            *Runtime
+	workspaceRoot      string
+	settaFilesRoot     string
+	currentSession     *auth.CurrentSession
+	authCookieBaseName string
+	runtimeRoot        string
+	processEnv         map[string]string
+	sidecarPath        string
+	timeNow            func() time.Time
 }
 
 func NewOpenCodeExecutor(options OpenCodeExecutorOptions) (*OpenCodeExecutor, error) {
@@ -83,14 +88,16 @@ func NewOpenCodeExecutor(options OpenCodeExecutorOptions) (*OpenCodeExecutor, er
 		}
 	}
 	return &OpenCodeExecutor{
-		runs:           options.Runs,
-		runtime:        options.Runtime,
-		workspaceRoot:  workspaceRoot,
-		settaFilesRoot: settaFilesRoot,
-		runtimeRoot:    strings.TrimSpace(options.RuntimeRoot),
-		processEnv:     cloneStringAnyMapToStringMap(options.ProcessEnv),
-		sidecarPath:    sidecarPath,
-		timeNow:        timeNow,
+		runs:               options.Runs,
+		runtime:            options.Runtime,
+		workspaceRoot:      workspaceRoot,
+		settaFilesRoot:     settaFilesRoot,
+		currentSession:     cloneCurrentSession(options.CurrentSession),
+		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
+		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
+		processEnv:         cloneStringAnyMapToStringMap(options.ProcessEnv),
+		sidecarPath:        sidecarPath,
+		timeNow:            timeNow,
 	}, nil
 }
 
@@ -153,7 +160,12 @@ func (e *OpenCodeExecutor) Start(ctx context.Context, request StartRequest) (Sta
 
 	envMap := e.buildRuntimeEnv(request.ExternalConfig)
 	envMap["SETTA_WORKSPACE_ROOT"] = e.workspaceRoot
-	configPath, err := e.prepareOpenCodeConfig(request.ExternalConfig, request.ChatID, request.Inputs)
+	headers, err := e.buildOpenCodeMCPHeaders(request)
+	if err != nil {
+		cleanupStart()
+		return StartResponse{}, err
+	}
+	configPath, err := e.prepareOpenCodeConfig(request.ExternalConfig, request.ChatID, request.Inputs, headers)
 	if err != nil {
 		cleanupStart()
 		return StartResponse{}, err
@@ -519,7 +531,7 @@ func (e *OpenCodeExecutor) seedOpenCodeMCPStatuses(runID string, configPath stri
 	return e.runtime.UpsertMCPStatuses(runID, statuses)
 }
 
-func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Config, chatID string, inputs map[string]any) (string, error) {
+func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Config, chatID string, inputs map[string]any, settaHeaders map[string]string) (string, error) {
 	baseRoot := filepath.Join(e.settaFilesRoot, codexSettingsRootName, "opencode", config.ID)
 	baseConfigPath := resolveOpenCodeBaseConfig(config, baseRoot)
 	if config.SettingsMode == externalagentconfigs.SettingsModeReadOnly {
@@ -537,7 +549,7 @@ func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Con
 		}
 		payload = loaded
 	}
-	applyOpenCodeRuntimeConfig(payload, config, inputs)
+	applyOpenCodeRuntimeConfig(payload, config, inputs, settaHeaders)
 	content, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encode opencode runtime config: %w", err)
@@ -578,7 +590,7 @@ func loadOpenCodeConfigPayload(path string) (map[string]any, error) {
 	return payload, nil
 }
 
-func applyOpenCodeRuntimeConfig(payload map[string]any, config externalagentconfigs.Config, inputs map[string]any) {
+func applyOpenCodeRuntimeConfig(payload map[string]any, config externalagentconfigs.Config, inputs map[string]any, settaHeaders map[string]string) {
 	if payload == nil {
 		return
 	}
@@ -613,7 +625,59 @@ func applyOpenCodeRuntimeConfig(payload map[string]any, config externalagentconf
 		}
 		payload["mcp"] = existingMCP
 	}
+	if len(settaHeaders) > 0 {
+		existingMCP, _ := mapValue(payload["mcp"])
+		if existingMCP == nil {
+			existingMCP = map[string]any{}
+		}
+		settaEntry := ensureAnyMapFromValue(existingMCP[mcpx.DefaultServerID])
+		headerEntry := ensureAnyMapFromValue(settaEntry["headers"])
+		for key, value := range settaHeaders {
+			headerEntry[key] = value
+		}
+		settaEntry["headers"] = headerEntry
+		existingMCP[mcpx.DefaultServerID] = settaEntry
+		payload["mcp"] = existingMCP
+	}
 	externalagentconfigs.ForceOpenCodeOpenAITextVerbosity(payload, "gpt-5.2-chat-latest", "medium")
+}
+
+func (e *OpenCodeExecutor) buildOpenCodeMCPHeaders(request StartRequest) (map[string]string, error) {
+	headers := map[string]string{}
+	if e != nil && e.currentSession != nil {
+		cookieName, err := auth.CookieName(e.authCookieBaseName, e.currentSession.Metadata.ID)
+		if err != nil {
+			return nil, err
+		}
+		cookieValue, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(
+			e.currentSession.Metadata.ID,
+			e.currentSession.Secret,
+			e.timeNow(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		headers["Cookie"] = cookieName + "=" + cookieValue
+	}
+	if projectConfigID := strings.TrimSpace(request.ProjectConfigID); projectConfigID != "" {
+		headers[mcpx.AgenticContextProjectConfigIDHeader] = projectConfigID
+	}
+	if chatID := strings.TrimSpace(request.ChatID); chatID != "" {
+		headers[mcpx.AgenticContextChatIDHeader] = chatID
+	}
+	if runID := strings.TrimSpace(request.Run.ID); runID != "" {
+		headers[mcpx.AgenticContextRunIDHeader] = runID
+	}
+	if sectionID := strings.TrimSpace(derefOptionalString(request.SectionID)); sectionID != "" {
+		headers[mcpx.AgenticContextSectionIDHeader] = sectionID
+	}
+	if frontendAffinityToken := strings.TrimSpace(stringValue(request.Inputs["frontendAffinityToken"])); frontendAffinityToken != "" {
+		headers[mcpx.AgenticContextFrontendAffinityHeader] = frontendAffinityToken
+	}
+	if boolValue(request.Inputs["allowUnscoped"]) {
+		headers[mcpx.AgenticContextAllowUnscopedHeader] = "true"
+	}
+	return headers, nil
 }
 
 func parseOpenCodePermission(value string) any {
