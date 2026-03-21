@@ -367,8 +367,14 @@ func decodeTokenParts(token string) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, errors.New("invalid token encoding")
 	}
+	if base64.RawURLEncoding.EncodeToString(payloadBytes) != parts[0] {
+		return nil, nil, errors.New("invalid token encoding")
+	}
 	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
+		return nil, nil, errors.New("invalid token encoding")
+	}
+	if base64.RawURLEncoding.EncodeToString(signature) != parts[1] {
 		return nil, nil, errors.New("invalid token encoding")
 	}
 	return payloadBytes, signature, nil

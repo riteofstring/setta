@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -371,6 +372,42 @@ func TestLaunchIntentTokenRoundTripUsesPurposeScopedPayload(t *testing.T) {
 	}
 	if payload.Nonce == "" {
 		t.Fatal("expected launch intent nonce")
+	}
+}
+
+func TestLaunchIntentTokenRejectsNonCanonicalSignatureEncoding(t *testing.T) {
+	t.Parallel()
+
+	manager := NewLaunchIntentTokenManager(10 * time.Minute)
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, _, err := manager.Mint("session-1", []byte("test-secret"), issuedAt)
+	if err != nil {
+		t.Fatalf("mint launch intent token: %v", err)
+	}
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 2 {
+		t.Fatalf("expected two token parts, got %q", token)
+	}
+	const rawURLEncodingAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	lastChar := parts[1][len(parts[1])-1]
+	lastCharIndex := strings.IndexByte(rawURLEncodingAlphabet, lastChar)
+	if lastCharIndex < 0 {
+		t.Fatalf("unexpected signature alphabet character %q", lastChar)
+	}
+	if lastCharIndex%4 != 0 {
+		t.Fatalf("expected canonical base64url suffix index divisible by 4, got %d for %q", lastCharIndex, lastChar)
+	}
+	parts[1] = parts[1][:len(parts[1])-1] + string(rawURLEncodingAlphabet[lastCharIndex+1])
+	nonCanonicalToken := strings.Join(parts, ".")
+
+	_, err = manager.Validate(nonCanonicalToken, []byte("test-secret"), issuedAt.Add(time.Minute))
+	if err == nil {
+		t.Fatal("expected non-canonical signature encoding to fail")
+	}
+	if err.Error() != "invalid token encoding" {
+		t.Fatalf("expected invalid token encoding, got %v", err)
 	}
 }
 
