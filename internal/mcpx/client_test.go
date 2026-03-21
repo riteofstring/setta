@@ -318,6 +318,33 @@ func TestParseToolMetadataIncludesToolArgumentPreview(t *testing.T) {
 	}
 }
 
+func TestParseToolMetadataIncludesResultIDPathsByType(t *testing.T) {
+	t.Parallel()
+
+	metadata, err := parseToolMetadata("create_top_level_section", sdkmcp.Meta{
+		toolMetaNamespace: map[string]any{
+			"toolKind":   string(tools.KindDiscoverable),
+			"accessType": string(tools.AccessTypeStructural),
+			"resultIdPathsByType": map[string]any{
+				string(tools.IDTypeSection):    []any{"sectionId"},
+				string(tools.IDTypeCodeObject): []any{"metaControlParamId"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse tool metadata: %v", err)
+	}
+	if metadata == nil {
+		t.Fatal("expected result follow metadata")
+	}
+	if got := metadata.ResultIDPathsByType[tools.IDTypeSection]; len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("unexpected section result paths %#v", metadata.ResultIDPathsByType)
+	}
+	if got := metadata.ResultIDPathsByType[tools.IDTypeCodeObject]; len(got) != 1 || got[0] != "metaControlParamId" {
+		t.Fatalf("unexpected code-object result paths %#v", metadata.ResultIDPathsByType)
+	}
+}
+
 func TestParseToolMetadataIncludesRuntimePolicyFlags(t *testing.T) {
 	t.Parallel()
 
