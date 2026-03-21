@@ -420,3 +420,8 @@ categorize them.
   `setta stop` workspace-selection, default-IDE-scope, and profile-runtime-
   root rows before jumping back to broader launcher or JSON-source runtime
   work
+- The local `setta stop` cluster is now closed too, so the remaining nearby
+  packaged-launch/runtime queue is no longer session-selection plumbing; the
+  next practical missing work should come from the heavier launcher/process-
+  cleanup and JSON-source runtime rows rather than reopening local CLI
+  selector behavior
