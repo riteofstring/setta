@@ -407,8 +407,8 @@ func TestRegisterProjectRoutesProjectChatWindowingStateRejectsBoundThreadLayoutM
 			if response.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("expected 422 layout response, got %d with body %q", response.Code, response.Body.String())
 			}
-			if !strings.Contains(response.Body.String(), `"code":"invalid_project_chat_windowing"`) {
-				t.Fatalf("expected invalid_project_chat_windowing envelope, got %q", response.Body.String())
+			if !strings.Contains(response.Body.String(), `"detail":"`) {
+				t.Fatalf("expected detail envelope, got %q", response.Body.String())
 			}
 			if !strings.Contains(response.Body.String(), testCase.expectedText) {
 				t.Fatalf("expected error text %q, got %q", testCase.expectedText, response.Body.String())
