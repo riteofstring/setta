@@ -20,6 +20,7 @@ import (
 const (
 	RunTypeManagedChat  = "llm_chat"
 	runTypeExternalChat = "external_agent"
+	runTypeScriptable   = "scriptable_chat"
 
 	AppGenerationModeJSONRender          = "json_render"
 	AppGenerationModeJSONRenderWithImage = "json_render_with_image"
@@ -652,6 +653,9 @@ func (s *Service) getPriorMessagesForSeedChat(chatID string, projectConfigID str
 	latestRun, ok := selectLatestRun(runs)
 	if !ok {
 		return nil, &ContinueFromChatSourceNotFoundError{ChatID: chatID}
+	}
+	if resolveRunInputString(latestRun, "runType") == runTypeScriptable {
+		return nil, ErrChatEngineMismatch
 	}
 	state, err := buildChatStateFromRun(latestRun)
 	if err != nil {

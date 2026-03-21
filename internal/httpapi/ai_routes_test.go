@@ -751,6 +751,55 @@ func TestRegisterAIRoutesReturnsManagedChatIdentityMismatchErrors(t *testing.T) 
 	}
 }
 
+func TestRegisterAIRoutesReturnsManagedContinuationEngineMismatchForScriptableSource(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	scriptableRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         "scriptable_chat",
+		"chatId":          "chat-scriptable",
+		"projectConfigId": "project-alpha",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 5, 0, 0, time.UTC))
+	if err := fixture.store.Save(scriptableRun); err != nil {
+		t.Fatalf("save scriptable continuation run: %v", err)
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"continueFromChatId":"chat-scriptable",
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reuse chat"}]},
+			"engineConfigId":"engine-managed",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":true
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "chat_engine_mismatch" {
+		t.Fatalf("expected chat_engine_mismatch, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
 	t.Parallel()
 
