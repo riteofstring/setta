@@ -139,6 +139,60 @@ func TestSearchIndexSearchUsesSchemaTextAndLimitFallback(t *testing.T) {
 	}
 }
 
+func TestSearchIndexSearchPreservesNamespacedToolNamesAndCategories(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns namespaced tool names", func(t *testing.T) {
+		index := BuildSearchIndex([]SearchEntry{
+			{
+				Name:        "setta__read_file_range",
+				Description: "Read file contents",
+				Metadata: Metadata{
+					SearchCategory: "files",
+				},
+			},
+			{
+				Name:        "github__create_issue",
+				Description: "Create repository issues",
+			},
+		})
+
+		results, err := index.Search("read file", 1)
+		if err != nil {
+			t.Fatalf("search index: %v", err)
+		}
+		if len(results) != 1 {
+			t.Fatalf("expected one result, got %#v", results)
+		}
+		if results[0].Name != "setta__read_file_range" {
+			t.Fatalf("expected namespaced tool name to survive search, got %#v", results[0])
+		}
+	})
+
+	t.Run("includes categories in results", func(t *testing.T) {
+		index := BuildSearchIndex([]SearchEntry{
+			{
+				Name:        "setta__list_notifications",
+				Description: "List notifications",
+				Metadata: Metadata{
+					SearchCategory: "alerts",
+				},
+			},
+		})
+
+		results, err := index.Search("notifications", 1)
+		if err != nil {
+			t.Fatalf("search index: %v", err)
+		}
+		if len(results) != 1 {
+			t.Fatalf("expected one result, got %#v", results)
+		}
+		if results[0].Category != "alerts" {
+			t.Fatalf("expected category alerts, got %#v", results[0])
+		}
+	})
+}
+
 func TestSearchIndexSearchRejectsBlankOrUnsearchableQueries(t *testing.T) {
 	t.Parallel()
 
