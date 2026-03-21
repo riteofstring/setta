@@ -46,11 +46,11 @@ categorize them.
 ## Current Starting Backlog
 
 - The default differential manifest no longer reports the
-  `json_source_key_change_refresh` mismatch. Existing-file
-  `setVariantJsonSourceKeys` edits now match `main`: the route validates the
-  selected dict path, refreshes the live file-backed subtree in memory, keeps
-  the persisted `jsonSourceKeys` and stored tree unchanged, and still marks
-  the frontend op complete. The remaining JSON-source backlog is still the
+  `json_source_key_change_refresh` or
+  `json_source_save_missing_key_path` mismatches. Existing-file
+  `setVariantJsonSourceKeys` edits now match `main`, and ordinary project
+  save now recreates missing `jsonSourceKeys` objects in backing `.json`
+  files before writing values. The remaining JSON-source backlog is still the
   broader load/save/watch owner.
 - The default differential manifest now matches `main` again after tightening
   `settings_project_missing_required_section_fails_closed` to the stable
@@ -60,7 +60,8 @@ categorize them.
   reserved-name-save / required-view-mode-repair /
   deleted-active-tab-repair / missing-required-section /
   code-obj-backfill / display-name-backfill / workspace-launch
-  outdated-settings slice
+  outdated-settings / `json_source_key_change_refresh` /
+  `json_source_save_missing_key_path` slice
 - With the default manifest clean, the next queue should come directly from
   the remaining matrix `Missing` rows. The best current candidates are the
   linked-chat admission lifecycle and the broader ordinary-project JSON-
