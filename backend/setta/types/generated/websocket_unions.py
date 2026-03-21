@@ -3,6 +3,7 @@ from typing import Annotated
 from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
+    WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
@@ -13,7 +14,23 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
+    WebsocketMsgRealtimeDependencyEvent,
+    WebsocketMsgRealtimeUIChange,
+    WebsocketMsgUISettingRevealResult,
 )
+
+BackendWebsocketMsgUnion = (
+    WebsocketMsgUISettingRevealResult
+    | WebsocketMsgRealtimeUIChange
+    | WebsocketMsgRealtimeDependencyEvent
+    | WebsocketMsgCurrentAddressUpdate
+)
+
+BackendWebsocketMsgUnionWithDiscriminator = Annotated[
+    BackendWebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscriminator)
 
 PythonScriptWebsocketMsgUnion = (
     WebsocketMsgListenerRealtimeEvent

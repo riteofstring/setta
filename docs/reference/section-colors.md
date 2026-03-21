@@ -31,8 +31,9 @@ Both routes are write routes guarded by deployment layout policy:
 
 Backend wiring:
 
-- `internal/httpapi/project_routes.go`
-- `internal/projectstate/layout_presentation.go`
+- `backend/setta/routers/project_manager.py`
+- `backend/setta/project_state/base_project_manager.py`
+- `backend/setta/types/helpers_lvl2.py`
 
 Frontend helpers:
 
@@ -114,3 +115,4 @@ Coverage includes:
 Performance report:
 
 - `perf/reports/frontend/2026-02-11_section-style-color-picker-commit.md`
+

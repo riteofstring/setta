@@ -1,30 +1,51 @@
-import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
-import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
+import { ParamRowShell } from "./ParamRowShell";
 import { ResizeHandle } from "./ResizeHandle";
 
-const NESTED_CHILD_ROWS_CLASS_NAME =
-  "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+type ParamContainerProps = {
+  sectionId: string;
+  paramInfoId: string;
+  children: React.ReactNode;
+  labelShapeKey:
+    | "nameInputLeaf"
+    | "nameInputParent"
+    | "textLabelLeaf"
+    | "textLabelParent";
+  onResizeStart: React.MouseEventHandler;
+  isNestedParam: boolean;
+  hasSectionStyleTheme: boolean;
+  isTopLevelWithPad?: boolean;
+  isNestedChildInTree?: boolean;
+  onMouseDown?: React.MouseEventHandler<HTMLElement>;
+  onClick?: React.MouseEventHandler<HTMLElement>;
+  maybeErrorMessage?: string;
+  border?: string;
+  bg?: string;
+  dndAttributes?: React.HTMLAttributes<HTMLElement>;
+  dndListeners?: React.HTMLAttributes<HTMLElement>;
+  dndRef?: React.Ref<HTMLElement>;
+  dndStyle?: React.CSSProperties;
+  dndClassName?: string;
+  showResizeHandle?: boolean;
+};
 
 function _ParamContainer({
   sectionId,
   paramInfoId,
-  requiredParamIdsToPaths,
   children,
+  labelShapeKey,
   onResizeStart,
-  isKwarg,
   isNestedParam,
   hasSectionStyleTheme,
   isTopLevelWithPad,
-  paramChildren,
+  isNestedChildInTree,
   onMouseDown,
   onClick,
   maybeErrorMessage,
@@ -35,8 +56,8 @@ function _ParamContainer({
   dndRef,
   dndStyle,
   dndClassName,
-  listKey,
-}) {
+  showResizeHandle = true,
+}: ParamContainerProps) {
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
   );
@@ -64,8 +85,6 @@ function _ParamContainer({
     showParamDisplayNames,
   ]);
 
-  const columnWidth = "var(--param-column-width, 200px)";
-
   const errorMessage = maybeErrorMessage ?? "";
   const hasError = errorMessage.length > 0;
 
@@ -85,147 +104,78 @@ function _ParamContainer({
       ]
     : [{ title: paramName, content: paramDescription }];
 
-  const renderChildren = useParamDndChildrenForParent(
-    paramInfoId,
-    paramChildren,
-  );
-  const hasChildRows = renderChildren.length > 0;
-  const shouldRenderNestedChildSubtrees = hasChildRows;
-  const useExplicitLeafGrid = !isNestedParam && !hasChildRows;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
-  const floatingBoxHandlers = getFloatingBoxHandlers(...tooltipContentArray);
+  const { onMouseEnter, onMouseLeave } = getFloatingBoxHandlers(
+    ...tooltipContentArray,
+  );
 
-  if (useExplicitLeafGrid) {
-    return (
-      <article
-        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-key-value group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
-        style={{
-          gridTemplateColumns: `minmax(min-content, ${columnWidth}) 0.75rem minmax(0, 1fr)`,
-          gridTemplateAreas: `"key center-gutter value"`,
-          ...(dndStyle ?? {}),
-        }}
-        data-param-row="true"
-        {...floatingBoxHandlers}
-        onMouseDownCapture={onMouseDown}
-        onClick={onClick}
-        ref={dndRef}
-        {...(dndAttributes ?? {})}
-        {...(dndListeners ?? {})}
-        tabIndex={-1}
-        role={undefined}
-      >
-        {!isKwarg ? (
-          <div
-            className="section-key overflow-hidden"
-            style={{ width: columnWidth }}
-          >
-            {children}
-          </div>
-        ) : (
-          children
-        )}
+  return (
+    <ParamRowShell
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      isNestedChildInTree={isNestedChildInTree}
+      isTopLevelWithPad={isTopLevelWithPad}
+      extraClassName={`group/arg-group ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      style={dndStyle}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onMouseDownCapture={onMouseDown}
+      onClick={onClick}
+      dndRef={dndRef}
+      dndAttributes={dndAttributes}
+      dndListeners={dndListeners}
+      tabIndex={-1}
+    >
+      {children}
+      {!isNestedParam && (
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           maybeErrorMessage={errorMessage}
         />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {hasError && (
-          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-        )}
-      </article>
-    );
-  }
-
-  return !isNestedParam ? (
-    <article
-      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
-      data-param-row="true"
-      {...floatingBoxHandlers}
-      onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-      onClick={onClick}
-      ref={dndRef}
-      {...(dndAttributes ?? {})}
-      {...(dndListeners ?? {})}
-      tabIndex={-1}
-      role={undefined}
-    >
-      {!isKwarg ? (
-        <div
-          className="section-key overflow-hidden"
-          style={{ width: columnWidth }}
-        >
-          {children}
-        </div>
-      ) : (
-        <>{children}</>
       )}
-      <ParamInput
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        maybeErrorMessage={errorMessage}
-      />
-      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-      {hasError && (
+      {!isNestedParam && showResizeHandle && (
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+      )}
+      {!isNestedParam && hasError && (
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
-      {shouldRenderNestedChildSubtrees && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
-      )}
-    </article>
-  ) : (
-    <article
-      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
-      {...floatingBoxHandlers}
-      style={{
-        gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
-      data-param-row="true"
-      onMouseDownCapture={onMouseDown}
-      onClick={onClick}
-      ref={dndRef}
-      {...(dndAttributes ?? {})}
-      {...(dndListeners ?? {})}
-      tabIndex={-1}
-      role={undefined}
-    >
-      {children}
-      {shouldRenderNestedChildSubtrees && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
-      )}
-    </article>
+    </ParamRowShell>
   );
 }
 
-export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
+function areParamContainerPropsEqual(
+  prevProps: ParamContainerProps,
+  nextProps: ParamContainerProps,
+) {
+  return (
+    prevProps.sectionId === nextProps.sectionId &&
+    prevProps.paramInfoId === nextProps.paramInfoId &&
+    prevProps.labelShapeKey === nextProps.labelShapeKey &&
+    prevProps.onResizeStart === nextProps.onResizeStart &&
+    prevProps.isNestedParam === nextProps.isNestedParam &&
+    prevProps.hasSectionStyleTheme === nextProps.hasSectionStyleTheme &&
+    prevProps.isTopLevelWithPad === nextProps.isTopLevelWithPad &&
+    prevProps.isNestedChildInTree === nextProps.isNestedChildInTree &&
+    prevProps.onMouseDown === nextProps.onMouseDown &&
+    prevProps.onClick === nextProps.onClick &&
+    prevProps.maybeErrorMessage === nextProps.maybeErrorMessage &&
+    prevProps.border === nextProps.border &&
+    prevProps.bg === nextProps.bg &&
+    prevProps.dndAttributes === nextProps.dndAttributes &&
+    prevProps.dndListeners === nextProps.dndListeners &&
+    prevProps.dndRef === nextProps.dndRef &&
+    prevProps.dndStyle === nextProps.dndStyle &&
+    prevProps.dndClassName === nextProps.dndClassName &&
+    prevProps.showResizeHandle === nextProps.showResizeHandle
+  );
+}
+
+export const ParamContainer = React.memo(
+  _ParamContainer,
+  areParamContainerPropsEqual,
+);
 
 function ErrorSection({
   sectionId,
@@ -240,7 +190,7 @@ function ErrorSection({
 
   return (
     <BiError
-      className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400"
+      className="param-row-error section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400"
       onContextMenu={onContextMenu}
     />
   );
