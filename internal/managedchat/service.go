@@ -61,6 +61,9 @@ var (
 	ErrAppGenerationReferenceImageNotesTooLarge = errors.New(
 		"appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
 	)
+	ErrAppGenerationImageAttachmentRequired = errors.New(
+		"json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.",
+	)
 	ErrChatEngineMismatch             = errors.New("Chat engine mismatch; start a new chat.")
 	ErrChatProjectConfigMismatch      = errors.New("Chat project config mismatch; start a new chat.")
 	ErrContinueFromChatSourceNotFound = errors.New("continuation source chat not found")
@@ -380,6 +383,16 @@ func (s *Service) StartChat(request StartChatRequest) (StartChatResult, error) {
 			}
 		}
 		priorMessages = buildInputMessages(priorMessages, normalizedMessage)
+	}
+	appGenerationByMessageID := agentruns.NormalizeAppGenerationByMessageID(nil)
+	if request.AdditionalInputs != nil {
+		appGenerationByMessageID = agentruns.NormalizeAppGenerationByMessageID(request.AdditionalInputs["appGenerationByMessageId"])
+	}
+	if appGenerationMode != nil && *appGenerationMode == AppGenerationModeJSONRenderWithImage {
+		if !agentruns.MessageHasImageAttachment(normalizedMessage) &&
+			!agentruns.HasRetainedImageAttachmentFromImageModeThread(priorMessages, appGenerationByMessageID) {
+			return StartChatResult{}, ErrAppGenerationImageAttachmentRequired
+		}
 	}
 
 	profile, err := s.resolveManagedProfile(request.AgentProfileID, resolvedEngine.EngineConfig.ID)

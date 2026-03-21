@@ -1,5 +1,7 @@
 package agentruns
 
+import "strings"
+
 const (
 	ChatAppGenerationMessageModePlainChat           = "plain_chat"
 	ChatAppGenerationMessageModeJSONRender          = "json_render"
@@ -49,4 +51,49 @@ func isAllowedChatAppGenerationMessageMode(mode string) bool {
 	default:
 		return false
 	}
+}
+
+func MessageHasImageAttachment(message map[string]any) bool {
+	rawAttachments, ok := message["attachments"]
+	if !ok {
+		return false
+	}
+	attachments, ok := rawAttachments.([]any)
+	if !ok {
+		return false
+	}
+	for _, rawAttachment := range attachments {
+		attachment, ok := rawAttachment.(map[string]any)
+		if !ok {
+			continue
+		}
+		mimeType, ok := attachment["mimeType"].(string)
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "image/") {
+			return true
+		}
+	}
+	return false
+}
+
+func HasRetainedImageAttachmentFromImageModeThread(
+	messages []map[string]any,
+	appGenerationByMessageID map[string]string,
+) bool {
+	for _, message := range messages {
+		role, _ := message["role"].(string)
+		if strings.TrimSpace(role) != "user" {
+			continue
+		}
+		messageID, _ := message["id"].(string)
+		if appGenerationByMessageID[messageID] != ChatAppGenerationMessageModeJSONRenderWithImage {
+			continue
+		}
+		if MessageHasImageAttachment(message) {
+			return true
+		}
+	}
+	return false
 }

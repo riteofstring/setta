@@ -570,6 +570,8 @@ func writeGetLLMResponseError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, r, http.StatusBadRequest, "app_generation_reference_image_url_too_large", err.Error())
 	case errors.Is(err, externalagents.ErrAppGenerationReferenceImageNotesTooLarge), errors.Is(err, managedchat.ErrAppGenerationReferenceImageNotesTooLarge):
 		writeError(w, r, http.StatusBadRequest, "app_generation_reference_image_notes_too_large", err.Error())
+	case errors.Is(err, externalagents.ErrAppGenerationImageAttachmentRequired), errors.Is(err, managedchat.ErrAppGenerationImageAttachmentRequired):
+		writeError(w, r, http.StatusBadRequest, "app_generation_image_attachment_required", err.Error())
 	case errors.As(err, &continueErr):
 		writeError(w, r, http.StatusNotFound, "source_chat_not_found", continueErr.Error())
 	case errors.As(err, &managedContinueErr):

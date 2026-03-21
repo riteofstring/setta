@@ -1190,6 +1190,95 @@ func TestRegisterAIRoutesRejectsOversizedReferenceImageURLForExternalSend(t *tes
 	}
 }
 
+func TestRegisterAIRoutesRejectsImageModeWithoutAttachmentForManagedSend(t *testing.T) {
+	t.Parallel()
+
+	managedStarter := &aiRouteStubManagedStarter{}
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Match this reference image."}],"attachments":[]},
+			"engineConfigId":"engine-managed",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false,
+			"appGenerationMode":"json_render_with_image",
+			"appGenerationByMessageId":{"user-managed":"json_render_with_image"}
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "app_generation_image_attachment_required" {
+		t.Fatalf("expected image attachment requirement error, got %#v", payload)
+	}
+	if fixture.managedStarter.lastInputs != nil {
+		t.Fatalf("expected managed starter not to run, got %#v", fixture.managedStarter.lastInputs)
+	}
+}
+
+func TestRegisterAIRoutesRejectsImageModeWithoutAttachmentForExternalSend(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Match this reference image."}],"attachments":[]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false,
+			"appGenerationMode":"json_render_with_image",
+			"appGenerationByMessageId":{"user-external":"json_render_with_image"}
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "app_generation_image_attachment_required" {
+		t.Fatalf("expected image attachment requirement error, got %#v", payload)
+	}
+	runs, err := fixture.store.List()
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 0 {
+		t.Fatalf("expected external send not to persist a run, got %#v", runs)
+	}
+}
+
 func TestRegisterAIRoutesReturnsConflictForExternalChatEngineMismatch(t *testing.T) {
 	t.Parallel()
 

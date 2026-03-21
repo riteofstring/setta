@@ -696,6 +696,71 @@ func TestServiceStartChatRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
 	}
 }
 
+func TestServiceStartChatAllowsImageModeWithCurrentImageAttachment(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message: map[string]any{
+			"id":      "user-image",
+			"role":    "user",
+			"content": []any{map[string]any{"type": "text", "text": "Match this reference image."}},
+			"attachments": []any{
+				map[string]any{"id": "image-1", "name": "reference.png", "mimeType": "image/png", "size": 128},
+			},
+		},
+		EngineConfigID:    "engine-managed",
+		Thinking:          false,
+		ProjectConfigID:   "project-alpha",
+		AllowUnscoped:     true,
+		PermissionMode:    ChatPermissionModeMinimal,
+		SearchEnabled:     false,
+		AppGenerationMode: stringPtr(AppGenerationModeJSONRenderWithImage),
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-image": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("start managed image-mode chat with current image: %v", err)
+	}
+	if starter.lastInputs == nil {
+		t.Fatal("expected starter to receive image-mode inputs")
+	}
+}
+
+func TestServiceStartChatRejectsImageModeWithoutCurrentOrRetainedImageAttachment(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:           userMessage("user-managed", "Describe the design."),
+		EngineConfigID:    "engine-managed",
+		Thinking:          false,
+		ProjectConfigID:   "project-alpha",
+		AllowUnscoped:     true,
+		PermissionMode:    ChatPermissionModeMinimal,
+		SearchEnabled:     false,
+		AppGenerationMode: stringPtr(AppGenerationModeJSONRenderWithImage),
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-managed": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+			},
+		},
+	})
+	if !errors.Is(err, ErrAppGenerationImageAttachmentRequired) {
+		t.Fatalf("expected ErrAppGenerationImageAttachmentRequired, got %v", err)
+	}
+	if starter.lastInputs != nil {
+		t.Fatalf("expected starter not to be invoked, got %#v", starter.lastInputs)
+	}
+}
+
 func TestServiceStartChatOmitsAppGenerationPromptWhenModeUnset(t *testing.T) {
 	t.Parallel()
 

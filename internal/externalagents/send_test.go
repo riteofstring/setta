@@ -1044,6 +1044,95 @@ func TestSendServiceRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
 	}
 }
 
+func TestSendServiceRejectsImageModeWithoutCurrentOrRetainedImageAttachment(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":      "user-image",
+			"role":    "user",
+			"content": []any{map[string]any{"type": "text", "text": "Match this reference image."}},
+		},
+		EngineConfigID:    fixture.engineID,
+		ProjectConfigID:   "project-alpha",
+		AllowUnscoped:     true,
+		PermissionMode:    ChatPermissionModeMinimal,
+		SearchEnabled:     false,
+		AppGenerationMode: stringPtr(AppGenerationModeJSONRenderWithImage),
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-image": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+			},
+		},
+	})
+	if !errors.Is(err, ErrAppGenerationImageAttachmentRequired) {
+		t.Fatalf("expected image attachment requirement error, got %v", err)
+	}
+	if fixture.executor.last != nil {
+		t.Fatalf("expected executor not to start, got %#v", fixture.executor.last)
+	}
+}
+
+func TestSendServiceAllowsImageModeWithRetainedImageModeHistory(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	seedChatID := "chat-image-history"
+	seedRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         RunTypeExternalAgent,
+		"chatId":          seedChatID,
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  fixture.engineID,
+		"messages": []any{
+			map[string]any{
+				"id":      "user-image-initial",
+				"role":    "user",
+				"content": []any{map[string]any{"type": "text", "text": "Match this reference image."}},
+				"attachments": []any{
+					map[string]any{"id": "image-1", "name": "reference.png", "mimeType": "image/png", "size": 128},
+				},
+			},
+		},
+		"appGenerationByMessageId": map[string]any{
+			"user-image-initial": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+		},
+	}, fixture.now.Add(-time.Hour))
+	seedRun.Status = agentruns.RunStatusCompleted
+	finishedAt := fixture.now.Add(-30 * time.Minute)
+	seedRun.FinishedAt = &finishedAt
+	if err := fixture.runs.Save(seedRun); err != nil {
+		t.Fatalf("save external seed run: %v", err)
+	}
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		ChatID: stringPtr(seedChatID),
+		Message: map[string]any{
+			"id":      "user-image-follow-up",
+			"role":    "user",
+			"content": []any{map[string]any{"type": "text", "text": "Tighten the spacing."}},
+		},
+		EngineConfigID:    fixture.engineID,
+		ProjectConfigID:   "project-alpha",
+		AllowUnscoped:     true,
+		PermissionMode:    ChatPermissionModeMinimal,
+		SearchEnabled:     false,
+		AppGenerationMode: stringPtr(AppGenerationModeJSONRenderWithImage),
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-image-initial":   agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+				"user-image-follow-up": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("start external image-mode chat with retained history: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request for retained image-mode history")
+	}
+}
+
 func TestSendServiceRejectsMissingContinuationSource(t *testing.T) {
 	t.Parallel()
 
