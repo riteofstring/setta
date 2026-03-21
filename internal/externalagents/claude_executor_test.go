@@ -147,6 +147,69 @@ func TestClaudeExecutorGeneratesTempMCPConfigWhenMissing(t *testing.T) {
 	}
 }
 
+func TestClaudeExecutorPassesWhitelistedEnvIntoStartPayload(t *testing.T) {
+	fixture := newClaudeExecutorFixture(t, "env_echo")
+	if err := os.WriteFile(llmconfig.ManagedAPIKeysPath(fixture.root), []byte(strings.Join([]string{
+		"PLAIN_KEY=plain-dot-env-value",
+		`SETTA_MANAGED_LLM_API_KEY_NAMES=["WHITESPACE_KEY"]`,
+		"WHITESPACE_KEY=managed-fallback",
+		"",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write managed env payload: %v", err)
+	}
+
+	config := fixture.config
+	config.EnvVarWhitelist = []string{"PROCESS_KEY", "WHITESPACE_KEY", "PLAIN_KEY", "MISSING_KEY"}
+	if err := fixture.send.configs.Write([]externalagentconfigs.Config{config}); err != nil {
+		t.Fatalf("rewrite external config with env whitelist: %v", err)
+	}
+	fixture.executor.processEnv = map[string]string{
+		"PATH":           "/usr/bin",
+		"HOME":           "/tmp/home",
+		"PROCESS_KEY":    "process-secret",
+		"WHITESPACE_KEY": "   ",
+	}
+
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Inspect Claude env handoff"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude env handoff run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	if got := resolveRunOutputString(persisted, "sessionId"); got != "session-env" {
+		t.Fatalf("expected persisted session id, got %q", got)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	if got := extractMessageText(lastMessage); got != "Env handoff ok" {
+		t.Fatalf("unexpected assistant text %q", got)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	fixture := newClaudeExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
@@ -1042,6 +1105,33 @@ func runClaudeFixtureProcess(scenario string) error {
 			"isError":   false,
 			"result":    "ok",
 			"usage":     map[string]any{"input_tokens": 5, "output_tokens": 3},
+		})
+	case "env_echo":
+		rawEnv, ok := startPayload["env"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected env payload, got %#v", startPayload["env"])
+		}
+		if got := strings.TrimSpace(stringValue(rawEnv["PROCESS_KEY"])); got != "process-secret" {
+			return fmt.Errorf("expected process key passthrough, got %#v", rawEnv["PROCESS_KEY"])
+		}
+		if got := strings.TrimSpace(stringValue(rawEnv["WHITESPACE_KEY"])); got != "managed-fallback" {
+			return fmt.Errorf("expected managed fallback for whitespace key, got %#v", rawEnv["WHITESPACE_KEY"])
+		}
+		if _, ok := rawEnv["PLAIN_KEY"]; ok {
+			return fmt.Errorf("expected plain dotenv-only key to stay excluded, got %#v", rawEnv["PLAIN_KEY"])
+		}
+		if _, ok := rawEnv["MISSING_KEY"]; ok {
+			return fmt.Errorf("expected missing key to stay excluded, got %#v", rawEnv["MISSING_KEY"])
+		}
+		if err := emitClaudeAssistantTurn(emit, "session-env", "assistant-env", "Env handoff ok"); err != nil {
+			return err
+		}
+		return emit(map[string]any{
+			"type":      "result",
+			"sessionId": "session-env",
+			"isError":   false,
+			"result":    "ok",
+			"usage":     map[string]any{"input_tokens": 4, "output_tokens": 3},
 		})
 	case "approval":
 		if err := emit(map[string]any{
