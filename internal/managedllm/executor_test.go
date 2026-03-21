@@ -992,6 +992,79 @@ func TestBuildProviderMessagesRejectsToolReferenceContent(t *testing.T) {
 	}
 }
 
+func TestBuildProviderMessagesPrefixesOpenAISystemPromptBeforeTranscript(t *testing.T) {
+	t.Parallel()
+
+	providerMessages, err := buildProviderMessages(openAIProvider, "System prompt", []map[string]any{
+		{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Hello from the user"},
+			},
+			"attachments": []any{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build provider messages: %v", err)
+	}
+	if len(providerMessages) != 2 {
+		t.Fatalf("expected system and user messages, got %#v", providerMessages)
+	}
+	if providerMessages[0]["role"] != "system" || providerMessages[0]["content"] != "System prompt" {
+		t.Fatalf("expected system prompt first, got %#v", providerMessages[0])
+	}
+	if providerMessages[1]["role"] != "user" || providerMessages[1]["content"] != "Hello from the user" {
+		t.Fatalf("expected user transcript after system prompt, got %#v", providerMessages[1])
+	}
+}
+
+func TestBuildAnthropicProviderMessageStripsThinkingSummary(t *testing.T) {
+	t.Parallel()
+
+	payload, include, err := buildAnthropicProviderMessage(map[string]any{
+		"id":   "assistant-1",
+		"role": "assistant",
+		"content": []any{
+			map[string]any{
+				"type":      "thinking",
+				"thinking":  "Reasoning details.",
+				"summary":   "Short summary.",
+				"signature": "sig",
+			},
+			map[string]any{
+				"type": "text",
+				"text": "Answer.",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build anthropic provider message: %v", err)
+	}
+	if !include {
+		t.Fatal("expected anthropic provider message to be included")
+	}
+
+	content, ok := payload["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", payload["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected thinking block map, got %#v", content[0])
+	}
+	if thinkingBlock["type"] != "thinking" || thinkingBlock["thinking"] != "Reasoning details." || thinkingBlock["signature"] != "sig" {
+		t.Fatalf("unexpected anthropic thinking block %#v", thinkingBlock)
+	}
+	if _, ok := thinkingBlock["summary"]; ok {
+		t.Fatalf("expected anthropic thinking block to drop summary, got %#v", thinkingBlock)
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["type"] != "text" || textBlock["text"] != "Answer." {
+		t.Fatalf("unexpected anthropic text block %#v", content[1])
+	}
+}
+
 func TestExecutorExecuteToolCallsReturnsSearchHintForMissingTool(t *testing.T) {
 	t.Parallel()
 
