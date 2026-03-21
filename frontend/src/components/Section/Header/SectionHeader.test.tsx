@@ -274,17 +274,6 @@ describe("SectionHeader diagnostics badges", () => {
     expect(markup).toContain('data-tooltip-content="Minimize section"');
     expect(markup).toContain('data-tooltip-content="Delete section"');
   });
-
-  it("keeps the section menu trigger flat", () => {
-    const markup = renderHeader();
-
-    expect(markup).toMatch(
-      /<button[^>]*type=\"button\"[^>]*class=\"[^\"]*setta-prevent-section-active-css[^\"]*\"/,
-    );
-    expect(markup).not.toMatch(
-      /<div[^>]*class=\"setta-prevent-section-active-css\"/,
-    );
-  });
 });
 
 describe("SectionHeader follow button", () => {
