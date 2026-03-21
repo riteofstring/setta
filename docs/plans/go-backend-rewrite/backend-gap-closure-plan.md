@@ -284,6 +284,10 @@ categorize them.
   practical queue remains real `Missing` implementation work on active caller
   surfaces rather than more proof cleanup, aside from the still-awkward
   cross-platform `SETTA_HOME` proof row
+- The MCP tool-call unauthorized-JSON row is now closed too, which reinforces
+  the same rule: keep taking small live transport/auth branches when they are
+  truly isolated, but otherwise spend time on the remaining broader `Missing`
+  route/runtime gaps rather than on more ledger cleanup
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
