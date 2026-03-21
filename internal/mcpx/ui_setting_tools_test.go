@@ -534,6 +534,38 @@ func TestServerSearchUISettingsReturnsRankedCoreResults(t *testing.T) {
 	}
 }
 
+func TestServerSearchUISettingsRejectsBlankQuery(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", false)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "   ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call blank search_ui_settings: %v", err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected blank search_ui_settings to fail, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != "query must not be empty" {
+		t.Fatalf("expected blank-query message, got %#v", payload["message"])
+	}
+}
+
 func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing.T) {
 	t.Parallel()
 
@@ -1271,6 +1303,174 @@ func TestServerSetUISettingValueRejectsWriterOldValueDrift(t *testing.T) {
 	errorPayload := mustStructuredMap(t, payload["error"])
 	if errorPayload["code"] != string(uisettings.ErrorCodeMutationFailed) {
 		t.Fatalf("expected mutation_failed error code, got %#v", errorPayload["code"])
+	}
+}
+
+func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-whitespace",
+			ProjectConfigID:    "project-alpha",
+			DurationMS:         1500,
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.watch_code.enabled",
+					Status:    "revealed",
+					Target: &realtime.UISettingRevealTarget{
+						SettingID:      "core.watch_code.enabled",
+						Side:           "left",
+						OverviewTabKey: testStringPointer("Overview"),
+						Strategy:       "dom_anchor",
+						AnchorID:       testStringPointer("core.watch_code.enabled"),
+					},
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	paddedSettingID := "  core.watch_code.enabled\t"
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       paddedSettingID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call padded get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected padded get_ui_setting_value success, got %#v", getResult.StructuredContent)
+	}
+
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != false {
+		t.Fatalf("expected initial watch-code value false, got %#v", getPayload["value"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       paddedSettingID,
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call padded set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected padded set_ui_setting_value success, got %#v", setResult.StructuredContent)
+	}
+
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["changed"] != true {
+		t.Fatalf("expected padded set_ui_setting_value to change state, got %#v", setPayload["changed"])
+	}
+
+	revealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       paddedSettingID,
+			"durationMs":      1500,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call padded reveal_ui_setting: %v", err)
+	}
+	if revealResult.IsError {
+		t.Fatalf("expected padded reveal_ui_setting success, got %#v", revealResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after padded UI-setting writes: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected padded set_ui_setting_value to persist watch-code enabled=true")
+	}
+	if revealService.input.SettingID != "core.watch_code.enabled" {
+		t.Fatalf("expected trimmed reveal setting id, got %q", revealService.input.SettingID)
+	}
+}
+
+func TestServerUISettingToolsRejectWhitespaceOnlySettingID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	testCases := []struct {
+		name      string
+		toolName  string
+		arguments map[string]any
+	}{
+		{
+			name:     "get",
+			toolName: "get_ui_setting_value",
+			arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"settingId":       " \t ",
+			},
+		},
+		{
+			name:     "set",
+			toolName: "set_ui_setting_value",
+			arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"settingId":       " \t ",
+				"value":           true,
+			},
+		},
+		{
+			name:     "reveal",
+			toolName: "reveal_ui_setting",
+			arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"settingId":       " \t ",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+				Name:      tc.toolName,
+				Arguments: tc.arguments,
+			})
+			if err != nil {
+				t.Fatalf("call %s with blank setting id: %v", tc.toolName, err)
+			}
+			if !result.IsError {
+				t.Fatalf("expected %s with blank setting id to fail, got %#v", tc.toolName, result.StructuredContent)
+			}
+
+			payload := mustStructuredMap(t, result.StructuredContent)
+			if payload["code"] != "invalid_arguments" {
+				t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+			}
+			if payload["message"] != "settingId must not be empty" {
+				t.Fatalf("expected blank setting id message, got %#v", payload["message"])
+			}
+		})
 	}
 }
 

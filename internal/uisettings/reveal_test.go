@@ -112,6 +112,91 @@ func TestRevealServiceDispatchesToAffinitySelectedFrontendAndReturnsSuccess(t *t
 	}
 }
 
+func TestRevealServiceLeavesRightPaneActivationToFrontend(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token"),
+	})
+	connection, err := registry.Register(realtime.RegisterParams{
+		ID:   "frontend-1",
+		Type: realtime.ConnectionTypeFrontend,
+	})
+	if err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+	token, ok := registry.FrontendAffinityToken(connection.ID)
+	if !ok {
+		t.Fatal("expected frontend affinity token")
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	projectView := revealTestProjectView(t, "callable-section", "Callable", nil)
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if revealMessage.Content.ActiveSectionID == nil || *revealMessage.Content.ActiveSectionID != "callable-section" {
+			t.Fatalf("expected explicit activeSectionId callable-section, got %#v", revealMessage.Content.ActiveSectionID)
+		}
+		if got := projectView.ProjectConfig.ActiveIDs; len(got) != 0 {
+			t.Fatalf("expected backend reveal flow not to mutate active ids before frontend ack, got %#v", got)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID:    "core.project.show_param_display_names",
+					Status:       "revealed",
+					ErrorCode:    nil,
+					ErrorMessage: nil,
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected reveal result resolution to succeed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-frontend-owned"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           projectView,
+		Registry:              revealTestRegistry(t),
+		SettingID:             "core.project.show_param_display_names",
+		SectionIDToActivate:   "callable-section",
+		FrontendAffinityToken: token,
+		DurationMS:            1500,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if got := projectView.ProjectConfig.ActiveIDs; len(got) != 0 {
+		t.Fatalf("expected reveal service to leave active ids frontend-owned after reveal, got %#v", got)
+	}
+	if result.EmittedRevealCount != 1 {
+		t.Fatalf("expected emittedRevealCount=1, got %d", result.EmittedRevealCount)
+	}
+	if len(result.Statuses) != 1 || result.Statuses[0].Status != "revealed" {
+		t.Fatalf("expected single revealed status, got %#v", result.Statuses)
+	}
+}
+
 // Structured reveal dispatch must preserve the frontend-facing target payload,
 // including strategy, activation steps, and request correlation.
 func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t *testing.T) {
