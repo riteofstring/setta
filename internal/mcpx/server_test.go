@@ -6841,6 +6841,73 @@ func TestServerSetAgenticContextPersistsSessionScopeForLaterToolCalls(t *testing
 	assertSummaryPayload(t, summaryResult.StructuredContent)
 }
 
+func TestServerScopedReadToolsRecomputeScopeAfterEdgeMutation(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	requestContext := ToolRequestContext{SessionKey: "session-scope-refresh"}
+	setContextResult, err := server.InvokeTool(context.Background(), "set_agentic_context", map[string]any{
+		"projectConfigId": "project-alpha",
+		"chatId":          "chat-1",
+		"sectionId":       "chat-section",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	firstResult, err := server.InvokeTool(context.Background(), "get_latest_project_state_summary", map[string]any{
+		"projectConfigId": "project-alpha",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke first get_latest_project_state_summary: %v", err)
+	}
+	if firstResult.IsError {
+		t.Fatalf("expected first project summary success, got %#v", firstResult.StructuredContent)
+	}
+	firstSummary := mustStructuredMap(t, firstResult.StructuredContent)
+	firstProjectConfig := mustStructuredMap(t, firstSummary["projectConfig"])
+	firstSectionVariantMap := mustStructuredMap(t, firstProjectConfig["sectionVariantMap"])
+	if _, ok := firstSectionVariantMap["blocked-section"]; ok {
+		t.Fatalf("did not expect blocked-section before edge mutation, got %#v", firstSectionVariantMap)
+	}
+
+	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.AgenticEdges = append(project.AgenticEdges, projectstate.AgenticEdge{
+			ID:              "edge-unblocked",
+			SourceSectionID: "chat-section",
+			TargetSectionID: "blocked-section",
+			Kind:            "chat_section",
+		})
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate agentic edges: %v", err)
+	}
+
+	secondResult, err := server.InvokeTool(context.Background(), "get_latest_project_state_summary", map[string]any{
+		"projectConfigId": "project-alpha",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke second get_latest_project_state_summary: %v", err)
+	}
+	if secondResult.IsError {
+		t.Fatalf("expected second project summary success, got %#v", secondResult.StructuredContent)
+	}
+	secondSummary := mustStructuredMap(t, secondResult.StructuredContent)
+	secondProjectConfig := mustStructuredMap(t, secondSummary["projectConfig"])
+	secondSectionVariantMap := mustStructuredMap(t, secondProjectConfig["sectionVariantMap"])
+	if _, ok := secondSectionVariantMap["blocked-section"]; !ok {
+		t.Fatalf("expected blocked-section after edge mutation, got %#v", secondSectionVariantMap)
+	}
+}
+
 func TestServerScopedReadToolsCanUseHeaderContextAndTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
