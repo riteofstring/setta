@@ -129,6 +129,67 @@ func TestServiceImportLoadAndDeleteFlow(t *testing.T) {
 	}
 }
 
+func TestServiceImportFilesAllowsEmptyFilesAndCachesBinaryRef(t *testing.T) {
+	t.Parallel()
+
+	service, paths := newArtifactTestService(t)
+
+	emptyPath := filepath.Join(paths.workspaceRoot, "empty.bin")
+	if err := os.WriteFile(emptyPath, []byte{}, 0o644); err != nil {
+		t.Fatalf("write empty workspace file: %v", err)
+	}
+
+	imported, err := service.ImportFiles(context.Background(), ImportFilesRequest{
+		Paths:       []string{emptyPath},
+		UploadScope: UploadScopeGeneric,
+	})
+	if err != nil {
+		t.Fatalf("import empty file: %v", err)
+	}
+	if len(imported) != 1 {
+		t.Fatalf("expected one imported artifact, got %#v", imported)
+	}
+	if imported[0].Size != 0 {
+		t.Fatalf("expected empty import size, got %#v", imported)
+	}
+
+	importedPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(imported[0].ID))
+	payload, err := os.ReadFile(importedPath)
+	if err != nil {
+		t.Fatalf("read imported empty artifact: %v", err)
+	}
+	if len(payload) != 0 {
+		t.Fatalf("expected imported empty artifact payload, got %q", string(payload))
+	}
+
+	// Empty files should still mint a cached file artifact with a binary-store payload ref.
+	cached, ok := service.files[importedPath]
+	if !ok {
+		t.Fatalf("expected cached file artifact for %q", importedPath)
+	}
+	if cached.Type != ArtifactTypeFile {
+		t.Fatalf("expected file artifact type, got %#v", cached)
+	}
+	if cached.Value.ByteLength != 0 {
+		t.Fatalf("expected empty cached byte length, got %#v", cached.Value)
+	}
+	cachedPayload, err := service.ReadBinaryContent(cached.Value.ContentID)
+	if err != nil {
+		t.Fatalf("read cached binary payload: %v", err)
+	}
+	if len(cachedPayload) != 0 {
+		t.Fatalf("expected empty cached binary payload, got %q", string(cachedPayload))
+	}
+
+	metadata, ok := service.metadata[importedPath]
+	if !ok {
+		t.Fatalf("expected cache metadata for %q", importedPath)
+	}
+	if metadata.LastKnownHash != hashBytes(payload) {
+		t.Fatalf("expected empty-file hash %q, got %#v", hashBytes(payload), metadata)
+	}
+}
+
 func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 	t.Parallel()
 

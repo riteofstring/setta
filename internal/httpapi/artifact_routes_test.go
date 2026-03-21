@@ -208,6 +208,49 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 	}
 }
 
+func TestRegisterArtifactRoutesImportFilesAllowsEmptyFiles(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, settaFilesRoot, _ := newArtifactRouteService(t)
+	handler := newArtifactRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	emptyPath := filepath.Join(workspaceRoot, "empty.bin")
+	if err := os.WriteFile(emptyPath, []byte{}, 0o644); err != nil {
+		t.Fatalf("write empty workspace file: %v", err)
+	}
+
+	importRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["`+emptyPath+`"],"uploadScope":"generic"}`))
+	importRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, importRequest, authService)
+
+	importResponse := httptest.NewRecorder()
+	handler.ServeHTTP(importResponse, importRequest)
+	if importResponse.Code != http.StatusOK {
+		t.Fatalf("expected import 200, got %d with body %q", importResponse.Code, importResponse.Body.String())
+	}
+
+	var importPayload []artifacts.ImportFilesResponseItem
+	if err := json.Unmarshal(importResponse.Body.Bytes(), &importPayload); err != nil {
+		t.Fatalf("decode import payload: %v", err)
+	}
+	if len(importPayload) != 1 {
+		t.Fatalf("expected one imported artifact, got %#v", importPayload)
+	}
+	if importPayload[0].Size != 0 {
+		t.Fatalf("expected empty import size, got %#v", importPayload)
+	}
+
+	importedPath := filepath.Join(settaFilesRoot, filepath.FromSlash(importPayload[0].ID))
+	payload, err := os.ReadFile(importedPath)
+	if err != nil {
+		t.Fatalf("read imported empty artifact: %v", err)
+	}
+	if len(payload) != 0 {
+		t.Fatalf("expected imported empty artifact payload, got %q", string(payload))
+	}
+}
+
 func TestRegisterArtifactRoutesBlocksLauncherMode(t *testing.T) {
 	t.Parallel()
 
