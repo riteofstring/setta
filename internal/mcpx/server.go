@@ -601,14 +601,14 @@ func (s *Server) resolveScopedInvocationContext(
 		return nil, nil, nil, err
 	}
 	if resolvedAgenticContext == nil || strings.TrimSpace(resolvedAgenticContext.ProjectConfigID) == "" {
-		return nil, nil, nil, buildScopeViolationError(toolName, "missing_context", nil, nil, nil)
+		return nil, nil, nil, buildScopeViolationError(toolName, "missing_context", nil, nil, nil, nil)
 	}
 	resolvedAgenticContext, err = translateAgenticContextToCanonical(resolvedAgenticContext, s.temporaryIDs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if strings.TrimSpace(resolvedAgenticContext.SectionID) == "" && !resolvedAgenticContext.AllowUnscoped {
-		return nil, nil, nil, buildScopeViolationError(toolName, "missing_section_id", nil, nil, nil)
+		return nil, nil, nil, buildScopeViolationError(toolName, "missing_section_id", nil, nil, nil, nil)
 	}
 
 	projectView, err := s.loadProjectView(resolvedAgenticContext.ProjectConfigID)
@@ -624,12 +624,19 @@ func (s *Server) resolveScopedInvocationContext(
 		return nil, nil, nil, err
 	}
 	if !scopeCheck.Allowed {
+		missingEdgesCanonical := buildMissingEdgeHints(
+			resolvedAgenticContext.SectionID,
+			scopeCheck.BlockedSectionIDs,
+			string(metadata.AccessType),
+			&projectView,
+		)
 		return nil, nil, nil, buildScopeViolationError(
 			toolName,
 			scopeCheck.Reason,
 			scopeCheck.BlockedSectionIDs,
 			scopeCheck.TargetSectionIDs,
 			scopeCheck.UnmappedCodeObjIDs,
+			missingEdgesCanonical,
 		)
 	}
 	return resolvedAgenticContext, &scope, &projectView, nil
@@ -686,7 +693,7 @@ func (s *Server) newSetAgenticContextHandler() tools.Handler {
 			return nil, newToolError("internal_error", "Unable to resolve MCP session for agentic context.")
 		}
 		if sectionID == "" && !allowUnscoped {
-			return nil, buildScopeViolationError("set_agentic_context", "missing_section_id", nil, nil, nil)
+			return nil, buildScopeViolationError("set_agentic_context", "missing_section_id", nil, nil, nil, nil)
 		}
 
 		s.setSessionAgenticContext(invocation.SessionKey, AgenticContext{

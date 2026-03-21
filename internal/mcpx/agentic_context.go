@@ -2,6 +2,7 @@ package mcpx
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -66,6 +67,12 @@ type scopeCheckResult struct {
 	TargetSectionIDs   []string
 	BlockedSectionIDs  []string
 	UnmappedCodeObjIDs []string
+}
+
+type scopeViolationMissingEdge struct {
+	SourceSectionID string `json:"sourceSectionId"`
+	TargetSectionID string `json:"targetSectionId"`
+	Kind            string `json:"kind"`
 }
 
 type toolInvocationContextKey struct{}
@@ -598,12 +605,102 @@ func scopeReasonForTargets(blockedSectionIDs []string, unmappedCodeObjIDs []stri
 	return "out_of_scope"
 }
 
+func buildMissingEdgeHints(
+	chatSectionID string,
+	blockedSectionIDs []string,
+	accessType string,
+	projectView *projectview.SingleConfig,
+) []scopeViolationMissingEdge {
+	trimmedChatSectionID := strings.TrimSpace(chatSectionID)
+	if trimmedChatSectionID == "" || len(blockedSectionIDs) == 0 {
+		return nil
+	}
+
+	sortedBlockedSectionIDs := sortedStrings(blockedSectionIDs)
+	hints := make([]scopeViolationMissingEdge, 0, len(sortedBlockedSectionIDs))
+	for _, blockedSectionID := range sortedBlockedSectionIDs {
+		kind := resolveMissingEdgeKind(projectView, blockedSectionID, accessType)
+		if kind == "" {
+			continue
+		}
+		hint := scopeViolationMissingEdge{
+			SourceSectionID: trimmedChatSectionID,
+			TargetSectionID: blockedSectionID,
+			Kind:            kind,
+		}
+		if kind == agenticEdgeKindSectionChat {
+			hint.SourceSectionID = blockedSectionID
+			hint.TargetSectionID = trimmedChatSectionID
+		}
+		hints = append(hints, hint)
+	}
+	if len(hints) == 0 {
+		return nil
+	}
+	return hints
+}
+
+func resolveMissingEdgeKind(projectView *projectview.SingleConfig, sectionID string, accessType string) string {
+	if strings.TrimSpace(accessType) == string(tools.AccessTypeStructural) {
+		return ""
+	}
+	if strings.TrimSpace(accessType) == "peer_chat" && isChatSection(projectView, sectionID) {
+		return agenticEdgeKindChatChat
+	}
+	return agenticEdgeKindChatSection
+}
+
+func isChatSection(projectView *projectview.SingleConfig, sectionID string) bool {
+	if projectView == nil {
+		return false
+	}
+	variantID := activeSectionVariantID(*projectView, sectionID)
+	if variantID == "" {
+		return false
+	}
+	variant, ok := projectView.SectionVariants[variantID]
+	if !ok {
+		return false
+	}
+	implPayload, ok := projectView.SectionImpls[variant.Impl]
+	if !ok || len(implPayload) == 0 {
+		return false
+	}
+	var decoded struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(implPayload, &decoded); err != nil {
+		return false
+	}
+	return strings.TrimSpace(decoded.Type) == "Chat"
+}
+
+func activeSectionVariantID(projectView projectview.SingleConfig, sectionID string) string {
+	if trimmed := strings.TrimSpace(projectView.ProjectConfig.SectionVariantMap[sectionID]); trimmed != "" {
+		return trimmed
+	}
+	section, ok := projectView.Sections[sectionID]
+	if !ok {
+		return ""
+	}
+	if section.DefaultVariant != nil {
+		if trimmed := strings.TrimSpace(*section.DefaultVariant); trimmed != "" {
+			return trimmed
+		}
+	}
+	if len(section.Variants) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(section.Variants[0])
+}
+
 func buildScopeViolationError(
 	toolName string,
 	reason string,
 	blockedSectionIDs []string,
 	targetSectionIDs []string,
 	unmappedCodeObjIDs []string,
+	missingEdgesCanonical []scopeViolationMissingEdge,
 ) error {
 	payload := map[string]any{
 		"reason": reason,
@@ -617,13 +714,20 @@ func buildScopeViolationError(
 	if len(unmappedCodeObjIDs) > 0 {
 		payload["unmappedCodeObjIds"] = sortedStrings(unmappedCodeObjIDs)
 	}
+	if len(missingEdgesCanonical) > 0 {
+		payload["missingEdgesCanonical"] = missingEdgesCanonical
+	}
 
 	message := "Tool call is outside the allowed agentic scope."
 	switch reason {
 	case "missing_context":
-		message = fmt.Sprintf("Tool %q requires agentic context.", toolName)
+		message = fmt.Sprintf(
+			"Tool %q blocked: missing agentic context. Provide projectConfigId/chatId/sectionId via MCP meta or headers, or call %q first.",
+			toolName,
+			"set_agentic_context",
+		)
 	case "missing_section_id":
-		message = fmt.Sprintf("Tool %q requires a sectionId in agentic context.", toolName)
+		message = fmt.Sprintf("Tool %q blocked: missing sectionId in agentic context. Provide sectionId or set allowUnscoped=true via %q for project-level access.", toolName, "set_agentic_context")
 	case "empty_scope":
 		message = fmt.Sprintf("Tool %q has no readable sections in the resolved agentic scope.", toolName)
 	case "structural_denied":

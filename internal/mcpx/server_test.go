@@ -2669,6 +2669,16 @@ func TestServerSetSectionNameRespectsScopedWriteTargets(t *testing.T) {
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
 		t.Fatalf("unexpected blockedSectionIds %#v", ids)
 	}
+	missingEdgesCanonical := mustStructuredList(t, blockedPayload["missingEdgesCanonical"])
+	if len(missingEdgesCanonical) != 1 {
+		t.Fatalf("expected one canonical missing edge, got %#v", missingEdgesCanonical)
+	}
+	missingEdgeCanonical := mustStructuredMap(t, missingEdgesCanonical[0])
+	if missingEdgeCanonical["sourceSectionId"] != "chat-section" ||
+		missingEdgeCanonical["targetSectionId"] != "blocked-section" ||
+		missingEdgeCanonical["kind"] != agenticEdgeKindChatSection {
+		t.Fatalf("unexpected canonical missing edge %#v", missingEdgeCanonical)
+	}
 }
 
 func TestServerSetSectionTagColorRespectsScopedWriteTargets(t *testing.T) {
@@ -7315,6 +7325,26 @@ func TestServerSetSectionNameTranslatesTemporaryIDs(t *testing.T) {
 	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "16" {
 		t.Fatalf("expected translated blockedSectionIds [16], got %#v", ids)
+	}
+	missingEdgesCanonical := mustStructuredList(t, blockedPayload["missingEdgesCanonical"])
+	if len(missingEdgesCanonical) != 1 {
+		t.Fatalf("expected one canonical missing edge, got %#v", missingEdgesCanonical)
+	}
+	missingEdgeCanonical := mustStructuredMap(t, missingEdgesCanonical[0])
+	if missingEdgeCanonical["sourceSectionId"] != "chat-section" ||
+		missingEdgeCanonical["targetSectionId"] != "blocked-section" ||
+		missingEdgeCanonical["kind"] != agenticEdgeKindChatSection {
+		t.Fatalf("unexpected canonical missing edge %#v", missingEdgeCanonical)
+	}
+	missingEdges := mustStructuredList(t, blockedPayload["missingEdges"])
+	if len(missingEdges) != 1 {
+		t.Fatalf("expected one translated missing edge, got %#v", missingEdges)
+	}
+	missingEdge := mustStructuredMap(t, missingEdges[0])
+	if missingEdge["sourceSectionId"] != "13" ||
+		missingEdge["targetSectionId"] != "16" ||
+		missingEdge["kind"] != agenticEdgeKindChatSection {
+		t.Fatalf("unexpected translated missing edge %#v", missingEdge)
 	}
 }
 

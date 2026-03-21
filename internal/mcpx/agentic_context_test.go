@@ -3,6 +3,7 @@ package mcpx
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"setta/internal/modes"
@@ -132,6 +133,125 @@ func TestResolveAgenticScopeKeepsUnscopedAccessWhenSectionContextIsPresent(t *te
 	}
 	if _, ok := scope.ContextSectionIDs["chat-section"]; !ok {
 		t.Fatalf("expected allowUnscoped scope to retain context section coverage, got %#v", scope.ContextSectionIDs)
+	}
+}
+
+func TestBuildMissingEdgeHintsUsesCorrectKindAndDirection(t *testing.T) {
+	t.Parallel()
+
+	view := mustTargetResolutionProjectView(t)
+
+	readSectionHints := buildMissingEdgeHints("chat-section", []string{"params-section"}, string(tools.AccessTypeRead), &view)
+	if len(readSectionHints) != 1 || readSectionHints[0] != (scopeViolationMissingEdge{
+		SourceSectionID: "chat-section",
+		TargetSectionID: "params-section",
+		Kind:            agenticEdgeKindChatSection,
+	}) {
+		t.Fatalf("unexpected read section hints %#v", readSectionHints)
+	}
+
+	writeSectionHints := buildMissingEdgeHints("chat-section", []string{"gen-section"}, string(tools.AccessTypeWrite), &view)
+	if len(writeSectionHints) != 1 || writeSectionHints[0] != (scopeViolationMissingEdge{
+		SourceSectionID: "chat-section",
+		TargetSectionID: "gen-section",
+		Kind:            agenticEdgeKindChatSection,
+	}) {
+		t.Fatalf("unexpected write section hints %#v", writeSectionHints)
+	}
+
+	readChatHints := buildMissingEdgeHints("chat-section", []string{"other-chat-section"}, string(tools.AccessTypeRead), &view)
+	if len(readChatHints) != 1 || readChatHints[0] != (scopeViolationMissingEdge{
+		SourceSectionID: "chat-section",
+		TargetSectionID: "other-chat-section",
+		Kind:            agenticEdgeKindChatSection,
+	}) {
+		t.Fatalf("unexpected read chat hints %#v", readChatHints)
+	}
+
+	peerChatHints := buildMissingEdgeHints("chat-section", []string{"other-chat-section"}, "peer_chat", &view)
+	if len(peerChatHints) != 1 || peerChatHints[0] != (scopeViolationMissingEdge{
+		SourceSectionID: "chat-section",
+		TargetSectionID: "other-chat-section",
+		Kind:            agenticEdgeKindChatChat,
+	}) {
+		t.Fatalf("unexpected peer chat hints %#v", peerChatHints)
+	}
+
+	if hints := buildMissingEdgeHints("", []string{"params-section"}, string(tools.AccessTypeRead), &view); len(hints) != 0 {
+		t.Fatalf("expected no hints without chat section id, got %#v", hints)
+	}
+}
+
+func TestBuildScopeViolationErrorSortsPayloadAndProvidesActionableMissingContext(t *testing.T) {
+	t.Parallel()
+
+	sortedErr := buildScopeViolationError(
+		"set_section_name",
+		"out_of_scope",
+		[]string{"b", "a"},
+		[]string{"b", "a"},
+		[]string{"d", "c"},
+		[]scopeViolationMissingEdge{{
+			SourceSectionID: "section-1",
+			TargetSectionID: "a",
+			Kind:            agenticEdgeKindChatSection,
+		}},
+	)
+	typed, ok := sortedErr.(*toolError)
+	if !ok {
+		t.Fatalf("expected *toolError, got %T", sortedErr)
+	}
+	if values, ok := typed.data["blockedSectionIds"].([]string); !ok || len(values) != 2 || values[0] != "a" || values[1] != "b" {
+		t.Fatalf("expected sorted blockedSectionIds, got %#v", typed.data["blockedSectionIds"])
+	}
+	if values, ok := typed.data["targetSectionIds"].([]string); !ok || len(values) != 2 || values[0] != "a" || values[1] != "b" {
+		t.Fatalf("expected sorted targetSectionIds, got %#v", typed.data["targetSectionIds"])
+	}
+	if values, ok := typed.data["unmappedCodeObjIds"].([]string); !ok || len(values) != 2 || values[0] != "c" || values[1] != "d" {
+		t.Fatalf("expected sorted unmappedCodeObjIds, got %#v", typed.data["unmappedCodeObjIds"])
+	}
+	var missingEdges []scopeViolationMissingEdge
+	encodedMissingEdges, err := json.Marshal(typed.data["missingEdgesCanonical"])
+	if err != nil {
+		t.Fatalf("marshal missingEdgesCanonical: %v", err)
+	}
+	if err := json.Unmarshal(encodedMissingEdges, &missingEdges); err != nil {
+		t.Fatalf("decode missingEdgesCanonical: %v", err)
+	}
+	if len(missingEdges) != 1 || missingEdges[0] != (scopeViolationMissingEdge{
+		SourceSectionID: "section-1",
+		TargetSectionID: "a",
+		Kind:            agenticEdgeKindChatSection,
+	}) {
+		t.Fatalf("unexpected missingEdgesCanonical %#v", missingEdges)
+	}
+	if !strings.Contains(typed.message, "blockedSectionIds/targetSectionIds") {
+		t.Fatalf("expected blocked payload guidance in message, got %q", typed.message)
+	}
+	if strings.Contains(typed.message, "blocked=[") {
+		t.Fatalf("expected structured payload message without raw blocked list, got %q", typed.message)
+	}
+
+	missingContextErr := buildScopeViolationError(
+		"get_latest_project_state_summary",
+		"missing_context",
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	missingContextTyped, ok := missingContextErr.(*toolError)
+	if !ok {
+		t.Fatalf("expected *toolError, got %T", missingContextErr)
+	}
+	if !strings.Contains(missingContextTyped.message, "missing agentic context") {
+		t.Fatalf("expected missing agentic context message, got %q", missingContextTyped.message)
+	}
+	if !strings.Contains(missingContextTyped.message, "projectConfigId") {
+		t.Fatalf("expected missing_context guidance to mention projectConfigId, got %q", missingContextTyped.message)
+	}
+	if !strings.Contains(missingContextTyped.message, "set_agentic_context") {
+		t.Fatalf("expected missing_context guidance to mention set_agentic_context, got %q", missingContextTyped.message)
 	}
 }
 

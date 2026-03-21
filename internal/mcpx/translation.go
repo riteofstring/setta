@@ -152,11 +152,51 @@ func translateToolErrorToTemporary(err error, store *TemporaryIDStore) error {
 		}
 		data[key] = translated
 	}
+	if value, ok := data["missingEdgesCanonical"]; ok {
+		translated, translateErr := translateMissingEdgeHintsToTemporary(value, store)
+		if translateErr != nil {
+			return translateErr
+		}
+		data["missingEdges"] = translated
+	}
 	return &toolError{
 		code:    typed.code,
 		message: typed.message,
 		data:    data,
 	}
+}
+
+func translateMissingEdgeHintsToTemporary(value any, store *TemporaryIDStore) ([]scopeViolationMissingEdge, error) {
+	if value == nil || store == nil {
+		return nil, nil
+	}
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("mcpx: marshal missing edge hints for id translation: %w", err)
+	}
+	var hints []scopeViolationMissingEdge
+	if err := json.Unmarshal(encoded, &hints); err != nil {
+		return nil, fmt.Errorf("mcpx: decode missing edge hints for id translation: %w", err)
+	}
+
+	translated := make([]scopeViolationMissingEdge, 0, len(hints))
+	for _, hint := range hints {
+		sourceSectionID, err := translateStringValueToTemporary(hint.SourceSectionID, store)
+		if err != nil {
+			return nil, err
+		}
+		targetSectionID, err := translateStringValueToTemporary(hint.TargetSectionID, store)
+		if err != nil {
+			return nil, err
+		}
+		translated = append(translated, scopeViolationMissingEdge{
+			SourceSectionID: sourceSectionID,
+			TargetSectionID: targetSectionID,
+			Kind:            hint.Kind,
+		})
+	}
+	return translated, nil
 }
 
 func resolveCanonicalClientID(store *TemporaryIDStore, value string) (string, error) {
