@@ -21,6 +21,8 @@ Options:
   --followup-prompt-file PATH
                              File containing the in-session follow-up prompt.
                              Defaults to --prompt-file.
+  --pre-session-command CMD  Shell command to run before each fresh session
+                             batch starts. Runs in --workdir.
   --iterations N             Total number of loop iterations. Default: 100
   --new-session-every N      Start a new Codex session every N iterations.
                              Default: 1
@@ -49,6 +51,7 @@ require_value() {
 
 prompt_file=""
 followup_prompt_file=""
+pre_session_command=""
 iterations="100"
 new_session_every="1"
 output_dir=""
@@ -68,6 +71,11 @@ while [[ $# -gt 0 ]]; do
     --followup-prompt-file)
       require_value "$1" "${2:-}"
       followup_prompt_file="$2"
+      shift 2
+      ;;
+    --pre-session-command)
+      require_value "$1" "${2:-}"
+      pre_session_command="$2"
       shift 2
       ;;
     --iterations)
@@ -208,6 +216,17 @@ extract_thread_id() {
   printf '%s\n' "${thread_id}"
 }
 
+run_pre_session_command() {
+  local workdir="$1"
+  local command="$2"
+  local log_path="$3"
+
+  (
+    cd "${workdir}"
+    bash -lc "${command}"
+  ) 2>&1 | tee "${log_path}"
+}
+
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   run_dir="$(printf '%s/run-%03d' "${output_dir}" "${iteration}")"
   response_file="${run_dir}/last-message.txt"
@@ -228,6 +247,23 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   mkdir -p "${run_dir}"
+  if [[ "${mode}" == "start" ]] && [[ -n "${pre_session_command}" ]]; then
+    pre_session_log="${run_dir}/pre-session.log"
+    echo "[$iteration/$iterations] Running pre-session command"
+    set +e
+    run_pre_session_command "${workdir}" "${pre_session_command}" "${pre_session_log}"
+    pre_session_exit_code="$?"
+    set -e
+    if [[ "${pre_session_exit_code}" -ne 0 ]]; then
+      echo "pre-session-failure:${pre_session_exit_code}" > "${status_file}"
+      echo "[$iteration/$iterations] Pre-session command failed with exit code ${pre_session_exit_code}" >&2
+      if [[ "${stop_on_error}" == "1" ]]; then
+        exit "${pre_session_exit_code}"
+      fi
+      continue
+    fi
+  fi
+
   echo "[$iteration/$iterations] Starting Codex"
 
   codex_args=()

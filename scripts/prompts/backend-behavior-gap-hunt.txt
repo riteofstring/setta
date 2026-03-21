@@ -2,8 +2,14 @@ Read `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix-plan.md`, `do
 
 This is not the routine green-manifest maintenance loop. Never spend the whole session only rerunning the existing default or corpus parity manifests unless you are confirming a just-changed `HEAD` or resolving an active mismatch. Already-green scenarios are not progress.
 
+Use `tmp/backend-gap-hunt-candidates.md` as the file-backed backlog for this
+loop. The outer wrapper regenerates it before each fresh Codex session batch.
+Start from its highest-ranked unresolved candidates first. Do not spend time
+rerunning the candidate miner inside Codex unless the developer explicitly asks
+for that workflow to change.
+
 1. Start with Pass 3 and Pass 4 from `backend-behavior-parity-matrix-plan.md`: skeptical omission audit plus gap triage.
-2. Build a shortlist of at least 5 concrete candidate gaps from deterministic source evidence. Prefer:
+2. Build a shortlist of at least 5 concrete candidate gaps from deterministic source evidence. Prefer the generated backlog first, then expand it manually when needed. Prefer:
    - Python tests with no narrow matrix row or no narrow Go proof
    - `docs/reference/` contracts with no narrow matrix row
    - broad `Proved` rows whose cited proof is only one broad Go test, one lossy differential summary, or one family member

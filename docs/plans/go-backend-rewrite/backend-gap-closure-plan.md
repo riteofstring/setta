@@ -20,6 +20,15 @@ This document is now a workflow/playbook, not an open manual backlog.
 Use executable parity checks to find gaps. Use the parity matrix to record and
 categorize them.
 
+For proactive gap-hunt sessions where the default manifests are already green,
+start by generating a deterministic candidate backlog with
+`./scripts/run-backend-gap-hunt-candidate-miner.sh`. Use the generated
+`tmp/backend-gap-hunt-candidates.md` backlog to pick high-value candidates
+before falling back to ad hoc mining. The dedicated gap-hunt Codex wrapper now
+regenerates that backlog outside Codex before each fresh session batch so the
+agent can stay focused on confirming and fixing gaps instead of maintaining the
+queue.
+
 ## Default Loop
 
 1. Run the differential harness against `main`.

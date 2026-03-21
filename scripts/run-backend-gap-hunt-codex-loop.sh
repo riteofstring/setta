@@ -9,8 +9,9 @@ FOLLOWUP_PROMPT_FILE="${SCRIPT_DIR}/prompts/backend-behavior-gap-hunt-followup.t
 exec "${SCRIPT_DIR}/run-codex-loop.sh" \
   --prompt-file "${PROMPT_FILE}" \
   --followup-prompt-file "${FOLLOWUP_PROMPT_FILE}" \
+  --pre-session-command "./scripts/run-backend-gap-hunt-candidate-miner.sh" \
   --workdir "${ROOT_DIR}" \
   --iterations 100000 \
-  --new-session-every 10 \
+  --new-session-every 3 \
   --yolo \
   "$@"
