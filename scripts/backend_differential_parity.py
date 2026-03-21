@@ -5184,31 +5184,14 @@ def summarize_empty_callable_latest_state(
 ) -> dict[str, Any]:
     project_state = object_field(payload, "projectState")
     shown_param_ids = object_field(project_state, "shownParamIds", allow_missing=True)
-    raw_shown_entry = shown_param_ids.get("empty-callable-variant")
-    shown_entry = expect_object(
-        raw_shown_entry, "shownParamIds.empty-callable-variant", allow_missing=True
-    )
-    pinned = object_field(shown_entry, "pinned", allow_missing=True)
-    unpinned = object_field(shown_entry, "unpinned", allow_missing=True)
-    pinned_top_level = expect_string_list(
-        pinned.get("topLevelParamIds") if pinned else [],
-        "shownParamIds.empty-callable-variant.pinned.topLevelParamIds",
-    )
-    unpinned_top_level = expect_string_list(
-        unpinned.get("topLevelParamIds") if unpinned else [],
-        "shownParamIds.empty-callable-variant.unpinned.topLevelParamIds",
-    )
-    pinned_paths = object_field(pinned, "requiredParamIdsToPaths", allow_missing=True)
-    unpinned_paths = object_field(
-        unpinned, "requiredParamIdsToPaths", allow_missing=True
-    )
     return {
         "httpStatus": http_status,
-        "shownParamEntryPresent": raw_shown_entry is not None,
-        "pinnedTopLevelParamIds": pinned_top_level,
-        "unpinnedTopLevelParamIds": unpinned_top_level,
-        "pinnedRequiredPathCount": len(pinned_paths),
-        "unpinnedRequiredPathCount": len(unpinned_paths),
+        "shownParamVariantIds": sorted(shown_param_ids),
+        "emptyCallableShownParamIds": summarize_named_shown_param_ids(
+            project_state=project_state,
+            section_id="empty-callable-section",
+            created_code_obj_id=None,
+        ),
     }
 
 

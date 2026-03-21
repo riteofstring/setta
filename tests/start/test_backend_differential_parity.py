@@ -438,6 +438,11 @@ class Route:
 
         payload = {
             "projectState": {
+                "projectConfig": {
+                    "sectionVariantMap": {
+                        "empty-callable-section": "empty-callable-variant",
+                    }
+                },
                 "shownParamIds": {
                     "empty-callable-variant": {
                         "pinned": {
@@ -462,11 +467,17 @@ class Route:
             summary,
             {
                 "httpStatus": 200,
-                "shownParamEntryPresent": True,
-                "pinnedTopLevelParamIds": [],
-                "unpinnedTopLevelParamIds": [],
-                "pinnedRequiredPathCount": 0,
-                "unpinnedRequiredPathCount": 0,
+                "shownParamVariantIds": ["empty-callable-variant"],
+                "emptyCallableShownParamIds": {
+                    "pinned": {
+                        "requiredParamIdsToPaths": {},
+                        "topLevelParamIds": [],
+                    },
+                    "unpinned": {
+                        "requiredParamIdsToPaths": {},
+                        "topLevelParamIds": [],
+                    },
+                },
             },
         )
 

@@ -81,10 +81,11 @@ following are true:
   source-store shape when the baseline target still boots the Python backend,
   so latest-state corpus scenarios reach comparison instead of failing during
   startup.
-- The latest-state corpus manifest now proves both the empty shown-param-ids
-  branch and a non-empty `addKwarg` refresh branch, where the next
-  latest-state read keeps the pinned/unpinned split and projects the created
-  param into the unpinned `shownParamIds` payload.
+- The latest-state corpus manifest now proves both the exact empty
+  shown-param-ids pinned/unpinned object shape and a non-empty `addKwarg`
+  refresh branch, where the next latest-state read keeps the pinned/unpinned
+  split and projects the created param into the unpinned `shownParamIds`
+  payload.
 - The default differential manifest now proves the Python codegen-target
   projection contract too: latest-state and post-mutation project snapshots
   once again expose the source default Python target fields plus the source
