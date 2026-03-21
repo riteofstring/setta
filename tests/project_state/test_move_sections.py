@@ -1,15 +1,15 @@
 import pytest
-from tests.helpers.settings_state import SettingsState
-from setta.types.project_config import Position, ProjectConfig
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import SectionType
-from tests.helpers.project_state_sections import (
+from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl2 import (
     create_child_sections,
     create_top_level_section,
     get_curr_section_children_ids,
     move_section_to_pane,
     move_sections_to_parent_section,
 )
+from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.section_impls import SectionType
 
 
 class TestMoveSections:

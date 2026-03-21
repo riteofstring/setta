@@ -22,6 +22,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
+import { post } from "utils/endpointUtils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseCodeObjImplUnion,
@@ -47,7 +48,7 @@ import {
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
-import { sendButtonSettaRequest } from "./settaApiAction";
+import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
@@ -342,7 +343,7 @@ function MetaControlValueArea({
   }
 
   return (
-    <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
+    <div className="col-span-full row-span-full flex h-full min-h-0 w-full flex-1 items-stretch self-stretch p-0">
       {codeObjType === CodeObjTypeEnum.ButtonParam ? (
         <MetaControlContent
           sectionId={sectionId}
@@ -458,4 +459,13 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     headers,
     body,
   });
+}
+
+function sendButtonSettaRequest(config: ButtonRequestConfig) {
+  const route = config.requestUrl.trim();
+  if (route === "") {
+    return;
+  }
+  const payload = buildSettaApiPayload(route, config.requestBody);
+  void post(route, payload);
 }
