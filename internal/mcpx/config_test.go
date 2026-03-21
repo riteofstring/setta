@@ -111,3 +111,11 @@ func TestBuildSettaServerURLNormalizesWildcardHosts(t *testing.T) {
 		t.Fatalf("expected ipv6 wildcard normalization, got %q", got)
 	}
 }
+
+func TestBuildSettaServerURLFormatsIPv6LiteralHosts(t *testing.T) {
+	t.Parallel()
+
+	if got := BuildSettaServerURL("2001:db8::1", 61234); got != "http://[2001:db8::1]:61234/mcp" {
+		t.Fatalf("expected ipv6 literal formatting, got %q", got)
+	}
+}
