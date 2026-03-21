@@ -381,3 +381,8 @@ categorize them.
   bootstrap/import-marker reconciliation slices first, then back out to the
   broader still-missing external-agent runtime behavior such as OpenCode
   read-only handling and completion-gate ownership
+- The two Codex user-config bootstrap/import-marker rows are now closed too,
+  so the adjacent external-agent queue should move out of canonical config
+  generation and into the broader still-missing runtime behavior: OpenCode
+  read-only session-config handling, external completion-gate ownership, and
+  the remaining missing caller-visible runtime branches
