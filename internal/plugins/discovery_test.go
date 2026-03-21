@@ -289,6 +289,59 @@ func TestDiscoveryServiceRescanIncludesPackageManagerEntriesAndPrecedence(t *tes
 	}
 }
 
+// Package-manager source digests should still change when editable/no-hash plugin roots change on disk.
+func TestDiscoveryServiceRescanPackageManagerSourceDigestTracksPluginRootChanges(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages, packageManagerRoot := installPackageManagerFixture(
+		t,
+		"frontend",
+		"setta-fixture-frontend",
+		"0.1.0",
+		func(pluginRoot string) {
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				frontend := payload["frontend"].(map[string]any)
+				frontend["entrypoint"] = "frontend/src/index.js"
+				frontend["style"] = "frontend/src/index.css"
+			})
+		},
+	)
+
+	service := mustNewDiscoveryServiceWithPackageManager(t, roots, config.ModeIDE, []string{sitePackages})
+	firstSnapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan package-manager plugins: %v", err)
+	}
+	firstEntry := mustFindDiscoveredPlugin(t, firstSnapshot.Plugins, "setta-fixture-frontend", PluginScopeSettaFiles)
+	if firstEntry.SourceManager != PluginSourceManagerPackageManager {
+		t.Fatalf("expected package-manager source manager, got %q", firstEntry.SourceManager)
+	}
+	if firstEntry.SourceDigestSHA256 == nil || *firstEntry.SourceDigestSHA256 == "" {
+		t.Fatalf("expected first package-manager source digest, got %#v", firstEntry.SourceDigestSHA256)
+	}
+	firstDigest := *firstEntry.SourceDigestSHA256
+
+	entrypointPath := filepath.Join(packageManagerRoot, "frontend", "src", "index.js")
+	payload, err := os.ReadFile(entrypointPath)
+	if err != nil {
+		t.Fatalf("read package-manager frontend entrypoint: %v", err)
+	}
+	if err := os.WriteFile(entrypointPath, append(payload, []byte("\n// digest-change\n")...), 0o644); err != nil {
+		t.Fatalf("rewrite package-manager frontend entrypoint: %v", err)
+	}
+
+	secondSnapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan package-manager plugins after file change: %v", err)
+	}
+	secondEntry := mustFindDiscoveredPlugin(t, secondSnapshot.Plugins, "setta-fixture-frontend", PluginScopeSettaFiles)
+	if secondEntry.SourceDigestSHA256 == nil || *secondEntry.SourceDigestSHA256 == "" {
+		t.Fatalf("expected second package-manager source digest, got %#v", secondEntry.SourceDigestSHA256)
+	}
+	if *secondEntry.SourceDigestSHA256 == firstDigest {
+		t.Fatalf("expected package-manager source digest to change after plugin-root edit, got first=%q second=%q", firstDigest, *secondEntry.SourceDigestSHA256)
+	}
+}
+
 // Package-manager discovery should keep invalid and ambiguous environment distributions visible instead of silently skipping them.
 func TestDiscoveryServiceRescanKeepsInvalidPackageManagerEntries(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
