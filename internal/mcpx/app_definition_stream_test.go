@@ -84,34 +84,54 @@ func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 func TestServerStreamAppDefinitionRejectsInvalidPatchPayload(t *testing.T) {
 	t.Parallel()
 
-	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
-	defer clientSession.Close()
-
-	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "stream_app_definition",
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "project-alpha",
-			"allowUnscoped":   true,
+	cases := []struct {
+		name    string
+		patches string
+	}{
+		{
+			name:    "unsupported patch path",
+			patches: "{\"op\":\"set\",\"path\":\"/not-allowed\",\"value\":1}",
 		},
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"patches":         "{\"op\":\"set\",\"path\":\"/elements/missing/props/title\",\"value\":\"Hello\"}",
+		{
+			name:    "invalid nested patch application",
+			patches: "{\"op\":\"set\",\"path\":\"/elements/missing/props/title\",\"value\":\"Hello\"}",
 		},
-	})
-	if err != nil {
-		t.Fatalf("call invalid stream_app_definition: %v", err)
-	}
-	if !result.IsError {
-		t.Fatal("expected invalid stream_app_definition call to fail")
 	}
 
-	payload := mustStructuredMap(t, result.StructuredContent)
-	if payload["code"] != "invalid_arguments" {
-		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
-	}
-	message, ok := payload["message"].(string)
-	if !ok || !strings.Contains(message, "Invalid patches payload") {
-		t.Fatalf("expected invalid patches payload message, got %#v", payload["message"])
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
+			_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+			defer clientSession.Close()
+
+			result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+				Name: "stream_app_definition",
+				Meta: sdkmcp.Meta{
+					"projectConfigId": "project-alpha",
+					"allowUnscoped":   true,
+				},
+				Arguments: map[string]any{
+					"projectConfigId": "project-alpha",
+					"patches":         tc.patches,
+				},
+			})
+			if err != nil {
+				t.Fatalf("call invalid stream_app_definition: %v", err)
+			}
+			if !result.IsError {
+				t.Fatal("expected invalid stream_app_definition call to fail")
+			}
+
+			payload := mustStructuredMap(t, result.StructuredContent)
+			if payload["code"] != "invalid_arguments" {
+				t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+			}
+			message, ok := payload["message"].(string)
+			if !ok || !strings.Contains(message, "Invalid patches payload") {
+				t.Fatalf("expected invalid patches payload message, got %#v", payload["message"])
+			}
+		})
 	}
 }
