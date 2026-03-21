@@ -105,4 +105,36 @@ Compare the current branch with `main` and write a detailed branch-intent summar
 
 
 Merge main into this branch. The main branch is still using a python backend, while this branch is rewriting the entire backend in Go. Therefore, the main goal of merging main into this branch is to make sure we keep our Go rewrite "up to date" in terms of features etc.
+
+
+Go backend parity closing session starter:
+
+Read docs/plans/go-backend-rewrite/backend-gap-closure-plan.md and continue the executable backend parity-discovery loop it defines. You may use up to 5 subagents when useful. Commit your work frequently.
+
+Do not treat the plan text or parity-matrix status counts alone as completion evidence.
+
+Before declaring this session complete, you must:
+1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
+2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
+3. Fix or explicitly classify every mismatch you found this session.
+4. Add or update focused tests and update the parity matrix/docs as needed.
+5. Report the exact commands run and their outcomes.
+
+Only reply `No new executable parity gaps found` if the executable checks are green and there are no remaining mismatches or blockers at the end of this session.
+
+
+Queued follow-up prompt for the same session:
+
+Automated message: continue the executable backend parity-discovery loop described in docs/plans/go-backend-rewrite/backend-gap-closure-plan.md. You may use up to 5 subagents when useful. Commit your work frequently.
+
+Do not treat the plan text or matrix counts alone as completion evidence.
+
+Before declaring this session complete, you must:
+1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
+2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
+3. Fix or explicitly classify every mismatch you found this session.
+4. Add or update focused tests and update the parity matrix/docs as needed.
+5. Report the exact commands run and their outcomes.
+
+Only reply `No new executable parity gaps found` if the executable checks are green and there are no remaining mismatches or blockers at the end of this session.
  

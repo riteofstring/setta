@@ -5,6 +5,16 @@ Last updated: `2026-03-19`
 Purpose: define the default workflow for future Codex sessions that are
 closing remaining Go backend parity gaps.
 
+## Status
+
+This document is now a workflow/playbook, not an open manual backlog.
+
+- The explicit current-caller gap queue described by the matrix is exhausted.
+- Sessions should not treat the existence of this document, or matrix status
+  counts alone, as evidence that parity work is finished.
+- Completion for any session must come from executable checks plus any
+  resulting fixes, classifications, tests, and matrix updates.
+
 ## Core Rule
 
 Use executable parity checks to find gaps. Use the parity matrix to record and
@@ -27,6 +37,23 @@ categorize them.
    - Do not mark behavior `Proved` without executable or narrowly targeted
      proof
 
+## Session Definition Of Done
+
+Do not declare the plan "fully executed" for a session unless all of the
+following are true:
+
+1. `./scripts/run-backend-differential-parity.sh --baseline-ref main` has been
+   run for the current branch state.
+2. Every mismatch found in that run has been fixed or explicitly classified as
+   an intentional divergence or retained Python boundary.
+3. Focused tests and matrix updates for that session's work are complete.
+4. `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
+   has been run too, or a concrete blocker has been recorded if that latest-
+   state corpus path is currently broken for reasons outside the active Go
+   parity work.
+5. The session report includes the exact parity commands run and whether they
+   passed, mismatched, or were blocked.
+
 ## How To Use The Matrix
 
 - Use it as a searchable ledger of behavior ids, source evidence, Go ownership,
@@ -43,7 +70,7 @@ categorize them.
 3. New harness scenarios for high-risk areas the matrix still covers mainly by
    inspection
 
-## Current Starting Backlog
+## Current State
 
 - The default differential manifest now includes
   `json_source_watcher_live_reload` and matches `main`, including the live
@@ -68,3 +95,27 @@ categorize them.
 - Keep updating `backend-behavior-parity-matrix.md` after every executable
   proof, explicit divergence, or boundary reclassification. Split broad rows
   when a new harness mismatch disproves a coarse `Proved` entry.
+
+## Current Known Blockers
+
+- As of `2026-03-19`, the latest-state corpus manifest is not a reliable green
+  signal yet. Running
+  `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
+  currently fails during Python `main` baseline startup before comparison,
+  with a `ProjectStateBackend` validation error against
+  `parity-fixtures/empty-callable-project.json` (`defaultProjectId`,
+  `projects`, and `schemaVersion` are rejected as extra fields).
+- Treat that as baseline/harness maintenance work until resolved. Do not
+  report the corpus path as "green" without rerunning it successfully, and do
+  not treat the baseline failure itself as evidence of a Go parity gap.
+
+## Next Expansion Backlog
+
+- Repair the latest-state corpus parity path so the corpus manifest becomes a
+  usable executable check again.
+- Add new executable harness slices for still-risky surfaces that are mostly
+  covered today by source inspection, retained Python boundaries, or dormant
+  callers.
+- Prioritize new slices by current caller risk, not by matrix row counts.
+- Revisit retained-boundary classifications only when a real live caller
+  disproves the current scope decision.
