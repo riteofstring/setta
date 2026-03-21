@@ -27,9 +27,10 @@ type PropSchema struct {
 }
 
 type ComponentSchema struct {
-	Type     string
-	Children bool
-	Props    map[string]PropSchema
+	Type      string
+	Children  bool
+	Props     map[string]PropSchema
+	PropOrder []string
 }
 
 type Catalog struct {
@@ -203,6 +204,7 @@ func DefaultCatalog() Catalog {
 					"configId":  stringProp(true),
 					"className": stringProp(false),
 				},
+				PropOrder: []string{"configId", "className"},
 			},
 			"Tabs": {
 				Type:     "Tabs",
@@ -219,6 +221,7 @@ func DefaultCatalog() Catalog {
 					"title":     stringProp(true),
 					"className": stringProp(false),
 				},
+				PropOrder: []string{"title", "className"},
 			},
 			"Heading": {
 				Type:     "Heading",
@@ -246,6 +249,7 @@ func DefaultCatalog() Catalog {
 					"description": stringProp(false),
 					"dataPath":    stringProp(false),
 				},
+				PropOrder: []string{"configId", "sectionId", "paramId", "label", "description", "dataPath"},
 			},
 			"ActionButton": {
 				Type:     "ActionButton",
@@ -257,6 +261,7 @@ func DefaultCatalog() Catalog {
 					"sectionId": stringProp(false),
 					"dataPath":  stringProp(false),
 				},
+				PropOrder: []string{"label", "action", "configId", "sectionId", "dataPath"},
 			},
 			"TextOutput": {
 				Type:     "TextOutput",
@@ -267,6 +272,7 @@ func DefaultCatalog() Catalog {
 					"label":     stringProp(false),
 					"dataPath":  stringProp(false),
 				},
+				PropOrder: []string{"configId", "sectionId", "label", "dataPath"},
 			},
 			"ImageOutput": {
 				Type:     "ImageOutput",
@@ -277,6 +283,7 @@ func DefaultCatalog() Catalog {
 					"alt":        stringProp(false),
 					"dataPath":   stringProp(false),
 				},
+				PropOrder: []string{"configId", "artifactId", "alt", "dataPath"},
 			},
 			"Divider": {
 				Type:     "Divider",
@@ -337,6 +344,27 @@ func defaultCatalogComponentJSON(component ComponentSchema) map[string]any {
 		"props":       props,
 		"children":    component.Children,
 	}
+}
+
+func orderedComponentPropKeys(component ComponentSchema) []string {
+	ordered := make([]string, 0, len(component.Props))
+	seen := make(map[string]struct{}, len(component.Props))
+	for _, propName := range component.PropOrder {
+		if _, ok := component.Props[propName]; !ok {
+			continue
+		}
+		ordered = append(ordered, propName)
+		seen[propName] = struct{}{}
+	}
+	remaining := make([]string, 0, len(component.Props)-len(seen))
+	for propName := range component.Props {
+		if _, ok := seen[propName]; ok {
+			continue
+		}
+		remaining = append(remaining, propName)
+	}
+	sort.Strings(remaining)
+	return append(ordered, remaining...)
 }
 
 func defaultCatalogPropJSON(prop PropSchema) map[string]any {

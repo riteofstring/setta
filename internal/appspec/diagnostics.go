@@ -464,7 +464,8 @@ func collectValidatePropsAgainstCatalog(
 		}
 	}
 
-	for propKey, propSchema := range componentSchema.Props {
+	for _, propKey := range orderedComponentPropKeys(componentSchema) {
+		propSchema := componentSchema.Props[propKey]
 		if !propSchema.Required {
 			continue
 		}

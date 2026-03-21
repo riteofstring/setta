@@ -114,6 +114,28 @@ func TestStoreRejectsInvalidPayload(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsPluginToolType(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	// Plugin-backed adapters are intentionally not part of the Go-owned config surface.
+	err = store.Write([]Config{
+		{
+			ID:       "plugin",
+			Name:     "Plugin Adapter",
+			ToolType: ToolType("plugin"),
+			RunMode:  RunModeSDK,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), `toolType is invalid`) {
+		t.Fatalf("expected invalid toolType error, got %v", err)
+	}
+}
+
 func TestSystemCheckerRequiresOpenCodeCLIForSDKModeWithoutBaseURL(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	binDir := t.TempDir()

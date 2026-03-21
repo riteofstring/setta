@@ -418,6 +418,9 @@ func (r *Runtime) runStep(
 		}
 		r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeSettaLLM)
 		defer r.clearActiveStep(chainRunID, childRun.ID)
+		if err := r.stopStepIfContextCancelled(ctx, childRun.ID, agentruns.EngineTypeSettaLLM); err != nil {
+			return agentruns.Run{}, err
+		}
 		return r.managed.WaitForRun(ctx, childRun.ID)
 	case agentruns.EngineTypeExternalAgent:
 		if r.external == nil {
@@ -429,6 +432,9 @@ func (r *Runtime) runStep(
 		}
 		r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeExternalAgent)
 		defer r.clearActiveStep(chainRunID, childRun.ID)
+		if err := r.stopStepIfContextCancelled(ctx, childRun.ID, agentruns.EngineTypeExternalAgent); err != nil {
+			return agentruns.Run{}, err
+		}
 		return r.external.WaitForRun(ctx, childRun.ID)
 	default:
 		return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, step.ID, engineConfig.EngineType)
@@ -785,6 +791,29 @@ func (r *Runtime) clearActiveStep(runID string, stepRunID string) {
 	active.stepRunID = ""
 	active.stepEngineType = ""
 	r.active[runID] = active
+}
+
+func (r *Runtime) stopStepIfContextCancelled(ctx context.Context, stepRunID string, stepEngineType agentruns.EngineType) error {
+	if ctx == nil || ctx.Err() == nil || strings.TrimSpace(stepRunID) == "" {
+		return nil
+	}
+	switch stepEngineType {
+	case agentruns.EngineTypeExternalAgent:
+		if r.external == nil {
+			return ErrExternalRuntimeUnavailable
+		}
+		if _, err := r.external.StopRun(stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+			return err
+		}
+	default:
+		if r.managed == nil {
+			return ErrManagedRuntimeRequired
+		}
+		if _, err := r.managed.StopRun(stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+			return err
+		}
+	}
+	return nil
 }
 
 func isTerminal(status agentruns.RunStatus) bool {
