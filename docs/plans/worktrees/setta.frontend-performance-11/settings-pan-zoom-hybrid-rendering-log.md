@@ -1,0 +1,583 @@
+# Settings Pan/Zoom Hybrid Rendering Log
+
+Date started: 2026-03-20
+Worktree: `setta.frontend-performance-11`
+Related plan: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-plan.md`
+
+## Usage
+
+Append-only execution log for the settings pan/zoom hybrid rendering effort.
+
+Every log item should record:
+
+- `Item`
+- `Status`
+- `Details`
+- `Next action`
+
+Recommended status values:
+
+- `todo`
+- `in_progress`
+- `done`
+- `blocked`
+- `deferred`
+
+Record:
+
+- scope decisions
+- benchmark-standardization changes
+- scene-fixture changes
+- perf measurements
+- visual parity checks
+- regressions and fixes
+- accepted layout restores
+- Tier 1 / Tier 2 status changes
+
+## 2026-03-20 001
+
+- Item: Initialize the settings pan/zoom hybrid rendering plan and create an append-only execution log.
+- Status: `done`
+- Details:
+  - Created the plan:
+    - `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-plan.md`
+  - Locked the main architecture direction:
+    - keep `xyflow`
+    - restore the paint-friendlier top-level shell behavior
+    - keep the Tier 1 top-level grid-style shell
+    - add section-body LOD / preview behavior instead of relying on per-widget canvas conversion
+  - Locked section-family scope:
+    - Tier 1:
+      - `Callable`
+      - `Dict`
+      - param-heavy dict variants
+      - list/object-style param sections
+      - `GlobalVariables` when it shares the same heavy param/body stack
+    - Tier 2:
+      - `Code`
+      - CodeMirror/editor-side work for `Prompt`
+      - CodeMirror/editor-side work for `TextBlock`
+    - Explicitly excluded:
+      - `Terminal`
+  - Locked sparse local-layout restore policy:
+    - `Browser`
+    - `Draw`
+    - `Chart`
+    - surrounding layout for `Prompt`
+    - surrounding layout for `TextBlock`
+    - avoid reopening shared `subgrid` by default
+  - Locked benchmark requirements:
+    - standardized CDP-only replay and trace-summary flow
+    - mandatory `settings` benchmark on untouched `main` and the worktree
+    - reproducible synthetic scene suite for Tier 1, then Tier 2, then combined Tier 1 + Tier 2
+  - Locked verification requirements:
+    - untouched-`main` vs worktree pixel-level comparisons remain a hard gate
+    - traces must capture and summarize at least:
+      - `Paint`
+      - `UpdateLayoutTree`
+      - `Layout`
+      - `RunTask`
+      - `Commit`
+      - `FireAnimationFrame`
+- Next action:
+  - Create the standardized benchmark scene suite and wire it into the shared CDP replay / trace-summary workflow before implementation work begins.
+
+## 2026-03-20 002
+
+- Item: Start benchmark standardization by adding a shared scene manifest and generic section pan/zoom replay path.
+- Status: `done`
+- Details:
+  - Created a shared benchmark scene manifest:
+    - `perf/scripts/sectionBenchmarkScenes.js`
+  - Added a generic reusable replay helper:
+    - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+  - Expanded the benchmark coverage shape to match the agreed standard more closely:
+    - slow and fast overview horizontal pans
+    - slow and fast overview vertical pans
+    - slow and fast close-zoom horizontal pans
+    - slow and fast close-zoom vertical pans
+    - slow and fast overview-to-detail zoom passes
+    - slow and fast detail-to-overview zoom passes
+  - Kept the old settings benchmark script as a compatibility entry point while delegating to the shared replay logic:
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+  - Updated the trace summarizer so it can read both:
+    - legacy `section-grid-*` marks
+    - new generic `section-benchmark-*` phase marks
+  - Added focused script tests for:
+    - scene manifest behavior
+    - legacy and new trace mark summarization
+- Next action:
+  - Add the first checked-in canonical benchmark scene fixtures and a deterministic scene-loading path so the benchmark no longer depends on ad hoc runtime `setta_files`.
+
+## 2026-03-20 003
+
+- Item: Add the first checked-in canonical benchmark scene fixture and deterministic installer path.
+- Status: `done`
+- Details:
+  - Added the shared scene manifest:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - Added the first ready canonical scene fixture:
+    - `perf/fixtures/section-benchmarks/settings.settings-project.json`
+  - Added a Python installer for checked-in benchmark scenes:
+    - `perf/scripts/installSectionBenchmarkScene.py`
+  - Added backend helper logic for resolving and materializing scene fixtures:
+    - `backend/setta/perf/section_benchmark_scenes.py`
+  - `settings` now has a deterministic install path into a target state root:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root <target-state-root>`
+  - Verified this with:
+    - Python unit coverage for the installer and manifest
+    - Node tests for the shared scene manifest module
+    - a temp-directory smoke install that wrote `setta-settings-project.json`
+  - Locked an important scene-model distinction:
+    - `settings` is a special `setta-settings-project.json` fixture path
+    - future synthetic Tier 1 / Tier 2 scenes should remain canonical checked-in fixtures too, but they may use a different storage seam than the special settings route
+- Next action:
+  - Define and build the first deterministic Tier 1 synthetic benchmark scene fixture so the benchmark suite covers the dense param families beyond `settings`.
+
+## 2026-03-20 004
+
+- Item: Add the first ready canonical Tier 1 synthetic benchmark scene fixture and install path.
+- Status: `done`
+- Details:
+  - Added the checked-in Tier 1 synthetic fixture:
+    - `perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+  - Promoted `tier1Synthetic` from planned to ready in:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - Locked its benchmark focal point to:
+    - `callable_00`
+  - The current Tier 1 fixture composition is:
+    - 8 `Callable` sections
+    - 12 top-level `Dict` sections
+    - 1 `GlobalVariables` section
+    - 4 `ListRoot` sections with nested `Dict` children for list/object-style coverage
+    - 25 top-level sections and 45 total sections overall
+  - Added benchmark-scene tests covering:
+    - ready Tier 1 manifest shape
+    - Tier 1 install into `project.json`
+    - resulting installed section counts
+    - rejection of the still-planned Tier 2 and combined scenes
+  - Updated the plan so the current ready canonical scene set now includes:
+    - `settings`
+    - `tier1Synthetic`
+- Next action:
+  - Wire a reproducible benchmark runner around `tier1Synthetic` on untouched `main` and this worktree, then start the top-level shell restoration work against both ready scenes.
+
+## 2026-03-20 005
+
+- Item: Replace the earlier Tier 1 synthetic scene draft with the final canonical fixture generated from checked-in builder logic.
+- Status: `done`
+- Details:
+  - Added a checked-in Tier 1 builder seam:
+    - `backend/setta/perf/section_benchmark_scene_builders.py`
+    - `perf/scripts/buildSectionBenchmarkScene.py`
+  - Rebuilt and checked in the canonical Tier 1 fixture:
+    - `perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+  - Corrected the Tier 1 manifest and benchmark target to the final builder-backed scene shape:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+    - target section pattern:
+      - `callable_00`
+  - Locked the final Tier 1 composition to:
+    - 8 `Callable` sections
+    - 12 top-level `Dict` sections
+    - 1 `GlobalVariables` section
+    - 4 `ListRoot` sections with 5 `Dict` children each
+    - 25 top-level sections and 45 total sections overall
+  - Updated focused coverage to match the final canonical scene:
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+    - `tests/perf/test_section_benchmark_scenes.py`
+  - Verification:
+    - `source activate.sh && python -m py_compile backend/setta/perf/section_benchmark_scene_builders.py perf/scripts/buildSectionBenchmarkScene.py`
+    - `node --test perf/scripts/sectionBenchmarkScenes.test.js perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.test.js`
+      - result: `6` passed
+    - `source activate.sh && pytest tests/perf/test_section_benchmark_scenes.py`
+      - result: `6` passed
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 006
+
+- Item: Add a checked-in CDP benchmark runner that wraps scene lookup, replay execution, raw trace capture, and optional trace summarization.
+- Status: `done`
+- Details:
+  - Added the reusable runner:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - The runner now:
+    - connects to an existing CDP browser via Playwright
+    - opens or reuses the requested frontend origin
+    - looks up scene config from the checked-in scene manifest
+    - executes `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - writes raw trace events
+    - writes benchmark result JSON
+    - optionally writes the shared trace summary JSON
+  - Added focused Node coverage for:
+    - argument parsing
+    - help output
+    - scene-config merging
+  - Verified the runner help locally:
+    - `node perf/scripts/runSectionBenchmarkViaCdp.js --help`
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 005
+
+- Item: Remove relative state-root ambiguity from the benchmark scene installer CLI.
+- Status: `done`
+- Details:
+  - Added an explicit state-root resolver in:
+    - `backend/setta/perf/section_benchmark_scenes.py`
+  - Updated the installer CLI to resolve relative `--state-root` paths against the caller's working directory before handing them to `DBE`:
+    - `perf/scripts/installSectionBenchmarkScene.py`
+  - Added focused coverage for:
+    - relative-path resolution
+    - absolute-path passthrough
+  - Verified the CLI with a temp-directory smoke run from outside the repo root:
+    - `python perf/scripts/installSectionBenchmarkScene.py settings --state-root setta_files_dev`
+    - result target path now resolves to `<cwd>/setta_files_dev/...` instead of the broader normalized Setta state root
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 007
+
+- Item: Probe the live route-readiness of the installed Tier 1 scene on the running worktree and untouched-`main` dev instances.
+- Status: `blocked`
+- Details:
+  - Installed the ready canonical scenes into both live state roots:
+    - worktree:
+      - `setta.frontend-performance-11/setta_files_dev`
+    - untouched `main`:
+      - `setta/setta_files_dev`
+  - Verified the written project-config names on disk now include:
+    - `benchmark-tier1`
+  - Probed the live current-worktree Chrome debug session over CDP and found:
+    - existing authenticated page:
+      - `http://127.0.0.1:3211/settings`
+    - attempted benchmark route page:
+      - `http://127.0.0.1:3011/benchmark-tier1`
+      - title/body:
+        - `Not Found`
+        - `Project Not Found`
+  - This indicates the direct `project.json` fixture install did not make the new route benchmark-ready inside the already-running backend instance.
+  - `settings` remains route-ready because it uses the special `setta-settings-project.json` seam; `tier1Synthetic` currently does not.
+- Next action:
+  - Restart or explicitly rehydrate the worktree and untouched-`main` backend instances after `tier1Synthetic` install, then rerun the paired CDP benchmarks for:
+    - `settings`
+    - `tier1Synthetic`
+
+## 2026-03-20 008
+
+- Item: Harden the shared CDP benchmark runner against stale same-origin tabs and correct the standardized `settings` target to a visible default-view section.
+- Status: `done`
+- Details:
+  - Updated the CDP runner:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - The runner now always opens a fresh page in the connected browser context, navigates directly to the requested route, and closes that page afterward instead of reusing arbitrary same-origin tabs.
+  - This avoids a stale-auth / stale-route failure mode where the runner would attach to an existing same-origin tab that was sitting on a different app state such as `Project Not Found`.
+  - After the fresh-page change, the current-worktree Tier 1 synthetic scene became benchmarkable again on the fresh `ai.sh` ports:
+    - frontend:
+      - `http://127.0.0.1:3012`
+    - backend:
+      - `http://127.0.0.1:8012`
+    - CDP:
+      - `http://127.0.0.1:9234`
+  - A direct live probe of `/settings` on the restarted worktree showed the initial visible settings sections are:
+    - `backendArgs`
+    - `shortcutsArgs`
+    - `sectionSizingPolicyArgs`
+    - `languageServerArgs`
+    - `guiArgs`
+  - This explains the earlier `groupSectionDefault` mismatch:
+    - `groupSectionDefault` belongs to a different settings view-mode group and is not visible on the default `/settings` canvas
+  - Updated the shared settings benchmark target from `groupSectionDefault` to `backendArgs` in:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+    - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+- Next action:
+  - Re-run the paired CDP `settings` / `tier1Synthetic` matrix on:
+    - current worktree
+    - untouched `main`
+  - then append the first comparable summary metrics before starting the selective `bf6487690` shell rollback work.
+
+## 2026-03-20 009
+
+- Item: Record the first standardized paired baseline on untouched `main` versus `frontend-performance-11-hybrid-rendering`.
+- Status: `done`
+- Details:
+  - Recorded the first full paired matrix with the standardized CDP runner for:
+    - `settings`
+    - `tier1Synthetic`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-paired-baseline`
+  - Added the paired benchmark report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-paired-baseline.md`
+  - Key benchmark-window totals:
+    - `settings`
+      - untouched `main`:
+        - `Paint 7.767ms`
+        - `UpdateLayoutTree 80.137ms`
+        - `RunTask 3846.496ms`
+      - worktree:
+        - `Paint 619.310ms`
+        - `UpdateLayoutTree 69.458ms`
+        - `RunTask 3828.264ms`
+    - `tier1Synthetic`
+      - untouched `main`:
+        - `Paint 18.947ms`
+        - `UpdateLayoutTree 27.026ms`
+        - `RunTask 17799.621ms`
+      - worktree:
+        - `Paint 1533.374ms`
+        - `UpdateLayoutTree 20.319ms`
+        - `RunTask 22296.154ms`
+  - The slow overview pan phases on untouched `main` again stayed at `0ms` paint for both scenes, while the worktree paid:
+    - about `118-121ms` paint on `settings`
+    - about `313-323ms` paint on `tier1Synthetic`
+  - This confirms the standardized harness reproduces the same paint-focused regression pattern on both the real-project and synthetic scenes.
+- Next action:
+  - Implement the selective top-level shell rollback toward the `bf6487690` baseline in the shared shell seam, then re-run this same paired matrix.
+
+## 2026-03-20 010
+
+- Item: Implement and measure the first selective top-level shell rollback toward the `bf6487690` baseline.
+- Status: `done`
+- Details:
+  - Restored the shared shell toward the grid-era baseline in:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - Explicitly deferred:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - the old gesture-time compositor-promotion behavior remains off because it conflicts with the no-blur motion contract
+  - Updated direct shell coverage to match the restored grid behavior:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - Revalidated the adjacent shell consumers:
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      - result:
+        - `35` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-shell-rollback-rerun.md`
+  - Key measurement read:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before rollback:
+          - `619.310ms`
+        - after rollback:
+          - `159.227ms`
+      - slow overview pan paint:
+        - before:
+          - `118.025ms` horizontal
+          - `121.345ms` vertical
+        - after:
+          - `29.623ms` horizontal
+          - `28.612ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before rollback:
+          - `1533.374ms`
+        - after rollback:
+          - `1433.618ms`
+      - benchmark window duration:
+        - before:
+          - `20997.810ms`
+        - after:
+          - `17550.145ms`
+  - CDP visual sanity:
+    - opened and inspected:
+      - `http://127.0.0.1:3012/settings`
+      - `http://127.0.0.1:3087/settings`
+    - captured targeted first-section screenshots for main/worktree:
+      - `perf/tmp/worktree-settings-first-section.png`
+      - `perf/tmp/main-settings-first-section.png`
+    - shell remained visually intact, but a strict pixel-parity gate is still pending
+- Next action:
+  - Keep the shell rollback, then move into the next planned Tier 1 work:
+    - further active-body flattening
+    - section-body render-mode / preview infrastructure
+
+## 2026-03-20 011
+
+- Item: Land the first section body-host seam, collapse the shared Tier 1 dense-param body stack, and restore the first sparse local body layouts toward `bf6487690`.
+- Status: `done`
+- Details:
+  - Added the shared body-host seam:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - Added the shared Tier 1 body seam:
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.tsx`
+  - Rewired the shared canvas/window body mount points through the new seam:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+  - Collapsed the repeated `KwargsControls` plus param-container body stack into the new Tier 1 seam for:
+    - `frontend/src/components/Section/Layouts/CallableArea.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.tsx`
+  - Restored sparse local body layouts toward the `bf6487690` model in:
+    - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+    - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+    - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - Verified rollback scope against `bf6487690` directly:
+    - `frontend/src/components/Section/Layouts/PromptArea.tsx`
+    - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+    - result:
+      - no extra rollback step is currently needed there for the surrounding layout
+  - Kept the new shared body mount points instead of rolling them back structurally toward `bf6487690`, but restored the old canvas placeholder-before-minimize ordering inside:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - The shared mount points still hold the deeper ownership seam needed for Phase 2 and later preview work.
+  - Added direct seam coverage:
+    - `frontend/src/components/Section/Container/SectionBodyGate.test.tsx`
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx`
+  - Revalidated the touched shared consumers:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Layouts/CallableArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/BrowserArea.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `32` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-body-host-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-body-host-rerun`
+  - Key measurement read versus the shell-only rollback checkpoint:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before:
+          - `159.227ms`
+        - after:
+          - `191.708ms`
+      - slow overview pan paint:
+        - before:
+          - `29.623ms` horizontal
+          - `28.612ms` vertical
+        - after:
+          - `35.846ms` horizontal
+          - `35.513ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before:
+          - `1433.618ms`
+        - after:
+          - `1622.944ms`
+      - benchmark window duration:
+        - before:
+          - `17550.145ms`
+        - after:
+          - `22482.263ms`
+  - Read:
+    - this checkpoint is structurally useful
+    - it is not a performance win
+    - the next meaningful gains have to come from actual render-mode behavior or deeper Tier 1 body-cost reduction
+- Next action:
+  - Keep the new body-host seam and the local sparse restores, then move directly into the next planned Tier 1 work:
+    - real live/warm/preview body-mode behavior
+    - deeper Tier 1 body flattening that measurably reduces visible paint
+
+## 2026-03-20 012
+
+- Item: Wire the first real `auto` body-mode policy into the shared gate using live viewport state and measured section size.
+- Status: `done`
+- Details:
+  - Added a pure policy seam:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - Added focused policy coverage:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+  - Updated:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - The shared gate now derives `auto` requested mode from live source-of-truth inputs instead of carrying a hardcoded `"auto"` string:
+    - `viewportInteractionActive` from the live `useReactFlow` store
+    - current zoom from `useReactFlow(...transform[2])`
+    - measured section width and height from node internals
+    - active-section ownership from `useIsSectionUIActive`
+  - Current policy behavior:
+    - windows stay on the live path
+    - active sections stay on the live path
+    - only Tier 1 dense-param and Tier 2 code families are preview-eligible
+    - inactive canvas sections can now resolve `requestedMode="preview"` during viewport motion when they are small enough on screen
+  - Important scope limit:
+    - the gate still resolves `preview` and `warm` to the live path because no preview substrate exists yet
+    - this checkpoint improves render-mode correctness and observability, not runtime paint yet
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `38` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe|SectionWindowSurface"`
+      - result:
+        - no matching diagnostics
+- Next action:
+  - Use the now-real `requestedMode` policy to land the first actual preview-capable representation for Tier 1 bodies instead of keeping preview as a live-path alias.
+
+## 2026-03-20 013
+
+- Item: Land the first real Tier 1 preview body path and measure it with the standardized CDP matrix.
+- Status: `done`
+- Details:
+  - Added the first real Tier 1 preview surrogate:
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionPreview.tsx`
+  - Updated the shared gate and policy:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - The first preview rollout is intentionally narrow:
+    - Tier 1 dense-param families only
+    - top-level canvas bodies only
+    - motion-time preview only
+    - windows stay live
+    - Tier 2 code sections stay live
+  - Added or updated focused coverage:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+    - `frontend/src/components/Section/Container/SectionBodyGate.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `39` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe|SectionWindowSurface|Tier1DenseParamSectionPreview"`
+      - result:
+        - no matching diagnostics
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-preview-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-preview-rerun`
+  - Key measurement read versus the prior body-host checkpoint:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before:
+          - `191.708ms`
+        - after:
+          - `191.084ms`
+      - slow overview pan paint:
+        - before:
+          - `35.846ms` horizontal
+          - `35.513ms` vertical
+        - after:
+          - `37.061ms` horizontal
+          - `36.854ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before:
+          - `1622.944ms`
+        - after:
+          - `1611.081ms`
+      - slow overview pan paint:
+        - before:
+          - `358.991ms` horizontal
+          - `348.334ms` vertical
+        - after:
+          - `381.501ms` horizontal
+          - `332.993ms` vertical
+  - Read:
+    - the first real preview path is functioning
+    - it is not yet a meaningful performance win
+    - the preview surrogate and current gating are too weak to materially reduce the dominant motion-time paint cost
+- Next action:
+  - Keep the preview path narrow for now, then iterate on the next stronger preview checkpoint:
+    - better pane-aware projection / visibility gating
+    - lighter or more faithful Tier 1 preview content
+    - broader but still controlled Tier 1 preview eligibility only if traces justify it
