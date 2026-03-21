@@ -354,6 +354,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   }
 
   const isDragActive = false;
+
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
 
   const cursorIcon = getCursorIcon(canvasMode);
