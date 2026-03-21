@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/chatattachments"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -79,29 +82,31 @@ type StartResponse struct {
 }
 
 type SendServiceOptions struct {
-	ProjectState *projectstate.Runtime
-	Engines      *agentruns.EngineStore
-	Runs         *agentruns.RunStore
-	Profiles     *agentprofiles.Store
-	Configs      *externalagentconfigs.Store
-	Runtime      *Runtime
-	Preflight    externalagentconfigs.Checker
-	Attachments  *chatattachments.Service
-	Executor     Executor
-	TimeNow      func() time.Time
+	ProjectState   *projectstate.Runtime
+	Engines        *agentruns.EngineStore
+	Runs           *agentruns.RunStore
+	Profiles       *agentprofiles.Store
+	Configs        *externalagentconfigs.Store
+	Runtime        *Runtime
+	Preflight      externalagentconfigs.Checker
+	Attachments    *chatattachments.Service
+	Executor       Executor
+	SettaFilesRoot string
+	TimeNow        func() time.Time
 }
 
 type SendService struct {
-	projectState *projectstate.Runtime
-	engines      *agentruns.EngineStore
-	runs         *agentruns.RunStore
-	profiles     *agentprofiles.Store
-	configs      *externalagentconfigs.Store
-	runtime      *Runtime
-	preflight    externalagentconfigs.Checker
-	attachments  *chatattachments.Service
-	executor     Executor
-	timeNow      func() time.Time
+	projectState   *projectstate.Runtime
+	engines        *agentruns.EngineStore
+	runs           *agentruns.RunStore
+	profiles       *agentprofiles.Store
+	configs        *externalagentconfigs.Store
+	runtime        *Runtime
+	preflight      externalagentconfigs.Checker
+	attachments    *chatattachments.Service
+	executor       Executor
+	settaFilesRoot string
+	timeNow        func() time.Time
 }
 
 type runtimeReadyController interface {
@@ -199,16 +204,17 @@ func NewSendService(options SendServiceOptions) (*SendService, error) {
 		}
 	}
 	return &SendService{
-		projectState: options.ProjectState,
-		engines:      options.Engines,
-		runs:         options.Runs,
-		profiles:     options.Profiles,
-		configs:      options.Configs,
-		runtime:      options.Runtime,
-		preflight:    options.Preflight,
-		attachments:  options.Attachments,
-		executor:     options.Executor,
-		timeNow:      timeNow,
+		projectState:   options.ProjectState,
+		engines:        options.Engines,
+		runs:           options.Runs,
+		profiles:       options.Profiles,
+		configs:        options.Configs,
+		runtime:        options.Runtime,
+		preflight:      options.Preflight,
+		attachments:    options.Attachments,
+		executor:       options.Executor,
+		settaFilesRoot: strings.TrimSpace(options.SettaFilesRoot),
+		timeNow:        timeNow,
 	}, nil
 }
 
@@ -260,6 +266,10 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		return StartChatResult{}, ErrBranchFieldsRequired
 	}
 	frontendAffinityToken, err := normalizeFrontendAffinityToken(request.FrontendAffinityToken)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	completionGuardEnabled, err := s.resolveCompletionGuardEnabled(ctx)
 	if err != nil {
 		return StartChatResult{}, err
 	}
@@ -430,12 +440,21 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if sandboxPolicyOverride := resolveExternalSandboxPolicyOverride(request.PermissionMode, externalConfig.ToolType); sandboxPolicyOverride != nil {
 		inputs["sandboxPolicy"] = *sandboxPolicyOverride
 	}
-	inputs["systemPrompt"] = combinePromptSections(
+	if externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode && !hasExplicitClaudeAllowedToolsInput(inputs) {
+		if allowedTools := buildClaudeAllowedToolsFromProfile(profile, completionGuardEnabled); len(allowedTools) > 0 {
+			inputs["allowedTools"] = append([]string(nil), allowedTools...)
+		}
+	}
+	systemPromptSections := []string{
 		buildExternalProfilePrompt(profile),
 		appGenerationModePrompt,
 		buildExecutionPolicyPrompt(request.PermissionMode, request.SearchEnabled),
-		requiredErrorCheckPrompt,
-	)
+	}
+	if completionGuardEnabled {
+		systemPromptSections = append(systemPromptSections, requiredErrorCheckPrompt)
+	}
+	inputs["systemPrompt"] = combinePromptSections(systemPromptSections...)
+	inputs["completionGuardEnabled"] = completionGuardEnabled
 	if isBranchRequest {
 		branchRootChatID := resolveBranchRootChatID(parentRun, *branchParentChatID)
 		inputs["branchParentChatId"] = *branchParentChatID
@@ -530,6 +549,84 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		ChatID: chatID,
 		Run:    persisted,
 	}, nil
+}
+
+func (s *SendService) resolveCompletionGuardEnabled(ctx context.Context) (bool, error) {
+	if s == nil || strings.TrimSpace(s.settaFilesRoot) == "" {
+		return settingsstate.DefaultCompletionGuardEnabled, nil
+	}
+	settingsStore, err := settingsstate.NewStore(filepath.Join(s.settaFilesRoot, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		return false, fmt.Errorf("open settings store: %w", err)
+	}
+	document, err := settingsStore.Load(ctx)
+	if err != nil {
+		return false, fmt.Errorf("load settings document: %w", err)
+	}
+	enabled, err := settingsstate.CompletionGuardEnabled(document)
+	if err != nil {
+		return false, fmt.Errorf("read completion guard setting: %w", err)
+	}
+	return enabled, nil
+}
+
+func hasExplicitClaudeAllowedToolsInput(inputs map[string]any) bool {
+	if inputs == nil {
+		return false
+	}
+	switch rawTools := inputs["allowedTools"].(type) {
+	case []string:
+		return len(rawTools) > 0
+	case []any:
+		return len(rawTools) > 0
+	default:
+		return false
+	}
+}
+
+func buildClaudeAllowedToolsFromProfile(profile *agentprofiles.Profile, completionGuardEnabled bool) []string {
+	if profile == nil || len(profile.ToolAllowlist) == 0 {
+		return nil
+	}
+	tools := make([]string, 0, len(profile.ToolAllowlist)+2)
+	for _, entry := range profile.ToolAllowlist {
+		normalized := strings.TrimSpace(entry)
+		if normalized == "" {
+			continue
+		}
+		if strings.HasPrefix(normalized, "mcp__") {
+			tools = append(tools, normalized)
+			continue
+		}
+		if strings.Contains(normalized, mcpx.ToolNameSeparator) {
+			serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
+			if ok && strings.TrimSpace(serverID) != "" && strings.TrimSpace(toolName) != "" {
+				tools = append(tools, "mcp__"+serverID+mcpx.ToolNameSeparator+toolName)
+				continue
+			}
+		}
+		tools = append(tools, normalized)
+	}
+	requiredTools := []string{"mcp__" + mcpx.DefaultServerID + mcpx.ToolNameSeparator + "set_agentic_context"}
+	if completionGuardEnabled {
+		requiredTools = append(requiredTools, "mcp__"+mcpx.DefaultServerID+mcpx.ToolNameSeparator+"report_completion_status")
+	}
+	for _, requiredTool := range requiredTools {
+		present := false
+		for _, tool := range tools {
+			if tool == requiredTool {
+				present = true
+				break
+			}
+		}
+		if !present {
+			tools = append(tools, requiredTool)
+		}
+	}
+	if len(tools) == 0 {
+		return nil
+	}
+	return tools
 }
 
 func hasNonBlankStringInput(inputs map[string]any, key string) bool {

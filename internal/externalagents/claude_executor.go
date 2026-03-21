@@ -816,6 +816,19 @@ func resolveClaudeDecisionPolicy(policy string) string {
 }
 
 func extractClaudeAllowedTools(request StartRequest) []string {
+	if rawTools, ok := request.Inputs["allowedTools"].([]string); ok {
+		tools := make([]string, 0, len(rawTools))
+		for _, value := range rawTools {
+			trimmed := strings.TrimSpace(value)
+			if trimmed == "" {
+				continue
+			}
+			tools = append(tools, trimmed)
+		}
+		if len(tools) > 0 {
+			return tools
+		}
+	}
 	if rawTools, ok := request.Inputs["allowedTools"].([]any); ok {
 		tools := make([]string, 0, len(rawTools))
 		for _, raw := range rawTools {

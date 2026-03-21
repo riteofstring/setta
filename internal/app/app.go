@@ -1072,15 +1072,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			OpenCode: openCodeExecutor,
 		})
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
-			ProjectState: projectRuntime,
-			Engines:      engineStore,
-			Runs:         agentRunStore,
-			Profiles:     agentProfileStore,
-			Configs:      externalConfigStore,
-			Runtime:      externalAgentRuntime,
-			Preflight:    externalPreflightChecker,
-			Attachments:  attachmentService,
-			Executor:     externalAgentExecutor,
+			ProjectState:   projectRuntime,
+			Engines:        engineStore,
+			Runs:           agentRunStore,
+			Profiles:       agentProfileStore,
+			Configs:        externalConfigStore,
+			Runtime:        externalAgentRuntime,
+			Preflight:      externalPreflightChecker,
+			Attachments:    attachmentService,
+			Executor:       externalAgentExecutor,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

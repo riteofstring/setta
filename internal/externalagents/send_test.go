@@ -15,6 +15,7 @@ import (
 	"setta/internal/chatattachments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 type stubPreflightChecker struct {
@@ -63,7 +64,9 @@ func (s *stubExternalAgentExecutor) Start(_ context.Context, request StartReques
 func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 	t.Parallel()
 
-	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		completionGuardEnabled: boolPtr(true),
+	})
 	result, err := fixture.service.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -156,6 +159,135 @@ func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 	}
 	if len(liveState.Messages) != 1 {
 		t.Fatalf("expected one live message, got %#v", liveState.Messages)
+	}
+}
+
+func TestSendServiceOmitsCompletionGatePromptWhenGuardDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		completionGuardEnabled: boolPtr(false),
+	})
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-guard-off",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create a new section."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start external chat with guard disabled: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	systemPrompt, _ := fixture.executor.last.Inputs["systemPrompt"].(string)
+	if containsText(systemPrompt, "## Required completion gate for create/scaffold work") {
+		t.Fatalf("expected completion gate prompt to be omitted when guard is disabled, got %q", systemPrompt)
+	}
+}
+
+func TestSendServiceBuildsClaudeAllowedToolsFromProfileWhenGuardEnabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		externalToolType:       externalagentconfigs.ToolTypeClaudeCode,
+		externalRunMode:        externalagentconfigs.RunModeSDK,
+		completionGuardEnabled: boolPtr(true),
+	})
+	profile := agentprofiles.Profile{
+		ID:             "profile-claude",
+		Name:           "Claude",
+		EngineConfigID: &fixture.engineID,
+		ToolAllowlist:  []string{"setta__getProjectState"},
+	}
+	if err := fixture.profiles.Write([]agentprofiles.Profile{profile}); err != nil {
+		t.Fatalf("write claude profile: %v", err)
+	}
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-claude",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Scaffold the app."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		AgentProfileID:  stringPtr(profile.ID),
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude external chat: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	allowedTools := stringSliceValueAny(fixture.executor.last.Inputs["allowedTools"])
+	if strings.Join(allowedTools, ",") != strings.Join([]string{
+		"mcp__setta__getProjectState",
+		"mcp__setta__set_agentic_context",
+		"mcp__setta__report_completion_status",
+	}, ",") {
+		t.Fatalf("expected Claude allowedTools to include required completion tools, got %#v", fixture.executor.last.Inputs["allowedTools"])
+	}
+}
+
+func TestSendServiceOmitsClaudeCompletionReportToolWhenGuardDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		externalToolType:       externalagentconfigs.ToolTypeClaudeCode,
+		externalRunMode:        externalagentconfigs.RunModeSDK,
+		completionGuardEnabled: boolPtr(false),
+	})
+	profile := agentprofiles.Profile{
+		ID:             "profile-claude",
+		Name:           "Claude",
+		EngineConfigID: &fixture.engineID,
+		ToolAllowlist:  []string{"setta__getProjectState"},
+	}
+	if err := fixture.profiles.Write([]agentprofiles.Profile{profile}); err != nil {
+		t.Fatalf("write claude profile: %v", err)
+	}
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-claude",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Scaffold the app."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		AgentProfileID:  stringPtr(profile.ID),
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude external chat with guard disabled: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	allowedTools := stringSliceValueAny(fixture.executor.last.Inputs["allowedTools"])
+	if strings.Join(allowedTools, ",") != strings.Join([]string{
+		"mcp__setta__getProjectState",
+		"mcp__setta__set_agentic_context",
+	}, ",") {
+		t.Fatalf("expected Claude allowedTools to omit completion-report tool when guard is disabled, got %#v", fixture.executor.last.Inputs["allowedTools"])
 	}
 }
 
@@ -1163,12 +1295,13 @@ func TestSendServicePreservesExplicitResumeIDsOverLatestExternalRun(t *testing.T
 }
 
 type sendFixtureOptions struct {
-	executorErr      error
-	preflightStatus  *externalagentconfigs.Status
-	externalToolType externalagentconfigs.ToolType
-	externalRunMode  externalagentconfigs.RunMode
-	approvalPolicy   *string
-	sandboxPolicy    *string
+	executorErr            error
+	preflightStatus        *externalagentconfigs.Status
+	externalToolType       externalagentconfigs.ToolType
+	externalRunMode        externalagentconfigs.RunMode
+	approvalPolicy         *string
+	sandboxPolicy          *string
+	completionGuardEnabled *bool
 }
 
 type sendServiceFixture struct {
@@ -1232,6 +1365,9 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 	})
 	if err != nil {
 		t.Fatalf("new runtime: %v", err)
+	}
+	if options.completionGuardEnabled != nil {
+		writeSendCompletionGuardSetting(t, root, *options.completionGuardEnabled)
 	}
 	toolType := options.externalToolType
 	if toolType == "" {
@@ -1312,15 +1448,16 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 		}
 	}
 	service, err := NewSendService(SendServiceOptions{
-		ProjectState: projectRuntime,
-		Engines:      engines,
-		Runs:         runs,
-		Profiles:     profiles,
-		Configs:      configs,
-		Runtime:      runtime,
-		Preflight:    stubPreflightChecker{status: *preflightStatus},
-		Attachments:  attachmentService,
-		Executor:     executor,
+		ProjectState:   projectRuntime,
+		Engines:        engines,
+		Runs:           runs,
+		Profiles:       profiles,
+		Configs:        configs,
+		Runtime:        runtime,
+		Preflight:      stubPreflightChecker{status: *preflightStatus},
+		Attachments:    attachmentService,
+		Executor:       executor,
+		SettaFilesRoot: root,
 		TimeNow: func() time.Time {
 			return now
 		},
@@ -1338,6 +1475,46 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 		now:      now,
 		root:     root,
 	}
+}
+
+func writeSendCompletionGuardSetting(t *testing.T, root string, enabled bool) {
+	t.Helper()
+
+	settingsStore, err := settingsstate.NewStore(filepath.Join(root, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open settings store: %v", err)
+	}
+	document, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	document["backend"].(map[string]any)["completionGuardEnabled"] = enabled
+	if err := settingsStore.Save(context.Background(), document); err != nil {
+		t.Fatalf("save settings document: %v", err)
+	}
+}
+
+func stringSliceValueAny(raw any) []string {
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		values := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			value, ok := entry.(string)
+			if !ok {
+				return nil
+			}
+			values = append(values, value)
+		}
+		return values
+	default:
+		return nil
+	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func (f sendServiceFixture) seedExternalRun(t *testing.T, chatID string, status agentruns.RunStatus, inputMessages []map[string]any, outputMessages []map[string]any) {
