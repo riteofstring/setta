@@ -257,6 +257,51 @@ func TestBuildToolDefinitionsFiltersNonDefaultCompletionStatusWithoutAllowlist(t
 	}
 }
 
+func TestBuildToolDefinitionsIncludesInitSearchToolWithoutProviderSpecificFlags(t *testing.T) {
+	t.Parallel()
+
+	searchToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "search_mcp_tools")
+	payload, available, _, err := buildToolDefinitions(agentruns.ExecutionRequest{
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+	}, &stubToolClient{
+		initTools: map[string]mcpx.ToolDescriptor{
+			searchToolName: {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: searchToolName,
+				RemoteName:     "search_mcp_tools",
+				Description:    "Search MCP tools.",
+				InputSchema:    map[string]any{"type": "object"},
+			},
+		},
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__tool_alpha": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__tool_alpha",
+				RemoteName:     "tool_alpha",
+				Description:    "Alpha tool.",
+				InputSchema:    map[string]any{"type": "object"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tool definitions: %v", err)
+	}
+
+	got := toolNamesFromPayload(payload)
+	want := []string{searchToolName, "setta__tool_alpha"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected tool names %#v", got)
+	}
+	if _, ok := available[searchToolName]; !ok {
+		t.Fatalf("expected search tool in available tools, got %#v", available)
+	}
+	for _, tool := range payload {
+		if _, ok := tool["defer_loading"]; ok {
+			t.Fatalf("expected provider-agnostic tool payload without defer_loading, got %#v", tool)
+		}
+	}
+}
+
 func TestBuildToolDefinitionsOmitsDefaultCompletionStatusWhenGuardDisabled(t *testing.T) {
 	t.Parallel()
 

@@ -9247,6 +9247,36 @@ func TestServerSearchMCPToolsUsesDiscoverableToolsAndServerFilters(t *testing.T)
 	}
 }
 
+func TestServerSearchMCPToolsRejectsNonIntegerLimit(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_mcp_tools",
+		Arguments: map[string]any{
+			"query": "section size settings",
+			"limit": "two",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid search_mcp_tools: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid search_mcp_tools limit to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	message, _ := payload["message"].(string)
+	if !strings.Contains(message, "limit must be an integer") {
+		t.Fatalf("expected integer validation message, got %#v", payload["message"])
+	}
+}
+
 func TestServerGetMCPServerRuntimeStatusReturnsClientStatuses(t *testing.T) {
 	t.Parallel()
 
