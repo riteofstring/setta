@@ -366,6 +366,9 @@ func TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsCh
 	if clonedWindowSpace.WindowsByID["section-window"].ChatID != nil {
 		t.Fatalf("expected saved section-chat binding cleared, got %#v", clonedWindowSpace.WindowsByID["section-window"].ChatID)
 	}
+	if clonedWindowSpace.WindowsByID["section-window"].SectionIDOrNull == nil || *clonedWindowSpace.WindowsByID["section-window"].SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected saved section binding to stay project-scoped, got %#v", clonedWindowSpace.WindowsByID["section-window"].SectionIDOrNull)
+	}
 }
 
 func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
