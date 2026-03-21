@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/mcpx"
 )
@@ -57,6 +58,217 @@ func TestIsToolAllowedRejectsNonDefaultCompletionStatusToolEvenWhenAllowlisted(t
 	if !isToolAllowed("setta__report_completion_status", allowlist, true) {
 		t.Fatal("expected default completion status tool to remain allowed")
 	}
+}
+
+func TestNormalizeToolAllowlistParsesNamesServersAndRequiredCompletionStatus(t *testing.T) {
+	t.Parallel()
+
+	allowlist, err := normalizeToolAllowlist(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{"server-a", "server-b"},
+		CompletionGuardEnabled: true,
+		Profile: agentprofiles.Profile{
+			ToolAllowlist: []string{"server-a__tool.alpha", "server-b", "tool.beta"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalize tool allowlist: %v", err)
+	}
+	if allowlist == nil {
+		t.Fatal("expected normalized allowlist")
+	}
+
+	if _, ok := allowlist.toolNames["server-a__tool.alpha"]; !ok {
+		t.Fatalf("expected namespaced tool entry, got %#v", allowlist.toolNames)
+	}
+	if _, ok := allowlist.toolNames[mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_completion_status")]; !ok {
+		t.Fatalf("expected required completion tool entry, got %#v", allowlist.toolNames)
+	}
+	if _, ok := allowlist.toolBasenames["tool.beta"]; !ok {
+		t.Fatalf("expected basename allowlist entry, got %#v", allowlist.toolBasenames)
+	}
+	if _, ok := allowlist.serverIDs["server-a"]; !ok {
+		t.Fatalf("expected server-a in server allowlist, got %#v", allowlist.serverIDs)
+	}
+	if _, ok := allowlist.serverIDs["server-b"]; !ok {
+		t.Fatalf("expected server-b in server allowlist, got %#v", allowlist.serverIDs)
+	}
+	if _, ok := allowlist.serverIDs[mcpx.DefaultServerID]; ok {
+		t.Fatalf("did not expect default server id to be forced into unavailable servers, got %#v", allowlist.serverIDs)
+	}
+}
+
+func TestNormalizeToolAllowlistOmitsRequiredCompletionStatusWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	allowlist, err := normalizeToolAllowlist(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: false,
+		Profile: agentprofiles.Profile{
+			ToolAllowlist: []string{"setta__getProjectState"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalize tool allowlist: %v", err)
+	}
+	if allowlist == nil {
+		t.Fatal("expected normalized allowlist")
+	}
+	if _, ok := allowlist.toolNames[mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_completion_status")]; ok {
+		t.Fatalf("did not expect required completion tool when disabled, got %#v", allowlist.toolNames)
+	}
+}
+
+func TestNormalizeToolAllowlistRejectsUnknownServer(t *testing.T) {
+	t.Parallel()
+
+	allowlist, err := normalizeToolAllowlist(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{"server-a"},
+		CompletionGuardEnabled: true,
+		Profile: agentprofiles.Profile{
+			ToolAllowlist: []string{"unknown__tool.alpha"},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected unknown-server error, got allowlist=%#v", allowlist)
+	}
+	if err.Error() != "managed llm tools are not supported: unavailable MCP server \"unknown\" in toolAllowlist" {
+		t.Fatalf("unexpected unknown-server error %q", err.Error())
+	}
+}
+
+func TestIsToolAllowedAllowsNonDefaultCompletionStatusWhenGuardDisabled(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		allowlist []string
+	}{
+		{
+			name:      "namespaced tool entry",
+			allowlist: []string{"other__report_completion_status"},
+		},
+		{
+			name:      "server entry",
+			allowlist: []string{"other"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			allowlist, err := normalizeToolAllowlist(agentruns.ExecutionRequest{
+				MCPServerIDs:           []string{"other"},
+				CompletionGuardEnabled: false,
+				Profile: agentprofiles.Profile{
+					ToolAllowlist: testCase.allowlist,
+				},
+			})
+			if err != nil {
+				t.Fatalf("normalize tool allowlist: %v", err)
+			}
+			if allowlist == nil {
+				t.Fatal("expected normalized allowlist")
+			}
+			if !isToolAllowed("other__report_completion_status", allowlist, false) {
+				t.Fatalf("expected non-default completion status tool to remain allowed, allowlist=%#v", allowlist)
+			}
+		})
+	}
+}
+
+func TestBuildToolDefinitionsKeepsDefaultCompletionStatusWhenAllowlistNarrowsServerIDs(t *testing.T) {
+	t.Parallel()
+
+	payload, _, allowlist, err := buildToolDefinitions(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{"other", mcpx.DefaultServerID},
+		CompletionGuardEnabled: true,
+		Profile: agentprofiles.Profile{
+			ToolAllowlist: []string{"other__tool_alpha"},
+		},
+	}, &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"other__tool_alpha": {
+				ServerID:       "other",
+				NamespacedName: "other__tool_alpha",
+				RemoteName:     "tool_alpha",
+				InputSchema:    map[string]any{},
+			},
+			"setta__report_completion_status": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__report_completion_status",
+				RemoteName:     "report_completion_status",
+				InputSchema:    map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tool definitions: %v", err)
+	}
+	if allowlist == nil {
+		t.Fatal("expected normalized allowlist")
+	}
+
+	got := toolNamesFromPayload(payload)
+	want := []string{"other__tool_alpha", "setta__report_completion_status"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected tool names %#v", got)
+	}
+}
+
+func TestBuildToolDefinitionsFiltersNonDefaultCompletionStatusWithoutAllowlist(t *testing.T) {
+	t.Parallel()
+
+	payload, _, _, err := buildToolDefinitions(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{"other", mcpx.DefaultServerID},
+		CompletionGuardEnabled: true,
+	}, &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"other__report_completion_status": {
+				ServerID:       "other",
+				NamespacedName: "other__report_completion_status",
+				RemoteName:     "report_completion_status",
+				InputSchema:    map[string]any{},
+			},
+			"other__tool_alpha": {
+				ServerID:       "other",
+				NamespacedName: "other__tool_alpha",
+				RemoteName:     "tool_alpha",
+				InputSchema:    map[string]any{},
+			},
+			"setta__report_completion_status": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__report_completion_status",
+				RemoteName:     "report_completion_status",
+				InputSchema:    map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tool definitions: %v", err)
+	}
+
+	got := toolNamesFromPayload(payload)
+	want := []string{"other__tool_alpha", "setta__report_completion_status"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected tool names %#v", got)
+	}
+}
+
+func toolNamesFromPayload(payload []map[string]any) []string {
+	names := make([]string, 0, len(payload))
+	for _, tool := range payload {
+		function, ok := tool["function"].(map[string]any)
+		if !ok {
+			continue
+		}
+		name, ok := function["name"].(string)
+		if !ok {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
 }
 
 func TestBuildToolRequestMetaIncludesRunContextForWorkflowSignalTool(t *testing.T) {

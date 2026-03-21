@@ -7,6 +7,12 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"os"
+	"time"
+)
+
+const (
+	interruptSettleWindow = 50 * time.Millisecond
+	interruptPollInterval = 5 * time.Millisecond
 )
 
 func interruptTerminalSession(session *session) (bool, error) {
@@ -19,22 +25,39 @@ func interruptTerminalSession(session *session) (bool, error) {
 		return false, nil
 	}
 
-	foregroundProcessGroup, err := foregroundProcessGroup(session.pty)
+	foregroundPG, err := foregroundProcessGroup(session.pty)
 	if err != nil {
 		if isIgnorableInterruptError(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("interrupt terminal %q: resolve foreground process group: %w", session.id, err)
 	}
-	if foregroundProcessGroup <= 0 || foregroundProcessGroup == shellProcessGroup {
+	if foregroundPG > 0 && foregroundPG != shellProcessGroup {
+		deadline := time.Now().Add(interruptSettleWindow)
+		for time.Now().Before(deadline) {
+			time.Sleep(interruptPollInterval)
+
+			foregroundPG, err = foregroundProcessGroup(session.pty)
+			if err != nil {
+				if isIgnorableInterruptError(err) {
+					return false, nil
+				}
+				return false, fmt.Errorf("interrupt terminal %q: resolve foreground process group: %w", session.id, err)
+			}
+			if foregroundPG <= 0 || foregroundPG == shellProcessGroup {
+				return false, nil
+			}
+		}
+	}
+	if foregroundPG <= 0 || foregroundPG == shellProcessGroup {
 		return false, nil
 	}
 
-	if err := unix.Kill(-foregroundProcessGroup, unix.SIGINT); err != nil {
+	if err := unix.Kill(-foregroundPG, unix.SIGINT); err != nil {
 		if errors.Is(err, unix.ESRCH) {
 			return false, nil
 		}
-		return false, fmt.Errorf("interrupt terminal %q: send SIGINT to process group %d: %w", session.id, foregroundProcessGroup, err)
+		return false, fmt.Errorf("interrupt terminal %q: send SIGINT to process group %d: %w", session.id, foregroundPG, err)
 	}
 
 	return true, nil
