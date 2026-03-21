@@ -333,6 +333,9 @@ categorize them.
 - That recent-session grace row is now closed too, which leaves the launch
   backlog focused on the heavier real runtime gaps such as process-group
   cleanup rather than more small preflight or reuse-timing omissions
+- The MCP runtime-status disabled-runner branch is now closed too, so the
+  remaining small MCP/UI-setting queue is back to the real missing surface
+  rows rather than this route-local fail-closed omission
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
