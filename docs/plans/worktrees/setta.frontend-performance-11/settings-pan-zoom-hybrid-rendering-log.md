@@ -581,3 +581,38 @@ Record:
     - better pane-aware projection / visibility gating
     - lighter or more faithful Tier 1 preview content
     - broader but still controlled Tier 1 preview eligibility only if traces justify it
+
+## 2026-03-20 014
+
+- Item: Benchmark a stronger Tier 1 motion-time preview iteration and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental changes under test:
+    - more aggressive preview eligibility for inactive Tier 1 canvas sections during motion
+    - an SVG-based Tier 1 preview substrate
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-preview-rerun-2.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-preview-rerun-2`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `40` tests passed
+  - Key read versus the immediately previous preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `191.084ms -> 185.469ms`
+      - benchmark `RunTask`:
+        - `4259.584ms -> 3945.649ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `1611.081ms -> 1631.419ms`
+      - benchmark `RunTask`:
+        - `23785.273ms -> 23842.679ms`
+  - Decision:
+    - reject this stronger preview iteration
+    - keep the earlier narrower preview checkpoint at `HEAD`
+    - preserve this rerun only as an append-only dead-end record
+- Next action:
+  - Revert the uncommitted stronger-preview experiment and continue from the earlier preview baseline.

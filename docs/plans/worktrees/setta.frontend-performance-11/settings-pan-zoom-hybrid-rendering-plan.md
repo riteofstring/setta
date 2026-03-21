@@ -498,6 +498,10 @@ Current execution note:
   - better projected-size / pane-visibility gating
   - lighter preview content or wider preview eligibility within Tier 1
   - possibly a different preview substrate if lightweight DOM is still too paint-heavy
+- the first stronger preview iteration was benchmarked and rejected:
+  - more aggressive motion-time Tier 1 preview gating plus an SVG-based substrate helped `settings` modestly
+  - but it regressed the canonical `tier1Synthetic` aggregate benchmark
+  - keep the earlier narrower preview checkpoint at `HEAD` and treat the stronger variant as an append-only dead end
 
 ## Phase 4: Eliminate Click-Wait Through Warm Activation
 
