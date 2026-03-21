@@ -359,3 +359,7 @@ categorize them.
   bootstrap/runtime slices such as Codex user-config import/reconciliation,
   Claude temp MCP config production, or broader OpenCode read-only/runtime
   behavior rather than revisiting already-proved shared settings materialization
+- The external-agent preflight version-metadata row is now closed too, so the
+  adjacent health/preflight queue is mostly down to the harder temp-MCP,
+  auth-header, and config-bootstrap/runtime slices rather than more payload
+  shaping on the existing health response
