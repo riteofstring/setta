@@ -108,6 +108,44 @@ func TestServiceStatusSetsTruncationFlagForLargeOutput(t *testing.T) {
 	}
 }
 
+func TestServiceStatusAllowsModeratelySlowRepoLookup(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    sleep 2",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--verify\" ]; then",
+		"      printf '%s\\n' '" + strings.Repeat("a", 40) + "'",
+		"      exit 0",
+		"    fi",
+		"    ;;",
+		"  status)",
+		"    printf '# branch.oid " + strings.Repeat("a", 40) + "\\0# branch.head main\\0'",
+		"    exit 0",
+		"    ;;",
+		"  worktree)",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status with slow repo lookup: %v", err)
+	}
+	if !response.Repo.IsGitRepo {
+		t.Fatalf("expected slow repo lookup to preserve git repo metadata, got %#v", response)
+	}
+	if response.Repo.HeadBranch == nil || *response.Repo.HeadBranch != "main" {
+		t.Fatalf("expected head branch main after slow repo lookup, got %#v", response.Repo.HeadBranch)
+	}
+}
+
 func TestParseWorktreeListPorcelainMarksCurrentAndPrunable(t *testing.T) {
 	t.Parallel()
 
