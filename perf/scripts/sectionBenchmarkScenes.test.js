@@ -13,6 +13,11 @@ test("settings scene is ready and keeps the compatibility benchmark config", () 
 
   assert.equal(scene.availability, "ready");
   assert.equal(scene.routePath, "/settings");
+  assert.equal(scene.storageKind, "settings_project");
+  assert.equal(
+    scene.fixturePath,
+    "perf/fixtures/section-benchmarks/settings.settings-project.json",
+  );
   assert.equal(scene.benchmarkConfig.markPrefix, "section-grid");
   assert.equal(scene.benchmarkConfig.includeResizePhase, true);
 });

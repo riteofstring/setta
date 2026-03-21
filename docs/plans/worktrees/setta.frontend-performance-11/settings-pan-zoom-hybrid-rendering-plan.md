@@ -566,10 +566,12 @@ This plan should use one standardized CDP-only benchmark harness every time rath
 
 Current base harness:
 
+- `perf/fixtures/section-benchmarks/scene-manifest.json`
 - `perf/scripts/sectionBenchmarkScenes.js`
 - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
 - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
 - `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
+- `perf/scripts/installSectionBenchmarkScene.py`
 
 If the current replay helper is missing any required coverage below, extend it rather than creating parallel one-off scripts.
 
@@ -669,6 +671,19 @@ Standardization rule for all synthetic scenes:
 - use the same CDP replay script shape and the same trace-summary pathway as the `settings` scene
 - if scene-specific fit or focal-point logic is needed, extend the shared replay harness instead of creating a separate ad hoc measurement flow
 - keep the benchmark scripts, scene fixtures, and scene-building logic in version control
+- materialize checked-in scenes through a deterministic installer path instead of relying on whichever runtime state already happens to be present
+
+Current ready scene materialization path:
+
+- `settings` is currently the only ready canonical scene fixture
+- it is a checked-in `setta-settings-project.json` style snapshot installed via:
+  - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root <target-state-root>`
+- this makes the `settings` benchmark reproducible without depending on ad hoc local edits to `setta_files_dev`
+
+Current expectation for future synthetic scenes:
+
+- Tier 1 / Tier 2 synthetic scenes should prefer checked-in full-project fixtures or deterministic builders over one-off runtime saves
+- if the fixture path uses `project.json` semantics instead of the special `settings` route seam, keep the canonical scene definition authoritative and deterministic
 
 Required checkpoint coverage by phase:
 

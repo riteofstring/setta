@@ -1,0 +1,56 @@
+{
+  "settings": {
+    "id": "settings",
+    "availability": "ready",
+    "category": "real-project",
+    "routePath": "/settings",
+    "storageKind": "settings_project",
+    "fixturePath": "perf/fixtures/section-benchmarks/settings.settings-project.json",
+    "description": "Mandatory dense real-project baseline used for the hybrid rendering work.",
+    "targetSectionPattern": "groupSectionDefault",
+    "benchmarkConfig": {
+      "markPrefix": "section-grid",
+      "targetSectionPattern": "groupSectionDefault",
+      "includeResizePhase": true
+    },
+    "notes": [
+      "This fixture is a checked-in snapshot of the settings project so benchmark reruns do not depend on ad hoc runtime state."
+    ]
+  },
+  "tier1Synthetic": {
+    "id": "tier1Synthetic",
+    "availability": "planned",
+    "category": "synthetic",
+    "routePath": "/benchmark-tier1",
+    "storageKind": "main_project_config",
+    "fixturePath": "perf/fixtures/section-benchmarks/tier1-synthetic.project.json",
+    "description": "Deterministic synthetic canvas covering the repeated Tier 1 dense param section families.",
+    "notes": [
+      "Should include representative repeated counts for Callable, Dict, param-heavy dict variants, list/object-style param sections, and GlobalVariables when it shares the same body stack."
+    ]
+  },
+  "tier2Synthetic": {
+    "id": "tier2Synthetic",
+    "availability": "planned",
+    "category": "synthetic",
+    "routePath": "/benchmark-tier2",
+    "storageKind": "main_project_config",
+    "fixturePath": "perf/fixtures/section-benchmarks/tier2-synthetic.project.json",
+    "description": "Deterministic synthetic canvas covering Tier 2 code/editor section families.",
+    "notes": [
+      "Prompt and TextBlock belong here only for their editor-side CodeMirror path, not for their restored outer layout shell."
+    ]
+  },
+  "tier1Tier2CombinedSynthetic": {
+    "id": "tier1Tier2CombinedSynthetic",
+    "availability": "planned",
+    "category": "synthetic",
+    "routePath": "/benchmark-tier1-tier2",
+    "storageKind": "main_project_config",
+    "fixturePath": "perf/fixtures/section-benchmarks/tier1-tier2-combined.project.json",
+    "description": "Deterministic mixed canvas used once both heavy families have dedicated scenes.",
+    "notes": [
+      "Should preserve deterministic section IDs, positions, and sizes so the same CDP replay remains valid across main and worktree runs."
+    ]
+  }
+}

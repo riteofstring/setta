@@ -108,3 +108,28 @@ Record:
     - legacy and new trace mark summarization
 - Next action:
   - Add the first checked-in canonical benchmark scene fixtures and a deterministic scene-loading path so the benchmark no longer depends on ad hoc runtime `setta_files`.
+
+## 2026-03-20 003
+
+- Item: Add the first checked-in canonical benchmark scene fixture and deterministic installer path.
+- Status: `done`
+- Details:
+  - Added the shared scene manifest:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - Added the first ready canonical scene fixture:
+    - `perf/fixtures/section-benchmarks/settings.settings-project.json`
+  - Added a Python installer for checked-in benchmark scenes:
+    - `perf/scripts/installSectionBenchmarkScene.py`
+  - Added backend helper logic for resolving and materializing scene fixtures:
+    - `backend/setta/perf/section_benchmark_scenes.py`
+  - `settings` now has a deterministic install path into a target state root:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root <target-state-root>`
+  - Verified this with:
+    - Python unit coverage for the installer and manifest
+    - Node tests for the shared scene manifest module
+    - a temp-directory smoke install that wrote `setta-settings-project.json`
+  - Locked an important scene-model distinction:
+    - `settings` is a special `setta-settings-project.json` fixture path
+    - future synthetic Tier 1 / Tier 2 scenes should remain canonical checked-in fixtures too, but they may use a different storage seam than the special settings route
+- Next action:
+  - Define and build the first deterministic Tier 1 synthetic benchmark scene fixture so the benchmark suite covers the dense param families beyond `settings`.
