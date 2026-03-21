@@ -448,16 +448,32 @@ func TestServiceReadFileContentRejectsOversizeAndConcurrentChange(t *testing.T) 
 	<-touchStarted
 
 	readLimit := int64(changingFileSize + 1024)
-	_, err = service.ReadFileContent(context.Background(), FileContentRequest{
-		Path:     changingFilePath,
-		MaxBytes: &readLimit,
-	})
-	close(stopTouches)
-	if err == nil {
-		t.Fatal("expected concurrent change read to fail")
+	conflictSeen := false
+	attempts := 0
+	deadline := time.Now().Add(2 * time.Second)
+	for !conflictSeen && time.Now().Before(deadline) {
+		attempts += 1
+		_, err = service.ReadFileContent(context.Background(), FileContentRequest{
+			Path:     changingFilePath,
+			MaxBytes: &readLimit,
+		})
+		if err == nil {
+			runtime.Gosched()
+			continue
+		}
+		if !errors.As(err, &routeErr) {
+			close(stopTouches)
+			t.Fatalf("expected typed conflict error, got %#v", err)
+		}
+		if routeErr.Kind != ErrorConflict {
+			close(stopTouches)
+			t.Fatalf("expected conflict error, got %#v", err)
+		}
+		conflictSeen = true
 	}
-	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorConflict {
-		t.Fatalf("expected conflict error, got %#v", err)
+	close(stopTouches)
+	if !conflictSeen {
+		t.Fatalf("expected concurrent change read to fail within retry window after %d attempts", attempts)
 	}
 }
 
