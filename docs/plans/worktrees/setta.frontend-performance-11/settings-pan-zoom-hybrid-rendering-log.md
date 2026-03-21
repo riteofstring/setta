@@ -1,0 +1,1316 @@
+# Settings Pan/Zoom Hybrid Rendering Log
+
+Date started: 2026-03-20
+Worktree: `setta.frontend-performance-11`
+Related plan: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-plan.md`
+
+## Usage
+
+Append-only execution log for the settings pan/zoom hybrid rendering effort.
+
+Every log item should record:
+
+- `Item`
+- `Status`
+- `Details`
+- `Next action`
+
+Recommended status values:
+
+- `todo`
+- `in_progress`
+- `done`
+- `blocked`
+- `deferred`
+
+Record:
+
+- scope decisions
+- benchmark-standardization changes
+- scene-fixture changes
+- perf measurements
+- visual parity checks
+- regressions and fixes
+- accepted layout restores
+- Tier 1 / Tier 2 status changes
+
+## 2026-03-20 001
+
+- Item: Initialize the settings pan/zoom hybrid rendering plan and create an append-only execution log.
+- Status: `done`
+- Details:
+  - Created the plan:
+    - `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-plan.md`
+  - Locked the main architecture direction:
+    - keep `xyflow`
+    - restore the paint-friendlier top-level shell behavior
+    - keep the Tier 1 top-level grid-style shell
+    - add section-body LOD / preview behavior instead of relying on per-widget canvas conversion
+  - Locked section-family scope:
+    - Tier 1:
+      - `Callable`
+      - `Dict`
+      - param-heavy dict variants
+      - list/object-style param sections
+      - `GlobalVariables` when it shares the same heavy param/body stack
+    - Tier 2:
+      - `Code`
+      - CodeMirror/editor-side work for `Prompt`
+      - CodeMirror/editor-side work for `TextBlock`
+    - Explicitly excluded:
+      - `Terminal`
+  - Locked sparse local-layout restore policy:
+    - `Browser`
+    - `Draw`
+    - `Chart`
+    - surrounding layout for `Prompt`
+    - surrounding layout for `TextBlock`
+    - avoid reopening shared `subgrid` by default
+  - Locked benchmark requirements:
+    - standardized CDP-only replay and trace-summary flow
+    - mandatory `settings` benchmark on untouched `main` and the worktree
+    - reproducible synthetic scene suite for Tier 1, then Tier 2, then combined Tier 1 + Tier 2
+  - Locked verification requirements:
+    - untouched-`main` vs worktree pixel-level comparisons remain a hard gate
+    - traces must capture and summarize at least:
+      - `Paint`
+      - `UpdateLayoutTree`
+      - `Layout`
+      - `RunTask`
+      - `Commit`
+      - `FireAnimationFrame`
+- Next action:
+  - Create the standardized benchmark scene suite and wire it into the shared CDP replay / trace-summary workflow before implementation work begins.
+
+## 2026-03-20 002
+
+- Item: Start benchmark standardization by adding a shared scene manifest and generic section pan/zoom replay path.
+- Status: `done`
+- Details:
+  - Created a shared benchmark scene manifest:
+    - `perf/scripts/sectionBenchmarkScenes.js`
+  - Added a generic reusable replay helper:
+    - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+  - Expanded the benchmark coverage shape to match the agreed standard more closely:
+    - slow and fast overview horizontal pans
+    - slow and fast overview vertical pans
+    - slow and fast close-zoom horizontal pans
+    - slow and fast close-zoom vertical pans
+    - slow and fast overview-to-detail zoom passes
+    - slow and fast detail-to-overview zoom passes
+  - Kept the old settings benchmark script as a compatibility entry point while delegating to the shared replay logic:
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+  - Updated the trace summarizer so it can read both:
+    - legacy `section-grid-*` marks
+    - new generic `section-benchmark-*` phase marks
+  - Added focused script tests for:
+    - scene manifest behavior
+    - legacy and new trace mark summarization
+- Next action:
+  - Add the first checked-in canonical benchmark scene fixtures and a deterministic scene-loading path so the benchmark no longer depends on ad hoc runtime `setta_files`.
+
+## 2026-03-20 003
+
+- Item: Add the first checked-in canonical benchmark scene fixture and deterministic installer path.
+- Status: `done`
+- Details:
+  - Added the shared scene manifest:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - Added the first ready canonical scene fixture:
+    - `perf/fixtures/section-benchmarks/settings.settings-project.json`
+  - Added a Python installer for checked-in benchmark scenes:
+    - `perf/scripts/installSectionBenchmarkScene.py`
+  - Added backend helper logic for resolving and materializing scene fixtures:
+    - `backend/setta/perf/section_benchmark_scenes.py`
+  - `settings` now has a deterministic install path into a target state root:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root <target-state-root>`
+  - Verified this with:
+    - Python unit coverage for the installer and manifest
+    - Node tests for the shared scene manifest module
+    - a temp-directory smoke install that wrote `setta-settings-project.json`
+  - Locked an important scene-model distinction:
+    - `settings` is a special `setta-settings-project.json` fixture path
+    - future synthetic Tier 1 / Tier 2 scenes should remain canonical checked-in fixtures too, but they may use a different storage seam than the special settings route
+- Next action:
+  - Define and build the first deterministic Tier 1 synthetic benchmark scene fixture so the benchmark suite covers the dense param families beyond `settings`.
+
+## 2026-03-20 004
+
+- Item: Add the first ready canonical Tier 1 synthetic benchmark scene fixture and install path.
+- Status: `done`
+- Details:
+  - Added the checked-in Tier 1 synthetic fixture:
+    - `perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+  - Promoted `tier1Synthetic` from planned to ready in:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - Locked its benchmark focal point to:
+    - `callable_00`
+  - The current Tier 1 fixture composition is:
+    - 8 `Callable` sections
+    - 12 top-level `Dict` sections
+    - 1 `GlobalVariables` section
+    - 4 `ListRoot` sections with nested `Dict` children for list/object-style coverage
+    - 25 top-level sections and 45 total sections overall
+  - Added benchmark-scene tests covering:
+    - ready Tier 1 manifest shape
+    - Tier 1 install into `project.json`
+    - resulting installed section counts
+    - rejection of the still-planned Tier 2 and combined scenes
+  - Updated the plan so the current ready canonical scene set now includes:
+    - `settings`
+    - `tier1Synthetic`
+- Next action:
+  - Wire a reproducible benchmark runner around `tier1Synthetic` on untouched `main` and this worktree, then start the top-level shell restoration work against both ready scenes.
+
+## 2026-03-20 005
+
+- Item: Replace the earlier Tier 1 synthetic scene draft with the final canonical fixture generated from checked-in builder logic.
+- Status: `done`
+- Details:
+  - Added a checked-in Tier 1 builder seam:
+    - `backend/setta/perf/section_benchmark_scene_builders.py`
+    - `perf/scripts/buildSectionBenchmarkScene.py`
+  - Rebuilt and checked in the canonical Tier 1 fixture:
+    - `perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+  - Corrected the Tier 1 manifest and benchmark target to the final builder-backed scene shape:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+    - target section pattern:
+      - `callable_00`
+  - Locked the final Tier 1 composition to:
+    - 8 `Callable` sections
+    - 12 top-level `Dict` sections
+    - 1 `GlobalVariables` section
+    - 4 `ListRoot` sections with 5 `Dict` children each
+    - 25 top-level sections and 45 total sections overall
+  - Updated focused coverage to match the final canonical scene:
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+    - `tests/perf/test_section_benchmark_scenes.py`
+  - Verification:
+    - `source activate.sh && python -m py_compile backend/setta/perf/section_benchmark_scene_builders.py perf/scripts/buildSectionBenchmarkScene.py`
+    - `node --test perf/scripts/sectionBenchmarkScenes.test.js perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.test.js`
+      - result: `6` passed
+    - `source activate.sh && pytest tests/perf/test_section_benchmark_scenes.py`
+      - result: `6` passed
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 006
+
+- Item: Add a checked-in CDP benchmark runner that wraps scene lookup, replay execution, raw trace capture, and optional trace summarization.
+- Status: `done`
+- Details:
+  - Added the reusable runner:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - The runner now:
+    - connects to an existing CDP browser via Playwright
+    - opens or reuses the requested frontend origin
+    - looks up scene config from the checked-in scene manifest
+    - executes `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - writes raw trace events
+    - writes benchmark result JSON
+    - optionally writes the shared trace summary JSON
+  - Added focused Node coverage for:
+    - argument parsing
+    - help output
+    - scene-config merging
+  - Verified the runner help locally:
+    - `node perf/scripts/runSectionBenchmarkViaCdp.js --help`
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 005
+
+- Item: Remove relative state-root ambiguity from the benchmark scene installer CLI.
+- Status: `done`
+- Details:
+  - Added an explicit state-root resolver in:
+    - `backend/setta/perf/section_benchmark_scenes.py`
+  - Updated the installer CLI to resolve relative `--state-root` paths against the caller's working directory before handing them to `DBE`:
+    - `perf/scripts/installSectionBenchmarkScene.py`
+  - Added focused coverage for:
+    - relative-path resolution
+    - absolute-path passthrough
+  - Verified the CLI with a temp-directory smoke run from outside the repo root:
+    - `python perf/scripts/installSectionBenchmarkScene.py settings --state-root setta_files_dev`
+    - result target path now resolves to `<cwd>/setta_files_dev/...` instead of the broader normalized Setta state root
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 007
+
+- Item: Probe the live route-readiness of the installed Tier 1 scene on the running worktree and untouched-`main` dev instances.
+- Status: `blocked`
+- Details:
+  - Installed the ready canonical scenes into both live state roots:
+    - worktree:
+      - `setta.frontend-performance-11/setta_files_dev`
+    - untouched `main`:
+      - `setta/setta_files_dev`
+  - Verified the written project-config names on disk now include:
+    - `benchmark-tier1`
+  - Probed the live current-worktree Chrome debug session over CDP and found:
+    - existing authenticated page:
+      - `http://127.0.0.1:3211/settings`
+    - attempted benchmark route page:
+      - `http://127.0.0.1:3011/benchmark-tier1`
+      - title/body:
+        - `Not Found`
+        - `Project Not Found`
+  - This indicates the direct `project.json` fixture install did not make the new route benchmark-ready inside the already-running backend instance.
+  - `settings` remains route-ready because it uses the special `setta-settings-project.json` seam; `tier1Synthetic` currently does not.
+- Next action:
+  - Restart or explicitly rehydrate the worktree and untouched-`main` backend instances after `tier1Synthetic` install, then rerun the paired CDP benchmarks for:
+    - `settings`
+    - `tier1Synthetic`
+
+## 2026-03-20 008
+
+- Item: Harden the shared CDP benchmark runner against stale same-origin tabs and correct the standardized `settings` target to a visible default-view section.
+- Status: `done`
+- Details:
+  - Updated the CDP runner:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - The runner now always opens a fresh page in the connected browser context, navigates directly to the requested route, and closes that page afterward instead of reusing arbitrary same-origin tabs.
+  - This avoids a stale-auth / stale-route failure mode where the runner would attach to an existing same-origin tab that was sitting on a different app state such as `Project Not Found`.
+  - After the fresh-page change, the current-worktree Tier 1 synthetic scene became benchmarkable again on the fresh `ai.sh` ports:
+    - frontend:
+      - `http://127.0.0.1:3012`
+    - backend:
+      - `http://127.0.0.1:8012`
+    - CDP:
+      - `http://127.0.0.1:9234`
+  - A direct live probe of `/settings` on the restarted worktree showed the initial visible settings sections are:
+    - `backendArgs`
+    - `shortcutsArgs`
+    - `sectionSizingPolicyArgs`
+    - `languageServerArgs`
+    - `guiArgs`
+  - This explains the earlier `groupSectionDefault` mismatch:
+    - `groupSectionDefault` belongs to a different settings view-mode group and is not visible on the default `/settings` canvas
+  - Updated the shared settings benchmark target from `groupSectionDefault` to `backendArgs` in:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+    - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+- Next action:
+  - Re-run the paired CDP `settings` / `tier1Synthetic` matrix on:
+    - current worktree
+    - untouched `main`
+  - then append the first comparable summary metrics before starting the selective `bf6487690` shell rollback work.
+
+## 2026-03-20 009
+
+- Item: Record the first standardized paired baseline on untouched `main` versus `frontend-performance-11-hybrid-rendering`.
+- Status: `done`
+- Details:
+  - Recorded the first full paired matrix with the standardized CDP runner for:
+    - `settings`
+    - `tier1Synthetic`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-paired-baseline`
+  - Added the paired benchmark report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-paired-baseline.md`
+  - Key benchmark-window totals:
+    - `settings`
+      - untouched `main`:
+        - `Paint 7.767ms`
+        - `UpdateLayoutTree 80.137ms`
+        - `RunTask 3846.496ms`
+      - worktree:
+        - `Paint 619.310ms`
+        - `UpdateLayoutTree 69.458ms`
+        - `RunTask 3828.264ms`
+    - `tier1Synthetic`
+      - untouched `main`:
+        - `Paint 18.947ms`
+        - `UpdateLayoutTree 27.026ms`
+        - `RunTask 17799.621ms`
+      - worktree:
+        - `Paint 1533.374ms`
+        - `UpdateLayoutTree 20.319ms`
+        - `RunTask 22296.154ms`
+  - The slow overview pan phases on untouched `main` again stayed at `0ms` paint for both scenes, while the worktree paid:
+    - about `118-121ms` paint on `settings`
+    - about `313-323ms` paint on `tier1Synthetic`
+  - This confirms the standardized harness reproduces the same paint-focused regression pattern on both the real-project and synthetic scenes.
+- Next action:
+  - Implement the selective top-level shell rollback toward the `bf6487690` baseline in the shared shell seam, then re-run this same paired matrix.
+
+## 2026-03-20 010
+
+- Item: Implement and measure the first selective top-level shell rollback toward the `bf6487690` baseline.
+- Status: `done`
+- Details:
+  - Restored the shared shell toward the grid-era baseline in:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - Explicitly deferred:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - the old gesture-time compositor-promotion behavior remains off because it conflicts with the no-blur motion contract
+  - Updated direct shell coverage to match the restored grid behavior:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - Revalidated the adjacent shell consumers:
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      - result:
+        - `35` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-shell-rollback-rerun.md`
+  - Key measurement read:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before rollback:
+          - `619.310ms`
+        - after rollback:
+          - `159.227ms`
+      - slow overview pan paint:
+        - before:
+          - `118.025ms` horizontal
+          - `121.345ms` vertical
+        - after:
+          - `29.623ms` horizontal
+          - `28.612ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before rollback:
+          - `1533.374ms`
+        - after rollback:
+          - `1433.618ms`
+      - benchmark window duration:
+        - before:
+          - `20997.810ms`
+        - after:
+          - `17550.145ms`
+  - CDP visual sanity:
+    - opened and inspected:
+      - `http://127.0.0.1:3012/settings`
+      - `http://127.0.0.1:3087/settings`
+    - captured targeted first-section screenshots for main/worktree:
+      - `perf/tmp/worktree-settings-first-section.png`
+      - `perf/tmp/main-settings-first-section.png`
+    - shell remained visually intact, but a strict pixel-parity gate is still pending
+- Next action:
+  - Keep the shell rollback, then move into the next planned Tier 1 work:
+    - further active-body flattening
+    - section-body render-mode / preview infrastructure
+
+## 2026-03-20 011
+
+- Item: Land the first section body-host seam, collapse the shared Tier 1 dense-param body stack, and restore the first sparse local body layouts toward `bf6487690`.
+- Status: `done`
+- Details:
+  - Added the shared body-host seam:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - Added the shared Tier 1 body seam:
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.tsx`
+  - Rewired the shared canvas/window body mount points through the new seam:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+  - Collapsed the repeated `KwargsControls` plus param-container body stack into the new Tier 1 seam for:
+    - `frontend/src/components/Section/Layouts/CallableArea.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.tsx`
+  - Restored sparse local body layouts toward the `bf6487690` model in:
+    - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+    - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+    - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - Verified rollback scope against `bf6487690` directly:
+    - `frontend/src/components/Section/Layouts/PromptArea.tsx`
+    - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+    - result:
+      - no extra rollback step is currently needed there for the surrounding layout
+  - Kept the new shared body mount points instead of rolling them back structurally toward `bf6487690`, but restored the old canvas placeholder-before-minimize ordering inside:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - The shared mount points still hold the deeper ownership seam needed for Phase 2 and later preview work.
+  - Added direct seam coverage:
+    - `frontend/src/components/Section/Container/SectionBodyGate.test.tsx`
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx`
+  - Revalidated the touched shared consumers:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Layouts/CallableArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/BrowserArea.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `32` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-body-host-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-body-host-rerun`
+  - Key measurement read versus the shell-only rollback checkpoint:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before:
+          - `159.227ms`
+        - after:
+          - `191.708ms`
+      - slow overview pan paint:
+        - before:
+          - `29.623ms` horizontal
+          - `28.612ms` vertical
+        - after:
+          - `35.846ms` horizontal
+          - `35.513ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before:
+          - `1433.618ms`
+        - after:
+          - `1622.944ms`
+      - benchmark window duration:
+        - before:
+          - `17550.145ms`
+        - after:
+          - `22482.263ms`
+  - Read:
+    - this checkpoint is structurally useful
+    - it is not a performance win
+    - the next meaningful gains have to come from actual render-mode behavior or deeper Tier 1 body-cost reduction
+- Next action:
+  - Keep the new body-host seam and the local sparse restores, then move directly into the next planned Tier 1 work:
+    - real live/warm/preview body-mode behavior
+    - deeper Tier 1 body flattening that measurably reduces visible paint
+
+## 2026-03-20 012
+
+- Item: Wire the first real `auto` body-mode policy into the shared gate using live viewport state and measured section size.
+- Status: `done`
+- Details:
+  - Added a pure policy seam:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - Added focused policy coverage:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+  - Updated:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - The shared gate now derives `auto` requested mode from live source-of-truth inputs instead of carrying a hardcoded `"auto"` string:
+    - `viewportInteractionActive` from the live `useReactFlow` store
+    - current zoom from `useReactFlow(...transform[2])`
+    - measured section width and height from node internals
+    - active-section ownership from `useIsSectionUIActive`
+  - Current policy behavior:
+    - windows stay on the live path
+    - active sections stay on the live path
+    - only Tier 1 dense-param and Tier 2 code families are preview-eligible
+    - inactive canvas sections can now resolve `requestedMode="preview"` during viewport motion when they are small enough on screen
+  - Important scope limit:
+    - the gate still resolves `preview` and `warm` to the live path because no preview substrate exists yet
+    - this checkpoint improves render-mode correctness and observability, not runtime paint yet
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `38` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe|SectionWindowSurface"`
+      - result:
+        - no matching diagnostics
+- Next action:
+  - Use the now-real `requestedMode` policy to land the first actual preview-capable representation for Tier 1 bodies instead of keeping preview as a live-path alias.
+
+## 2026-03-20 013
+
+- Item: Land the first real Tier 1 preview body path and measure it with the standardized CDP matrix.
+- Status: `done`
+- Details:
+  - Added the first real Tier 1 preview surrogate:
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionPreview.tsx`
+  - Updated the shared gate and policy:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - The first preview rollout is intentionally narrow:
+    - Tier 1 dense-param families only
+    - top-level canvas bodies only
+    - motion-time preview only
+    - windows stay live
+    - Tier 2 code sections stay live
+  - Added or updated focused coverage:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+    - `frontend/src/components/Section/Container/SectionBodyGate.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `39` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe|SectionWindowSurface|Tier1DenseParamSectionPreview"`
+      - result:
+        - no matching diagnostics
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-preview-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-preview-rerun`
+  - Key measurement read versus the prior body-host checkpoint:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before:
+          - `191.708ms`
+        - after:
+          - `191.084ms`
+      - slow overview pan paint:
+        - before:
+          - `35.846ms` horizontal
+          - `35.513ms` vertical
+        - after:
+          - `37.061ms` horizontal
+          - `36.854ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before:
+          - `1622.944ms`
+        - after:
+          - `1611.081ms`
+      - slow overview pan paint:
+        - before:
+          - `358.991ms` horizontal
+          - `348.334ms` vertical
+        - after:
+          - `381.501ms` horizontal
+          - `332.993ms` vertical
+  - Read:
+    - the first real preview path is functioning
+    - it is not yet a meaningful performance win
+    - the preview surrogate and current gating are too weak to materially reduce the dominant motion-time paint cost
+- Next action:
+  - Keep the preview path narrow for now, then iterate on the next stronger preview checkpoint:
+    - better pane-aware projection / visibility gating
+    - lighter or more faithful Tier 1 preview content
+    - broader but still controlled Tier 1 preview eligibility only if traces justify it
+
+## 2026-03-20 014
+
+- Item: Benchmark a stronger Tier 1 motion-time preview iteration and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental changes under test:
+    - more aggressive preview eligibility for inactive Tier 1 canvas sections during motion
+    - an SVG-based Tier 1 preview substrate
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-preview-rerun-2.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-preview-rerun-2`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `40` tests passed
+  - Key read versus the immediately previous preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `191.084ms -> 185.469ms`
+      - benchmark `RunTask`:
+        - `4259.584ms -> 3945.649ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `1611.081ms -> 1631.419ms`
+      - benchmark `RunTask`:
+        - `23785.273ms -> 23842.679ms`
+  - Decision:
+    - reject this stronger preview iteration
+    - keep the earlier narrower preview checkpoint at `HEAD`
+    - preserve this rerun only as an append-only dead-end record
+- Next action:
+  - Revert the uncommitted stronger-preview experiment and continue from the earlier preview baseline.
+
+## 2026-03-20 015
+
+- Item: Benchmark a pane-aware offscreen-skip Tier 1 motion-time iteration and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental changes under test:
+    - keep the earlier narrow Tier 1 preview rollout
+    - additionally resolve fully offscreen inactive Tier 1 canvas bodies to `skip` during viewport motion
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-offscreen-skip-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-offscreen-skip-rerun`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `43` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe"`
+      - result:
+        - no matching diagnostics
+  - Key read versus the immediately previous preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `191.084ms -> 187.483ms`
+      - benchmark `RunTask`:
+        - `4259.584ms -> 4323.789ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `1611.081ms -> 1698.292ms`
+      - benchmark `RunTask`:
+        - `23785.273ms -> 24404.046ms`
+  - Decision:
+    - reject this pane-aware offscreen-skip iteration
+    - keep the earlier narrower preview checkpoint at `HEAD`
+    - preserve this rerun only as an append-only dead-end record
+- Next action:
+  - Revert the uncommitted offscreen-skip experiment and continue from the earlier preview baseline.
+
+## 2026-03-20 016
+
+- Item: Benchmark row-level layout containment in the Tier 1 dense-param body stack and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Added row-level layout containment in:
+    - `frontend/index.css`
+  - Containment now applies to:
+    - `.section-param-row`
+    - `.section-param-row > .section-key.param-row-label`
+    - `.section-param-row > .section-key-value.param-row-label`
+    - `.section-param-row > .section-value`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamRowShell.test.tsx src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/sectionBodyModePolicy.test.ts`
+      - result:
+        - `9` files passed
+        - `34` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-row-containment-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-row-containment-rerun`
+  - First paired rerun read versus the earlier accepted preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `191.084ms`
+        - after:
+          - `199.573ms`
+      - benchmark `RunTask`:
+        - before:
+          - `4259.584ms`
+        - after:
+          - `3874.692ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `1611.081ms`
+        - after:
+          - `1036.116ms`
+      - benchmark `RunTask`:
+        - before:
+          - `23785.273ms`
+        - after:
+          - `23033.465ms`
+  - Because the first paired `settings` sample looked noisy relative to the rest of the matrix, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `191.084ms`
+        - confirmation:
+          - `167.804ms`
+      - benchmark `RunTask`:
+        - before:
+          - `4259.584ms`
+        - confirmation:
+          - `3421.807ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `1611.081ms`
+        - confirmation:
+          - `842.503ms`
+      - benchmark `RunTask`:
+        - before:
+          - `23785.273ms`
+        - confirmation:
+          - `13582.872ms`
+  - Decision:
+    - keep this row-containment checkpoint at `HEAD`
+    - treat it as the first accepted deeper live-body-cost reduction after the rejected stronger-preview and offscreen-skip experiments
+    - continue favoring deeper live row/body-cost reductions over broader preview gating until both canonical scenes benefit
+- Next action:
+  - Use the retained containment baseline to choose the next Tier 1 slice:
+    - deeper shared param-row/body-cost reduction
+    - or a more effective preview/warm representation that helps both `settings` and `tier1Synthetic`
+
+## 2026-03-20 017
+
+- Item: Benchmark removal of the nested dense-row guide chrome and decide whether to keep the visual simplification.
+- Status: `done`
+- Details:
+  - Simplified nested dense-row chrome in:
+    - `frontend/src/components/Params/paramRowClassNames.ts`
+    - `frontend/index.css`
+  - Kept nested indentation, but removed:
+    - the nested guide pseudo-element classes
+    - the `.section-param-row[data-param-nested-child=\"true\"]:has(...)::before` continuation rule
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamRowShell.test.tsx src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/sectionBodyModePolicy.test.ts`
+      - result:
+        - `9` files passed
+        - `34` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-nested-guide-removal-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-nested-guide-removal-rerun`
+  - First paired rerun read versus the retained row-containment confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `167.804ms`
+        - after:
+          - `148.513ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3421.807ms`
+        - after:
+          - `3267.777ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `842.503ms`
+        - after:
+          - `853.807ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13582.872ms`
+        - after:
+          - `13243.181ms`
+  - Because the first paired `tier1Synthetic` sample was close to the retained baseline, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same retained row-containment baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `167.804ms`
+        - confirmation:
+          - `148.237ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3421.807ms`
+        - confirmation:
+          - `3235.187ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `842.503ms`
+        - confirmation:
+          - `825.999ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13582.872ms`
+        - confirmation:
+          - `13271.540ms`
+  - CDP visual compare:
+    - compared worktree `http://127.0.0.1:3012/settings` against untouched `main` `http://127.0.0.1:3087/settings`
+    - expected visual difference is limited to the removed nested guide cue while indentation remains
+    - no broken layout or overlap showed up in the viewport screenshots
+  - Decision:
+    - keep this nested-guide removal at `HEAD`
+    - treat it as the next accepted Tier 1 live-body paint simplification after row containment
+    - continue preferring repeated dense-row chrome simplification over broader preview-policy changes while both canonical scenes keep improving
+- Next action:
+  - Use the retained simplified dense-row baseline to choose the next Tier 1 slice:
+    - remove or simplify additional repeated row chrome that is not paying for itself
+    - or deepen the shared param-row/body ownership so the next DOM or paint reduction lands with less seam overhead
+
+## 2026-03-20 018
+
+- Item: Benchmark dense text-input underline simplification and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - in `frontend/src/components/Params/ParamUIs/ParamUI.tsx`, replace the dense text-input wrapper underline pseudo-element with a direct `border-bottom`
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - result:
+        - `6` files passed
+        - `19` tests passed
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `1` file passed
+        - `10` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-text-input-border-simplification-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-text-input-border-simplification-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `138.465ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3155.709ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `823.881ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `13297.560ms`
+  - Because the first paired matrix split in opposite directions, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - confirmation:
+          - `139.139ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - confirmation:
+          - `3160.628ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - confirmation:
+          - `833.867ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - confirmation:
+          - `13599.069ms`
+  - Decision:
+    - reject this text-input underline simplification
+    - keep the retained nested-guide-removal baseline at `HEAD`
+    - preserve this rerun only as an append-only dead-end record
+- Next action:
+  - Revert the uncommitted text-input underline simplification and continue from the retained dense-row baseline.
+
+## 2026-03-20 019
+
+- Item: Benchmark Tier 1 DummyCodeMirror preview flattening and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - flatten inactive `DummyCodeMirror` preview DOM in `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - remove per-line `.cm-line` wrappers from inactive previews
+    - keep `TextInputCodeMirror` behavior otherwise the same apart from typed activation-state plumbing needed for the experiment
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+      - result:
+        - `2` files passed
+        - `7` tests passed
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `7` files passed
+        - `29` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "DummyCodeMirror\\.tsx|TextInputCodeMirror\\.tsx"`
+      - result:
+        - no matching diagnostics while the experimental code was live
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-dummy-codemirror-flattening-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-dummy-codemirror-flattening-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `149.024ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3200.209ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `792.474ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `13130.617ms`
+  - Because the first paired matrix still looked ambiguous, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - confirmation:
+          - `153.234ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - confirmation:
+          - `3297.211ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - confirmation:
+          - `804.049ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - confirmation:
+          - `13365.574ms`
+  - CDP structural and visual compare:
+    - compared worktree `http://127.0.0.1:3012/settings` against untouched `main` `http://127.0.0.1:3087/settings`
+    - the experimental worktree page reduced sampled inactive preview `.cm-line` nodes from `215` to `0` while keeping the same sampled `ParamInput` count at `215`
+    - the representative sampled inactive preview still read `300` with near-identical geometry:
+      - untouched `main`:
+        - width `106.774`
+        - height `8.611`
+      - worktree experiment:
+        - width `109.271`
+        - height `8.537`
+    - no broken layout or obvious collapse showed up in the viewport screenshots
+  - Decision:
+    - reject this DummyCodeMirror preview flattening experiment
+    - keep the retained nested-guide-removal baseline at `HEAD`
+    - preserve this rerun only as an append-only dead-end record because the structural DOM win did not survive the canonical `settings` confirmation rerun
+- Next action:
+  - Continue from the retained dense-row baseline and choose the next Tier 1 slice from deeper repeated row/body simplification or shared Tier 1 ownership cleanup instead of isolated DummyCodeMirror wrapper flattening.
+
+## 2026-03-20 020
+
+- Item: Benchmark dense row-radius removal and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - remove `rounded-sm` from the shared dense row shell in `frontend/src/components/Params/paramRowClassNames.ts`
+    - remove `rounded-sm` from the selected-row background path in `frontend/src/components/Params/ParamSwitch.tsx`
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/ParamRowShell.test.tsx src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `8` files passed
+        - `31` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "paramRowClassNames\\.ts|ParamSwitch\\.tsx"`
+      - result:
+        - still reported the existing `ParamSwitch.tsx` exact-optional-property diagnostics already present on this baseline
+        - used Vitest plus the benchmark matrix as the acceptance gate for this experiment
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-row-radius-removal-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-row-radius-removal-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `176.823ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3786.465ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1009.940ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `21911.396ms`
+  - CDP structural and visual compare:
+    - compared worktree `http://127.0.0.1:3012/settings` against untouched `main` `http://127.0.0.1:3087/settings`
+    - the sampled dense row on untouched `main` still included `rounded-sm`
+    - the sampled dense row on the worktree experiment dropped `rounded-sm`
+    - both sampled pages still had `316` `[data-param-row="true"]` nodes
+    - no obvious broken layout or collapse showed up in the viewport compare; the visible difference was the expected loss of row corner rounding
+  - Decision:
+    - reject this row-radius removal experiment
+    - keep the retained nested-guide-removal baseline at `HEAD`
+    - do not spend a same-code confirmation rerun on this one because the first paired matrix already regressed both canonical scenes strongly
+- Next action:
+  - Continue from the retained dense-row baseline and pick the next Tier 1 candidate from deeper shared row/body ownership or structural simplification instead of isolated row-corner styling changes.
+
+## 2026-03-20 021
+
+- Item: Identify the next higher-leverage Tier 1 structural target after the rejected DummyCodeMirror and row-radius experiments.
+- Status: `in_progress`
+- Details:
+  - Inspected the repeated leaf-row path across:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - Current read:
+    - bg, border, hover, and selection ownership is still split across multiple shallow modules
+    - leaf rows still bounce across container, label, and input owners for one visual concept
+    - the next higher-ROI Tier 1 experiment should target that repeated leaf-row shell instead of another isolated style token
+  - No code change is retained under this item yet.
+- Next action:
+  - Turn this leaf-row seam into the next concrete Tier 1 experiment, with the goal of removing or hiding more repeated row structure per leaf than the rejected wrapper- and radius-only passes could reach.
+
+## 2026-03-20 022
+
+- Item: Benchmark the Tier 1 leaf-row shell collapse experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - remove the extra name-input wrapper in `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - remove the extra text/code value wrapper in `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - thread the shell classes and label-shape marker through:
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - update `frontend/index.css` so the flattened CodeMirror roots carry the wrapper semantics directly
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Params/ParamContainer.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `7` files passed
+        - `28` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "TextInputCodeMirror\\.tsx|DummyCodeMirror\\.tsx|ParamNameInput\\.tsx|ParamUI\\.tsx"`
+      - result:
+        - still reported the existing baseline diagnostics in these files
+        - used Vitest plus the benchmark matrix as the acceptance gate for this experiment
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-leaf-row-shell-collapse-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-leaf-row-shell-collapse-rerun`
+  - CDP structural and visual compare while the experiment was live:
+    - `benchmark-tier1` sampled name-editable leaf row:
+      - the label root became a direct `.section-param-row` child
+      - the `.peer/textinput` value root also became a direct `.section-param-row` child
+    - `settings` sampled text/code row:
+      - the `.peer/textinput` root became a direct `.section-param-row` child instead of living under the old `.section-value` wrapper
+    - no obvious broken layout or collapse showed up in the viewport compare while the experiment was live
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `182.938ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3681.642ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1064.228ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `22421.685ms`
+  - Decision:
+    - reject this leaf-row shell collapse experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the code changes and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - `benchmark-tier1` sampled label wrapper returned to the old outer `.section-key...` host that owns the `data-param-label-shape`
+    - `settings` sampled `.peer/textinput` returned to living inside the `.section-value` wrapper
+- Next action:
+  - Continue from the retained dense-row baseline and keep working the repeated leaf-row/body seam, but do not push the full label/value shell ownership directly onto `TextInputCodeMirror` again as the next local experiment.
+
+## 2026-03-20 023
+
+- Item: Choose the next deeper Tier 1 leaf-row/body structural target after the rejected shell-collapse experiment.
+- Status: `in_progress`
+- Details:
+  - The seam is still the right area:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - Updated read after the rejection:
+    - wrapper count alone was not the right local lever when it moved shell ownership onto CodeMirror roots
+    - the next worthwhile pass should target repeated row/body ownership or structure without making `TextInputCodeMirror` the outer shell owner for the row label/value path
+    - likely candidates are now deeper boundary cleanup in `ParamContainer` / `ParamInput` / `ParamTextLabel` rather than another `TextInputCodeMirror`-centric collapse
+- Next action:
+  - Inspect the remaining repeated leaf-row/body ownership inside the retained baseline and turn that into the next concrete Tier 1 experiment.
+
+## 2026-03-20 024
+
+- Item: Benchmark the dummy preview language simplification experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - add a preview-only dummy-language override in `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - pass `dummyLanguage={null}` from `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - disable dummy-preview syntax highlighting for `TextParam` and `TextAreaParam` in `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - keep the real activated CodeMirror language path unchanged
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `5` files passed
+        - `19` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "TextInputCodeMirror\\.tsx|ParamNameInput\\.tsx|ParamUI\\.tsx"`
+      - result:
+        - still reported the existing baseline diagnostics in these files
+        - used Vitest plus the benchmark matrix as the acceptance gate for this experiment
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-dummy-preview-language-simplification-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-dummy-preview-language-simplification-rerun`
+  - CDP structural and visual compare while the experiment was live:
+    - live worktree `benchmark-tier1`:
+      - sampled `ParamNameInput` preview span count dropped from `1` to `0`
+      - sampled text-input preview span count stayed at `1`
+    - live worktree `settings`:
+      - the heaviest sampled row still had `55` descendants and `50` spans
+      - the page still showed `283` spans under `.section-param-row`
+    - read:
+      - the experiment changed `benchmark-tier1` name previews
+      - but it barely touched the real `settings` hotspot rows
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `177.597ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3646.766ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1020.548ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `22593.447ms`
+  - Decision:
+    - reject this dummy preview language simplification experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the code changes and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - live worktree `benchmark-tier1` returned to the retained baseline with sampled `ParamNameInput` preview span count back at `1`
+- Next action:
+  - Continue from the retained dense-row baseline and move away from narrow dummy-preview-only changes that do not materially change the real `settings` hot path.
+
+## 2026-03-20 025
+
+- Item: Choose the next Tier 1 target that actually reaches the remaining `settings` hotspot rows after the rejected preview-language experiment.
+- Status: `in_progress`
+- Details:
+  - Updated read after the rejection:
+    - narrow dummy-preview-only changes are not enough
+    - the remaining `settings` hotspot rows appear to be code-param-heavy or otherwise outside the exact name/text preview slice that was just tested
+    - the next worthwhile Tier 1 pass should target a heavier repeated row family than:
+      - name-preview syntax highlighting
+      - dummy-preview-only text syntax highlighting
+  - Likely next direction:
+    - inspect the code-param preview path and the repeated non-CodeMirror row surfaces that still dominate the live `settings` subtree
+- Next action:
+  - Narrow the next concrete experiment onto the heavier repeated row family that still dominates `settings`, then benchmark it with the same canonical pair.
+
+## 2026-03-20 026
+
+- Item: Benchmark the text-family plain-preview experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - add an `inactivePreviewMode` seam in:
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - add a `plainText` inactive preview mode in:
+      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - route `CodeParam`, `TextParam`, and `TextAreaParam` through that plain-text inactive preview path from:
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - keep the activated real CodeMirror path unchanged
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `6` files passed
+        - `21` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-text-family-plain-preview-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-text-family-plain-preview-rerun`
+  - CDP structural and visual compare while the experiment was live:
+    - live worktree `settings`:
+      - `[id$="-ParamInput"]` count:
+        - `215`
+      - `[id$="-ParamInput"] .cm-line` count:
+        - `0`
+      - sampled inactive value roots were direct `DIV` nodes with `childCount: 0`
+    - live worktree `benchmark-tier1` after broadening the experiment to the whole text family:
+      - `[id$="-ParamInput"]` count:
+        - `210`
+      - roots with `.cm-line`:
+        - `0`
+      - flat value roots:
+        - `210`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `182.787ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `4171.807ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1056.290ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `23590.827ms`
+  - Decision:
+    - reject this text-family plain-preview experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the code changes and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - after restoring the tracked files from `HEAD` and forcing Vite to invalidate the touched modules:
+      - worktree `settings` returned to:
+        - `[id$="-ParamInput"]` count:
+          - `215`
+        - `[id$="-ParamInput"] .cm-line` count:
+          - `215`
+      - worktree `benchmark-tier1` returned to:
+        - `[id$="-ParamInput"]` count:
+          - `210`
+        - `[id$="-ParamInput"] .cm-line` count:
+          - `294`
+- Next action:
+  - Continue from the retained dense-row baseline and move away from immediate text-family inactive-preview simplification experiments; the next Tier 1 candidate should target a different repeated row/body seam.
+
+## 2026-03-20 027
+
+- Item: Choose the next Tier 1 target after the rejected text-family plain-preview experiment.
+- Status: `in_progress`
+- Details:
+  - Updated read after the rejection:
+    - this broad text/code inactive-preview simplification hit the intended rows directly
+    - but it still regressed both canonical scenes strongly
+    - that makes the immediate `TextInputCodeMirror` / `DummyCodeMirror` inactive-preview lane a poor next bet
+  - Current likely direction:
+    - stay in Phase 5
+    - target repeated row/body ownership or non-preview shared structure instead of another blurred text-family preview simplification
+- Next action:
+  - Turn the next candidate into a row/body-ownership experiment outside the immediate inactive preview lane, then rerun the same canonical benchmark pair.
