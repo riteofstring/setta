@@ -88,6 +88,24 @@ func TestServiceResolveCallableSignatureReturnsNoMatch(t *testing.T) {
 
 // LSP parameter labels can be either strings or signature-label ranges, so the
 // parser must support both encodings.
+func TestParseParamLabelCapturesTypeAnnotationFromStringLabel(t *testing.T) {
+	t.Parallel()
+
+	name, typeAnnotation, defaultValue := parseParamLabel(
+		"fn(title: str | None)",
+		[]byte(`"title: str | None"`),
+	)
+	if name != "title" {
+		t.Fatalf("expected title name, got %q", name)
+	}
+	if typeAnnotation != "str | None" {
+		t.Fatalf("expected str | None annotation, got %q", typeAnnotation)
+	}
+	if defaultValue != "" {
+		t.Fatalf("expected empty default value, got %q", defaultValue)
+	}
+}
+
 func TestParseParamLabelSupportsRangeOffsets(t *testing.T) {
 	t.Parallel()
 
