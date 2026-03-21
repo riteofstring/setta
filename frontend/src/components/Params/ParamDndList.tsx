@@ -4,21 +4,19 @@ import React from "react";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { ParamDndProvider } from "./ParamDndContext";
-import { useParamDndChildrenForParent } from "./ParamDndContext";
+import { useParamDndVisibleChildrenByParent } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
 import { ParamSwitch } from "./ParamSwitch";
 import {
-  getNestedParamSwitchRenderState,
-  getVisibleRenderableParamIds,
-} from "./getFilteredRenderableParamIds";
-import { getParamDndListRenderModel } from "./getParamDndListRenderModel";
+  getParamDndListRenderEntries,
+  getParamDndListRenderModel,
+} from "./getParamDndListRenderModel";
 
 type ParamDndListProps = {
   sectionId: string;
   paramIds: string[];
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
-  isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
   showResizeHandle?: boolean;
@@ -26,51 +24,38 @@ type ParamDndListProps = {
 
 function ParamDndListRows({
   sectionId,
-  paramIds,
-  requiredParamIdsToPaths,
   onResizeStart,
-  isTopLevel,
   listKey,
   hasSectionStyleTheme,
-  nestedParentParamIdLookup,
-  visibleParamIdLookup,
-  dndParentId,
+  renderEntries,
   showResizeHandle = true,
-}: ParamDndListProps & {
-  nestedParentParamIdLookup: Record<string, true>;
-  visibleParamIdLookup: Record<string, true> | null;
-  dndParentId: string;
+}: Pick<
+  ParamDndListProps,
+  | "sectionId"
+  | "onResizeStart"
+  | "listKey"
+  | "hasSectionStyleTheme"
+  | "showResizeHandle"
+> & {
+  renderEntries: Array<{
+    paramId: string;
+    isTopLevelWithPad: boolean;
+    isNestedChildInTree: boolean;
+  }>;
 }) {
-  const renderParamIds = useParamDndChildrenForParent(dndParentId, paramIds);
-  const visibleParamIds = getVisibleRenderableParamIds({
-    renderParamIds,
-    visibleParamIdLookup,
-  });
-
-  return visibleParamIds.map((paramId, idx) => {
-    const nestedRenderState = getNestedParamSwitchRenderState({
-      paramId,
-      requiredParamIdsToPaths,
-      nestedParentParamIdLookup,
-      visibleParamIdLookup,
-    });
-
-    return (
-      <ParamSwitch
-        key={paramId}
-        sectionId={sectionId}
-        paramInfoId={paramId}
-        requiredParamIdsToPaths={nestedRenderState.requiredParamIdsToPaths}
-        onResizeStart={onResizeStart}
-        isTopLevelWithPad={isTopLevel && idx > 0}
-        listKey={listKey}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        nestedParentParamIdLookup={nestedRenderState.nestedParentParamIdLookup}
-        visibleParamIdLookup={nestedRenderState.visibleParamIdLookup}
-        showResizeHandle={showResizeHandle}
-      />
-    );
-  });
+  return renderEntries.map((entry) => (
+    <ParamSwitch
+      key={entry.paramId}
+      sectionId={sectionId}
+      paramInfoId={entry.paramId}
+      onResizeStart={onResizeStart}
+      isTopLevelWithPad={entry.isTopLevelWithPad}
+      isNestedChildInTree={entry.isNestedChildInTree}
+      listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      showResizeHandle={showResizeHandle}
+    />
+  ));
 }
 
 export function ParamDndList({
@@ -78,7 +63,6 @@ export function ParamDndList({
   paramIds,
   requiredParamIdsToPaths,
   onResizeStart,
-  isTopLevel,
   listKey,
   hasSectionStyleTheme,
   showResizeHandle = true,
@@ -90,6 +74,7 @@ export function ParamDndList({
     duplicateIndex,
     nestedParentParamIdLookup,
     paramFilterActive,
+    renderTree,
     tree,
     visibleParamIdLookup,
   } = useProjectState(
@@ -104,23 +89,41 @@ export function ParamDndList({
     _.isEqual,
   );
   const enabled = allowTree && !paramFilterActive;
+  const visibleChildrenByParent = useParamDndVisibleChildrenByParent(
+    renderTree?.visibleChildrenByParent ?? null,
+  );
+  const renderEntries = React.useMemo(() => {
+    if (!renderTree || !visibleChildrenByParent) {
+      return null;
+    }
+    return getParamDndListRenderEntries({
+      rootId: renderTree.rootId,
+      visibleChildrenByParent,
+      requiredParamIdsToPaths,
+      nestedParentParamIdLookup,
+      visibleParamIdLookup,
+    });
+  }, [
+    renderTree,
+    visibleChildrenByParent,
+    requiredParamIdsToPaths,
+    nestedParentParamIdLookup,
+    visibleParamIdLookup,
+  ]);
 
-  if (!tree) {
+  if (!tree || !renderEntries) {
     return (
       <ParamDuplicateIndexProvider value={duplicateIndex}>
-        <ParamDndListRows
-          sectionId={sectionId}
-          paramIds={paramIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          isTopLevel={isTopLevel}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          nestedParentParamIdLookup={nestedParentParamIdLookup}
-          visibleParamIdLookup={visibleParamIdLookup}
-          dndParentId=""
-          showResizeHandle={showResizeHandle}
-        />
+        {paramIds.length > 0 ? (
+          <ParamDndListRows
+            sectionId={sectionId}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            renderEntries={renderEntries ?? []}
+            showResizeHandle={showResizeHandle}
+          />
+        ) : null}
       </ParamDuplicateIndexProvider>
     );
   }
@@ -135,15 +138,10 @@ export function ParamDndList({
       >
         <ParamDndListRows
           sectionId={sectionId}
-          paramIds={paramIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
-          isTopLevel={isTopLevel}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
-          nestedParentParamIdLookup={nestedParentParamIdLookup}
-          visibleParamIdLookup={visibleParamIdLookup}
-          dndParentId={tree.rootId}
+          renderEntries={renderEntries}
           showResizeHandle={showResizeHandle}
         />
       </ParamDndProvider>

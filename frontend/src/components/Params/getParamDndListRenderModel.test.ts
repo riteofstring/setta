@@ -1,3 +1,7 @@
+import {
+  getParamDndItemId,
+  getTempParamDndId,
+} from "forks/dnd-kit/paramDndState";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -11,7 +15,10 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getParamDndListRenderModel } from "./getParamDndListRenderModel";
+import {
+  getParamDndListRenderEntries,
+  getParamDndListRenderModel,
+} from "./getParamDndListRenderModel";
 
 function setupProjectState({
   paramFilter,
@@ -279,6 +286,7 @@ describe("getParamDndListRenderModel", () => {
       [encodingId]: rootId,
       [errorsId]: encodingId,
     });
+    expect(model.renderTree?.rootId).toBe(rootId);
   });
 
   it("builds the tree when callable reordering is allowed", () => {
@@ -306,6 +314,7 @@ describe("getParamDndListRenderModel", () => {
     });
     expect(model.visibleParamIdLookup).toBeNull();
     expect(model.tree?.rootId).toBe(rootId);
+    expect(model.renderTree?.rootId).toBe(rootId);
     expect(model.tree?.flat.map((item) => item.id)).toEqual([
       modeId,
       encodingId,
@@ -337,5 +346,97 @@ describe("getParamDndListRenderModel", () => {
     });
     expect(model.visibleParamIdLookup).toBeNull();
     expect(model.tree?.rootId).toBe(rootId);
+    expect(model.renderTree?.rootId).toBe(rootId);
+  });
+});
+
+describe("getParamDndListRenderEntries", () => {
+  it("preserves row order and nested row flags from the visible child map", () => {
+    const entries = getParamDndListRenderEntries({
+      rootId: "root",
+      visibleChildrenByParent: {
+        root: ["parent", "sibling"],
+        parent: ["child"],
+      },
+      requiredParamIdsToPaths: {
+        parent: ["parent"],
+        child: ["parent", "child"],
+        sibling: ["sibling"],
+      },
+      nestedParentParamIdLookup: {
+        parent: true,
+      },
+      visibleParamIdLookup: {
+        parent: true,
+        child: true,
+        sibling: true,
+      },
+    });
+
+    expect(entries).toEqual([
+      {
+        paramId: "parent",
+        isTopLevelWithPad: false,
+        isNestedChildInTree: false,
+        requiredParamIdsToPaths: {
+          parent: ["parent"],
+          child: ["parent", "child"],
+          sibling: ["sibling"],
+        },
+        nestedParentParamIdLookup: {
+          parent: true,
+        },
+        visibleParamIdLookup: {
+          parent: true,
+          child: true,
+          sibling: true,
+        },
+      },
+      {
+        paramId: "child",
+        isTopLevelWithPad: false,
+        isNestedChildInTree: true,
+        requiredParamIdsToPaths: {},
+        nestedParentParamIdLookup: null,
+        visibleParamIdLookup: null,
+      },
+      {
+        paramId: "sibling",
+        isTopLevelWithPad: true,
+        isNestedChildInTree: false,
+        requiredParamIdsToPaths: {},
+        nestedParentParamIdLookup: null,
+        visibleParamIdLookup: null,
+      },
+    ]);
+  });
+
+  it("keeps temp placeholders in the flat render order", () => {
+    const tempId = getTempParamDndId(getParamDndItemId("child", "unpinned"));
+
+    const entries = getParamDndListRenderEntries({
+      rootId: "root",
+      visibleChildrenByParent: {
+        root: ["parent"],
+        parent: [tempId],
+      },
+      requiredParamIdsToPaths: {
+        parent: ["parent"],
+      },
+      nestedParentParamIdLookup: {
+        parent: true,
+      },
+      visibleParamIdLookup: {
+        parent: true,
+      },
+    });
+
+    expect(entries.map((entry) => entry.paramId)).toEqual(["parent", tempId]);
+    expect(entries[1]).toMatchObject({
+      isNestedChildInTree: true,
+      requiredParamIdsToPaths: {},
+      nestedParentParamIdLookup: null,
+      visibleParamIdLookup: null,
+    });
   });
 });
