@@ -116,7 +116,9 @@ class CandidateReport:
     matrix_row_count: int
     status_counts: dict[str, int]
     go_owned_candidates: list[Candidate]
+    known_recheck_candidates: list[Candidate]
     retained_boundary_candidates: list[Candidate]
+    low_priority_divergence_candidates: list[Candidate]
     candidates: list[Candidate]
     uncited_tests: list[SourceTest]
     uncited_docs: list[ReferenceDoc]
@@ -322,10 +324,10 @@ def has_differential_scenario(text: str) -> bool:
 def build_status_row_candidates(rows: list[MatrixRow]) -> list[Candidate]:
     candidates: list[Candidate] = []
     base_scores = {
-        "Implemented, proof incomplete": 92,
+        "Implemented, proof incomplete": 96,
         "Retained Python boundary": 36,
-        "Intentional divergence": 72,
-        "Dormant / unproven caller": 62,
+        "Intentional divergence": 22,
+        "Dormant / unproven caller": 46,
     }
     for row in rows:
         if row.status not in base_scores:
@@ -348,8 +350,12 @@ def build_status_row_candidates(rows: list[MatrixRow]) -> list[Candidate]:
         if not has_differential_scenario(row.go_tests):
             score += 6
         queue = "go-owned-gap"
-        if row.status == "Retained Python boundary" and not go_owned_caller:
+        if row.status == "Retained Python boundary":
             queue = "retained-boundary-audit"
+        if row.status == "Dormant / unproven caller":
+            queue = "known-gap-recheck"
+        if row.status == "Intentional divergence":
+            queue = "low-priority-divergence"
         candidates.append(
             Candidate(
                 key=f"matrix-status:{row.row_id}",
@@ -422,7 +428,7 @@ def build_weak_proof_candidates(rows: list[MatrixRow]) -> list[Candidate]:
         proof_count = count_go_test_references(row.go_tests)
         if proof_count > 1:
             continue
-        score = 68
+        score = 86
         if has_retained_api_signal(" ".join([row.source_evidence, row.transport_evidence])):
             score += 8
         candidates.append(
@@ -463,8 +469,12 @@ def build_unmapped_test_candidates(
             continue
         uncited_tests.append(test_ref)
         score = TEST_AREA_PRIORITIES.get(test_ref.area, 48)
+        if test_ref.area in {"api", "routers", "mcp", "share", "websockets"}:
+            score += 8
         if "runner" in test_ref.path or "listener" in test_ref.path:
             score += 6
+        if "realtime" in test_ref.path or "websocket" in test_ref.path:
+            score += 4
         candidates.append(
             Candidate(
                 key=f"test:{test_ref.path}::{test_ref.name}",
@@ -582,10 +592,26 @@ def candidate_family(candidate: Candidate) -> str:
     return f"{candidate.kind}:{candidate.title}"
 
 
+def candidate_kind_priority(candidate: Candidate) -> int:
+    if candidate.kind == "weak-proof-row":
+        return 0
+    if candidate.kind == "uncited-source-test":
+        return 1
+    if candidate.kind == "matrix-status-revisit":
+        return 2
+    if candidate.kind == "uncited-reference-doc":
+        return 3
+    return 4
+
+
 def rank_candidates(candidates: list[Candidate], limit: int) -> list[Candidate]:
     ranked = sorted(
         candidates,
-        key=lambda candidate: (-candidate.score, candidate.kind, candidate.title),
+        key=lambda candidate: (
+            -candidate.score,
+            candidate_kind_priority(candidate),
+            candidate.title,
+        ),
     )
     selected: list[Candidate] = []
     family_counts: dict[str, int] = {}
@@ -604,6 +630,12 @@ def retained_audit_limit(limit: int) -> int:
     if limit <= 1:
         return 1
     return max(3, min(10, limit // 2))
+
+
+def low_priority_divergence_limit(limit: int) -> int:
+    if limit <= 2:
+        return 1
+    return max(2, min(5, limit // 5))
 
 
 def generate_report(
@@ -637,6 +669,10 @@ def generate_report(
         [candidate for candidate in deduped if candidate.queue == "go-owned-gap"],
         limit=limit,
     )
+    known_recheck_candidates = rank_candidates(
+        [candidate for candidate in deduped if candidate.queue == "known-gap-recheck"],
+        limit=retained_audit_limit(limit),
+    )
     retained_boundary_candidates = rank_candidates(
         [
             candidate
@@ -644,6 +680,14 @@ def generate_report(
             if candidate.queue == "retained-boundary-audit"
         ],
         limit=retained_audit_limit(limit),
+    )
+    low_priority_divergence_candidates = rank_candidates(
+        [
+            candidate
+            for candidate in deduped
+            if candidate.queue == "low-priority-divergence"
+        ],
+        limit=low_priority_divergence_limit(limit),
     )
 
     return CandidateReport(
@@ -654,8 +698,15 @@ def generate_report(
         matrix_row_count=len(rows),
         status_counts=status_counts(rows),
         go_owned_candidates=go_owned_candidates,
+        known_recheck_candidates=known_recheck_candidates,
         retained_boundary_candidates=retained_boundary_candidates,
-        candidates=go_owned_candidates + retained_boundary_candidates,
+        low_priority_divergence_candidates=low_priority_divergence_candidates,
+        candidates=(
+            go_owned_candidates
+            + known_recheck_candidates
+            + retained_boundary_candidates
+            + low_priority_divergence_candidates
+        ),
         uncited_tests=sorted(
             uncited_tests,
             key=lambda test_ref: (
@@ -699,7 +750,7 @@ def render_report(report: CandidateReport) -> str:
             f"- Uncited source tests: `{len(report.uncited_tests)}`",
             f"- Uncited reference docs: `{len(report.uncited_docs)}`",
             "",
-            "## Go-Owned Gap Candidates",
+            "## Unknown Go Gap Leads",
             "",
         ]
     )
@@ -708,6 +759,32 @@ def render_report(report: CandidateReport) -> str:
         lines.append("")
 
     for index, candidate in enumerate(report.go_owned_candidates, start=1):
+        lines.append(
+            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+        )
+        lines.append(f"   Why: {candidate.why}")
+        if candidate.source_evidence:
+            lines.append(
+                "   Source evidence: " + "; ".join(candidate.source_evidence)
+            )
+        if candidate.current_evidence:
+            lines.append(
+                "   Current evidence: " + "; ".join(candidate.current_evidence)
+            )
+        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Caller-Liveness Rechecks",
+            "",
+        ]
+    )
+    if not report.known_recheck_candidates:
+        lines.append("- None in this run.")
+        lines.append("")
+
+    for index, candidate in enumerate(report.known_recheck_candidates, start=1):
         lines.append(
             f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
         )
@@ -751,12 +828,40 @@ def render_report(report: CandidateReport) -> str:
 
     lines.extend(
         [
+            "## Low-Priority Known Divergences",
+            "",
+        ]
+    )
+    if not report.low_priority_divergence_candidates:
+        lines.append("- None in this run.")
+        lines.append("")
+
+    for index, candidate in enumerate(
+        report.low_priority_divergence_candidates, start=1
+    ):
+        lines.append(
+            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+        )
+        lines.append(f"   Why: {candidate.why}")
+        if candidate.source_evidence:
+            lines.append(
+                "   Source evidence: " + "; ".join(candidate.source_evidence)
+            )
+        if candidate.current_evidence:
+            lines.append(
+                "   Current evidence: " + "; ".join(candidate.current_evidence)
+            )
+        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
+        lines.append("")
+
+    lines.extend(
+        [
             "## Backlog Notes",
             "",
             "- Regenerate this file after matrix updates or when the active gap-hunt "
             "session exhausts the current top candidates.",
-            "- Prefer working the Go-owned gap candidates before retained-boundary "
-            "audits or the green default manifest.",
+            "- Prefer working the unknown Go gap leads before known divergence "
+            "rechecks, retained-boundary audits, or the low-priority known divergences.",
             "",
             "## Uncited Source Tests",
             "",

@@ -20,8 +20,8 @@ def _load_backend_gap_hunt_candidates_module() -> ModuleType:
 def test_generate_report_surfaces_status_revisits_and_uncited_sources(
     tmp_path: Path,
 ) -> None:
-    # The miner should surface Go-owned candidates separately from retained
-    # boundary audits while still tracking uncited source tests and docs.
+    # The miner should keep unknown gap leads on top, while pushing retained
+    # and already-justified divergence work into lower-priority sections.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -50,6 +50,7 @@ def test_generate_report_surfaces_status_revisits_and_uncited_sources(
 | Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `runner.summary.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `backend/setta/api/runner.py::SettaRunner` | `Retained Python boundary` | retained row |
+| `terminal.cli_sender` | `docs/reference/urls-and-routes.md` | `internal/terminal.go` | `` | `frontend/src/components/Terminal.tsx` | `Intentional divergence` | justified divergence |
 | `view_mode.toggle` | `docs/reference/view-modes.md` | `internal/view_modes.go` | `TestToggleViewModePersists` | `frontend/src/components/Pages/MainContainerCore.tsx` | `Proved` | proved row |
 """,
         encoding="utf-8",
@@ -83,17 +84,28 @@ def test_uncited_lookup_failure() -> None:
     go_owned_candidate_keys = {
         candidate.key for candidate in report.go_owned_candidates
     }
+    low_priority_divergence_candidate_keys = {
+        candidate.key for candidate in report.low_priority_divergence_candidates
+    }
     retained_candidate_keys = {
         candidate.key for candidate in report.retained_boundary_candidates
     }
 
     assert "matrix-status:runner.summary.lookup" in retained_candidate_keys
+    assert (
+        "matrix-status:terminal.cli_sender"
+        in low_priority_divergence_candidate_keys
+    )
+    assert "matrix-status:terminal.cli_sender" not in go_owned_candidate_keys
     assert "weak-proof:view_mode.toggle" in go_owned_candidate_keys
     assert (
         "test:tests/api/test_runner.py::test_uncited_lookup_failure"
         in go_owned_candidate_keys
     )
     assert "doc:docs/reference/chat-toolkit.md" in go_owned_candidate_keys
+    assert report.go_owned_candidates[0].key == (
+        "test:tests/api/test_runner.py::test_uncited_lookup_failure"
+    )
 
     uncited_tests = {
         f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
@@ -107,8 +119,10 @@ def test_uncited_lookup_failure() -> None:
     assert "docs/reference/ui-style-consistency.md" not in uncited_docs
 
     rendered = module.render_report(report)
-    assert "## Go-Owned Gap Candidates" in rendered
+    assert "## Unknown Go Gap Leads" in rendered
+    assert "## Caller-Liveness Rechecks" in rendered
     assert "## Retained-Boundary Audits" in rendered
+    assert "## Low-Priority Known Divergences" in rendered
 
 
 def test_generate_report_caps_repeated_retained_families(

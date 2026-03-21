@@ -6,11 +6,11 @@ If `HEAD` is unchanged, the worktree is clean, and that prior report for this `H
 `No new high-confidence gap leads found for unchanged HEAD <sha>`
 
 Otherwise:
-1. Continue from the file-backed candidate backlog first. Do not spend time rerunning the candidate miner inside Codex.
+1. Continue from `## Unknown Go Gap Leads` in the file-backed backlog first. Only drop to `## Caller-Liveness Rechecks` when the unknown-gap leads are exhausted or clearly lower value. Treat `## Retained-Boundary Audits` as tertiary work, and treat `## Low-Priority Known Divergences` as last-resort only. Do not spend time rerunning the candidate miner inside Codex.
 2. Keep skeptical-omission pressure. If the backlog is exhausted, mine at least 3 new candidates from deterministic sources and report them clearly so the next fresh session can start from a regenerated backlog.
 3. Prefer targeted proof and `./scripts/run-backend-differential-parity.sh --baseline-ref main --only <scenario>` or focused tests over full-manifest reruns.
 4. If a proof mismatches, fix or classify it, update focused tests plus matrix/docs, and iterate until that slice is green or explicitly blocked.
 5. Before the next successful report for a changed `HEAD` that touched behavior or added new proof, run the targeted parity and tests that validate the touched slice. Run the full default/corpus manifests only if that `HEAD` still needs broad confirmation.
 6. Report the exact commands run, backlog changes, ruled-out leads, and the current best unresolved candidates.
 
-Never treat old green scenarios, matrix counts, or touching each area once as completion evidence. The point of this loop is to surface new high-value gaps quickly, not to re-prove the old queue.
+Never treat old green scenarios, matrix counts, touching each area once, or rechecking already-justified intentional divergences as completion evidence. The point of this loop is to surface new high-value gaps quickly, not to re-prove the old queue.
