@@ -57,6 +57,11 @@ categorize them.
 - The next queue should come from the remaining matrix `Missing` and
   `Implemented, proof incomplete` rows outside this now-proved `/settings`
   slice
+- The narrow JSON-source key-edit validation branch is now closed too:
+  existing-file `jsonSourceKeys` edits fail closed unless the target resolves
+  to a dict, and missing-file edits stay accepted while marking the variant
+  `jsonSourceMissing`; the remaining JSON-source backlog is the larger
+  load/save/watch owner
 - The latest-state stale-`activeIds`, empty-`windowSpaces`, and
   project/window-space load-normalization rows are now proved via the default
   harness; add more corpus/latest-state scenarios only when a new current-
