@@ -3,10 +3,12 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"setta/internal/config"
@@ -144,6 +146,94 @@ func TestServiceDispatchRegisteredBackendRouteFallsBackFromHeadToGet(t *testing.
 	}
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected HEAD backend route 200, got %#v", response.StatusCode)
+	}
+}
+
+func TestServiceDispatchRegisteredBackendRouteRejectsInvalidRuntimeStatusCode(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+const (
+	backendProbeArg = "--setta-plugin-backend-probe"
+	backendRuntimeArg = "--setta-plugin-backend-runtime"
+)
+
+func main() {
+	if len(os.Args) != 2 {
+		return
+	}
+	switch os.Args[1] {
+	case backendProbeArg:
+		writeJSON(map[string]any{
+			"schemaVersion": 1,
+			"routes": []map[string]any{
+				{
+					"path": "/health",
+					"methods": []string{"GET"},
+				},
+			},
+			"staticDirs": []map[string]any{},
+			"listenerEndpoints": []map[string]any{},
+		})
+	case backendRuntimeArg:
+		writeJSON(map[string]any{
+			"schemaVersion": 1,
+			"http": map[string]any{
+				"statusCode": 1000,
+				"headers": map[string][]string{},
+			},
+		})
+	}
+}
+
+func writeJSON(payload any) {
+	if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend fixture with invalid runtime status code: %v", err)
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	_, matched, err := service.DispatchRegisteredBackendRoute(context.Background(), BackendHTTPRequest{
+		Context: BackendRequestContext{
+			ServerMode: config.ModeIDE,
+		},
+		Method: http.MethodGet,
+		Path:   "/health",
+	})
+	if err == nil {
+		t.Fatal("expected invalid runtime status code error")
+	}
+	if !matched {
+		t.Fatal("expected route match before invalid runtime status code error")
+	}
+
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error, got %T (%v)", err, err)
+	}
+	if serviceErr.Code != ServiceErrorCodeBackendRuntimeInvalid {
+		t.Fatalf("expected backend runtime invalid code, got %#v", serviceErr)
+	}
+	if !strings.Contains(serviceErr.Message, "unsupported status code 1000") {
+		t.Fatalf("expected invalid status message, got %#v", serviceErr.Message)
 	}
 }
 

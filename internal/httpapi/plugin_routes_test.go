@@ -1622,6 +1622,45 @@ func TestRegisterPluginRootRoutesPreserveBackendRouteStatusHeadersAndBody(t *tes
 	}
 }
 
+func TestRegisterPluginRootRoutesMapBackendDispatchServiceErrors(t *testing.T) {
+	t.Parallel()
+
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			if requestPath == "/error" {
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			}
+			return plugins.BackendRouteLookup{}, nil
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			return plugins.BackendHTTPResponse{}, true, &plugins.ServiceError{
+				Code:    plugins.ServiceErrorCodeBackendRuntimeInvalid,
+				Message: "backend dispatch failed",
+				Status:  http.StatusBadGateway,
+			}
+		},
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/error", nil)
+	newPluginRouteTestHandler(t, config.ModeIDE, service).ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadGateway {
+		t.Fatalf("expected backend dispatch error status 502, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode backend dispatch error payload: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid code, got %#v", payload.Error)
+	}
+	if payload.Error.Message != "backend dispatch failed" {
+		t.Fatalf("expected backend dispatch error message, got %#v", payload.Error)
+	}
+}
+
 func TestRegisterPluginRootRoutesPreserveRepeatedHeadersFromBackendResponse(t *testing.T) {
 	t.Parallel()
 
