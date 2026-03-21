@@ -971,6 +971,26 @@ Current execution note:
           - lazy tooltip resolution alone is too narrow to rescue the non-kwargs row/body seam
         - do not keep this lazy-tooltip `ParamContainer` path at `HEAD`
         - the next Tier 1 pass should keep mining the non-kwargs row/body seam, but it needs a deeper `ParamSwitch -> ParamContainer` ownership change rather than tooltip-only laziness
+      - a current retained-baseline rerun then showed the March 20 retained anchor had drifted badly on the current environment:
+        - recorded report:
+          - `perf/reports/frontend/2026-03-21_section-benchmark-retained-baseline-rerun.md`
+        - authoritative worktree drift versus the March 20 retained anchor:
+          - `settings` benchmark `Paint`:
+            - `148.237ms -> 436.851ms`
+          - `settings` benchmark `RunTask`:
+            - `3235.187ms -> 31132.744ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `66.774ms -> 493.197ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `825.999ms -> 749.086ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `13271.540ms -> 14593.848ms`
+        - methodology read:
+          - the March 20 retained anchor is no longer stable enough to use as the sole keep/reject baseline on the current environment
+          - the last two March 21 “reject” decisions remain recorded measurements, but their interpretation must now be recalibrated against the new current retained baseline
+        - next action:
+          - treat the current `2026-03-21` retained rerun as the environment-local reference point
+          - re-evaluate the strongest recent experiments against that recalibrated baseline before discarding them permanently
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

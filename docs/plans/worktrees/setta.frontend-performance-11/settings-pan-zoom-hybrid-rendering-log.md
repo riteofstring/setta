@@ -2475,3 +2475,51 @@ Record:
     - fresh seam discovery points at the broader `ParamSwitch -> ParamContainer` row metadata ownership split as the next likely target
 - Next action:
   - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and turn the next Tier 1 pass into a broader row metadata ownership experiment rather than another tooltip-only tweak.
+
+## 2026-03-21 057
+
+- Item: Recalibrate the retained baseline after the repeated small-seam regressions.
+- Status: `done`
+- Details:
+  - Reran the current retained `HEAD` baseline against the canonical `settings` and `tier1Synthetic` scenes using the standard CDP matrix.
+  - Reinstalled `tier1Synthetic` into both state roots before the rerun:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root ../setta/setta_files_dev`
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-retained-baseline-rerun.md`
+  - Current retained `HEAD` drift versus the March 20 retained anchor:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 436.851ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 31132.744ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 493.197ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 38.267ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 61.247ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 749.086ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14593.848ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 20.243ms`
+  - Methodology read:
+    - the March 20 retained anchor is no longer stable enough to use as the sole keep/reject baseline on the current environment
+    - the last two March 21 “reject” decisions remain valid measurements, but their interpretation must be recalibrated against the new current retained baseline
+- Next action:
+  - Re-evaluate the strongest recent experiments against the recalibrated current retained baseline before discarding them permanently.
+
+## 2026-03-21 058
+
+- Item: Re-evaluate the strongest recent experiment against the recalibrated retained baseline.
+- Status: `in_progress`
+- Details:
+  - The current recalibrated baseline suggests the recent kwargs-wrapper and lazy-tooltip experiments may no longer be obvious losses.
+  - Initial read:
+    - both experiments landed in the same general `settings` cost band as the current retained rerun
+    - the kwargs-wrapper collapse currently looks slightly stronger than the lazy-tooltip experiment on the recalibrated numbers
+- Next action:
+  - Reapply the strongest recent experiment, rerun the standard CDP matrix against the recalibrated baseline, and decide whether it should be accepted after all.
