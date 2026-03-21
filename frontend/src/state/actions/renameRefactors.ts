@@ -7,10 +7,7 @@ import {
   useProjectState,
   useRenameRefactors,
 } from "state/definitions";
-import {
-  route_accept_rename_refactor,
-  route_decline_rename_refactor,
-} from "utils/generatedEndpoints";
+import { post } from "utils/endpointUtils";
 import {
   RenameRefactorBroadcastContent,
   RenameRefactorModeEnum,
@@ -171,7 +168,7 @@ export async function acceptRenameRefactor(
   projectConfigId: string,
   frontendOpId: string,
 ) {
-  await route_accept_rename_refactor({ projectConfigId, frontendOpId });
+  await post("/acceptRenameRefactor", { projectConfigId, frontendOpId });
   clearRenameBroadcast(frontendOpId);
 }
 
@@ -179,6 +176,6 @@ export async function declineRenameRefactor(
   projectConfigId: string,
   frontendOpId: string,
 ) {
-  await route_decline_rename_refactor({ projectConfigId, frontendOpId });
+  await post("/declineRenameRefactor", { projectConfigId, frontendOpId });
   clearRenameBroadcast(frontendOpId);
 }
