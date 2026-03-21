@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -73,7 +74,7 @@ func TestStoreLoadRejectsMissingAuthoritativeProjectChatWindowingState(t *testin
 	t.Parallel()
 
 	projectPath := filepath.Join(t.TempDir(), "project.json")
-	writeTestJSON(t, projectPath, map[string]any{
+	payload := map[string]any{
 		"schemaVersion":    CurrentSchemaVersion,
 		"defaultProjectId": "project-alpha",
 		"projects": map[string]any{
@@ -82,7 +83,8 @@ func TestStoreLoadRejectsMissingAuthoritativeProjectChatWindowingState(t *testin
 				"name": "Alpha",
 			},
 		},
-	})
+	}
+	writeTestJSON(t, projectPath, payload)
 	store := newTestStore(t, projectPath)
 
 	_, err := store.Load(context.Background())
@@ -91,6 +93,19 @@ func TestStoreLoadRejectsMissingAuthoritativeProjectChatWindowingState(t *testin
 	}
 	if !strings.Contains(err.Error(), "project-alpha") {
 		t.Fatalf("expected missing project id in error, got %v", err)
+	}
+
+	expectedContent, marshalErr := json.MarshalIndent(payload, "", "  ")
+	if marshalErr != nil {
+		t.Fatalf("marshal expected content: %v", marshalErr)
+	}
+	expectedContent = append(expectedContent, '\n')
+	currentContent, readErr := os.ReadFile(projectPath)
+	if readErr != nil {
+		t.Fatalf("read persisted project after failed load: %v", readErr)
+	}
+	if !bytes.Equal(currentContent, expectedContent) {
+		t.Fatalf("expected failed load to leave persisted payload unchanged, got %q", string(currentContent))
 	}
 }
 
