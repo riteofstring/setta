@@ -563,15 +563,15 @@ func (s *Service) Rollback(_ context.Context, options RollbackOptions) (PluginRo
 		return PluginRollbackResult{}, err
 	}
 	metadataEntry, ok := metadata.Entries[metadataKey(scope, options.PluginID)]
-	if !ok || len(metadataEntry.History) == 0 {
-		return PluginRollbackResult{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "No rollback history exists for plugin: %s", options.PluginID)
-	}
-	if SourceSpecIsLocal(metadataEntry.SourceSpec) {
+	if ok && SourceSpecIsLocal(metadataEntry.SourceSpec) {
 		return PluginRollbackResult{}, newServiceError(
 			ServiceErrorCodeRollbackUnavailable,
 			"Rollback is unavailable for linked local plugins. Unlink and relink the desired local source for %s.",
 			options.PluginID,
 		)
+	}
+	if !ok || len(metadataEntry.History) == 0 {
+		return PluginRollbackResult{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "No rollback history exists for plugin: %s", options.PluginID)
 	}
 	previous := metadataEntry.History[len(metadataEntry.History)-1]
 	if strings.TrimSpace(previous.SnapshotPath) == "" {

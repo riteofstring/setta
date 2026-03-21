@@ -1136,6 +1136,241 @@ func TestServiceRollbackRequiresHistory(t *testing.T) {
 	}
 }
 
+// Force reinstall should snapshot the previous managed plugin tree and allow rollback to that snapshot.
+func TestServiceForceInstallCreatesHistorySnapshotAndSupportsRollback(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	firstInstall, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+	if firstInstall.PluginID != "setta-fixture-frontend" || firstInstall.Version != "0.1.0" || firstInstall.RestartRequired {
+		t.Fatalf("unexpected initial install result: %#v", firstInstall)
+	}
+
+	forcedInstall, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Enable:     true,
+		Force:      true,
+	})
+	if err != nil {
+		t.Fatalf("force install plugin: %v", err)
+	}
+	if forcedInstall.PluginID != "setta-fixture-frontend" || forcedInstall.Version != "0.1.0" || forcedInstall.RestartRequired {
+		t.Fatalf("unexpected forced install result: %#v", forcedInstall)
+	}
+
+	metadata, ok, err := service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("get install metadata after force install: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected install metadata after force install")
+	}
+	if metadata.Version != "0.1.0" || len(metadata.History) != 1 {
+		t.Fatalf("expected one rollback snapshot after force install, got %#v", metadata)
+	}
+	historyEntry := metadata.History[0]
+	if historyEntry.Version != "0.1.0" {
+		t.Fatalf("expected rollback snapshot version 0.1.0, got %#v", historyEntry)
+	}
+	if historyEntry.SourceDigestSHA256 == nil || strings.TrimSpace(*historyEntry.SourceDigestSHA256) == "" {
+		t.Fatalf("expected rollback snapshot digest, got %#v", historyEntry.SourceDigestSHA256)
+	}
+	snapshotManifestPayload, err := os.ReadFile(filepath.Join(historyEntry.SnapshotPath, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("read rollback snapshot manifest: %v", err)
+	}
+	var snapshotManifest map[string]any
+	if err := json.Unmarshal(snapshotManifestPayload, &snapshotManifest); err != nil {
+		t.Fatalf("decode rollback snapshot manifest: %v", err)
+	}
+	if got := snapshotManifest["version"]; got != "0.1.0" {
+		t.Fatalf("expected rollback snapshot manifest version 0.1.0, got %#v", got)
+	}
+
+	rollbackResult, err := service.Rollback(context.Background(), RollbackOptions{
+		PluginID: "setta-fixture-frontend",
+	})
+	if err != nil {
+		t.Fatalf("rollback plugin after force install: %v", err)
+	}
+	if rollbackResult.RestoredVersion != "0.1.0" || rollbackResult.RestartRequired {
+		t.Fatalf("unexpected rollback result after force install: %#v", rollbackResult)
+	}
+
+	metadata, ok, err = service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("get install metadata after rollback: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected install metadata after rollback")
+	}
+	if metadata.Version != "0.1.0" || len(metadata.History) != 0 {
+		t.Fatalf("expected rollback history to be consumed, got %#v", metadata)
+	}
+
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after rollback: %v", err)
+	}
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeWorkspace)
+	if entry.Version != "0.1.0" || entry.State != PluginRuntimeStateActive || entry.RestartRequired {
+		t.Fatalf("expected active frontend plugin after rollback, got %#v", entry)
+	}
+}
+
+// Linked local plugins should reject rollback with actionable guidance even before any history exists.
+func TestServiceRollbackRejectsLinkedLocalPluginWithoutHistory(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	if err := store.SetInstallMetadata(PluginInstallMetadataEntry{
+		PluginID:           "setta-fixture-frontend",
+		Scope:              PluginScopeWorkspace,
+		SourceSpec:         "local:" + pluginRoot,
+		CanonicalSourceKey: "local:" + pluginRoot,
+		Version:            "0.1.0",
+		History:            []PluginInstallHistoryEntry{},
+	}); err != nil {
+		t.Fatalf("seed local install metadata: %v", err)
+	}
+
+	service := mustNewPluginMutationServiceWithStore(t, roots, store, nil, config.ModeIDE)
+	_, err = service.Rollback(context.Background(), RollbackOptions{
+		PluginID: "setta-fixture-frontend",
+	})
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error, got %v", err)
+	}
+	if serviceErr.Code != ServiceErrorCodeRollbackUnavailable {
+		t.Fatalf("expected rollback unavailable code, got %q", serviceErr.Code)
+	}
+	if !strings.Contains(serviceErr.Message, "linked local plugins") {
+		t.Fatalf("expected linked local rollback guidance, got %q", serviceErr.Message)
+	}
+}
+
+// Rollback should fail closed when managed metadata points to a snapshot path that no longer exists.
+func TestServiceRollbackRejectsMissingSnapshotPath(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	if err := store.SetInstallMetadata(PluginInstallMetadataEntry{
+		PluginID:           "setta-fixture-frontend",
+		Scope:              PluginScopeWorkspace,
+		SourceSpec:         "pypi:setta-fixture-frontend==0.1.0",
+		CanonicalSourceKey: "pypi:setta-fixture-frontend",
+		Version:            "0.1.0",
+		History: []PluginInstallHistoryEntry{
+			{
+				Version:      "0.0.9",
+				SnapshotPath: filepath.Join(roots.settaFilesRoot, "missing-rollback-snapshot"),
+				TimestampISO: "2026-01-01T00:00:00Z",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed install metadata: %v", err)
+	}
+
+	service := mustNewPluginMutationServiceWithStore(t, roots, store, nil, config.ModeIDE)
+	_, err = service.Rollback(context.Background(), RollbackOptions{
+		PluginID: "setta-fixture-frontend",
+	})
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error, got %v", err)
+	}
+	if serviceErr.Code != ServiceErrorCodeRollbackUnavailable {
+		t.Fatalf("expected rollback unavailable code, got %q", serviceErr.Code)
+	}
+	if !strings.Contains(serviceErr.Message, "Rollback snapshot missing") {
+		t.Fatalf("expected missing snapshot guidance, got %q", serviceErr.Message)
+	}
+}
+
+// Restoring a backend plugin snapshot should keep restart-gated runtime state explicit until refresh commits.
+func TestServiceRollbackRestoringBackendPluginRequiresRestart(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	historyEntry, err := store.CreateHistorySnapshot("setta-fixture-backend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("create backend rollback snapshot: %v", err)
+	}
+	rewritePluginManifest(t, historyEntry.SnapshotPath, func(payload map[string]any) {
+		payload["version"] = "0.0.9"
+	})
+	historyEntry.Version = "0.0.9"
+
+	if err := store.SetInstallMetadata(PluginInstallMetadataEntry{
+		PluginID:           "setta-fixture-backend",
+		Scope:              PluginScopeWorkspace,
+		SourceSpec:         "pypi:setta-fixture-backend==0.1.0",
+		CanonicalSourceKey: "pypi:setta-fixture-backend",
+		Version:            "0.1.0",
+		History:            []PluginInstallHistoryEntry{historyEntry},
+	}); err != nil {
+		t.Fatalf("seed backend install metadata: %v", err)
+	}
+
+	service := mustNewPluginMutationServiceWithStore(t, roots, store, nil, config.ModeIDE)
+	rollbackResult, err := service.Rollback(context.Background(), RollbackOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("rollback backend plugin: %v", err)
+	}
+	if rollbackResult.RestoredVersion != "0.0.9" || !rollbackResult.RestartRequired {
+		t.Fatalf("expected backend rollback to require restart, got %#v", rollbackResult)
+	}
+
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after backend rollback: %v", err)
+	}
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if entry.Version != "0.0.9" || entry.State != PluginRuntimeStatePendingRestart || !entry.RestartRequired {
+		t.Fatalf("expected backend rollback to leave pending restart entry, got %#v", entry)
+	}
+}
+
 // Enable/disable should follow the highest-precedence discovered entry and keep backend restart requirements explicit.
 func TestServiceEnableDisableLifecycleControls(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
