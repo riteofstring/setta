@@ -61,3 +61,40 @@ Append-only log for comparing the current top-level section surface against the 
     - `perf/reports/frontend/2026-03-20_section-top-level-grid-benchmark.md`
 - Next action:
   - use this benchmark pair to decide whether the `sectionChrome` top-level grid removal series should stay, be narrowed, or be rolled back to `bf6487690`.
+
+## 2026-03-20 003
+
+- Item: Re-test the settings benchmark with the machine idle to see whether the current-branch paint spike was environmental noise.
+- Status: `done`
+- Details:
+  - Browser / tooling:
+    - Chrome DevTools MCP only
+    - same `ai.sh` Chrome instance
+    - detached baseline server restarted from `/private/tmp/setta-top-level-grid-bf6487690`
+  - Fresh current trace:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-top-level-grid-benchmark/current-head-settings-grid-benchmark-idle-rerun.trace.json`
+    - URL: `http://127.0.0.1:3011/settings`
+  - Fresh baseline save:
+    - attempted, but the DevTools trace recorder wedged after the first retest pair
+    - the fresh baseline trace did not persist to disk even though the page replay completed
+    - the earlier authoritative baseline trace remains the comparison anchor
+  - Geometry / replay notes:
+    - both tabs still normalized to `translate(637.65px, -204.6px) scale(0.1)`
+    - both tabs still started from the same visible `groupSectionDefault` geometry around `55.7px x 35.2px`
+    - no-trace geometry probes showed `bf6487690` still reached the `73.7px` target width with an `18px` synthetic drag
+    - current `HEAD` needed a `72px` synthetic drag to reach the same `73.7px` visible width
+  - Fresh current paint totals, using the same trace-event parser between user timing marks:
+    - benchmark `Paint`: `246.521ms`
+    - pan `Paint`: `154.612ms`
+    - zoom `Paint`: `62.849ms`
+    - resize `Paint`: `29.060ms`
+  - Current-vs-current read:
+    - benchmark `Paint` improved from `309.010ms` to `246.521ms` (`-20.2%`)
+    - pan `Paint` improved from `191.542ms` to `154.612ms` (`-19.3%`)
+    - zoom `Paint` improved from `92.499ms` to `62.849ms` (`-32.1%`)
+  - Interpretation:
+    - some of the earlier paint spike was likely machine-noise or transient background work
+    - the paint regression did not disappear
+    - even the idle rerun leaves current `HEAD` far above the earlier baseline paint profile, especially in pan and zoom
+- Next action:
+  - treat the paint regression as real unless a fully fresh geometry-matched baseline rerun disproves it after a DevTools recorder reset.

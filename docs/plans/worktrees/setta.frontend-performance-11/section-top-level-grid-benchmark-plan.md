@@ -52,6 +52,8 @@ Use the same interaction loop on both commits:
 - Keep the benchmark log append-only.
 - Treat the authoritative current-branch trace as the post-`ai.sh` rerun captured from `http://127.0.0.1:3011/settings`.
 - The earlier pre-restart current trace on `http://127.0.0.1:3111/settings` stays as a superseded artifact only.
+- If machine-load noise is suspected, rerun the same settings loop with the user idle and record whether the current branch paint totals stay materially above the baseline.
+- For geometry-matched resize probes, note the synthetic drag delta needed to expand `groupSectionDefault` from about `55.7px` to about `73.7px` visible width on each commit.
 - Record:
   - exact URLs
   - exact commit ids

@@ -106,3 +106,57 @@ Conclusion:
   - the top-level removal is not a clear enough slam-dunk to justify continuing that direction aggressively
   - nested one-cell grid removal still looks like the higher-confidence cleanup
   - if the team wants to keep the top-level `windowFlow` direction, the next question is no longer “is it faster overall?” but “why did `Paint` get so much worse?”
+
+## Idle Retest Addendum
+
+User question:
+
+- Could the earlier `Paint` spike have been caused by unrelated machine load?
+
+Fresh current-branch retest:
+
+- Trace artifact:
+  - `perf/reports/frontend/artifacts/2026-03-20_section-top-level-grid-benchmark/current-head-settings-grid-benchmark-idle-rerun.trace.json`
+- URL:
+  - `http://127.0.0.1:3011/settings`
+- Same seeded viewport transform:
+  - `translate(637.65px, -204.6px) scale(0.1)`
+- Same section target:
+  - `groupSectionDefault`
+
+Fresh baseline retest status:
+
+- A detached `bf6487690` server was restarted and the page replay completed, but the DevTools trace recorder wedged before a fresh geometry-matched baseline trace could be saved.
+- Because that fresh baseline artifact is missing, the earlier authoritative baseline trace above remains the comparison anchor for this addendum.
+
+Geometry note:
+
+- A no-trace probe showed that `bf6487690` still expanded `groupSectionDefault` from about `55.7px` to about `73.7px` visible width with an `18px` synthetic drag.
+- The current branch needed a `72px` synthetic drag to hit the same visible width target.
+- That means the first idle retest pair was useful for pan/zoom paint validation, but not clean enough to replace the original geometry-matched resize comparison.
+
+Fresh current paint totals, using the same raw trace-event sum between the benchmark marks:
+
+| Phase | Earlier current trace | Fresh current trace | Delta |
+| --- | ---: | ---: | ---: |
+| benchmark `Paint` | `309.010ms` | `246.521ms` | `-62.489ms` (`-20.2%`) |
+| pan `Paint` | `191.542ms` | `154.612ms` | `-36.930ms` (`-19.3%`) |
+| zoom `Paint` | `92.499ms` | `62.849ms` | `-29.650ms` (`-32.1%`) |
+| resize `Paint` | `24.969ms` | `29.060ms` | `+4.091ms` (`+16.4%`) |
+
+What changed:
+
+- Yes, the fresh idle rerun is cheaper in `Paint` than the earlier current trace, especially during pan and zoom.
+- No, the paint regression did not vanish.
+- The retest still leaves the current branch far above the earlier baseline paint profile:
+  - baseline benchmark `Paint`: `16.939ms`
+  - baseline pan `Paint`: `0.000ms`
+  - baseline zoom `Paint`: `0.000ms`
+
+Updated read:
+
+- Some part of the original paint spike was environmental noise.
+- The remaining signal is still large enough that I would treat the pan/zoom paint regression as real.
+- So the overall conclusion does not change:
+  - nested shell flattening still looks like the safer win
+  - the top-level `sectionChrome` removal still is not a clean enough performance win to justify on speed alone
