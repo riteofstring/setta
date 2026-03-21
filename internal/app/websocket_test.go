@@ -3588,6 +3588,24 @@ func TestAppListenerWebsocketRunsScriptableChatMCPTools(t *testing.T) {
 	if !containsStructuredStringValue(rawTools, "list_mcp_tools") {
 		t.Fatalf("expected list_mcp_tools in tool catalog, got %#v", rawTools)
 	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-tools-invalid-affinity","endpointName":"route_run_mcp_tools","payload":{"chatId":"`+chatID+`","sectionId":"chat-section","frontendAffinityToken":"   ","toolCalls":[{"id":"tool-call-2","type":"function","function":{"name":"mcp__setta__list_mcp_tools","arguments":{}}}]}}}`)); err != nil {
+		t.Fatalf("write listener run-tools invalid-affinity endpoint call: %v", err)
+	}
+	invalidAffinityEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var invalidAffinityContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(invalidAffinityEnvelope.Content, &invalidAffinityContent); err != nil {
+		t.Fatalf("decode listener run-tools invalid-affinity result: %v", err)
+	}
+	if invalidAffinityContent.ProjectConfigID != "project-alpha" || invalidAffinityContent.CallID != "call-tools-invalid-affinity" || invalidAffinityContent.OK {
+		t.Fatalf("unexpected invalid-affinity listener result %#v", invalidAffinityContent)
+	}
+	if invalidAffinityContent.Error != "listener_call_failed" {
+		t.Fatalf("expected listener_call_failed for blank frontend affinity token, got %#v", invalidAffinityContent)
+	}
+	if invalidAffinityContent.Details["message"] != "frontendAffinityToken must be a non-empty string when provided" {
+		t.Fatalf("expected blank frontend affinity validation message, got %#v", invalidAffinityContent.Details)
+	}
 }
 
 func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefresh(t *testing.T) {
