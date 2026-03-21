@@ -1034,6 +1034,64 @@ func TestServerRevealUISettingIgnoresRequestMetaShareSessionIDWithoutSessionShar
 	}
 }
 
+func TestServerRevealUISettingShareScopeKeepsRequestMetaFrontendAffinityWhenSessionAffinityMissing(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-1",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSession(
+		t,
+		clientSession,
+		"project-alpha",
+		"",
+		"",
+		"share-session-1",
+		true,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Meta: sdkmcp.Meta{
+			"frontendAffinityToken": "frontend-from-request",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call share-scope reveal_ui_setting with request frontend affinity: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected share-scope reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected shareSessionID share-session-1, got %q", revealService.input.ShareSessionID)
+	}
+	if revealService.input.FrontendAffinityToken != "frontend-from-request" {
+		t.Fatalf("expected request frontend affinity token in share scope, got %q", revealService.input.FrontendAffinityToken)
+	}
+}
+
 func TestServerRevealUISettingShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta(t *testing.T) {
 	t.Parallel()
 
@@ -1280,6 +1338,74 @@ func TestServerSearchUISettingsRejectsBlankQuery(t *testing.T) {
 	}
 	if payload["message"] != "query must not be empty" {
 		t.Fatalf("expected blank-query message, got %#v", payload["message"])
+	}
+}
+
+func TestServerGetUISettingValueRejectsMalformedProjectConfigIDMetaWithoutFallbackToArgument(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": 123,
+			"sectionId":       "chat-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value with malformed projectConfigId meta: %v", err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected malformed projectConfigId meta to fail, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != "projectConfigId metadata must be a string" {
+		t.Fatalf("expected malformed projectConfigId meta message, got %#v", payload["message"])
+	}
+}
+
+func TestServerGetUISettingValueRejectsMalformedAllowUnscopedMetaWithoutFallbackToProjectArgument(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   "sometimes",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value with malformed allowUnscoped meta: %v", err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected malformed allowUnscoped meta to fail, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != "allowUnscoped metadata must be true or false" {
+		t.Fatalf("expected malformed allowUnscoped meta message, got %#v", payload["message"])
 	}
 }
 

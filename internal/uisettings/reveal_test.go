@@ -871,6 +871,47 @@ func TestRevealServiceRejectsUnavailableAffinityTokenAfterFrontendDisconnect(t *
 	}
 }
 
+func TestRevealServiceRejectsRawFrontendConnectionIDAsAffinityToken(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token"),
+	})
+	if _, err := registry.Register(realtime.RegisterParams{
+		ID:   "frontend-raw-id",
+		Type: realtime.ConnectionTypeFrontend,
+	}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:              revealTestRegistry(t),
+		SettingID:             "core.project.show_param_display_names",
+		FrontendAffinityToken: "frontend-raw-id",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Frontend affinity token is invalid or no longer available for reveal routing: frontend-raw-id" {
+		t.Fatalf("unexpected raw-websocket-id affinity error message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
 func TestRevealServiceFailsWhenSelectedFrontendBecomesUndeliverableBeforeDispatch(t *testing.T) {
 	t.Parallel()
 
