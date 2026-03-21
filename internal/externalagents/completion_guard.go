@@ -1,9 +1,14 @@
 package externalagents
 
 import (
+	"context"
+	"fmt"
+	"path/filepath"
 	"strings"
 
 	"setta/internal/mcpx"
+	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -71,6 +76,30 @@ func applyCompletionGuardToState(state *ChatState, completionGuardEnabled bool) 
 	replaceAssistantText(&assistantMessage, replacement)
 	state.Messages[assistantIndex] = assistantMessage
 	return replacement
+}
+
+func loadCompletionGuardEnabled(ctx context.Context, settaFilesRoot string) (bool, error) {
+	if strings.TrimSpace(settaFilesRoot) == "" {
+		return settingsstate.DefaultCompletionGuardEnabled, nil
+	}
+	settingsStore, err := settingsstate.NewStore(
+		filepath.Join(settaFilesRoot, settingsstate.DefaultFileName),
+		settingsstate.StoreOptions{
+			SettingsProjectPath: filepath.Join(settaFilesRoot, projectstate.SettingsFileName),
+		},
+	)
+	if err != nil {
+		return false, fmt.Errorf("open settings store: %w", err)
+	}
+	document, err := settingsStore.Load(ctx)
+	if err != nil {
+		return false, fmt.Errorf("load settings document: %w", err)
+	}
+	enabled, err := settingsstate.CompletionGuardEnabled(document)
+	if err != nil {
+		return false, fmt.Errorf("read completion guard setting: %w", err)
+	}
+	return enabled, nil
 }
 
 func findGuardTargetAssistantIndex(messages []map[string]any) int {

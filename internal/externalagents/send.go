@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
-	"setta/internal/settingsstate"
 )
 
 const (
@@ -576,22 +574,10 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 }
 
 func (s *SendService) resolveCompletionGuardEnabled(ctx context.Context) (bool, error) {
-	if s == nil || strings.TrimSpace(s.settaFilesRoot) == "" {
-		return settingsstate.DefaultCompletionGuardEnabled, nil
+	if s == nil {
+		return loadCompletionGuardEnabled(ctx, "")
 	}
-	settingsStore, err := settingsstate.NewStore(filepath.Join(s.settaFilesRoot, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
-	if err != nil {
-		return false, fmt.Errorf("open settings store: %w", err)
-	}
-	document, err := settingsStore.Load(ctx)
-	if err != nil {
-		return false, fmt.Errorf("load settings document: %w", err)
-	}
-	enabled, err := settingsstate.CompletionGuardEnabled(document)
-	if err != nil {
-		return false, fmt.Errorf("read completion guard setting: %w", err)
-	}
-	return enabled, nil
+	return loadCompletionGuardEnabled(ctx, s.settaFilesRoot)
 }
 
 func hasExplicitClaudeAllowedToolsInput(inputs map[string]any) bool {

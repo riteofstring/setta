@@ -23,7 +23,6 @@ import (
 	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
-	"setta/internal/settingsstate"
 )
 
 const (
@@ -782,19 +781,7 @@ func mergeOpenCodePermissionAllowlist(
 }
 
 func (e *OpenCodeExecutor) resolveCompletionGuardEnabled(ctx context.Context) (bool, error) {
-	settingsStore, err := settingsstate.NewStore(filepath.Join(e.settaFilesRoot, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
-	if err != nil {
-		return false, fmt.Errorf("open settings store: %w", err)
-	}
-	document, err := settingsStore.Load(ctx)
-	if err != nil {
-		return false, fmt.Errorf("load settings document: %w", err)
-	}
-	enabled, err := settingsstate.CompletionGuardEnabled(document)
-	if err != nil {
-		return false, fmt.Errorf("read completion guard setting: %w", err)
-	}
-	return enabled, nil
+	return loadCompletionGuardEnabled(ctx, e.settaFilesRoot)
 }
 
 func (e *OpenCodeExecutor) buildOpenCodeMCPHeaders(request StartRequest) (map[string]string, error) {
