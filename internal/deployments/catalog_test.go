@@ -216,6 +216,29 @@ func TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries(t *testin
 	}
 }
 
+func TestLoadManifestOptionalReturnsFalseForInvalidManifest(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeCatalogInvalidManifest(t, filepath.Join(root, "demo-share", "v1"), map[string]any{
+		"version":           1,
+		"deploymentName":    "demo-share",
+		"deploymentType":    "share",
+		"deploymentVersion": "v1",
+	})
+
+	manifest, ok, err := loadManifestOptional(filepath.Join(root, "demo-share", "v1"))
+	if err != nil {
+		t.Fatalf("load manifest optional: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected invalid manifest to be treated as absent, got %#v", manifest)
+	}
+	if manifest != (Manifest{}) {
+		t.Fatalf("expected zero manifest when invalid manifest is skipped, got %#v", manifest)
+	}
+}
+
 func TestCatalogLatestUsesHighestVersionRootAsSourceOfTruth(t *testing.T) {
 	t.Parallel()
 
