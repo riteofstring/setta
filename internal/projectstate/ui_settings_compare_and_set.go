@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type ExpectedOldValueMismatchError struct {
@@ -73,6 +74,46 @@ func (r *Runtime) CompareAndSetShowParamDisplayNames(
 	})
 }
 
+func (d *Document) CompareAndSetProjectName(
+	projectID string,
+	name string,
+	expectedOldValue *string,
+) (CompareAndSetResult[string], error) {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return CompareAndSetResult[string]{}, err
+	}
+
+	oldValue := project.Name
+	if noop, err := isUISettingCompareAndSetNoop(
+		"core.project.name",
+		optionalStringAny(expectedOldValue),
+		oldValue,
+		name,
+	); err != nil {
+		return CompareAndSetResult[string]{}, err
+	} else if noop {
+		return CompareAndSetResult[string]{OldValue: oldValue, NewValue: oldValue}, nil
+	}
+
+	if err := d.SetProjectName(projectID, name); err != nil {
+		return CompareAndSetResult[string]{}, err
+	}
+	return CompareAndSetResult[string]{OldValue: oldValue, NewValue: name}, nil
+}
+
+func (r *Runtime) CompareAndSetProjectName(
+	ctx context.Context,
+	projectID string,
+	name string,
+	expectedOldValue *string,
+) (Snapshot, CompareAndSetResult[string], error) {
+	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[string], error) {
+		result, err := document.CompareAndSetProjectName(projectID, name, expectedOldValue)
+		return document, result, err
+	})
+}
+
 func (d *Document) CompareAndSetWatchCodeEnabled(
 	projectID string,
 	enabled bool,
@@ -111,6 +152,68 @@ func (r *Runtime) CompareAndSetWatchCodeEnabled(
 ) (Snapshot, CompareAndSetResult[bool], error) {
 	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[bool], error) {
 		result, err := document.CompareAndSetWatchCodeEnabled(projectID, enabled, workspaceRoot, expectedOldValue)
+		return document, result, err
+	})
+}
+
+func (d *Document) CompareAndSetPythonCodegenEnabled(
+	ctx context.Context,
+	projectID string,
+	enabled bool,
+	expectedOldValue *bool,
+	validator CodegenTargetValidator,
+	pythonReconciler PythonCodegenSectionReconciler,
+) (CompareAndSetResult[bool], error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return CompareAndSetResult[bool]{}, err
+	}
+
+	oldValue := project.HasPythonCodegenTarget()
+	if noop, err := isUISettingCompareAndSetNoop(
+		"core.run_instructions.python_codegen_enabled",
+		optionalBoolAny(expectedOldValue),
+		oldValue,
+		enabled,
+	); err != nil {
+		return CompareAndSetResult[bool]{}, err
+	} else if noop {
+		return CompareAndSetResult[bool]{OldValue: oldValue, NewValue: oldValue}, nil
+	}
+
+	if err := d.SetProjectCodegenTargets(
+		ctx,
+		projectID,
+		projectCodegenTargetsWithPythonEnabled(project.CodegenTargets, enabled),
+		validator,
+		pythonReconciler,
+	); err != nil {
+		return CompareAndSetResult[bool]{}, err
+	}
+	return CompareAndSetResult[bool]{OldValue: oldValue, NewValue: enabled}, nil
+}
+
+func (r *Runtime) CompareAndSetPythonCodegenEnabled(
+	ctx context.Context,
+	projectID string,
+	enabled bool,
+	expectedOldValue *bool,
+	validator CodegenTargetValidator,
+	pythonReconciler PythonCodegenSectionReconciler,
+) (Snapshot, CompareAndSetResult[bool], error) {
+	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[bool], error) {
+		result, err := document.CompareAndSetPythonCodegenEnabled(
+			ctx,
+			projectID,
+			enabled,
+			expectedOldValue,
+			validator,
+			pythonReconciler,
+		)
 		return document, result, err
 	})
 }
@@ -304,6 +407,27 @@ func optionalWatchCodeFoldersAny(value []WatchCodeFolder) any {
 		return nil
 	}
 	return canonicalWatchCodeFolders(value)
+}
+
+func projectCodegenTargetsWithPythonEnabled(targets []ProjectCodegenTarget, enabled bool) []ProjectCodegenTarget {
+	next := make([]ProjectCodegenTarget, 0, len(targets)+1)
+	hasPython := false
+	for _, target := range targets {
+		if strings.TrimSpace(target.Language) == string(CodeLanguagePython) {
+			hasPython = true
+			if enabled {
+				next = append(next, target.Clone())
+			}
+			continue
+		}
+		next = append(next, target.Clone())
+	}
+	if enabled && !hasPython {
+		next = append(next, ProjectCodegenTarget{
+			Language: string(CodeLanguagePython),
+		})
+	}
+	return next
 }
 
 func canonicalStringSlice(value []string) []string {

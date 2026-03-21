@@ -556,34 +556,15 @@ func writeProjectNameSetting(
 	if err != nil {
 		return MutationResult{}, err
 	}
-	project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+	_, result, err := runtime.CompareAndSetProjectName(ctx, projectID, nextValue, expected)
 	if err != nil {
-		return MutationResult{}, err
-	}
-	oldValue := project.Name
-	if expected != nil && oldValue != *expected {
-		return MutationResult{}, wrapMutationError(&projectstate.ExpectedOldValueMismatchError{
-			SettingID:        "core.project.name",
-			ExpectedOldValue: *expected,
-			ObservedOldValue: oldValue,
-		})
-	}
-	if oldValue == nextValue {
-		return MutationResult{
-			OldValue:        oldValue,
-			NewValue:        oldValue,
-			NormalizedValue: oldValue,
-			Changed:         false,
-		}, nil
-	}
-	if _, err := runtime.SetProjectName(ctx, projectID, nextValue); err != nil {
 		return MutationResult{}, wrapMutationError(err)
 	}
 	return MutationResult{
-		OldValue:        oldValue,
-		NewValue:        nextValue,
-		NormalizedValue: nextValue,
-		Changed:         true,
+		OldValue:        result.OldValue,
+		NewValue:        result.NewValue,
+		NormalizedValue: result.NewValue,
+		Changed:         result.OldValue != result.NewValue,
 	}, nil
 }
 
@@ -598,67 +579,27 @@ func writePythonCodegenEnabledSetting(
 	if err != nil {
 		return MutationResult{}, err
 	}
-	project, err := runtime.Snapshot().Document.ProjectByID(projectID)
-	if err != nil {
-		return MutationResult{}, err
-	}
-	oldValue := project.HasPythonCodegenTarget()
-	if expected != nil && oldValue != *expected {
-		return MutationResult{}, wrapMutationError(&projectstate.ExpectedOldValueMismatchError{
-			SettingID:        "core.run_instructions.python_codegen_enabled",
-			ExpectedOldValue: *expected,
-			ObservedOldValue: oldValue,
-		})
-	}
-	if oldValue == nextValue {
-		return MutationResult{
-			OldValue:        oldValue,
-			NewValue:        oldValue,
-			NormalizedValue: oldValue,
-			Changed:         false,
-		}, nil
-	}
-	nextTargets := projectCodegenTargetsWithPythonEnabled(project.CodegenTargets, nextValue)
-	if _, err := runtime.SetProjectCodegenTargets(
+	_, result, err := runtime.CompareAndSetPythonCodegenEnabled(
 		ctx,
 		projectID,
-		nextTargets,
+		nextValue,
+		expected,
 		projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 			return nil
 		}),
 		projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
 			return nil
 		}),
-	); err != nil {
+	)
+	if err != nil {
 		return MutationResult{}, wrapMutationError(err)
 	}
 	return MutationResult{
-		OldValue:        oldValue,
-		NewValue:        nextValue,
-		NormalizedValue: nextValue,
-		Changed:         true,
+		OldValue:        result.OldValue,
+		NewValue:        result.NewValue,
+		NormalizedValue: result.NewValue,
+		Changed:         result.OldValue != result.NewValue,
 	}, nil
-}
-
-func projectCodegenTargetsWithPythonEnabled(targets []projectstate.ProjectCodegenTarget, enabled bool) []projectstate.ProjectCodegenTarget {
-	next := make([]projectstate.ProjectCodegenTarget, 0, len(targets)+1)
-	hasPython := false
-	for _, target := range targets {
-		if strings.TrimSpace(target.Language) == string(projectstate.CodeLanguagePython) {
-			hasPython = true
-			if enabled {
-				next = append(next, target.Clone())
-			}
-			continue
-		}
-		next = append(next, target.Clone())
-	}
-	if enabled && !hasPython {
-		next = append(next, projectstate.ProjectCodegenTarget{
-			Language: string(projectstate.CodeLanguagePython),
-		})
-	}
-	return next
 }
 
 func valueSchemaPointer(schema ValueSchema) *ValueSchema {

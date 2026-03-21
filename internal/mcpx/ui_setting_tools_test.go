@@ -32,6 +32,12 @@ type expectedOldValueRecordingProjectState struct {
 	observedShowParamExpectedOldValues []*bool
 }
 
+type concurrentCoreSettingProjectState struct {
+	*projectstate.Runtime
+	beforeCompareProjectName          func(context.Context, string, string, *string) error
+	beforeComparePythonCodegenEnabled func(context.Context, string, bool, *bool) error
+}
+
 type concurrentWritePluginMutationService struct {
 	*plugins.Service
 	beforeWriteConfig func(context.Context, plugins.ConfigWriteOptions) error
@@ -196,6 +202,47 @@ func (s *expectedOldValueRecordingProjectState) CompareAndSetShowParamDisplayNam
 		s.observedShowParamExpectedOldValues = append(s.observedShowParamExpectedOldValues, &recorded)
 	}
 	return s.Runtime.CompareAndSetShowParamDisplayNames(ctx, projectID, show, expectedOldValue)
+}
+
+func (s *concurrentCoreSettingProjectState) CompareAndSetProjectName(
+	ctx context.Context,
+	projectID string,
+	name string,
+	expectedOldValue *string,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	if s.beforeCompareProjectName != nil {
+		hook := s.beforeCompareProjectName
+		s.beforeCompareProjectName = nil
+		if err := hook(ctx, projectID, name, expectedOldValue); err != nil {
+			return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
+		}
+	}
+	return s.Runtime.CompareAndSetProjectName(ctx, projectID, name, expectedOldValue)
+}
+
+func (s *concurrentCoreSettingProjectState) CompareAndSetPythonCodegenEnabled(
+	ctx context.Context,
+	projectID string,
+	enabled bool,
+	expectedOldValue *bool,
+	validator projectstate.CodegenTargetValidator,
+	pythonReconciler projectstate.PythonCodegenSectionReconciler,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error) {
+	if s.beforeComparePythonCodegenEnabled != nil {
+		hook := s.beforeComparePythonCodegenEnabled
+		s.beforeComparePythonCodegenEnabled = nil
+		if err := hook(ctx, projectID, enabled, expectedOldValue); err != nil {
+			return projectstate.Snapshot{}, projectstate.CompareAndSetResult[bool]{}, err
+		}
+	}
+	return s.Runtime.CompareAndSetPythonCodegenEnabled(
+		ctx,
+		projectID,
+		enabled,
+		expectedOldValue,
+		validator,
+		pythonReconciler,
+	)
 }
 
 func (s *recordingRevealService) Reveal(_ context.Context, input uisettings.RevealInput) (uisettings.RevealResult, error) {
@@ -1642,6 +1689,116 @@ func TestServerSetUISettingValueSuppliesCurrentValueWhenExpectedOldValueOmitted(
 	}
 	if recordingState.observedShowParamExpectedOldValues[1] == nil || *recordingState.observedShowParamExpectedOldValues[1] != true {
 		t.Fatalf("expected second omitted expectedOldValue to use refreshed true value, got %#v", recordingState.observedShowParamExpectedOldValues[1])
+	}
+}
+
+func TestServerSetUISettingValueRejectsStaleProjectNamePreconditionWithoutClobber(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	projectState := &concurrentCoreSettingProjectState{Runtime: projectRuntime}
+	projectState.beforeCompareProjectName = func(ctx context.Context, projectID string, _ string, _ *string) error {
+		_, err := projectRuntime.SetProjectName(ctx, projectID, "Alpha Concurrent")
+		return err
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectState,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.name",
+			"value":           "Alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call stale project-name set_ui_setting_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected structured stale project-name response, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	errorPayload := mustStructuredMap(t, payload["error"])
+	if errorPayload["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed error code, got %#v", errorPayload["code"])
+	}
+	if !strings.Contains(fmt.Sprint(errorPayload["message"]), "changed since pre-write validation") {
+		t.Fatalf("expected stale-precondition message, got %#v", errorPayload["message"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after stale project-name write: %v", err)
+	}
+	if project.Name != "Alpha Concurrent" {
+		t.Fatalf("expected concurrent project name to remain, got %q", project.Name)
+	}
+}
+
+func TestServerSetUISettingValueRejectsStalePythonCodegenPreconditionWithoutClobber(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	projectState := &concurrentCoreSettingProjectState{Runtime: projectRuntime}
+	projectState.beforeComparePythonCodegenEnabled = func(ctx context.Context, projectID string, _ bool, _ *bool) error {
+		_, err := projectRuntime.SetProjectCodegenTargets(
+			ctx,
+			projectID,
+			[]projectstate.ProjectCodegenTarget{{Language: string(projectstate.CodeLanguagePython)}},
+			nil,
+			projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+				return nil
+			}),
+		)
+		return err
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectState,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.run_instructions.python_codegen_enabled",
+			"value":           false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call stale python-codegen set_ui_setting_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected structured stale python-codegen response, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	errorPayload := mustStructuredMap(t, payload["error"])
+	if errorPayload["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed error code, got %#v", errorPayload["code"])
+	}
+	if !strings.Contains(fmt.Sprint(errorPayload["message"]), "changed since pre-write validation") {
+		t.Fatalf("expected stale-precondition message, got %#v", errorPayload["message"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after stale python-codegen write: %v", err)
+	}
+	if !project.HasPythonCodegenTarget() {
+		t.Fatal("expected concurrent python codegen value to remain enabled")
 	}
 }
 
