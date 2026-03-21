@@ -1,0 +1,749 @@
+# Settings Pan/Zoom Hybrid Rendering Plan
+
+Date: 2026-03-20
+Worktree: `setta.frontend-performance-11`
+Current branch: `frontend-performance-11`
+Current HEAD at start: `b40672176`
+Related log: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-log.md`
+
+## Goal
+
+Make Setta canvas pan and zoom feel effectively hitch-free on dense projects such as `settings` while preserving the apparent product UI and UX.
+
+The user-facing requirement is:
+
+- no visible blur during viewport motion
+- no obvious frame hitching or dropped frames during horizontal pan, vertical pan, overview zoom, or detail zoom
+- no requirement for a second click to interact with a section
+- no material visual regression relative to the existing section design unless an explicit visual simplification is accepted as a deliberate tradeoff
+
+## Executive Decision
+
+Do not treat this as an `xyflow` replacement project.
+
+Treat this as a section-body rendering architecture project with three linked moves:
+
+1. Reintroduce the cheaper top-level section shell behavior from the pre-regression baseline around `bf6487690` on top of current `HEAD`.
+2. Keep flattening the active section-body DOM where that work is still high leverage.
+3. Add a hybrid section-body LOD system so inactive bodies stop participating as fully visible live DOM during pan/zoom and low-zoom overview states.
+
+Also split the section strategy by multiplicity and product importance instead of forcing one body-layout policy across every section type.
+
+For Tier 1 specifically, keep the top-level section shell on the old grid-style model while still flattening and simplifying everything possible underneath it.
+
+The intended steady-state model is:
+
+- live outer shell at all times
+- live active section body
+- warm live bodies for a small high-priority set
+- visually faithful preview bodies for the rest during motion and low-zoom states
+
+## Why This Is The Recommended Direction
+
+The strongest evidence from this worktree is:
+
+- The main problem is browser paint/compositing on visible section-body DOM, not edge rendering and not the bare React Flow shell.
+- The current branch is faster than the older shell in many main-thread categories, but much worse in `Paint` during pan and zoom.
+- The branch has already demonstrated that exact-live-content pan/zoom can reach refresh-limited behavior when paint is isolated, but the previous shell-promotion fix was removed because it caused temporary blur during motion.
+- Small local replacements such as code-widget-only preview swaps do not produce the class of gain we need.
+- Section-level changes do produce the class of gain we need.
+
+Primary evidence:
+
+- `perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md`
+- `perf/reports/frontend/2026-03-20_section-top-level-grid-benchmark.md`
+- `docs/plans/worktrees/setta.frontend-performance-11/section-performance-log.md`
+- fresh local trace artifacts:
+  - `perf/tmp/current-settings-live-trace.json`
+  - `perf/tmp/baseline-settings-live-trace.json`
+
+## What We Are Not Betting On
+
+- Not a full rendering-engine swap as the first move.
+- Not per-widget canvas conversion as the main strategy.
+- Not a requirement that every inactive section body remain fully live and visibly rendered at every zoom level.
+- Not a return of gesture-time shell promotion that blurs content during motion.
+- Not a global rule that every section body must keep the same flattened body-layout model.
+- Not a blanket return to `subgrid` as the shared answer.
+- Not any terminal-section architecture work inside this plan.
+
+## Key Findings To Preserve
+
+### 1. `xyflow` is not the primary bottleneck
+
+Setta already reaches near-refresh-limit performance when only lightweight section shells are present. The major regression appears once the real nested section-body subtree is live.
+
+### 2. The dominant steady-state cost is visible body paint
+
+The strongest clue is the benchmark-only `opacity: 0` result on inactive bodies:
+
+- almost the full DOM stayed mounted
+- pan performance still jumped into the refresh-limited band
+
+That means the main problem is not simply that the DOM exists. It is that the browser is painting and compositing the visible body subtree during transform motion.
+
+### 3. The pre-regression top-level shell is still relevant
+
+The `bf6487690` comparison showed a much cheaper pan/zoom paint profile than current `HEAD`.
+
+That does not mean "revert everything to `bf6487690`".
+
+It does mean the top-level shell should be restored toward that paint-friendlier behavior before or alongside the LOD work.
+
+### 4. Small isolated canvas/image substitutions are not the answer
+
+Prior work already showed:
+
+- code-widget-only SnapDOM SVG previews: too little gain
+- code-widget-only canvas previews: materially worse
+
+This points away from "canvasify individual controls" and toward "change whole section-body participation in the motion path".
+
+### 5. Whole-section-body substitution does work
+
+The branch already demonstrated that replacing inactive section bodies with a single preview surface, or otherwise removing their visible paint participation, can produce the class of pan/zoom improvement we want.
+
+The open problem is not whether this can work. The open problem is how to do it without:
+
+- blur during motion
+- slow activation
+- a degraded click-to-interactive experience
+
+## Section Families And Scope
+
+This plan now explicitly separates section families by expected multiplicity on the canvas.
+
+## Tier 1: Dense Param Families
+
+These are the primary performance targets and should remain on the strictest DOM and paint budget:
+
+- `Callable`
+- `Dict`
+- param-heavy dict variants
+- list/object-style param sections
+- `GlobalVariables` when it shares the same heavy param/body stack
+
+These sections are the main candidates for:
+
+- retaining the top-level grid-style section shell
+- the most aggressive DOM flattening
+- section-body LOD / preview behavior
+- strict wrapper, clipping, and always-mounted-control budgets
+
+Tier 1 rule:
+
+- keep the top-level shell/grid contract for these sections
+- avoid `subgrid` where a simpler local contract can preserve the same geometry and interaction behavior
+- push the simplification work downward into the body, row, widget, and shared param-stack ownership layers
+
+## Tier 2: Code Sections
+
+`Code` sections stay in scope, but as a separate tier.
+
+They should inherit:
+
+- the shared shell improvements
+- the render-mode infrastructure
+- the same motion/zoom contract
+
+But they should be profiled and optimized as their own body family, not forced into exactly the same body strategy as the dense param sections.
+
+Working assumption:
+
+- code sections likely still merit optimization work
+- but their body cost profile is different enough from Tier 1 that they should not drive the same local body decisions
+
+This tier also owns CodeMirror-heavy behavior in related section families even when their surrounding body layout is restored locally.
+
+That includes:
+
+- `Code`
+- the editor/input side of `Prompt`
+- the editor/input side of `TextBlock`
+
+Out-of-scope note for this plan:
+
+- code typing performance is acknowledged as a real problem area
+- but it should remain out of scope unless the pan/zoom and activation profiling in this plan clearly points at the same root cause
+
+## Explicitly Excluded From This Plan
+
+- `Terminal` section architecture changes
+
+Terminal should remain out of scope here because the desired direction for it is expected to be different.
+
+## Sparse Section Restore Policy
+
+For lower-count section types, the plan now allows restoring richer body layouts locally if that improves product quality and does not reopen shared hot-path costs for Tier 1 or Tier 2 sections.
+
+Examples of likely sparse-section candidates:
+
+- `Browser`
+- `Draw`
+- `Chart`
+- `Prompt` body layout outside the live editor path
+- `TextBlock` body layout outside the live editor path
+- similar low-count special-purpose sections
+
+This restoration policy means:
+
+- restore body layouts locally in the owning section implementation when useful
+- avoid reintroducing shared heavy body contracts that dense sections also consume
+- avoid reintroducing `subgrid` unless a specific local case proves it is necessary and worthwhile
+
+The preferred restoration model is:
+
+- old visual/body-layout quality where useful
+- without reopening shared `subgrid` or other heavy shared layout contracts where a simpler local flex/absolute contract can preserve the same appearance
+
+Important nuance for `Prompt` and `TextBlock`:
+
+- restoring their local body layout does not mean exempting their CodeMirror/editor path from optimization work
+- the rendered-text / markdown / surrounding layout can be restored locally
+- the editor path should stay grouped with Tier 2 code-section profiling and optimization
+
+## Target Architecture
+
+## 1. Section Shell Always Live
+
+Keep these elements live at all times:
+
+- section frame
+- header/title
+- selection outline
+- drag and resize affordances
+- edge handles / ports
+- any minimal shell chrome needed for spatial awareness
+
+The shell must remain sharp during motion.
+
+Tier-specific shell note:
+
+- Tier 1 dense param sections should keep the top-level grid-style shell
+- sparse restored sections may use their own local body layout choices underneath that shared shell policy
+- Tier 2 code sections inherit the shared shell policy first and then get separate body/editor profiling
+
+## 2. Section Body Render Modes
+
+Each section body should have an explicit render mode:
+
+- `live`
+  - real body DOM rendered and visible
+- `warm`
+  - real body DOM mounted and ready, but not necessarily the main visible representation
+- `preview`
+  - visually faithful lightweight representation used during motion and/or low zoom
+
+This mode must be driven by deterministic source-of-truth inputs, not heuristics based on text matching or widget type guesses.
+
+Recommended inputs:
+
+- `viewportInteractionActive`
+- current zoom
+- projected on-screen section-body width and height
+- section active state
+- section hover / focus state
+- optional warm-pool priority score derived from proximity to the active section or recent interaction
+
+## 3. Preview Policy
+
+Previews are allowed only when a section body is not the current interaction target and when at least one of these is true:
+
+- the viewport is actively moving
+- the section body is below a screen-space size threshold
+
+Previews must not be relied on for arbitrary deep zoom.
+
+Instead:
+
+- preview while small or while moving
+- switch to live before the section becomes visually important enough for softness to matter
+
+This avoids the need for huge raster assets for every section.
+
+## 4. Preview Substrate
+
+The preview should be section-body-level, not widget-level.
+
+Preferred order of investigation:
+
+1. Faithful section-body preview surface with strong visual parity.
+2. If the preview surface cannot remain crisp enough over the required zoom range, use a lightweight semantic preview DOM instead of a raster-only surface.
+
+Deprioritized:
+
+- converting `KwargsControls` alone to canvas
+- converting row controls one-by-one to canvas
+- maintaining hundreds of little canvas islands
+
+Section-family note:
+
+- Tier 1 dense param sections are the main preview/LOD targets
+- Tier 2 code sections may use the same infrastructure, but should be evaluated separately
+- sparse restored sections should only opt into preview if traces prove they need it
+
+## 5. Preview Generation Rules
+
+Preview generation must not happen inside the active pan/zoom gesture.
+
+Required rule:
+
+- generate or refresh previews only after content changes and only on idle / settled viewport states
+
+During motion, the system should only:
+
+- flip render modes
+- toggle visibility
+- swap between already-prepared representations
+
+It must not:
+
+- capture fresh previews
+- remount heavy DOM
+- do expensive body layout work
+
+## 6. Activation Model
+
+The product must not regress into "click once, wait, click again".
+
+Required interaction model:
+
+- first click on a previewed section activates it
+- the same gesture must transfer the section into an interactive state without requiring a second click
+
+To make that realistic, use a warm pool:
+
+- active section always live
+- hovered section should usually be warm
+- a small nearby set should stay warm as the likely-next interaction targets
+
+Cold activation may still exist for far-away sections, but it should be treated as an exception path, not the common path.
+
+## Why ComfyUI Is Relevant But Not A Direct Template
+
+ComfyUI performs well because its default graph path is canvas-first with visible-node culling and dirty front/background canvases. Even its DOM-node path is transform-aware and aggressively limits DOM participation.
+
+Setta does not need to become LiteGraph to benefit from the same principle.
+
+The reusable lesson is:
+
+- keep the transform path cheap
+- cull or substitute expensive body content during motion
+- avoid asking the browser to repaint every detailed body subtree on every viewport transform frame
+
+## Delivery Phases
+
+## Phase 0: Lock The Performance Contract
+
+Write down the contract before implementation starts.
+
+- Preserve the current apparent section UI as the target.
+- Allow implementation-level LOD and inactive-body substitution.
+- Disallow temporary blur as an accepted motion tradeoff.
+- Disallow a required second click to interact.
+- Define warm vs cold activation targets.
+- Define zoom/screen-space thresholds as explicit config, not ad hoc constants hidden in components.
+
+Acceptance criteria:
+
+- one written contract exists for motion sharpness, activation behavior, and preview eligibility
+- no implementation starts by reintroducing blur-prone shell promotion blindly
+
+## Phase 1: Restore The Paint-Friendlier Top-Level Shell Baseline
+
+Use the `bf6487690` comparison as the top-level shell paint baseline and restore the cheaper pan/zoom shell behavior on top of current code where it does not conflict with already-accepted lower-level flattening work.
+
+Scope:
+
+- compare current shell behavior against `bf6487690`
+- reintroduce the paint-friendlier top-level shell contract selectively
+- for Tier 1 dense param families, explicitly restore the old grid-style top-level shell behavior
+- keep the accepted lower-seam simplifications that are unrelated to the shell paint regression
+
+Acceptance criteria:
+
+- fresh `settings` traces show a clear `Paint` reduction versus current `HEAD`
+- no visual regressions on section shell sizing and interaction affordances
+- Tier 1 sections are back on the intended top-level grid-style shell before deeper body work continues
+
+## Phase 1A: Restore Local Body Layouts For Sparse Sections
+
+After the shared top-level shell baseline is restored, selectively restore richer local body layouts for sparse section types where the branch-specific flattening work is not buying meaningful multiplicative performance.
+
+Initial likely candidates:
+
+- `Browser`
+- `Draw`
+- `Chart`
+- `Prompt` surrounding layout
+- `TextBlock` surrounding layout
+
+Rules:
+
+- restore locally in the section-owned body files
+- do not reopen a shared heavy body contract used by Tier 1 or Tier 2
+- prefer simpler flex/absolute recreation over reintroducing `subgrid`
+- for `Prompt` and `TextBlock`, keep any CodeMirror/editor-path decisions deferred to Tier 2
+
+Acceptance criteria:
+
+- sparse sections regain the desired local layout quality
+- Tier 1 and Tier 2 traces do not regress because of shared-contract fallout
+
+## Phase 2: Add Section-Body Render-Mode Infrastructure
+
+Build the explicit render-mode system without changing final appearance yet.
+
+Scope:
+
+- add render-mode state per section body
+- wire deterministic mode inputs:
+  - active state
+  - hover/focus state
+  - `viewportInteractionActive`
+  - zoom
+  - projected on-screen size
+- add warm-pool bookkeeping
+- keep everything functionally live at first while wiring the system
+
+Acceptance criteria:
+
+- render-mode transitions are observable and testable
+- no motion-time preview generation exists
+
+## Phase 3: Implement A Faithful Section-Body Preview Path
+
+Replace inactive body participation in the motion path with a section-body-level preview representation.
+
+Rules:
+
+- preview generation on idle only
+- visible preview swap allowed during motion
+- no widget-level canvas explosion
+
+Acceptance criteria:
+
+- `settings` pan and zoom traces move into the refresh-limited band on the representative dev machine
+- no visible blur during motion
+- preview visuals remain faithful enough to preserve spatial recognition
+
+Phase targeting note:
+
+- start this phase on Tier 1 dense param sections first
+- only widen into Tier 2 code sections after the Tier 1 path is proven
+- do not force sparse restored sections onto preview mode unless profiling proves they need it
+
+## Phase 4: Eliminate Click-Wait Through Warm Activation
+
+Use the render-mode system to make the common interaction path effectively immediate.
+
+Scope:
+
+- active section always live
+- hovered section warm
+- nearby likely-next sections warm
+- first click on a previewed section must both activate and begin interaction
+
+Primary hotspot to revisit during this phase:
+
+- `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+
+Acceptance criteria:
+
+- no second click required
+- warm activation is effectively immediate
+- cold activation is bounded and clearly smaller than the previously measured `~130ms` average preview hydration path
+
+## Phase 5: Continue Flattening The Active Body DOM
+
+Even with LOD, the active live section path still matters for:
+
+- close zoom
+- editing
+- cold activation
+- warm-pool memory budget
+
+Continue reducing:
+
+- wrapper count
+- nested clipping/rounding surfaces
+- recursive row complexity
+- unnecessary local scroll/paint owners
+- shallow module seams that force the reader to bounce across too many tiny files for one concept
+- AI-hostile ownership splits where a single concept is spread across too many thin modules
+
+Tier targeting:
+
+- Tier 1 dense param sections are the main body-flattening target
+- Tier 2 code sections should get their own focused pass after Tier 1
+- sparse restored sections should only be revisited if they show up in traces
+
+Deprioritize:
+
+- icon-only cleanup
+- small decorative tweaks that do not materially remove paint or DOM work
+
+Acceptance criteria:
+
+- active-section interactivity remains responsive
+- DOM and paint cost fall further on active-body traces
+- touched ownership seams become easier to reason about and test at a boundary level instead of through fragile cross-module coupling
+
+## Phase 6: Reevaluate Tier 2 Code Sections
+
+Run dedicated code-section profiling and then apply the same high-level framework with code-specific decisions.
+
+Scope:
+
+- benchmark representative code-section canvases
+- benchmark representative `Prompt` and `TextBlock` editor states separately from their restored surrounding layout
+- measure pan/zoom, activation, and editing latency
+- decide whether code sections need:
+  - body preview at low zoom and during motion
+  - further editor-path simplification
+  - a code-specific warm strategy
+- decide whether any `Prompt` / `TextBlock` editor-path issues uncovered here belong to:
+  - the same CodeMirror motion/activation bucket
+  - or a later dedicated typing/editing-performance plan
+
+Important constraint:
+
+- do not couple this phase to terminal-section work
+
+Acceptance criteria:
+
+- code sections have a documented profile and an explicit optimization path
+- no terminal work is pulled in by accident
+
+## Phase 7: Reevaluate Engine Work Only After The Above
+
+Only revisit an engine-level replacement if the hybrid body strategy still fails the target after the shell and LOD work.
+
+If that phase is reached, evaluate only renderers with a genuinely different rendering model:
+
+- canvas-first
+- WebGL-first
+- hybrid DOM/canvas
+
+Do not spend time on a DOM-to-DOM engine swap unless new evidence shows the viewport container itself is the dominant bottleneck.
+
+## Verification Requirements
+
+Every implementation phase must include:
+
+- fresh DevTools traces on `settings`
+- before/after paint totals
+- horizontal pan, vertical pan, full zoom, and detail zoom coverage
+- visual validation that no temporary blur was introduced
+- interaction validation that first-click activation still works
+- direct untouched-`main` versus worktree pixel-level comparison on every touched section/layout seam that changes visible UI
+
+At minimum, every meaningful performance checkpoint in this plan must run the standardized `settings` benchmark against:
+
+- untouched `main`
+- the current worktree branch
+
+As the benchmark suite grows, meaningful checkpoints must also run the standardized synthetic benchmark scenes that correspond to the active tier scope of the work.
+
+Prefer using the existing replay and trace-summary helpers:
+
+- `perf/scripts/sectionBenchmarkScenes.js`
+- `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+- `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+- `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
+
+Record new evidence under `perf/` as append-only reports.
+
+Comparison rule:
+
+- keep using exact untouched-`main` versus worktree visual compares as a hard gate
+- when a visible layout seam is touched, do not rely on approximate screenshots or verbal inspection alone
+- use centered DevTools element reads, screenshots, and geometry comparisons to confirm pixel-level parity or an explicitly accepted intentional difference
+
+## Standardized `settings` CDP Benchmark
+
+This plan should use one standardized CDP-only benchmark harness every time rather than ad hoc replay snippets.
+
+Current base harness:
+
+- `perf/scripts/sectionBenchmarkScenes.js`
+- `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+- `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+- `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
+
+If the current replay helper is missing any required coverage below, extend it rather than creating parallel one-off scripts.
+
+Compatibility rule:
+
+- keep `perf/scripts/settingsTopLevelGridBenchmarkReplay.js` as the settings-specific compatibility entry point
+- move shared replay logic into the generic section benchmark scripts instead of forking more settings-only helpers
+
+Required benchmark coverage:
+
+- zoom from the fit/overview minimum into the close/detail maximum
+- zoom back out from close/detail to fit/overview
+- horizontal pan across the full project width at minimum/overview zoom
+- vertical pan across the full project height at minimum/overview zoom
+- horizontal pan and vertical pan at a closer zoom level as a contrast case
+- both slow and fast variants for the pan and zoom sweeps
+
+The intent is to make the benchmark representative of both:
+
+- overview navigation where many small sections are visible at once
+- closer navigation where fewer but larger sections are visible
+
+Standardization rules:
+
+- use the same replay script for untouched `main` and the worktree
+- use the same marked phases every run
+- use the same target project shape every run
+- prefer the `settings` project as the mandatory baseline comparison scene unless an additional scene is explicitly being added
+- do not treat a one-off custom replay as authoritative evidence for the plan
+
+Required CDP metrics collection:
+
+- always collect a DevTools Performance trace for the standardized replay
+- always summarize the trace with the shared summary script
+- record at least these phase metrics:
+  - `Paint`
+  - `UpdateLayoutTree`
+  - `Layout`
+  - `RunTask`
+  - `Commit`
+  - `FireAnimationFrame`
+
+Required benchmark deliverables for each accepted checkpoint:
+
+- trace artifact for `main`
+- trace artifact for the worktree
+- summarized per-phase metrics for both
+- written interpretation of the deltas
+
+If the replay helper needs to evolve, keep backward-compatible mark names or update the summary helper in the same change so the benchmark remains one coherent standard.
+
+## Standardized Benchmark Scene Suite
+
+`settings` is the mandatory real-project baseline, but it should not be the only scene.
+
+This plan should standardize a small reproducible benchmark-scene suite that can be loaded on both untouched `main` and the current worktree.
+
+Required reproducibility rule:
+
+- benchmark scenes must not depend on ad hoc local `setta_files`
+- each scene should come from checked-in version-controlled fixture data or a deterministic checked-in builder script
+- the same canonical scene definition must be loadable on both untouched `main` and the worktree branch
+
+Required scene progression:
+
+1. `settings`
+   - mandatory real-project baseline
+2. Tier 1 synthetic scene
+   - contains the active Tier 1 section families in representative counts and arrangements
+3. Tier 2 synthetic scene
+   - added once Tier 2 work is active
+   - contains representative Tier 2 code/editor section families
+4. Tier 1 + Tier 2 combined synthetic scene
+   - added once both tiers have dedicated scenes
+   - used to validate mixed-canvas behavior
+
+Tier 1 synthetic-scene requirements:
+
+- include all active Tier 1 section families
+- use representative repeated counts rather than a single instance of each type
+- preserve deterministic section IDs, positions, and sizes across runs
+
+Tier 2 synthetic-scene requirements:
+
+- include the relevant code/editor families
+- separate editor-heavy paths from surrounding restored layout where needed
+- preserve deterministic section IDs, positions, and sizes across runs
+
+Combined-scene requirements:
+
+- place Tier 1 and Tier 2 sections on the same canvas
+- preserve deterministic section IDs, positions, and sizes across runs
+- use it to catch regressions that only appear when the heavy families coexist
+
+Standardization rule for all synthetic scenes:
+
+- use the same CDP replay script shape and the same trace-summary pathway as the `settings` scene
+- if scene-specific fit or focal-point logic is needed, extend the shared replay harness instead of creating a separate ad hoc measurement flow
+- keep the benchmark scripts, scene fixtures, and scene-building logic in version control
+
+Required checkpoint coverage by phase:
+
+- before Tier 2 starts:
+  - `settings`
+  - Tier 1 synthetic scene
+- once Tier 2 starts:
+  - `settings`
+  - Tier 1 synthetic scene
+  - Tier 2 synthetic scene
+  - Tier 1 + Tier 2 combined synthetic scene
+
+## Initial Acceptance Targets
+
+The final thresholds may tighten after baseline reruns, but the initial target shape is:
+
+- `settings` pan and zoom should return to the display-refresh-limited band on the representative dev machine
+- `Paint` during pan and zoom should collapse dramatically from current `HEAD`
+- no visible temporary blur during motion
+- no second-click interaction requirement
+- active section remains fully interactive during motion
+
+## Primary Code Clusters
+
+Likely implementation centers:
+
+- shell / viewport behavior:
+  - `frontend/src/forks/xyflow/core/container/Viewport.tsx`
+  - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - `frontend/src/components/Section/Container/sectionChrome.ts`
+- body ownership:
+  - `frontend/src/components/Section/Container/SectionAreaSwitch.tsx`
+  - `frontend/src/components/Section/Layouts/DictArea.tsx`
+  - `frontend/src/components/Section/Layouts/CallableArea.tsx`
+  - `frontend/src/components/Section/Layouts/GlobalVariablesArea.tsx`
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/ParamContainer.tsx`
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+  - `frontend/src/components/Params/ParamDndList.tsx`
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+- sparse section local-restore candidates:
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+  - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - `frontend/src/components/Section/Layouts/PromptArea.tsx`
+  - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+- text/code preview path:
+  - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - `frontend/src/components/Section/Layouts/CodeArea.tsx`
+  - `frontend/src/components/Section/Layouts/PromptArea.tsx`
+  - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+
+## Cross-Cutting Refactor Rule
+
+While doing the performance work, also use the touched seams to improve code cleanliness and AI navigability where the cleanup has clear local payoff.
+
+That means:
+
+- prefer deeper modules over spreading one concept across many shallow files
+- consolidate tightly-coupled render-mode and body-ownership logic when it improves clarity
+- remove incidental indirection that exists only because the old structure grew by accretion
+- keep cleanup subordinate to the performance goal, but do not miss obvious chances to make the code easier to navigate and reason about
+
+## Open Questions To Answer Inside The Plan, Not Ad Hoc
+
+- What exact screen-space threshold should gate preview eligibility?
+- Should the preview be raster, SVG, semantic lightweight DOM, or a mix by section type?
+- How large should the warm pool be?
+- Should warm sections remain mounted under the preview or swap fully visible/live on hover?
+- Which section types need custom preview handling, and which can share one body-preview system?
+- Which sparse section bodies should actually be restored locally versus left on the leaner branch model?
+- Which code-section optimizations are worthwhile once Tier 1 is stable?
+- Which `Prompt` / `TextBlock` issues are true pan/zoom-motion problems versus separate typing/editing-performance problems?
+
+These questions should be answered with traces and direct visual verification, not by intuition alone.

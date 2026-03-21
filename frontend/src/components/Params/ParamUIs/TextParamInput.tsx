@@ -767,7 +767,7 @@ export function TextParamDateTimeInput({
     "text-[10px] font-mono text-setta-500 dark:text-setta-400";
   const effectiveBorderClassName =
     borderClassName ??
-    "section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400";
+    "section-value grid-row-start-1 relative self-end after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-setta-200/50 after:content-[''] dark:after:bg-setta-600/30 peer-focus-within/textinput:after:bg-blue-400";
 
   const showCalendarDateUi =
     uiType === TextParamInputUITypeEnum.date &&
