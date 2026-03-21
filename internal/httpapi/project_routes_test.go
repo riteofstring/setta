@@ -6406,6 +6406,161 @@ func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesDeleteSelectedParamsPersistsLatestStateOnDirectHTTPRoute(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	// The live kwargs caller selects params locally, then deletes them through
+	// the direct /deleteSelectedParams route.
+	toggleResponse := post(
+		RouteToggleParamSelected,
+		`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child"}`,
+	)
+	if toggleResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 toggle response, got %d with body %q", toggleResponse.Code, toggleResponse.Body.String())
+	}
+
+	deleteResponse := post(
+		RouteDeleteSelectedParams,
+		`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoIds":["shared-child"]}`,
+	)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 deleteSelectedParams response, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	if _, ok := payload.ProjectState.CodeObjs["shared-child"]; ok {
+		t.Fatal("expected shared-child code object to be deleted")
+	}
+	if _, ok := payload.ProjectState.CodeObjs["shared-secret"]; !ok {
+		t.Fatal("expected shared-secret code object to remain")
+	}
+
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	if got := decodeProjectRouteStringArray(dictPayload["selectedParams"]); len(got) != 0 {
+		t.Fatalf("expected selectedParams to be cleared, got %#v", got)
+	}
+	codeObjVariantMap, ok := dictPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected codeObjVariantMap object, got %#v", dictPayload["codeObjVariantMap"])
+	}
+	if _, ok := codeObjVariantMap["shared-child"]; ok {
+		t.Fatalf("expected deleted param to be removed from codeObjVariantMap, got %#v", codeObjVariantMap)
+	}
+}
+
+// deleteSelectedParams is now a live direct HTTP surface for kwargs controls,
+// so keep the route-specific transport failures explicit instead of relying
+// only on the broader latest-state mutation proof above.
+func TestRegisterProjectRoutesDeleteSelectedParamsRejectsInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, testCase := range []struct {
+		name             string
+		payload          string
+		expectedStatus   int
+		expectedFragment string
+	}{
+		{
+			name:             "blank param id",
+			payload:          `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoIds":["  "]}`,
+			expectedStatus:   http.StatusBadRequest,
+			expectedFragment: `"code":"param_info_ids_invalid"`,
+		},
+		{
+			name:             "missing param",
+			payload:          `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoIds":["missing-param"]}`,
+			expectedStatus:   http.StatusNotFound,
+			expectedFragment: `"code":"param_info_not_found"`,
+		},
+		{
+			name:             "missing section",
+			payload:          `{"projectConfigId":"project-alpha","sectionId":"missing-section","paramInfoIds":["shared-child"]}`,
+			expectedStatus:   http.StatusNotFound,
+			expectedFragment: `"code":"section_not_found"`,
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteDeleteSelectedParams,
+				strings.NewReader(testCase.payload),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != testCase.expectedStatus {
+				t.Fatalf("expected %d, got %d with body %q", testCase.expectedStatus, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), testCase.expectedFragment) {
+				t.Fatalf("expected response to contain %s, got %q", testCase.expectedFragment, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesParamSelectionUsesDeploymentOverlayWhenParamChangesAllowed(t *testing.T) {
 	t.Parallel()
 
