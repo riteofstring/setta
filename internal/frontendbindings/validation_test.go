@@ -7685,6 +7685,51 @@ func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestGetLLMResponseRequestTreatsAppSpecStreamingEnabledAsOptional(t *testing.T) {
+	t.Parallel()
+
+	root := reflect.TypeOf(httpapi.GetLLMResponseRequest{})
+	converter := newTypeConverter()
+	if err := converter.AddRootType(root); err != nil {
+		t.Fatalf("AddRootType(%s) error = %v", root.String(), err)
+	}
+
+	declaration := requireDeclaration(t, converter.Declarations(), "GetLLMResponseRequest")
+	if declaration.Kind != "object" {
+		t.Fatalf("GetLLMResponseRequest declaration kind = %q, want %q", declaration.Kind, "object")
+	}
+
+	appSpecStreamingIndex := slices.IndexFunc(declaration.Properties, func(property TypeProperty) bool {
+		return property.Name == "appSpecStreamingEnabled"
+	})
+	if appSpecStreamingIndex < 0 {
+		t.Fatalf("GetLLMResponseRequest missing appSpecStreamingEnabled property: %#v", declaration.Properties)
+	}
+	if property := declaration.Properties[appSpecStreamingIndex]; property.TypeExpr != "boolean" || !property.Optional {
+		t.Fatalf("GetLLMResponseRequest appSpecStreamingEnabled = %#v, want optional boolean", property)
+	}
+
+	thinkingIndex := slices.IndexFunc(declaration.Properties, func(property TypeProperty) bool {
+		return property.Name == "thinking"
+	})
+	if thinkingIndex < 0 {
+		t.Fatalf("GetLLMResponseRequest missing thinking property: %#v", declaration.Properties)
+	}
+	if property := declaration.Properties[thinkingIndex]; property.TypeExpr != "boolean" || property.Optional {
+		t.Fatalf("GetLLMResponseRequest thinking = %#v, want required boolean", property)
+	}
+
+	searchEnabledIndex := slices.IndexFunc(declaration.Properties, func(property TypeProperty) bool {
+		return property.Name == "searchEnabled"
+	})
+	if searchEnabledIndex < 0 {
+		t.Fatalf("GetLLMResponseRequest missing searchEnabled property: %#v", declaration.Properties)
+	}
+	if property := declaration.Properties[searchEnabledIndex]; property.TypeExpr != "boolean" || property.Optional {
+		t.Fatalf("GetLLMResponseRequest searchEnabled = %#v, want required boolean", property)
+	}
+}
+
 func TestArtifactSupportUsesConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string

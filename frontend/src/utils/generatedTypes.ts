@@ -9556,7 +9556,7 @@ export type GetLLMResponseRequest = {
   allowUnscoped: boolean;
   branchParentChatId: string | null;
   branchFromMessageId: string | null;
-  appSpecStreamingEnabled: boolean;
+  appSpecStreamingEnabled?: boolean;
   permissionMode: string;
   searchEnabled: boolean;
   appGenerationMode: string | null;

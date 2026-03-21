@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -60,7 +63,7 @@ type GetLLMResponseRequest struct {
 	AllowUnscoped                    bool              `json:"allowUnscoped"`
 	BranchParentChatID               *string           `json:"branchParentChatId"`
 	BranchFromMessageID              *string           `json:"branchFromMessageId"`
-	AppSpecStreamingEnabled          bool              `json:"appSpecStreamingEnabled"`
+	AppSpecStreamingEnabled          bool              `json:"appSpecStreamingEnabled,omitempty"`
 	PermissionMode                   string            `json:"permissionMode"`
 	SearchEnabled                    bool              `json:"searchEnabled"`
 	AppGenerationMode                *string           `json:"appGenerationMode"`
@@ -163,11 +166,7 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
 			return
 		}
-		payload, err := decodeStrictJSONBodyWithRequiredFields[GetLLMResponseRequest](
-			r,
-			strictJSONFieldRequirement{Field: "thinking"},
-			strictJSONFieldRequirement{Field: "searchEnabled"},
-		)
+		payload, err := decodeGetLLMResponseRequest(r)
 		if err != nil {
 			writeGetLLMResponseDecodeError(w, r, err)
 			return
@@ -643,15 +642,117 @@ func writeGetLLMResponseError(w http.ResponseWriter, r *http.Request, err error)
 }
 
 func writeGetLLMResponseDecodeError(w http.ResponseWriter, r *http.Request, err error) {
-	var missingFieldErr *strictJSONMissingFieldError
-	if errors.As(err, &missingFieldErr) {
-		switch missingFieldErr.Field {
+	writeValidationError(
+		w,
+		http.StatusUnprocessableEntity,
+		formatGetLLMResponseValidationMessage(err),
+	)
+}
+
+type llmResponseValidationError struct {
+	message string
+}
+
+func (e *llmResponseValidationError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
+func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error) {
+	var payload GetLLMResponseRequest
+	if r.Body == nil {
+		return payload, &strictJSONMissingFieldError{Field: "thinking"}
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return payload, err
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
+	trimmedBody := bytes.TrimSpace(body)
+	if len(trimmedBody) == 0 {
+		trimmedBody = []byte("{}")
+	}
+
+	if field, ok := detectUnknownTopLevelJSONField[GetLLMResponseRequest](trimmedBody); ok {
+		return payload, &strictJSONUnknownFieldError{Field: field}
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(trimmedBody, &fields); err != nil {
+		return payload, err
+	}
+	for _, field := range []string{"thinking", "permissionMode", "searchEnabled"} {
+		value, ok := fields[field]
+		if !ok {
+			return payload, &strictJSONMissingFieldError{Field: field}
+		}
+		if !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			continue
+		}
+		switch field {
 		case "thinking", "searchEnabled":
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
-			return
+			return payload, &llmResponseValidationError{
+				message: field + ": Input should be a valid boolean",
+			}
+		case "permissionMode":
+			return payload, &llmResponseValidationError{
+				message: "permissionMode: Input should be 'minimal', 'yolo' or 'config_toml_custom'",
+			}
 		}
 	}
-	writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+
+	decoder := json.NewDecoder(bytes.NewReader(trimmedBody))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		if errors.Is(err, io.EOF) {
+			return payload, nil
+		}
+		return payload, err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return payload, fmt.Errorf("unexpected trailing JSON content")
+		}
+		return payload, err
+	}
+	return payload, nil
+}
+
+func formatGetLLMResponseValidationMessage(err error) string {
+	var missingFieldErr *strictJSONMissingFieldError
+	if errors.As(err, &missingFieldErr) {
+		return missingFieldErr.Error()
+	}
+
+	var unknownFieldErr *strictJSONUnknownFieldError
+	if errors.As(err, &unknownFieldErr) {
+		field := strings.TrimSpace(unknownFieldErr.Field)
+		if field == "" {
+			return "Extra inputs are not permitted"
+		}
+		return field + ": Extra inputs are not permitted"
+	}
+
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) {
+		switch strings.TrimSpace(typeErr.Field) {
+		case "thinking", "searchEnabled":
+			return strings.TrimSpace(typeErr.Field) + ": Input should be a valid boolean"
+		case "permissionMode":
+			return "permissionMode: Input should be 'minimal', 'yolo' or 'config_toml_custom'"
+		}
+	}
+
+	var validationErr *llmResponseValidationError
+	if errors.As(err, &validationErr) {
+		return validationErr.Error()
+	}
+
+	return err.Error()
 }
 
 func writeChatHydrationDecodeError(w http.ResponseWriter, r *http.Request, err error) {

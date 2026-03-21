@@ -554,36 +554,6 @@ func TestRegisterAIRoutesReturnsManagedValidationErrors(t *testing.T) {
 		wantError string
 	}{
 		{
-			name: "missing permission mode",
-			body: `{
-				"chatId":null,
-				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Missing permission mode"}]},
-				"engineConfigId":"engine-managed",
-				"thinking":false,
-				"projectConfigId":"project-alpha",
-				"sectionId":null,
-				"allowUnscoped":true,
-				"searchEnabled":true
-			}`,
-			wantCode:  http.StatusBadRequest,
-			wantError: "permission_mode_invalid",
-		},
-		{
-			name: "missing search enabled",
-			body: `{
-				"chatId":null,
-				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Missing search enabled"}]},
-				"engineConfigId":"engine-managed",
-				"thinking":false,
-				"projectConfigId":"project-alpha",
-				"sectionId":null,
-				"allowUnscoped":true,
-				"permissionMode":"minimal"
-			}`,
-			wantCode:  http.StatusBadRequest,
-			wantError: "invalid_json",
-		},
-		{
 			name: "missing scoped section id",
 			body: `{
 				"chatId":null,
@@ -794,36 +764,6 @@ func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
 		wantError string
 	}{
 		{
-			name: "missing permission mode",
-			body: `{
-				"chatId":null,
-				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Missing permission mode"}]},
-				"engineConfigId":"engine-external",
-				"thinking":false,
-				"projectConfigId":"project-alpha",
-				"sectionId":null,
-				"allowUnscoped":true,
-				"searchEnabled":true
-			}`,
-			wantCode:  http.StatusBadRequest,
-			wantError: "permission_mode_invalid",
-		},
-		{
-			name: "missing search enabled",
-			body: `{
-				"chatId":null,
-				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Missing search enabled"}]},
-				"engineConfigId":"engine-external",
-				"thinking":false,
-				"projectConfigId":"project-alpha",
-				"sectionId":null,
-				"allowUnscoped":true,
-				"permissionMode":"minimal"
-			}`,
-			wantCode:  http.StatusBadRequest,
-			wantError: "invalid_json",
-		},
-		{
 			name: "missing scoped section id",
 			body: `{
 				"chatId":null,
@@ -889,6 +829,25 @@ func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
 			wantCode:  http.StatusNotFound,
 			wantError: "source_chat_not_found",
 		},
+		{
+			name: "continue conflicts with branch edits",
+			body: `{
+				"chatId":null,
+				"continueFromChatId":"chat-source",
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Branch continue conflict"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"branchParentChatId":"chat-parent",
+				"branchFromMessageId":"msg-1",
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "continue_from_chat_with_branch_edits",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -917,77 +876,154 @@ func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
 	}
 }
 
-func TestRegisterAIRoutesRejectsStrictUnknownFieldsOnGetLLMResponse(t *testing.T) {
+func TestRegisterAIRoutesGetLLMResponseSchemaFailuresReturnValidationEnvelope(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetLLMResponse,
-		strings.NewReader(`{
-			"chatId":null,
-			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
-			"engineConfigId":"engine-managed",
-			"thinking":false,
-			"projectConfigId":"project-alpha",
-			"sectionId":null,
-			"allowUnscoped":true,
-			"permissionMode":"minimal",
-			"searchEnabled":false,
-			"unexpectedField":true
-		}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
+	for _, testCase := range []struct {
+		name           string
+		body           string
+		expectedDetail string
+	}{
+		{
+			name:           "malformed_json",
+			body:           `{"projectConfigId":`,
+			expectedDetail: "unexpected end of JSON input",
+		},
+		{
+			name: "unknown_field",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false,
+				"unexpectedField":true
+			}`,
+			expectedDetail: "unexpectedField: Extra inputs are not permitted",
+		},
+		{
+			name: "missing_thinking",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "thinking: Field required",
+		},
+		{
+			name: "null_thinking",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":null,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "thinking: Input should be a valid boolean",
+		},
+		{
+			name: "missing_permission_mode",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"searchEnabled":false
+			}`,
+			expectedDetail: "permissionMode: Field required",
+		},
+		{
+			name: "null_permission_mode",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":null,
+				"searchEnabled":false
+			}`,
+			expectedDetail: "permissionMode: Input should be 'minimal', 'yolo' or 'config_toml_custom'",
+		},
+		{
+			name: "missing_search_enabled",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal"
+			}`,
+			expectedDetail: "searchEnabled: Field required",
+		},
+		{
+			name: "null_search_enabled",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":null
+			}`,
+			expectedDetail: "searchEnabled: Input should be a valid boolean",
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteGetLLMResponse,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
 
-	handler.ServeHTTP(response, request)
+			handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-	}
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
-	}
-	if payload.Error.Code != "invalid_json" {
-		t.Fatalf("expected invalid_json, got %#v", payload)
-	}
-}
-
-func TestRegisterAIRoutesRejectsMissingThinkingFieldOnGetLLMResponse(t *testing.T) {
-	t.Parallel()
-
-	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetLLMResponse,
-		strings.NewReader(`{
-			"chatId":null,
-			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
-			"engineConfigId":"engine-managed",
-			"projectConfigId":"project-alpha",
-			"sectionId":null,
-			"allowUnscoped":true,
-			"permissionMode":"minimal",
-			"searchEnabled":false
-		}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-
-	handler.ServeHTTP(response, request)
-
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-	}
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
-	}
-	if payload.Error.Code != "invalid_json" {
-		t.Fatalf("expected invalid_json, got %#v", payload)
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation payload: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message != testCase.expectedDetail {
+				t.Fatalf("expected validation detail %q, got %#v", testCase.expectedDetail, payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
 	}
 }
 
