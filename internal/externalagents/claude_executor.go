@@ -21,12 +21,9 @@ import (
 )
 
 const (
-	claudeSidecarFileName   = "claude_sdk_runner.py"
-	claudeMaxStderrLines    = 200
-	claudeStdoutBufferSize  = 1024 * 1024
-	claudeSettingsDirName   = ".claude"
-	claudeSettingsLocalName = "settings.local.json"
-	claudeSettingsFileName  = "settings.json"
+	claudeSidecarFileName  = "claude_sdk_runner.py"
+	claudeMaxStderrLines   = 200
+	claudeStdoutBufferSize = 1024 * 1024
 )
 
 var (
@@ -552,52 +549,11 @@ func (e *ClaudeExecutor) buildRuntimeEnv(config externalagentconfigs.Config) map
 }
 
 func (e *ClaudeExecutor) prepareClaudeSettings(config externalagentconfigs.Config) error {
-	settingsPath := resolveClaudeSettingsPath(config, e.workspaceRoot)
-	if settingsPath == "" {
-		return nil
-	}
-	if _, err := os.Stat(settingsPath); err == nil && !config.SettingsAllowSettaEdits {
-		return nil
-	}
-	payload := map[string]any{}
-	if existing, err := os.ReadFile(settingsPath); err == nil {
-		if err := json.Unmarshal(existing, &payload); err != nil {
-			return fmt.Errorf("decode claude settings: %w", err)
-		}
-	}
-	if config.SettingsManagedBlock != nil && config.SettingsManagedBlock.Claude != nil {
-		for key, value := range config.SettingsManagedBlock.Claude {
-			payload[key] = deepCloneJSONValue(value)
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
-		return fmt.Errorf("create claude settings dir: %w", err)
-	}
-	content, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode claude settings: %w", err)
-	}
-	content = append(content, '\n')
-	if err := os.WriteFile(settingsPath, content, 0o644); err != nil {
-		return fmt.Errorf("write claude settings: %w", err)
-	}
-	return nil
+	return externalagentconfigs.PrepareClaudeSettings(e.workspaceRoot, config)
 }
 
 func resolveClaudeSettingsPath(config externalagentconfigs.Config, workspaceRoot string) string {
-	root := strings.TrimSpace(workspaceRoot)
-	if root == "" || config.ToolType != externalagentconfigs.ToolTypeClaudeCode {
-		return ""
-	}
-	settingsDir := filepath.Join(root, claudeSettingsDirName)
-	switch config.SettingsMode {
-	case externalagentconfigs.SettingsModeManagedLocal:
-		return filepath.Join(settingsDir, claudeSettingsLocalName)
-	case externalagentconfigs.SettingsModeManagedProject:
-		return filepath.Join(settingsDir, claudeSettingsFileName)
-	default:
-		return ""
-	}
+	return externalagentconfigs.ResolveClaudeSettingsPath(config, workspaceRoot)
 }
 
 func buildClaudeStartPayload(request StartRequest, workingDir string, envMap map[string]string) map[string]any {

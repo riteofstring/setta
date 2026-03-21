@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -371,6 +372,39 @@ func TestRegisterExternalAgentConfigRoutesCreatesConfig(t *testing.T) {
 	}
 }
 
+func TestRegisterExternalAgentConfigRoutesCreateClaudeInitializesSharedSettings(t *testing.T) {
+	t.Parallel()
+
+	_, service, workspaceRoot := newExternalAgentConfigRouteTestServiceWithWorkspace(t)
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, &externalAgentConfigRouteStubChecker{})
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateExternalAgentConfig, bytes.NewBufferString(`{
+	  "name": "Claude",
+	  "toolType": "claude_code",
+	  "runMode": "sdk",
+	  "settingsMode": "managed_local"
+	}`))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	settingsPath := filepath.Join(workspaceRoot, ".claude", "settings.local.json")
+	content, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("read claude shared settings: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode claude shared settings: %v", err)
+	}
+	if _, ok := payload["permissions"].(map[string]any); !ok {
+		t.Fatalf("expected managed claude permissions block, got %#v", payload)
+	}
+}
+
 func TestRegisterExternalAgentConfigRoutesUpdatesConfig(t *testing.T) {
 	t.Parallel()
 
@@ -725,7 +759,18 @@ func newExternalAgentConfigRouteTestHandler(
 func newExternalAgentConfigRouteTestService(t *testing.T) (*externalagentconfigs.Store, *externalagentconfigs.Service) {
 	t.Helper()
 
-	settaFilesRoot := t.TempDir()
+	store, service, _ := newExternalAgentConfigRouteTestServiceWithWorkspace(t)
+	return store, service
+}
+
+func newExternalAgentConfigRouteTestServiceWithWorkspace(t *testing.T) (*externalagentconfigs.Store, *externalagentconfigs.Service, string) {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	if err := os.MkdirAll(settaFilesRoot, 0o755); err != nil {
+		t.Fatalf("mkdir setta files root: %v", err)
+	}
 	store, err := externalagentconfigs.NewStore(settaFilesRoot)
 	if err != nil {
 		t.Fatalf("new external agent config store: %v", err)
@@ -733,10 +778,11 @@ func newExternalAgentConfigRouteTestService(t *testing.T) (*externalagentconfigs
 	service, err := externalagentconfigs.NewService(externalagentconfigs.ServiceOptions{
 		Configs:        store,
 		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
 		SettaServerURL: "http://127.0.0.1:8000/mcp",
 	})
 	if err != nil {
 		t.Fatalf("new external agent config service: %v", err)
 	}
-	return store, service
+	return store, service, workspaceRoot
 }

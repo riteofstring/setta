@@ -753,6 +753,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalConfigService, err = externalagentconfigs.NewService(externalagentconfigs.ServiceOptions{
 			Configs:        externalConfigStore,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
 		})
 		if err != nil {

@@ -26,12 +26,14 @@ var (
 type ServiceOptions struct {
 	Configs        *Store
 	SettaFilesRoot string
+	WorkspaceRoot  string
 	SettaServerURL string
 }
 
 type Service struct {
 	configs        *Store
 	settaFilesRoot string
+	workspaceRoot  string
 	settaServerURL string
 }
 
@@ -46,9 +48,17 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 		return nil, err
 	}
+	workspaceRoot := ""
+	if strings.TrimSpace(options.WorkspaceRoot) != "" {
+		workspaceRoot, err = statefs.NormalizePath(options.WorkspaceRoot, "")
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &Service{
 		configs:        options.Configs,
 		settaFilesRoot: filesRoot,
+		workspaceRoot:  workspaceRoot,
 		settaServerURL: strings.TrimSpace(options.SettaServerURL),
 	}, nil
 }
@@ -361,6 +371,19 @@ func (s *Service) syncCanonicalArtifacts(config Config) (func(), error) {
 			return nil, err
 		}
 		if err := s.writeOpenCodeConfig(path, config); err != nil {
+			return nil, err
+		}
+		return func() { restoreFileSnapshot(path, snapshot) }, nil
+	case config.ToolType == ToolTypeClaudeCode:
+		path := ResolveClaudeSettingsPath(config, s.workspaceRoot)
+		if path == "" {
+			return nil, nil
+		}
+		snapshot, err := snapshotFile(path)
+		if err != nil {
+			return nil, err
+		}
+		if err := PrepareClaudeSettings(s.workspaceRoot, config); err != nil {
 			return nil, err
 		}
 		return func() { restoreFileSnapshot(path, snapshot) }, nil

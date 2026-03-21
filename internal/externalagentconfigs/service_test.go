@@ -281,28 +281,67 @@ func TestServiceCreatePreservesExistingOpenCodeMCPServersWhenAddingSetta(t *test
 	}
 }
 
-func TestServiceCreateLeavesClaudeSharedSettingsRuntimeOwned(t *testing.T) {
+func TestServiceCreateInitializesClaudeSharedSettingsForManagedModes(t *testing.T) {
 	t.Parallel()
 
 	_, service, _, workspaceRoot := newExternalAgentConfigServiceTestFixture(t)
 
-	created, err := service.Create(Config{
-		ID:                 "claude-config",
-		Name:               "Claude",
-		ToolType:           ToolTypeClaudeCode,
-		RunMode:            RunModeSDK,
-		SettingsMode:       SettingsModeManagedLocal,
-		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-	})
-	if err != nil {
-		t.Fatalf("create config: %v", err)
+	testCases := []struct {
+		name         string
+		configID     string
+		settingsMode SettingsMode
+		relativePath string
+	}{
+		{
+			name:         "managed local",
+			configID:     "claude-local-config",
+			settingsMode: SettingsModeManagedLocal,
+			relativePath: filepath.Join(".claude", "settings.local.json"),
+		},
+		{
+			name:         "managed project",
+			configID:     "claude-project-config",
+			settingsMode: SettingsModeManagedProject,
+			relativePath: filepath.Join(".claude", "settings.json"),
+		},
 	}
-	if created.SettingsManagedBlock == nil || created.SettingsManagedBlock.Claude == nil {
-		t.Fatalf("expected default claude settings block, got %#v", created.SettingsManagedBlock)
-	}
-	sharedSettingsPath := filepath.Join(workspaceRoot, ".claude", "settings.local.json")
-	if _, err := os.Stat(sharedSettingsPath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("expected claude shared settings to remain runtime-owned, stat err=%v", err)
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			created, err := service.Create(Config{
+				ID:                 testCase.configID,
+				Name:               "Claude",
+				ToolType:           ToolTypeClaudeCode,
+				RunMode:            RunModeSDK,
+				SettingsMode:       testCase.settingsMode,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			})
+			if err != nil {
+				t.Fatalf("create config: %v", err)
+			}
+			if created.SettingsManagedBlock == nil || created.SettingsManagedBlock.Claude == nil {
+				t.Fatalf("expected default claude settings block, got %#v", created.SettingsManagedBlock)
+			}
+
+			sharedSettingsPath := filepath.Join(workspaceRoot, testCase.relativePath)
+			content, err := os.ReadFile(sharedSettingsPath)
+			if err != nil {
+				t.Fatalf("read claude shared settings: %v", err)
+			}
+			payload := map[string]any{}
+			if err := json.Unmarshal(content, &payload); err != nil {
+				t.Fatalf("decode claude shared settings: %v", err)
+			}
+			permissions, ok := payload["permissions"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected managed permissions block, got %#v", payload)
+			}
+			allow, ok := permissions["allow"].([]any)
+			if !ok || len(allow) == 0 {
+				t.Fatalf("expected default allow rules, got %#v", permissions)
+			}
+		})
 	}
 }
 
@@ -476,6 +515,7 @@ func newExternalAgentConfigServiceTestFixture(t *testing.T) (*Store, *Service, s
 	service, err := NewService(ServiceOptions{
 		Configs:        store,
 		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
 		SettaServerURL: "http://127.0.0.1:8000/mcp",
 	})
 	if err != nil {
