@@ -194,6 +194,30 @@ Record:
 - Next action:
   - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
 
+## 2026-03-20 006
+
+- Item: Add a checked-in CDP benchmark runner that wraps scene lookup, replay execution, raw trace capture, and optional trace summarization.
+- Status: `done`
+- Details:
+  - Added the reusable runner:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - The runner now:
+    - connects to an existing CDP browser via Playwright
+    - opens or reuses the requested frontend origin
+    - looks up scene config from the checked-in scene manifest
+    - executes `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - writes raw trace events
+    - writes benchmark result JSON
+    - optionally writes the shared trace summary JSON
+  - Added focused Node coverage for:
+    - argument parsing
+    - help output
+    - scene-config merging
+  - Verified the runner help locally:
+    - `node perf/scripts/runSectionBenchmarkViaCdp.js --help`
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
 ## 2026-03-20 005
 
 - Item: Remove relative state-root ambiguity from the benchmark scene installer CLI.

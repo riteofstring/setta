@@ -569,6 +569,7 @@ Current base harness:
 - `perf/fixtures/section-benchmarks/scene-manifest.json`
 - `perf/scripts/sectionBenchmarkScenes.js`
 - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+- `perf/scripts/runSectionBenchmarkViaCdp.js`
 - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
 - `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
 - `perf/scripts/installSectionBenchmarkScene.py`
