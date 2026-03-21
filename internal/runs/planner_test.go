@@ -584,6 +584,85 @@ func TestPlannerPlanRejectsNonRunnableCodeLanguage(t *testing.T) {
 	}
 }
 
+func TestPlannerPlanSnapshotsNonRunnableCodeSections(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	jsonPath := filepath.Join(fixture.settaFilesRoot, "code", "sample.json")
+	if err := os.WriteFile(jsonPath, []byte("{\"ok\":true}\n"), 0o644); err != nil {
+		t.Fatalf("write json file: %v", err)
+	}
+
+	document := fixture.runtime.Snapshot().Document
+	project := document.Projects["project-alpha"]
+	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "json-section")
+	project.SectionVariantMap["json-section"] = "json-variant"
+	project.Sections["json-section"] = projectstate.Section{
+		ID:               "json-section",
+		Name:             "JSON Asset",
+		VariantIDs:       []string{"json-variant"},
+		DefaultVariantID: "json-variant",
+	}
+	project.SectionVariants["json-variant"] = projectstate.SectionVariant{
+		ID:     "json-variant",
+		ImplID: "json-impl",
+	}
+	project.SectionImpls["json-impl"] = projectstate.SectionImpl{
+		ID:   "json-impl",
+		Kind: projectstate.SectionKindCode,
+		Code: &projectstate.CodeSectionImpl{
+			Language: projectstate.CodeLanguage("json"),
+			Binding: &projectstate.CodeFileBinding{
+				Path:       "code/sample.json",
+				AccessMode: projectstate.CodeFileAccessModeReadWrite,
+			},
+		},
+	}
+	document.Projects["project-alpha"] = project
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	}()
+
+	planner := newPlannerForTest(t, plannerTestFixture{
+		runtime:        runtime,
+		settaFilesRoot: fixture.settaFilesRoot,
+		runtimeRoot:    fixture.runtimeRoot,
+		pythonPath:     fixture.pythonPath,
+		bashPath:       fixture.bashPath,
+		helperPath:     fixture.helperPath,
+	})
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		RunSnapshotMode: RunSnapshotModeEphemeral,
+	})
+	if err != nil {
+		t.Fatalf("plan snapshot run: %v", err)
+	}
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
+		t.Fatalf("expected ephemeral mode, got %q", plan.RunSnapshotMode)
+	}
+	if plan.EntryPath != filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.pythonPath)) {
+		t.Fatalf("expected snapshot entry path under snapshot dir, got %q", plan.EntryPath)
+	}
+
+	snapshotJSONPath := filepath.Join(plan.SnapshotDirectory, "sample.json")
+	got, err := os.ReadFile(snapshotJSONPath)
+	if err != nil {
+		t.Fatalf("read non-runnable snapshot file: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != "{\"ok\":true}" {
+		t.Fatalf("unexpected non-runnable snapshot content %q", string(got))
+	}
+}
+
 type plannerTestFixture struct {
 	runtime           *projectstate.Runtime
 	settaFilesRoot    string

@@ -398,6 +398,33 @@ func TestSingleConfigByProjectIDPrefersProjectGeneratedCodeBinding(t *testing.T)
 	}
 }
 
+func TestSingleConfigByProjectIDOmitsGenCodeBindingWithoutPythonTarget(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.CodegenTargets = nil
+	project.GeneratedCodeBinding = nil
+	project.GeneratedMetadataBinding = nil
+	project.EntryCodeBlockID = "callable-section"
+	project.TopLevelSectionIDs = []string{"callable-section", "global-section"}
+	delete(project.SectionVariantMap, "gen-section")
+	delete(project.Sections, "gen-section")
+	delete(project.SectionVariants, "gen-variant")
+	delete(project.SectionImpls, "gen-impl")
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	if view.GenCodeBinding != nil {
+		t.Fatalf("expected generated code binding to be omitted, got %#v", view.GenCodeBinding)
+	}
+	if view.SingletonSections.GenPythonCode != nil {
+		t.Fatalf("expected generated python singleton to be omitted, got %q", *view.SingletonSections.GenPythonCode)
+	}
+}
+
 func TestSingleConfigByProjectIDIncludesCreatedProjectDefaultScaffold(t *testing.T) {
 	runtime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
 	if err != nil {
