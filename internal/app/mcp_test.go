@@ -881,11 +881,11 @@ func TestAppIDEMCPServerSupportsRunAgentProfileOverAuthenticatedSSE(t *testing.T
 		t.Fatalf("expected disabled run_agent_profile to fail, got %#v", result.StructuredContent)
 	}
 	payload := mustStructuredMapValue(t, result.StructuredContent)
-	if payload["code"] != "internal_error" {
-		t.Fatalf("expected internal_error code, got %#v", payload["code"])
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
 	}
-	if payload["message"] != "Agent runner is not available" {
-		t.Fatalf("expected disabled message, got %#v", payload["message"])
+	if payload["message"] != `engine config not found: "engine-primary"` {
+		t.Fatalf("expected missing engine-config message, got %#v", payload["message"])
 	}
 }
 
@@ -7663,11 +7663,11 @@ func TestAppIDEMCPToolCallRouteSupportsRunAgentProfile(t *testing.T) {
 		t.Fatalf("expected disabled run_agent_profile to fail, got %#v", payload.StructuredContent)
 	}
 	structured := mustStructuredMapValue(t, payload.StructuredContent)
-	if structured["code"] != "internal_error" {
-		t.Fatalf("expected internal_error code, got %#v", structured["code"])
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
 	}
-	if structured["message"] != "Agent runner is not available" {
-		t.Fatalf("expected disabled message, got %#v", structured["message"])
+	if structured["message"] != `engine config not found: "engine-primary"` {
+		t.Fatalf("expected missing engine-config message, got %#v", structured["message"])
 	}
 }
 
