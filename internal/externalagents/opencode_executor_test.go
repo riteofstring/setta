@@ -247,10 +247,11 @@ func TestOpenCodeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 }
 
 type openCodeFixtureOptions struct {
-	scenario   string
-	runMode    externalagentconfigs.RunMode
-	baseURL    *string
-	managedMCP map[string]any
+	scenario               string
+	runMode                externalagentconfigs.RunMode
+	baseURL                *string
+	managedMCP             map[string]any
+	completionGuardEnabled *bool
 }
 
 func TestBuildOpenCodeStartPayloadRewritesMCPToolNamespaceInSystemPrompt(t *testing.T) {
@@ -878,6 +879,102 @@ func TestOpenCodeExecutorPreservesSamePayloadAssistantTextAndToolResult(t *testi
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestOpenCodeExecutorGuardEnabledSamePayloadToolResultPreventsFalseBlock(t *testing.T) {
+	// With the completion guard enabled, a same-payload completion report with
+	// passing checks should still let the final assistant completion text persist.
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{
+		scenario:               "same_payload",
+		completionGuardEnabled: boolPtr(true),
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Finish the task and report completion"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode same-payload guard-enabled run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	assistantFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role == "assistant" && extractMessageText(message) == "Task A is done." {
+			assistantFound = true
+			break
+		}
+	}
+	if !assistantFound {
+		t.Fatalf("expected passing same-payload report to keep assistant completion text, got %#v", messages)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestOpenCodeExecutorGuardEnabledRewritesMissingReportOnFinalize(t *testing.T) {
+	// With the completion guard enabled, a finalized assistant completion claim
+	// without any completion report should be rewritten before persistence.
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{
+		scenario:               "guard_missing_report",
+		completionGuardEnabled: boolPtr(true),
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Implement task A."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode missing-report guard-enabled run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	if got := extractMessageText(lastMessage); got != missingReportMessage {
+		t.Fatalf("expected missing-report rewrite %q, got %#v", missingReportMessage, lastMessage)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
 	// Verify server-mode runs merge runtime-config seeding with fetched `/mcp`
 	// status payloads and persist the resulting snapshot into run outputs.
@@ -1032,6 +1129,9 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 	if err != nil {
 		t.Fatalf("new runtime: %v", err)
 	}
+	if options.completionGuardEnabled != nil {
+		writeCodexCompletionGuardSetting(t, root, *options.completionGuardEnabled)
+	}
 	openCodeExecutor, err := NewOpenCodeExecutor(OpenCodeExecutorOptions{
 		Runs:               runs,
 		Runtime:            runtime,
@@ -1069,6 +1169,7 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 		Executor: NewMultiExecutor(MultiExecutorOptions{
 			OpenCode: openCodeExecutor,
 		}),
+		SettaFilesRoot: root,
 		TimeNow: func() time.Time {
 			return now
 		},
@@ -1359,6 +1460,11 @@ func runOpenCodeFixtureProcess(scenario string) error {
 					return fmt.Errorf("stat OPENCODE_CONFIG: %w", err)
 				}
 				if err := emitOpenCodeAssistantTurn(emit, "session-env-handoff", "assistant-env", "part-env-1", configPath); err != nil {
+					return err
+				}
+				return nil
+			case "guard_missing_report":
+				if err := emitOpenCodeAssistantTurn(emit, "session-missing-report", "assistant-missing-report", "part-missing-report-1", "Task A is done."); err != nil {
 					return err
 				}
 				return nil

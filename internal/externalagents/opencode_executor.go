@@ -286,7 +286,14 @@ func (e *OpenCodeExecutor) runLoop(
 	for {
 		payload, ok := <-session.events
 		if !ok {
-			if err := e.handleProcessExit(request.Run.ID, session.processErr(), session.stderrTail(), state, sessionID); err != nil {
+			if err := e.handleProcessExit(
+				request.Run.ID,
+				session.processErr(),
+				session.stderrTail(),
+				state,
+				sessionID,
+				boolValue(request.Inputs["completionGuardEnabled"]),
+			); err != nil {
 				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 			}
 			return
@@ -386,10 +393,18 @@ func (e *OpenCodeExecutor) handleEvent(
 	}
 }
 
-func (e *OpenCodeExecutor) handleProcessExit(runID string, processErr error, stderrLines []string, state ChatState, sessionID string) error {
+func (e *OpenCodeExecutor) handleProcessExit(
+	runID string,
+	processErr error,
+	stderrLines []string,
+	state ChatState,
+	sessionID string,
+	completionGuardEnabled bool,
+) error {
 	if processErr != nil {
 		return e.markRunFailed(runID, processErr, stderrLines)
 	}
+	applyCompletionGuardToState(&state, completionGuardEnabled)
 	return e.finalizeRun(runID, state, sessionID)
 }
 

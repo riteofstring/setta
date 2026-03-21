@@ -398,6 +398,7 @@ func (e *CodexExecutor) handleEvent(
 	method := strings.TrimSpace(stringValue(payload["method"]))
 	switch method {
 	case codexTurnCompletedMethod:
+		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
 		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusCompleted, nil, *state, session.threadID()); err != nil {
 			return false, err
 		}
@@ -411,6 +412,7 @@ func (e *CodexExecutor) handleEvent(
 				}
 			}
 		}
+		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
 		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusFailed, errorPayload, *state, session.threadID()); err != nil {
 			return false, err
 		}

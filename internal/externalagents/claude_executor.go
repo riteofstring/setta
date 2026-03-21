@@ -274,7 +274,15 @@ func (e *ClaudeExecutor) runLoop(
 	for {
 		payload, ok := <-session.events
 		if !ok {
-			if err := e.handleProcessExit(request.Run.ID, session.processErr(), session.stderrTail(), state, sessionID, result); err != nil {
+			if err := e.handleProcessExit(
+				request.Run.ID,
+				session.processErr(),
+				session.stderrTail(),
+				state,
+				sessionID,
+				result,
+				boolValue(request.Inputs["completionGuardEnabled"]),
+			); err != nil {
 				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 			}
 			return
@@ -394,6 +402,7 @@ func (e *ClaudeExecutor) handleProcessExit(
 	state ChatState,
 	sessionID string,
 	result *claudeResultPayload,
+	completionGuardEnabled bool,
 ) error {
 	if processErr != nil {
 		return e.markRunFailed(runID, processErr, stderrLines)
@@ -409,6 +418,7 @@ func (e *ClaudeExecutor) handleProcessExit(
 	if result != nil && result.Usage != nil {
 		usage = cloneAnyMap(result.Usage)
 	}
+	applyCompletionGuardToState(&state, completionGuardEnabled)
 	return e.finalizeRun(runID, state, sessionID, usage)
 }
 
