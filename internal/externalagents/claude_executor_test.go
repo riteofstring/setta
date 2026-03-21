@@ -337,6 +337,100 @@ func TestClaudeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestClaudeExecutorRoutesMultipleQuestionResponsesThroughRuntime(t *testing.T) {
+	fixture := newClaudeExecutorFixture(t, "question_multiple")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Ask me two questions before continuing"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude multi-question run: %v", err)
+	}
+
+	fixture.waitForQuestion(t, result.Run.ID, "question-1")
+	if err := fixture.runtime.RespondToQuestion("question-1", map[string]string{
+		"Choose a language": "Python",
+		"Choose a target":   "CLI",
+	}); err != nil {
+		t.Fatalf("respond to claude multi-question: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	questionResultFound := false
+	assistantFound := false
+	toolCallQuestionsFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role == "assistant" {
+			rawToolCalls, _ := message["tool_calls"].([]any)
+			for _, rawToolCall := range rawToolCalls {
+				toolCall, ok := rawToolCall.(map[string]any)
+				if !ok {
+					continue
+				}
+				function, _ := mapValue(toolCall["function"])
+				if stringValue(function["name"]) != askUserQuestionToolName {
+					continue
+				}
+				arguments, _ := mapValue(function["arguments"])
+				rawQuestions, _ := arguments["questions"].([]any)
+				if len(rawQuestions) == 2 {
+					toolCallQuestionsFound = true
+				}
+			}
+			if extractMessageText(message) == "Chosen: Python CLI" {
+				assistantFound = true
+			}
+		}
+		if role != "tool" || stringValue(message["tool_name"]) != askUserQuestionToolName {
+			continue
+		}
+		resultPayload, ok := mapValue(message["result"])
+		if !ok {
+			continue
+		}
+		answers, ok := mapValue(resultPayload["answers"])
+		if !ok {
+			continue
+		}
+		if stringValue(answers["Choose a language"]) == "Python" && stringValue(answers["Choose a target"]) == "CLI" {
+			questionResultFound = true
+		}
+	}
+	if !toolCallQuestionsFound {
+		t.Fatalf("expected assistant AskUserQuestion tool call with two prompts, got %#v", messages)
+	}
+	if !questionResultFound {
+		t.Fatalf("expected persisted multi-question tool result, got %#v", messages)
+	}
+	if !assistantFound {
+		t.Fatalf("expected persisted assistant follow-up for multi-question run, got %#v", messages)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	// Verify Claude rich stream events now persist tool-result messages/events
 	// and keep MCP runtime status snapshots after live-run cleanup.
@@ -434,6 +528,75 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	if statuses[1].State != mcpx.RuntimeStateUnknown {
 		t.Fatalf("expected generated claude status to remain unknown, got %#v", statuses[1])
 	}
+}
+
+func TestClaudeExecutorPersistsThinkingBlocksAndContextWindowUsage(t *testing.T) {
+	fixture := newClaudeExecutorFixture(t, "thinking_usage")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Think through this and answer"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude thinking run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	if got := resolveRunOutputString(persisted, "sessionId"); got != "session-thinking" {
+		t.Fatalf("expected persisted thinking session id, got %q", got)
+	}
+	usage, ok := persisted.Outputs["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted usage payload, got %#v", persisted.Outputs["usage"])
+	}
+	if int(floatValueForTest(usage["promptTokens"])) != 11 || int(floatValueForTest(usage["completionTokens"])) != 2 || int(floatValueForTest(usage["totalTokens"])) != 13 || int(floatValueForTest(usage["contextWindowTokens"])) != 4096 {
+		t.Fatalf("unexpected persisted context-window usage %#v", usage)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	thinkingFound := false
+	answerFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok || stringValue(message["role"]) != "assistant" {
+			continue
+		}
+		content, _ := message["content"].([]any)
+		for _, rawContent := range content {
+			block, ok := rawContent.(map[string]any)
+			if !ok || stringValue(block["type"]) != "thinking" {
+				continue
+			}
+			if stringValue(block["thinking"]) == "Plan carefully." && stringValue(block["summary"]) == "Plan summary" && stringValue(block["signature"]) == "sig-think" {
+				thinkingFound = true
+			}
+		}
+		if extractMessageText(message) == "42" {
+			answerFound = true
+		}
+	}
+	if !thinkingFound {
+		t.Fatalf("expected persisted thinking block, got %#v", messages)
+	}
+	if !answerFound {
+		t.Fatalf("expected persisted assistant answer, got %#v", messages)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
 func TestClaudeExecutorSeededUnknownMCPStatusDoesNotOverridePayloadStatus(t *testing.T) {
@@ -1664,6 +1827,76 @@ func runClaudeFixtureProcess(scenario string) error {
 			"result":    "ok",
 			"usage":     map[string]any{"input_tokens": 7, "output_tokens": 5},
 		})
+	case "question_multiple":
+		if err := emit(map[string]any{
+			"type":       "approval_request",
+			"approvalId": "approval-1",
+			"toolName":   askUserQuestionToolName,
+			"toolType":   "question",
+			"input": map[string]any{
+				"questions": []any{
+					map[string]any{"question": "Choose a language", "type": "text"},
+					map[string]any{"question": "Choose a target", "type": "text"},
+				},
+			},
+		}); err != nil {
+			return err
+		}
+		if err := emit(map[string]any{
+			"type":      "stream_event",
+			"sessionId": "session-question-multi",
+			"event": map[string]any{
+				"type":    "message_start",
+				"message": map[string]any{"id": "assistant-question-multi", "content": []any{}},
+			},
+		}); err != nil {
+			return err
+		}
+		if err := emit(map[string]any{
+			"type":      "stream_event",
+			"sessionId": "session-question-multi",
+			"event": map[string]any{
+				"type":  "content_block_start",
+				"index": 0,
+				"content_block": map[string]any{
+					"type": "tool_use",
+					"id":   "question-1",
+					"name": askUserQuestionToolName,
+					"input": map[string]any{
+						"questions": []any{
+							map[string]any{"question": "Choose a language", "type": "text"},
+							map[string]any{"question": "Choose a target", "type": "text"},
+						},
+					},
+				},
+			},
+		}); err != nil {
+			return err
+		}
+		payload, err := readPayload()
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(stringValue(payload["type"])) != "tool_response" {
+			return fmt.Errorf("expected tool_response, got %#v", payload)
+		}
+		if strings.TrimSpace(stringValue(payload["toolCallId"])) != "approval-1" {
+			return fmt.Errorf("expected multi-question response to use approval id, got %#v", payload)
+		}
+		answers, ok := mapValue(payload["answers"])
+		if !ok || stringValue(answers["Choose a language"]) != "Python" || stringValue(answers["Choose a target"]) != "CLI" {
+			return fmt.Errorf("unexpected multi-question answers %#v", payload)
+		}
+		if err := emitClaudeAssistantTurn(emit, "session-question-multi", "assistant-follow-up-multi", "Chosen: Python CLI"); err != nil {
+			return err
+		}
+		return emit(map[string]any{
+			"type":      "result",
+			"sessionId": "session-question-multi",
+			"isError":   false,
+			"result":    "ok",
+			"usage":     map[string]any{"input_tokens": 8, "output_tokens": 6},
+		})
 	case "tool_result_and_mcp_status":
 		for _, payload := range []map[string]any{
 			{
@@ -1757,6 +1990,57 @@ func runClaudeFixtureProcess(scenario string) error {
 			"result":    "ok",
 			"usage":     map[string]any{"input_tokens": 9, "output_tokens": 6},
 		})
+	case "thinking_usage":
+		for _, payload := range []map[string]any{
+			{
+				"type":      "stream_event",
+				"sessionId": "session-thinking",
+				"event": map[string]any{
+					"type":    "message_start",
+					"message": map[string]any{"id": "assistant-thinking", "content": []any{}},
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-thinking",
+				"event": map[string]any{
+					"type":  "content_block_start",
+					"index": 0,
+					"content_block": map[string]any{
+						"type":      "thinking",
+						"thinking":  "Plan carefully.",
+						"summary":   "Plan summary",
+						"signature": "sig-think",
+					},
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-thinking",
+				"event": map[string]any{
+					"type": "message_stop",
+				},
+			},
+		} {
+			if err := emit(payload); err != nil {
+				return err
+			}
+		}
+		if err := emitClaudeAssistantTurn(emit, "session-thinking", "assistant-thinking-answer", "42"); err != nil {
+			return err
+		}
+		return emit(map[string]any{
+			"type":      "result",
+			"sessionId": "session-thinking",
+			"isError":   false,
+			"result":    "ok",
+			"usage": map[string]any{
+				"promptTokens":        11,
+				"completionTokens":    2,
+				"totalTokens":         13,
+				"contextWindowTokens": 4096,
+			},
+		})
 	default:
 		if err := emitClaudeAssistantTurn(emit, "session-complete", "assistant-1", "Hello from Claude"); err != nil {
 			return err
@@ -1843,4 +2127,17 @@ func assistantMessageForTest(t *testing.T, state *ChatState, messageID string) m
 	}
 	t.Fatalf("expected assistant message %q in %#v", messageID, state.Messages)
 	return nil
+}
+
+func floatValueForTest(raw any) float64 {
+	switch value := raw.(type) {
+	case float64:
+		return value
+	case int:
+		return float64(value)
+	case int64:
+		return float64(value)
+	default:
+		return 0
+	}
 }
