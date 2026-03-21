@@ -111,3 +111,7 @@ scenarios:
     kind: workspace_launch_outdated_settings_error
     seed: none
     description: Launching a workspace with a stale persisted settings project missing a required section should fail with the typed OutdatedProjectSettings contract instead of spawning a backend.
+  - name: json_source_key_change_refresh
+    kind: json_source_key_change_refresh
+    seed: none
+    description: Editing jsonSourceKeys on a JSON-backed dict section should match the baseline backend's live refresh and persisted-state contract.

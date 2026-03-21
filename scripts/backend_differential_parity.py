@@ -47,6 +47,7 @@ ROUTE_CREATE_PROJECT_CONFIG = "/api/createProjectConfig"
 ROUTE_LOAD_ALL_PROJECT_METADATA = "/api/loadAllProjectMetadata"
 ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
+ROUTE_SET_VARIANT_JSON_SOURCE_KEYS = "/api/setVariantJsonSourceKeys"
 ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE = "/api/setProjectChatWindowingState"
 ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID = "/api/setProjectChatWindowChatId"
 ROUTE_CREATE_WINDOW_SPACE = "/api/createWindowSpace"
@@ -400,7 +401,7 @@ def start_backend(target: RefTarget, scenario: ScenarioConfig) -> BackendSession
     log_path = temp_root / "backend.log"
     workspace_root.mkdir(parents=True, exist_ok=True)
     setta_home.mkdir(parents=True, exist_ok=True)
-    seed_setta_files(setta_files_root, scenario)
+    seed_setta_files(setta_files_root, scenario, target)
 
     return open_backend_session(
         target=target,
@@ -442,7 +443,13 @@ def open_backend_session(
 
     with log_path.open("w", encoding="utf-8") as log_file:
         process = subprocess.Popen(
-            ["bash", "./frontend/backendStart.sh", "--no-open"],
+            [
+                "bash",
+                "./frontend/backendStart.sh",
+                "--no-open",
+                "--workspace",
+                str(workspace_root),
+            ],
             cwd=target.root,
             env=env,
             stdout=log_file,
@@ -520,8 +527,19 @@ def restart_backend_allow_startup_failure(backend: BackendSession) -> str | None
     return None
 
 
-def seed_setta_files(setta_files_root: Path, scenario: ScenarioConfig) -> None:
+def seed_setta_files(
+    setta_files_root: Path,
+    scenario: ScenarioConfig,
+    target: RefTarget,
+) -> None:
     setta_files_root.mkdir(parents=True, exist_ok=True)
+    if scenario.kind == "json_source_key_change_refresh":
+        write_json(
+            setta_files_root / PROJECT_FILE_NAME,
+            build_json_source_key_change_refresh_store_payload(target),
+        )
+        write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+        return
     if scenario.seed == "none":
         return
     if scenario.seed == "empty":
@@ -538,6 +556,187 @@ def seed_setta_files(setta_files_root: Path, scenario: ScenarioConfig) -> None:
             f"Unsupported seed mode {scenario.seed!r} for scenario {scenario.name}"
         )
     write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+
+
+def build_json_source_key_change_refresh_store_payload(
+    target: RefTarget,
+) -> dict[str, Any]:
+    if target_uses_go_launcher(target.root):
+        return {
+            "schemaVersion": 1,
+            "defaultProjectId": "project-alpha",
+            "projects": {
+                "project-alpha": {
+                    "allowJsonSourceKeyEdits": True,
+                    "codeObjImpls": {
+                        "old-leaf-impl": {
+                            "id": "old-leaf-impl",
+                            "payload": {
+                                "id": "old-leaf-impl",
+                                "type": "CodeParam",
+                                "value": "1",
+                            },
+                            "type": "CodeParam",
+                        },
+                        "old-root-impl": {
+                            "id": "old-root-impl",
+                            "payload": {
+                                "children": ["old-leaf"],
+                                "id": "old-root-impl",
+                                "type": "NestedParam",
+                            },
+                            "type": "NestedParam",
+                        },
+                    },
+                    "codeObjVariants": {
+                        "old-leaf-variant": {
+                            "id": "old-leaf-variant",
+                            "implId": "old-leaf-impl",
+                            "nonPresetImplIds": ["old-leaf-impl"],
+                        },
+                        "old-root-variant": {
+                            "id": "old-root-variant",
+                            "implId": "old-root-impl",
+                            "nonPresetImplIds": ["old-root-impl"],
+                        },
+                    },
+                    "codeObjs": {
+                        "old-leaf": {
+                            "defaultVariantId": "old-leaf-variant",
+                            "id": "old-leaf",
+                            "name": "one",
+                            "variantIds": ["old-leaf-variant"],
+                        },
+                        "old-root": {
+                            "defaultVariantId": "old-root-variant",
+                            "id": "old-root",
+                            "name": "alpha",
+                            "variantIds": ["old-root-variant"],
+                        },
+                    },
+                    "id": "project-alpha",
+                    "name": "Project Alpha",
+                    "projectChatWindowing": {"instancesById": {}, "order": []},
+                    "sectionImpls": {
+                        "json-impl-a": {
+                            "id": "json-impl-a",
+                            "kind": "dict",
+                            "payload": {
+                                "codeObjVariantMap": {
+                                    "old-leaf": "old-leaf-variant",
+                                    "old-root": "old-root-variant",
+                                },
+                                "configLanguage": "json",
+                                "id": "json-impl-a",
+                                "isJsonSource": True,
+                                "jsonSourceKeys": ["alpha"],
+                                "topLevelParamId": "old-root",
+                                "type": "Dict",
+                            },
+                        }
+                    },
+                    "sectionVariantMap": {"json-section": "json-variant-a"},
+                    "sectionVariants": {
+                        "json-variant-a": {
+                            "id": "json-variant-a",
+                            "implId": "json-impl-a",
+                            "name": "data/source.json",
+                        }
+                    },
+                    "sections": {
+                        "json-section": {
+                            "defaultVariantId": "json-variant-a",
+                            "id": "json-section",
+                            "name": "JSON Source",
+                            "variantIds": ["json-variant-a"],
+                        }
+                    },
+                }
+            },
+        }
+
+    return {
+        "codeObjImpls": {
+            "old-leaf-impl": {
+                "id": "old-leaf-impl",
+                "type": "CodeParam",
+                "value": "1",
+            },
+            "old-root-impl": {
+                "children": ["old-leaf"],
+                "id": "old-root-impl",
+                "type": "NestedParam",
+            },
+        },
+        "codeObjVariants": {
+            "old-leaf-variant": {
+                "id": "old-leaf-variant",
+                "impl": "old-leaf-impl",
+                "nonPresetImpls": ["old-leaf-impl"],
+            },
+            "old-root-variant": {
+                "id": "old-root-variant",
+                "impl": "old-root-impl",
+                "nonPresetImpls": ["old-root-impl"],
+            },
+        },
+        "codeObjs": {
+            "old-leaf": {
+                "defaultVariant": "old-leaf-variant",
+                "id": "old-leaf",
+                "name": "one",
+                "variants": ["old-leaf-variant"],
+            },
+            "old-root": {
+                "defaultVariant": "old-root-variant",
+                "id": "old-root",
+                "name": "alpha",
+                "variants": ["old-root-variant"],
+            },
+        },
+        "defaultProjectConfigId": "project-alpha",
+        "projectChatWindowingByProjectConfigId": {
+            "project-alpha": {"instancesById": {}, "order": []}
+        },
+        "projectConfigs": {
+            "project-alpha": {
+                "allowJsonSourceKeyEdits": True,
+                "id": "project-alpha",
+                "name": "Project Alpha",
+                "sectionVariantMap": {"json-section": "json-variant-a"},
+            }
+        },
+        "sectionImpls": {
+            "json-impl-a": {
+                "codeObjVariantMap": {
+                    "old-leaf": "old-leaf-variant",
+                    "old-root": "old-root-variant",
+                },
+                "configLanguage": "json",
+                "id": "json-impl-a",
+                "isJsonSource": True,
+                "jsonSourceKeys": ["alpha"],
+                "topLevelParamId": "old-root",
+                "type": "Dict",
+            }
+        },
+        "sectionVariants": {
+            "json-variant-a": {
+                "id": "json-variant-a",
+                "impl": "json-impl-a",
+                "name": "data/source.json",
+                "nonPresetImpls": ["json-impl-a"],
+            }
+        },
+        "sections": {
+            "json-section": {
+                "defaultVariant": "json-variant-a",
+                "id": "json-section",
+                "name": "JSON Source",
+                "variants": ["json-variant-a"],
+            }
+        },
+    }
 
 
 def minimal_document() -> dict[str, Any]:
@@ -852,6 +1051,8 @@ def execute_scenario(
         return execute_workspace_launch_outdated_settings_error(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
+    if scenario.kind == "json_source_key_change_refresh":
+        return execute_json_source_key_change_refresh(backend)
     raise ParityHarnessError(
         f"Unsupported scenario kind {scenario.kind!r} for {scenario.name}"
     )
@@ -983,6 +1184,65 @@ def execute_latest_state_empty_callable_shown_param_ids(
         payload=payload,
     )
     return summary, {"latestProjectState": payload}
+
+
+def execute_json_source_key_change_refresh(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    source_path = backend.workspace_root / "data" / "source.json"
+    write_json_preserving_order(
+        source_path,
+        {"beta": {"second": 2, "first": [1, True]}},
+    )
+
+    set_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_VARIANT_JSON_SOURCE_KEYS,
+        payload={
+            "projectConfigId": "project-alpha",
+            "sectionId": "json-section",
+            "variantId": "json-variant-a",
+            "jsonSourceKeys": ["beta"],
+        },
+    )
+    set_payload = normalize_response_json(set_response)
+
+    load_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "Project Alpha"},
+    )
+    loaded_payload = normalize_response_json(load_response)
+    if not isinstance(loaded_payload, dict):
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded_payload!r}"
+        )
+
+    persisted_document = read_persisted_project_document(backend)
+    persisted_project = project_from_store_payload(
+        persisted_document,
+        project_id="project-alpha",
+    )
+
+    summary = summarize_json_source_key_change_refresh(
+        http_status=set_response.status_code,
+        load_status=load_response.status_code,
+        loaded_payload=loaded_payload,
+        persisted_project=persisted_project,
+    )
+    return summary, {
+        "setVariantJSONSourceKeys": {
+            "status": set_response.status_code,
+            "payload": set_payload,
+        },
+        "loadProjectConfig": {
+            "status": load_response.status_code,
+            "payload": loaded_payload,
+        },
+        "persistedProject": persisted_project,
+    }
 
 
 def execute_latest_state_after_create_project(
@@ -3058,6 +3318,26 @@ def summarize_empty_callable_latest_state(
     }
 
 
+def summarize_json_source_key_change_refresh(
+    http_status: int,
+    load_status: int,
+    loaded_payload: dict[str, Any],
+    persisted_project: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "setVariantJSONSourceKeysStatus": http_status,
+        "loadProjectConfigStatus": load_status,
+        "loaded": summarize_json_source_variant_tree(
+            loaded_payload,
+            section_impl_id="json-impl-a",
+        ),
+        "persisted": summarize_json_source_variant_tree(
+            persisted_project,
+            section_impl_id="json-impl-a",
+        ),
+    }
+
+
 def summarize_latest_state_after_create_project(
     http_status: int,
     payload: dict[str, Any],
@@ -4255,6 +4535,63 @@ def summarize_settings_project_active_view_mode_projection(
     summary[f"{prefix}ProjectViewportInitializedMatchesActiveViewMode"] = bool(
         project_config.get("viewportInitialized", False)
     ) == bool(active_view_mode.get("viewportInitialized", False))
+    return summary
+
+
+def summarize_json_source_variant_tree(
+    payload: dict[str, Any],
+    section_impl_id: str,
+) -> dict[str, Any]:
+    section_impls = object_field(payload, "sectionImpls")
+    section_impl = expect_object(
+        section_impls.get(section_impl_id),
+        f"sectionImpls.{section_impl_id}",
+    )
+    section_impl_payload = impl_payload_object(
+        section_impl,
+        f"sectionImpls.{section_impl_id}",
+    )
+    top_level_param_id = expect_non_empty_string(
+        section_impl_payload.get("topLevelParamId"),
+        f"sectionImpls.{section_impl_id}.topLevelParamId",
+    )
+    code_objs = object_field(payload, "codeObjs", allow_missing=True)
+    code_obj_variant_map = object_field(
+        section_impl_payload,
+        "codeObjVariantMap",
+        allow_missing=True,
+    )
+    return {
+        "jsonSourceKeys": expect_string_list(
+            section_impl_payload.get("jsonSourceKeys"),
+            f"sectionImpls.{section_impl_id}.jsonSourceKeys",
+        ),
+        "jsonSourceMissing": bool(section_impl_payload.get("jsonSourceMissing")),
+        "topLevelParamChanged": top_level_param_id != "old-root",
+        "oldRootPresent": "old-root" in code_objs,
+        "oldLeafPresent": "old-leaf" in code_objs,
+        "codeObjVariantMapSize": len(code_obj_variant_map),
+        "tree": summarize_code_object_tree(payload, top_level_param_id),
+    }
+
+
+def summarize_code_object_tree(
+    payload: dict[str, Any],
+    code_obj_id: str,
+) -> dict[str, Any]:
+    code_objs = object_field(payload, "codeObjs")
+    code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
+    child_ids = code_object_child_ids(payload, code_obj_id)
+    summary = {
+        "name": normalized_string(code_obj.get("name")),
+        "type": code_object_impl_type(payload, code_obj_id),
+    }
+    if child_ids:
+        summary["children"] = [
+            summarize_code_object_tree(payload, child_id) for child_id in child_ids
+        ]
+        return summary
+    summary["value"] = normalize_scalar_payload_value(code_object_value(payload, code_obj_id))
     return summary
 
 
@@ -5712,6 +6049,19 @@ def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:
             f"got {type(payload).__name__}"
         )
     return payload
+
+
+def project_from_store_payload(payload: dict[str, Any], project_id: str) -> dict[str, Any]:
+    projects = object_field(payload, "projects", allow_missing=True)
+    if project_id in projects:
+        return expect_object(projects[project_id], f"projects.{project_id}")
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if project_id in source_projects:
+        expect_object(source_projects[project_id], f"projectConfigs.{project_id}")
+        return payload
+
+    raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
 
 
 def project_has_windowing_in_store_payload(payload: dict[str, Any], project_id: str) -> bool:

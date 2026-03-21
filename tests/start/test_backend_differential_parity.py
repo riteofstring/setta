@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 def repo_root() -> Path:
@@ -202,6 +203,72 @@ class Route:
             self.assertIn("SETTA_BIN", env)
             self.assertTrue(env["SETTA_BIN"].endswith("setta-wrapper.sh"))
             self.assertNotIn("SETTA_SERVER_BIN", env)
+
+    def test_open_backend_session_passes_workspace_root_flag(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            target_root = temp_root / "target"
+            target_root.mkdir(parents=True)
+            workspace_root = temp_root / "workspace"
+            setta_home = temp_root / ".setta-home"
+            setta_files_root = workspace_root / "setta_files"
+            log_path = temp_root / "backend.log"
+
+            fake_process = mock.Mock()
+            fake_session = mock.Mock()
+
+            with (
+                mock.patch.object(harness, "find_free_port", side_effect=[8123, 3123]),
+                mock.patch.object(
+                    harness,
+                    "resolve_frontend_websocket_route",
+                    return_value="/ws/frontend",
+                ),
+                mock.patch.object(harness, "build_backend_env", return_value={}),
+                mock.patch.object(
+                    harness,
+                    "wait_for_bootstrap_token",
+                    return_value="bootstrap-token",
+                ),
+                mock.patch.object(
+                    harness,
+                    "bootstrap_session",
+                    return_value=fake_session,
+                ),
+                mock.patch.object(harness, "wait_for_backend_ready"),
+                mock.patch.object(
+                    harness.subprocess,
+                    "Popen",
+                    return_value=fake_process,
+                ) as popen_mock,
+            ):
+                session = harness.open_backend_session(
+                    target=harness.RefTarget(label="current", root=target_root),
+                    temp_root=temp_root,
+                    workspace_root=workspace_root,
+                    setta_home=setta_home,
+                    setta_files_root=setta_files_root,
+                    log_path=log_path,
+                )
+
+            self.assertIs(session.session, fake_session)
+            self.assertEqual(session.workspace_root, workspace_root)
+            self.assertEqual(session.base_url, "http://127.0.0.1:8123")
+            self.assertEqual(session.websocket_url, "ws://127.0.0.1:8123/ws/frontend")
+
+            command = popen_mock.call_args.args[0]
+            self.assertEqual(
+                command,
+                [
+                    "bash",
+                    "./frontend/backendStart.sh",
+                    "--no-open",
+                    "--workspace",
+                    str(workspace_root),
+                ],
+            )
 
     def test_summarize_empty_callable_latest_state_detects_present_entry(
         self,
