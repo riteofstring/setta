@@ -38,6 +38,22 @@ func TestExtractIDsByTypeCollectsStringsListsAndDictKeys(t *testing.T) {
 	}
 }
 
+func TestExtractIDsByTypeReturnsEmptyWhenPathsMissing(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"otherKey": "value",
+	}
+
+	idsByType := extractIDsByType(payload, map[tools.IDType][]string{
+		tools.IDTypeSection: {"targetSectionId"},
+	}, true)
+
+	if len(idsByType) != 0 {
+		t.Fatalf("expected no extracted ids, got %#v", idsByType)
+	}
+}
+
 func TestTranslateIDsAtPathsRewritesNestedStringsAndLists(t *testing.T) {
 	t.Parallel()
 
