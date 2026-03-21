@@ -308,6 +308,91 @@ func TestCodexExecutorPrepareCodexHomePrefersExplicitBaseConfigPath(t *testing.T
 	}
 }
 
+func TestCodexExecutorPrepareCodexHomeCopiesAuthFileIntoSessionHome(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
+	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir explicit config dir: %v", err)
+	}
+	if err := os.WriteFile(explicitConfigPath, []byte("model = \"gpt-5\"\n"), 0o644); err != nil {
+		t.Fatalf("write explicit codex config: %v", err)
+	}
+	authPayload := []byte("{\"access_token\":\"secret\"}\n")
+	if err := os.WriteFile(filepath.Join(filepath.Dir(explicitConfigPath), "auth.json"), authPayload, 0o600); err != nil {
+		t.Fatalf("write explicit codex auth file: %v", err)
+	}
+
+	executor := &CodexExecutor{
+		settaFilesRoot: root,
+	}
+	runtimeHome, err := executor.prepareCodexHome(externalagentconfigs.Config{
+		ID:               "external-config",
+		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
+		SettingsFilePath: stringPtr(explicitConfigPath),
+	}, "chat-1", root, map[string]any{})
+	if err != nil {
+		t.Fatalf("prepare codex home: %v", err)
+	}
+
+	runtimeAuthPayload, err := os.ReadFile(filepath.Join(runtimeHome, "auth.json"))
+	if err != nil {
+		t.Fatalf("read runtime auth.json: %v", err)
+	}
+	if string(runtimeAuthPayload) != string(authPayload) {
+		t.Fatalf("expected copied auth payload %q, got %q", string(authPayload), string(runtimeAuthPayload))
+	}
+}
+
+func TestCodexExecutorEnsureCodexLoginUsesAPIKeyWhenSessionHomeLacksAuth(t *testing.T) {
+	t.Parallel()
+
+	runtimeHome := t.TempDir()
+	recordPath := filepath.Join(t.TempDir(), "login-input.txt")
+	commandPath := filepath.Join(t.TempDir(), "codex-login.sh")
+	script := strings.Join([]string{
+		"#!/bin/sh",
+		"if [ \"$1\" != \"login\" ] || [ \"$2\" != \"--with-api-key\" ]; then",
+		"  echo \"unexpected args: $@\" >&2",
+		"  exit 1",
+		"fi",
+		"IFS= read -r api_key",
+		"printf '%s' \"$api_key\" > \"$SETTA_CODEX_LOGIN_RECORD_PATH\"",
+		"printf '{\"access_token\":\"from-login\"}\\n' > \"$CODEX_HOME/auth.json\"",
+	}, "\n")
+	if err := os.WriteFile(commandPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write codex login fixture: %v", err)
+	}
+
+	executor := &CodexExecutor{}
+	envMap := map[string]string{
+		"CODEX_HOME":                    runtimeHome,
+		"OPENAI_API_KEY":                "test-api-key",
+		"SETTA_CODEX_LOGIN_RECORD_PATH": recordPath,
+	}
+	if err := executor.ensureCodexLogin(context.Background(), externalagentconfigs.Config{
+		CommandPath: stringPtr(commandPath),
+	}, t.TempDir(), envMap); err != nil {
+		t.Fatalf("ensure codex login: %v", err)
+	}
+
+	recordedInput, err := os.ReadFile(recordPath)
+	if err != nil {
+		t.Fatalf("read recorded login input: %v", err)
+	}
+	if string(recordedInput) != "test-api-key" {
+		t.Fatalf("expected login input to match api key, got %q", string(recordedInput))
+	}
+	authPayload, err := os.ReadFile(filepath.Join(runtimeHome, "auth.json"))
+	if err != nil {
+		t.Fatalf("read auth.json created by login: %v", err)
+	}
+	if string(authPayload) != "{\"access_token\":\"from-login\"}\n" {
+		t.Fatalf("expected auth.json from login helper, got %q", string(authPayload))
+	}
+}
+
 func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
