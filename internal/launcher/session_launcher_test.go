@@ -3,6 +3,7 @@ package launcher
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -17,6 +18,8 @@ import (
 	"setta/internal/localsessions"
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
+
+	"github.com/shirou/gopsutil/v4/process"
 )
 
 func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.T) {
@@ -822,6 +825,103 @@ func TestStartLauncherProcessReturnsInvalidRuntimeRootForRuntimeLogInitFailure(t
 	}
 }
 
+func TestExecStartedProcessKillTerminatesSpawnedProcessTree(t *testing.T) {
+	t.Parallel()
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	childPIDPath := filepath.Join(t.TempDir(), "child.pid")
+	process, err := startLauncherProcess(processStartRequest{
+		Args:        launchCleanupTestCommand(t, childPIDPath),
+		CWD:         t.TempDir(),
+		RuntimeRoot: runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("start launcher process: %v", err)
+	}
+
+	childPID := waitForLauncherChildPID(t, childPIDPath)
+	if !waitForProcessRunning(childPID, 5*time.Second) {
+		t.Fatalf("expected spawned child process %d to be running before cleanup", childPID)
+	}
+	if err := process.Kill(); err != nil {
+		t.Fatalf("kill launcher process tree: %v", err)
+	}
+	if !waitForProcessStopped(childPID, 5*time.Second) {
+		t.Fatalf("expected child process %d to stop after process tree kill", childPID)
+	}
+}
+
+func TestLocalIDESessionLauncherEnsureSessionTimeoutTerminatesSpawnedProcessTree(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, settaHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	location := "local"
+	input := IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+		ServerMode:         config.ModeIDE,
+	}
+	cfg, err := loadIDELaunchConfig(input)
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot:  filepath.Join(cfg.Paths.RuntimeRoot, "sessions"),
+		PIDCreateTime: func(int) *float64 { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new session registry: %v", err)
+	}
+
+	childPIDPath := filepath.Join(root, "timeout-child.pid")
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		LaunchTimeout:  250 * time.Millisecond,
+		PollInterval:   10 * time.Millisecond,
+		RegistryFactory: func(string) (*localsessions.Registry, error) {
+			return registry, nil
+		},
+		ProcessStarter: func(request processStartRequest) (startedProcess, error) {
+			return startLauncherProcess(processStartRequest{
+				Args:        launchCleanupTestCommand(t, childPIDPath),
+				CWD:         request.CWD,
+				RuntimeRoot: request.RuntimeRoot,
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	_, err = launcher.EnsureSession(input)
+	if err == nil {
+		t.Fatal("expected launch timeout")
+	}
+	var launchErr *SessionLaunchError
+	if !errors.As(err, &launchErr) {
+		t.Fatalf("expected SessionLaunchError, got %T: %v", err, err)
+	}
+	if launchErr.Code != "LaunchTimeout" {
+		t.Fatalf("expected LaunchTimeout, got %q (%v)", launchErr.Code, err)
+	}
+
+	childPID := waitForLauncherChildPID(t, childPIDPath)
+	if !waitForProcessStopped(childPID, 5*time.Second) {
+		t.Fatalf("expected timed-out launcher cleanup to stop child process %d", childPID)
+	}
+}
+
 type testStartedProcess struct {
 	exited  bool
 	logPath string
@@ -870,6 +970,99 @@ func launchLogTestCommand(t *testing.T) []string {
 	default:
 		return []string{"/bin/sh", "-c", "printf 'stdout-line\\n'; printf 'stderr-line\\n' >&2"}
 	}
+}
+
+func launchCleanupTestCommand(t *testing.T, childPIDPath string) []string {
+	t.Helper()
+
+	switch runtime.GOOS {
+	case "windows":
+		return []string{
+			"powershell.exe",
+			"-NoProfile",
+			"-NonInteractive",
+			"-Command",
+			fmt.Sprintf(
+				"$child = Start-Process powershell -ArgumentList '-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 60' -PassThru; Set-Content -Path '%s' -Value $child.Id; Start-Sleep -Seconds 60",
+				escapePowerShellSingleQuotedString(childPIDPath),
+			),
+		}
+	default:
+		return []string{
+			"/bin/sh",
+			"-c",
+			fmt.Sprintf("(sleep 60) & child=$!; printf '%%s\\n' \"$child\" > %s; sleep 60", shellSingleQuote(childPIDPath)),
+		}
+	}
+}
+
+func waitForLauncherChildPID(t *testing.T, path string) int {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			trimmedContent := strings.TrimSpace(string(content))
+			if trimmedContent == "" {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			pid, parseErr := strconv.Atoi(trimmedContent)
+			if parseErr != nil {
+				t.Fatalf("parse child pid %q: %v", string(content), parseErr)
+			}
+			if pid <= 0 {
+				t.Fatalf("expected positive child pid, got %d", pid)
+			}
+			return pid
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("read child pid file %q: %v", path, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for child pid file %q", path)
+	return 0
+}
+
+func waitForProcessRunning(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if processRunning(pid) {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return processRunning(pid)
+}
+
+func waitForProcessStopped(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if !processRunning(pid) {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return !processRunning(pid)
+}
+
+func processRunning(pid int) bool {
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		return false
+	}
+	running, err := proc.IsRunning()
+	return err == nil && running
+}
+
+func shellSingleQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func escapePowerShellSingleQuotedString(value string) string {
+	return strings.ReplaceAll(value, "'", "''")
 }
 
 func writeSessionLauncherProfile(t *testing.T, profileLookupHome string, workspaceRoot string, settaHome string) {

@@ -534,7 +534,7 @@ func (p *execStartedProcess) Kill() error {
 	if p == nil || p.cmd == nil || p.cmd.Process == nil {
 		return nil
 	}
-	return p.cmd.Process.Kill()
+	return killStartedProcessTree(p.cmd)
 }
 
 func (p *execStartedProcess) LogPath() string {
@@ -560,6 +560,7 @@ func startLauncherProcess(request processStartRequest) (startedProcess, error) {
 	logPath := logFile.Name()
 
 	cmd := exec.Command(request.Args[0], request.Args[1:]...)
+	configureStartedProcessTree(cmd)
 	cmd.Env = request.Env
 	cmd.Dir = request.CWD
 	cmd.Stdin = nil
