@@ -153,6 +153,40 @@ type stubToolClient struct {
 	call              func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error)
 }
 
+func managedCompletionStatusInitTools() map[string]mcpx.ToolDescriptor {
+	return map[string]mcpx.ToolDescriptor{
+		"setta__report_completion_status": {
+			ServerID:       mcpx.DefaultServerID,
+			NamespacedName: "setta__report_completion_status",
+			RemoteName:     "report_completion_status",
+			Description:    "Report completion status.",
+			InputSchema: map[string]any{
+				"type": "object",
+			},
+		},
+	}
+}
+
+func toolPayloadIncludesName(payload []any, want string) bool {
+	for _, rawTool := range payload {
+		tool, ok := rawTool.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, ok := tool["name"].(string); ok && strings.TrimSpace(name) == want {
+			return true
+		}
+		function, ok := tool["function"].(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, ok := function["name"].(string); ok && strings.TrimSpace(name) == want {
+			return true
+		}
+	}
+	return false
+}
+
 type executorTestSessionProvider struct {
 	current *auth.CurrentSession
 }
@@ -1154,6 +1188,7 @@ func TestExecutorExecuteRunsGeminiToolCallsThroughMCPAndContinuesProviderTurns(t
 		Meta      map[string]any
 	}, 0, 1)
 	toolClient := &stubToolClient{
+		initTools: managedCompletionStatusInitTools(),
 		discoverableTools: map[string]mcpx.ToolDescriptor{
 			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
@@ -1337,6 +1372,7 @@ func TestExecutorExecuteRunsAnthropicToolCallsThroughMCPAndContinuesProviderTurn
 		Meta      map[string]any
 	}, 0, 1)
 	toolClient := &stubToolClient{
+		initTools: managedCompletionStatusInitTools(),
 		discoverableTools: map[string]mcpx.ToolDescriptor{
 			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
@@ -1433,8 +1469,14 @@ func TestExecutorExecuteRunsAnthropicToolCallsThroughMCPAndContinuesProviderTurn
 		t.Fatalf("expected two provider requests, got %d", len(requestBodies))
 	}
 	firstTools, ok := requestBodies[0]["tools"].([]any)
-	if !ok || len(firstTools) != 1 {
-		t.Fatalf("expected one anthropic tool definition, got %#v", requestBodies[0]["tools"])
+	if !ok || len(firstTools) != 2 {
+		t.Fatalf("expected anthropic tool definitions including completion reporting, got %#v", requestBodies[0]["tools"])
+	}
+	if !toolPayloadIncludesName(firstTools, "setta__create_top_level_section") {
+		t.Fatalf("expected anthropic tool payload to include create_top_level_section, got %#v", firstTools)
+	}
+	if !toolPayloadIncludesName(firstTools, "setta__report_completion_status") {
+		t.Fatalf("expected anthropic tool payload to include report_completion_status, got %#v", firstTools)
 	}
 	secondMessages, ok := requestBodies[1]["messages"].([]any)
 	if !ok || len(secondMessages) < 3 {
@@ -3792,6 +3834,7 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 		Meta      map[string]any
 	}, 0, 1)
 	toolClient := &stubToolClient{
+		initTools: managedCompletionStatusInitTools(),
 		discoverableTools: map[string]mcpx.ToolDescriptor{
 			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
@@ -3875,8 +3918,14 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 		t.Fatalf("expected two OpenAI responses requests, got %d", len(requestBodies))
 	}
 	firstTools, ok := requestBodies[0]["tools"].([]any)
-	if !ok || len(firstTools) != 1 {
-		t.Fatalf("expected one OpenAI function tool, got %#v", requestBodies[0]["tools"])
+	if !ok || len(firstTools) != 2 {
+		t.Fatalf("expected OpenAI function tools including completion reporting, got %#v", requestBodies[0]["tools"])
+	}
+	if !toolPayloadIncludesName(firstTools, "setta__create_top_level_section") {
+		t.Fatalf("expected OpenAI Responses tool payload to include create_top_level_section, got %#v", firstTools)
+	}
+	if !toolPayloadIncludesName(firstTools, "setta__report_completion_status") {
+		t.Fatalf("expected OpenAI Responses tool payload to include report_completion_status, got %#v", firstTools)
 	}
 	secondInput, ok := requestBodies[1]["input"].([]any)
 	if !ok || len(secondInput) < 3 {
@@ -3991,6 +4040,7 @@ func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t 
 	defer server.Close()
 
 	toolClient := &stubToolClient{
+		initTools: managedCompletionStatusInitTools(),
 		discoverableTools: map[string]mcpx.ToolDescriptor{
 			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
@@ -4664,6 +4714,7 @@ func TestExecutorExecutePreservesCompletedOpenAIResponsesToolCallBeforeIncomplet
 	live.ActivateRun(run)
 
 	toolClient := &stubToolClient{
+		initTools: managedCompletionStatusInitTools(),
 		discoverableTools: map[string]mcpx.ToolDescriptor{
 			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
@@ -5103,6 +5154,7 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 		Meta      map[string]any
 	}, 0, 1)
 	toolClient := &stubToolClient{
+		initTools: managedCompletionStatusInitTools(),
 		discoverableTools: map[string]mcpx.ToolDescriptor{
 			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
@@ -5208,8 +5260,14 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 		t.Fatalf("expected two provider requests, got %d", len(requestBodies))
 	}
 	firstTools, ok := requestBodies[0]["tools"].([]any)
-	if !ok || len(firstTools) != 1 {
-		t.Fatalf("expected one tool definition, got %#v", requestBodies[0]["tools"])
+	if !ok || len(firstTools) != 2 {
+		t.Fatalf("expected tool definitions including completion reporting, got %#v", requestBodies[0]["tools"])
+	}
+	if !toolPayloadIncludesName(firstTools, "setta__create_top_level_section") {
+		t.Fatalf("expected OpenAI chat tool payload to include create_top_level_section, got %#v", firstTools)
+	}
+	if !toolPayloadIncludesName(firstTools, "setta__report_completion_status") {
+		t.Fatalf("expected OpenAI chat tool payload to include report_completion_status, got %#v", firstTools)
 	}
 	secondMessages, ok := requestBodies[1]["messages"].([]any)
 	if !ok || len(secondMessages) < 4 {
