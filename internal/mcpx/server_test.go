@@ -1482,6 +1482,38 @@ func TestServerDiscoverableToolsHaveExplicitAccessMetadata(t *testing.T) {
 	}
 }
 
+func TestServerSetAgenticContextRejectsBlankFrontendAffinityToken(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId":       "project-alpha",
+			"chatId":                "chat-1",
+			"sectionId":             "chat-section",
+			"frontendAffinityToken": "   ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blank frontend affinity token to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	message, _ := payload["message"].(string)
+	if !strings.Contains(message, "frontendAffinityToken must be a non-empty string when provided") {
+		t.Fatalf("expected blank frontend affinity token message, got %#v", payload)
+	}
+}
+
 func TestServerScopedReadToolsRejectEmptyReadableScope(t *testing.T) {
 	t.Parallel()
 

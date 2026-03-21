@@ -726,6 +726,29 @@ func TestResolveAgenticContextIgnoresBlankMetaFrontendAffinityTokenWithoutSessio
 	}
 }
 
+func TestResolveAgenticContextIgnoresMalformedMetaFrontendAffinityTokenWithoutSessionAffinity(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId":       "project-alpha",
+				"frontendAffinityToken": []any{"frontend-from-request"},
+			},
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.FrontendAffinityToken != "" {
+		t.Fatalf("expected malformed frontend affinity token to be ignored, got %q", resolved.FrontendAffinityToken)
+	}
+}
+
 func mustTargetResolutionProjectView(t *testing.T) projectview.SingleConfig {
 	t.Helper()
 
