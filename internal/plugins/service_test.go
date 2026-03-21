@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -159,6 +160,73 @@ func TestServiceInstallGitHubPluginStripsGitMetadataAndPreservesDigestAcrossRein
 	}
 	if secondInstall.SourceDigestSHA256 == nil || *secondInstall.SourceDigestSHA256 != *firstInstall.SourceDigestSHA256 {
 		t.Fatalf("expected stable GitHub source digest across reinstall, got first=%#v second=%#v", firstInstall.SourceDigestSHA256, secondInstall.SourceDigestSHA256)
+	}
+}
+
+// The mutation service should install a PyPI plugin from a real local wheel artifact and surface the live status entry.
+func TestServiceInstallPyPIPluginFromLocalWheel(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	service := mustNewPluginMutationService(t, roots, provider, config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Installer:  installerPointer(PluginInstallerBackendPip),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install local wheel plugin: %v", err)
+	}
+
+	if installResult.PluginID != "setta-fixture-frontend" || installResult.Version != "0.1.0" {
+		t.Fatalf("unexpected install result %#v", installResult)
+	}
+	if installResult.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active install result, got %#v", installResult.State)
+	}
+	if installResult.SourceScope != PluginScopeWorkspace || installResult.SourceScopeLabel != "workspace" {
+		t.Fatalf("expected workspace install scope, got scope=%q label=%q", installResult.SourceScope, installResult.SourceScopeLabel)
+	}
+	if installResult.SourceDigestSHA256 == nil || strings.TrimSpace(*installResult.SourceDigestSHA256) == "" {
+		t.Fatalf("expected source digest to be populated")
+	}
+
+	expectedCapabilities := []string{
+		"registerSectionKinds",
+		"registerPane",
+		"registerCommand",
+		"readProjectState",
+		"subscribeProjectState",
+		"emitListenerEvents",
+	}
+	if !slices.Equal(installResult.RequestedCapabilities, expectedCapabilities) {
+		t.Fatalf("unexpected requested capabilities %#v", installResult.RequestedCapabilities)
+	}
+	if installResult.TrustStatus != PluginSourceTrustStatusUnverified {
+		t.Fatalf("expected unverified trust status, got %#v", installResult.TrustStatus)
+	}
+	if !strings.Contains(installResult.TrustWarning, "Source is unverified.") {
+		t.Fatalf("expected unverified trust warning, got %#v", installResult.TrustWarning)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("status after local wheel install: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
+	if entry.SourceScope != PluginScopeWorkspace || entry.ShadowedBySourcePath != nil {
+		t.Fatalf("expected active workspace status entry without shadowing, got %#v", entry)
 	}
 }
 
