@@ -3831,6 +3831,7 @@ func TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend(t *testing.T) {
 	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
 		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
 	}
+	_ = readAppRouteEnvelopeUntilType(t, frontendConn, realtime.MessageTypeListenerCoverageSnapshot, 2)
 
 	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-stream","endpointName":"route_emit_chat_stream_delta","payload":{"chatId":"chat-1","sectionId":"chat-section","chunk":{"type":"message_stop","message_id":"assistant-1"}}}}`)); err != nil {
 		t.Fatalf("write listener emit-chat-stream-delta endpoint call: %v", err)
