@@ -175,6 +175,51 @@ func TestRuntimeEnsureCodeSectionAttachedTerminalCreatesEmbeddedTerminal(t *test
 	}
 }
 
+func TestRuntimeEnsureCodeSectionAttachedTerminalCreatesConcreteSizedEmbeddedTerminal(t *testing.T) {
+	t.Parallel()
+
+	runtime := openRunGraphTestRuntime(t, newAttachedTerminalWriteTestDocument())
+
+	snapshot, terminalID, err := runtime.EnsureCodeSectionAttachedTerminal(
+		"project-alpha",
+		"code-section",
+		newRunGraphTerminalSeed("ensured-terminal"),
+	)
+	if err != nil {
+		t.Fatalf("ensure attached terminal: %v", err)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	terminalPayload, err := effectiveSectionPayload(project, terminalID, project.SectionVariantMap[terminalID])
+	if err != nil {
+		t.Fatalf("terminal payload: %v", err)
+	}
+	terminalSize, ok := payloadObjectField(terminalPayload, "size")
+	if !ok {
+		t.Fatalf("expected terminal size payload, got %#v", terminalPayload)
+	}
+	terminalWidth, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "width")
+	if err != nil {
+		t.Fatalf("parse terminal width: %v", err)
+	}
+	if !present || isAuto {
+		t.Fatalf("expected concrete terminal width, got %#v", terminalSize)
+	}
+	if terminalWidth != 640.0 {
+		t.Fatalf("expected terminal width 640 to match parent code width, got %v", terminalWidth)
+	}
+	terminalHeight, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "height")
+	if err != nil {
+		t.Fatalf("parse terminal height: %v", err)
+	}
+	if !present || isAuto {
+		t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
+	}
+	if terminalHeight <= 0 {
+		t.Fatalf("expected positive terminal height, got %v", terminalHeight)
+	}
+}
+
 func TestRuntimeEnsureCodeSectionAttachedTerminalReusesValidExistingTerminal(t *testing.T) {
 	t.Parallel()
 

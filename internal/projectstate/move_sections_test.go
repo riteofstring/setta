@@ -491,6 +491,29 @@ func TestRuntimeMoveSectionsAttachesAndDetachesTerminalThroughTheMoveRoute(t *te
 	}
 }
 
+func TestRuntimeMoveSectionsRejectsNonTerminalChildForCodeParent(t *testing.T) {
+	t.Parallel()
+
+	runtime := openRunGraphTestRuntime(t, newAttachedTerminalWriteTestDocument())
+	settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
+
+	codeSectionID := "code-section"
+	newIndex := 0
+	_, err := runtime.MoveSections(
+		context.Background(),
+		"project-alpha",
+		MoveSectionsInput{
+			SectionIDs:  []string{"text-section"},
+			NewParentID: &codeSectionID,
+			NewIndex:    &newIndex,
+		},
+		settings,
+	)
+	if !errors.Is(err, ErrCodeSectionChildTypeInvalid) {
+		t.Fatalf("expected ErrCodeSectionChildTypeInvalid, got %v", err)
+	}
+}
+
 func TestRuntimeMoveSectionsMoveToPaneAssignsFreshMonotonicZIndices(t *testing.T) {
 	t.Parallel()
 

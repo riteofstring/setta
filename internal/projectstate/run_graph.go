@@ -261,11 +261,17 @@ func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, 
 		Terminal: &TerminalSectionImpl{},
 	}
 	project.SectionVariantMap[normalizedSeed.SectionID] = normalizedSeed.VariantID
-
-	updatedImpl := impl.Clone()
-	updatedImpl.Code.AttachedTerminalSectionID = normalizedSeed.SectionID
-	updatedImpl.Code.Children = []string{normalizedSeed.SectionID}
-	project.SectionImpls[updatedImpl.ID] = updatedImpl
+	defaults := DefaultStructuralMutationSettings()
+	if err := project.attachCodeSectionTerminal(
+		section,
+		variant,
+		impl,
+		normalizedSeed.SectionID,
+		defaults.SectionSizingPolicy,
+		defaults.TerminalDefaultHeight,
+	); err != nil {
+		return "", err
+	}
 
 	d.Projects[project.ID] = project
 	return normalizedSeed.SectionID, nil
