@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -312,6 +313,149 @@ func TestLocalIDESessionLauncherEnsureSessionReusesOnlyMatchingModeAndRuntimeIde
 	}
 	if len(result.Secret) == 0 {
 		t.Fatal("expected reused session secret")
+	}
+}
+
+func TestExistingSessionWaitWindowExtendsForRecentSessions(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.March, 19, 12, 0, 0, 0, time.UTC)
+	got := existingSessionWaitWindow(auth.SessionMetadata{
+		PID:       os.Getpid(),
+		StartedAt: now,
+	}, now, 30*time.Second, defaultExistingSessionWait)
+	if got != defaultExistingSessionExtendedWait {
+		t.Fatalf("expected extended wait %s, got %s", defaultExistingSessionExtendedWait, got)
+	}
+}
+
+func TestExistingSessionWaitWindowUsesBaseForOlderSessions(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.March, 19, 12, 0, 0, 0, time.UTC)
+	got := existingSessionWaitWindow(auth.SessionMetadata{
+		PID:       os.Getpid(),
+		StartedAt: now.Add(-(defaultExistingSessionRecentAge + time.Second)),
+	}, now, 30*time.Second, defaultExistingSessionWait)
+	if got != defaultExistingSessionWait {
+		t.Fatalf("expected base wait %s, got %s", defaultExistingSessionWait, got)
+	}
+}
+
+func TestLocalIDESessionLauncherEnsureSessionExtendsRecentSessionGraceBeforeSpawn(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, settaHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	location := "local"
+	input := IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+		ServerMode:         config.ModeIDE,
+	}
+	cfg, err := loadIDELaunchConfig(input)
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+
+	current := time.Date(2026, time.March, 19, 12, 0, 0, 0, time.UTC)
+	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot: filepath.Join(cfg.Paths.RuntimeRoot, "sessions"),
+		Now: func() time.Time {
+			return current
+		},
+		PIDCreateTime: func(int) *float64 { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new session registry: %v", err)
+	}
+
+	reservedListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve listener port: %v", err)
+	}
+	port := reservedListener.Addr().(*net.TCPAddr).Port
+	if err := reservedListener.Close(); err != nil {
+		t.Fatalf("close reserved listener: %v", err)
+	}
+
+	session, err := registry.CreateSession(localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		Host:               "127.0.0.1",
+		Port:               port,
+		PID:                os.Getpid(),
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeIDE),
+	})
+	if err != nil {
+		t.Fatalf("create recent session: %v", err)
+	}
+
+	var connectableListener net.Listener
+	t.Cleanup(func() {
+		if connectableListener != nil {
+			_ = connectableListener.Close()
+		}
+	})
+
+	processStarterCalled := 0
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath:      "/tmp/setta-server",
+		Now:                 func() time.Time { return current },
+		ExistingSessionWait: defaultExistingSessionWait,
+		LaunchTimeout:       12 * time.Second,
+		ConnectTimeout:      50 * time.Millisecond,
+		Sleep: func(duration time.Duration) {
+			current = current.Add(duration)
+			if connectableListener == nil && current.Sub(session.StartedAt) > defaultExistingSessionWait {
+				listener, listenErr := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+				if listenErr != nil {
+					t.Fatalf("start delayed session listener: %v", listenErr)
+				}
+				connectableListener = listener
+			}
+		},
+		RegistryFactory: func(string) (*localsessions.Registry, error) {
+			return registry, nil
+		},
+		ProcessStarter: func(processStartRequest) (startedProcess, error) {
+			processStarterCalled++
+			return nil, errors.New("unexpected process start")
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	result, err := launcher.EnsureSession(input)
+	if err != nil {
+		t.Fatalf("ensure session: %v", err)
+	}
+	if processStarterCalled != 0 {
+		t.Fatalf("expected no process spawn while recent session was still within extended grace, got %d starts", processStarterCalled)
+	}
+	if result.StartedNew {
+		t.Fatal("expected recent session reuse, got StartedNew=true")
+	}
+	if result.Session.ID != session.ID {
+		t.Fatalf("expected reused recent session %q, got %q", session.ID, result.Session.ID)
+	}
+	if current.Sub(session.StartedAt) <= defaultExistingSessionWait {
+		t.Fatalf("expected reuse to happen after base wait %s, current age %s", defaultExistingSessionWait, current.Sub(session.StartedAt))
 	}
 }
 

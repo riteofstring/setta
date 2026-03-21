@@ -23,11 +23,13 @@ import (
 )
 
 const (
-	defaultLaunchHost          = "127.0.0.1"
-	defaultLaunchTimeout       = 30 * time.Second
-	defaultLaunchPollInterval  = 200 * time.Millisecond
-	defaultExistingSessionWait = 2 * time.Second
-	defaultConnectTimeout      = 250 * time.Millisecond
+	defaultLaunchHost                  = "127.0.0.1"
+	defaultLaunchTimeout               = 30 * time.Second
+	defaultLaunchPollInterval          = 200 * time.Millisecond
+	defaultExistingSessionWait         = 2 * time.Second
+	defaultExistingSessionExtendedWait = 10 * time.Second
+	defaultExistingSessionRecentAge    = 15 * time.Second
+	defaultConnectTimeout              = 250 * time.Millisecond
 )
 
 type SessionLaunchError struct {
@@ -201,7 +203,12 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 	}
 
 	if len(matchingSessions) > 0 {
-		deadline := l.now().Add(l.existingSessionWait)
+		deadline := l.now().Add(existingSessionWaitWindow(
+			matchingSessions[0],
+			l.now(),
+			l.launchTimeout,
+			l.existingSessionWait,
+		))
 		for l.now().Before(deadline) {
 			if reused, ok := l.firstConnectableSession(matchingSessions); ok {
 				secret, err := registry.LoadSecret(reused)
@@ -346,6 +353,21 @@ func (l *LocalIDESessionLauncher) firstConnectableSession(sessions []auth.Sessio
 		}
 	}
 	return auth.SessionMetadata{}, false
+}
+
+func existingSessionWaitWindow(session auth.SessionMetadata, now time.Time, timeout time.Duration, base time.Duration) time.Duration {
+	baseWait := minDuration(base, timeout)
+	if session.PID <= 0 {
+		return baseWait
+	}
+	if session.StartedAt.IsZero() {
+		return baseWait
+	}
+	age := now.Sub(session.StartedAt)
+	if age < 0 || age > defaultExistingSessionRecentAge {
+		return baseWait
+	}
+	return minDuration(timeout, defaultExistingSessionExtendedWait)
 }
 
 func (l *LocalIDESessionLauncher) buildLaunchArgs(input IDELaunchInput) []string {
