@@ -15,6 +15,11 @@ scenarios:
     kind: latest_state_after_create_project
     seed: none
     description: Fresh projects should expose the same initial latest-project-state shape after creation.
+  - name: runner_summary_lookup_contract
+    kind: runner_summary_lookup_contract
+    seed: fixture
+    fixture: parity-fixtures/runner-summary-project.json
+    description: The retained SettaRunner summary surface should resolve sections, params, and variants by documented user-facing names while failing closed on missing or non-param lookups.
   - name: latest_state_prunes_stale_active_ids
     kind: latest_state_prunes_stale_active_ids
     seed: none

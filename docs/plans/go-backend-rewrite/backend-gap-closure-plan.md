@@ -91,6 +91,11 @@ following are true:
   partial nested `codeObjValuePolicy` shape, while the source route's `null`
   body versus the current authoritative Go snapshot return is recorded as an
   intentional current-caller divergence instead of a parity bug.
+- The default differential manifest now also proves the retained
+  `SettaRunner.summary()` lookup contract against `main`: live runner clients
+  continue to resolve sections by name/display name/id, params by core/display
+  name, and variants by user-facing variant name while failing closed on
+  missing or non-param lookups.
 - The explicit current-caller gap queue is now exhausted:
   `backend-behavior-parity-matrix.md` is at `Missing = 0` and
   `Implemented, proof incomplete = 0`.

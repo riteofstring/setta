@@ -10,12 +10,13 @@ from setta.auth.cookies import auth_cookie_name
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
+from setta.types.code_obj_impls import NestedParamCodeObjImpl, TextParamCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import TextBlockSectionImpl
+from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -49,6 +50,129 @@ def _build_project_state() -> ProjectStateSingleConfig:
         sectionImpls={section_impl.id: section_impl},
         sectionVariants={section_variant.id: section_variant},
     )
+
+
+def _build_summary_lookup_project_state() -> ProjectStateSingleConfig:
+    root_impl = NestedParamCodeObjImpl(
+        id=ID("training-root-impl"),
+        children=[ID("lr-param")],
+    )
+    root_variant = Variant(
+        id=ID("training-root-variant"),
+        impl=root_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(root_impl),
+    )
+    root_core = Core(
+        id=ID("training-root"),
+        name="training_root",
+        displayName="Training Root",
+        variants=[root_variant.id],
+        defaultVariant=root_variant.id,
+    )
+    param_impl = TextParamCodeObjImpl(
+        id=ID("lr-param-impl"),
+        coreNameEditable=True,
+        value="0.001",
+    )
+    param_variant = Variant(
+        id=ID("lr-param-variant"),
+        impl=param_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
+    )
+    param_core = Core(
+        id=ID("lr-param"),
+        name="learning_rate",
+        displayName="Learning Rate",
+        variants=[param_variant.id],
+        defaultVariant=param_variant.id,
+    )
+    training_impl = DictSectionImpl(
+        id=ID("training-impl"),
+        topLevelParamId=root_core.id,
+        codeObjVariantMap={
+            root_core.id: root_variant.id,
+            param_core.id: param_variant.id,
+        },
+        pinnedParams=[param_core.id],
+        selectedParams=[],
+    )
+    training_variant_base = Variant(
+        id=ID("training-variant-base"),
+        name="Baseline",
+        impl=training_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(training_impl),
+    )
+    training_variant_accurate = Variant(
+        id=ID("training-variant-accurate"),
+        name="High Accuracy",
+        impl=training_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(training_impl),
+    )
+    training_core = Core(
+        id=ID("training-section"),
+        name="Training",
+        displayName="Training Settings",
+        variants=[training_variant_base.id, training_variant_accurate.id],
+        defaultVariant=training_variant_base.id,
+    )
+    notes_impl = TextBlockSectionImpl(
+        id=ID("notes-impl"),
+        text="Operator notes",
+    )
+    notes_variant = Variant(
+        id=ID("notes-variant"),
+        name="Notes Variant",
+        impl=notes_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(notes_impl),
+    )
+    notes_core = Core(
+        id=ID("notes-section"),
+        name="Notes",
+        displayName="Overview Notes",
+        variants=[notes_variant.id],
+        defaultVariant=notes_variant.id,
+    )
+    project_config = ProjectConfig(
+        id=ID("project-1"),
+        name="Project Alpha",
+        sectionVariantMap={
+            training_core.id: training_variant_base.id,
+            notes_core.id: notes_variant.id,
+        },
+        topLevelSections={
+            training_core.id: TopLevelSectionLayout(),
+            notes_core.id: TopLevelSectionLayout(),
+        },
+    )
+    return ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections={
+            training_core.id: training_core,
+            notes_core.id: notes_core,
+        },
+        sectionImpls={
+            training_impl.id: training_impl,
+            notes_impl.id: notes_impl,
+        },
+        sectionVariants={
+            training_variant_base.id: training_variant_base,
+            training_variant_accurate.id: training_variant_accurate,
+            notes_variant.id: notes_variant,
+        },
+        codeObjs={
+            root_core.id: root_core,
+            param_core.id: param_core,
+        },
+        codeObjImpls={
+            root_impl.id: root_impl,
+            param_impl.id: param_impl,
+        },
+        codeObjVariants={
+            root_variant.id: root_variant,
+            param_variant.id: param_variant,
+        },
+    )
+
 
 def test_random_params_empty_grid_returns_identity() -> None:
     base_override = RunOverride(tags={"kind": "base"})
@@ -110,6 +234,81 @@ def test_summary_loads_latest_project_state_for_default_config(
             {"projectConfigId": project_state.projectConfig.id},
         )
     ]
+
+
+def test_summary_section_lookup_accepts_display_names_and_variant_names(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com")
+    project_state = _build_summary_lookup_project_state()
+
+    monkeypatch.setattr(
+        runner,
+        "_post",
+        lambda _route, _payload: {
+            "projectState": project_state.model_dump(mode="json")
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_resolve_project_config_id",
+        lambda _ref: project_state.projectConfig.id,
+    )
+
+    # Runner summary should resolve the same section by core name, display name,
+    # or canonical id, and variant lookup should keep user-facing names stable.
+    summary = runner.summary()
+
+    assert summary.section("Training").id == ID("training-section")
+    assert summary.section("Training Settings").id == ID("training-section")
+    assert summary.section("training-section").id == ID("training-section")
+    assert summary.section("Training Settings").variants.by_name(
+        ["Baseline", "High Accuracy"]
+    ) == [
+        ID("training-variant-base"),
+        ID("training-variant-accurate"),
+    ]
+
+
+def test_summary_params_by_name_accepts_display_names_and_fails_closed(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com")
+    project_state = _build_summary_lookup_project_state()
+
+    monkeypatch.setattr(
+        runner,
+        "_post",
+        lambda _route, _payload: {
+            "projectState": project_state.model_dump(mode="json")
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_resolve_project_config_id",
+        lambda _ref: project_state.projectConfig.id,
+    )
+
+    # Param lookup should resolve both core and display names while rejecting
+    # unknown params and sections that do not carry param-capable impls.
+    summary = runner.summary()
+
+    assert summary.params.by_name(
+        "Training Settings", "learning_rate"
+    ) == SectionParamDependencyKey(
+        sectionId=ID("training-section"),
+        codeObjId=ID("lr-param"),
+    )
+    assert summary.params.by_name(
+        "Training Settings", "Learning Rate"
+    ) == SectionParamDependencyKey(
+        sectionId=ID("training-section"),
+        codeObjId=ID("lr-param"),
+    )
+    with pytest.raises(KeyError, match="Unknown param name"):
+        summary.params.by_name("Training Settings", "missing_param")
+    with pytest.raises(KeyError, match="has no params"):
+        summary.params.by_name("Overview Notes", "Learning Rate")
 
 
 def test_resolve_auth_headers_loads_cookie_from_matching_workspace_session(

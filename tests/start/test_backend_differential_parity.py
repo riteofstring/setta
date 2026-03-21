@@ -77,7 +77,10 @@ scenarios:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             fixture_path = (
-                repo_root() / "scripts" / "parity-fixtures" / "empty-callable-project.json"
+                repo_root()
+                / "scripts"
+                / "parity-fixtures"
+                / "empty-callable-project.json"
             )
             scenario = harness.ScenarioConfig(
                 name="fixture_scenario",
@@ -155,7 +158,10 @@ scenarios:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             fixture_path = (
-                repo_root() / "scripts" / "parity-fixtures" / "empty-callable-project.json"
+                repo_root()
+                / "scripts"
+                / "parity-fixtures"
+                / "empty-callable-project.json"
             )
             scenario = harness.ScenarioConfig(
                 name="fixture_scenario",
@@ -311,7 +317,9 @@ class Route:
                 str(root / "backend"),
             )
 
-    def test_build_backend_env_uses_python_wrapper_when_go_launcher_missing(self) -> None:
+    def test_build_backend_env_uses_python_wrapper_when_go_launcher_missing(
+        self,
+    ) -> None:
         harness = load_harness_module()
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -578,14 +586,14 @@ class Route:
                 "projectConfig": {
                     "id": "project-1",
                     "name": "Example project",
-                "viewModes": {"view-mode-1": {"id": "view-mode-1"}},
-                "activeViewModeId": "view-mode-1",
-                "isEditingViewMode": False,
-                "topLevelSections": {},
-                "windowSpaces": {},
-            },
-            "shownParamIds": {},
-        }
+                    "viewModes": {"view-mode-1": {"id": "view-mode-1"}},
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": False,
+                    "topLevelSections": {},
+                    "windowSpaces": {},
+                },
+                "shownParamIds": {},
+            }
         }
 
         summary = harness.summarize_latest_state_after_create_project(
@@ -606,6 +614,60 @@ class Route:
                 "topLevelSectionCount": 0,
                 "windowSpacesObjectPresent": True,
                 "shownParamEntryCount": 0,
+            },
+        )
+
+    def test_normalize_python_exception_summary_unquotes_key_errors(self) -> None:
+        harness = load_harness_module()
+
+        self.assertEqual(
+            harness.normalize_python_exception_summary(
+                KeyError("Unknown section: Missing Section")
+            ),
+            "Unknown section: Missing Section",
+        )
+
+    def test_summarize_runner_summary_lookup_contract(self) -> None:
+        harness = load_harness_module()
+
+        summary = harness.summarize_runner_summary_lookup_contract(
+            default_summary_section_id="training-section",
+            section_by_name_id="training-section",
+            section_by_display_name_id="training-section",
+            section_by_id_id="training-section",
+            variant_ids_by_name=[
+                "training-variant-base",
+                "training-variant-accurate",
+            ],
+            param_by_core_name="training-section:lr-param",
+            param_by_display_name="training-section:lr-param",
+            missing_section_error="Unknown section: Missing Section",
+            missing_variant_error="Unknown variant names: ['Missing Variant']",
+            missing_param_error=(
+                "Unknown param name 'missing_param' for section 'Training Settings'"
+            ),
+            non_param_section_error="Section 'Overview Notes' has no params",
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "defaultSummarySectionId": "training-section",
+                "sectionByNameId": "training-section",
+                "sectionByDisplayNameId": "training-section",
+                "sectionByIdId": "training-section",
+                "variantIdsByName": [
+                    "training-variant-base",
+                    "training-variant-accurate",
+                ],
+                "paramByCoreName": "training-section:lr-param",
+                "paramByDisplayName": "training-section:lr-param",
+                "missingSectionError": "Unknown section: Missing Section",
+                "missingVariantError": "Unknown variant names: ['Missing Variant']",
+                "missingParamError": (
+                    "Unknown param name 'missing_param' for section 'Training Settings'"
+                ),
+                "nonParamSectionError": "Section 'Overview Notes' has no params",
             },
         )
 
@@ -640,9 +702,7 @@ class Route:
                             "codeObjValuePolicy": {
                                 "codeObjOverrides": {},
                                 "typePolicies": {
-                                    "TextParam": {
-                                        "representation": "expression"
-                                    }
+                                    "TextParam": {"representation": "expression"}
                                 },
                             },
                         }
@@ -676,9 +736,7 @@ class Route:
                         "codeObjValuePolicy": {
                             "codeObjOverrides": {},
                             "typePolicies": {
-                                "TextParam": {
-                                    "representation": "expression"
-                                }
+                                "TextParam": {"representation": "expression"}
                             },
                         },
                         "genCodePrefix": "",
@@ -694,9 +752,7 @@ class Route:
     def test_summarize_settings_project_shell_detects_expected_contract(self) -> None:
         harness = load_harness_module()
         workspace_root = "/tmp/workspace"
-        shared_settings_path = (
-            f"{workspace_root}/setta_files/setta-settings.json"
-        )
+        shared_settings_path = f"{workspace_root}/setta_files/setta-settings.json"
 
         sections = {
             "section-a": {"name": "shortcuts", "displayName": "Shortcuts"},
@@ -1212,7 +1268,7 @@ class Route:
                 "rename-setting-variant": {
                     "impl": "rename-setting-impl",
                     "modifier": {
-                        "value": "\"NEVER_RENAME\"",
+                        "value": '"NEVER_RENAME"',
                     },
                 },
             },
@@ -1384,25 +1440,9 @@ class Route:
                 }
             }
         }
-        pre_restart_latest_payload = {
-            "projectState": {
-                "projectConfig": {
-                    "viewModes": {
-                        "settings-core": {
-                            "id": "settings-core",
-                            "name": "Core",
-                            "sortIndex": 0,
-                        }
-                    }
-                }
-            }
-        }
-
         summary = harness.summarize_settings_project_required_view_mode_repair(
             initial_load_http_status=200,
             delete_http_status=200,
-            pre_restart_latest_http_status=200,
-            pre_restart_latest_payload=pre_restart_latest_payload,
             restart_load_http_status=200,
             restart_load_payload=restart_load_payload,
             restart_latest_http_status=200,
@@ -1668,9 +1708,9 @@ class Route:
             view_mode_name="Param Defaults",
             section_name="buttonParamCodeObjDefault",
         )
-        top_level_sections = updated["projects"]["settings"]["projectConfig"]["viewModes"][
-            "settings-param-defaults"
-        ]["topLevelSections"]
+        top_level_sections = updated["projects"]["settings"]["projectConfig"][
+            "viewModes"
+        ]["settings-param-defaults"]["topLevelSections"]
 
         self.assertNotIn("section-a", top_level_sections)
         self.assertIn("section-b", top_level_sections)
@@ -1971,7 +2011,9 @@ class Route:
 
         self.assertEqual(settings_project["topLevelSectionIds"], ["section-a"])
         self.assertEqual(set(settings_project["sections"].keys()), {"section-a"})
-        self.assertEqual(set(settings_project["sectionVariantMap"].keys()), {"section-a"})
+        self.assertEqual(
+            set(settings_project["sectionVariantMap"].keys()), {"section-a"}
+        )
         self.assertEqual(set(settings_project["sectionVariants"].keys()), {"variant-a"})
         self.assertEqual(set(settings_project["sectionImpls"].keys()), {"impl-a"})
         self.assertNotIn(
@@ -2121,11 +2163,13 @@ class Route:
     ) -> None:
         harness = load_harness_module()
 
-        summary = harness.summarize_settings_project_missing_required_section_fails_closed(
-            initial_load_http_status=200,
-            restart_startup_error=None,
-            restart_load_http_status=500,
-            restart_load_payload={"detail": "Internal Server Error"},
+        summary = (
+            harness.summarize_settings_project_missing_required_section_fails_closed(
+                initial_load_http_status=200,
+                restart_startup_error=None,
+                restart_load_http_status=500,
+                restart_load_payload={"detail": "Internal Server Error"},
+            )
         )
 
         self.assertEqual(
@@ -2143,15 +2187,17 @@ class Route:
     ) -> None:
         harness = load_harness_module()
 
-        summary = harness.summarize_settings_project_missing_required_section_fails_closed(
-            initial_load_http_status=200,
-            restart_startup_error=(
-                "Backend exited before startup completed.\n\n"
-                "setta.project_state.settings_project.MissingSettingsSectionError: "
-                "'Missing settings section spreadsheetSectionDefault.'"
-            ),
-            restart_load_http_status=None,
-            restart_load_payload=None,
+        summary = (
+            harness.summarize_settings_project_missing_required_section_fails_closed(
+                initial_load_http_status=200,
+                restart_startup_error=(
+                    "Backend exited before startup completed.\n\n"
+                    "setta.project_state.settings_project.MissingSettingsSectionError: "
+                    "'Missing settings section spreadsheetSectionDefault.'"
+                ),
+                restart_load_http_status=None,
+                restart_load_payload=None,
+            )
         )
 
         self.assertEqual(
@@ -2498,7 +2544,7 @@ class Route:
                     "instancesById": {},
                     "order": [],
                     "nextInstanceNumber": 1,
-                }
+                },
             },
             restart_latest_http_status=200,
             restart_latest_payload={
@@ -2599,9 +2645,7 @@ class Route:
                 "restartLoadHttpStatus": 200,
                 "restartLatestHttpStatus": 200,
                 "restartLoadProjectChatSectionWindowCount": 1,
-                "restartLoadProjectChatSectionWindowIDs": [
-                    "project-chat-window-1"
-                ],
+                "restartLoadProjectChatSectionWindowIDs": ["project-chat-window-1"],
                 "restartLoadProjectChatSectionWindowTitles": {
                     "project-chat-window-1": None
                 },
@@ -2609,17 +2653,13 @@ class Route:
                 "restartLoadWindowSpaceSectionWindowIDs": ["window-2"],
                 "restartLoadWindowSpaceSectionWindowTitles": {"window-2": None},
                 "restartLatestProjectChatSectionWindowCount": 1,
-                "restartLatestProjectChatSectionWindowIDs": [
-                    "project-chat-window-1"
-                ],
+                "restartLatestProjectChatSectionWindowIDs": ["project-chat-window-1"],
                 "restartLatestProjectChatSectionWindowTitles": {
                     "project-chat-window-1": None
                 },
                 "restartLatestWindowSpaceSectionWindowCount": 1,
                 "restartLatestWindowSpaceSectionWindowIDs": ["window-2"],
-                "restartLatestWindowSpaceSectionWindowTitles": {
-                    "window-2": None
-                },
+                "restartLatestWindowSpaceSectionWindowTitles": {"window-2": None},
             },
         )
 
@@ -2687,13 +2727,7 @@ class Route:
                 }
             },
             "projectConfig": {
-                "windowSpaces": {
-                    "space-alpha": {
-                        "windowsById": {
-                            "window-alpha": {}
-                        }
-                    }
-                }
+                "windowSpaces": {"space-alpha": {"windowsById": {"window-alpha": {}}}}
             },
         }
         second_payload = {
@@ -2705,13 +2739,7 @@ class Route:
                 }
             },
             "projectConfig": {
-                "windowSpaces": {
-                    "space-beta": {
-                        "windowsById": {
-                            "window-beta": {}
-                        }
-                    }
-                }
+                "windowSpaces": {"space-beta": {"windowsById": {"window-beta": {}}}}
             },
         }
 
@@ -2736,33 +2764,25 @@ class Route:
                     "space-alpha": ["window-alpha"]
                 },
                 "firstLoadProjectChatWindowIDs": ["instance-alpha"],
-                "firstLoadProjectChatChatIDs": {
-                    "instance-alpha": "chat-live-alpha"
-                },
+                "firstLoadProjectChatChatIDs": {"instance-alpha": "chat-live-alpha"},
                 "firstLatestWindowSpaceIDs": ["space-alpha"],
                 "firstLatestWindowSpaceWindowIDsBySpace": {
                     "space-alpha": ["window-alpha"]
                 },
                 "firstLatestProjectChatWindowIDs": ["instance-alpha"],
-                "firstLatestProjectChatChatIDs": {
-                    "instance-alpha": "chat-live-alpha"
-                },
+                "firstLatestProjectChatChatIDs": {"instance-alpha": "chat-live-alpha"},
                 "secondLoadWindowSpaceIDs": ["space-beta"],
                 "secondLoadWindowSpaceWindowIDsBySpace": {
                     "space-beta": ["window-beta"]
                 },
                 "secondLoadProjectChatWindowIDs": ["instance-beta"],
-                "secondLoadProjectChatChatIDs": {
-                    "instance-beta": "chat-live-beta"
-                },
+                "secondLoadProjectChatChatIDs": {"instance-beta": "chat-live-beta"},
                 "secondLatestWindowSpaceIDs": ["space-beta"],
                 "secondLatestWindowSpaceWindowIDsBySpace": {
                     "space-beta": ["window-beta"]
                 },
                 "secondLatestProjectChatWindowIDs": ["instance-beta"],
-                "secondLatestProjectChatChatIDs": {
-                    "instance-beta": "chat-live-beta"
-                },
+                "secondLatestProjectChatChatIDs": {"instance-beta": "chat-live-beta"},
             },
         )
 
@@ -2820,9 +2840,7 @@ class Route:
     ) -> None:
         harness = load_harness_module()
 
-        payload = {
-            "detail": "Project chat layout write rejected."
-        }
+        payload = {"detail": "Project chat layout write rejected."}
 
         self.assertEqual(
             harness.summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
@@ -2851,9 +2869,7 @@ class Route:
     ) -> None:
         harness = load_harness_module()
 
-        payload = {
-            "detail": "Window-space write rejected."
-        }
+        payload = {"detail": "Window-space write rejected."}
 
         self.assertEqual(
             harness.summarize_window_space_create_invalid_owner_mode_write_contract(
@@ -3124,15 +3140,17 @@ class Route:
             },
         }
 
-        summary = harness.summarize_json_source_save_restart_round_trip_canonical_storage(
-            save_http_status=200,
-            restart_startup_error=None,
-            restart_load_http_status=200,
-            restart_load_payload=load_payload,
-            restart_latest_http_status=200,
-            restart_latest_payload={"projectState": load_payload},
-            persisted_project=persisted_project,
-            saved_payload={"alpha": {"fresh": 2}},
+        summary = (
+            harness.summarize_json_source_save_restart_round_trip_canonical_storage(
+                save_http_status=200,
+                restart_startup_error=None,
+                restart_load_http_status=200,
+                restart_load_payload=load_payload,
+                restart_latest_http_status=200,
+                restart_latest_payload={"projectState": load_payload},
+                persisted_project=persisted_project,
+                saved_payload={"alpha": {"fresh": 2}},
+            )
         )
 
         self.assertEqual(
@@ -3353,15 +3371,17 @@ class Route:
     ) -> None:
         harness = load_harness_module()
 
-        summary = harness.summarize_json_source_save_restart_round_trip_canonical_storage(
-            save_http_status=200,
-            restart_startup_error="backend exited on startup",
-            restart_load_http_status=None,
-            restart_load_payload=None,
-            restart_latest_http_status=None,
-            restart_latest_payload=None,
-            persisted_project=None,
-            saved_payload=None,
+        summary = (
+            harness.summarize_json_source_save_restart_round_trip_canonical_storage(
+                save_http_status=200,
+                restart_startup_error="backend exited on startup",
+                restart_load_http_status=None,
+                restart_load_payload=None,
+                restart_latest_http_status=None,
+                restart_latest_payload=None,
+                persisted_project=None,
+                saved_payload=None,
+            )
         )
 
         self.assertEqual(

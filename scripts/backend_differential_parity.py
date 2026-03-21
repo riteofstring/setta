@@ -205,9 +205,7 @@ def main() -> int:
         scenarios = [scenario for scenario in scenarios if scenario.name in only]
         missing = sorted(only.difference({scenario.name for scenario in scenarios}))
         if missing:
-            raise ParityHarnessError(
-                "Unknown scenario name(s): " + ", ".join(missing)
-            )
+            raise ParityHarnessError("Unknown scenario name(s): " + ", ".join(missing))
     if not scenarios:
         raise ParityHarnessError("No parity scenarios selected.")
 
@@ -223,7 +221,9 @@ def main() -> int:
         keep_baseline_worktree=args.keep_baseline_worktree,
     )
     current_target = RefTarget(label="current", root=REPO_ROOT)
-    baseline_target = RefTarget(label=f"baseline:{args.baseline_ref}", root=baseline_root)
+    baseline_target = RefTarget(
+        label=f"baseline:{args.baseline_ref}", root=baseline_root
+    )
 
     mismatches: list[str] = []
     try:
@@ -327,7 +327,9 @@ def prepare_baseline_root(
         return existing_root, lambda: None
 
     parent = Path(
-        tempfile.mkdtemp(prefix="setta-backend-parity-baseline-", dir=os.getenv("TMPDIR"))
+        tempfile.mkdtemp(
+            prefix="setta-backend-parity-baseline-", dir=os.getenv("TMPDIR")
+        )
     )
     worktree_root = parent / "baseline"
     command = [
@@ -348,9 +350,7 @@ def prepare_baseline_root(
     )
     if result.returncode != 0:
         raise ParityHarnessError(
-            "Failed to create baseline worktree:\n"
-            + result.stdout
-            + result.stderr
+            "Failed to create baseline worktree:\n" + result.stdout + result.stderr
         )
 
     current_venv = repo_root / ".venv"
@@ -397,7 +397,11 @@ def run_scenario(target: RefTarget, scenario: ScenarioConfig) -> ScenarioRunResu
 
 
 def start_backend(target: RefTarget, scenario: ScenarioConfig) -> BackendSession:
-    temp_root = Path(tempfile.mkdtemp(prefix=f"setta-backend-parity-{target.label.replace(':', '-')}-"))
+    temp_root = Path(
+        tempfile.mkdtemp(
+            prefix=f"setta-backend-parity-{target.label.replace(':', '-')}-"
+        )
+    )
     workspace_root = temp_root / "workspace"
     setta_home = temp_root / ".setta-development"
     setta_files_root = workspace_root / "setta_files"
@@ -528,6 +532,26 @@ def restart_backend_allow_startup_failure(backend: BackendSession) -> str | None
     backend.websocket_url = restarted.websocket_url
     backend.frontend_origin = restarted.frontend_origin
     return None
+
+
+def build_auth_cookie_header(session: requests.Session) -> str:
+    cookie_map = session.cookies.get_dict()
+    if not cookie_map:
+        raise ParityHarnessError("Authenticated parity session did not have cookies.")
+    return "; ".join(
+        f"{cookie_name}={cookie_value}"
+        for cookie_name, cookie_value in sorted(cookie_map.items())
+    )
+
+
+def load_retained_setta_runner() -> Any:
+    backend_root = REPO_ROOT / "backend"
+    backend_root_str = str(backend_root)
+    if backend_root_str not in sys.path:
+        sys.path.insert(0, backend_root_str)
+    from setta.api.runner import SettaRunner
+
+    return SettaRunner
 
 
 def seed_setta_files(
@@ -767,11 +791,7 @@ def extract_source_project_config(project: dict[str, Any]) -> dict[str, Any]:
         "codeObjVariants",
         "codeObjs",
     }
-    return {
-        key: value
-        for key, value in project.items()
-        if key not in excluded_keys
-    }
+    return {key: value for key, value in project.items() if key not in excluded_keys}
 
 
 def merge_nested_store_map(
@@ -1975,8 +1995,7 @@ def wait_for_bootstrap_token(
     while time.monotonic() < deadline:
         if process.poll() is not None:
             raise ParityHarnessError(
-                "Backend exited before startup completed.\n\n"
-                + tail_log(log_path)
+                "Backend exited before startup completed.\n\n" + tail_log(log_path)
             )
         log_text = read_text(log_path)
         token = extract_bootstrap_token(log_text)
@@ -2075,6 +2094,8 @@ def execute_scenario(
         return execute_toggle_view_mode_broadcast(backend)
     if scenario.kind == "latest_state_after_create_project":
         return execute_latest_state_after_create_project(backend)
+    if scenario.kind == "runner_summary_lookup_contract":
+        return execute_runner_summary_lookup_contract(backend)
     if scenario.kind == "latest_state_prunes_stale_active_ids":
         return execute_latest_state_prunes_stale_active_ids(backend)
     if scenario.kind == "persisted_project_windowing_after_create":
@@ -2086,16 +2107,17 @@ def execute_scenario(
             backend
         )
     if scenario.kind == "project_chat_windowing_invalid_owner_mode_combos_on_load":
-        return execute_project_chat_windowing_invalid_owner_mode_combos_on_load(
-            backend
-        )
+        return execute_project_chat_windowing_invalid_owner_mode_combos_on_load(backend)
     if scenario.kind == "window_spaces_invalid_owner_mode_combos_on_load":
         return execute_window_spaces_invalid_owner_mode_combos_on_load(backend)
     if scenario.kind == "windowing_scoped_per_project_config":
         return execute_windowing_scoped_per_project_config(backend)
     if scenario.kind == "project_chat_window_chat_id_route_contract":
         return execute_project_chat_window_chat_id_route_contract(backend)
-    if scenario.kind == "project_chat_windowing_state_invalid_owner_mode_write_contract":
+    if (
+        scenario.kind
+        == "project_chat_windowing_state_invalid_owner_mode_write_contract"
+    ):
         return execute_project_chat_windowing_state_invalid_owner_mode_write_contract(
             backend
         )
@@ -2104,9 +2126,7 @@ def execute_scenario(
     if scenario.kind == "prompt_template_link_rejects_non_prompt_sections":
         return execute_prompt_template_link_rejects_non_prompt_sections(backend)
     if scenario.kind == "codegen_targets_python_route_projects_target_shape":
-        return execute_codegen_targets_python_route_projects_target_shape(
-            backend
-        )
+        return execute_codegen_targets_python_route_projects_target_shape(backend)
     if scenario.kind == "window_spaces_duplicate_sort_indices_on_load":
         return execute_window_spaces_duplicate_sort_indices_on_load(backend)
     if scenario.kind == "settings_project_shell":
@@ -2152,9 +2172,7 @@ def execute_scenario(
             backend
         )
     if scenario.kind == "json_source_save_restart_round_trip_canonical_storage":
-        return execute_json_source_save_restart_round_trip_canonical_storage(
-            backend
-        )
+        return execute_json_source_save_restart_round_trip_canonical_storage(backend)
     if scenario.kind == "json_source_shared_pair_route_refresh_keeps_peer_tree":
         return execute_json_source_shared_pair_route_refresh_keeps_peer_tree(backend)
     if scenario.kind == "json_source_shared_pair_route_missing_preserves_loaded_tree":
@@ -2189,7 +2207,9 @@ def execute_create_project_defaults(
     )
     loaded = normalize_response_json(load_response)
     if not isinstance(loaded, dict):
-        raise ParityHarnessError(f"loadProjectConfig returned unexpected payload: {loaded!r}")
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded!r}"
+        )
 
     summary = summarize_loaded_project_state(loaded)
     raw = {
@@ -2377,9 +2397,7 @@ def execute_codegen_targets_python_route_projects_target_shape(
                 {
                     "language": "python",
                     "codeObjValuePolicy": {
-                        "typePolicies": {
-                            "TextParam": {"representation": "expression"}
-                        }
+                        "typePolicies": {"TextParam": {"representation": "expression"}}
                     },
                 }
             ],
@@ -2611,9 +2629,7 @@ def execute_json_source_save_canonical_storage_clears_persisted_values(
     )
 
     saved_payload = json.loads(
-        (backend.workspace_root / "data" / "source.json").read_text(
-            encoding="utf-8"
-        )
+        (backend.workspace_root / "data" / "source.json").read_text(encoding="utf-8")
     )
     summary = summarize_json_source_save_canonical_storage_clears_persisted_values(
         save_status=save_response.status_code,
@@ -2659,10 +2675,11 @@ def execute_json_source_save_restart_round_trip_canonical_storage(
             route=ROUTE_LOAD_PROJECT_CONFIG,
             payload={"projectConfigName": "Project Alpha"},
         )
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
-        if (
-            restart_load_response.status_code == 200
-            and isinstance(restart_load_payload, dict)
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
+        if restart_load_response.status_code == 200 and isinstance(
+            restart_load_payload, dict
         ):
             restarted_project_id = expect_non_empty_string(
                 object_field(restart_load_payload, "projectConfig").get("id"),
@@ -2705,7 +2722,9 @@ def execute_json_source_save_restart_round_trip_canonical_storage(
         "saveProject": {"status": save_response.status_code, "payload": save_payload},
         "restartStartupError": restart_startup_error,
         "restartLoadProjectConfig": {
-            "status": None if restart_load_response is None else restart_load_response.status_code,
+            "status": None
+            if restart_load_response is None
+            else restart_load_response.status_code,
             "payload": restart_load_payload,
         },
         "restartLatestProjectState": {
@@ -2917,6 +2936,110 @@ def execute_latest_state_after_create_project(
     }
 
 
+def execute_runner_summary_lookup_contract(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    SettaRunner = load_retained_setta_runner()
+    auth_headers = {"Cookie": build_auth_cookie_header(backend.session)}
+    default_runner = SettaRunner(
+        base_url=backend.base_url,
+        auth_headers=auth_headers,
+    )
+    named_runner = SettaRunner(
+        project_name="Project Alpha",
+        base_url=backend.base_url,
+        auth_headers=auth_headers,
+    )
+
+    default_summary = default_runner.summary()
+    named_summary = named_runner.summary()
+    section_by_name = named_summary.section("Training")
+    section_by_display_name = named_summary.section("Training Settings")
+    section_by_id = named_summary.section("training-section")
+    variant_ids = section_by_display_name.variants.by_name(
+        ["Baseline", "High Accuracy"]
+    )
+    param_by_core_name = named_summary.params.by_name(
+        "Training Settings",
+        "learning_rate",
+    )
+    param_by_display_name = named_summary.params.by_name(
+        "Training Settings",
+        "Learning Rate",
+    )
+
+    try:
+        named_summary.section("Missing Section")
+    except KeyError as exc:
+        missing_section_error = normalize_python_exception_summary(exc)
+    else:
+        raise ParityHarnessError(
+            "Expected retained runner section lookup to fail for missing section."
+        )
+
+    try:
+        section_by_display_name.variants.by_name(["Missing Variant"])
+    except KeyError as exc:
+        missing_variant_error = normalize_python_exception_summary(exc)
+    else:
+        raise ParityHarnessError(
+            "Expected retained runner variant lookup to fail for missing variant."
+        )
+
+    try:
+        named_summary.params.by_name("Training Settings", "missing_param")
+    except KeyError as exc:
+        missing_param_error = normalize_python_exception_summary(exc)
+    else:
+        raise ParityHarnessError(
+            "Expected retained runner param lookup to fail for missing param."
+        )
+
+    try:
+        named_summary.params.by_name("Overview Notes", "Learning Rate")
+    except KeyError as exc:
+        non_param_section_error = normalize_python_exception_summary(exc)
+    else:
+        raise ParityHarnessError(
+            "Expected retained runner param lookup to fail for non-param section."
+        )
+
+    summary = summarize_runner_summary_lookup_contract(
+        default_summary_section_id=str(default_summary.section("Training Settings").id),
+        section_by_name_id=str(section_by_name.id),
+        section_by_display_name_id=str(section_by_display_name.id),
+        section_by_id_id=str(section_by_id.id),
+        variant_ids_by_name=[str(variant_id) for variant_id in variant_ids],
+        param_by_core_name=f"{param_by_core_name.sectionId}:{param_by_core_name.codeObjId}",
+        param_by_display_name=(
+            f"{param_by_display_name.sectionId}:{param_by_display_name.codeObjId}"
+        ),
+        missing_section_error=missing_section_error,
+        missing_variant_error=missing_variant_error,
+        missing_param_error=missing_param_error,
+        non_param_section_error=non_param_section_error,
+    )
+    return summary, {
+        "defaultSummarySectionID": str(default_summary.section("Training Settings").id),
+        "namedSummarySectionID": str(section_by_display_name.id),
+        "variantIDsByName": [str(variant_id) for variant_id in variant_ids],
+        "paramByCoreName": {
+            "sectionId": str(param_by_core_name.sectionId),
+            "codeObjId": str(param_by_core_name.codeObjId),
+        },
+        "paramByDisplayName": {
+            "sectionId": str(param_by_display_name.sectionId),
+            "codeObjId": str(param_by_display_name.codeObjId),
+        },
+        "errors": {
+            "missingSection": missing_section_error,
+            "missingVariant": missing_variant_error,
+            "missingParam": missing_param_error,
+            "nonParamSection": non_param_section_error,
+        },
+    }
+
+
 def execute_latest_state_prunes_stale_active_ids(
     backend: BackendSession,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -3029,10 +3152,14 @@ def execute_project_windowing_authoritative_presence_on_load(
             payload={"projectConfigName": created_name},
         )
         restart_load_http_status = restart_load_response.status_code
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
 
         if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
-            restarted_project_config = object_field(restart_load_payload, "projectConfig")
+            restarted_project_config = object_field(
+                restart_load_payload, "projectConfig"
+            )
             restarted_project_id = expect_non_empty_string(
                 restarted_project_config.get("id"),
                 "projectConfig.id",
@@ -3078,7 +3205,9 @@ def execute_windowing_section_binding_dedup_and_title_clearing_on_load(
     created_name, loaded = create_and_load_project(backend)
     project_id = find_project_id_by_name(backend, created_name)
     project_config = object_field(loaded, "projectConfig")
-    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    top_level_sections = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    )
     if not top_level_sections:
         raise ParityHarnessError(
             f"Expected created project {project_id!r} to have at least one top-level section."
@@ -3105,7 +3234,9 @@ def execute_windowing_section_binding_dedup_and_title_clearing_on_load(
 
     restart_latest_http_status: int | None = None
     restart_latest_payload: Any = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restart_project_config = object_field(restart_load_payload, "projectConfig")
         restart_project_id = expect_non_empty_string(
             restart_project_config.get("id"),
@@ -3164,7 +3295,9 @@ def execute_project_chat_windowing_invalid_owner_mode_combos_on_load(
             payload={"projectConfigName": created_name},
         )
         restart_load_http_status = restart_load_response.status_code
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
 
     summary = summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
         restart_startup_error=restart_startup_error,
@@ -3206,7 +3339,9 @@ def execute_window_spaces_invalid_owner_mode_combos_on_load(
             payload={"projectConfigName": created_name},
         )
         restart_load_http_status = restart_load_response.status_code
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
 
     summary = summarize_window_spaces_invalid_owner_mode_combos_on_load(
         restart_startup_error=restart_startup_error,
@@ -3317,7 +3452,9 @@ def execute_windowing_scoped_per_project_config(
             payload={"projectConfigId": first_project_id},
         )
         first_latest_http_status = first_latest_response.status_code
-        first_latest_payload = normalize_response_json_allow_status(first_latest_response)
+        first_latest_payload = normalize_response_json_allow_status(
+            first_latest_response
+        )
 
     second_load_response = post_json_allow_status(
         session=backend.session,
@@ -3328,7 +3465,9 @@ def execute_windowing_scoped_per_project_config(
     second_load_payload = normalize_response_json_allow_status(second_load_response)
     second_latest_http_status: int | None = None
     second_latest_payload: Any = None
-    if second_load_response.status_code == 200 and isinstance(second_load_payload, dict):
+    if second_load_response.status_code == 200 and isinstance(
+        second_load_payload, dict
+    ):
         second_latest_response = post_json_allow_status(
             session=backend.session,
             base_url=backend.base_url,
@@ -3373,7 +3512,9 @@ def execute_project_chat_window_chat_id_route_contract(
     created_name, loaded = create_and_load_project(backend)
     project_id = find_project_id_by_name(backend, created_name)
     project_config = object_field(loaded, "projectConfig")
-    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    top_level_sections = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    )
     if not top_level_sections:
         raise ParityHarnessError(
             f"Expected created project {project_id!r} to have at least one top-level section."
@@ -3424,7 +3565,9 @@ def execute_project_chat_window_chat_id_route_contract(
             "chatId": "chat-after",
         },
     )
-    missing_window_payload = normalize_response_json_allow_status(missing_window_response)
+    missing_window_payload = normalize_response_json_allow_status(
+        missing_window_response
+    )
 
     latest_response = post_json_allow_status(
         session=backend.session,
@@ -3466,7 +3609,9 @@ def execute_project_chat_windowing_state_invalid_owner_mode_write_contract(
     created_name, loaded = create_and_load_project(backend)
     project_id = find_project_id_by_name(backend, created_name)
     project_config = object_field(loaded, "projectConfig")
-    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    top_level_sections = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    )
     if not top_level_sections:
         raise ParityHarnessError(
             f"Expected created project {project_id!r} to have at least one top-level section."
@@ -3568,7 +3713,9 @@ def execute_window_space_create_invalid_owner_mode_write_contract(
     created_name, loaded = create_and_load_project(backend)
     project_id = find_project_id_by_name(backend, created_name)
     project_config = object_field(loaded, "projectConfig")
-    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    top_level_sections = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    )
     if not top_level_sections:
         raise ParityHarnessError(
             f"Expected created project {project_id!r} to have at least one top-level section."
@@ -3599,17 +3746,19 @@ def execute_window_space_create_invalid_owner_mode_write_contract(
             "order": ["section-missing-binding"],
         }
     )
-    project_chat_section_status, project_chat_section_payload = post_invalid_window_space(
-        {
-            "windowsById": {
-                "project-chat-section-window": {
-                    "surfaceKind": "project_chat",
-                    "sectionIdOrNull": section_id,
-                    "mode": "project_ai_mode",
-                }
-            },
-            "order": ["project-chat-section-window"],
-        }
+    project_chat_section_status, project_chat_section_payload = (
+        post_invalid_window_space(
+            {
+                "windowsById": {
+                    "project-chat-section-window": {
+                        "surfaceKind": "project_chat",
+                        "sectionIdOrNull": section_id,
+                        "mode": "project_ai_mode",
+                    }
+                },
+                "order": ["project-chat-section-window"],
+            }
+        )
     )
     section_git_graph_status, section_git_graph_payload = post_invalid_window_space(
         {
@@ -3623,29 +3772,33 @@ def execute_window_space_create_invalid_owner_mode_write_contract(
             "order": ["section-git-graph-window"],
         }
     )
-    project_chat_section_mode_status, project_chat_section_mode_payload = post_invalid_window_space(
-        {
-            "windowsById": {
-                "project-chat-section-mode-window": {
-                    "surfaceKind": "project_chat",
-                    "mode": "section_mode",
-                }
-            },
-            "order": ["project-chat-section-mode-window"],
-        }
+    project_chat_section_mode_status, project_chat_section_mode_payload = (
+        post_invalid_window_space(
+            {
+                "windowsById": {
+                    "project-chat-section-mode-window": {
+                        "surfaceKind": "project_chat",
+                        "mode": "section_mode",
+                    }
+                },
+                "order": ["project-chat-section-mode-window"],
+            }
+        )
     )
-    non_project_ai_chat_id_status, non_project_ai_chat_id_payload = post_invalid_window_space(
-        {
-            "windowsById": {
-                "section-chat-id-window": {
-                    "surfaceKind": "section",
-                    "sectionIdOrNull": section_id,
-                    "mode": "section_mode",
-                    "chatId": "stale-chat",
-                }
-            },
-            "order": ["section-chat-id-window"],
-        }
+    non_project_ai_chat_id_status, non_project_ai_chat_id_payload = (
+        post_invalid_window_space(
+            {
+                "windowsById": {
+                    "section-chat-id-window": {
+                        "surfaceKind": "section",
+                        "sectionIdOrNull": section_id,
+                        "mode": "section_mode",
+                        "chatId": "stale-chat",
+                    }
+                },
+                "order": ["section-chat-id-window"],
+            }
+        )
     )
 
     summary = summarize_window_space_create_invalid_owner_mode_write_contract(
@@ -3683,7 +3836,9 @@ def execute_prompt_template_link_rejects_non_prompt_sections(
     created_name, loaded = create_and_load_project(backend)
     project_id = find_project_id_by_name(backend, created_name)
     project_config = object_field(loaded, "projectConfig")
-    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    top_level_sections = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    )
     if not top_level_sections:
         raise ParityHarnessError(
             f"Expected created project {project_id!r} to have at least one top-level section."
@@ -3769,7 +3924,7 @@ def execute_window_spaces_duplicate_sort_indices_on_load(
         if not window_space_id:
             raise ParityHarnessError(
                 f"createWindowSpace response missing id: {create_payload!r}"
-        )
+            )
         created_window_spaces.append((window_space_id, window_space_name))
 
     post_json(
@@ -3996,7 +4151,9 @@ def execute_settings_project_reserved_name_save_update(
     save_response = None
     save_payload = None
 
-    if initial_load_response.status_code == 200 and isinstance(initial_load_payload, dict):
+    if initial_load_response.status_code == 200 and isinstance(
+        initial_load_payload, dict
+    ):
         save_response = post_json_allow_status(
             session=backend.session,
             base_url=backend.base_url,
@@ -4019,9 +4176,15 @@ def execute_settings_project_reserved_name_save_update(
             route=ROUTE_LOAD_PROJECT_CONFIG,
             payload={"projectConfigName": "settings"},
         )
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
-        if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
-            restarted_project_config = object_field(restart_load_payload, "projectConfig")
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
+        if restart_load_response.status_code == 200 and isinstance(
+            restart_load_payload, dict
+        ):
+            restarted_project_config = object_field(
+                restart_load_payload, "projectConfig"
+            )
             restarted_project_id = expect_non_empty_string(
                 restarted_project_config.get("id"),
                 "projectConfig.id",
@@ -4053,7 +4216,9 @@ def execute_settings_project_reserved_name_save_update(
     return summary, {
         "initialLoadProjectConfigStatus": initial_load_response.status_code,
         "initialLoadProjectConfig": initial_load_payload,
-        "saveProjectStatus": None if save_response is None else save_response.status_code,
+        "saveProjectStatus": None
+        if save_response is None
+        else save_response.status_code,
         "saveProject": save_payload,
         "restartLoadProjectConfigStatus": None
         if restart_load_response is None
@@ -4077,7 +4242,9 @@ def execute_settings_project_required_view_mode_repair(
         payload={"projectConfigName": "settings"},
     )
     initial_load_payload = normalize_response_json_allow_status(initial_load_response)
-    if initial_load_response.status_code != 200 or not isinstance(initial_load_payload, dict):
+    if initial_load_response.status_code != 200 or not isinstance(
+        initial_load_payload, dict
+    ):
         summary = {
             "initialLoadHttpStatus": initial_load_response.status_code,
             "deleteHttpStatus": None,
@@ -4128,7 +4295,9 @@ def execute_settings_project_required_view_mode_repair(
 
     restart_latest_response = None
     restart_latest_payload = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restarted_project_config = object_field(restart_load_payload, "projectConfig")
         restarted_project_id = expect_non_empty_string(
             restarted_project_config.get("id"),
@@ -4148,8 +4317,6 @@ def execute_settings_project_required_view_mode_repair(
     summary = summarize_settings_project_required_view_mode_repair(
         initial_load_http_status=initial_load_response.status_code,
         delete_http_status=delete_response.status_code,
-        pre_restart_latest_http_status=pre_restart_latest_response.status_code,
-        pre_restart_latest_payload=pre_restart_latest_payload,
         restart_load_http_status=restart_load_response.status_code,
         restart_load_payload=restart_load_payload,
         restart_latest_http_status=None
@@ -4205,7 +4372,9 @@ def execute_settings_project_deleted_active_view_mode_repair(
 
     restart_latest_response = None
     restart_latest_payload = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restarted_project_config = object_field(restart_load_payload, "projectConfig")
         restarted_project_id = expect_non_empty_string(
             restarted_project_config.get("id"),
@@ -4275,7 +4444,9 @@ def execute_settings_project_missing_required_section_fails_closed(
             payload={"projectConfigName": "settings"},
         )
         restart_load_http_status = restart_load_response.status_code
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
 
     summary = summarize_settings_project_missing_required_section_fails_closed(
         initial_load_http_status=initial_load_response.status_code,
@@ -4330,7 +4501,9 @@ def execute_settings_project_existing_section_code_obj_backfill(
             payload={"projectConfigName": "settings"},
         )
         restart_load_http_status = restart_load_response.status_code
-        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        restart_load_payload = normalize_response_json_allow_status(
+            restart_load_response
+        )
         post_load_persisted_payload = read_persisted_settings_project_document(backend)
 
     summary = summarize_settings_project_existing_section_code_obj_backfill(
@@ -4394,7 +4567,9 @@ def execute_settings_project_display_name_backfill(
 
     restart_latest_response = None
     restart_latest_payload = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restarted_project_config = object_field(restart_load_payload, "projectConfig")
         restarted_project_id = expect_non_empty_string(
             restarted_project_config.get("id"),
@@ -4459,7 +4634,9 @@ def execute_settings_project_valid_view_mode_noop(
 
     restart_latest_response = None
     restart_latest_payload = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restarted_project_config = object_field(restart_load_payload, "projectConfig")
         restarted_project_id = expect_non_empty_string(
             restarted_project_config.get("id"),
@@ -4530,7 +4707,9 @@ def execute_settings_project_top_level_layout_repair(
 
     restart_latest_response = None
     restart_latest_payload = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restarted_project_config = object_field(restart_load_payload, "projectConfig")
         restarted_project_id = expect_non_empty_string(
             restarted_project_config.get("id"),
@@ -4602,7 +4781,9 @@ def execute_settings_project_missing_visible_layout_repair(
 
     restart_latest_response = None
     restart_latest_payload = None
-    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
         restarted_project_config = object_field(restart_load_payload, "projectConfig")
         restarted_project_id = expect_non_empty_string(
             restarted_project_config.get("id"),
@@ -4689,7 +4870,9 @@ def execute_workspace_launch_outdated_settings_error(
 
     launch_response = None
     launch_payload = None
-    if create_intent_response.status_code == 200 and isinstance(create_intent_payload, dict):
+    if create_intent_response.status_code == 200 and isinstance(
+        create_intent_payload, dict
+    ):
         launch_intent_token = normalized_string(
             create_intent_payload.get("launchIntentToken")
         )
@@ -4707,7 +4890,9 @@ def execute_workspace_launch_outdated_settings_error(
         initial_settings_load_http_status=initial_settings_load_response.status_code,
         create_intent_http_status=create_intent_response.status_code,
         create_intent_payload=create_intent_payload,
-        launch_http_status=None if launch_response is None else launch_response.status_code,
+        launch_http_status=None
+        if launch_response is None
+        else launch_response.status_code,
         launch_payload=launch_payload,
     )
     return summary, {
@@ -4716,7 +4901,9 @@ def execute_workspace_launch_outdated_settings_error(
         "corruptedSettingsProjectDocument": corrupted_payload,
         "createWorkspaceLaunchIntentStatus": create_intent_response.status_code,
         "createWorkspaceLaunchIntent": create_intent_payload,
-        "launchStatus": None if launch_response is None else launch_response.status_code,
+        "launchStatus": None
+        if launch_response is None
+        else launch_response.status_code,
         "launch": launch_payload,
     }
 
@@ -4741,7 +4928,9 @@ def create_and_load_project(backend: BackendSession) -> tuple[str, dict[str, Any
     )
     loaded = normalize_response_json(load_response)
     if not isinstance(loaded, dict):
-        raise ParityHarnessError(f"loadProjectConfig returned unexpected payload: {loaded!r}")
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded!r}"
+        )
     return created_name, loaded
 
 
@@ -4892,7 +5081,9 @@ def summarize_frontend_inventory(envelopes: list[dict[str, Any]]) -> dict[str, A
         "connectionCount": len(normalized_connections),
         "connectionTypes": upper_types,
         "hasServerConnection": "SERVER" in upper_types,
-        "frontendConnectionCount": sum(1 for value in upper_types if value == "FRONTEND"),
+        "frontendConnectionCount": sum(
+            1 for value in upper_types if value == "FRONTEND"
+        ),
     }
 
 
@@ -4947,9 +5138,7 @@ def summarize_empty_callable_latest_state(
         unpinned.get("topLevelParamIds") if unpinned else [],
         "shownParamIds.empty-callable-variant.unpinned.topLevelParamIds",
     )
-    pinned_paths = object_field(
-        pinned, "requiredParamIdsToPaths", allow_missing=True
-    )
+    pinned_paths = object_field(pinned, "requiredParamIdsToPaths", allow_missing=True)
     unpinned_paths = object_field(
         unpinned, "requiredParamIdsToPaths", allow_missing=True
     )
@@ -4974,9 +5163,7 @@ def summarize_latest_state_add_kwarg_shown_param_ids(
     latest_state = object_field(latest_payload, "projectState")
     before_code_objs = object_field(before_state, "codeObjs", allow_missing=True)
     latest_code_objs = object_field(latest_state, "codeObjs", allow_missing=True)
-    created_code_obj_ids = sorted(
-        set(latest_code_objs).difference(before_code_objs)
-    )
+    created_code_obj_ids = sorted(set(latest_code_objs).difference(before_code_objs))
     created_code_obj_id = (
         created_code_obj_ids[0] if len(created_code_obj_ids) == 1 else None
     )
@@ -5104,7 +5291,9 @@ def canonicalize_code_obj_label(
 ) -> str:
     if created_code_obj_id is not None and code_obj_id == created_code_obj_id:
         return "<created>"
-    code_obj = expect_object(code_objs.get(code_obj_id), f"projectState.codeObjs.{code_obj_id}")
+    code_obj = expect_object(
+        code_objs.get(code_obj_id), f"projectState.codeObjs.{code_obj_id}"
+    )
     raw_name = code_obj.get("name")
     if isinstance(raw_name, str):
         return raw_name
@@ -5126,7 +5315,9 @@ def summarize_latest_state_code_obj(
     )
     code_obj_impls = object_field(project_state, "codeObjImpls", allow_missing=True)
 
-    code_obj = expect_object(code_objs.get(code_obj_id), f"projectState.codeObjs.{code_obj_id}")
+    code_obj = expect_object(
+        code_objs.get(code_obj_id), f"projectState.codeObjs.{code_obj_id}"
+    )
     default_variant_id = expect_non_empty_string(
         code_obj.get("defaultVariant"),
         f"projectState.codeObjs.{code_obj_id}.defaultVariant",
@@ -5442,6 +5633,35 @@ def summarize_latest_state_after_create_project(
     }
 
 
+def summarize_runner_summary_lookup_contract(
+    *,
+    default_summary_section_id: str,
+    section_by_name_id: str,
+    section_by_display_name_id: str,
+    section_by_id_id: str,
+    variant_ids_by_name: list[str],
+    param_by_core_name: str,
+    param_by_display_name: str,
+    missing_section_error: str,
+    missing_variant_error: str,
+    missing_param_error: str,
+    non_param_section_error: str,
+) -> dict[str, Any]:
+    return {
+        "defaultSummarySectionId": default_summary_section_id,
+        "sectionByNameId": section_by_name_id,
+        "sectionByDisplayNameId": section_by_display_name_id,
+        "sectionByIdId": section_by_id_id,
+        "variantIdsByName": variant_ids_by_name,
+        "paramByCoreName": param_by_core_name,
+        "paramByDisplayName": param_by_display_name,
+        "missingSectionError": missing_section_error,
+        "missingVariantError": missing_variant_error,
+        "missingParamError": missing_param_error,
+        "nonParamSectionError": non_param_section_error,
+    }
+
+
 def summarize_latest_state_prunes_stale_active_ids(
     http_status: int,
     payload: dict[str, Any],
@@ -5567,7 +5787,9 @@ def summarize_windowing_section_binding_dedup_and_title_clearing_on_load(
             )
         )
     else:
-        summary["restartLoadErrorSummary"] = normalize_error_summary(restart_load_payload)
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
 
     if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
         latest_project_state = object_field(restart_latest_payload, "projectState")
@@ -5598,7 +5820,9 @@ def summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
     summary["restartStartupStatus"] = "ready"
     summary["restartLoadHttpStatus"] = restart_load_http_status
     if restart_load_http_status != 200:
-        summary["restartLoadErrorSummary"] = normalize_error_summary(restart_load_payload)
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
     return summary
 
 
@@ -5615,7 +5839,9 @@ def summarize_window_spaces_invalid_owner_mode_combos_on_load(
     summary["restartStartupStatus"] = "ready"
     summary["restartLoadHttpStatus"] = restart_load_http_status
     if restart_load_http_status != 200:
-        summary["restartLoadErrorSummary"] = normalize_error_summary(restart_load_payload)
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
     return summary
 
 
@@ -5692,7 +5918,9 @@ def summarize_project_chat_window_chat_id_route_contract(
 
     if invalid_mode_http_status != 200:
         summary["invalidModeErrorCode"] = normalize_error_code(invalid_mode_payload)
-        summary["invalidModeErrorSummary"] = normalize_error_summary(invalid_mode_payload)
+        summary["invalidModeErrorSummary"] = normalize_error_summary(
+            invalid_mode_payload
+        )
 
     if missing_window_http_status != 200:
         summary["missingWindowErrorCode"] = normalize_error_code(missing_window_payload)
@@ -5702,13 +5930,17 @@ def summarize_project_chat_window_chat_id_route_contract(
 
     if latest_http_status == 200 and isinstance(latest_payload, dict):
         latest_single_config = object_field(latest_payload, "projectState")
-        summary["latestProjectAIChatID"] = project_chat_window_chat_id_from_single_config(
-            latest_single_config,
-            "project-ai-window",
+        summary["latestProjectAIChatID"] = (
+            project_chat_window_chat_id_from_single_config(
+                latest_single_config,
+                "project-ai-window",
+            )
         )
-        summary["latestSectionModeChatID"] = project_chat_window_chat_id_from_single_config(
-            latest_single_config,
-            "section-window",
+        summary["latestSectionModeChatID"] = (
+            project_chat_window_chat_id_from_single_config(
+                latest_single_config,
+                "section-window",
+            )
         )
     else:
         summary["latestErrorSummary"] = normalize_error_summary(latest_payload)
@@ -5734,9 +5966,7 @@ def summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
         ),
         "gitGraphCanvasHttpStatus": git_graph_canvas_http_status,
         "gitGraphCanvasErrorCode": normalize_error_code(git_graph_canvas_payload),
-        "gitGraphCanvasErrorSummary": normalize_error_summary(
-            git_graph_canvas_payload
-        ),
+        "gitGraphCanvasErrorSummary": normalize_error_summary(git_graph_canvas_payload),
     }
 
 
@@ -5820,7 +6050,9 @@ def summarize_codegen_targets_python_route_projects_target_shape(
         latest_project_state = object_field(latest_payload, "projectState")
         after_codegen_targets = summarize_project_codegen_targets(latest_project_state)
         summary["afterCodegenTargets"] = after_codegen_targets
-        summary["codegenTargetsChanged"] = before_codegen_targets != after_codegen_targets
+        summary["codegenTargetsChanged"] = (
+            before_codegen_targets != after_codegen_targets
+        )
     else:
         summary["latestErrorSummary"] = normalize_error_summary(latest_payload)
 
@@ -5837,7 +6069,9 @@ def summarize_window_space_duplicate_sort_indices_on_load(
     latest_window_spaces = extract_latest_window_spaces(latest_payload)
     return {
         "loadHttpStatus": load_http_status,
-        "loadSortIndexByWindowSpaceName": sort_index_summary_by_name(load_window_spaces),
+        "loadSortIndexByWindowSpaceName": sort_index_summary_by_name(
+            load_window_spaces
+        ),
         "loadSortedWindowSpaceNames": sort_window_space_names(load_window_spaces),
         "loadHasDuplicateSortIndices": has_duplicate_sort_indices(load_window_spaces),
         "latestHttpStatus": latest_http_status,
@@ -5915,7 +6149,9 @@ def summarize_single_config_windowing_section_binding_state(
     )
     project_chat_titles: dict[str, str | None] = {}
     for instance_id, raw_instance in project_chat_instances.items():
-        instance = expect_object(raw_instance, f"projectChatWindowing.instancesById.{instance_id}")
+        instance = expect_object(
+            raw_instance, f"projectChatWindowing.instancesById.{instance_id}"
+        )
         title_value = instance.get("title")
         project_chat_titles[instance_id] = (
             None if title_value is None else normalized_string(title_value)
@@ -5931,7 +6167,10 @@ def summarize_single_config_windowing_section_binding_state(
     space_windows = object_field(space, "windowsById", allow_missing=True)
     space_titles: dict[str, str | None] = {}
     for window_id, raw_window in space_windows.items():
-        window = expect_object(raw_window, f"projectConfig.windowSpaces.space-dedupe.windowsById.{window_id}")
+        window = expect_object(
+            raw_window,
+            f"projectConfig.windowSpaces.space-dedupe.windowsById.{window_id}",
+        )
         title_value = window.get("title")
         space_titles[window_id] = (
             None if title_value is None else normalized_string(title_value)
@@ -5989,7 +6228,10 @@ def summarize_settings_project_shell(
     latest_payload: Any,
     workspace_root: str,
 ) -> dict[str, Any]:
-    summary: dict[str, Any] = {"httpStatus": http_status, "latestHttpStatus": latest_http_status}
+    summary: dict[str, Any] = {
+        "httpStatus": http_status,
+        "latestHttpStatus": latest_http_status,
+    }
     if http_status != 200 or not isinstance(payload, dict):
         return summary
 
@@ -6020,7 +6262,9 @@ def summarize_settings_project_shell(
     active_view_mode_name = ""
     for view_mode in ordered_view_modes:
         view_mode_name = normalized_string(view_mode.get("name"))
-        visibility = object_field(view_mode, "visibilityBySectionId", allow_missing=True)
+        visibility = object_field(
+            view_mode, "visibilityBySectionId", allow_missing=True
+        )
         visible_count = sum(1 for visible in visibility.values() if visible is True)
         if not visibility:
             visible_count = len(
@@ -6097,7 +6341,9 @@ def summarize_settings_project_shell(
     if latest_http_status == 200 and isinstance(latest_payload, dict):
         latest_project_state = object_field(latest_payload, "projectState")
         latest_project_config = object_field(latest_project_state, "projectConfig")
-        latest_sections = object_field(latest_project_state, "sections", allow_missing=True)
+        latest_sections = object_field(
+            latest_project_state, "sections", allow_missing=True
+        )
         summary.update(
             summarize_settings_view_mode_layout_contract(
                 project_config=latest_project_config,
@@ -6204,7 +6450,9 @@ def summarize_settings_project_reserved_name_save_update(
 
     if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
         latest_project_state = object_field(restart_latest_payload, "projectState")
-        restart_latest_project_config = object_field(latest_project_state, "projectConfig")
+        restart_latest_project_config = object_field(
+            latest_project_state, "projectConfig"
+        )
         summary["restartLatestProjectName"] = normalized_string(
             restart_latest_project_config.get("name")
         )
@@ -6217,7 +6465,9 @@ def summarize_settings_project_reserved_name_save_update(
             )
 
     if isinstance(persisted_after_payload, dict):
-        settings_project = settings_project_payload_from_store_payload(persisted_after_payload)
+        settings_project = settings_project_payload_from_store_payload(
+            persisted_after_payload
+        )
         persisted_project_config = settings_project
         if "projectConfig" in settings_project:
             persisted_project_config = object_field(settings_project, "projectConfig")
@@ -6236,8 +6486,6 @@ def summarize_settings_project_reserved_name_save_update(
 def summarize_settings_project_required_view_mode_repair(
     initial_load_http_status: int,
     delete_http_status: int,
-    pre_restart_latest_http_status: int,
-    pre_restart_latest_payload: Any,
     restart_load_http_status: int,
     restart_load_payload: Any,
     restart_latest_http_status: int | None,
@@ -6331,8 +6579,8 @@ def summarize_settings_project_existing_section_code_obj_backfill(
         summary["restartLoadParamImplTypes"] = settings_payload_param_impl_type_samples(
             restart_load_payload
         )
-        summary["restartLoadDropdownChoices"] = settings_payload_dropdown_choice_samples(
-            restart_load_payload
+        summary["restartLoadDropdownChoices"] = (
+            settings_payload_dropdown_choice_samples(restart_load_payload)
         )
     else:
         summary["restartLoadErrorSummary"] = normalize_error_summary(
@@ -6342,8 +6590,8 @@ def summarize_settings_project_existing_section_code_obj_backfill(
     summary["postLoadPersistedParamImplTypes"] = settings_store_param_impl_type_samples(
         post_load_persisted_payload
     )
-    summary["postLoadPersistedDropdownChoices"] = settings_store_dropdown_choice_samples(
-        post_load_persisted_payload
+    summary["postLoadPersistedDropdownChoices"] = (
+        settings_store_dropdown_choice_samples(post_load_persisted_payload)
     )
     return summary
 
@@ -6367,9 +6615,11 @@ def summarize_settings_project_display_name_backfill(
     }
 
     if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
-        summary["restartLoadCodeObjDisplayNames"] = settings_payload_code_obj_display_name_samples(
-            restart_load_payload,
-            SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+        summary["restartLoadCodeObjDisplayNames"] = (
+            settings_payload_code_obj_display_name_samples(
+                restart_load_payload,
+                SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+            )
         )
     else:
         summary["restartLoadErrorSummary"] = normalize_error_summary(
@@ -6378,9 +6628,11 @@ def summarize_settings_project_display_name_backfill(
 
     if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
         latest_project_state = object_field(restart_latest_payload, "projectState")
-        summary["restartLatestCodeObjDisplayNames"] = settings_payload_code_obj_display_name_samples(
-            latest_project_state,
-            SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+        summary["restartLatestCodeObjDisplayNames"] = (
+            settings_payload_code_obj_display_name_samples(
+                latest_project_state,
+                SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+            )
         )
     elif restart_latest_http_status is not None:
         summary["restartLatestErrorSummary"] = normalize_error_summary(
@@ -6403,7 +6655,8 @@ def summarize_settings_project_valid_view_mode_noop(
         "initialLoadHttpStatus": initial_load_http_status,
         "restartLoadHttpStatus": restart_load_http_status,
         "restartLatestHttpStatus": restart_latest_http_status,
-        "persistedDocumentUnchanged": persisted_before_payload == persisted_after_payload,
+        "persistedDocumentUnchanged": persisted_before_payload
+        == persisted_after_payload,
     }
 
     if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
@@ -6544,7 +6797,9 @@ def summarize_settings_project_deleted_active_view_mode_repair(
     )
     persisted_project_config = persisted_settings_project
     if "projectConfig" in persisted_settings_project:
-        persisted_project_config = object_field(persisted_settings_project, "projectConfig")
+        persisted_project_config = object_field(
+            persisted_settings_project, "projectConfig"
+        )
     summary.update(
         summarize_settings_project_active_view_mode_projection(
             persisted_project_config,
@@ -6609,7 +6864,9 @@ def summarize_settings_project_active_view_mode_projection(
     active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
     summary: dict[str, Any] = {
         f"{prefix}ViewModeCount": len(ordered_view_mode_names(view_modes)),
-        f"{prefix}IsEditingViewMode": bool(project_config.get("isEditingViewMode", False)),
+        f"{prefix}IsEditingViewMode": bool(
+            project_config.get("isEditingViewMode", False)
+        ),
         f"{prefix}ActiveViewModeIdPresent": bool(active_view_mode_id),
         f"{prefix}ActiveViewModePresentInMap": bool(
             active_view_mode_id and active_view_mode_id in view_modes
@@ -6622,14 +6879,12 @@ def summarize_settings_project_active_view_mode_projection(
         view_modes[active_view_mode_id],
         f"viewModes.{active_view_mode_id}",
     )
-    summary[f"{prefix}ProjectLayoutMatchesActiveViewMode"] = (
-        object_field(project_config, "topLevelSections", allow_missing=True)
-        == object_field(active_view_mode, "topLevelSections", allow_missing=True)
-    )
-    summary[f"{prefix}ProjectViewportMatchesActiveViewMode"] = (
-        object_field(project_config, "viewport", allow_missing=True)
-        == object_field(active_view_mode, "viewport", allow_missing=True)
-    )
+    summary[f"{prefix}ProjectLayoutMatchesActiveViewMode"] = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    ) == object_field(active_view_mode, "topLevelSections", allow_missing=True)
+    summary[f"{prefix}ProjectViewportMatchesActiveViewMode"] = object_field(
+        project_config, "viewport", allow_missing=True
+    ) == object_field(active_view_mode, "viewport", allow_missing=True)
     summary[f"{prefix}ProjectViewportInitializedMatchesActiveViewMode"] = bool(
         project_config.get("viewportInitialized", False)
     ) == bool(active_view_mode.get("viewportInitialized", False))
@@ -6692,7 +6947,9 @@ def summarize_code_object_tree(
             summarize_code_object_tree(payload, child_id) for child_id in child_ids
         ]
         return summary
-    summary["value"] = normalize_scalar_payload_value(code_object_value(payload, code_obj_id))
+    summary["value"] = normalize_scalar_payload_value(
+        code_object_value(payload, code_obj_id)
+    )
     return summary
 
 
@@ -6709,9 +6966,13 @@ def find_settings_project_param_code_obj_id(
             target_section_id = section_id
             break
     if not target_section_id:
-        raise ParityHarnessError(f"Unable to find settings section named {section_name!r}")
+        raise ParityHarnessError(
+            f"Unable to find settings section named {section_name!r}"
+        )
 
-    section = expect_object(sections[target_section_id], f"sections.{target_section_id}")
+    section = expect_object(
+        sections[target_section_id], f"sections.{target_section_id}"
+    )
     current_children = section_child_code_object_ids(
         payload,
         section_id=target_section_id,
@@ -6725,7 +6986,7 @@ def find_settings_project_param_code_obj_id(
             candidate_ids=current_children,
             child_name=path_part,
         )
-        if index+1 < len(param_path):
+        if index + 1 < len(param_path):
             current_children = code_object_child_ids(payload, current_code_obj_id)
 
     if not current_code_obj_id:
@@ -6888,7 +7149,9 @@ def section_child_code_object_ids(
     section_id: str,
     section: dict[str, Any],
 ) -> list[str]:
-    section_shared_modifier = object_field(section, "sharedModifier", allow_missing=True)
+    section_shared_modifier = object_field(
+        section, "sharedModifier", allow_missing=True
+    )
     shared_children = expect_string_list(
         section_shared_modifier.get("children"),
         f"sections.{section_id}.sharedModifier.children",
@@ -6928,7 +7191,9 @@ def section_child_code_object_ids(
 def code_object_child_ids(payload: dict[str, Any], code_obj_id: str) -> list[str]:
     code_objs = object_field(payload, "codeObjs")
     code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
-    code_obj_shared_modifier = object_field(code_obj, "sharedModifier", allow_missing=True)
+    code_obj_shared_modifier = object_field(
+        code_obj, "sharedModifier", allow_missing=True
+    )
     shared_children = expect_string_list(
         code_obj_shared_modifier.get("children"),
         f"codeObjs.{code_obj_id}.sharedModifier.children",
@@ -6985,7 +7250,9 @@ def find_named_code_object_id(
 def code_object_value(payload: dict[str, Any], code_obj_id: str) -> Any:
     code_objs = object_field(payload, "codeObjs")
     code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
-    code_obj_shared_modifier = object_field(code_obj, "sharedModifier", allow_missing=True)
+    code_obj_shared_modifier = object_field(
+        code_obj, "sharedModifier", allow_missing=True
+    )
     if "value" in code_obj_shared_modifier:
         return normalize_scalar_payload_value(code_obj_shared_modifier.get("value"))
 
@@ -7018,10 +7285,14 @@ def code_object_impl_type(payload: dict[str, Any], code_obj_id: str) -> str:
     payload_type = normalized_string(code_obj_impl_payload.get("type"))
     if payload_type:
         return payload_type
-    raise ParityHarnessError(f"Code object {code_obj_id!r} impl is missing a type field")
+    raise ParityHarnessError(
+        f"Code object {code_obj_id!r} impl is missing a type field"
+    )
 
 
-def code_object_impl_payload(payload: dict[str, Any], code_obj_id: str) -> dict[str, Any]:
+def code_object_impl_payload(
+    payload: dict[str, Any], code_obj_id: str
+) -> dict[str, Any]:
     code_obj_impl = code_object_impl(payload, code_obj_id)
     return impl_payload_object(code_obj_impl, f"codeObjImpls.{code_obj_id}")
 
@@ -7080,7 +7351,9 @@ def impl_payload_object(impl: dict[str, Any], label: str) -> dict[str, Any]:
     if isinstance(payload, dict):
         return payload
     if payload is not None:
-        raise ParityHarnessError(f"Expected object payload for {label}, got {type(payload).__name__}")
+        raise ParityHarnessError(
+            f"Expected object payload for {label}, got {type(payload).__name__}"
+        )
     return impl
 
 
@@ -7123,16 +7396,20 @@ def settings_store_param_impl_type_samples(payload: Any) -> dict[str, str | None
         for sample_name, _section_name, _param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS
     }
     for sample_name, section_name, param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS:
-        _present, impl_type = try_extract_settings_project_param_impl_type_from_store_payload(
-            payload,
-            section_name=section_name,
-            param_path=param_path,
+        _present, impl_type = (
+            try_extract_settings_project_param_impl_type_from_store_payload(
+                payload,
+                section_name=section_name,
+                param_path=param_path,
+            )
         )
         samples[sample_name] = impl_type
     return samples
 
 
-def settings_payload_dropdown_choice_samples(payload: Any) -> dict[str, list[str] | None]:
+def settings_payload_dropdown_choice_samples(
+    payload: Any,
+) -> dict[str, list[str] | None]:
     samples: dict[str, list[str] | None] = {
         sample_name: None
         for sample_name, _section_name, _param_path in SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS
@@ -7187,7 +7464,9 @@ def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
     settings_project = settings_project_payload_from_store_payload(payload)
     view_modes = object_field(settings_project, "viewModes", allow_missing=True)
     if not view_modes:
-        project_config = object_field(settings_project, "projectConfig", allow_missing=True)
+        project_config = object_field(
+            settings_project, "projectConfig", allow_missing=True
+        )
         if project_config:
             view_modes = object_field(project_config, "viewModes", allow_missing=True)
     return ordered_view_mode_names(view_modes)
@@ -7279,7 +7558,9 @@ def settings_payload_fixed_width_section_count(
         section_name = normalized_string(section.get("name"))
         if not section_name:
             continue
-        if settings_payload_section_width(payload, section_name) == float(expected_width):
+        if settings_payload_section_width(payload, section_name) == float(
+            expected_width
+        ):
             count += 1
     return count
 
@@ -7350,7 +7631,9 @@ def settings_store_code_obj_display_name_samples(
     payload: Any,
     code_obj_names: list[str],
 ) -> dict[str, str | None]:
-    samples: dict[str, str | None] = {code_obj_name: None for code_obj_name in code_obj_names}
+    samples: dict[str, str | None] = {
+        code_obj_name: None for code_obj_name in code_obj_names
+    }
     if not isinstance(payload, dict):
         return samples
     try:
@@ -7361,7 +7644,9 @@ def settings_store_code_obj_display_name_samples(
         settings_project,
         code_obj_names,
     )
-    return {code_obj_name: resolved.get(code_obj_name) for code_obj_name in code_obj_names}
+    return {
+        code_obj_name: resolved.get(code_obj_name) for code_obj_name in code_obj_names
+    }
 
 
 def settings_payload_section_width(
@@ -7386,7 +7671,9 @@ def settings_payload_section_impl(
         f"sectionVariants.{section_name}.impl",
     )
     section_impls = object_field(payload, "sectionImpls", allow_missing=True)
-    return expect_object(section_impls.get(section_impl_id), f"sectionImpls.{section_impl_id}")
+    return expect_object(
+        section_impls.get(section_impl_id), f"sectionImpls.{section_impl_id}"
+    )
 
 
 def settings_payload_section_variant(
@@ -7396,7 +7683,9 @@ def settings_payload_section_variant(
     project_config = object_field(payload, "projectConfig")
     sections = object_field(payload, "sections", allow_missing=True)
     section_id = find_section_id_by_name(sections, section_name)
-    section_variant_map = object_field(project_config, "sectionVariantMap", allow_missing=True)
+    section_variant_map = object_field(
+        project_config, "sectionVariantMap", allow_missing=True
+    )
     section_variant_id = expect_non_empty_string(
         section_variant_map.get(section_id),
         f"projectConfig.sectionVariantMap.{section_id}",
@@ -7416,13 +7705,17 @@ def normalize_parity_path(raw_path: Any, workspace_root: str) -> str:
     if workspace_root and os.path.isabs(normalized):
         workspace_root_path = Path(os.path.normpath(workspace_root)).resolve()
         try:
-            return Path(normalized).resolve().relative_to(workspace_root_path).as_posix()
+            return (
+                Path(normalized).resolve().relative_to(workspace_root_path).as_posix()
+            )
         except ValueError:
             pass
     return normalized.replace(os.sep, "/")
 
 
-def settings_project_payload_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def settings_project_payload_from_store_payload(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
     if "projectConfig" in payload:
         return payload
 
@@ -7535,7 +7828,9 @@ def delete_settings_view_mode_from_store_payload(
     return cloned
 
 
-def clear_settings_top_level_layouts_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def clear_settings_top_level_layouts_from_store_payload(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
     cloned = json.loads(json.dumps(payload))
     settings_project = settings_project_payload_from_store_payload(cloned)
 
@@ -7613,7 +7908,9 @@ def remove_settings_section_from_project_payload(
     remove_settings_section_references(
         project_config=project_payload,
         sections=sections,
-        section_variants=object_field(project_payload, "sectionVariants", allow_missing=True),
+        section_variants=object_field(
+            project_payload, "sectionVariants", allow_missing=True
+        ),
         section_impls=object_field(project_payload, "sectionImpls", allow_missing=True),
         section_id=section_id,
         top_level_section_ids_owner=project_payload,
@@ -7754,9 +8051,7 @@ def find_section_id_by_name(sections: dict[str, Any], section_name: str) -> str:
         section = expect_object(raw_section, f"sections.{section_id}")
         if normalized_string(section.get("name")) == section_name:
             return section_id
-    raise ParityHarnessError(
-        f"Unable to find settings section named {section_name!r}"
-    )
+    raise ParityHarnessError(f"Unable to find settings section named {section_name!r}")
 
 
 def find_code_obj_id_by_name(code_objs: dict[str, Any], code_obj_name: str) -> str:
@@ -7764,9 +8059,7 @@ def find_code_obj_id_by_name(code_objs: dict[str, Any], code_obj_name: str) -> s
         code_obj = expect_object(raw_code_obj, f"codeObjs.{code_obj_id}")
         if normalized_string(code_obj.get("name")) == code_obj_name:
             return code_obj_id
-    raise ParityHarnessError(
-        f"Unable to find code object named {code_obj_name!r}"
-    )
+    raise ParityHarnessError(f"Unable to find code object named {code_obj_name!r}")
 
 
 def find_settings_param_code_object_lineage(
@@ -7812,7 +8105,9 @@ def resolve_settings_section_child_parent(
     section_id: str,
     section: dict[str, Any],
 ) -> tuple[str, str]:
-    section_shared_modifier = object_field(section, "sharedModifier", allow_missing=True)
+    section_shared_modifier = object_field(
+        section, "sharedModifier", allow_missing=True
+    )
     shared_children = expect_string_list(
         section_shared_modifier.get("children"),
         f"sections.{section_id}.sharedModifier.children",
@@ -7922,7 +8217,9 @@ def remove_settings_child_reference(
         sections[parent_id] = section
         return
     if parent_kind != "code_obj":
-        raise ParityHarnessError(f"Unsupported settings child parent kind {parent_kind!r}")
+        raise ParityHarnessError(
+            f"Unsupported settings child parent kind {parent_kind!r}"
+        )
     remove_code_object_child_reference(payload, parent_id, child_id)
 
 
@@ -7965,7 +8262,9 @@ def remove_code_object_child_reference(
     )
     if child_id in variant_children:
         variant_modifier["children"] = [
-            candidate_id for candidate_id in variant_children if candidate_id != child_id
+            candidate_id
+            for candidate_id in variant_children
+            if candidate_id != child_id
         ]
         code_obj_variant["modifier"] = variant_modifier
         code_obj_variants[code_obj_variant_id] = code_obj_variant
@@ -8025,9 +8324,7 @@ def summarize_settings_view_mode_layout_contract(
         }
     return {
         prefixed_summary_key(key_prefix, "viewModeNames"): ordered_names,
-        prefixed_summary_key(
-            key_prefix, "viewModeViewportDefaults"
-        ): viewport_defaults,
+        prefixed_summary_key(key_prefix, "viewModeViewportDefaults"): viewport_defaults,
         prefixed_summary_key(
             key_prefix, "coreLayoutSentinels"
         ): settings_view_mode_layout_sentinels(
@@ -8152,7 +8449,9 @@ def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:
     return payload
 
 
-def project_from_store_payload(payload: dict[str, Any], project_id: str) -> dict[str, Any]:
+def project_from_store_payload(
+    payload: dict[str, Any], project_id: str
+) -> dict[str, Any]:
     projects = object_field(payload, "projects", allow_missing=True)
     if project_id in projects:
         return expect_object(projects[project_id], f"projects.{project_id}")
@@ -8165,7 +8464,9 @@ def project_from_store_payload(payload: dict[str, Any], project_id: str) -> dict
     raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
 
 
-def project_has_windowing_in_store_payload(payload: dict[str, Any], project_id: str) -> bool:
+def project_has_windowing_in_store_payload(
+    payload: dict[str, Any], project_id: str
+) -> bool:
     projects = object_field(payload, "projects", allow_missing=True)
     if project_id in projects:
         project = expect_object(projects[project_id], f"projects.{project_id}")
@@ -8276,7 +8577,9 @@ def seed_windowing_section_binding_conflicts_in_store_payload(
 
     source_projects = object_field(payload, "projectConfigs", allow_missing=True)
     if project_id in source_projects:
-        project = expect_object(source_projects[project_id], f"projectConfigs.{project_id}")
+        project = expect_object(
+            source_projects[project_id], f"projectConfigs.{project_id}"
+        )
         project["windowSpaces"] = window_spaces
         source_projects[project_id] = project
         payload["projectConfigs"] = source_projects
@@ -8360,7 +8663,9 @@ def seed_invalid_window_spaces_owner_mode_in_store_payload(
 
     source_projects = object_field(payload, "projectConfigs", allow_missing=True)
     if project_id in source_projects:
-        project = expect_object(source_projects[project_id], f"projectConfigs.{project_id}")
+        project = expect_object(
+            source_projects[project_id], f"projectConfigs.{project_id}"
+        )
         project["windowSpaces"] = invalid_window_spaces
         source_projects[project_id] = project
         payload["projectConfigs"] = source_projects
@@ -8374,7 +8679,9 @@ def seed_distinct_windowing_per_project_in_store_payload(
     project_windowing_by_id: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     projects = object_field(payload, "projects", allow_missing=True)
-    if projects and all(project_id in projects for project_id in project_windowing_by_id):
+    if projects and all(
+        project_id in projects for project_id in project_windowing_by_id
+    ):
         for project_id, windowing_payload in project_windowing_by_id.items():
             project = expect_object(projects[project_id], f"projects.{project_id}")
             project["projectChatWindowing"] = windowing_payload["projectChatWindowing"]
@@ -8521,7 +8828,9 @@ def read_messages_until_timeout(
     return messages
 
 
-def find_message(messages: list[dict[str, Any]], message_type: str) -> dict[str, Any] | None:
+def find_message(
+    messages: list[dict[str, Any]], message_type: str
+) -> dict[str, Any] | None:
     for message in messages:
         if normalized_string(message.get("messageType")) == message_type:
             return message
@@ -8531,7 +8840,9 @@ def find_message(messages: list[dict[str, Any]], message_type: str) -> dict[str,
 def build_cookie_header(session: requests.Session) -> str:
     pairs = [f"{cookie.name}={cookie.value}" for cookie in session.cookies]
     if not pairs:
-        raise ParityHarnessError("Session does not contain any cookies for websocket auth.")
+        raise ParityHarnessError(
+            "Session does not contain any cookies for websocket auth."
+        )
     return "; ".join(pairs)
 
 
@@ -8559,7 +8870,7 @@ def object_field(
     if not isinstance(mapping, dict):
         raise ParityHarnessError(
             f"Expected object before reading field {key}, got {type(mapping).__name__}"
-    )
+        )
     return expect_object(mapping.get(key), key, allow_missing=allow_missing)
 
 
@@ -8579,7 +8890,9 @@ def expect_string_list(value: Any, label: str) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, list):
-        raise ParityHarnessError(f"Expected list for {label}, got {type(value).__name__}")
+        raise ParityHarnessError(
+            f"Expected list for {label}, got {type(value).__name__}"
+        )
     result: list[str] = []
     for index, entry in enumerate(value):
         if not isinstance(entry, str):
@@ -8702,9 +9015,7 @@ def normalize_error_summary(payload: Any) -> str:
                 return code.strip()
         message = payload.get("message")
         if isinstance(message, str):
-            normalized_validation_message = normalize_python_validation_message(
-                message
-            )
+            normalized_validation_message = normalize_python_validation_message(message)
             if normalized_validation_message:
                 return normalized_validation_message
         detail = payload.get("detail")
@@ -8716,6 +9027,19 @@ def normalize_error_summary(payload: Any) -> str:
         if isinstance(code, str):
             return code.strip()
     return normalized_string(str(payload))
+
+
+def normalize_python_exception_summary(error: BaseException) -> str:
+    normalized = normalized_string(str(error))
+    if not normalized:
+        return error.__class__.__name__
+    try:
+        decoded = ast.literal_eval(normalized)
+    except (SyntaxError, ValueError):
+        return normalized
+    if isinstance(decoded, str):
+        return normalized_string(decoded)
+    return normalized
 
 
 def normalize_error_code(payload: Any) -> str:
@@ -8768,9 +9092,7 @@ def extract_python_validation_message(payload: Any) -> str | None:
         if isinstance(raw_message, str):
             normalized_message = normalized_string(raw_message)
             if normalized_message.startswith("Value error, "):
-                return normalized_string(
-                    normalized_message[len("Value error, ") :]
-                )
+                return normalized_string(normalized_message[len("Value error, ") :])
             return normalized_message
         return None
     if isinstance(payload, list):
