@@ -194,6 +194,48 @@ func TestSendServiceOmitsCompletionGatePromptWhenGuardDisabled(t *testing.T) {
 	}
 }
 
+func TestSendServiceSnapshotsCompletionGuardSettingIntoRunInputs(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		completionGuardEnabled: boolPtr(false),
+	})
+	result, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-guard-snapshot",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create a new section."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start external chat with cached guard setting: %v", err)
+	}
+
+	writeSendCompletionGuardSetting(t, fixture.root, true)
+
+	persisted, err := fixture.runs.Load(result.Run.ID)
+	if err != nil {
+		t.Fatalf("load persisted run: %v", err)
+	}
+	if got, ok := persisted.Inputs["completionGuardEnabled"].(bool); !ok || got {
+		t.Fatalf("expected persisted completionGuardEnabled=false snapshot, got %#v", persisted.Inputs["completionGuardEnabled"])
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	systemPrompt, _ := fixture.executor.last.Inputs["systemPrompt"].(string)
+	if containsText(systemPrompt, "## Required completion gate for create/scaffold work") {
+		t.Fatalf("expected cached system prompt to remain guard-disabled, got %q", systemPrompt)
+	}
+}
+
 func TestSendServiceBuildsClaudeAllowedToolsFromProfileWhenGuardEnabled(t *testing.T) {
 	t.Parallel()
 

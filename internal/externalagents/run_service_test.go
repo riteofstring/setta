@@ -139,6 +139,9 @@ func TestRunServiceStartsExternalRunWithSynthesizedMessagesAndProfilePrompt(t *t
 	if got := strings.TrimSpace(stringValue(executor.last.Inputs["chatId"])); got != started.ID {
 		t.Fatalf("expected synthesized chat id %q, got %q", started.ID, got)
 	}
+	if got := strings.TrimSpace(stringValue(executor.last.Inputs["runType"])); got != RunTypeExternalAgent {
+		t.Fatalf("expected synthesized runType %q, got %q", RunTypeExternalAgent, got)
+	}
 	if _, ok := executor.last.Inputs["prompt"]; ok {
 		t.Fatalf("expected synthesized prompt-only run to normalize into messages, got %#v", executor.last.Inputs["prompt"])
 	}
@@ -166,6 +169,44 @@ func TestRunServiceStartsExternalRunWithSynthesizedMessagesAndProfilePrompt(t *t
 	}
 	if completed.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed run, got %#v", completed)
+	}
+}
+
+func TestRunServiceValidateRunRejectsMismatchedEngineConfigInput(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+	service, err := NewRunService(RunServiceOptions{
+		ProjectState: fixture.service.projectState,
+		Engines:      fixture.service.engines,
+		Runs:         fixture.runs,
+		Configs:      fixture.service.configs,
+		Runtime:      fixture.runtime,
+		Preflight:    fixture.service.preflight,
+		Attachments:  fixture.service.attachments,
+		Executor: &asyncExternalRunExecutor{
+			runs:    fixture.runs,
+			runtime: fixture.runtime,
+			timeNow: func() time.Time { return fixture.now },
+		},
+		TimeNow: func() time.Time { return fixture.now },
+	})
+	if err != nil {
+		t.Fatalf("new run service: %v", err)
+	}
+
+	err = service.ValidateRun(profile, map[string]any{
+		"projectConfigId": "project-alpha",
+		"allowUnscoped":   true,
+		"engineConfigId":  "engine-other",
+	})
+	if !errors.Is(err, ErrInvalidRunInput) {
+		t.Fatalf("expected invalid run input error, got %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "engineConfigId does not match resolved engine config") {
+		t.Fatalf("expected engineConfigId mismatch detail, got %v", err)
 	}
 }
 

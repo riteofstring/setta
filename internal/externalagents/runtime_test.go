@@ -188,6 +188,40 @@ func TestRuntimeStopRunMarksPersistedRunningRunCancelledWithoutActiveController(
 	}
 }
 
+func TestRuntimeStopRunLeavesCompletedRunUnchanged(t *testing.T) {
+	t.Parallel()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-completed", agentruns.RunStatusCompleted)
+	completedAt := time.Date(2026, 3, 9, 9, 0, 1, 0, time.UTC)
+	run.FinishedAt = &completedAt
+	run.Events = append(run.Events, agentruns.NewRunEvent("run_completed", map[string]any{}, completedAt))
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save completed run: %v", err)
+	}
+
+	stopped, err := runtime.StopRun(run.ID)
+	if err != nil {
+		t.Fatalf("stop completed run: %v", err)
+	}
+	if stopped.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status to remain unchanged, got %q", stopped.Status)
+	}
+
+	persisted, err := store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load completed run after stop: %v", err)
+	}
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected persisted completed status, got %q", persisted.Status)
+	}
+	for _, event := range persisted.Events {
+		if event.Type == "run_cancelled" {
+			t.Fatalf("did not expect run_cancelled event on completed run, got %#v", persisted.Events)
+		}
+	}
+}
+
 func TestRuntimeRespondToApprovalDispatchesAndPersistsEvent(t *testing.T) {
 	t.Parallel()
 
