@@ -686,7 +686,6 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
         str(sandbox_root / "outputs"),
     ]
     assert "tmp/backend-gap-hunt-candidates.md" in prompt_text
-    assert "rerunning the candidate miner inside Codex" in prompt_text
+    assert "candidate miner inside Codex" in prompt_text
     assert "Build a shortlist of at least 5 concrete candidate gaps" in prompt_text
-    assert "## Unknown Go Gap Leads" in prompt_text
-    assert "## Low-Priority Known Divergences" in prompt_text
+    assert "uncited source tests" in prompt_text

@@ -104,7 +104,7 @@ def test_uncited_lookup_failure() -> None:
         "test:tests/api/test_runner.py::test_uncited_lookup_failure"
         in go_owned_candidate_keys
     )
-    assert "doc:docs/reference/chat-toolkit.md" in go_owned_candidate_keys
+    assert "doc:docs/reference/chat-toolkit.md" not in go_owned_candidate_keys
     assert report.go_owned_candidates[0].key == (
         "weak-proof:view_mode.toggle"
     )
@@ -121,10 +121,10 @@ def test_uncited_lookup_failure() -> None:
     assert "docs/reference/ui-style-consistency.md" not in uncited_docs
 
     rendered = module.render_report(report)
-    assert "## Unknown Go Gap Leads" in rendered
-    assert "## Caller-Liveness Rechecks" in rendered
-    assert "## Retained-Boundary Audits" in rendered
-    assert "## Low-Priority Known Divergences" in rendered
+    assert "## Uncited Source Tests" in rendered
+    assert "tests/api/test_runner.py::test_uncited_lookup_failure" in rendered
+    assert "## Unknown Go Gap Leads" not in rendered
+    assert "## Caller-Liveness Rechecks" not in rendered
 
 
 def test_generate_report_caps_repeated_retained_families(
@@ -250,6 +250,64 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
 
     assert "tests/api/test_runner.py::test_class_cited" not in uncited_tests
     assert "tests/api/test_runner.py::test_class_uncited" in uncited_tests
+
+
+def test_generate_report_includes_tests_start_tree(
+    tmp_path: Path,
+) -> None:
+    # Startup/backend parity tests are part of the backend test corpus and
+    # should not be silently excluded from uncited-test discovery.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+    docs_root = repo_root_path / "docs" / "reference"
+
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "start").mkdir(parents=True, exist_ok=True)
+    docs_root.mkdir(parents=True, exist_ok=True)
+
+    matrix_path.write_text(
+        """# Backend Behavior Parity Matrix
+
+## Audit Boundary
+
+- Source baseline: `main@abc123`
+- Target head: `deadbeef`
+
+## Matrix
+
+| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "start" / "test_bootstrap.py").write_text(
+        """def test_start_tree_is_collected() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+        docs_path=docs_root,
+        limit=5,
+    )
+
+    uncited_tests = {
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
+    }
+
+    assert "tests/start/test_bootstrap.py::test_start_tree_is_collected" in uncited_tests
 
 
 def test_generate_report_prioritizes_uncited_tests_with_live_matrix_family_signal(

@@ -15,7 +15,7 @@ DEFAULT_MATRIX_PATH = Path(
 )
 DEFAULT_TESTS_PATH = Path("tests")
 DEFAULT_DOCS_PATH = Path("docs/reference")
-EXCLUDED_TEST_PARTS = {"helpers", "fixtures", "start", "__pycache__"}
+EXCLUDED_TEST_PARTS = {"helpers", "fixtures", "__pycache__"}
 EXCLUDED_DOC_PARTS = {"dependencies"}
 GO_OWNED_CALLER_TOKENS = (
     "frontend/src/",
@@ -31,41 +31,44 @@ RETAINED_API_TOKENS = (
     "setta.api.",
 )
 MAX_CANDIDATES_PER_FAMILY = 3
-TEST_AREA_PRIORITIES = {
-    "api": 78,
-    "routers": 76,
-    "mcp": 74,
-    "share": 72,
-    "websockets": 70,
-    "project_state": 66,
-    "auth": 66,
-    "sessions": 64,
-    "logging": 56,
-    "code_gen": 54,
-    "skills": 50,
+BOUNDARY_TEST_AREA_ORDER = {
+    "websockets": 0,
+    "routers": 1,
+    "share": 2,
+    "mcp": 3,
+    "api": 4,
 }
-DOC_PRIORITIES = {
-    "view-modes": 78,
-    "share-policy-flags": 78,
-    "setta-realtime-behavior": 77,
-    "param-sweeps": 77,
-    "chat-toolkit": 75,
-    "external-agents": 75,
-    "project-chat-windowing": 74,
-    "auth-and-sessions": 74,
-    "urls-and-routes": 73,
-    "json_source_sections": 72,
-    "json_source_formats": 70,
-    "codegen-targets": 69,
-    "listener-flows": 69,
-    "setta-listener-examples": 68,
-    "setta-listener-hot-reload": 68,
-    "emit_to_frontend": 68,
-    "codegen-section-policy-and-metadata": 67,
-    "watch-code": 66,
-    "agentic-edges": 64,
-    "state-machine-workflows": 64,
-    "chat-sections": 64,
+RUNTIME_TEST_AREA_ORDER = {
+    "api": 0,
+    "auth": 1,
+    "sessions": 2,
+    "project_state": 3,
+    "code_gen": 4,
+    "logging": 5,
+    "skills": 6,
+}
+BACKEND_REFERENCE_DOC_STEMS = {
+    "agentic-edges",
+    "auth-and-sessions",
+    "chat-sections",
+    "chat-toolkit",
+    "codegen-section-policy-and-metadata",
+    "codegen-targets",
+    "emit_to_frontend",
+    "external-agents",
+    "json_source_formats",
+    "json_source_sections",
+    "listener-flows",
+    "param-sweeps",
+    "project-chat-windowing",
+    "setta-listener-examples",
+    "setta-listener-hot-reload",
+    "setta-realtime-behavior",
+    "share-policy-flags",
+    "state-machine-workflows",
+    "urls-and-routes",
+    "view-modes",
+    "watch-code",
 }
 
 
@@ -100,7 +103,7 @@ class Candidate:
     title: str
     kind: str
     queue: str
-    score: int
+    rank_key: tuple[object, ...]
     why: str
     source_evidence: list[str]
     current_evidence: list[str]
@@ -115,6 +118,9 @@ class CandidateReport:
     matrix_target: str | None
     matrix_row_count: int
     status_counts: dict[str, int]
+    exact_boundary_test_candidates: list[Candidate]
+    thin_proof_candidates: list[Candidate]
+    runtime_model_candidates: list[Candidate]
     go_owned_candidates: list[Candidate]
     known_recheck_candidates: list[Candidate]
     retained_boundary_candidates: list[Candidate]
@@ -292,7 +298,7 @@ def collect_reference_docs(docs_root: Path, repo_root_path: Path) -> list[Refere
         relative_path = path.relative_to(repo_root_path)
         if any(part in EXCLUDED_DOC_PARTS for part in relative_path.parts):
             continue
-        if path.stem not in DOC_PRIORITIES:
+        if path.stem not in BACKEND_REFERENCE_DOC_STEMS:
             continue
         docs.append(
             ReferenceDoc(
@@ -321,16 +327,29 @@ def has_differential_scenario(text: str) -> bool:
     return "scripts/backend-differential-parity" in text
 
 
+def row_source_boundary_rank(source_evidence: str) -> int:
+    if "tests/websockets/" in source_evidence:
+        return 0
+    if "tests/routers/" in source_evidence:
+        return 1
+    if "tests/share/" in source_evidence:
+        return 2
+    if "tests/mcp/" in source_evidence:
+        return 3
+    if "tests/api/" in source_evidence:
+        return 4
+    return 5
+
+
 def build_status_row_candidates(rows: list[MatrixRow]) -> list[Candidate]:
     candidates: list[Candidate] = []
-    base_scores = {
-        "Implemented, proof incomplete": 96,
-        "Retained Python boundary": 36,
-        "Intentional divergence": 22,
-        "Dormant / unproven caller": 46,
-    }
     for row in rows:
-        if row.status not in base_scores:
+        if row.status not in {
+            "Implemented, proof incomplete",
+            "Retained Python boundary",
+            "Intentional divergence",
+            "Dormant / unproven caller",
+        }:
             continue
         text = " ".join(
             [
@@ -340,29 +359,43 @@ def build_status_row_candidates(rows: list[MatrixRow]) -> list[Candidate]:
                 row.notes,
             ]
         )
-        score = base_scores[row.status]
         go_owned_caller = has_go_owned_caller_signal(row.transport_evidence)
         retained_api = has_retained_api_signal(text)
-        if go_owned_caller:
-            score += 18
-        if retained_api:
-            score += 12
-        if not has_differential_scenario(row.go_tests):
-            score += 6
-        queue = "go-owned-gap"
+        queue = "runtime-model-backlog"
+        rank_key: tuple[object, ...] = (2, 99, 0, 0, row.row_id, "")
+        if row.status == "Implemented, proof incomplete":
+            queue = "thin-proof-live-row" if go_owned_caller else "runtime-model-backlog"
+            if queue == "thin-proof-live-row":
+                rank_key = (
+                    2,
+                    row_source_boundary_rank(row.source_evidence),
+                    row.row_id,
+                )
+            else:
+                rank_key = (
+                    0,
+                    row_source_boundary_rank(row.source_evidence),
+                    0,
+                    0,
+                    row.row_id,
+                    "",
+                )
         if row.status == "Retained Python boundary":
             queue = "retained-boundary-audit"
+            rank_key = (0 if retained_api else 1, row.row_id)
         if row.status == "Dormant / unproven caller":
             queue = "known-gap-recheck"
+            rank_key = (0 if go_owned_caller else 1, row.row_id)
         if row.status == "Intentional divergence":
             queue = "low-priority-divergence"
+            rank_key = (0 if go_owned_caller else 1, row.row_id)
         candidates.append(
             Candidate(
                 key=f"matrix-status:{row.row_id}",
                 title=row.row_id,
                 kind="matrix-status-revisit",
                 queue=queue,
-                score=score,
+                rank_key=rank_key,
                 why=status_candidate_reason(row),
                 source_evidence=[row.source_evidence],
                 current_evidence=[
@@ -428,22 +461,17 @@ def build_weak_proof_candidates(rows: list[MatrixRow]) -> list[Candidate]:
         proof_count = count_go_test_references(row.go_tests)
         if proof_count > 1:
             continue
-        score = 78
-        if proof_count == 0:
-            score += 4
-        if row.source_evidence.startswith("`tests/") or row.source_evidence.startswith(
-            "tests/"
-        ):
-            score += 2
-        if has_retained_api_signal(" ".join([row.source_evidence, row.transport_evidence])):
-            score -= 2
         candidates.append(
             Candidate(
                 key=f"weak-proof:{row.row_id}",
                 title=row.row_id,
                 kind="weak-proof-row",
-                queue="go-owned-gap",
-                score=score,
+                queue="thin-proof-live-row",
+                rank_key=(
+                    proof_count,
+                    row_source_boundary_rank(row.source_evidence),
+                    row.row_id,
+                ),
                 why=(
                     "This row is marked proved on a live caller surface, but the "
                     "recorded proof is narrow and does not cite a differential "
@@ -475,29 +503,55 @@ def build_unmapped_test_candidates(
         if test_is_narrowly_cited(matrix_text, test_ref):
             continue
         uncited_tests.append(test_ref)
-        score = score_uncited_test_candidate(test_ref, rows)
+        related_rows, live_related_rows, retained_related_rows = related_matrix_rows_for_test(
+            rows, test_ref
+        )
+        queue = uncited_test_queue(
+            test_ref=test_ref,
+            live_related_rows=live_related_rows,
+            retained_related_rows=retained_related_rows,
+        )
+        current_evidence = [f"Area: tests/{test_ref.area}"]
+        if live_related_rows:
+            current_evidence.append(
+                "Same test file already backs live caller rows in the matrix"
+            )
+        elif retained_related_rows:
+            current_evidence.append(
+                "Same test file only appears on retained-boundary matrix rows"
+            )
+        elif related_rows:
+            current_evidence.append(
+                "Same test file is already represented in the matrix, but not on a live caller row"
+            )
         candidates.append(
             Candidate(
                 key=f"test:{test_ref.path}::{test_ref.name}",
                 title=f"{test_ref.path}::{test_ref.name}",
                 kind="uncited-source-test",
-                queue="go-owned-gap",
-                score=score,
+                queue=queue,
+                rank_key=uncited_test_rank_key(
+                    test_ref=test_ref,
+                    related_rows=related_rows,
+                    live_related_rows=live_related_rows,
+                ),
                 why=(
                     "This exact source test is not cited narrowly in the parity "
                     "matrix, so it is a good candidate for a new row or a "
                     "stronger proof slice."
                 ),
                 source_evidence=[f"{test_ref.path}:{test_ref.line}"],
-                current_evidence=[f"Area: tests/{test_ref.area}"],
+                current_evidence=current_evidence,
                 suggested_proof=suggested_proof_for_test_area(test_ref.area),
             )
         )
     return candidates, uncited_tests
 
 
-def score_uncited_test_candidate(test_ref: SourceTest, rows: list[MatrixRow]) -> int:
-    related_rows = rows_for_source_test(rows, test_ref)
+def related_matrix_rows_for_test(
+    rows: list[MatrixRow], test_ref: SourceTest
+) -> tuple[list[MatrixRow], list[MatrixRow], list[MatrixRow]]:
+    related_rows = [row for row in rows if test_ref.path in row.source_evidence]
     live_related_rows = [
         row for row in related_rows if has_go_owned_caller_signal(row.transport_evidence)
     ]
@@ -509,49 +563,44 @@ def score_uncited_test_candidate(test_ref: SourceTest, rows: list[MatrixRow]) ->
             " ".join([row.source_evidence, row.transport_evidence, row.notes])
         )
     ]
-    band = uncited_test_priority_band(
-        test_ref=test_ref,
-        related_rows=related_rows,
-        live_related_rows=live_related_rows,
-        retained_related_rows=retained_related_rows,
-    )
-    # Rank by explicit structural evidence, not by arbitrary per-area weights.
-    # Lower bands are stronger unknown-gap leads, then we break ties by how many
-    # live-backed sibling rows already exist for that test family.
-    return (
-        (9 - band) * 10
-        + min(3, len(live_related_rows)) * 2
-        + min(3, len(related_rows))
-    )
+    return related_rows, live_related_rows, retained_related_rows
 
 
-def rows_for_source_test(rows: list[MatrixRow], test_ref: SourceTest) -> list[MatrixRow]:
-    return [row for row in rows if test_ref.path in row.source_evidence]
+def uncited_test_queue(
+    test_ref: SourceTest,
+    live_related_rows: list[MatrixRow],
+    retained_related_rows: list[MatrixRow],
+) -> str:
+    if retained_related_rows and not live_related_rows:
+        return "runtime-model-backlog"
+    if test_ref.area in BOUNDARY_TEST_AREA_ORDER:
+        if live_related_rows or test_ref.area != "api":
+            return "exact-boundary-test-lead"
+    return "runtime-model-backlog"
 
 
-def uncited_test_priority_band(
+def uncited_test_rank_key(
     test_ref: SourceTest,
     related_rows: list[MatrixRow],
     live_related_rows: list[MatrixRow],
-    retained_related_rows: list[MatrixRow],
-) -> int:
-    if retained_related_rows:
-        return 7
-    if test_ref.area in {"websockets", "routers", "share", "mcp"} and live_related_rows:
-        return 0
-    if test_ref.area in {"websockets", "routers", "share", "mcp"}:
-        return 1
-    if test_ref.area == "api" and live_related_rows:
-        return 2
-    if test_ref.area == "api" and related_rows:
-        return 3
-    if test_ref.area == "api":
-        return 4
-    if live_related_rows:
-        return 5
-    if test_ref.area in {"auth", "sessions", "project_state"}:
-        return 6
-    return 7
+) -> tuple[object, ...]:
+    if test_ref.area in BOUNDARY_TEST_AREA_ORDER:
+        return (
+            0,
+            0 if live_related_rows else 1,
+            BOUNDARY_TEST_AREA_ORDER[test_ref.area],
+            -len(live_related_rows),
+            test_ref.path,
+            test_ref.name,
+        )
+    return (
+        1,
+        RUNTIME_TEST_AREA_ORDER.get(test_ref.area, 99),
+        0 if live_related_rows else 1,
+        -len(related_rows),
+        test_ref.path,
+        test_ref.name,
+    )
 
 
 def test_is_narrowly_cited(matrix_text: str, test_ref: SourceTest) -> bool:
@@ -593,41 +642,19 @@ def build_unmapped_doc_candidates(
     docs: list[ReferenceDoc],
     matrix_text: str,
 ) -> tuple[list[Candidate], list[ReferenceDoc]]:
-    candidates: list[Candidate] = []
     uncited_docs: list[ReferenceDoc] = []
     for doc_ref in docs:
         if doc_ref.path in matrix_text:
             continue
         uncited_docs.append(doc_ref)
-        score = DOC_PRIORITIES.get(doc_ref.stem, 46)
-        candidates.append(
-            Candidate(
-                key=f"doc:{doc_ref.path}",
-                title=doc_ref.path,
-                kind="uncited-reference-doc",
-                queue="go-owned-gap",
-                score=score,
-                why=(
-                    "This reference doc is not cited in the parity matrix, so it "
-                    "may still contain backend contracts that were never turned "
-                    "into executable proof."
-                ),
-                source_evidence=[doc_ref.path],
-                current_evidence=["Reference doc not cited by the matrix"],
-                suggested_proof=(
-                    "Extract one concrete backend-owned contract from the doc and "
-                    "add the narrowest proof slice that can fail on current HEAD."
-                ),
-            )
-        )
-    return candidates, uncited_docs
+    return [], uncited_docs
 
 
 def dedupe_candidates(candidates: list[Candidate]) -> list[Candidate]:
     deduped: dict[str, Candidate] = {}
     for candidate in candidates:
         previous = deduped.get(candidate.key)
-        if previous is None or candidate.score > previous.score:
+        if previous is None or candidate.rank_key < previous.rank_key:
             deduped[candidate.key] = candidate
     return list(deduped.values())
 
@@ -655,26 +682,10 @@ def candidate_family(candidate: Candidate) -> str:
     return f"{candidate.kind}:{candidate.title}"
 
 
-def candidate_kind_priority(candidate: Candidate) -> int:
-    if candidate.kind == "uncited-source-test":
-        return 0
-    if candidate.kind == "weak-proof-row":
-        return 1
-    if candidate.kind == "matrix-status-revisit":
-        return 2
-    if candidate.kind == "uncited-reference-doc":
-        return 3
-    return 4
-
-
 def rank_candidates(candidates: list[Candidate], limit: int) -> list[Candidate]:
     ranked = sorted(
         candidates,
-        key=lambda candidate: (
-            -candidate.score,
-            candidate_kind_priority(candidate),
-            candidate.title,
-        ),
+        key=lambda candidate: (candidate.rank_key, candidate.title),
     )
     selected: list[Candidate] = []
     family_counts: dict[str, int] = {}
@@ -699,6 +710,48 @@ def low_priority_divergence_limit(limit: int) -> int:
     if limit <= 2:
         return 1
     return max(2, min(5, limit // 5))
+
+
+def select_go_owned_candidates(
+    candidates: list[Candidate], limit: int
+) -> tuple[list[Candidate], list[Candidate], list[Candidate], list[Candidate]]:
+    exact_boundary_test_candidates = rank_candidates(
+        [
+            candidate
+            for candidate in candidates
+            if candidate.queue == "exact-boundary-test-lead"
+        ],
+        limit=limit,
+    )
+    remaining = max(0, limit - len(exact_boundary_test_candidates))
+    thin_proof_candidates = rank_candidates(
+        [
+            candidate
+            for candidate in candidates
+            if candidate.queue == "thin-proof-live-row"
+        ],
+        limit=remaining,
+    )
+    remaining = max(0, remaining - len(thin_proof_candidates))
+    runtime_model_candidates = rank_candidates(
+        [
+            candidate
+            for candidate in candidates
+            if candidate.queue == "runtime-model-backlog"
+        ],
+        limit=remaining,
+    )
+    go_owned_candidates = (
+        exact_boundary_test_candidates
+        + thin_proof_candidates
+        + runtime_model_candidates
+    )
+    return (
+        exact_boundary_test_candidates,
+        thin_proof_candidates,
+        runtime_model_candidates,
+        go_owned_candidates,
+    )
 
 
 def generate_report(
@@ -728,8 +781,13 @@ def generate_report(
         + unmapped_test_candidates
         + unmapped_doc_candidates,
     )
-    go_owned_candidates = rank_candidates(
-        [candidate for candidate in deduped if candidate.queue == "go-owned-gap"],
+    (
+        exact_boundary_test_candidates,
+        thin_proof_candidates,
+        runtime_model_candidates,
+        go_owned_candidates,
+    ) = select_go_owned_candidates(
+        deduped,
         limit=limit,
     )
     known_recheck_candidates = rank_candidates(
@@ -760,6 +818,9 @@ def generate_report(
         matrix_target=matrix_target,
         matrix_row_count=len(rows),
         status_counts=status_counts(rows),
+        exact_boundary_test_candidates=exact_boundary_test_candidates,
+        thin_proof_candidates=thin_proof_candidates,
+        runtime_model_candidates=runtime_model_candidates,
         go_owned_candidates=go_owned_candidates,
         known_recheck_candidates=known_recheck_candidates,
         retained_boundary_candidates=retained_boundary_candidates,
@@ -772,15 +833,11 @@ def generate_report(
         ),
         uncited_tests=sorted(
             uncited_tests,
-            key=lambda test_ref: (
-                -TEST_AREA_PRIORITIES.get(test_ref.area, 48),
-                test_ref.path,
-                test_ref.name,
-            ),
+            key=lambda test_ref: (test_ref.path, test_ref.name),
         ),
         uncited_docs=sorted(
             uncited_docs,
-            key=lambda doc_ref: (-DOC_PRIORITIES.get(doc_ref.stem, 46), doc_ref.path),
+            key=lambda doc_ref: doc_ref.path,
         ),
     )
 
@@ -811,143 +868,19 @@ def render_report(report: CandidateReport) -> str:
     lines.extend(
         [
             f"- Uncited source tests: `{len(report.uncited_tests)}`",
-            f"- Uncited reference docs: `{len(report.uncited_docs)}`",
-            "",
-            "## Unknown Go Gap Leads",
-            "",
-        ]
-    )
-    if not report.go_owned_candidates:
-        lines.append("- None in this run.")
-        lines.append("")
-
-    for index, candidate in enumerate(report.go_owned_candidates, start=1):
-        lines.append(
-            f"{index}. `{candidate.kind}` `{candidate.title}`"
-        )
-        lines.append(f"   Why: {candidate.why}")
-        if candidate.source_evidence:
-            lines.append(
-                "   Source evidence: " + "; ".join(candidate.source_evidence)
-            )
-        if candidate.current_evidence:
-            lines.append(
-                "   Current evidence: " + "; ".join(candidate.current_evidence)
-            )
-        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
-        lines.append("")
-
-    lines.extend(
-        [
-            "## Caller-Liveness Rechecks",
-            "",
-        ]
-    )
-    if not report.known_recheck_candidates:
-        lines.append("- None in this run.")
-        lines.append("")
-
-    for index, candidate in enumerate(report.known_recheck_candidates, start=1):
-        lines.append(
-            f"{index}. `{candidate.kind}` `{candidate.title}`"
-        )
-        lines.append(f"   Why: {candidate.why}")
-        if candidate.source_evidence:
-            lines.append(
-                "   Source evidence: " + "; ".join(candidate.source_evidence)
-            )
-        if candidate.current_evidence:
-            lines.append(
-                "   Current evidence: " + "; ".join(candidate.current_evidence)
-            )
-        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
-        lines.append("")
-
-    lines.extend(
-        [
-            "## Retained-Boundary Audits",
-            "",
-        ]
-    )
-    if not report.retained_boundary_candidates:
-        lines.append("- None in this run.")
-        lines.append("")
-
-    for index, candidate in enumerate(report.retained_boundary_candidates, start=1):
-        lines.append(
-            f"{index}. `{candidate.kind}` `{candidate.title}`"
-        )
-        lines.append(f"   Why: {candidate.why}")
-        if candidate.source_evidence:
-            lines.append(
-                "   Source evidence: " + "; ".join(candidate.source_evidence)
-            )
-        if candidate.current_evidence:
-            lines.append(
-                "   Current evidence: " + "; ".join(candidate.current_evidence)
-            )
-        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
-        lines.append("")
-
-    lines.extend(
-        [
-            "## Low-Priority Known Divergences",
-            "",
-        ]
-    )
-    if not report.low_priority_divergence_candidates:
-        lines.append("- None in this run.")
-        lines.append("")
-
-    for index, candidate in enumerate(
-        report.low_priority_divergence_candidates, start=1
-    ):
-        lines.append(
-            f"{index}. `{candidate.kind}` `{candidate.title}`"
-        )
-        lines.append(f"   Why: {candidate.why}")
-        if candidate.source_evidence:
-            lines.append(
-                "   Source evidence: " + "; ".join(candidate.source_evidence)
-            )
-        if candidate.current_evidence:
-            lines.append(
-                "   Current evidence: " + "; ".join(candidate.current_evidence)
-            )
-        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
-        lines.append("")
-
-    lines.extend(
-        [
-            "## Backlog Notes",
-            "",
-            "- Regenerate this file after matrix updates or when the active gap-hunt "
-            "session exhausts the current top candidates.",
-            "- Prefer working the unknown Go gap leads before known divergence "
-            "rechecks, retained-boundary audits, or the low-priority known divergences.",
             "",
             "## Uncited Source Tests",
             "",
         ]
     )
-    for test_ref in report.uncited_tests[:40]:
+    if not report.uncited_tests:
+        lines.append("- None in this run.")
+        lines.append("")
+
+    for test_ref in report.uncited_tests:
         lines.append(
             f"- `{test_ref.path}::{test_ref.name}` (area=`{test_ref.area}`, line `{test_ref.line}`)"
         )
-    if len(report.uncited_tests) > 40:
-        lines.append(f"- ... `{len(report.uncited_tests) - 40}` more")
-
-    lines.extend(
-        [
-            "",
-            "## Uncited Reference Docs",
-            "",
-        ]
-    )
-    for doc_ref in report.uncited_docs[:30]:
-        lines.append(f"- `{doc_ref.path}`")
-    if len(report.uncited_docs) > 30:
-        lines.append(f"- ... `{len(report.uncited_docs) - 30}` more")
     lines.append("")
     return "\n".join(lines)
 

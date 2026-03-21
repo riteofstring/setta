@@ -4,21 +4,20 @@ This is not the routine green-manifest maintenance loop. Never spend the whole s
 
 Use `tmp/backend-gap-hunt-candidates.md` as the file-backed backlog for this
 loop. The outer wrapper regenerates it before each fresh Codex session batch.
-Start from `## Unknown Go Gap Leads` first. Treat `## Caller-Liveness Rechecks`
-as secondary, `## Retained-Boundary Audits` as tertiary, and
-`## Low-Priority Known Divergences` as last-resort only. Do not spend time
-rerunning the candidate miner inside Codex unless the developer explicitly asks
-for that workflow to change.
+That file now lists uncited source tests only. Treat those uncited tests as
+good places to look for unknown Go implementation gaps. Do not spend time rerunning the
+candidate miner inside Codex unless the developer explicitly asks for that
+workflow to change.
 
 1. Start with Pass 3 and Pass 4 from `backend-behavior-parity-matrix-plan.md`: skeptical omission audit plus gap triage.
-2. Build a shortlist of at least 5 concrete candidate gaps from deterministic source evidence. Prefer the generated backlog first, then expand it manually when needed. Prefer:
-   - Python tests with no narrow matrix row or no narrow Go proof
-   - `docs/reference/` contracts with no narrow matrix row
+2. Build a shortlist of at least 5 concrete candidate gaps from deterministic source evidence. Prefer the uncited source tests in the generated backlog first, then expand manually when needed. Prefer:
+   - uncited Python tests with no narrow matrix row
+   - uncited boundary/transport tests that look close to live caller surfaces
    - broad `Proved` rows whose cited proof is only one broad Go test, one lossy differential summary, or one family member
    - `Dormant / unproven caller` rows that may hide a still-live Go-owned surface
    - `Retained Python boundary` rows only when they appear to expose a surviving Go-owned transport/runtime contract
    - accepted discriminator families or mode branches that look only partially proved
-   - Do not spend early-session time on already-justified `Intentional divergence` rows unless the unknown-gap queues are exhausted or a divergence may no longer be justified.
+   - Do not spend early-session time on already-justified `Intentional divergence` rows unless the uncited-test leads are exhausted or a divergence may no longer be justified.
 3. Rank candidates by current caller risk and by probability of surfacing a concrete mismatch quickly.
 4. Work the best candidates one after another until you either land a real gap or rule out the top candidates with source evidence, caller evidence, and Go-code evidence. Do not stop after auditing only one false lead.
 5. For each candidate, prefer adding executable proof before changing code: a targeted parity scenario, focused Go/Python/frontend/Playwright test, or a narrow transport/runtime check that can fail on current `HEAD`.
