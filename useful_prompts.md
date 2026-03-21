@@ -127,14 +127,22 @@ Queued follow-up prompt for the same session:
 
 Automated message: continue the executable backend parity-discovery loop described in docs/plans/go-backend-rewrite/backend-gap-closure-plan.md. You may use up to 5 subagents when useful. Commit your work frequently.
 
-Do not treat the plan text or matrix counts alone as completion evidence.
+First check whether the current `HEAD` commit or worktree state has changed since the last successful parity report in this session.
 
-Before declaring this session complete, you must:
+If the immediately previous successful report in this session already showed both of these commands green for the current `HEAD`, and the worktree is still clean, do not rerun them:
+- `./scripts/run-backend-differential-parity.sh --baseline-ref main`
+- `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
+
+In that unchanged-state case, just reply:
+`No new executable parity gaps found for unchanged HEAD <sha>`
+
+Otherwise:
 1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
 2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
 3. Fix or explicitly classify every mismatch you found this session.
 4. Add or update focused tests and update the parity matrix/docs as needed.
 5. Report the exact commands run and their outcomes.
 
-Only reply `No new executable parity gaps found` if the executable checks are green and there are no remaining mismatches or blockers at the end of this session.
+Do not treat the plan text or matrix counts alone as completion evidence.
+Only reply `No new executable parity gaps found` if the executable checks are green and there are no remaining mismatches or blockers.
  
