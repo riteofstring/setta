@@ -367,3 +367,8 @@ categorize them.
   adjacent external-agent queue should move to the remaining scoped-header
   injection and user-config bootstrap/reconciliation slices rather than
   revisiting temp-config creation itself
+- The Claude temp-`.mcp.json` auth-plus-agentic-header row is now closed too,
+  so the adjacent external-agent runtime queue is down to the broader
+  Codex/OpenCode scoped-header injection and user-config
+  bootstrap/reconciliation slices rather than more Claude-specific temp-config
+  shaping
