@@ -51,8 +51,10 @@ type Service struct {
 }
 
 type trackedFile struct {
-	bindings []Binding
-	state    fileState
+	bindings     []Binding
+	state        fileState
+	pendingState fileState
+	pendingValid bool
 }
 
 type fileState struct {
@@ -128,6 +130,8 @@ func (s *Service) SyncInputs(inputs []FileInput) error {
 	for path, track := range next {
 		if existing, ok := s.tracks[path]; ok {
 			track.state = existing.state
+			track.pendingState = existing.pendingState
+			track.pendingValid = existing.pendingValid
 		}
 		next[path] = track
 	}
@@ -159,9 +163,11 @@ func (s *Service) poll() {
 }
 
 type pollInput struct {
-	path     string
-	bindings []Binding
-	state    fileState
+	path         string
+	bindings     []Binding
+	state        fileState
+	pendingState fileState
+	pendingValid bool
 }
 
 func (s *Service) snapshotTracks() []pollInput {
@@ -178,9 +184,11 @@ func (s *Service) snapshotTracks() []pollInput {
 	for _, path := range paths {
 		track := s.tracks[path]
 		inputs = append(inputs, pollInput{
-			path:     path,
-			bindings: append([]Binding(nil), track.bindings...),
-			state:    track.state,
+			path:         path,
+			bindings:     append([]Binding(nil), track.bindings...),
+			state:        track.state,
+			pendingState: track.pendingState,
+			pendingValid: track.pendingValid,
 		})
 	}
 	return inputs
@@ -227,6 +235,10 @@ func (s *Service) pollFile(input pollInput) error {
 		s.recordState(input.path, nextState)
 		return nil
 	}
+	if !input.pendingValid || !sameObservedState(input.pendingState, nextState) {
+		s.recordPendingState(input.path, nextState)
+		return nil
+	}
 
 	if err := s.onFileUpdate(s.ctx, FileUpdate{
 		Path:     input.path,
@@ -248,6 +260,20 @@ func (s *Service) recordState(path string, state fileState) {
 		return
 	}
 	track.state = state
+	track.pendingValid = false
+	s.tracks[path] = track
+}
+
+func (s *Service) recordPendingState(path string, state fileState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	track, ok := s.tracks[path]
+	if !ok {
+		return
+	}
+	track.pendingState = state
+	track.pendingValid = true
 	s.tracks[path] = track
 }
 
@@ -291,4 +317,12 @@ func mergeBindings(existing []Binding, additions []Binding) []Binding {
 func hashContent(raw []byte) string {
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
+}
+
+func sameObservedState(left fileState, right fileState) bool {
+	return left.initialized == right.initialized &&
+		left.exists == right.exists &&
+		left.size == right.size &&
+		left.modTime.Equal(right.modTime) &&
+		left.hash == right.hash
 }

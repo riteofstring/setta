@@ -175,3 +175,70 @@ func TestServiceEmitsCallbackWhenTrackedFileIsCreatedLater(t *testing.T) {
 		t.Fatal("timed out waiting for created tracked file update")
 	}
 }
+
+// Newly created files can briefly exist as empty while the writer is still
+// filling the final contents. The runtime should wait for a stable sample
+// instead of broadcasting a transient empty reload into Watch Code.
+func TestServiceDoesNotEmitTransientEmptyContentWhenTrackedFileAppears(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	path := filepath.Join(workspaceRoot, "pkg", "bound.py")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir file parent: %v", err)
+	}
+
+	updates := make(chan FileUpdate, 1)
+	service, err := NewService(ServiceOptions{
+		PollInterval: 100 * time.Millisecond,
+		OnFileUpdate: func(_ context.Context, update FileUpdate) error {
+			updates <- update
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("close service: %v", err)
+		}
+	})
+
+	if err := service.SyncInputs([]FileInput{
+		{
+			Path: path,
+			Bindings: []Binding{
+				{ProjectID: "project-alpha", SectionID: "section-main"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("sync inputs: %v", err)
+	}
+	time.Sleep(160 * time.Millisecond)
+
+	if err := os.WriteFile(path, []byte(""), 0o644); err != nil {
+		t.Fatalf("write transient empty file: %v", err)
+	}
+	time.Sleep(120 * time.Millisecond)
+
+	select {
+	case update := <-updates:
+		t.Fatalf("did not expect transient update before final content write, got %#v", update)
+	default:
+	}
+
+	created := "print('created')\n"
+	if err := os.WriteFile(path, []byte(created), 0o644); err != nil {
+		t.Fatalf("write created file: %v", err)
+	}
+
+	select {
+	case update := <-updates:
+		if update.Raw != created {
+			t.Fatalf("expected stable created raw content %q, got %q", created, update.Raw)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for stable created tracked file update")
+	}
+}
