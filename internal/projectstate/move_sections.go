@@ -251,6 +251,10 @@ func (p *Project) moveSectionsToParent(
 	if err != nil {
 		return err
 	}
+	newParentPayload, err := effectiveSectionPayload(*p, newParentSection.ID, newParentVariant.ID)
+	if err != nil {
+		return err
+	}
 	currentChildren, err := p.sectionChildIDs(newParentSection.ID)
 	if err != nil {
 		return err
@@ -277,8 +281,8 @@ func (p *Project) moveSectionsToParent(
 		return ErrMoveSectionsNewIndexOutOfRange
 	}
 
-	if newParentImpl.IsCode() {
-		if err := p.validateMoveSectionsCodeParent(newParentSection.ID, newParentImpl, currentChildren, sectionIDs); err != nil {
+	if supportsBaseCodeSectionSemantics(newParentImpl, newParentPayload) {
+		if err := p.validateMoveSectionsCodeParent(newParentSection.ID, newParentImpl, newParentPayload, currentChildren, sectionIDs); err != nil {
 			return err
 		}
 		terminalSectionID := sectionIDs[0]
@@ -319,6 +323,7 @@ func (p *Project) moveSectionsToParent(
 func (p *Project) validateMoveSectionsCodeParent(
 	parentID string,
 	parentImpl SectionImpl,
+	parentPayload map[string]any,
 	currentChildren []string,
 	sectionIDs []string,
 ) error {
@@ -338,7 +343,7 @@ func (p *Project) validateMoveSectionsCodeParent(
 	if len(filterStringSlice(currentChildren, selectedSet)) != 0 {
 		return fmt.Errorf("%w: parent=%q", ErrCodeSectionAlreadyHasChild, parentID)
 	}
-	currentAttachedTerminalID := strings.TrimSpace(parentImpl.Code.AttachedTerminalSectionID)
+	currentAttachedTerminalID, _ := baseCodeSectionAttachmentState(parentImpl, parentPayload)
 	if currentAttachedTerminalID != "" && currentAttachedTerminalID != sectionIDs[0] {
 		return fmt.Errorf("%w: parent=%q", ErrCodeSectionAlreadyHasChild, parentID)
 	}

@@ -74,7 +74,11 @@ func (p *Project) SetCodeSectionAttachedTerminal(
 	if err != nil {
 		return err
 	}
-	if !impl.IsCode() {
+	payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	if err != nil {
+		return err
+	}
+	if !supportsBaseCodeSectionSemantics(impl, payload) {
 		return ErrCodeSectionRequired
 	}
 
@@ -112,7 +116,7 @@ func (p *Project) attachCodeSectionTerminal(
 	if err != nil {
 		return err
 	}
-	currentChildren := payloadStringArrayField(codePayload, "children")
+	currentAttachedTerminalID, currentChildren := baseCodeSectionAttachmentState(impl, codePayload)
 	if len(currentChildren) > 1 {
 		return fmt.Errorf("%w: section=%q", ErrCodeSectionMultipleChildren, section.ID)
 	}
@@ -120,10 +124,6 @@ func (p *Project) attachCodeSectionTerminal(
 		return fmt.Errorf("%w: section=%q current=%q next=%q", ErrCodeSectionAttachedTerminalConflict, section.ID, currentChildren[0], terminalSectionID)
 	}
 
-	currentAttachedTerminalID := strings.TrimSpace(payloadStringField(codePayload, "attachedTerminalSectionId"))
-	if currentAttachedTerminalID == "" {
-		currentAttachedTerminalID = strings.TrimSpace(impl.Code.AttachedTerminalSectionID)
-	}
 	if currentAttachedTerminalID != "" && currentAttachedTerminalID != terminalSectionID && len(currentChildren) != 0 {
 		return fmt.Errorf("%w: section=%q current=%q next=%q", ErrCodeSectionAttachedTerminalConflict, section.ID, currentAttachedTerminalID, terminalSectionID)
 	}
@@ -147,15 +147,13 @@ func (p *Project) attachCodeSectionTerminal(
 		return err
 	}
 
-	codePayload["children"] = []string{terminalSectionID}
-	codePayload["attachedTerminalSectionId"] = terminalSectionID
+	setBaseCodeSectionAttachmentState(codePayload, &impl, []string{terminalSectionID})
 	if err := ensureEmbeddedCodeSectionPayloadSize(section.ID, codePayload, policy); err != nil {
 		return err
 	}
 
 	updatedCodeImpl := impl.Clone()
-	updatedCodeImpl.Code.Children = []string{terminalSectionID}
-	updatedCodeImpl.Code.AttachedTerminalSectionID = terminalSectionID
+	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, []string{terminalSectionID})
 	updatedCodeImpl.Payload, err = marshalProjectObject(codePayload)
 	if err != nil {
 		return err
@@ -181,22 +179,17 @@ func (p *Project) detachCodeSectionAttachedTerminal(
 	if err != nil {
 		return err
 	}
-	currentChildren := payloadStringArrayField(codePayload, "children")
+	terminalSectionID, currentChildren := baseCodeSectionAttachmentState(impl, codePayload)
 	if len(currentChildren) > 1 {
 		return fmt.Errorf("%w: section=%q", ErrCodeSectionMultipleChildren, section.ID)
 	}
 
-	terminalSectionID := strings.TrimSpace(impl.Code.AttachedTerminalSectionID)
 	if len(currentChildren) == 1 {
 		terminalSectionID = currentChildren[0]
 	}
 
-	delete(codePayload, "attachedTerminalSectionId")
-	codePayload["children"] = []string{}
-
 	updatedCodeImpl := impl.Clone()
-	updatedCodeImpl.Code.AttachedTerminalSectionID = ""
-	updatedCodeImpl.Code.Children = []string{}
+	setBaseCodeSectionAttachmentState(codePayload, &updatedCodeImpl, nil)
 	updatedCodeImpl.Payload, err = marshalProjectObject(codePayload)
 	if err != nil {
 		return err
@@ -286,15 +279,12 @@ func (p *Project) removeChildFromParent(parentID string, childID string) error {
 		}
 		nextChildren = append(nextChildren, currentChildID)
 	}
-	parentPayload["children"] = append([]string(nil), nextChildren...)
 
 	updatedParentImpl := parentImpl.Clone()
-	if updatedParentImpl.IsCode() {
-		updatedParentImpl.Code.Children = append([]string(nil), nextChildren...)
-		if strings.TrimSpace(updatedParentImpl.Code.AttachedTerminalSectionID) == childID || payloadStringField(parentPayload, "attachedTerminalSectionId") == childID {
-			delete(parentPayload, "attachedTerminalSectionId")
-			updatedParentImpl.Code.AttachedTerminalSectionID = ""
-		}
+	if supportsBaseCodeSectionSemantics(updatedParentImpl, parentPayload) {
+		setBaseCodeSectionAttachmentState(parentPayload, &updatedParentImpl, nextChildren)
+	} else {
+		parentPayload["children"] = append([]string(nil), nextChildren...)
 	}
 
 	updatedPayload, err := marshalProjectObject(parentPayload)

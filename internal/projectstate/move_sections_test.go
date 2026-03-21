@@ -514,6 +514,94 @@ func TestRuntimeMoveSectionsRejectsNonTerminalChildForCodeParent(t *testing.T) {
 	}
 }
 
+func TestRuntimeMoveSectionsAttachesAndDetachesTerminalThroughTheMoveRouteForGeneratedBaseCodeParent(t *testing.T) {
+	t.Parallel()
+
+	for _, spec := range generatedBaseCodeSectionTestSpecs() {
+		spec := spec
+		t.Run(spec.name, func(t *testing.T) {
+			t.Parallel()
+
+			runtime := openRunGraphTestRuntime(t, newGeneratedBaseCodeSectionDocument(t, spec))
+			settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
+
+			newParentID := "generated-section"
+			newIndex := 0
+			if _, err := runtime.MoveSections(
+				context.Background(),
+				"project-alpha",
+				MoveSectionsInput{
+					SectionIDs:  []string{"terminal-section"},
+					NewParentID: &newParentID,
+					NewIndex:    &newIndex,
+				},
+				settings,
+			); err != nil {
+				t.Fatalf("attach terminal via MoveSections for %s parent: %v", spec.sectionType, err)
+			}
+
+			project := runtime.Snapshot().Document.Projects["project-alpha"]
+			generatedPayload, err := effectiveSectionPayload(project, "generated-section", "generated-variant")
+			if err != nil {
+				t.Fatalf("generated payload after attach: %v", err)
+			}
+			if attached := payloadStringField(generatedPayload, "attachedTerminalSectionId"); attached != "terminal-section" {
+				t.Fatalf("expected attached terminal id terminal-section, got %q", attached)
+			}
+			if children := payloadStringArrayField(generatedPayload, "children"); !reflect.DeepEqual(children, []string{"terminal-section"}) {
+				t.Fatalf("expected generated children [terminal-section], got %#v", children)
+			}
+			if _, ok := project.TopLevelSections["terminal-section"]; ok {
+				t.Fatalf("did not expect terminal to remain top-level after attach, got %#v", project.TopLevelSections["terminal-section"])
+			}
+
+			positionsByID := map[string]Position{
+				"terminal-section": {X: 120, Y: 80},
+			}
+			if _, err := runtime.MoveSections(
+				context.Background(),
+				"project-alpha",
+				MoveSectionsInput{
+					SectionIDs:    []string{"terminal-section"},
+					NewParentID:   nil,
+					PositionsByID: positionsByID,
+				},
+				settings,
+			); err != nil {
+				t.Fatalf("detach terminal via MoveSections for %s parent: %v", spec.sectionType, err)
+			}
+
+			project = runtime.Snapshot().Document.Projects["project-alpha"]
+			generatedPayload, err = effectiveSectionPayload(project, "generated-section", "generated-variant")
+			if err != nil {
+				t.Fatalf("generated payload after detach: %v", err)
+			}
+			if attached := payloadStringField(generatedPayload, "attachedTerminalSectionId"); attached != "" {
+				t.Fatalf("expected cleared attached terminal id, got %q", attached)
+			}
+			if children := payloadStringArrayField(generatedPayload, "children"); len(children) != 0 {
+				t.Fatalf("expected cleared generated children, got %#v", children)
+			}
+
+			terminalSection, _, _, err := project.ResolveSection("terminal-section")
+			if err != nil {
+				t.Fatalf("resolve detached terminal: %v", err)
+			}
+			if terminalSection.ParentSectionID != "" {
+				t.Fatalf("expected detached terminal to become top-level, got parent %q", terminalSection.ParentSectionID)
+			}
+
+			layout, ok := project.TopLevelSections["terminal-section"]
+			if !ok {
+				t.Fatalf("expected terminal-section layout after detach, got %#v", project.TopLevelSections)
+			}
+			if layout.X != 120 || layout.Y != 80 || layout.ZIndex != 3 {
+				t.Fatalf("expected terminal-section layout {120 80 3}, got %#v", layout)
+			}
+		})
+	}
+}
+
 func TestRuntimeMoveSectionsMoveToPaneAssignsFreshMonotonicZIndices(t *testing.T) {
 	t.Parallel()
 

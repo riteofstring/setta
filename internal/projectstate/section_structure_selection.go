@@ -532,7 +532,7 @@ func (p *Project) sectionChildIDs(sectionID string) ([]string, error) {
 		return nil, err
 	}
 	children, hasChildren := payloadChildren(payload)
-	if !hasChildren && !impl.IsCode() {
+	if !hasChildren && !supportsBaseCodeSectionSemantics(impl, payload) {
 		return nil, fmt.Errorf("%w: parent=%q", ErrChildSectionParentUnsupported, section.ID)
 	}
 	return append([]string(nil), children...), nil
@@ -569,24 +569,19 @@ func (p *Project) setSectionChildren(sectionID string, childIDs []string) error 
 	if err != nil {
 		return err
 	}
-	if _, hasChildren := payloadChildren(payload); !hasChildren && !impl.IsCode() {
+	parentIsBaseCodeSection := supportsBaseCodeSectionSemantics(impl, payload)
+	if _, hasChildren := payloadChildren(payload); !hasChildren && !parentIsBaseCodeSection {
 		return fmt.Errorf("%w: parent=%q", ErrChildSectionParentUnsupported, section.ID)
 	}
-	payload["children"] = append([]string(nil), childIDs...)
 
 	updatedImpl := impl.Clone()
-	if updatedImpl.IsCode() {
+	if parentIsBaseCodeSection {
 		if len(childIDs) > 1 {
 			return fmt.Errorf("%w: parent=%q childCount=%d", ErrCodeSectionChildCountInvalid, section.ID, len(childIDs))
 		}
-		updatedImpl.Code.Children = append([]string(nil), childIDs...)
-		if len(childIDs) == 0 {
-			delete(payload, "attachedTerminalSectionId")
-			updatedImpl.Code.AttachedTerminalSectionID = ""
-		} else {
-			payload["attachedTerminalSectionId"] = childIDs[0]
-			updatedImpl.Code.AttachedTerminalSectionID = childIDs[0]
-		}
+		setBaseCodeSectionAttachmentState(payload, &updatedImpl, childIDs)
+	} else {
+		payload["children"] = append([]string(nil), childIDs...)
 	}
 	rawPayload, err := marshalProjectObject(payload)
 	if err != nil {

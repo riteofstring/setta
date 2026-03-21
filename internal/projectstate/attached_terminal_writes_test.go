@@ -192,6 +192,81 @@ func TestRuntimeSetCodeSectionAttachedTerminalMovesTerminalFromExistingParent(t 
 	}
 }
 
+func TestRuntimeSetCodeSectionAttachedTerminalSupportsGeneratedBaseCodeSections(t *testing.T) {
+	t.Parallel()
+
+	for _, spec := range generatedBaseCodeSectionTestSpecs() {
+		spec := spec
+		t.Run(spec.name, func(t *testing.T) {
+			t.Parallel()
+
+			runtime := openRunGraphTestRuntime(t, newGeneratedBaseCodeSectionDocument(t, spec))
+			settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
+			terminalSectionID := "terminal-section"
+
+			snapshot, err := runtime.SetCodeSectionAttachedTerminal(
+				context.Background(),
+				"project-alpha",
+				"generated-section",
+				&terminalSectionID,
+				settings,
+			)
+			if err != nil {
+				t.Fatalf("attach terminal to %s section: %v", spec.sectionType, err)
+			}
+
+			project := snapshot.Document.Projects["project-alpha"]
+			generatedPayload, err := effectiveSectionPayload(project, "generated-section", "generated-variant")
+			if err != nil {
+				t.Fatalf("generated payload: %v", err)
+			}
+			if attached := payloadStringField(generatedPayload, "attachedTerminalSectionId"); attached != terminalSectionID {
+				t.Fatalf("expected attachedTerminalSectionId %q, got %q", terminalSectionID, attached)
+			}
+			if children := payloadStringArrayField(generatedPayload, "children"); !reflect.DeepEqual(children, []string{terminalSectionID}) {
+				t.Fatalf("expected generated children [%q], got %#v", terminalSectionID, children)
+			}
+
+			terminalSection, terminalVariant, _, err := project.ResolveSection(terminalSectionID)
+			if err != nil {
+				t.Fatalf("resolve attached terminal section: %v", err)
+			}
+			if terminalSection.ParentSectionID != "generated-section" {
+				t.Fatalf("expected terminal parent generated-section, got %q", terminalSection.ParentSectionID)
+			}
+			if project.HasTopLevelSection(terminalSectionID) {
+				t.Fatal("did not expect attached terminal to remain top-level")
+			}
+
+			terminalPayload, err := effectiveSectionPayload(project, terminalSectionID, terminalVariant.ID)
+			if err != nil {
+				t.Fatalf("terminal payload: %v", err)
+			}
+			terminalSize, ok := payloadObjectField(terminalPayload, "size")
+			if !ok {
+				t.Fatalf("expected terminal size payload, got %#v", terminalPayload)
+			}
+			width, _, _, err := payloadAutoLayoutSizeValue(terminalSize, "width")
+			if err != nil {
+				t.Fatalf("parse terminal width: %v", err)
+			}
+			if width != 640.0 {
+				t.Fatalf("expected terminal width 640, got %v", width)
+			}
+			terminalHeight, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "height")
+			if err != nil {
+				t.Fatalf("parse terminal height: %v", err)
+			}
+			if !present || isAuto {
+				t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
+			}
+			if terminalHeight != 222.0 {
+				t.Fatalf("expected terminal height 222, got %v", terminalHeight)
+			}
+		})
+	}
+}
+
 func TestRuntimeSetCodeSectionAttachedTerminalRejectsNonTerminalTarget(t *testing.T) {
 	t.Parallel()
 

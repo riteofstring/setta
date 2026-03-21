@@ -114,10 +114,11 @@ func (p *Project) CreateChildSections(
 		parentType = fallbackSectionType(parentImpl)
 	}
 	parentChildren, parentHasChildren := payloadChildren(parentPayload)
-	if !parentImpl.IsCode() && !parentHasChildren {
+	parentIsBaseCodeSection := supportsBaseCodeSectionSemantics(parentImpl, parentPayload)
+	if !parentIsBaseCodeSection && !parentHasChildren {
 		return CreateChildSectionsResult{}, fmt.Errorf("%w: parent=%q", ErrChildSectionParentUnsupported, parentSection.ID)
 	}
-	if err := validateCreateChildSectionsParent(parentSection.ID, parentImpl, parentChildren, normalized); err != nil {
+	if err := validateCreateChildSectionsParent(parentSection.ID, parentImpl, parentPayload, parentChildren, normalized); err != nil {
 		return CreateChildSectionsResult{}, err
 	}
 
@@ -154,7 +155,7 @@ func (p *Project) CreateChildSections(
 			parentSection.ID,
 			normalized.ImplType,
 			parentWidth,
-			parentImpl.IsCode(),
+			parentIsBaseCodeSection,
 			normalizedSettings,
 		)
 		if err != nil {
@@ -200,9 +201,9 @@ func (p *Project) CreateChildSections(
 	}
 
 	nextChildren := insertStringSlice(parentChildren, startIdx, createdIDs)
-	parentPayload["children"] = append([]string(nil), nextChildren...)
-	if parentImpl.IsCode() {
-		parentPayload["attachedTerminalSectionId"] = createdIDs[0]
+	if parentIsBaseCodeSection {
+		updatedParentImpl := parentImpl.Clone()
+		setBaseCodeSectionAttachmentState(parentPayload, &updatedParentImpl, nextChildren)
 		if err := ensureEmbeddedCodeSectionPayloadSize(
 			parentSection.ID,
 			parentPayload,
@@ -210,8 +211,9 @@ func (p *Project) CreateChildSections(
 		); err != nil {
 			return CreateChildSectionsResult{}, err
 		}
-		parentImpl.Code.AttachedTerminalSectionID = createdIDs[0]
-		parentImpl.Code.Children = append([]string(nil), nextChildren...)
+		parentImpl = updatedParentImpl
+	} else {
+		parentPayload["children"] = append([]string(nil), nextChildren...)
 	}
 	parentRaw, err := marshalProjectObject(parentPayload)
 	if err != nil {
@@ -270,10 +272,11 @@ func normalizeCreateChildSectionImplType(implType string) (string, error) {
 func validateCreateChildSectionsParent(
 	parentID string,
 	parentImpl SectionImpl,
+	parentPayload map[string]any,
 	parentChildren []string,
 	input CreateChildSectionsInput,
 ) error {
-	if !parentImpl.IsCode() {
+	if !supportsBaseCodeSectionSemantics(parentImpl, parentPayload) {
 		return nil
 	}
 	if input.ImplType != "Terminal" {
@@ -282,7 +285,8 @@ func validateCreateChildSectionsParent(
 	if input.NumChildren != 1 {
 		return fmt.Errorf("%w: parent=%q numChildren=%d", ErrCodeSectionChildCountInvalid, parentID, input.NumChildren)
 	}
-	if len(parentChildren) != 0 || strings.TrimSpace(parentImpl.Code.AttachedTerminalSectionID) != "" {
+	attachedTerminalID, _ := baseCodeSectionAttachmentState(parentImpl, parentPayload)
+	if len(parentChildren) != 0 || attachedTerminalID != "" {
 		return fmt.Errorf("%w: parent=%q", ErrCodeSectionAlreadyHasChild, parentID)
 	}
 	return nil

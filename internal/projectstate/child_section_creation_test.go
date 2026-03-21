@@ -375,6 +375,91 @@ func TestProjectCreateChildSectionsSupportsExpandedActiveTypes(t *testing.T) {
 	}
 }
 
+func TestProjectCreateChildSectionsCreatesAttachedTerminalForGeneratedBaseCodeParent(t *testing.T) {
+	t.Parallel()
+
+	for _, spec := range generatedBaseCodeSectionTestSpecs() {
+		spec := spec
+		t.Run(spec.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := newGeneratedBaseCodeSectionProject(t, spec)
+			settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
+			startIdx := 0
+			result, err := project.CreateChildSections(CreateChildSectionsInput{
+				ParentID:    "generated-section",
+				ImplType:    "Terminal",
+				NumChildren: 1,
+				StartIdx:    &startIdx,
+			}, settings)
+			if err != nil {
+				t.Fatalf("create terminal child for %s parent: %v", spec.sectionType, err)
+			}
+
+			if len(result.SectionIDs) != 1 {
+				t.Fatalf("expected one created terminal id, got %#v", result.SectionIDs)
+			}
+			terminalID := result.SectionIDs[0]
+
+			parentPayload, err := effectiveSectionPayload(project, "generated-section", "generated-variant")
+			if err != nil {
+				t.Fatalf("generated parent payload: %v", err)
+			}
+			if attached := payloadStringField(parentPayload, "attachedTerminalSectionId"); attached != terminalID {
+				t.Fatalf("expected attachedTerminalSectionId %q, got %q", terminalID, attached)
+			}
+			if children := payloadStringArrayField(parentPayload, "children"); !reflect.DeepEqual(children, []string{terminalID}) {
+				t.Fatalf("expected generated children [%q], got %#v", terminalID, children)
+			}
+
+			size, ok := payloadObjectField(parentPayload, "size")
+			if !ok {
+				t.Fatalf("expected parent size payload, got %#v", parentPayload)
+			}
+			height, isAuto, present, err := payloadAutoLayoutSizeValue(size, "height")
+			if err != nil {
+				t.Fatalf("parse parent height: %v", err)
+			}
+			if !present || isAuto {
+				t.Fatalf("expected concrete parent height, got %#v", size)
+			}
+			if height < 238.2 {
+				t.Fatalf("expected parent height promoted to attached-terminal minimum, got %v", height)
+			}
+
+			terminalSection := project.Sections[terminalID]
+			if terminalSection.ParentSectionID != "generated-section" {
+				t.Fatalf("expected terminal parent generated-section, got %#v", terminalSection)
+			}
+			terminalPayload, err := effectiveSectionPayload(project, terminalID, project.SectionVariantMap[terminalID])
+			if err != nil {
+				t.Fatalf("terminal payload: %v", err)
+			}
+			terminalSize, ok := payloadObjectField(terminalPayload, "size")
+			if !ok {
+				t.Fatalf("expected terminal size payload, got %#v", terminalPayload)
+			}
+			width, _, _, err := payloadAutoLayoutSizeValue(terminalSize, "width")
+			if err != nil {
+				t.Fatalf("parse terminal width: %v", err)
+			}
+			if width != 640.0 {
+				t.Fatalf("expected terminal width 640, got %v", width)
+			}
+			terminalHeight, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "height")
+			if err != nil {
+				t.Fatalf("parse terminal height: %v", err)
+			}
+			if !present || isAuto {
+				t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
+			}
+			if terminalHeight != settings.TerminalDefaultHeight {
+				t.Fatalf("expected settings-backed terminal height %v, got %v", settings.TerminalDefaultHeight, terminalHeight)
+			}
+		})
+	}
+}
+
 // Direct child creation should keep the broader Python-source allowlist even
 // though these singleton/generated types remain disallowed as default children.
 func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *testing.T) {

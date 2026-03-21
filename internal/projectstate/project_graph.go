@@ -737,6 +737,18 @@ func (i SectionImpl) IsGenerated() bool {
 	return i.Kind == SectionKindGenerated && i.Generated != nil
 }
 
+func (i SectionImpl) IsGeneratedCodeSection() bool {
+	if !i.IsGenerated() {
+		return false
+	}
+	return i.Generated.Kind == GeneratedSectionKindPythonCode ||
+		i.Generated.Kind == GeneratedSectionKindPythonMetadata
+}
+
+func (i SectionImpl) IsBaseCodeSection() bool {
+	return i.IsCode() || i.IsGeneratedCodeSection()
+}
+
 func (i SectionImpl) IsGeneratedEntrySection() bool {
 	if !i.IsGenerated() {
 		return false
