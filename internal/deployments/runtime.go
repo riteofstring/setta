@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -78,7 +79,12 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 		return nil, err
 	}
 
-	store, err := projectstate.NewStore(filepath.Join(paths.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	projectPath := filepath.Join(paths.DeploymentRoot, projectstate.MainFileName)
+	if _, err := os.Stat(projectPath); err != nil {
+		return nil, fmt.Errorf("read deployment project document: %w", err)
+	}
+
+	store, err := projectstate.NewStore(projectPath, projectstate.StoreOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("open deployment project store: %w", err)
 	}

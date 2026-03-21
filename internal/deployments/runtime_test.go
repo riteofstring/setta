@@ -127,6 +127,124 @@ func TestOpenLoadsDeploymentRuntimeAndAppliesManifestDefaultProject(t *testing.T
 	}
 }
 
+func TestOpenUsesManifestMetadataFromRelocatedRoot(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(t.TempDir(), "relocated", "deployment_root")
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentFixture(t, root, singleProjectDocument("project-alpha", "Alpha"), map[string]any{
+		"version":                1,
+		"deploymentName":         "manifest-name",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v42",
+	}, map[string]any{
+		"allowRun": true,
+	})
+
+	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+
+	if got := deploymentRuntime.Manifest().DeploymentName; got != "manifest-name" {
+		t.Fatalf("expected manifest deployment name manifest-name, got %q", got)
+	}
+	if got := deploymentRuntime.Manifest().DeploymentVersion; got != "v42" {
+		t.Fatalf("expected manifest deployment version v42, got %q", got)
+	}
+	if got := deploymentRuntime.Paths().DeploymentRoot; got != root {
+		t.Fatalf("expected deployment root %q, got %q", root, got)
+	}
+}
+
+func TestOpenFailsClosedWhenManifestDefaultProjectMissingFromDocument(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		document projectstate.Document
+	}{
+		{
+			name: "missing default project",
+			document: projectstate.Document{
+				SchemaVersion:    projectstate.CurrentSchemaVersion,
+				DefaultProjectID: "project-alpha",
+				Projects: map[string]projectstate.Project{
+					"project-alpha": {
+						ID:   "project-alpha",
+						Name: "Alpha",
+					},
+				},
+			},
+		},
+		{
+			name: "no projects",
+			document: projectstate.Document{
+				SchemaVersion:    projectstate.CurrentSchemaVersion,
+				DefaultProjectID: "",
+				Projects:         map[string]projectstate.Project{},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+			writeDeploymentFixture(t, root, testCase.document, map[string]any{
+				"version":                1,
+				"deploymentName":         "demo-share",
+				"deploymentType":         "share",
+				"defaultProjectConfigId": "project-beta",
+				"deploymentVersion":      "v1",
+			}, map[string]any{})
+
+			_, err := Open(context.Background(), RuntimeOptions{
+				DeploymentRoot: root,
+				RuntimeRoot:    runtimeRoot,
+			})
+			if !errors.Is(err, ErrManifestDefaultProjectMatch) {
+				t.Fatalf("expected ErrManifestDefaultProjectMatch, got %v", err)
+			}
+		})
+	}
+}
+
+func TestOpenFailsClosedWhenProjectDocumentMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentJSON(t, filepath.Join(root, "manifest.json"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+	})
+	writeDeploymentJSON(t, filepath.Join(root, "policy.json"), map[string]any{})
+
+	_, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected missing project document error, got %v", err)
+	}
+}
+
 func TestRuntimeCreateSessionCreatesOverlayAndTouchesSession(t *testing.T) {
 	t.Parallel()
 
@@ -434,6 +552,113 @@ func TestRuntimeSessionSnapshotReturnsOverlayDocument(t *testing.T) {
 	}
 	if project.Name != "Overlay Alpha" {
 		t.Fatalf("expected overlay project name Overlay Alpha, got %q", project.Name)
+	}
+}
+
+func TestRuntimeSessionOverlaysScopeProjectMutationsBySessionAndProject(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentFixture(t, root, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Beta",
+			},
+		},
+	}, map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+	}, map[string]any{})
+
+	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+
+	if _, err := deploymentRuntime.CreateSessionWithID("session-a"); err != nil {
+		t.Fatalf("create session-a: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("session-b"); err != nil {
+		t.Fatalf("create session-b: %v", err)
+	}
+
+	sessionAOverlay, err := deploymentRuntime.Overlay("session-a")
+	if err != nil {
+		t.Fatalf("resolve session-a overlay: %v", err)
+	}
+	if _, err := sessionAOverlay.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.Name = "Alpha Session A"
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate session-a overlay: %v", err)
+	}
+
+	baseSnapshot := deploymentRuntime.Base().Snapshot()
+	if got := baseSnapshot.Document.Projects["project-alpha"].Name; got != "Alpha" {
+		t.Fatalf("expected base alpha name Alpha, got %q", got)
+	}
+
+	sessionASnapshot, err := deploymentRuntime.SessionSnapshot("session-a")
+	if err != nil {
+		t.Fatalf("session-a snapshot: %v", err)
+	}
+	if got := sessionASnapshot.Document.Projects["project-alpha"].Name; got != "Alpha Session A" {
+		t.Fatalf("expected session-a alpha name Alpha Session A, got %q", got)
+	}
+	if got := sessionASnapshot.Document.Projects["project-beta"].Name; got != "Beta" {
+		t.Fatalf("expected session-a beta name Beta, got %q", got)
+	}
+
+	sessionBSnapshot, err := deploymentRuntime.SessionSnapshot("session-b")
+	if err != nil {
+		t.Fatalf("session-b snapshot: %v", err)
+	}
+	if got := sessionBSnapshot.Document.Projects["project-alpha"].Name; got != "Alpha" {
+		t.Fatalf("expected session-b alpha name Alpha, got %q", got)
+	}
+	if got := sessionBSnapshot.Document.Projects["project-beta"].Name; got != "Beta" {
+		t.Fatalf("expected session-b beta name Beta, got %q", got)
+	}
+}
+
+func TestRuntimeRejectsUnknownOrConflictingSessions(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := openTestDeploymentRuntime(t)
+
+	if _, err := deploymentRuntime.Overlay("missing"); !errors.Is(err, ErrUnknownSession) {
+		t.Fatalf("expected unknown session overlay error, got %v", err)
+	}
+	if err := deploymentRuntime.DeleteSession("missing"); !errors.Is(err, ErrUnknownSession) {
+		t.Fatalf("expected unknown session delete error, got %v", err)
+	}
+
+	if _, err := deploymentRuntime.CreateSessionWithID("session-a"); err != nil {
+		t.Fatalf("create session-a: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("session-a"); !errors.Is(err, ErrSessionConflict) {
+		t.Fatalf("expected ErrSessionConflict for duplicate session create, got %v", err)
 	}
 }
 
