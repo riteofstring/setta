@@ -138,6 +138,60 @@ cat "${{prompt_file}}" > "{prompt_capture_file}"
     return sandbox_root, capture_file
 
 
+def _build_gap_hunt_wrapper_sandbox(tmp_path: Path) -> tuple[Path, Path]:
+    root = repo_root()
+    sandbox_root = tmp_path / "codex_gap_hunt_wrapper_sandbox"
+    scripts_dir = sandbox_root / "scripts"
+    prompts_dir = scripts_dir / "prompts"
+
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+
+    wrapper_src = root / "scripts" / "run-backend-gap-hunt-codex-loop.sh"
+    wrapper_dst = scripts_dir / "run-backend-gap-hunt-codex-loop.sh"
+    wrapper_dst.write_text(wrapper_src.read_text(encoding="utf-8"), encoding="utf-8")
+    wrapper_dst.chmod(0o755)
+
+    prompt_src = root / "scripts" / "prompts" / "backend-behavior-gap-hunt.txt"
+    prompt_dst = prompts_dir / "backend-behavior-gap-hunt.txt"
+    prompt_dst.write_text(prompt_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    followup_prompt_src = (
+        root / "scripts" / "prompts" / "backend-behavior-gap-hunt-followup.txt"
+    )
+    followup_prompt_dst = prompts_dir / "backend-behavior-gap-hunt-followup.txt"
+    followup_prompt_dst.write_text(
+        followup_prompt_src.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    capture_file = sandbox_root / "wrapper_args.txt"
+    prompt_capture_file = sandbox_root / "wrapper_prompt.txt"
+    write_stub_executable(
+        scripts_dir / "run-codex-loop.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$@" > "{capture_file}"
+
+prompt_file=""
+next_is_prompt_file=0
+for arg in "$@"; do
+  if [[ "${{next_is_prompt_file}}" == "1" ]]; then
+    prompt_file="${{arg}}"
+    next_is_prompt_file=0
+    continue
+  fi
+  if [[ "${{arg}}" == "--prompt-file" ]]; then
+    next_is_prompt_file=1
+  fi
+done
+
+cat "${{prompt_file}}" > "{prompt_capture_file}"
+""",
+    )
+
+    return sandbox_root, capture_file
+
+
 def test_run_codex_loop_script_runs_requested_iterations_and_captures_responses(
     tmp_path: Path,
 ) -> None:
@@ -509,3 +563,62 @@ def test_backend_parity_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> N
         str(sandbox_root / "outputs"),
     ]
     assert "Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`" in prompt_text
+
+
+def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> None:
+    # The proactive gap-hunt wrapper should pin the dedicated prompt files,
+    # preserve the default loop batching, and still forward caller-supplied
+    # loop arguments unchanged after forcing the yolo-equivalent exec policy.
+    sandbox_root, capture_file = _build_gap_hunt_wrapper_sandbox(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-backend-gap-hunt-codex-loop.sh"),
+            "--iterations",
+            "9",
+            "--output-dir",
+            str(sandbox_root / "outputs"),
+        ],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    args = capture_file.read_text(encoding="utf-8").splitlines()
+    prompt_text = (sandbox_root / "wrapper_prompt.txt").read_text(encoding="utf-8")
+
+    assert args[0] == "--prompt-file"
+    assert (
+        args[1]
+        == str(
+            sandbox_root / "scripts" / "prompts" / "backend-behavior-gap-hunt.txt"
+        )
+    )
+    assert args[2] == "--followup-prompt-file"
+    assert (
+        args[3]
+        == str(
+            sandbox_root
+            / "scripts"
+            / "prompts"
+            / "backend-behavior-gap-hunt-followup.txt"
+        )
+    )
+    assert args[4] == "--workdir"
+    assert args[5] == str(sandbox_root)
+    assert args[6] == "--iterations"
+    assert args[7] == "1000"
+    assert args[8] == "--new-session-every"
+    assert args[9] == "10"
+    assert args[10] == "--yolo"
+    assert args[11:] == [
+        "--iterations",
+        "9",
+        "--output-dir",
+        str(sandbox_root / "outputs"),
+    ]
+    assert "Build a shortlist of at least 5 concrete candidate gaps" in prompt_text

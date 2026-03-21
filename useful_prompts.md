@@ -159,4 +159,53 @@ Otherwise:
 Report the exact commands run and their outcomes.
 
 Never treat plan text, matrix counts, already-green existing scenarios, or touching each top-level backend area once as completion evidence. Only reply `No new executable parity gaps found` if the required parity commands are green and you either added/strengthened a parity slice this session or explained with evidence why no higher-value deepening slice could responsibly be added.
+
+
+Go backend proactive gap-hunt session starter:
+
+Read `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix-plan.md`, `docs/plans/go-backend-rewrite/backend-gap-closure-plan.md`, and `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`. This loop exists to proactively find real Go implementation gaps efficiently. You may use up to 5 subagents when useful. Commit frequently.
+
+This is not the routine green-manifest maintenance loop. Never spend the whole session only rerunning the existing default or corpus parity manifests unless you are confirming a just-changed `HEAD` or resolving an active mismatch. Already-green scenarios are not progress.
+
+1. Start with Pass 3 and Pass 4 from `backend-behavior-parity-matrix-plan.md`: skeptical omission audit plus gap triage.
+2. Build a shortlist of at least 5 concrete candidate gaps from deterministic source evidence. Prefer:
+   - Python tests with no narrow matrix row or no narrow Go proof
+   - `docs/reference/` contracts with no narrow matrix row
+   - broad `Proved` rows whose cited proof is only one broad Go test, one lossy differential summary, or one family member
+   - `Dormant / unproven caller`, `Retained Python boundary`, or `Intentional divergence` rows that may now have live caller evidence or surviving Go-owned behavior
+   - accepted discriminator families or mode branches that look only partially proved
+3. Rank candidates by current caller risk and by probability of surfacing a concrete mismatch quickly.
+4. Work the best candidates one after another until you either land a real gap or rule out the top candidates with source evidence, caller evidence, and Go-code evidence. Do not stop after auditing only one false lead.
+5. For each candidate, prefer adding executable proof before changing code: a targeted parity scenario, focused Go/Python/frontend/Playwright test, or a narrow transport/runtime check that can fail on current `HEAD`.
+6. If that proof reveals a mismatch, fix the Go behavior or classify it explicitly as an intentional divergence or retained Python boundary. Any classification must explain why the behavior is not a current Go-owned gap.
+7. Update focused tests plus the parity matrix/docs in the same change.
+8. Run targeted parity and test commands for the touched slice. Run the full default/corpus parity manifests only when needed to confirm a changed `HEAD` or close an active mismatch queue; do not make them the main task.
+
+Session completion rules:
+- A successful session must produce at least one of:
+  - a newly discovered Go parity gap that is fixed
+  - a newly discovered gap that is explicitly classified with evidence
+  - or an evidence-backed shortlist of the next 3 unresolved high-value candidates after auditing at least 5 candidates this session
+- Report the exact commands run, the candidate list, what was ruled out, and what real gap or next targets remain.
+- Only reply `No new high-confidence gap leads found` if you audited at least 5 candidates from deterministic sources, added or strengthened proof where responsible, and can explain why the remaining leads are lower value than the ones ruled out.
+
+
+Queued follow-up prompt for the same proactive gap-hunt session:
+
+Automated message: continue the proactive backend gap-hunt loop. You may use up to 5 subagents when useful. Commit frequently.
+
+First compare the current `HEAD`, worktree state, and candidate backlog with the last successful report in this session.
+
+If `HEAD` is unchanged, the worktree is clean, and that prior report for this `HEAD` already audited at least 5 deterministic-source candidates and either landed a concrete gap or left an evidence-backed next-candidate shortlist, reply exactly:
+`No new high-confidence gap leads found for unchanged HEAD <sha>`
+
+Otherwise:
+1. Continue from the prior candidate backlog first. Do not restart from the green default manifest unless the `HEAD` changed and you need parity confirmation for code you just changed.
+2. Keep skeptical-omission pressure. If the backlog is exhausted, mine at least 3 new candidates from deterministic sources before declaring the session done.
+3. Prefer targeted proof and `./scripts/run-backend-differential-parity.sh --baseline-ref main --only <scenario>` or focused tests over full-manifest reruns.
+4. If a proof mismatches, fix or classify it, update focused tests plus matrix/docs, and iterate until that slice is green or explicitly blocked.
+5. Before the next successful report for a changed `HEAD` that touched behavior or added new proof, run the targeted parity and tests that validate the touched slice. Run the full default/corpus manifests only if that `HEAD` still needs broad confirmation.
+6. Report the exact commands run, candidate-list changes, ruled-out leads, and the current best unresolved candidates.
+
+Never treat old green scenarios, matrix counts, or touching each area once as completion evidence. The point of this loop is to surface new high-value gaps quickly, not to re-prove the old queue.
  
