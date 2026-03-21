@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -143,6 +144,77 @@ func TestApplyJSONSourceFileUpdatesRejectsNonDictConflicts(t *testing.T) {
 	}
 	if got := err.Error(); got != "JSON source path conflicts with a non-dict value." {
 		t.Fatalf("expected non-dict conflict error, got %q", got)
+	}
+}
+
+func TestApplyJSONSourceFileUpdatesRootUpdateCanBeOverriddenByNestedUpdate(t *testing.T) {
+	t.Parallel()
+
+	updated, err := applyJSONSourceFileUpdates(
+		map[string]any{
+			"app": map[string]any{
+				"name":  "Setta",
+				"debug": true,
+			},
+			"legacy": map[string]any{"enabled": true},
+		},
+		[]jsonSourceFileUpdate{
+			{
+				KeyPath: nil,
+				Subtree: map[string]any{
+					"app": map[string]any{"name": "Setta"},
+				},
+			},
+			{
+				KeyPath: []string{"app"},
+				Subtree: map[string]any{"debug": false},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("applyJSONSourceFileUpdates returned error: %v", err)
+	}
+
+	want := map[string]any{
+		"app": map[string]any{"debug": false},
+	}
+	if !reflect.DeepEqual(updated, want) {
+		t.Fatalf("expected nested override to replace root subtree, got %#v", updated)
+	}
+}
+
+func TestApplyJSONSourceFileUpdatesNestedUpdateReplacesTargetSubtree(t *testing.T) {
+	t.Parallel()
+
+	updated, err := applyJSONSourceFileUpdates(
+		map[string]any{
+			"features": map[string]any{
+				"flags": map[string]any{
+					"newUI":    true,
+					"betaMode": false,
+				},
+				"rollouts": map[string]any{
+					"search": map[string]any{"percentage": float64(25)},
+				},
+			},
+		},
+		[]jsonSourceFileUpdate{
+			{
+				KeyPath: []string{"features", "flags"},
+				Subtree: map[string]any{"newUI": true},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("applyJSONSourceFileUpdates returned error: %v", err)
+	}
+
+	features := updated["features"].(map[string]any)
+	if !reflect.DeepEqual(features["flags"], map[string]any{"newUI": true}) {
+		t.Fatalf("expected nested update to replace flags subtree, got %#v", features["flags"])
+	}
+	if _, ok := features["rollouts"]; !ok {
+		t.Fatalf("expected outer sibling subtree to be preserved, got %#v", features)
 	}
 }
 
