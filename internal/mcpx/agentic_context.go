@@ -57,9 +57,10 @@ type ToolInvocationContext struct {
 }
 
 type ToolRequestContext struct {
-	SessionKey string
-	Headers    http.Header
-	Meta       map[string]any
+	SessionKey                   string
+	Headers                      http.Header
+	Meta                         map[string]any
+	AllowRequestMetaShareSession bool
 }
 
 type scopeCheckResult struct {
@@ -143,13 +144,11 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 	if err != nil {
 		return nil, err
 	}
-	shareSessionID, err := resolveAgenticContextString(
+	shareSessionID, err := resolveAgenticContextShareSessionID(
 		requestContext.Meta,
-		"shareSessionId",
 		requestContext.Headers,
-		modes.ShareSessionHeaderName,
 		sessionContextField(sessionContext, func(value AgenticContext) string { return value.ShareSessionID }),
-		false,
+		requestContext.AllowRequestMetaShareSession,
 	)
 	if err != nil {
 		return nil, err
@@ -230,6 +229,27 @@ func resolveAgenticContextString(
 		return metaValue, err
 	}
 	if headerValue, ok, err := readHeaderString(headers, headerKey, rejectBlank); ok || err != nil {
+		return headerValue, err
+	}
+	return "", nil
+}
+
+func resolveAgenticContextShareSessionID(
+	meta map[string]any,
+	headers http.Header,
+	sessionValue string,
+	allowRequestFallback bool,
+) (string, error) {
+	if trimmedSessionValue := strings.TrimSpace(sessionValue); trimmedSessionValue != "" {
+		return trimmedSessionValue, nil
+	}
+	if !allowRequestFallback {
+		return "", nil
+	}
+	if metaValue, ok, err := readMetaString(meta, "shareSessionId", false); ok || err != nil {
+		return metaValue, err
+	}
+	if headerValue, ok, err := readHeaderString(headers, modes.ShareSessionHeaderName, false); ok || err != nil {
 		return headerValue, err
 	}
 	return "", nil

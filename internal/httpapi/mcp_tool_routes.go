@@ -54,9 +54,10 @@ func mcpToolCallHandler(deps MCPRootRouteDependencies) http.HandlerFunc {
 		}
 
 		result, err := deps.Server.InvokeTool(r.Context(), toolName, payload.Arguments, mcpx.ToolRequestContext{
-			SessionKey: buildRequestID(),
-			Headers:    r.Header.Clone(),
-			Meta:       agenticContextMeta(payload.AgenticContext),
+			SessionKey:                   buildRequestID(),
+			Headers:                      r.Header.Clone(),
+			Meta:                         agenticContextMeta(payload.AgenticContext),
+			AllowRequestMetaShareSession: true,
 		})
 		if err != nil {
 			writeError(w, r, http.StatusNotFound, "tool_not_found", err.Error())

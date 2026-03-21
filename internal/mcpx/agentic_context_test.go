@@ -536,7 +536,7 @@ func TestResolveAgenticContextPrefersSessionProjectShareChatRunAndSectionOverReq
 	}
 }
 
-func TestResolveAgenticContextIncludesShareSessionIDFromMeta(t *testing.T) {
+func TestResolveAgenticContextIgnoresShareSessionIDFromMetaWhenFallbackDisabled(t *testing.T) {
 	t.Parallel()
 
 	headers := http.Header{}
@@ -548,6 +548,33 @@ func TestResolveAgenticContextIncludesShareSessionIDFromMeta(t *testing.T) {
 				"shareSessionId":  "meta-session",
 			},
 			Headers: headers,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.ShareSessionID != "" {
+		t.Fatalf("expected request shareSessionId to be ignored, got %q", resolved.ShareSessionID)
+	}
+}
+
+func TestResolveAgenticContextIncludesShareSessionIDFromMetaWhenFallbackEnabled(t *testing.T) {
+	t.Parallel()
+
+	headers := http.Header{}
+	headers.Set(modes.ShareSessionHeaderName, "header-session")
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId": "project-alpha",
+				"shareSessionId":  "meta-session",
+			},
+			Headers:                      headers,
+			AllowRequestMetaShareSession: true,
 		},
 		nil,
 	)
