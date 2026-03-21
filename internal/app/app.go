@@ -52,6 +52,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/pathreveal"
 	"setta/internal/plugins"
+	"setta/internal/projectbackup"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -434,6 +435,25 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				},
 				BeforeSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 					if err := projectstate.SaveJSONSourceFiles(snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
+						return err
+					}
+					settingsDocument := settingsstate.Document(nil)
+					if settingsStateRuntime != nil {
+						settingsDocument = settingsStateRuntime.Snapshot().Document
+					}
+					autoBackupPolicy, err := settingsstate.AutoBackupPolicyForDocument(settingsDocument)
+					if err != nil {
+						return err
+					}
+					if _, _, err := projectbackup.MaybeCreateBackup(
+						projectbackup.ProjectPath(cfg.Paths.SettaFilesRoot),
+						projectbackup.BackupDir(cfg.Paths.SettaFilesRoot),
+						projectbackup.AutoBackupOptions{
+							Enabled:          autoBackupPolicy.Enabled,
+							FrequencySeconds: autoBackupPolicy.FrequencySeconds,
+							KeepLastN:        autoBackupPolicy.KeepLastN,
+						},
+					); err != nil {
 						return err
 					}
 					return nil

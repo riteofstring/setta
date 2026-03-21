@@ -20,6 +20,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/notifications"
 	"setta/internal/observability"
+	"setta/internal/projectbackup"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -193,6 +194,84 @@ func TestAppSaveProjectRouteClearsPersistedJSONSourceValuesAfterWrite(t *testing
 		"fresh",
 		"",
 	)
+}
+
+func TestAppSaveProjectRouteCreatesAutobackupBeforeProjectOverwrite(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 61238
+	prepareAppCurrentSession(t, cfg)
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project-state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new main project store: %v", err)
+	}
+	if err := store.Save(context.Background(), jsonSourceSaveAppTestDocument(t)); err != nil {
+		t.Fatalf("seed main project store: %v", err)
+	}
+	originalContent, err := os.ReadFile(paths.Main)
+	if err != nil {
+		t.Fatalf("read seeded project document: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	saveRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveProject, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	if err != nil {
+		t.Fatalf("new save request: %v", err)
+	}
+	saveRequest.Header.Set("Content-Type", "application/json")
+	saveRequest.AddCookie(authCookie)
+
+	saveResponse, err := http.DefaultClient.Do(saveRequest)
+	if err != nil {
+		t.Fatalf("save project: %v", err)
+	}
+	defer saveResponse.Body.Close()
+	if saveResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(saveResponse.Body)
+		t.Fatalf("expected save 200, got %d with body %q", saveResponse.StatusCode, string(body))
+	}
+
+	backups, err := projectbackup.ListFiles(projectbackup.BackupDir(cfg.Paths.SettaFilesRoot))
+	if err != nil {
+		t.Fatalf("list created backups: %v", err)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("expected one created autobackup, got %#v", backups)
+	}
+	backupContent, err := os.ReadFile(backups[0].Path)
+	if err != nil {
+		t.Fatalf("read created backup: %v", err)
+	}
+	if string(backupContent) != string(originalContent) {
+		t.Fatalf("expected autobackup to snapshot pre-save project bytes")
+	}
+
+	currentContent, err := os.ReadFile(paths.Main)
+	if err != nil {
+		t.Fatalf("read current project document: %v", err)
+	}
+	if string(currentContent) == string(originalContent) {
+		t.Fatal("expected save route to overwrite project document after creating autobackup")
+	}
 }
 
 func TestAppStartupLoadsSharedJSONSourceSectionsFromDisk(t *testing.T) {

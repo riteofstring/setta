@@ -131,6 +131,63 @@ func TestQueriesRejectInvalidValues(t *testing.T) {
 	}
 }
 
+func TestAutoBackupPolicyForDocumentReadsDefaultsAndExplicitValues(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+
+	policy, err := AutoBackupPolicyForDocument(document)
+	if err != nil {
+		t.Fatalf("AutoBackupPolicyForDocument returned error: %v", err)
+	}
+	if !policy.Enabled || policy.FrequencySeconds != DefaultAutoBackupFrequencySeconds || policy.KeepLastN != DefaultAutoBackupKeepLastN {
+		t.Fatalf("unexpected default autobackup policy %#v", policy)
+	}
+
+	backend := document["backend"].(map[string]any)
+	backend["autobackup"] = false
+	backend["autobackupFreq"] = 42
+	backend["autobackupKeepLastN"] = 7
+
+	policy, err = AutoBackupPolicyForDocument(document)
+	if err != nil {
+		t.Fatalf("AutoBackupPolicyForDocument explicit value: %v", err)
+	}
+	if policy.Enabled || policy.FrequencySeconds != 42 || policy.KeepLastN != 7 {
+		t.Fatalf("unexpected explicit autobackup policy %#v", policy)
+	}
+}
+
+func TestAutoBackupPolicyForDocumentRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+	backend := document["backend"].(map[string]any)
+
+	backend["autobackup"] = "nope"
+	if _, err := AutoBackupPolicyForDocument(document); !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid for autobackup enabled, got %v", err)
+	}
+
+	backend["autobackup"] = true
+	backend["autobackupFreq"] = 1.5
+	if _, err := AutoBackupPolicyForDocument(document); !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid for autobackupFreq, got %v", err)
+	}
+
+	backend["autobackupFreq"] = 300
+	backend["autobackupKeepLastN"] = 2.5
+	if _, err := AutoBackupPolicyForDocument(document); !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid for autobackupKeepLastN, got %v", err)
+	}
+}
+
 func TestValidateDirectSaveDocumentAcceptsCurrentSupportedBranches(t *testing.T) {
 	t.Parallel()
 

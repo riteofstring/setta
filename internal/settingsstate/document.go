@@ -3,6 +3,7 @@ package settingsstate
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 var (
@@ -140,6 +141,17 @@ func floatField(object map[string]any, field string) (float64, bool, error) {
 		return 0, false, fmt.Errorf("%w: %s is not a number", ErrSettingsValueInvalid, field)
 	}
 	return parsed, true, nil
+}
+
+func intField(object map[string]any, field string) (int, bool, error) {
+	value, ok, err := floatField(object, field)
+	if err != nil || !ok {
+		return 0, ok, err
+	}
+	if math.Trunc(value) != value {
+		return 0, false, fmt.Errorf("%w: %s is not an integer", ErrSettingsValueInvalid, field)
+	}
+	return int(value), true, nil
 }
 
 func asObject(value any) (map[string]any, bool) {

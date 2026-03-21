@@ -77,6 +77,86 @@ func TestResolveRestorePathLatestAndIndex(t *testing.T) {
 	}
 }
 
+func TestMaybeCreateBackupNoopWhenProjectMissing(t *testing.T) {
+	t.Parallel()
+
+	backupDir := filepath.Join(t.TempDir(), "backups")
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		t.Fatalf("mkdir backup dir: %v", err)
+	}
+
+	createdPath, created, err := MaybeCreateBackup(
+		filepath.Join(t.TempDir(), "project.json"),
+		backupDir,
+		AutoBackupOptions{
+			Enabled:          true,
+			FrequencySeconds: 0,
+			KeepLastN:        10,
+		},
+	)
+	if err != nil {
+		t.Fatalf("maybe create backup: %v", err)
+	}
+	if created {
+		t.Fatalf("expected missing project file to skip backup creation, got created path %q", createdPath)
+	}
+	files, err := ListFiles(backupDir)
+	if err != nil {
+		t.Fatalf("list backups: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("expected no backups, got %#v", files)
+	}
+}
+
+func TestMaybeCreateBackupCreatesBackup(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	backupDir := filepath.Join(tempDir, "backups")
+	projectPath := filepath.Join(tempDir, "project.json")
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		t.Fatalf("mkdir backup dir: %v", err)
+	}
+	if err := os.WriteFile(projectPath, []byte("PAYLOAD"), 0o644); err != nil {
+		t.Fatalf("write project: %v", err)
+	}
+
+	createdPath, created, err := MaybeCreateBackup(
+		projectPath,
+		backupDir,
+		AutoBackupOptions{
+			Enabled:          true,
+			FrequencySeconds: 0,
+			KeepLastN:        10,
+			Now:              time.Date(2026, time.March, 20, 12, 30, 0, 123000000, time.UTC),
+		},
+	)
+	if err != nil {
+		t.Fatalf("maybe create backup: %v", err)
+	}
+	if !created {
+		t.Fatal("expected backup to be created")
+	}
+	if filepath.Base(createdPath) != "backup_20260320_123000_123000.json" {
+		t.Fatalf("unexpected created backup path %q", createdPath)
+	}
+	files, err := ListFiles(backupDir)
+	if err != nil {
+		t.Fatalf("list backups: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected one backup, got %#v", files)
+	}
+	payload, err := os.ReadFile(files[0].Path)
+	if err != nil {
+		t.Fatalf("read created backup: %v", err)
+	}
+	if string(payload) != "PAYLOAD" {
+		t.Fatalf("expected backup payload PAYLOAD, got %q", string(payload))
+	}
+}
+
 func TestRestoreProjectCreatesStashAndOverwritesProject(t *testing.T) {
 	t.Parallel()
 

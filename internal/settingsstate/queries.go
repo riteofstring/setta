@@ -10,6 +10,9 @@ import (
 
 const DefaultAutoRefetchCallableParamsOnLSPMismatch = true
 const DefaultCompletionGuardEnabled = false
+const DefaultAutoBackupEnabled = true
+const DefaultAutoBackupFrequencySeconds = 300
+const DefaultAutoBackupKeepLastN = 10
 
 var sectionDefaultSettingsKeysByType = map[string]string{
 	"Browser":           "browserSectionDefault",
@@ -38,12 +41,63 @@ var sectionDefaultSettingsKeysByType = map[string]string{
 
 type RenameRefactorMode = projectstate.RenameRefactorMode
 
+type AutoBackupPolicy struct {
+	Enabled          bool
+	FrequencySeconds int
+	KeepLastN        int
+}
+
 const (
 	RenameRefactorModeAlwaysAsk    = projectstate.RenameRefactorModeAlwaysAsk
 	RenameRefactorModeAlwaysRename = projectstate.RenameRefactorModeAlwaysRename
 	RenameRefactorModeNeverRename  = projectstate.RenameRefactorModeNeverRename
 	DefaultRenameRefactorMode      = projectstate.DefaultRenameRefactorMode
 )
+
+func AutoBackupPolicyForDocument(document Document) (AutoBackupPolicy, error) {
+	policy := AutoBackupPolicy{
+		Enabled:          DefaultAutoBackupEnabled,
+		FrequencySeconds: DefaultAutoBackupFrequencySeconds,
+		KeepLastN:        DefaultAutoBackupKeepLastN,
+	}
+	if document == nil {
+		return policy, nil
+	}
+
+	backend, ok, err := objectField(document, "backend")
+	if err != nil {
+		return AutoBackupPolicy{}, err
+	}
+	if !ok {
+		return policy, nil
+	}
+
+	enabled, ok, err := boolField(backend, "autobackup")
+	if err != nil {
+		return AutoBackupPolicy{}, err
+	}
+	if ok {
+		policy.Enabled = enabled
+	}
+
+	frequencySeconds, ok, err := intField(backend, "autobackupFreq")
+	if err != nil {
+		return AutoBackupPolicy{}, err
+	}
+	if ok {
+		policy.FrequencySeconds = frequencySeconds
+	}
+
+	keepLastN, ok, err := intField(backend, "autobackupKeepLastN")
+	if err != nil {
+		return AutoBackupPolicy{}, err
+	}
+	if ok {
+		policy.KeepLastN = keepLastN
+	}
+
+	return policy, nil
+}
 
 func AutoRefetchCallableParamsOnLSPMismatchEnabled(document Document) (bool, error) {
 	if document == nil {

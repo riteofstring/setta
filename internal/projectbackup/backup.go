@@ -38,6 +38,13 @@ type RestoreResult struct {
 	StashPath   string
 }
 
+type AutoBackupOptions struct {
+	Enabled          bool
+	FrequencySeconds int
+	KeepLastN        int
+	Now              time.Time
+}
+
 func BackupDir(settaFilesRoot string) string {
 	return filepath.Join(strings.TrimSpace(settaFilesRoot), backupDirName)
 }
@@ -121,6 +128,45 @@ func ResolveRestorePath(backupDir string, selection RestoreSelection) (string, e
 	default:
 		return "", fmt.Errorf("%s", usageError)
 	}
+}
+
+// MaybeCreateBackup snapshots the current on-disk project file before a save overwrites it.
+func MaybeCreateBackup(projectPath string, backupDir string, options AutoBackupOptions) (string, bool, error) {
+	resolvedProjectPath, err := statefs.NormalizePath(projectPath, "")
+	if err != nil {
+		return "", false, fmt.Errorf("resolve project path: %w", err)
+	}
+	resolvedBackupDir, err := statefs.NormalizePath(backupDir, "")
+	if err != nil {
+		return "", false, fmt.Errorf("resolve backup dir: %w", err)
+	}
+	if _, err := os.Stat(resolvedProjectPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("stat project file: %w", err)
+	}
+	if !options.Enabled {
+		return "", false, nil
+	}
+
+	now := options.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	shouldCreate, err := shouldCreateBackup(resolvedBackupDir, options.FrequencySeconds, now.UTC())
+	if err != nil {
+		return "", false, err
+	}
+	if !shouldCreate {
+		return "", false, nil
+	}
+
+	createdPath, err := createBackup(resolvedProjectPath, resolvedBackupDir, options.KeepLastN, now.UTC())
+	if err != nil {
+		return "", false, err
+	}
+	return createdPath, true, nil
 }
 
 func RestoreProject(backupPath string, projectPath string, backupDir string, now time.Time) (RestoreResult, error) {
@@ -229,6 +275,56 @@ func validateRestorePath(path string) (string, error) {
 		return "", fmt.Errorf("Backup path is not a file: %s", path)
 	}
 	return path, nil
+}
+
+func shouldCreateBackup(backupDir string, frequencySeconds int, now time.Time) (bool, error) {
+	backups, err := ListFiles(backupDir)
+	if err != nil {
+		return false, err
+	}
+	if len(backups) == 0 {
+		return true, nil
+	}
+	return now.Sub(backups[0].Timestamp) >= time.Duration(frequencySeconds)*time.Second, nil
+}
+
+func createBackup(projectPath string, backupDir string, keepLastN int, now time.Time) (string, error) {
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		return "", fmt.Errorf("create backup dir: %w", err)
+	}
+	backupPath := filepath.Join(backupDir, fmt.Sprintf("backup_%s.json", formatFilenameTimestamp(now.UTC())))
+	if err := copyFile(projectPath, backupPath); err != nil {
+		return "", err
+	}
+	if err := cleanupOldBackups(backupDir, keepLastN); err != nil {
+		return "", err
+	}
+	return backupPath, nil
+}
+
+func cleanupOldBackups(backupDir string, keepLastN int) error {
+	backups, err := ListFiles(backupDir)
+	if err != nil {
+		return err
+	}
+
+	start := keepLastN
+	if start < 0 {
+		start = len(backups) + start
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start > len(backups) {
+		start = len(backups)
+	}
+
+	for _, backup := range backups[start:] {
+		if err := os.Remove(backup.Path); err != nil {
+			return fmt.Errorf("remove backup %s: %w", backup.Path, err)
+		}
+	}
+	return nil
 }
 
 func copyFile(sourcePath string, targetPath string) error {
