@@ -356,6 +356,27 @@ func TestServiceLinkBackendReplacementRequiresRestart(t *testing.T) {
 	}
 }
 
+// Link should fail fast when the requested local source root does not exist.
+func TestServiceLinkRejectsMissingSourceRoot(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	_, err := service.Link(LinkOptions{
+		LocalPluginRoot: filepath.Join(roots.workspaceRoot, "missing-plugin-root"),
+		Enable:          true,
+		Force:           false,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceNotFound)
+
+	metadata, err := service.store.LoadInstallMetadata()
+	if err != nil {
+		t.Fatalf("load install metadata after missing-source link: %v", err)
+	}
+	if len(metadata.Entries) != 0 {
+		t.Fatalf("expected no install metadata after missing-source link, got %#v", metadata.Entries)
+	}
+}
+
 // Link should fail before mutation when the local source does not satisfy host-version checks.
 func TestServiceLinkRejectsIncompatibleSettaVersionBeforeMutation(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -384,6 +405,87 @@ func TestServiceLinkRejectsIncompatibleSettaVersionBeforeMutation(t *testing.T) 
 	}
 	if len(metadata.Entries) != 0 {
 		t.Fatalf("expected no install metadata after failed link, got %#v", metadata.Entries)
+	}
+}
+
+// Link should fail before mutation when config schema JSON is invalid.
+func TestServiceLinkRejectsInvalidConfigSchemaBeforeMutation(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	sourceRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
+	manifest, err := loadAuthoringManifest(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load full fixture manifest: %v", err)
+	}
+	schemaPath, err := resolveAuthoringPath(sourceRoot, manifest.ConfigSchemaPath, "Invalid configSchemaPath")
+	if err != nil {
+		t.Fatalf("resolve config schema path: %v", err)
+	}
+	if err := os.WriteFile(schemaPath, []byte("{bad-json"), 0o644); err != nil {
+		t.Fatalf("write invalid config schema: %v", err)
+	}
+
+	_, err = service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Enable:          true,
+		Force:           false,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
+
+	targetRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-full")
+	if _, statErr := os.Stat(targetRoot); !os.IsNotExist(statErr) {
+		t.Fatalf("expected no target plugin after invalid-schema link, got err=%v", statErr)
+	}
+
+	metadata, err := service.store.LoadInstallMetadata()
+	if err != nil {
+		t.Fatalf("load install metadata after invalid-schema link: %v", err)
+	}
+	if len(metadata.Entries) != 0 {
+		t.Fatalf("expected no install metadata after invalid-schema link, got %#v", metadata.Entries)
+	}
+}
+
+// Link should reject an existing target unless force is requested.
+func TestServiceLinkRejectsExistingTargetWithoutForce(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	sourceRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-existing-link-plugin", "frontend")
+	if _, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Enable:          true,
+		Force:           false,
+	}); err != nil {
+		t.Fatalf("link plugin first time: %v", err)
+	}
+
+	_, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Enable:          true,
+		Force:           false,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeTargetExists)
+
+	targetRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-existing-link-plugin")
+	linkDestination, readErr := os.Readlink(targetRoot)
+	if readErr != nil {
+		t.Fatalf("read existing linked target: %v", readErr)
+	}
+	if linkDestination != sourceRoot {
+		t.Fatalf("expected existing symlink destination %q, got %q", sourceRoot, linkDestination)
+	}
+
+	metadata, ok, err := service.store.GetInstallMetadata("setta-existing-link-plugin", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("read install metadata after target-exists link: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected install metadata for existing linked plugin")
+	}
+	if metadata.SourceSpec != "local:"+sourceRoot {
+		t.Fatalf("unexpected existing install metadata %#v", metadata)
 	}
 }
 
