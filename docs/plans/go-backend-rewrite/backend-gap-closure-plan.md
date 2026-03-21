@@ -255,6 +255,10 @@ categorize them.
   proof-only queue inside external-agent runtime is narrower again: the
   remaining cheap-looking slices are explicit-path no-bootstrap and session-
   home auth inheritance/login rather than prompt/config merge behavior
+- That Codex explicit-path precedence row is now proved too, so the remaining
+  clearly bounded Codex runtime proof slice is mostly the session-home auth
+  inheritance/login branch rather than config-source precedence or prompt
+  merge behavior
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
