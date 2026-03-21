@@ -1399,6 +1399,154 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 	t.Fatalf("expected dependency values to include section %q", sectionID)
 }
 
+func TestRegisterRoutesListenerInitCatalogPreservesStableSanitizedSuffixes(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-a",
+		Projects: map[string]projectstate.Project{
+			"project-a": {
+				ID:                 "project-a",
+				Name:               "Alpha",
+				TopLevelSectionIDs: []string{"section-1"},
+				SectionVariantMap: map[string]string{
+					"section-1": "section-variant-1",
+				},
+				Sections: map[string]projectstate.Section{
+					"section-1": {
+						ID:               "section-1",
+						Name:             "Run Section",
+						VariantIDs:       []string{"section-variant-1"},
+						DefaultVariantID: "section-variant-1",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"section-variant-1": {
+						ID:     "section-variant-1",
+						ImplID: "section-impl-1",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"section-impl-1": {
+						ID:   "section-impl-1",
+						Kind: projectstate.SectionKind("callable"),
+						Payload: projectstate.RawJSON(`{
+							"id":"section-impl-1",
+							"type":"Callable",
+							"callable":"callable-root",
+							"codeObjVariantMap":{
+								"callable-root":"callable-variant-1",
+								"param-1":"param-variant-1",
+								"param-2":"param-variant-2"
+							}
+						}`),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"callable-root": {
+						ID:               "callable-root",
+						Name:             "my_callable",
+						VariantIDs:       []string{"callable-variant-1"},
+						DefaultVariantID: "callable-variant-1",
+					},
+					"param-1": {
+						ID:               "param-1",
+						Name:             "value",
+						VariantIDs:       []string{"param-variant-1"},
+						DefaultVariantID: "param-variant-1",
+					},
+					"param-2": {
+						ID:               "param-2",
+						Name:             "value",
+						VariantIDs:       []string{"param-variant-2"},
+						DefaultVariantID: "param-variant-2",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"callable-variant-1": {
+						ID:     "callable-variant-1",
+						ImplID: "callable-impl-1",
+					},
+					"param-variant-1": {
+						ID:     "param-variant-1",
+						ImplID: "param-impl-1",
+					},
+					"param-variant-2": {
+						ID:     "param-variant-2",
+						ImplID: "param-impl-2",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"callable-impl-1": {
+						ID:   "callable-impl-1",
+						Type: "CodeCallable",
+						Payload: projectstate.RawJSON(
+							`{"id":"callable-impl-1","type":"CodeCallable","children":["param-1","param-2"]}`,
+						),
+					},
+					"param-impl-1": {
+						ID:   "param-impl-1",
+						Type: "CodeParam",
+						Payload: projectstate.RawJSON(
+							`{"id":"param-impl-1","type":"CodeParam","value":"1","passingStyle":"DEFAULT"}`,
+						),
+					},
+					"param-impl-2": {
+						ID:   "param-impl-2",
+						Type: "CodeParam",
+						Payload: projectstate.RawJSON(
+							`{"id":"param-impl-2","type":"CodeParam","value":"2","passingStyle":"DEFAULT"}`,
+						),
+					},
+				},
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-a"}}`)); err != nil {
+		t.Fatalf("write listener init: %v", err)
+	}
+
+	content := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
+	if content.DependencyCatalog == nil {
+		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
+	}
+
+	fullPathNamesByKey := map[string]string{}
+	for _, entry := range content.DependencyCatalog.Entries {
+		fullPathNamesByKey[entry.DependencyKey] = entry.FullPathName
+	}
+
+	if got := fullPathNamesByKey["section-1.param-1"]; got != "Run_Section__value" {
+		t.Fatalf("expected first colliding param dependency name %q, got %q", "Run_Section__value", got)
+	}
+	if got := fullPathNamesByKey["section-1.param-2"]; got != "Run_Section__value_2" {
+		t.Fatalf("expected second colliding param dependency name %q, got %q", "Run_Section__value_2", got)
+	}
+	if fullPathNamesByKey["section-1.param-1"] == fullPathNamesByKey["section-1.param-2"] {
+		t.Fatalf("expected colliding sanitized names to stay distinct, got %#v", fullPathNamesByKey)
+	}
+}
+
 func TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh(t *testing.T) {
 	t.Parallel()
 
