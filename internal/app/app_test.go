@@ -10179,6 +10179,8 @@ func testConfig(t *testing.T) config.Config {
 	return config.Config{
 		Server: config.Server{
 			Mode:     config.ModeLauncher,
+			Host:     "127.0.0.1",
+			Port:     61234,
 			LogLevel: 0,
 		},
 		Paths: config.Paths{

@@ -25,6 +25,12 @@ Treat the current Python tests as the minimum behavior map for the rewrite.
   - `replacement coverage`: the behavior still matters and Go tests prove it
 - If a test falls into `replacement coverage` and no Go test proves that
   behavior yet, add the Go test first.
+- Every Python test on the pinned source baseline must have an explicit
+  disposition in the parity ledger:
+  - `Proved` with explicit Go or executable proof
+  - or a justified omission such as `Retained Python boundary`,
+    `Intentional divergence`, or `Dormant / unproven caller`
+- A bare matrix citation is not a disposition.
 
 ## Default Change Loop
 
@@ -174,6 +180,10 @@ Maintain a living mapping between:
 A deleted Python test does not require a one-for-one Go test by filename or
 shape. It does require either a dead-path justification or Go-side behavioral
 proof for the surviving product behavior.
+
+At parity-audit time, every Python source test should therefore be traceable to
+an explicit disposition. Tests without one remain active backlog items even if
+they are mentioned somewhere in the matrix.
 
 A subsystem is not done just because code exists. It is done when the code
 works, the relevant tests exist, and any remaining gap is explicit.

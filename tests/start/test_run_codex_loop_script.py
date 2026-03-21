@@ -725,7 +725,7 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
         )
     )
     assert args[4] == "--pre-session-command"
-    assert args[5] == "./scripts/run-backend-gap-hunt-candidate-miner.sh"
+    assert args[5] == "./scripts/run-backend-gap-hunt-preflight.sh"
     assert args[6] == "--stop-on-pre-session-exit-code"
     assert args[7] == "10"
     assert args[8] == "--workdir"
@@ -743,5 +743,8 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
     ]
     assert "tmp/backend-gap-hunt-candidates.md" in prompt_text
     assert "Commit frequently." in prompt_text
-    assert "Each uncited source test is a clue" in prompt_text
-    assert "add the test to `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`" in prompt_text
+    assert "Source Tests Missing Explicit Parity Disposition" in prompt_text
+    assert "do not remove it with a bare citation" in prompt_text
+    assert (
+        "explicit Go/executable proof in the `Go tests` column" in prompt_text
+    )

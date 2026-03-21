@@ -29,6 +29,16 @@ regenerates that backlog outside Codex before each fresh session batch so the
 agent can stay focused on confirming and fixing gaps instead of maintaining the
 queue.
 
+That backlog is no longer just "uncited source tests". It should represent
+Python source tests that still lack an explicit terminal disposition in the
+matrix:
+
+- `Proved` with explicit Go or executable proof
+- or a justified omission such as `Retained Python boundary`,
+  `Intentional divergence`, or `Dormant / unproven caller`
+
+A bare citation does not remove a source test from the gap-hunt queue.
+
 ## Default Loop
 
 1. Run the differential harness against `main`.

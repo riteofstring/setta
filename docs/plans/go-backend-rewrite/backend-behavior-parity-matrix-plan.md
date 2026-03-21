@@ -30,6 +30,15 @@ The rewrite also already has an explicit requirement in
 corresponding Go test coverage, uncovered gaps, and intentional drops. This
 plan is how to materialize that requirement in a repo-visible artifact.
 
+The matrix should be strong enough that every Python source test on the pinned
+baseline has an explicit disposition. A bare citation is not enough:
+
+- `Proved` rows need explicit Go or executable proof in the evidence columns.
+- Non-`Proved` rows need an explicit justified omission status plus concrete
+  notes.
+- If a source test is only cited by `Missing` or `Implemented, proof incomplete`
+  rows, or by a `Proved` row without proof, that test remains backlog.
+
 ## Primary Output
 
 Build and maintain:

@@ -3,6 +3,8 @@
 import argparse
 import ast
 import re
+import subprocess
+import sys
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
@@ -20,9 +22,23 @@ EXCLUDED_TEST_PATH_GLOBS = {
     "tests/start/test_*scripts.py",
     "tests/start/test_*script_wiring*.py",
 }
-EMPTY_UNCITED_SOURCE_TESTS_EXIT_CODE = 10
+EMPTY_SOURCE_TEST_DISPOSITION_BACKLOG_EXIT_CODE = 10
+EMPTY_UNCITED_SOURCE_TESTS_EXIT_CODE = EMPTY_SOURCE_TEST_DISPOSITION_BACKLOG_EXIT_CODE
 TEST_CODE_SPAN_PATTERN = re.compile(r"`([^`]+)`")
 TEST_NAME_PATTERN = re.compile(r"\b(test_[A-Za-z0-9_]+)\b")
+MARKDOWN_TABLE_SEPARATOR_PATTERN = re.compile(r"^:?-{3,}:?$")
+SOURCE_BASELINE_PATTERN = re.compile(r"^- Source baseline: `([^`]+)`$", re.MULTILINE)
+TERMINAL_DISPOSITION_STATUSES = {
+    "Proved",
+    "Retained Python boundary",
+    "Intentional divergence",
+    "Dormant / unproven caller",
+}
+JUSTIFIED_OMISSION_STATUSES = {
+    "Retained Python boundary",
+    "Intentional divergence",
+    "Dormant / unproven caller",
+}
 
 
 @dataclass(frozen=True)
@@ -33,13 +49,37 @@ class SourceTest:
     area: str
 
 
+@dataclass(frozen=True)
+class MatrixRow:
+    row_id: str
+    source: str
+    go_tests: str
+    status: str
+    notes: str
+
+
+@dataclass(frozen=True)
+class SourceTestDispositionGap:
+    source_test: SourceTest
+    reason: str
+    rows: tuple[str, ...]
+
+
+class SourceBaselineInventoryError(RuntimeError):
+    pass
+
+
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build an uncited-source-test backlog for backend Go parity gap hunts."
+        description=(
+            "Build a source-test backlog for backend Go parity gap hunts. "
+            "Every Python source test must have an explicit parity disposition "
+            "in the matrix."
+        )
     )
     parser.add_argument(
         "--repo-root",
@@ -81,6 +121,72 @@ def load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def normalize_matrix_cell(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("`") and stripped.endswith("`") and len(stripped) >= 2:
+        return stripped[1:-1].strip()
+    return stripped
+
+
+def parse_markdown_table_row(line: str) -> list[str] | None:
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return None
+    return [cell.strip() for cell in stripped.split("|")[1:-1]]
+
+
+def is_separator_row(cells: list[str]) -> bool:
+    return bool(cells) and all(
+        MARKDOWN_TABLE_SEPARATOR_PATTERN.fullmatch(cell.strip()) is not None
+        for cell in cells
+    )
+
+
+def collect_matrix_rows(matrix_text: str) -> list[MatrixRow]:
+    rows: list[MatrixRow] = []
+    in_matrix_table = False
+    for line in matrix_text.splitlines():
+        cells = parse_markdown_table_row(line)
+        if cells is None:
+            if in_matrix_table:
+                break
+            continue
+        if not in_matrix_table:
+            if cells == [
+                "Row",
+                "Source (`26e7406b`)",
+                "Go impl",
+                "Go tests",
+                "Transport / caller evidence",
+                "Status",
+                "Notes",
+            ] or (
+                len(cells) == 7
+                and cells[0] == "Row"
+                and cells[2:] == [
+                    "Go impl",
+                    "Go tests",
+                    "Transport / caller evidence",
+                    "Status",
+                    "Notes",
+                ]
+            ):
+                in_matrix_table = True
+            continue
+        if len(cells) != 7 or is_separator_row(cells):
+            continue
+        rows.append(
+            MatrixRow(
+                row_id=normalize_matrix_cell(cells[0]),
+                source=cells[1],
+                go_tests=cells[3],
+                status=normalize_matrix_cell(cells[5]),
+                notes=cells[6].strip(),
+            )
+        )
+    return rows
+
+
 def test_path_is_eligible(relative_path: Path) -> bool:
     if any(part in EXCLUDED_TEST_PARTS for part in relative_path.parts):
         return False
@@ -90,26 +196,106 @@ def test_path_is_eligible(relative_path: Path) -> bool:
     )
 
 
-def collect_python_tests(tests_root: Path, repo_root_path: Path) -> list[SourceTest]:
+def collect_python_tests_from_module_text(
+    relative_path: Path,
+    module_text: str,
+) -> list[SourceTest]:
     collected: list[SourceTest] = []
-    for path in sorted(tests_root.rglob("test_*.py")):
-        relative_path = path.relative_to(repo_root_path)
-        if not test_path_is_eligible(relative_path):
-            continue
-        module = ast.parse(load_text(path))
-        area = relative_path.parts[1] if len(relative_path.parts) > 1 else "tests"
-        for node in ast.walk(module):
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                if not node.name.startswith("test_"):
-                    continue
-                collected.append(
-                    SourceTest(
-                        path=relative_path.as_posix(),
-                        name=node.name,
-                        line=node.lineno,
-                        area=area,
-                    )
+    module = ast.parse(module_text)
+    area = relative_path.parts[1] if len(relative_path.parts) > 1 else "tests"
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            if not node.name.startswith("test_"):
+                continue
+            collected.append(
+                SourceTest(
+                    path=relative_path.as_posix(),
+                    name=node.name,
+                    line=node.lineno,
+                    area=area,
                 )
+            )
+    return collected
+
+
+def parse_source_baseline_ref(matrix_text: str) -> str:
+    match = SOURCE_BASELINE_PATTERN.search(matrix_text)
+    if match is None:
+        raise SourceBaselineInventoryError(
+            "Parity matrix must declare a pinned `Source baseline: `...`` audit boundary."
+        )
+    baseline = match.group(1).strip()
+    if "@" in baseline:
+        baseline = baseline.rsplit("@", 1)[1].strip()
+    if baseline == "":
+        raise SourceBaselineInventoryError(
+            "Parity matrix source baseline cannot be empty."
+        )
+    return baseline
+
+
+def run_git(repo_root_path: Path, args: list[str]) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout
+
+
+def collect_python_tests_from_source_baseline(
+    repo_root_path: Path,
+    tests_root: Path,
+    matrix_text: str,
+) -> list[SourceTest]:
+    source_baseline_ref = parse_source_baseline_ref(matrix_text)
+    try:
+        tests_root_relative = tests_root.relative_to(repo_root_path)
+    except ValueError:
+        raise SourceBaselineInventoryError(
+            f"Tests path `{tests_root}` must live under repo root `{repo_root_path}`."
+        ) from None
+    try:
+        tracked_paths_output = run_git(
+            repo_root_path,
+            [
+                "ls-tree",
+                "-r",
+                "--name-only",
+                source_baseline_ref,
+                "--",
+                tests_root_relative.as_posix(),
+            ],
+        )
+        collected: list[SourceTest] = []
+        for tracked_path in tracked_paths_output.splitlines():
+            relative_path = Path(tracked_path.strip())
+            if relative_path.name == "" or relative_path.suffix != ".py":
+                continue
+            if not relative_path.name.startswith("test_"):
+                continue
+            if not test_path_is_eligible(relative_path):
+                continue
+            collected.extend(
+                collect_python_tests_from_module_text(
+                    relative_path,
+                    run_git(
+                        repo_root_path,
+                        ["show", f"{source_baseline_ref}:{relative_path.as_posix()}"],
+                    ),
+                )
+            )
+    except FileNotFoundError as exc:
+        raise SourceBaselineInventoryError(
+            "git is required to load the pinned source baseline test inventory."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise SourceBaselineInventoryError(
+            "Unable to load pinned source baseline test inventory "
+            f"from git ref `{source_baseline_ref}`."
+        ) from exc
     return collected
 
 
@@ -133,41 +319,125 @@ def collect_matrix_test_citations(matrix_text: str) -> set[tuple[str, str]]:
     return citations
 
 
-def test_is_narrowly_cited(
-    cited_tests: set[tuple[str, str]],
-    test_ref: SourceTest,
-) -> bool:
-    return (test_ref.path, test_ref.name) in cited_tests
+def build_source_test_row_map(
+    matrix_rows: list[MatrixRow],
+) -> dict[tuple[str, str], list[MatrixRow]]:
+    rows_by_test: dict[tuple[str, str], list[MatrixRow]] = {}
+    for row in matrix_rows:
+        for citation in collect_matrix_test_citations(row.source):
+            rows_by_test.setdefault(citation, []).append(row)
+    return rows_by_test
+
+
+def row_has_explicit_go_proof(row: MatrixRow) -> bool:
+    return normalize_matrix_cell(row.go_tests) not in {"", "-"}
+
+
+def row_has_written_justification(row: MatrixRow) -> bool:
+    return row.notes.strip() not in {"", "-"}
+
+
+def describe_rows(rows: list[MatrixRow]) -> tuple[str, ...]:
+    return tuple(
+        f"{row.row_id}:{row.status}"
+        for row in sorted(rows, key=lambda matrix_row: (matrix_row.row_id, matrix_row.status))
+    )
+
+
+def disposition_gap_for_test(
+    source_test: SourceTest,
+    rows_by_test: dict[tuple[str, str], list[MatrixRow]],
+) -> SourceTestDispositionGap | None:
+    rows = rows_by_test.get((source_test.path, source_test.name), [])
+    if not rows:
+        return SourceTestDispositionGap(
+            source_test=source_test,
+            reason="missing_matrix_row",
+            rows=(),
+        )
+
+    non_terminal_rows = [
+        row for row in rows if row.status not in TERMINAL_DISPOSITION_STATUSES
+    ]
+    if non_terminal_rows:
+        return SourceTestDispositionGap(
+            source_test=source_test,
+            reason="non_terminal_disposition",
+            rows=describe_rows(non_terminal_rows),
+        )
+
+    proved_without_go_proof = [
+        row for row in rows if row.status == "Proved" and not row_has_explicit_go_proof(row)
+    ]
+    if proved_without_go_proof:
+        return SourceTestDispositionGap(
+            source_test=source_test,
+            reason="proved_without_go_proof",
+            rows=describe_rows(proved_without_go_proof),
+        )
+
+    unjustified_omission_rows = [
+        row
+        for row in rows
+        if row.status in JUSTIFIED_OMISSION_STATUSES
+        and not row_has_written_justification(row)
+    ]
+    if unjustified_omission_rows:
+        return SourceTestDispositionGap(
+            source_test=source_test,
+            reason="justified_omission_missing_notes",
+            rows=describe_rows(unjustified_omission_rows),
+        )
+
+    return None
 
 
 def generate_report(
     repo_root_path: Path,
     matrix_path: Path,
     tests_path: Path,
-) -> list[SourceTest]:
+) -> list[SourceTestDispositionGap]:
     matrix_text = load_text(matrix_path)
-    cited_tests = collect_matrix_test_citations(matrix_text)
-    tests = collect_python_tests(tests_path, repo_root_path)
+    matrix_rows = collect_matrix_rows(matrix_text)
+    rows_by_test = build_source_test_row_map(matrix_rows)
+    tests = collect_python_tests_from_source_baseline(
+        repo_root_path=repo_root_path,
+        tests_root=tests_path,
+        matrix_text=matrix_text,
+    )
+    gaps = [
+        disposition_gap
+        for test_ref in tests
+        if (disposition_gap := disposition_gap_for_test(test_ref, rows_by_test))
+        is not None
+    ]
     return sorted(
-        [
-            test_ref
-            for test_ref in tests
-            if not test_is_narrowly_cited(cited_tests, test_ref)
-        ],
-        key=lambda test_ref: (test_ref.path, test_ref.line, test_ref.name),
+        gaps,
+        key=lambda disposition_gap: (
+            disposition_gap.source_test.path,
+            disposition_gap.source_test.line,
+            disposition_gap.source_test.name,
+        ),
     )
 
 
-def render_report(uncited_tests: list[SourceTest]) -> str:
+def render_report(disposition_gaps: list[SourceTestDispositionGap]) -> str:
     lines = [
         "# Backend Gap Hunt Candidates",
         "",
-        "## Uncited Source Tests",
+        "## Source Tests Missing Explicit Parity Disposition",
         "",
     ]
-    for test_ref in uncited_tests:
+    for disposition_gap in disposition_gaps:
+        rows_suffix = ""
+        if disposition_gap.rows:
+            rows_suffix = f", rows=`{', '.join(disposition_gap.rows)}`"
         lines.append(
-            f"- `{test_ref.path}::{test_ref.name}` (area=`{test_ref.area}`, line `{test_ref.line}`)"
+            "- "
+            f"`{disposition_gap.source_test.path}::{disposition_gap.source_test.name}` "
+            f"(area=`{disposition_gap.source_test.area}`, "
+            f"line `{disposition_gap.source_test.line}`, "
+            f"reason=`{disposition_gap.reason}`{rows_suffix})"
         )
     lines.append("")
     return "\n".join(lines)
@@ -180,17 +450,21 @@ def main() -> int:
     tests_path = resolve_path(repo_root_path, args.tests_path)
     output_path = resolve_path(repo_root_path, args.output)
 
-    report = generate_report(
-        repo_root_path=repo_root_path,
-        matrix_path=matrix_path,
-        tests_path=tests_path,
-    )
+    try:
+        report = generate_report(
+            repo_root_path=repo_root_path,
+            matrix_path=matrix_path,
+            tests_path=tests_path,
+        )
+    except SourceBaselineInventoryError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(render_report(report), encoding="utf-8")
     print(output_path)
     if report:
         return 0
-    return EMPTY_UNCITED_SOURCE_TESTS_EXIT_CODE
+    return EMPTY_SOURCE_TEST_DISPOSITION_BACKLOG_EXIT_CODE
 
 
 if __name__ == "__main__":

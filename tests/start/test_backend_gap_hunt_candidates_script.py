@@ -18,9 +18,79 @@ def _load_backend_gap_hunt_candidates_module() -> ModuleType:
     return module
 
 
-def test_generate_report_returns_only_uncited_source_tests(tmp_path: Path) -> None:
-    # The miner should emit only uncited source tests and omit the discarded
-    # ranking/summary sections from the rendered report.
+def _init_git_repo(repo_root_path: Path) -> None:
+    repo_root_path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Gap Hunt Tests"],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "gap-hunt-tests@example.com"],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _commit_current_workspace(repo_root_path: Path) -> str:
+    subprocess.run(
+        ["git", "add", "."],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "baseline test inventory"],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _write_matrix_with_baseline(
+    matrix_path: Path,
+    baseline_ref: str,
+    body: str,
+) -> None:
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    matrix_path.write_text(
+        f"""# Backend Behavior Parity Matrix
+
+## Audit Boundary
+
+- Source baseline: `main@{baseline_ref}`
+- Target head: `deadbeef`
+
+{body}""",
+        encoding="utf-8",
+    )
+
+
+def test_generate_report_returns_only_source_tests_missing_explicit_disposition(
+    tmp_path: Path,
+) -> None:
+    # The miner should emit only source tests that still lack an explicit
+    # parity disposition in the matrix and omit the old ranking/summary noise.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -31,25 +101,10 @@ def test_generate_report_returns_only_uncited_source_tests(tmp_path: Path) -> No
     )
     tests_root = repo_root_path / "tests"
 
+    _init_git_repo(repo_root_path)
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "api").mkdir(parents=True, exist_ok=True)
 
-    matrix_path.write_text(
-        """# Backend Behavior Parity Matrix
-
-## Audit Boundary
-
-- Source baseline: `main@abc123`
-- Target head: `deadbeef`
-
-## Matrix
-
-| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `runner.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
-""",
-        encoding="utf-8",
-    )
     (tests_root / "api" / "test_runner.py").write_text(
         """def test_cited_lookup() -> None:
     assert True
@@ -60,6 +115,17 @@ def test_uncited_lookup_failure() -> None:
 """,
         encoding="utf-8",
     )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
+""",
+    )
 
     module = _load_backend_gap_hunt_candidates_module()
     report = module.generate_report(
@@ -69,12 +135,14 @@ def test_uncited_lookup_failure() -> None:
     )
 
     assert [
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+        f"{gap.source_test.path}::{gap.source_test.name}" for gap in report
     ] == ["tests/api/test_runner.py::test_uncited_lookup_failure"]
+    assert [gap.reason for gap in report] == ["missing_matrix_row"]
 
     rendered = module.render_report(report)
-    assert "## Uncited Source Tests" in rendered
+    assert "## Source Tests Missing Explicit Parity Disposition" in rendered
     assert "tests/api/test_runner.py::test_uncited_lookup_failure" in rendered
+    assert "reason=`missing_matrix_row`" in rendered
     assert "## Summary" not in rendered
     assert "Generated:" not in rendered
     assert "Matrix rows parsed" not in rendered
@@ -84,7 +152,7 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
     tmp_path: Path,
 ) -> None:
     # Matrix citations often include unittest-style class scopes, so those
-    # cited methods should not remain in the uncited backlog.
+    # cited methods should not remain in the missing-disposition backlog.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -95,25 +163,10 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
     )
     tests_root = repo_root_path / "tests"
 
+    _init_git_repo(repo_root_path)
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "api").mkdir(parents=True, exist_ok=True)
 
-    matrix_path.write_text(
-        """# Backend Behavior Parity Matrix
-
-## Audit Boundary
-
-- Source baseline: `main@abc123`
-- Target head: `deadbeef`
-
-## Matrix
-
-| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `runner.class_scope` | `tests/api/test_runner.py::TestRunnerCases::{test_class_cited}` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | class-scoped citation |
-""",
-        encoding="utf-8",
-    )
     (tests_root / "api" / "test_runner.py").write_text(
         """class TestRunnerCases:
     def test_class_cited(self) -> None:
@@ -124,6 +177,17 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
 """,
         encoding="utf-8",
     )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.class_scope` | `tests/api/test_runner.py::TestRunnerCases::{{test_class_cited}}` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | class-scoped citation |
+""",
+    )
 
     module = _load_backend_gap_hunt_candidates_module()
     report = module.generate_report(
@@ -133,14 +197,14 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
     )
 
     assert [
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+        f"{gap.source_test.path}::{gap.source_test.name}" for gap in report
     ] == ["tests/api/test_runner.py::test_class_uncited"]
 
 
 def test_generate_report_requires_exact_code_span_test_citations(
     tmp_path: Path,
 ) -> None:
-    # Free-text mentions should not remove a test from the uncited backlog.
+    # Free-text mentions should not count as an explicit parity disposition.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -151,21 +215,20 @@ def test_generate_report_requires_exact_code_span_test_citations(
     )
     tests_root = repo_root_path / "tests"
 
+    _init_git_repo(repo_root_path)
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "api").mkdir(parents=True, exist_ok=True)
-
-    matrix_path.write_text(
-        """# Backend Behavior Parity Matrix
-
-Mention tests/api/test_runner.py::test_uncited_lookup_failure in prose only.
-""",
-        encoding="utf-8",
-    )
     (tests_root / "api" / "test_runner.py").write_text(
         """def test_uncited_lookup_failure() -> None:
     assert True
 """,
         encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        "Mention tests/api/test_runner.py::test_uncited_lookup_failure in prose only.\n",
     )
 
     module = _load_backend_gap_hunt_candidates_module()
@@ -176,13 +239,15 @@ Mention tests/api/test_runner.py::test_uncited_lookup_failure in prose only.
     )
 
     assert [
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+        f"{gap.source_test.path}::{gap.source_test.name}" for gap in report
     ] == ["tests/api/test_runner.py::test_uncited_lookup_failure"]
 
 
-def test_generate_report_includes_tests_start_tree(tmp_path: Path) -> None:
-    # Differential parity tests under tests/start are real gap-hunt clues and
-    # should remain in the uncited backlog.
+def test_generate_report_fails_closed_when_git_inventory_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    # The miner should stop rather than silently switching back to the working
+    # tree when the pinned baseline inventory cannot be loaded from git.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -196,23 +261,86 @@ def test_generate_report_includes_tests_start_tree(tmp_path: Path) -> None:
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "start").mkdir(parents=True, exist_ok=True)
 
-    matrix_path.write_text(
-        """# Backend Behavior Parity Matrix
-
-## Audit Boundary
-
-- Source baseline: `main@abc123`
-- Target head: `deadbeef`
-
-## Matrix
+    _write_matrix_with_baseline(
+        matrix_path,
+        "abc123",
+        """## Matrix
 
 | Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 """,
-        encoding="utf-8",
     )
     (tests_root / "start" / "test_backend_differential_parity.py").write_text(
         """def test_start_tree_is_collected() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    try:
+        module.generate_report(
+            repo_root_path=repo_root_path,
+            matrix_path=matrix_path,
+            tests_path=tests_root,
+        )
+    except module.SourceBaselineInventoryError as exc:
+        assert "Unable to load pinned source baseline test inventory" in str(exc)
+    else:
+        raise AssertionError("Expected missing git baseline inventory to fail closed.")
+
+
+def test_generate_report_prefers_pinned_git_baseline_inventory(
+    tmp_path: Path,
+) -> None:
+    # The source-test backlog should be anchored to the matrix's pinned
+    # baseline ref rather than head-only additions in the working tree.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+    baseline_test_path = tests_root / "api" / "test_runner.py"
+    baseline_test_path.write_text(
+        """def test_baseline_lookup() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.lookup` | `tests/api/test_runner.py::test_baseline_lookup` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
+""",
+    )
+
+    baseline_test_path.write_text(
+        """def test_baseline_lookup() -> None:
+    assert True
+
+
+def test_head_only_lookup() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "start").mkdir(parents=True, exist_ok=True)
+    (tests_root / "start" / "test_backend_differential_parity.py").write_text(
+        """def test_head_only_differential_gap() -> None:
     assert True
 """,
         encoding="utf-8",
@@ -225,13 +353,11 @@ def test_generate_report_includes_tests_start_tree(tmp_path: Path) -> None:
         tests_path=tests_root,
     )
 
-    assert [
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report
-    ] == ["tests/start/test_backend_differential_parity.py::test_start_tree_is_collected"]
+    assert report == []
 
 
 def test_generate_report_excludes_gap_hunt_script_tests(tmp_path: Path) -> None:
-    # The uncited backlog should stay focused on tests that can reveal Go
+    # The backlog should stay focused on tests that can reveal Go
     # implementation gaps rather than the loop/miner wiring itself.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
@@ -243,10 +369,9 @@ def test_generate_report_excludes_gap_hunt_script_tests(tmp_path: Path) -> None:
     )
     tests_root = repo_root_path / "tests"
 
+    _init_git_repo(repo_root_path)
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "start").mkdir(parents=True, exist_ok=True)
-
-    matrix_path.write_text("# Backend Behavior Parity Matrix\n", encoding="utf-8")
     (tests_root / "start" / "test_backend_gap_hunt_candidates_script.py").write_text(
         """def test_gap_hunt_wrapper() -> None:
     assert True
@@ -265,6 +390,8 @@ def test_generate_report_excludes_gap_hunt_script_tests(tmp_path: Path) -> None:
 """,
         encoding="utf-8",
     )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(matrix_path, baseline_ref, "")
 
     module = _load_backend_gap_hunt_candidates_module()
     report = module.generate_report(
@@ -274,14 +401,156 @@ def test_generate_report_excludes_gap_hunt_script_tests(tmp_path: Path) -> None:
     )
 
     assert [
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+        f"{gap.source_test.path}::{gap.source_test.name}" for gap in report
     ] == ["tests/start/test_backend_differential_parity.py::test_real_gap_hunt_clue"]
 
 
-def test_script_returns_special_exit_code_when_uncited_backlog_is_empty(
+def test_generate_report_keeps_tests_with_non_terminal_matrix_statuses(
     tmp_path: Path,
 ) -> None:
-    # An empty uncited-test backlog should still write the report file and then
+    # A cited source test should stay in the backlog when any citing row is
+    # still marked as Missing or proof-incomplete.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_lookup_gap() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.lookup` | `tests/api/test_runner.py::test_lookup_gap` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Missing` | gap still open |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert len(report) == 1
+    assert report[0].reason == "non_terminal_disposition"
+    assert report[0].rows == ("runner.lookup:Missing",)
+
+
+def test_generate_report_keeps_proved_rows_without_go_test_proof(
+    tmp_path: Path,
+) -> None:
+    # A Proved row still needs explicit proof in the Go-tests column rather
+    # than a bare citation plus a confident status.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_lookup_gap() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.lookup` | `tests/api/test_runner.py::test_lookup_gap` | `internal/runner.go` | - | `frontend/src/components/Runner.tsx` | `Proved` | confidence alone is not enough |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert len(report) == 1
+    assert report[0].reason == "proved_without_go_proof"
+    assert report[0].rows == ("runner.lookup:Proved",)
+
+
+def test_generate_report_accepts_justified_omission_rows_with_notes(
+    tmp_path: Path,
+) -> None:
+    # Retained-boundary and intentional-divergence rows are acceptable
+    # dispositions when the matrix explicitly justifies the omission.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_lookup_gap() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.lookup` | `tests/api/test_runner.py::test_lookup_gap` | `internal/runner.go` | - | `frontend/src/components/Runner.tsx` | `Intentional divergence` | source behavior intentionally replaced |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert report == []
+
+
+def test_script_returns_special_exit_code_when_source_test_backlog_is_empty(
+    tmp_path: Path,
+) -> None:
+    # An empty source-test backlog should still write the report file and then
     # signal the loop to stop cleanly with the dedicated exit code.
     root = repo_root()
     repo_root_path = tmp_path / "workspace"
@@ -295,30 +564,25 @@ def test_script_returns_special_exit_code_when_uncited_backlog_is_empty(
     tests_root = repo_root_path / "tests"
     output_path = repo_root_path / "tmp" / "backend-gap-hunt-candidates.md"
 
+    _init_git_repo(repo_root_path)
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "api").mkdir(parents=True, exist_ok=True)
-
-    matrix_path.write_text(
-        """# Backend Behavior Parity Matrix
-
-## Audit Boundary
-
-- Source baseline: `main@abc123`
-- Target head: `deadbeef`
-
-## Matrix
-
-| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `runner.lookup` | `tests/api/test_runner.py::test_only_cited_case` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
-""",
-        encoding="utf-8",
-    )
     (tests_root / "api" / "test_runner.py").write_text(
         """def test_only_cited_case() -> None:
     assert True
 """,
         encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.lookup` | `tests/api/test_runner.py::test_only_cited_case` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
+""",
     )
 
     result = subprocess.run(
@@ -337,9 +601,13 @@ def test_script_returns_special_exit_code_when_uncited_backlog_is_empty(
 
     module = _load_backend_gap_hunt_candidates_module()
 
-    assert result.returncode == module.EMPTY_UNCITED_SOURCE_TESTS_EXIT_CODE
+    assert (
+        result.returncode
+        == module.EMPTY_SOURCE_TEST_DISPOSITION_BACKLOG_EXIT_CODE
+    )
     assert output_path.read_text(encoding="utf-8") == (
-        "# Backend Gap Hunt Candidates\n\n## Uncited Source Tests\n\n"
+        "# Backend Gap Hunt Candidates\n\n"
+        "## Source Tests Missing Explicit Parity Disposition\n\n"
     )
 
 
