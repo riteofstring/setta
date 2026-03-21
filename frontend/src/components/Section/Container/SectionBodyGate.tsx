@@ -1,14 +1,24 @@
 import _ from "lodash";
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import { getExternalProjectChatWindowBindingForSectionInState } from "state/actions/projectChatWindowing";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useIsSectionUIActive } from "state/activeSectionUI";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import {
   SectionTypeEnum,
   type ChatWindowMode,
   type ChatWindowPlacement,
   type SectionType,
 } from "utils/generatedTypes";
+import {
+  getAutoSectionBodyRequestedMode,
+  getProjectedNodeSizePx,
+  resolveRequestedMode,
+  type SectionBodyFamily,
+  type SectionBodyRequestedMode,
+  type SectionBodyResolvedMode,
+} from "./sectionBodyModePolicy";
 import { SectionAreaSwitch } from "./SectionAreaSwitch";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 
@@ -33,22 +43,6 @@ export type SectionBodyOwner =
         | undefined;
     };
 
-export type SectionBodyRequestedMode =
-  | "auto"
-  | "live"
-  | "warm"
-  | "preview"
-  | "skip";
-
-export type SectionBodyResolvedMode = "live" | "skip";
-
-export type SectionBodyFamily =
-  | "tier1-dense-params"
-  | "tier2-code"
-  | "chat"
-  | "sparse-local"
-  | "generic";
-
 export type ResolvedSectionBodyStatus = {
   sectionTypeName: SectionType;
   family: SectionBodyFamily;
@@ -56,6 +50,11 @@ export type ResolvedSectionBodyStatus = {
   resolvedMode: SectionBodyResolvedMode;
   isMinimized: boolean;
   externalizedWindowId: string | null;
+  isActiveSection: boolean;
+  viewportInteractionActive: boolean;
+  zoom: number;
+  projectedWidthPx: number | null;
+  projectedHeightPx: number | null;
 };
 
 type SectionBodyGateProps = {
@@ -89,21 +88,21 @@ export function getSectionBodyFamily(
   }
 }
 
-function resolveRequestedMode(
-  requestedMode: SectionBodyRequestedMode,
-  isMinimized: boolean,
-): SectionBodyResolvedMode {
-  if (isMinimized || requestedMode === "skip") {
-    return "skip";
-  }
-  return "live";
-}
-
 export function useResolvedSectionBodyStatus({
   sectionId,
   owner,
   requestedMode = "auto",
 }: SectionBodyGateProps): ResolvedSectionBodyStatus {
+  const isActiveSection = useIsSectionUIActive(sectionId);
+  const { viewportInteractionActive, zoom } = useReactFlow(
+    (state) => ({
+      viewportInteractionActive: state.viewportInteractionActive,
+      zoom: state.transform[2],
+    }),
+    _.isEqual,
+  );
+  const node = useNodeInternals((state) => state.x.get(sectionId), _.isEqual);
+
   return useProjectState((state) => {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     const externalizedWindowId =
@@ -113,14 +112,40 @@ export function useResolvedSectionBodyStatus({
             sectionId,
           )?.instanceId ?? null
         : null;
+    const family = getSectionBodyFamily(impl.type);
+    const effectiveViewportInteractionActive =
+      owner.kind === "canvas" ? viewportInteractionActive : false;
+    const effectiveZoom = owner.kind === "canvas" ? zoom : 1;
+    const { projectedWidthPx, projectedHeightPx } = getProjectedNodeSizePx(
+      node?.width ?? null,
+      node?.height ?? null,
+      effectiveZoom,
+    );
+    const nextRequestedMode =
+      requestedMode === "auto"
+        ? getAutoSectionBodyRequestedMode({
+            ownerKind: owner.kind,
+            family,
+            isActiveSection,
+            viewportInteractionActive: effectiveViewportInteractionActive,
+            zoom: effectiveZoom,
+            projectedWidthPx,
+            projectedHeightPx,
+          })
+        : requestedMode;
 
     return {
       sectionTypeName: impl.type,
-      family: getSectionBodyFamily(impl.type),
-      requestedMode,
-      resolvedMode: resolveRequestedMode(requestedMode, impl.isMinimized),
+      family,
+      requestedMode: nextRequestedMode,
+      resolvedMode: resolveRequestedMode(nextRequestedMode, impl.isMinimized),
       isMinimized: impl.isMinimized,
       externalizedWindowId,
+      isActiveSection,
+      viewportInteractionActive: effectiveViewportInteractionActive,
+      zoom: effectiveZoom,
+      projectedWidthPx,
+      projectedHeightPx,
     };
   }, _.isEqual);
 }

@@ -76,12 +76,29 @@ type MockProjectState = {
   };
 };
 
+type MockReactFlowState = {
+  viewportInteractionActive: boolean;
+  transform: [number, number, number];
+};
+
+type MockNodeInternalsState = {
+  x: Map<string, { width: number | null; height: number | null }>;
+};
+
 let mockProjectState: MockProjectState = {
   projectConfig: {
     activeIds: [],
   },
 };
 let mockTemporaryMiscState: Record<string, string | null | undefined> = {};
+let mockReactFlowState: MockReactFlowState = {
+  viewportInteractionActive: false,
+  transform: [0, 0, 1],
+};
+let mockNodeInternalsState: MockNodeInternalsState = {
+  x: new Map([["section-1", { width: 200, height: 100 }]]),
+};
+let mockIsActiveSection = false;
 
 function emitProjectStateChange() {
   for (const listener of mocks.projectStateListeners) {
@@ -98,8 +115,8 @@ function emitTemporaryMiscStateChange() {
 vi.mock("state/definitions", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
 
-  return {
-    useLocalStorage: () => false,
+    return {
+      useLocalStorage: () => false,
     useProjectState: (
       selector: (state: MockProjectState) => unknown,
       equality: (a: unknown, b: unknown) => boolean = Object.is,
@@ -143,8 +160,20 @@ vi.mock("state/definitions", async () => {
         () => selector(mockTemporaryMiscState),
         () => selector(mockTemporaryMiscState),
       ),
+    useNodeInternals: (
+      selector: (state: MockNodeInternalsState) => unknown,
+    ) => selector(mockNodeInternalsState),
   };
 });
+
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (selector: (state: MockReactFlowState) => unknown) =>
+    selector(mockReactFlowState),
+}));
+
+vi.mock("state/activeSectionUI", () => ({
+  useIsSectionUIActive: () => mockIsActiveSection,
+}));
 
 vi.mock("state/actions/sectionInfos", () => ({
   getCurrEffectiveSectionImpl: () => ({
@@ -188,6 +217,14 @@ describe("SectionWindowSurface", () => {
     mocks.sectionAreaSwitchRender.mockClear();
     mocks.sectionHeaderRender.mockClear();
     mockTemporaryMiscState = {};
+    mockReactFlowState = {
+      viewportInteractionActive: false,
+      transform: [0, 0, 1],
+    };
+    mockNodeInternalsState = {
+      x: new Map([["section-1", { width: 200, height: 100 }]]),
+    };
+    mockIsActiveSection = false;
   });
 
   afterEach(() => {

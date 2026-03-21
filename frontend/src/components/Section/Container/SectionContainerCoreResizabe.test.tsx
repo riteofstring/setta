@@ -19,6 +19,15 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
+type MockReactFlowState = {
+  viewportInteractionActive: boolean;
+  transform: [number, number, number];
+};
+
+type MockNodeInternalsState = {
+  x: Map<string, { width: number | null; height: number | null }>;
+};
+
 let mockSectionImpl: {
   type: string;
   isMinimized: boolean;
@@ -36,7 +45,17 @@ let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
 };
 
+let mockReactFlowState: MockReactFlowState = {
+  viewportInteractionActive: false,
+  transform: [0, 0, 1],
+};
+
+let mockNodeInternalsState: MockNodeInternalsState = {
+  x: new Map([["section-123", { width: 200, height: 100 }]]),
+};
+
 let mockIsRoot = false;
+let mockIsActiveSection = false;
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -98,6 +117,17 @@ vi.mock("state/actions/uiTypes/utils", () => ({
 vi.mock("state/definitions", () => ({
   useProjectState: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
+  useNodeInternals: (selector: (state: MockNodeInternalsState) => unknown) =>
+    selector(mockNodeInternalsState),
+}));
+
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (selector: (state: MockReactFlowState) => unknown) =>
+    selector(mockReactFlowState),
+}));
+
+vi.mock("state/activeSectionUI", () => ({
+  useIsSectionUIActive: () => mockIsActiveSection,
 }));
 
 vi.mock("../Header/SectionHeader", () => ({
@@ -216,6 +246,14 @@ describe("SectionContainerCoreResizable", () => {
       },
       projectChatWindowing: createProjectChatWindowingState(),
     };
+    mockReactFlowState = {
+      viewportInteractionActive: false,
+      transform: [0, 0, 1],
+    };
+    mockNodeInternalsState = {
+      x: new Map([["section-123", { width: 200, height: 100 }]]),
+    };
+    mockIsActiveSection = false;
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {

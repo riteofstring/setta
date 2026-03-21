@@ -476,3 +476,38 @@ Record:
   - Keep the new body-host seam and the local sparse restores, then move directly into the next planned Tier 1 work:
     - real live/warm/preview body-mode behavior
     - deeper Tier 1 body flattening that measurably reduces visible paint
+
+## 2026-03-20 012
+
+- Item: Wire the first real `auto` body-mode policy into the shared gate using live viewport state and measured section size.
+- Status: `done`
+- Details:
+  - Added a pure policy seam:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - Added focused policy coverage:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+  - Updated:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - The shared gate now derives `auto` requested mode from live source-of-truth inputs instead of carrying a hardcoded `"auto"` string:
+    - `viewportInteractionActive` from the live `useReactFlow` store
+    - current zoom from `useReactFlow(...transform[2])`
+    - measured section width and height from node internals
+    - active-section ownership from `useIsSectionUIActive`
+  - Current policy behavior:
+    - windows stay on the live path
+    - active sections stay on the live path
+    - only Tier 1 dense-param and Tier 2 code families are preview-eligible
+    - inactive canvas sections can now resolve `requestedMode="preview"` during viewport motion when they are small enough on screen
+  - Important scope limit:
+    - the gate still resolves `preview` and `warm` to the live path because no preview substrate exists yet
+    - this checkpoint improves render-mode correctness and observability, not runtime paint yet
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `38` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe|SectionWindowSurface"`
+      - result:
+        - no matching diagnostics
+- Next action:
+  - Use the now-real `requestedMode` policy to land the first actual preview-capable representation for Tier 1 bodies instead of keeping preview as a live-path alias.

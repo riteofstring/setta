@@ -452,9 +452,13 @@ Current execution note:
   - section-family classification
   - canvas versus window ownership
   - minimized and externalized-window skip behavior
-- this checkpoint is intentionally still functionally live:
-  - `preview` and `warm` are not active render paths yet
-  - the current seam resolves only to live or skip behavior
+- the next Phase 2 checkpoint should derive `auto` mode from live viewport state, not persisted project viewport state:
+  - `viewportInteractionActive` from the live `useReactFlow` store
+  - current zoom from `useReactFlow(...transform[2])`
+  - measured section size from node internals
+- this phase remains intentionally functionally live until a preview substrate exists:
+  - `preview` and `warm` are now meaningful requested modes
+  - the current seam still resolves only to live or skip behavior
 - the paired rerun after landing the seam and sparse restores regressed versus the shell-only checkpoint, so the next slice must change real body cost or real render-mode behavior instead of adding more scaffolding alone
 
 ## Phase 3: Implement A Faithful Section-Body Preview Path

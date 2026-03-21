@@ -17,6 +17,15 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
+type MockReactFlowState = {
+  viewportInteractionActive: boolean;
+  transform: [number, number, number];
+};
+
+type MockNodeInternalsState = {
+  x: Map<string, { width: number | null; height: number | null }>;
+};
+
 let mockSectionImpl: {
   type: string;
   isMinimized: boolean;
@@ -29,6 +38,17 @@ let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
 };
 
+let mockReactFlowState: MockReactFlowState = {
+  viewportInteractionActive: false,
+  transform: [0, 0, 1],
+};
+
+let mockNodeInternalsState: MockNodeInternalsState = {
+  x: new Map([["section-123", { width: 200, height: 100 }]]),
+};
+
+let mockIsActiveSection = false;
+
 vi.mock("state/actions/sectionInfos", () => ({
   getCurrEffectiveSectionImpl: () => mockSectionImpl,
 }));
@@ -36,6 +56,17 @@ vi.mock("state/actions/sectionInfos", () => ({
 vi.mock("state/definitions", () => ({
   useProjectState: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
+  useNodeInternals: (selector: (state: MockNodeInternalsState) => unknown) =>
+    selector(mockNodeInternalsState),
+}));
+
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (selector: (state: MockReactFlowState) => unknown) =>
+    selector(mockReactFlowState),
+}));
+
+vi.mock("state/activeSectionUI", () => ({
+  useIsSectionUIActive: () => mockIsActiveSection,
 }));
 
 vi.mock("./SectionAreaSwitch", () => ({
@@ -88,6 +119,14 @@ describe("SectionBodyGate", () => {
     mockProjectState = {
       projectChatWindowing: createProjectChatWindowingState(),
     };
+    mockReactFlowState = {
+      viewportInteractionActive: false,
+      transform: [0, 0, 1],
+    };
+    mockNodeInternalsState = {
+      x: new Map([["section-123", { width: 200, height: 100 }]]),
+    };
+    mockIsActiveSection = false;
   });
 
   it("classifies section families for the hybrid-rendering rollout", () => {
@@ -192,6 +231,38 @@ describe("SectionBodyGate", () => {
     expect(markup).toContain('data-chat-mode="project_ai_mode"');
   });
 
+  it("derives preview mode for inactive dense sections from viewport motion and projected size", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Callable,
+      isMinimized: false,
+    };
+    mockReactFlowState = {
+      viewportInteractionActive: true,
+      transform: [0, 0, 0.6],
+    };
+    mockNodeInternalsState = {
+      x: new Map([["section-123", { width: 300, height: 180 }]]),
+    };
+
+    let requestedMode = "";
+    let resolvedMode = "";
+
+    function StatusProbe() {
+      const status = useResolvedSectionBodyStatus({
+        sectionId: "section-123",
+        owner: { kind: "canvas", bgColor: "bg-setta-50", isUserView: false },
+      });
+      requestedMode = status.requestedMode;
+      resolvedMode = status.resolvedMode;
+      return null;
+    }
+
+    renderToStaticMarkup(<StatusProbe />);
+
+    expect(requestedMode).toBe("preview");
+    expect(resolvedMode).toBe("live");
+  });
+
   it("exposes resolved status for tests and future render-mode work", () => {
     let statusText = "";
 
@@ -200,12 +271,12 @@ describe("SectionBodyGate", () => {
         sectionId: "section-123",
         owner: { kind: "canvas", bgColor: "bg-setta-50", isUserView: false },
       });
-      statusText = `${status.family}:${status.resolvedMode}:${status.sectionTypeName}`;
+      statusText = `${status.family}:${status.requestedMode}:${status.resolvedMode}:${status.sectionTypeName}`;
       return null;
     }
 
     renderToStaticMarkup(<StatusProbe />);
 
-    expect(statusText).toBe("tier2-code:live:Code");
+    expect(statusText).toBe("tier2-code:live:live:Code");
   });
 });
