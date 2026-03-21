@@ -2,6 +2,9 @@ package plugins
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -118,6 +121,31 @@ func TestServiceGeneratePluginCodegenTargetCanonicalizesRelativePath(t *testing.
 	}
 }
 
+func TestServiceGeneratePluginCodegenTargetRejectsMissingResponsePayload(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
+	writePluginBackendCodegenFixtureMainGo(t, pluginRoot, `{"schemaVersion":1}`)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	_, err := service.GeneratePluginCodegenTarget(
+		context.Background(),
+		"setta-fixture-backend-codegen:typescript",
+		map[string]any{"name": "Alpha"},
+		map[string]any{"className": "FixtureState"},
+	)
+	if err == nil {
+		t.Fatal("expected missing codegen response payload to fail")
+	}
+	if !strings.Contains(err.Error(), "missing codegen target response payload") {
+		t.Fatalf("expected missing codegen target response payload error, got %v", err)
+	}
+}
+
 func TestServiceGeneratePluginCodegenTargetRejectsAbsolutePath(t *testing.T) {
 	t.Parallel()
 
@@ -186,4 +214,157 @@ func TestServiceGeneratePluginCodegenTargetWaitsForServiceLock(t *testing.T) {
 		)
 		return err
 	})
+}
+
+func TestNormalizeGeneratedCodegenFilesRejectsInvalidEntries(t *testing.T) {
+	t.Parallel()
+
+	target := PluginRegisteredCodegenTarget{
+		PluginID:        "setta-fixture-backend",
+		TargetID:        "typescript",
+		Language:        "setta-fixture-backend-codegen:typescript",
+		Name:            "Fixture TypeScript State",
+		DefaultFileName: "setta_gen.ts",
+	}
+	testCases := []struct {
+		name    string
+		files   []backendRuntimeCodegenFile
+		wantErr string
+	}{
+		{
+			name: "absolute-path",
+			files: []backendRuntimeCodegenFile{{
+				RelativePath: stringPointer("/tmp/absolute.ts"),
+				Content:      stringPointer("export const x = 1;\n"),
+			}},
+			wantErr: "cannot be absolute",
+		},
+		{
+			name: "escape-path",
+			files: []backendRuntimeCodegenFile{{
+				RelativePath: stringPointer("../escape.ts"),
+				Content:      stringPointer("export const x = 1;\n"),
+			}},
+			wantErr: "cannot escape target root",
+		},
+		{
+			name: "duplicate-path",
+			files: []backendRuntimeCodegenFile{
+				{
+					RelativePath: stringPointer("setta_gen.ts"),
+					Content:      stringPointer("first"),
+				},
+				{
+					RelativePath: stringPointer("./setta_gen.ts"),
+					Content:      stringPointer("second"),
+				},
+			},
+			wantErr: "is duplicated",
+		},
+		{
+			name: "missing-content",
+			files: []backendRuntimeCodegenFile{{
+				RelativePath: stringPointer("setta_gen.ts"),
+			}},
+			wantErr: "content is required",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := normalizeGeneratedCodegenFiles(target, testCase.files)
+			if err == nil {
+				t.Fatalf("expected invalid generated files %#v to fail", testCase.files)
+			}
+			if !strings.Contains(err.Error(), testCase.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", testCase.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestNormalizeGeneratedCodegenFilesAllowsEmptyList(t *testing.T) {
+	t.Parallel()
+
+	target := PluginRegisteredCodegenTarget{
+		PluginID:        "setta-fixture-backend",
+		TargetID:        "typescript",
+		Language:        "setta-fixture-backend-codegen:typescript",
+		Name:            "Fixture TypeScript State",
+		DefaultFileName: "setta_gen.ts",
+	}
+
+	files, err := normalizeGeneratedCodegenFiles(target, nil)
+	if err != nil {
+		t.Fatalf("normalize generated codegen files: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("expected empty generated file list, got %#v", files)
+	}
+}
+
+func writePluginBackendCodegenFixtureMainGo(t *testing.T, pluginRoot string, runtimePayload string) {
+	t.Helper()
+
+	source := fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+const (
+	backendProbeArg = "--setta-plugin-backend-probe"
+	backendRuntimeArg = "--setta-plugin-backend-runtime"
+)
+
+func main() {
+	if len(os.Args) != 2 {
+		return
+	}
+	switch os.Args[1] {
+	case backendProbeArg:
+		writeJSON(map[string]any{
+			"schemaVersion": 1,
+			"codegenTargets": []map[string]any{
+				{
+					"targetId":        "typescript",
+					"language":        "setta-fixture-backend-codegen:typescript",
+					"name":            "Fixture TypeScript State",
+					"defaultFileName": "fixture_state.ts",
+				},
+			},
+			"languageServers":   []map[string]any{},
+			"uiSettings":        []map[string]any{},
+			"routes":            []map[string]any{},
+			"staticDirs":        []map[string]any{},
+			"listenerEndpoints": []map[string]any{},
+		})
+	case backendRuntimeArg:
+		writeRawJSON(%q)
+	}
+}
+
+func writeJSON(payload any) {
+	if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+		fail("encode payload: %%v", err)
+	}
+}
+
+func writeRawJSON(payload string) {
+	if _, err := fmt.Fprintln(os.Stdout, payload); err != nil {
+		fail("write payload: %%v", err)
+	}
+}
+
+func fail(format string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(1)
+}
+`, runtimePayload)
+
+	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "main.go"), []byte(source), 0o644); err != nil {
+		t.Fatalf("write backend codegen fixture main.go: %v", err)
+	}
 }
