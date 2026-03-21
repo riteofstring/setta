@@ -390,6 +390,11 @@ categorize them.
   adjacent external-agent queue is down to the remaining caller-visible
   runtime/start gaps: the image-mode attachment-history prerequisite first,
   then the deployment/share external-agent route-mount parity slice
+- The shared image-mode attachment-history slice is now closed too, so the
+  next caller-visible queue should move to the deployment/share route-mount
+  parity rows first (`getLLMResponse`, managed hydrate/stop, and external
+  hydrate/stop/approval/question), then back to the broader app-generation
+  submitted-turn normalization gap
 - The two OpenCode read-only runtime rows are now closed too, the OpenCode
   permission-allowlist merge row is now closed as well, and the external
   completion-guard wiring row is now closed too, so the adjacent
