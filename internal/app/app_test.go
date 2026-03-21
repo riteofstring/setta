@@ -9595,6 +9595,7 @@ func TestAppLinkedPluginLanguageServerBecomesAvailableAfterLink(t *testing.T) {
 func TestAppServesSetProjectConfigCodegenTargetsRouteForPython(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
