@@ -109,66 +109,54 @@ Merge main into this branch. The main branch is still using a python backend, wh
 
 Go backend parity closing session starter:
 
-Read docs/plans/go-backend-rewrite/backend-gap-closure-plan.md and continue the executable backend parity-discovery loop it defines. You may use up to 5 subagents when useful. Commit your work frequently.
+Read docs/plans/go-backend-rewrite/backend-gap-closure-plan.md and continue its executable backend parity-discovery loop. You may use up to 5 subagents when useful. Commit frequently.
 
-Do not treat the plan text or parity-matrix status counts alone as completion evidence.
+Never treat plan text, parity-matrix counts, or already-green existing scenarios as completion evidence.
 
-First:
 1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
-2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
+2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or record a concrete baseline/harness blocker.
 
-If either command finds a mismatch or blocker:
-3. Fix or explicitly classify it.
-4. Add/update focused tests and update the parity matrix/docs.
-5. Re-run until green or explicitly blocked.
+If either command mismatches or is blocked:
+3. Fix it or classify it explicitly.
+4. Any classification must cite source evidence, live-caller evidence, and why this is not a current Go-owned parity gap.
+5. Add/update focused tests and update the parity matrix/docs.
+6. Re-run until green or explicitly blocked.
 
 If both commands are green:
-6. Do not stop. Pick one high-risk surface from the plan's next-expansion backlog, retained Python boundary rows, or dormant/unproven caller rows that is still mostly covered by inspection rather than executable proof.
-7. Derive at least one new executable parity scenario from source-baseline evidence (`tests/`, `docs/reference/`, routes/public APIs, or helper/runtime behavior).
-8. Implement that scenario in the differential harness or corpus manifest.
+7. Pick one high-risk surface still covered mainly by inspection, retained-boundary claims, dormant/unproven callers, or a lossy harness summary. Prefer a different top-level backend area than the most recent successful slice only as a tie-breaker; do not treat touching each area once as meaningful completion evidence.
+8. Add or strengthen at least one executable parity slice from source evidence (`tests/`, `docs/reference/`, routes/public APIs, runtime/helper behavior). A slice only counts if it deepens proof for a concrete caller-visible contract, error contract, persisted-state rule, or realtime behavior. Prefer strengthening scenarios that currently compare only counts/booleans when a richer caller-visible contract exists.
 9. Run it against `main`.
-10. Fix or explicitly classify any mismatch it reveals, then update tests/matrix/docs and commit.
+10. Fix or classify any mismatch it reveals, then update tests/matrix/docs and commit.
 
 Report the exact commands run and their outcomes.
 
-Only reply `No new executable parity gaps found` if:
-- the required existing parity commands are green, and
-- you either added a new executable parity slice this session or explicitly explained why no responsible new slice could be added.
+Only reply `No new executable parity gaps found` if the required parity commands are green and you either added/strengthened a parity slice this session or explained with evidence why no higher-value deepening slice could responsibly be added.
 
 
 Queued follow-up prompt for the same session:
 
-Automated message: continue the executable backend parity-discovery loop described in docs/plans/go-backend-rewrite/backend-gap-closure-plan.md. You may use up to 5 subagents when useful. Commit your work frequently.
+Automated message: continue the executable backend parity-discovery loop in docs/plans/go-backend-rewrite/backend-gap-closure-plan.md. You may use up to 5 subagents when useful. Commit frequently.
 
-First check whether the current `HEAD` commit or worktree state has changed since the last successful parity report in this session.
+First compare the current `HEAD` and worktree state with the last successful parity report in this session.
 
-If the immediately previous successful report in this session already showed both of these commands green for the current `HEAD`, and the worktree is still clean, do not rerun them:
-- `./scripts/run-backend-differential-parity.sh --baseline-ref main`
-- `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
+If `HEAD` is unchanged, the worktree is clean, and that prior report for this `HEAD` already:
+- showed both required parity commands green, and
+- added/strengthened a parity slice or gave an evidence-backed reason no responsible slice could be added,
 
-If that same prior report also already added a new executable parity slice for this `HEAD`, or explicitly explained why no responsible new slice could be added, just reply:
+reply exactly:
 `No new executable parity gaps found for unchanged HEAD <sha>`
 
 Otherwise:
-1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
-2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
-
-If either command finds a mismatch or blocker:
-3. Fix or explicitly classify it.
-4. Add/update focused tests and update the parity matrix/docs.
-5. Re-run until green or explicitly blocked.
-
-If both commands are green:
-6. Do not stop. Pick one high-risk surface from the plan's next-expansion backlog, retained Python boundary rows, or dormant/unproven caller rows that is still mostly covered by inspection rather than executable proof.
-7. Derive at least one new executable parity scenario from source-baseline evidence (`tests/`, `docs/reference/`, routes/public APIs, or helper/runtime behavior).
-8. Implement that scenario in the differential harness or corpus manifest.
-9. Run it against `main`.
-10. Fix or explicitly classify any mismatch it reveals, then update tests/matrix/docs and commit.
+1. Be incremental by default. If this `HEAD` already has a successful report with both required parity commands green, do not rerun the full manifests yet. Continue from the active mismatch or new parity slice using `./scripts/run-backend-differential-parity.sh --baseline-ref main --only <scenario>` plus targeted tests.
+2. If this `HEAD` does not yet have a successful full-manifest report in this session, run:
+   - `./scripts/run-backend-differential-parity.sh --baseline-ref main`
+   - `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
+   or record a concrete baseline/harness blocker.
+3. If a scenario mismatches or is blocked: fix it or classify it with source evidence, live-caller evidence, and why it is not a current Go-owned parity gap; add/update focused tests and matrix/docs; iterate with `--only <scenario>` until that slice is green or explicitly blocked.
+4. If the current queue is green, add or strengthen one executable parity slice for a high-risk surface still covered mainly by inspection, retained-boundary claims, dormant/unproven callers, or a lossy harness summary; use top-level backend area rotation only as a tie-breaker, not as completion evidence; make the slice deepen proof for a concrete caller-visible contract, error contract, persisted-state rule, or realtime behavior; run it against `main`; fix/classify any mismatch; update tests/matrix/docs and commit.
+5. Before giving the next successful completion report for a changed `HEAD`, rerun both required full parity commands for that `HEAD` and report their outcomes.
 
 Report the exact commands run and their outcomes.
 
-Do not treat the plan text or matrix counts alone as completion evidence.
-Only reply `No new executable parity gaps found` if:
-- the required existing parity commands are green, and
-- you either added a new executable parity slice this session or explicitly explained why no responsible new slice could be added.
+Never treat plan text, matrix counts, already-green existing scenarios, or touching each top-level backend area once as completion evidence. Only reply `No new executable parity gaps found` if the required parity commands are green and you either added/strengthened a parity slice this session or explained with evidence why no higher-value deepening slice could responsibly be added.
  
