@@ -443,3 +443,7 @@ categorize them.
   remaining practical queue should stay on the heavier external-agent runtime,
   launcher-home, and JSON-source/runtime gaps rather than reopening the MCP
   catalog owner for more metadata-only cleanup
+- The launcher-home open-workspace trust/rollback/persistence trio is now
+  closed too, so the remaining practical queue should stay on the heavier
+  external-agent runtime, settings-slice, and JSON-source/runtime gaps unless
+  another bounded launcher-home row appears from the harness
