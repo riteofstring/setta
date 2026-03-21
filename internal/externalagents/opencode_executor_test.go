@@ -747,6 +747,38 @@ func TestPrepareOpenCodeConfigReadOnlyModeWritesSessionScopedArtifact(t *testing
 	}
 }
 
+func TestPrepareOpenCodeConfigReadOnlyModeOmitsConfiguredPermission(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	executor := &OpenCodeExecutor{
+		settaFilesRoot: root,
+		settaServerURL: "http://127.0.0.1:8000/mcp",
+	}
+	configPath, err := executor.prepareOpenCodeConfig(externalagentconfigs.Config{
+		ID:             "opencode-read-only-no-permission",
+		ToolType:       externalagentconfigs.ToolTypeOpenCode,
+		RunMode:        externalagentconfigs.RunModeSDK,
+		ApprovalPolicy: stringPtr("ask"),
+		SettingsMode:   externalagentconfigs.SettingsModeReadOnly,
+	}, "chat-gamma", map[string]any{}, nil, false, nil)
+	if err != nil {
+		t.Fatalf("prepare read-only opencode config with approval policy: %v", err)
+	}
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read read-only opencode config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode read-only opencode config: %v", err)
+	}
+	if _, ok := payload["permission"]; ok {
+		t.Fatalf("expected read-only runtime config to omit permission, got %#v", payload["permission"])
+	}
+}
+
 func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
 	// Verify completed tool-part state becomes a persisted tool result plus a
 	// summarized run event through the Go-owned OpenCode executor path.

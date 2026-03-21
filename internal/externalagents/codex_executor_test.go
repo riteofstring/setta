@@ -718,6 +718,44 @@ func TestCodexExecutorPassesSessionScopedCODEXHOMEToProcessEnv(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestBuildCodexMCPHeadersIncludesSectionAndFrontendAffinity(t *testing.T) {
+	t.Parallel()
+
+	sectionID := "section-alpha"
+	headers, err := (&CodexExecutor{}).buildCodexMCPHeaders(StartRequest{
+		Run:             agentruns.Run{ID: "run-alpha"},
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       &sectionID,
+		Inputs: map[string]any{
+			"frontendAffinityToken": "frontend-alpha",
+			"allowUnscoped":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build codex mcp headers: %v", err)
+	}
+
+	if got := headers[mcpx.AgenticContextProjectConfigIDHeader]; got != "project-alpha" {
+		t.Fatalf("expected project-config header, got %#v", headers)
+	}
+	if got := headers[mcpx.AgenticContextChatIDHeader]; got != "chat-alpha" {
+		t.Fatalf("expected chat header, got %#v", headers)
+	}
+	if got := headers[mcpx.AgenticContextRunIDHeader]; got != "run-alpha" {
+		t.Fatalf("expected run header, got %#v", headers)
+	}
+	if got := headers[mcpx.AgenticContextSectionIDHeader]; got != "section-alpha" {
+		t.Fatalf("expected section header, got %#v", headers)
+	}
+	if got := headers[mcpx.AgenticContextFrontendAffinityHeader]; got != "frontend-alpha" {
+		t.Fatalf("expected frontend-affinity header, got %#v", headers)
+	}
+	if got := headers[mcpx.AgenticContextAllowUnscopedHeader]; got != "true" {
+		t.Fatalf("expected allow-unscoped header, got %#v", headers)
+	}
+}
+
 func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInstructions(t *testing.T) {
 	t.Parallel()
 

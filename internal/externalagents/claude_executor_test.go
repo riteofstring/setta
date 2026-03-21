@@ -1132,6 +1132,45 @@ func TestBuildClaudeStartPayloadHonorsExplicitMaxTurns(t *testing.T) {
 	}
 }
 
+func TestBuildClaudeStartPayloadPrefersExplicitApprovalPolicyOverride(t *testing.T) {
+	t.Parallel()
+
+	approvalPolicy := "default"
+	request := StartRequest{
+		Run: agentruns.NewRun(nil, map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the runtime override"},
+					},
+				},
+			},
+		}, time.Date(2026, 3, 9, 13, 35, 0, 0, time.UTC)),
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType:       externalagentconfigs.ToolTypeClaudeCode,
+			RunMode:        externalagentconfigs.RunModeSDK,
+			ApprovalPolicy: &approvalPolicy,
+		},
+		Inputs: map[string]any{
+			"approvalPolicy": "bypassPermissions",
+		},
+	}
+
+	payload := buildClaudeStartPayload(request, "/tmp/workspace", map[string]string{})
+
+	if got := stringValue(payload["permissionMode"]); got != "bypassPermissions" {
+		t.Fatalf("expected runtime approval override to win, got %#v", payload["permissionMode"])
+	}
+	if got := stringValue(payload["decisionPolicy"]); got != "allow" {
+		t.Fatalf("expected decision policy to reflect runtime override, got %#v", payload["decisionPolicy"])
+	}
+	if got := strings.TrimSpace(derefOptionalString(request.ExternalConfig.ApprovalPolicy)); got != "default" {
+		t.Fatalf("expected external config approval policy to remain unchanged, got %q", got)
+	}
+}
+
 func TestEnsureClaudeMCPConfigIncludesAuthAndAgenticHeaders(t *testing.T) {
 	t.Parallel()
 
@@ -1366,6 +1405,95 @@ func TestPrepareClaudeSettingsPreservesUserKeysForManagedProject(t *testing.T) {
 	allow, ok := permissions["allow"].([]any)
 	if !ok || len(allow) != 1 || stringValue(allow[0]) != "New" {
 		t.Fatalf("expected managed permissions to overwrite allow list, got %#v", permissions)
+	}
+}
+
+func TestPrepareClaudeSettingsWritesManagedLocalPermissions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	executor := &ClaudeExecutor{workspaceRoot: root}
+	if err := executor.prepareClaudeSettings(externalagentconfigs.Config{
+		ToolType:                externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
+		SettingsAllowSettaEdits: true,
+		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
+			Claude: map[string]any{
+				"permissions": map[string]any{
+					"ask": []string{"Bash(rm:*)"},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("prepare managed-local claude settings: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(root, ".claude", "settings.local.json"))
+	if err != nil {
+		t.Fatalf("read managed-local claude settings: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode managed-local claude settings: %v", err)
+	}
+	permissions, ok := payload["permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected managed permissions block, got %#v", payload)
+	}
+	ask, ok := permissions["ask"].([]any)
+	if !ok || len(ask) != 1 || stringValue(ask[0]) != "Bash(rm:*)" {
+		t.Fatalf("expected managed ask rules to be written, got %#v", permissions)
+	}
+}
+
+func TestPrepareClaudeSettingsWritesDefaultAllowRules(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	executor := &ClaudeExecutor{workspaceRoot: root}
+	if err := executor.prepareClaudeSettings(externalagentconfigs.Config{
+		ToolType:                externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
+		SettingsAllowSettaEdits: true,
+		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
+			Claude: map[string]any{
+				"permissions": map[string]any{
+					"allow": []string{"mcp__setta__*"},
+					"ask": []string{
+						"Bash(rm:*)",
+						"Bash(sudo:*)",
+						"Bash(chmod:*)",
+						"Bash(chown:*)",
+						"Bash(git push:*)",
+						"Bash(git reset:*)",
+						"Bash(git clean:*)",
+						"Bash(dd:*)",
+						"Bash(mkfs:*)",
+						"Bash(diskutil:*)",
+					},
+					"deny": []string{},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("prepare default claude settings: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(root, ".claude", "settings.local.json"))
+	if err != nil {
+		t.Fatalf("read default claude settings: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode default claude settings: %v", err)
+	}
+	permissions, ok := payload["permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected managed permissions block, got %#v", payload)
+	}
+	allow, ok := permissions["allow"].([]any)
+	if !ok || len(allow) != 1 || stringValue(allow[0]) != "mcp__setta__*" {
+		t.Fatalf("expected default allow rules, got %#v", permissions)
 	}
 }
 
