@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 const (
@@ -143,6 +144,50 @@ func copyBackendCodegenFixtureDir(t *testing.T, sourceRoot string, targetRoot st
 		if err := os.WriteFile(targetPath, payload, 0o644); err != nil {
 			t.Fatalf("write fixture file %s: %v", targetPath, err)
 		}
+	}
+}
+
+func assertServiceCallWaitsForLock(t *testing.T, service *Service, call func() error) {
+	t.Helper()
+
+	started := make(chan struct{}, 1)
+	finished := make(chan error, 1)
+
+	service.mu.Lock()
+	locked := true
+	defer func() {
+		if locked {
+			service.mu.Unlock()
+		}
+	}()
+
+	go func() {
+		started <- struct{}{}
+		finished <- call()
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for blocked service call to start")
+	}
+
+	select {
+	case err := <-finished:
+		t.Fatalf("service call returned while lock was held: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	service.mu.Unlock()
+	locked = false
+
+	select {
+	case err := <-finished:
+		if err != nil {
+			t.Fatalf("service call after lock release: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for service call to finish after lock release")
 	}
 }
 

@@ -94,6 +94,16 @@ func TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability(t *testin
 	}
 }
 
+func TestServiceStatusWaitsForServiceLock(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	assertServiceCallWaitsForLock(t, service, func() error {
+		_, err := service.Status()
+		return err
+	})
+}
+
 // Restart-required should preserve pending IDs even when no discovered status entry remains after a service reload.
 func TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

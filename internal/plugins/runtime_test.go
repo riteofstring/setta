@@ -88,6 +88,16 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeWaitsForServiceLock(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	assertServiceCallWaitsForLock(t, service, func() error {
+		_, err := service.Runtime(RuntimeOptions{})
+		return err
+	})
+}
+
 func TestServiceRuntimeAndStatusExposePackageManagerDiscoveryMetadata(t *testing.T) {
 	// Runtime/status reads should preserve package-manager discovery metadata for active environment plugins.
 	roots := newFilesystemResolverTestRoots(t)

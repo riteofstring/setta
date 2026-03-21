@@ -102,3 +102,22 @@ func TestServiceGeneratePluginCodegenTargetRejectsAbsolutePath(t *testing.T) {
 		t.Fatalf("expected absolute path rejection, got %v", err)
 	}
 }
+
+func TestServiceGeneratePluginCodegenTargetWaitsForServiceLock(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	assertServiceCallWaitsForLock(t, service, func() error {
+		_, err := service.GeneratePluginCodegenTarget(
+			context.Background(),
+			"setta-fixture-backend-codegen:typescript",
+			map[string]any{"name": "Alpha"},
+			map[string]any{},
+		)
+		return err
+	})
+}

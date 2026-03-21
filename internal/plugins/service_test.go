@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/config"
 )
@@ -263,6 +264,65 @@ func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	}
 	if len(snapshot.Plugins) != 0 {
 		t.Fatalf("expected no plugins after uninstall, got %#v", snapshot.Plugins)
+	}
+}
+
+// Update should persist explicit retargeted source metadata, not just the new version number.
+func TestServiceUpdateWithExplicitTargetPersistsSourceMetadata(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+		"pypi:setta_fixture_frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	if _, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+
+	updateResult, err := service.Update(context.Background(), UpdateOptions{
+		PluginID: "setta-fixture-frontend",
+		To:       "pypi:setta_fixture_frontend==0.1.0",
+	})
+	if err != nil {
+		t.Fatalf("update plugin with explicit target: %v", err)
+	}
+	if updateResult.PluginID != "setta-fixture-frontend" || updateResult.FromVersion != "0.1.0" || updateResult.ToVersion != "0.1.0" {
+		t.Fatalf("unexpected update result %#v", updateResult)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
+	if entry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected workspace-scoped updated plugin, got %#v", entry.SourceScope)
+	}
+	if entry.CanonicalSourceKey != "pypi:setta_fixture_frontend" {
+		t.Fatalf("unexpected canonical source key %q", entry.CanonicalSourceKey)
+	}
+
+	metadataEntry, ok, err := service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("load install metadata: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected install metadata for updated plugin")
+	}
+	if metadataEntry.SourceSpec != "pypi:setta_fixture_frontend==0.1.0" {
+		t.Fatalf("unexpected stored source spec %q", metadataEntry.SourceSpec)
+	}
+	if metadataEntry.CanonicalSourceKey != "pypi:setta_fixture_frontend" {
+		t.Fatalf("unexpected stored canonical source key %q", metadataEntry.CanonicalSourceKey)
 	}
 }
 
@@ -534,6 +594,152 @@ func TestServicePendingRestartPersistsAcrossReloadAndClearsOnCommit(t *testing.T
 	}
 	if len(state.PendingRestartBackendPluginIDs) != 0 {
 		t.Fatalf("expected pending restart ids to clear after reload commit, got %#v", state.PendingRestartBackendPluginIDs)
+	}
+}
+
+// Missing enable/disable operations should fail before plugins_state persistence is created.
+func TestServiceMissingEnableDisableDoesNotWritePluginsState(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		run  func(*Service) error
+	}{
+		{
+			name: "enable",
+			run: func(service *Service) error {
+				_, err := service.Enable(context.Background(), EnableDisableOptions{PluginID: "missing-plugin"})
+				return err
+			},
+		},
+		{
+			name: "disable",
+			run: func(service *Service) error {
+				_, err := service.Disable(context.Background(), EnableDisableOptions{PluginID: "missing-plugin"})
+				return err
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+			pluginsStatePath := service.store.PluginsStatePath()
+
+			if _, err := os.Stat(pluginsStatePath); !os.IsNotExist(err) {
+				t.Fatalf("expected plugins state to start absent, got err=%v", err)
+			}
+
+			err := testCase.run(service)
+			var serviceErr *ServiceError
+			if !errors.As(err, &serviceErr) {
+				t.Fatalf("expected service error, got %v", err)
+			}
+			if serviceErr.Code != ServiceErrorCodeNotFound {
+				t.Fatalf("expected not found error code, got %q", serviceErr.Code)
+			}
+
+			if _, err := os.Stat(pluginsStatePath); !os.IsNotExist(err) {
+				t.Fatalf("expected plugins state to remain absent, got err=%v", err)
+			}
+		})
+	}
+}
+
+// Enable and disable mutations should share the same service lock so state updates cannot interleave.
+func TestServiceEnableDisableMutationsAreSerialized(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	if _, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+
+	assertServiceCallWaitsForLock(t, service, func() error {
+		_, err := service.Disable(context.Background(), EnableDisableOptions{PluginID: "setta-fixture-frontend"})
+		return err
+	})
+	disabledStatus, err := service.Status()
+	if err != nil {
+		t.Fatalf("status after disable: %v", err)
+	}
+	disabledEntry := mustFindStatusEntry(t, disabledStatus.Plugins, "setta-fixture-frontend", PluginRuntimeStateDisabled)
+	if disabledEntry.EnablementSource == nil || *disabledEntry.EnablementSource != PluginEnablementSourceWorkspaceDisabled {
+		t.Fatalf("expected workspace-disabled enablement source after disable, got %#v", disabledEntry.EnablementSource)
+	}
+
+	assertServiceCallWaitsForLock(t, service, func() error {
+		_, err := service.Enable(context.Background(), EnableDisableOptions{PluginID: "setta-fixture-frontend"})
+		return err
+	})
+	enabledStatus, err := service.Status()
+	if err != nil {
+		t.Fatalf("status after enable: %v", err)
+	}
+	enabledEntry := mustFindStatusEntry(t, enabledStatus.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
+	if enabledEntry.EnablementSource == nil || *enabledEntry.EnablementSource != PluginEnablementSourceWorkspaceEnabled {
+		t.Fatalf("expected workspace-enabled enablement source after enable, got %#v", enabledEntry.EnablementSource)
+	}
+}
+
+// Install should resolve external candidates before taking the shared service lock so status reads stay responsive.
+func TestServiceInstallCandidateResolutionKeepsStatusUnlocked(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	provider := &blockingCandidateProvider{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+		inner: newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+			"pypi:setta-fixture-frontend==0.1.0": {
+				FixtureName: "frontend",
+				Version:     "0.1.0",
+			},
+		}),
+	}
+	service := mustNewPluginMutationService(t, roots, provider, config.ModeIDE)
+
+	installResult := make(chan error, 1)
+	go func() {
+		_, err := service.Install(context.Background(), InstallOptions{
+			SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+			Enable:     true,
+		})
+		installResult <- err
+	}()
+
+	select {
+	case <-provider.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for candidate resolution to start")
+	}
+
+	statusResult := make(chan error, 1)
+	go func() {
+		_, err := service.Status()
+		statusResult <- err
+	}()
+
+	select {
+	case err := <-statusResult:
+		if err != nil {
+			t.Fatalf("status during candidate resolution: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("status blocked while install candidate resolution was in progress")
+	}
+
+	close(provider.release)
+	select {
+	case err := <-installResult:
+		if err != nil {
+			t.Fatalf("install plugin after candidate resolution: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for install to finish")
 	}
 }
 
@@ -921,6 +1127,12 @@ type fixtureCandidateProvider struct {
 	entries  map[string]fixtureCandidateSpec
 }
 
+type blockingCandidateProvider struct {
+	started chan struct{}
+	release chan struct{}
+	inner   CandidateProvider
+}
+
 func newFixtureCandidateProvider(t *testing.T, entries map[string]fixtureCandidateSpec) *fixtureCandidateProvider {
 	t.Helper()
 
@@ -980,6 +1192,21 @@ func (p *fixtureCandidateProvider) ResolveCandidate(_ context.Context, spec Pars
 		CanonicalSourceKey: spec.CanonicalSourceKey,
 		SourceDigestSHA256: stringPtr(digest),
 	}, nil
+}
+
+func (p *blockingCandidateProvider) ResolveCandidate(ctx context.Context, spec ParsedSourceSpec, installer PluginInstallerBackend) (CandidatePlugin, error) {
+	select {
+	case p.started <- struct{}{}:
+	default:
+	}
+
+	select {
+	case <-p.release:
+	case <-ctx.Done():
+		return CandidatePlugin{}, ctx.Err()
+	}
+
+	return p.inner.ResolveCandidate(ctx, spec, installer)
 }
 
 func mustNewPluginMutationService(t *testing.T, roots filesystemResolverTestRoots, provider CandidateProvider, mode config.Mode) *Service {
