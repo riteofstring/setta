@@ -83,15 +83,26 @@ if [[ -n "${workspace_override}" ]]; then
   export SETTA_WORKSPACE_ROOT="${workspace_override}"
 fi
 
-if [[ -n "${SETTA_BIN:-}" ]]; then
-  resolved_paths="$(
-    cd "${ROOT_DIR}" && SETTA_DEV_MODE=true "${SETTA_BIN}" paths --env
-  )"
-else
-  resolved_paths="$(
-    cd "${ROOT_DIR}" && SETTA_DEV_MODE=true ./scripts/go.sh run ./cmd/setta paths --env
-  )"
-fi
+resolved_paths="$(
+  cd "${ROOT_DIR}" && . ./activate.sh >/dev/null && python - <<'PY'
+import sys
+
+from setta.utils.paths import resolve_setta_paths
+
+try:
+    paths = resolve_setta_paths()
+except ValueError as exc:
+    print(str(exc), file=sys.stderr)
+    raise SystemExit(1)
+
+setta_root = paths.setta_files_root.resolve(strict=False)
+runtime_root = paths.runtime_root.resolve(strict=False)
+
+print(f"SETTA_FILES_ROOT={setta_root}")
+print(f"RUNTIME_ROOT={runtime_root}")
+print(f"RUNTIME_WITHIN_SETTA_ROOT={int(runtime_root.is_relative_to(setta_root))}")
+PY
+)"
 
 if [[ -z "${resolved_paths}" ]]; then
   echo "Failed to resolve Setta paths for reset." >&2
