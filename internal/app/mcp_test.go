@@ -587,6 +587,20 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	if writeTool.Annotations != nil && writeTool.Annotations.ReadOnlyHint {
 		t.Fatalf("expected write tool to omit read-only hint, got %#v", writeTool.Annotations)
 	}
+	readMeta, ok := readTool.Meta["setta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected setta metadata on backend read tool, got %#v", readTool.Meta)
+	}
+	writeMeta, ok := writeTool.Meta["setta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected setta metadata on backend write tool, got %#v", writeTool.Meta)
+	}
+	if readMeta["accessType"] != "read" {
+		t.Fatalf("expected read access type on backend read tool, got %#v", readMeta["accessType"])
+	}
+	if writeMeta["accessType"] != "write" {
+		t.Fatalf("expected write access type on backend write tool, got %#v", writeMeta["accessType"])
+	}
 
 	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "set_agentic_context",
