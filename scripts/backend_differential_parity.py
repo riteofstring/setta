@@ -107,6 +107,11 @@ SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES = [
     "languageServer",
     "renameRefactorMode",
 ]
+SETTINGS_VIEWPORT_SAMPLE_VIEW_MODE_NAMES = [
+    "Core",
+    "Param Defaults",
+    "All Settings",
+]
 
 
 class ParityHarnessError(RuntimeError):
@@ -2143,6 +2148,10 @@ def execute_scenario(
         return execute_settings_project_required_view_mode_repair(backend)
     if scenario.kind == "settings_project_deleted_active_view_mode_repair":
         return execute_settings_project_deleted_active_view_mode_repair(backend)
+    if scenario.kind == "settings_project_viewport_initialized_null_viewport_repair":
+        return execute_settings_project_viewport_initialized_null_viewport_repair(
+            backend
+        )
     if scenario.kind == "settings_project_missing_required_section_fails_closed":
         return execute_settings_project_missing_required_section_fails_closed(backend)
     if scenario.kind == "settings_project_existing_section_code_obj_backfill":
@@ -4549,6 +4558,78 @@ def execute_settings_project_deleted_active_view_mode_repair(
         else restart_latest_response.status_code,
         restart_latest_payload=restart_latest_payload,
         persisted_after_payload=persisted_after_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "corruptedSettingsProjectDocument": corrupted_payload,
+        "restartLoadProjectConfigStatus": restart_load_response.status_code,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        "restartLatestProjectState": restart_latest_payload,
+        "persistedSettingsProjectDocumentAfterRestart": persisted_after_payload,
+    }
+
+
+def execute_settings_project_viewport_initialized_null_viewport_repair(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    corrupted_payload = seed_settings_null_viewport_initialized_repair_payload(
+        persisted_payload
+    )
+    write_json(backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_backend(backend)
+
+    restart_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    restart_latest_response = None
+    restart_latest_payload = None
+    if restart_load_response.status_code == 200 and isinstance(
+        restart_load_payload, dict
+    ):
+        restarted_project_config = object_field(restart_load_payload, "projectConfig")
+        restarted_project_id = expect_non_empty_string(
+            restarted_project_config.get("id"),
+            "projectConfig.id",
+        )
+        restart_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": restarted_project_id},
+        )
+        restart_latest_payload = normalize_response_json_allow_status(
+            restart_latest_response
+        )
+
+    persisted_after_payload = read_persisted_settings_project_document(backend)
+    summary = summarize_settings_project_viewport_initialized_null_viewport_repair(
+        initial_load_http_status=initial_load_response.status_code,
+        restart_load_http_status=restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        restart_latest_payload=restart_latest_payload,
+        seeded_persisted_payload=corrupted_payload,
     )
     return summary, {
         "initialLoadProjectConfigStatus": initial_load_response.status_code,
@@ -7041,6 +7122,54 @@ def summarize_settings_project_deleted_active_view_mode_repair(
     return summary
 
 
+def summarize_settings_project_viewport_initialized_null_viewport_repair(
+    initial_load_http_status: int,
+    restart_load_http_status: int,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    seeded_persisted_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+        "restartLoadHttpStatus": restart_load_http_status,
+        "restartLatestHttpStatus": restart_latest_http_status,
+    }
+
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        summary.update(
+            summarize_settings_project_viewport_contract(
+                object_field(restart_load_payload, "projectConfig"),
+                prefix="restartLoad",
+            )
+        )
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        summary.update(
+            summarize_settings_project_viewport_contract(
+                object_field(latest_project_state, "projectConfig"),
+                prefix="restartLatest",
+            )
+        )
+
+    seeded_settings_project = settings_project_payload_from_store_payload(
+        seeded_persisted_payload
+    )
+    seeded_project_config = seeded_settings_project
+    if "projectConfig" in seeded_settings_project:
+        seeded_project_config = object_field(
+            seeded_settings_project, "projectConfig"
+        )
+    summary.update(
+        summarize_settings_project_viewport_contract(
+            seeded_project_config,
+            prefix="seededPersisted",
+        )
+    )
+    return summary
+
+
 def summarize_workspace_launch_outdated_settings_error(
     initial_settings_load_http_status: int,
     create_intent_http_status: int,
@@ -7139,6 +7268,27 @@ def summarize_settings_project_active_view_mode_projection(
     summary[f"{prefix}ProjectViewportInitializedMatchesActiveViewMode"] = bool(
         project_config.get("viewportInitialized", False)
     ) == bool(active_view_mode.get("viewportInitialized", False))
+    return summary
+
+
+def summarize_settings_project_viewport_contract(
+    project_config: dict[str, Any],
+    prefix: str,
+) -> dict[str, Any]:
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    summary: dict[str, Any] = {
+        f"{prefix}ActiveViewModeName": normalized_string(
+            settings_store_active_view_mode_name({"projectConfig": project_config})
+        ),
+        f"{prefix}ProjectViewportIsNone": project_config.get("viewport") is None,
+        f"{prefix}ProjectViewportInitialized": bool(
+            project_config.get("viewportInitialized", False)
+        ),
+        f"{prefix}ViewModeViewportStates": settings_view_mode_viewport_states(
+            view_modes,
+            SETTINGS_VIEWPORT_SAMPLE_VIEW_MODE_NAMES,
+        ),
+    }
     return summary
 
 
@@ -8133,6 +8283,55 @@ def remove_settings_view_mode_layout_entry_from_store_payload(
     return cloned
 
 
+def seed_settings_null_viewport_initialized_repair_payload(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    cloned = json.loads(json.dumps(payload))
+    settings_project = settings_project_payload_from_store_payload(cloned)
+
+    project_config = settings_project
+    if "projectConfig" in settings_project:
+        project_config = object_field(settings_project, "projectConfig")
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+
+    project_config["activeViewModeId"] = find_settings_view_mode_id(
+        {"projectConfig": project_config},
+        "Core",
+    )
+    project_config["viewport"] = None
+    project_config["viewportInitialized"] = True
+
+    for view_mode_name in ["Core", "All Settings"]:
+        view_mode_id = find_settings_view_mode_id(
+            {"projectConfig": project_config},
+            view_mode_name,
+        )
+        view_mode = expect_object(
+            view_modes.get(view_mode_id),
+            f"viewModes.{view_mode_id}",
+        )
+        view_mode["viewport"] = None
+        view_mode["viewportInitialized"] = True
+
+    control_view_mode_id = find_settings_view_mode_id(
+        {"projectConfig": project_config},
+        "Param Defaults",
+    )
+    control_view_mode = expect_object(
+        view_modes.get(control_view_mode_id),
+        f"viewModes.{control_view_mode_id}",
+    )
+    control_view_mode["viewport"] = {"x": 42, "y": -24, "zoom": 0.75}
+    control_view_mode["viewportInitialized"] = True
+
+    if "projectConfig" in cloned:
+        return cloned
+
+    projects = object_field(cloned, "projects", allow_missing=True)
+    projects["settings"] = settings_project
+    return cloned
+
+
 def remove_settings_section_from_single_config_payload(
     payload: dict[str, Any],
     section_name: str,
@@ -8556,6 +8755,20 @@ def ordered_view_mode_names(view_modes: dict[str, Any]) -> list[str]:
         )
     )
     return [normalized_string(view_mode.get("name")) for view_mode in ordered]
+
+
+def settings_view_mode_viewport_states(
+    view_modes: dict[str, Any],
+    view_mode_names: list[str],
+) -> dict[str, dict[str, Any]]:
+    states: dict[str, dict[str, Any]] = {}
+    for view_mode_name in view_mode_names:
+        view_mode = settings_view_mode_by_name(view_modes, view_mode_name)
+        states[view_mode_name] = {
+            "viewportIsNone": view_mode.get("viewport") is None,
+            "viewportInitialized": bool(view_mode.get("viewportInitialized", False)),
+        }
+    return states
 
 
 def summarize_settings_view_mode_layout_contract(

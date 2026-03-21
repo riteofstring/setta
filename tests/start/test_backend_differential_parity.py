@@ -1817,6 +1817,67 @@ class Route:
         self.assertEqual(project_config["viewport"], {"x": 80, "y": 40, "zoom": 1.3})
         self.assertTrue(project_config["viewportInitialized"])
 
+    def test_seed_settings_null_viewport_initialized_repair_payload_marks_stale_branches(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "activeViewModeId": "settings-all",
+                        "viewport": {"x": 10, "y": 20, "zoom": 1.1},
+                        "viewportInitialized": True,
+                        "viewModes": {
+                            "settings-core": {
+                                "id": "settings-core",
+                                "name": "Core",
+                                "sortIndex": 0,
+                                "viewport": {"x": 1, "y": 2, "zoom": 1.0},
+                                "viewportInitialized": True,
+                            },
+                            "settings-param-defaults": {
+                                "id": "settings-param-defaults",
+                                "name": "Param Defaults",
+                                "sortIndex": 3,
+                                "viewport": None,
+                                "viewportInitialized": False,
+                            },
+                            "settings-all": {
+                                "id": "settings-all",
+                                "name": "All Settings",
+                                "sortIndex": 4,
+                                "viewport": {"x": 3, "y": 4, "zoom": 0.9},
+                                "viewportInitialized": True,
+                            },
+                        },
+                    }
+                }
+            }
+        }
+
+        # Seed the active and inactive null-viewport branches while keeping one
+        # control mode on an explicit concrete viewport.
+        updated = harness.seed_settings_null_viewport_initialized_repair_payload(
+            payload
+        )
+        project_config = updated["projects"]["settings"]["projectConfig"]
+        view_modes = project_config["viewModes"]
+
+        self.assertEqual(project_config["activeViewModeId"], "settings-core")
+        self.assertIsNone(project_config["viewport"])
+        self.assertTrue(project_config["viewportInitialized"])
+        self.assertIsNone(view_modes["settings-core"]["viewport"])
+        self.assertTrue(view_modes["settings-core"]["viewportInitialized"])
+        self.assertIsNone(view_modes["settings-all"]["viewport"])
+        self.assertTrue(view_modes["settings-all"]["viewportInitialized"])
+        self.assertEqual(
+            view_modes["settings-param-defaults"]["viewport"],
+            {"x": 42, "y": -24, "zoom": 0.75},
+        )
+        self.assertTrue(view_modes["settings-param-defaults"]["viewportInitialized"])
+
     def test_remove_settings_view_mode_layout_entry_from_store_payload_supports_python_store_shape(
         self,
     ) -> None:
@@ -2100,6 +2161,138 @@ class Route:
                 "persistedProjectLayoutMatchesActiveViewMode": True,
                 "persistedProjectViewportMatchesActiveViewMode": True,
                 "persistedProjectViewportInitializedMatchesActiveViewMode": True,
+            },
+        )
+
+    def test_summarize_settings_project_viewport_initialized_null_viewport_repair_detects_cleared_flags(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        repaired_project_config = {
+            "activeViewModeId": "settings-core",
+            "viewport": None,
+            "viewportInitialized": False,
+            "viewModes": {
+                "settings-core": {
+                    "id": "settings-core",
+                    "name": "Core",
+                    "sortIndex": 0,
+                    "viewport": None,
+                    "viewportInitialized": False,
+                },
+                "settings-param-defaults": {
+                    "id": "settings-param-defaults",
+                    "name": "Param Defaults",
+                    "sortIndex": 3,
+                    "viewport": {"x": 42, "y": -24, "zoom": 0.75},
+                    "viewportInitialized": True,
+                },
+                "settings-all": {
+                    "id": "settings-all",
+                    "name": "All Settings",
+                    "sortIndex": 4,
+                    "viewport": None,
+                    "viewportInitialized": False,
+                },
+            },
+        }
+        restart_load_payload = {"projectConfig": repaired_project_config}
+        restart_latest_payload = {"projectState": restart_load_payload}
+        seeded_project_config = {
+            "activeViewModeId": "settings-core",
+            "viewport": None,
+            "viewportInitialized": True,
+            "viewModes": {
+                "settings-core": {
+                    "id": "settings-core",
+                    "name": "Core",
+                    "sortIndex": 0,
+                    "viewport": None,
+                    "viewportInitialized": True,
+                },
+                "settings-param-defaults": {
+                    "id": "settings-param-defaults",
+                    "name": "Param Defaults",
+                    "sortIndex": 3,
+                    "viewport": {"x": 42, "y": -24, "zoom": 0.75},
+                    "viewportInitialized": True,
+                },
+                "settings-all": {
+                    "id": "settings-all",
+                    "name": "All Settings",
+                    "sortIndex": 4,
+                    "viewport": None,
+                    "viewportInitialized": True,
+                },
+            },
+        }
+        seeded_persisted_payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": seeded_project_config,
+                }
+            }
+        }
+
+        # Active project projection and inactive view-mode branches should both
+        # clear stale initialized=true flags when the persisted viewport is null.
+        summary = (
+            harness.summarize_settings_project_viewport_initialized_null_viewport_repair(
+                initial_load_http_status=200,
+                restart_load_http_status=200,
+                restart_load_payload=restart_load_payload,
+                restart_latest_http_status=200,
+                restart_latest_payload=restart_latest_payload,
+                seeded_persisted_payload=seeded_persisted_payload,
+            )
+        )
+
+        expected_view_mode_states = {
+            "Core": {
+                "viewportIsNone": True,
+                "viewportInitialized": False,
+            },
+            "Param Defaults": {
+                "viewportIsNone": False,
+                "viewportInitialized": True,
+            },
+            "All Settings": {
+                "viewportIsNone": True,
+                "viewportInitialized": False,
+            },
+        }
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadActiveViewModeName": "Core",
+                "restartLoadProjectViewportIsNone": True,
+                "restartLoadProjectViewportInitialized": False,
+                "restartLoadViewModeViewportStates": expected_view_mode_states,
+                "restartLatestActiveViewModeName": "Core",
+                "restartLatestProjectViewportIsNone": True,
+                "restartLatestProjectViewportInitialized": False,
+                "restartLatestViewModeViewportStates": expected_view_mode_states,
+                "seededPersistedActiveViewModeName": "Core",
+                "seededPersistedProjectViewportIsNone": True,
+                "seededPersistedProjectViewportInitialized": True,
+                "seededPersistedViewModeViewportStates": {
+                    "Core": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": True,
+                    },
+                    "Param Defaults": {
+                        "viewportIsNone": False,
+                        "viewportInitialized": True,
+                    },
+                    "All Settings": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": True,
+                    },
+                },
             },
         )
 

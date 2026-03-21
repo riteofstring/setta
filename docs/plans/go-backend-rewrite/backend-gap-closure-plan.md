@@ -97,6 +97,12 @@ following are true:
   continue to resolve sections by name/display name/id, params by core/display
   name, and variants by user-facing variant name while failing closed on
   missing or non-param lookups.
+- The default differential manifest now also proves the `/settings`
+  null-viewport stale-flag repair contract against `main`: when persisted
+  active or inactive settings tabs carry `viewport=null` with stale
+  `viewportInitialized=true`, load and latest-state clear those flags back to
+  `false` while an explicit non-null control viewport keeps
+  `viewportInitialized=true`.
 - The explicit current-caller gap queue is now exhausted:
   `backend-behavior-parity-matrix.md` is at `Missing = 0` and
   `Implemented, proof incomplete = 0`.
