@@ -126,6 +126,22 @@ func TestReadFileRangeHandlerMirrorsPythonBehavior(t *testing.T) {
 			t.Fatalf("expected invalid_arguments, got %q", err.code)
 		}
 	})
+
+	t.Run("rejects absolute paths outside workspace", func(t *testing.T) {
+		outsideRoot := t.TempDir()
+		outsidePath := filepath.Join(outsideRoot, "outside.txt")
+		if err := os.WriteFile(outsidePath, []byte("nope"), 0o644); err != nil {
+			t.Fatalf("write outside file: %v", err)
+		}
+
+		err := mustToolError(t, handler, map[string]any{
+			"path": outsidePath,
+		})
+
+		if err.code != "invalid_arguments" {
+			t.Fatalf("expected invalid_arguments, got %q", err.code)
+		}
+	})
 }
 
 func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
