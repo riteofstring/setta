@@ -425,6 +425,22 @@ func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
 	}
 }
 
+func TestApplyOpenCodeRuntimeConfigKeepsStringPermissionWithoutScopedToolAllowlist(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{}
+	err := applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{
+		ApprovalPolicy: stringPtr("ask"),
+	}, map[string]any{}, nil, false, "", nil, true)
+	if err != nil {
+		t.Fatalf("apply opencode runtime config: %v", err)
+	}
+
+	if got := stringValue(payload["permission"]); got != "ask" {
+		t.Fatalf("expected string permission payload, got %#v", payload["permission"])
+	}
+}
+
 func TestResolveBundledNodeCommandPrefersExplicitPath(t *testing.T) {
 	if got := resolveBundledNodeCommand("  /custom/node  "); got != "/custom/node" {
 		t.Fatalf("expected explicit node path to win, got %q", got)
