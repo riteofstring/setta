@@ -134,3 +134,30 @@ func TestDecodeBackendProbeResponseRejectsLanguageServerArgsNotArrayOfStrings(t 
 		t.Fatalf("expected args decode error, got %v", err)
 	}
 }
+
+func TestDecodeBackendProbeResponseRejectsUnsupportedSchemaVersion(t *testing.T) {
+	// Probe schema mismatches should fail closed instead of activating stale backends.
+	_, err := decodeBackendProbeResponse([]byte(`{
+		"schemaVersion": 999,
+		"codegenTargets": [],
+		"languageServers": [],
+		"uiSettings": [],
+		"routes": [],
+		"staticDirs": [],
+		"listenerEndpoints": []
+	}`))
+	if err == nil {
+		t.Fatal("expected unsupported probe schema version to fail")
+	}
+	if !strings.Contains(err.Error(), "unsupported schema version") {
+		t.Fatalf("expected schema version error, got %v", err)
+	}
+}
+
+func TestDecodeBackendProbeResponseRejectsLeadingStdoutNoise(t *testing.T) {
+	// Probe stdout is reserved for JSON, so leading logs must fail decode.
+	_, err := decodeBackendProbeResponse([]byte("plugin-import-log\n{\"schemaVersion\":1}"))
+	if err == nil {
+		t.Fatal("expected leading stdout noise to fail decode")
+	}
+}

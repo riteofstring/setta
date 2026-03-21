@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/config"
 )
@@ -886,6 +887,97 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenBackendBuildFails(t *testing
 	}
 	if !strings.Contains(statusEntry.Errors[0].Message, "Plugin backend entrypoint must be valid Go source") {
 		t.Fatalf("expected backend build failure message, got %#v", statusEntry.Errors[0].Message)
+	}
+}
+
+func TestServiceRuntimeMarksBackendPluginInvalidWhenBackendProbeTimesOut(t *testing.T) {
+	// Hung backend probes should fail closed instead of stalling runtime/status reads indefinitely.
+	previousTimeout := backendProbeTimeout
+	backendProbeTimeout = 50 * time.Millisecond
+	t.Cleanup(func() {
+		backendProbeTimeout = previousTimeout
+	})
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte("package main\n\nimport (\n\t\"os\"\n\t\"time\"\n)\n\nconst backendProbeArg = \"--setta-plugin-backend-probe\"\n\nfunc main() {\n\tif len(os.Args) == 2 && os.Args[1] == backendProbeArg {\n\t\ttime.Sleep(200 * time.Millisecond)\n\t}\n}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend fixture with hanging probe: %v", err)
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 {
+		t.Fatalf("expected no active list plugins, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid status entry, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.Errors) != 1 {
+		t.Fatalf("expected one backend probe timeout error, got %#v", statusEntry.Errors)
+	}
+	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
+	}
+	if !strings.Contains(statusEntry.Errors[0].Message, "Go backend runtime probe timed out") {
+		t.Fatalf("expected backend probe timeout message, got %#v", statusEntry.Errors[0].Message)
+	}
+}
+
+func TestServiceRuntimeMarksBackendPluginInvalidWhenGoModuleDependencyIsMissing(t *testing.T) {
+	// Missing Go module dependencies should fail closed instead of backfilling a hidden runtime env.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte("package main\n\nimport (\n\t\"fmt\"\n\t\"github.com/google/uuid\"\n)\n\nfunc main() {\n\tfmt.Println(uuid.NewString())\n}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend fixture with missing module dependency: %v", err)
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 {
+		t.Fatalf("expected no active list plugins, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid status entry, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.Errors) != 1 {
+		t.Fatalf("expected one backend dependency error, got %#v", statusEntry.Errors)
+	}
+	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
 	}
 }
 

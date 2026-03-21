@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 
 	"setta/internal/projectstate"
@@ -21,6 +23,8 @@ const (
 	backendProbeSchemaVersion = 1
 	backendProbeBuildRootName = "plugin_backend_probe_builds"
 )
+
+var backendProbeTimeout = 5 * time.Second
 
 type backendProbeResponse struct {
 	SchemaVersion     int                                `json:"schemaVersion"`
@@ -53,10 +57,20 @@ func probeGoBackendRegistrations(pluginRoot string, manifest PluginManifest, bui
 }
 
 func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, executablePath string) (backendProbeResponse, error) {
-	command := exec.Command(executablePath, backendProbeArg)
+	ctx, cancel := context.WithTimeout(context.Background(), backendProbeTimeout)
+	defer cancel()
+
+	command := exec.CommandContext(ctx, executablePath, backendProbeArg)
 	command.Dir = pluginRoot
 	output, err := command.CombinedOutput()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return backendProbeResponse{}, newServiceError(
+				ServiceErrorCodeBackendRuntimeInvalid,
+				"Go backend runtime probe timed out for plugin %s",
+				manifest.ID,
+			)
+		}
 		message := strings.TrimSpace(string(output))
 		if message == "" {
 			message = err.Error()
