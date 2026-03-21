@@ -217,6 +217,39 @@ func TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches(t *tes
 	}
 }
 
+func TestLocalLaunchServiceForwardsInvalidRuntimeRootSessionError(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	fixture.sessions.err = &launcher.SessionLaunchError{
+		Code:    "InvalidRuntimeRoot",
+		Message: "failed to initialize runtime logs directory: /tmp/runtime/logs: mkdir /tmp/runtime/logs: not a directory",
+	}
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err == nil {
+		t.Fatal("expected invalid runtime root launch failure")
+	}
+	launchErr, ok := err.(*LaunchError)
+	if !ok {
+		t.Fatalf("expected launch error, got %T", err)
+	}
+	if launchErr.Code != "InvalidRuntimeRoot" {
+		t.Fatalf("expected InvalidRuntimeRoot, got %#v", launchErr)
+	}
+	if !strings.Contains(launchErr.Message, "/tmp/runtime/logs") {
+		t.Fatalf("expected runtime logs path in message, got %q", launchErr.Message)
+	}
+	if launchErr.ReturnURL != "http://launcher.example:7999/home" {
+		t.Fatalf("expected stored return URL, got %q", launchErr.ReturnURL)
+	}
+}
+
 func TestLocalLaunchServiceProfileLaunchOmitsSettaFilesLocationWhenUnset(t *testing.T) {
 	t.Parallel()
 

@@ -99,6 +99,17 @@ type startedProcess interface {
 	LogPath() string
 }
 
+type invalidRuntimeRootError struct {
+	message string
+}
+
+func (e *invalidRuntimeRootError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
 func NewLocalIDESessionLauncher(options LocalIDESessionLauncherOptions) (*LocalIDESessionLauncher, error) {
 	executablePath := strings.TrimSpace(options.ExecutablePath)
 	if executablePath == "" {
@@ -222,6 +233,13 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 		RuntimeRoot: targetConfig.Paths.RuntimeRoot,
 	})
 	if err != nil {
+		var invalidRuntimeErr *invalidRuntimeRootError
+		if errors.As(err, &invalidRuntimeErr) {
+			return IDELaunchResult{}, &SessionLaunchError{
+				Code:    "InvalidRuntimeRoot",
+				Message: err.Error(),
+			}
+		}
 		return IDELaunchResult{}, &SessionLaunchError{
 			Code:    "LaunchFailed",
 			Message: err.Error(),
@@ -502,11 +520,15 @@ func (p *execStartedProcess) LogPath() string {
 func startLauncherProcess(request processStartRequest) (startedProcess, error) {
 	logDir := filepath.Join(request.RuntimeRoot, "logs")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to initialize runtime logs directory: %s: %w", logDir, err)
+		return nil, &invalidRuntimeRootError{
+			message: fmt.Sprintf("failed to initialize runtime logs directory: %s: %v", logDir, err),
+		}
 	}
 	logFile, err := os.CreateTemp(logDir, "launch-*.log")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create launch log file in %s: %w", logDir, err)
+		return nil, &invalidRuntimeRootError{
+			message: fmt.Sprintf("failed to create launch log file in %s: %v", logDir, err),
+		}
 	}
 	logPath := logFile.Name()
 

@@ -424,6 +424,68 @@ func TestLocalIDESessionLauncherEnsureSessionSurfacesLaunchFailureTailAndLogPath
 	}
 }
 
+func TestLocalIDESessionLauncherEnsureSessionReturnsInvalidRuntimeRootWhenRuntimeLogInitFails(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	for _, path := range []string{workspaceRoot, settaHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	runtimeRoot := filepath.Join(root, "runtime")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "logs"), []byte("not-a-directory"), 0o644); err != nil {
+		t.Fatalf("write conflicting logs file: %v", err)
+	}
+
+	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot:  filepath.Join(root, "registry"),
+		PIDCreateTime: func(int) *float64 { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new session registry: %v", err)
+	}
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		RegistryFactory: func(string) (*localsessions.Registry, error) {
+			return registry, nil
+		},
+		ProcessStarter: startLauncherProcess,
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	location := "local"
+	_, err = launcher.EnsureSession(IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+	})
+	if err == nil {
+		t.Fatal("expected invalid runtime root launch failure")
+	}
+	var launchErr *SessionLaunchError
+	if !errors.As(err, &launchErr) {
+		t.Fatalf("expected SessionLaunchError, got %T: %v", err, err)
+	}
+	if launchErr.Code != "InvalidRuntimeRoot" {
+		t.Fatalf("expected InvalidRuntimeRoot, got %q (%v)", launchErr.Code, err)
+	}
+	expectedLogsPath := filepath.Join(runtimeRoot, "logs")
+	if !strings.Contains(launchErr.Message, expectedLogsPath) {
+		t.Fatalf("expected runtime logs path %q in message, got %q", expectedLogsPath, launchErr.Message)
+	}
+}
+
 func TestLocalIDESessionLauncherEnsureSessionReturnsTypedOutdatedSettingsError(t *testing.T) {
 	t.Parallel()
 
@@ -584,6 +646,35 @@ func TestStartLauncherProcessCreatesRuntimeLogFile(t *testing.T) {
 	}
 	if !strings.Contains(logOutput, "stderr-line") {
 		t.Fatalf("expected stderr in launch log, got %q", logOutput)
+	}
+}
+
+func TestStartLauncherProcessReturnsInvalidRuntimeRootForRuntimeLogInitFailure(t *testing.T) {
+	t.Parallel()
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "logs"), []byte("not-a-directory"), 0o644); err != nil {
+		t.Fatalf("write conflicting logs file: %v", err)
+	}
+
+	_, err := startLauncherProcess(processStartRequest{
+		Args:        []string{"/tmp/setta-server"},
+		CWD:         t.TempDir(),
+		RuntimeRoot: runtimeRoot,
+	})
+	if err == nil {
+		t.Fatal("expected invalid runtime root error")
+	}
+	var invalidRuntimeErr *invalidRuntimeRootError
+	if !errors.As(err, &invalidRuntimeErr) {
+		t.Fatalf("expected invalidRuntimeRootError, got %T: %v", err, err)
+	}
+	expectedLogsPath := filepath.Join(runtimeRoot, "logs")
+	if !strings.Contains(invalidRuntimeErr.Error(), expectedLogsPath) {
+		t.Fatalf("expected runtime logs path %q in message, got %q", expectedLogsPath, invalidRuntimeErr.Error())
 	}
 }
 

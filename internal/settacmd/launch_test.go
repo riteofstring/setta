@@ -302,6 +302,48 @@ func TestRunLaunchSurfacesSessionLaunchErrorAsJSON(t *testing.T) {
 	}
 }
 
+func TestRunLaunchSurfacesInvalidRuntimeRootAsJSON(t *testing.T) {
+	t.Parallel()
+
+	message := "failed to initialize runtime logs directory: /tmp/runtime/logs: mkdir /tmp/runtime/logs: not a directory"
+	deps := testLaunchDependencies(t, launchTestOptions{
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				return launcher.IDELaunchResult{}, &launcher.SessionLaunchError{
+					Code:    "InvalidRuntimeRoot",
+					Message: message,
+				}
+			}), nil
+		},
+	})
+
+	stdout, stderr, err := runLaunchCommandWithDeps(t, []string{"--json"}, globalFlags{}, t.TempDir(), deps)
+	if err == nil {
+		t.Fatal("expected launch failure")
+	}
+	if code := ExitCode(err); code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["ok"]; got != false {
+		t.Fatalf("expected ok=false payload, got %#v", payload)
+	}
+	errorPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %#v", payload)
+	}
+	if got := errorPayload["code"]; got != "InvalidRuntimeRoot" {
+		t.Fatalf("expected InvalidRuntimeRoot error, got %#v", got)
+	}
+	if got := errorPayload["message"]; got != message {
+		t.Fatalf("expected invalid runtime root message, got %#v", got)
+	}
+}
+
 type launchTestOptions struct {
 	resolveCurrentExecutable func() (string, error)
 	resolveServerExecutable  func(string, func(string) (string, bool)) (string, error)
