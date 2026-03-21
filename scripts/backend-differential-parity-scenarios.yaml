@@ -127,3 +127,11 @@ scenarios:
     kind: json_source_startup_shared_pair_load
     seed: none
     description: Restarting with two shared JSON-backed sections should hydrate both sections from the backing file while keeping distinct code-object trees per section.
+  - name: json_source_shared_pair_route_refresh_keeps_peer_tree
+    kind: json_source_shared_pair_route_refresh_keeps_peer_tree
+    seed: none
+    description: Refreshing one shared JSON-backed section should update only the requested section's live tree while leaving an unrequested peer tree untouched.
+  - name: json_source_shared_pair_route_missing_preserves_loaded_tree
+    kind: json_source_shared_pair_route_missing_preserves_loaded_tree
+    seed: none
+    description: Re-submitting the same jsonSourceKeys after a previously loaded shared backing file disappears should preserve the current live trees and avoid persisting a new missing flag.

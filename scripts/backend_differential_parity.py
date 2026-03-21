@@ -573,6 +573,26 @@ def seed_setta_files(
             {"alpha": {"fresh": 2}},
         )
         return
+    if scenario.kind == "json_source_shared_pair_route_refresh_keeps_peer_tree":
+        write_json(
+            setta_files_root / PROJECT_FILE_NAME,
+            build_json_source_startup_shared_pair_load_store_payload(target),
+        )
+        write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+        return
+    if scenario.kind == "json_source_shared_pair_route_missing_preserves_loaded_tree":
+        write_json(
+            setta_files_root / PROJECT_FILE_NAME,
+            build_json_source_startup_shared_pair_load_store_payload(target),
+        )
+        write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+        workspace_data_root = setta_files_root.parent / "data"
+        workspace_data_root.mkdir(parents=True, exist_ok=True)
+        write_json_preserving_order(
+            workspace_data_root / "source.json",
+            {"alpha": {"fresh": 2}},
+        )
+        return
     if scenario.seed == "none":
         return
     if scenario.seed == "empty":
@@ -1897,6 +1917,12 @@ def execute_scenario(
         return execute_json_source_key_change_refresh(backend)
     if scenario.kind == "json_source_startup_shared_pair_load":
         return execute_json_source_startup_shared_pair_load(backend)
+    if scenario.kind == "json_source_shared_pair_route_refresh_keeps_peer_tree":
+        return execute_json_source_shared_pair_route_refresh_keeps_peer_tree(backend)
+    if scenario.kind == "json_source_shared_pair_route_missing_preserves_loaded_tree":
+        return execute_json_source_shared_pair_route_missing_preserves_loaded_tree(
+            backend
+        )
     raise ParityHarnessError(
         f"Unsupported scenario kind {scenario.kind!r} for {scenario.name}"
     )
@@ -2116,6 +2142,119 @@ def execute_json_source_startup_shared_pair_load(
         persisted_project=persisted_project,
     )
     return summary, {
+        "loadProjectConfig": {
+            "status": load_response.status_code,
+            "payload": loaded_payload,
+        },
+        "persistedProject": persisted_project,
+    }
+
+
+def execute_json_source_shared_pair_route_refresh_keeps_peer_tree(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    source_path = backend.workspace_root / "data" / "source.json"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json_preserving_order(source_path, {"alpha": {"fresh": 2}})
+
+    set_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_VARIANT_JSON_SOURCE_KEYS,
+        payload={
+            "projectConfigId": "project-alpha",
+            "sectionId": "json-section-a",
+            "variantId": "json-variant-a",
+            "jsonSourceKeys": ["alpha"],
+        },
+    )
+    set_payload = normalize_response_json(set_response)
+
+    load_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "Project Alpha"},
+    )
+    loaded_payload = normalize_response_json(load_response)
+    if not isinstance(loaded_payload, dict):
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded_payload!r}"
+        )
+
+    persisted_document = read_persisted_project_document(backend)
+    persisted_project = project_from_store_payload(
+        persisted_document,
+        project_id="project-alpha",
+    )
+
+    summary = summarize_json_source_shared_pair_route_result(
+        set_status=set_response.status_code,
+        load_status=load_response.status_code,
+        loaded_payload=loaded_payload,
+        persisted_project=persisted_project,
+    )
+    return summary, {
+        "setVariantJSONSourceKeys": {
+            "status": set_response.status_code,
+            "payload": set_payload,
+        },
+        "loadProjectConfig": {
+            "status": load_response.status_code,
+            "payload": loaded_payload,
+        },
+        "persistedProject": persisted_project,
+    }
+
+
+def execute_json_source_shared_pair_route_missing_preserves_loaded_tree(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    source_path = backend.workspace_root / "data" / "source.json"
+    source_path.unlink()
+
+    set_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_VARIANT_JSON_SOURCE_KEYS,
+        payload={
+            "projectConfigId": "project-alpha",
+            "sectionId": "json-section-a",
+            "variantId": "json-variant-a",
+            "jsonSourceKeys": ["alpha"],
+        },
+    )
+    set_payload = normalize_response_json(set_response)
+
+    load_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "Project Alpha"},
+    )
+    loaded_payload = normalize_response_json(load_response)
+    if not isinstance(loaded_payload, dict):
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded_payload!r}"
+        )
+
+    persisted_document = read_persisted_project_document(backend)
+    persisted_project = project_from_store_payload(
+        persisted_document,
+        project_id="project-alpha",
+    )
+
+    summary = summarize_json_source_shared_pair_route_result(
+        set_status=set_response.status_code,
+        load_status=load_response.status_code,
+        loaded_payload=loaded_payload,
+        persisted_project=persisted_project,
+    )
+    return summary, {
+        "setVariantJSONSourceKeys": {
+            "status": set_response.status_code,
+            "payload": set_payload,
+        },
         "loadProjectConfig": {
             "status": load_response.status_code,
             "payload": loaded_payload,
@@ -4281,6 +4420,42 @@ def summarize_json_source_startup_shared_pair_load(
     persisted_project: dict[str, Any],
 ) -> dict[str, Any]:
     return {
+        "loadProjectConfigStatus": load_status,
+        "loadedTarget": summarize_json_source_variant_tree(
+            loaded_payload,
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        ),
+        "loadedPeer": summarize_json_source_variant_tree(
+            loaded_payload,
+            section_impl_id="json-impl-b",
+            old_root_id="old-root-b",
+            old_leaf_id="old-leaf-b",
+        ),
+        "persistedTarget": summarize_json_source_variant_tree(
+            persisted_project,
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        ),
+        "persistedPeer": summarize_json_source_variant_tree(
+            persisted_project,
+            section_impl_id="json-impl-b",
+            old_root_id="old-root-b",
+            old_leaf_id="old-leaf-b",
+        ),
+    }
+
+
+def summarize_json_source_shared_pair_route_result(
+    set_status: int,
+    load_status: int,
+    loaded_payload: dict[str, Any],
+    persisted_project: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "setVariantJSONSourceKeysStatus": set_status,
         "loadProjectConfigStatus": load_status,
         "loadedTarget": summarize_json_source_variant_tree(
             loaded_payload,

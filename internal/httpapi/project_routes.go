@@ -2634,19 +2634,37 @@ func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.Handler
 		}
 
 		ctx := projectMutationContext(r.Context(), payload.FrontendOpID)
-		mutate := func(document projectstate.Document) (projectstate.Document, error) {
-			resolution, err := projectstate.ResolveVariantJSONSourceKeys(
-				document,
-				deps.WorkspaceRoot,
+		snapshotDocument := runtime.Snapshot().Document
+		resolution, err := projectstate.ResolveVariantJSONSourceKeys(
+			snapshotDocument,
+			deps.WorkspaceRoot,
+			projectID,
+			payload.SectionID,
+			payload.VariantID,
+			payload.JSONSourceKeys,
+		)
+		if err != nil {
+			writeVariantJSONSourceMutationError(w, r, err)
+			return
+		}
+		preserveLiveTreeOnMissingReload := false
+		if resolution.JSONSourceMissing {
+			preserveLiveTreeOnMissingReload, err = snapshotDocument.ShouldPreserveVariantJSONSourceLiveTreeOnMissingReload(
 				projectID,
 				payload.SectionID,
 				payload.VariantID,
-				payload.JSONSourceKeys,
+				resolution.JSONSourceKeys,
 			)
 			if err != nil {
-				return document, err
+				writeVariantJSONSourceMutationError(w, r, err)
+				return
 			}
+		}
+		mutate := func(document projectstate.Document) (projectstate.Document, error) {
 			if resolution.JSONSourceMissing {
+				if preserveLiveTreeOnMissingReload {
+					return document, nil
+				}
 				if err := document.SetVariantJSONSourceKeysState(
 					projectID,
 					payload.SectionID,
@@ -2674,18 +2692,11 @@ func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.Handler
 		}
 
 		snapshotErr := func() error {
-			resolution, err := projectstate.ResolveVariantJSONSourceKeys(
-				runtime.Snapshot().Document,
-				deps.WorkspaceRoot,
-				projectID,
-				payload.SectionID,
-				payload.VariantID,
-				payload.JSONSourceKeys,
-			)
-			if err != nil {
-				return err
-			}
 			if resolution.JSONSourceMissing {
+				if preserveLiveTreeOnMissingReload {
+					_, err = runtime.MutateWithContext(ctx, mutate)
+					return err
+				}
 				_, err = runtime.MutateAndSave(ctx, mutate)
 				return err
 			}

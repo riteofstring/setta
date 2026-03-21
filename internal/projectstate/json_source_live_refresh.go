@@ -5,6 +5,43 @@ import (
 	"strings"
 )
 
+func (d *Document) ShouldPreserveVariantJSONSourceLiveTreeOnMissingReload(projectID string, sectionID string, variantID string, requestedKeys []string) (bool, error) {
+	if d == nil {
+		return false, ErrProjectNotFound
+	}
+
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return false, err
+	}
+	_, _, _, payload, err := project.resolveVariantDictSectionMutationState(sectionID, variantID)
+	if err != nil {
+		return false, err
+	}
+	if payloadBoolField(payload, "jsonSourceMissing") {
+		return false, nil
+	}
+	if !stringSlicesEqual(
+		payloadStringArrayField(payload, "jsonSourceKeys"),
+		normalizeJSONSourceKeys(requestedKeys),
+	) {
+		return false, nil
+	}
+	topLevelParamID := strings.TrimSpace(payloadStringField(payload, "topLevelParamId"))
+	if topLevelParamID == "" {
+		return false, nil
+	}
+	codeObjVariantMap := payloadStringMapField(payload, "codeObjVariantMap")
+	rootVariantID := strings.TrimSpace(codeObjVariantMap[topLevelParamID])
+	if rootVariantID == "" {
+		return false, nil
+	}
+	if _, err := effectiveCodeObjectPayloadForVariant(project, topLevelParamID, rootVariantID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (d *Document) RefreshVariantJSONSourceLiveTree(projectID string, sectionID string, variantID string, requestedKeys []string, sourceObject JSONSourceObject) error {
 	if d == nil {
 		return ErrProjectNotFound
