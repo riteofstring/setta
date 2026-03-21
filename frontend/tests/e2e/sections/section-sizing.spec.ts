@@ -4,8 +4,8 @@ import {
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   loadProjectConfig,
-  type ProjectStateSingleConfigResponse,
   postBackend,
+  type ProjectStateSingleConfigResponse,
 } from "../helpers";
 
 async function createSection(
@@ -88,9 +88,7 @@ test("chart resize clamps to min and persists size", async ({ page }) => {
     );
     await expect(sectionNode).toBeVisible();
 
-    const handle = sectionNode.locator(
-      ".section-resize-handle-bottom-right",
-    );
+    const handle = sectionNode.locator(".section-resize-handle-bottom-right");
     await expect(handle).toHaveCount(1);
     await sectionNode.hover();
 
@@ -166,26 +164,23 @@ test("meta control slider only shows width resize handle", async ({ page }) => {
 
     expect(menuPoint.x).toBeLessThan(sectionBox.x);
 
-    const hitInfo = await menuTrigger.evaluate(
-      (el, point) => {
-        const hit = document.elementFromPoint(point.x, point.y);
-        const style = window.getComputedStyle(el);
-        const hitStyle = hit ? window.getComputedStyle(hit as Element) : null;
-        return {
-          menuPointerEvents: style.pointerEvents,
-          menuOpacity: style.opacity,
-          menuZIndex: style.zIndex,
-          hitTag: hit?.tagName ?? null,
-          hitId: hit instanceof HTMLElement ? hit.id : null,
-          hitClass: hit instanceof HTMLElement ? hit.className : null,
-          hitAriaLabel:
-            hit instanceof HTMLElement ? hit.getAttribute("aria-label") : null,
-          hitZIndex: hitStyle?.zIndex ?? null,
-          contained: !!hit && el.contains(hit),
-        };
-      },
-      menuPoint,
-    );
+    const hitInfo = await menuTrigger.evaluate((el, point) => {
+      const hit = document.elementFromPoint(point.x, point.y);
+      const style = window.getComputedStyle(el);
+      const hitStyle = hit ? window.getComputedStyle(hit as Element) : null;
+      return {
+        menuPointerEvents: style.pointerEvents,
+        menuOpacity: style.opacity,
+        menuZIndex: style.zIndex,
+        hitTag: hit?.tagName ?? null,
+        hitId: hit instanceof HTMLElement ? hit.id : null,
+        hitClass: hit instanceof HTMLElement ? hit.className : null,
+        hitAriaLabel:
+          hit instanceof HTMLElement ? hit.getAttribute("aria-label") : null,
+        hitZIndex: hitStyle?.zIndex ?? null,
+        contained: !!hit && el.contains(hit),
+      };
+    }, menuPoint);
     if (!hitInfo.contained) {
       throw new Error(
         `MetaControl menu trigger is not hittable at (${Math.round(menuPoint.x)},${Math.round(menuPoint.y)}).\n\nDetails:\n${JSON.stringify(hitInfo, null, 2)}`,
@@ -194,6 +189,61 @@ test("meta control slider only shows width resize handle", async ({ page }) => {
 
     const rightHandle = sectionNode.locator(".cursor-col-resize");
     await expect(rightHandle).toHaveCount(1);
+  } finally {
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
+  }
+});
+
+test("code section title editing keeps section width and header height stable", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const sectionId = await createSection(page, projectConfigId, "Code");
+
+  try {
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+
+    const sectionCard = sectionNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const header = sectionCard.locator("header");
+    const title = header.locator("p, h2").first();
+
+    await expect(header).toBeVisible();
+    await expect(title).toBeVisible();
+
+    const sectionBoxBefore = await sectionNode.boundingBox();
+    const headerBoxBefore = await header.boundingBox();
+    if (!sectionBoxBefore || !headerBoxBefore) {
+      throw new Error("Missing section/header bounds before title edit.");
+    }
+
+    await title.dblclick();
+
+    const titleInput = header.locator("input");
+    await expect(titleInput).toBeVisible();
+
+    const sectionBoxAfter = await sectionNode.boundingBox();
+    const headerBoxAfter = await header.boundingBox();
+    if (!sectionBoxAfter || !headerBoxAfter) {
+      throw new Error("Missing section/header bounds during title edit.");
+    }
+
+    expect(
+      Math.abs(sectionBoxAfter.width - sectionBoxBefore.width),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(headerBoxAfter.width - headerBoxBefore.width),
+    ).toBeLessThanOrEqual(1);
+    expect(headerBoxBefore.height).toBeGreaterThanOrEqual(21);
+    expect(headerBoxAfter.height).toBeGreaterThanOrEqual(21);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,
@@ -272,9 +322,7 @@ test("callable resize exits auto height cap", async ({ page }) => {
       })
       .toBe("auto");
 
-    const handle = sectionNode.locator(
-      ".section-resize-handle-bottom-right",
-    );
+    const handle = sectionNode.locator(".section-resize-handle-bottom-right");
     await expect(handle).toHaveCount(1);
 
     const box = await handle.boundingBox();
