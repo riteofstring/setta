@@ -639,6 +639,56 @@ func TestServiceRuntimeBlocksCodegenTargetCapabilityByModePolicy(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeBlocksLanguageServerCapabilityByModePolicy(t *testing.T) {
+	// Share/app runtime should block backend language-server registration and keep specs empty.
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				payload["capabilities"] = []string{"registerLanguageServer"}
+			})
+
+			service := mustNewPluginMutationService(t, roots, nil, mode)
+			runtimeResponse, err := service.Runtime(RuntimeOptions{})
+			if err != nil {
+				t.Fatalf("load runtime payload: %v", err)
+			}
+			if len(runtimeResponse.List.Plugins) != 1 {
+				t.Fatalf("expected one plugin, got %#v", runtimeResponse.List.Plugins)
+			}
+			if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 0 {
+				t.Fatalf("expected no effective language-server capability, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+			}
+
+			statusEntry := runtimeResponse.Status.Plugins[0]
+			if statusEntry.State != PluginRuntimeStateActive {
+				t.Fatalf("expected active status entry, got %#v", statusEntry.State)
+			}
+			if len(statusEntry.RequestedCapabilities) != 1 || statusEntry.RequestedCapabilities[0] != "registerLanguageServer" {
+				t.Fatalf("expected requested language-server capability, got %#v", statusEntry.RequestedCapabilities)
+			}
+			if len(statusEntry.BlockedCapabilities) != 1 {
+				t.Fatalf("expected one blocked capability, got %#v", statusEntry.BlockedCapabilities)
+			}
+			if statusEntry.BlockedCapabilities[0].Capability != "registerLanguageServer" {
+				t.Fatalf("expected registerLanguageServer to be blocked, got %#v", statusEntry.BlockedCapabilities[0])
+			}
+			if statusEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonModePolicy {
+				t.Fatalf("expected mode-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
+			}
+
+			specs, err := service.LanguageServerSpecs(context.Background())
+			if err != nil {
+				t.Fatalf("load language server specs: %v", err)
+			}
+			if len(specs) != 0 {
+				t.Fatalf("expected no language server specs in %s, got %#v", mode, specs)
+			}
+		})
+	}
+}
+
 func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	// IDE runtime should expose the routed backend capability set directly from the Go-owned backend contract.
 	roots := newFilesystemResolverTestRoots(t)

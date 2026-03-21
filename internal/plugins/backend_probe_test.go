@@ -114,6 +114,66 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 	}
 }
 
+func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testing.T) {
+	// Language-server registrations must fail closed on missing commands and python targets.
+	pluginRoot := t.TempDir()
+	testCases := []struct {
+		name         string
+		registration PluginRegisteredLanguageServer
+		wantErr      string
+	}{
+		{
+			name: "python-target",
+			registration: PluginRegisteredLanguageServer{
+				Name:     "Fixture DSL",
+				Language: "python",
+				Command:  "python3",
+			},
+			wantErr: "cannot target python",
+		},
+		{
+			name: "missing-command",
+			registration: PluginRegisteredLanguageServer{
+				Name:     "Fixture DSL",
+				Language: "typescript",
+				Command:  "   ",
+			},
+			wantErr: "command is required",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", testCase.registration)
+			if err == nil {
+				t.Fatalf("expected invalid language-server registration %#v to fail", testCase.registration)
+			}
+			if !strings.Contains(err.Error(), testCase.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", testCase.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestNormalizeBackendLanguageServerRegistrationTreatsBlankSettingsKeyAsOmitted(t *testing.T) {
+	// Blank settings keys are normalized away instead of failing the entire registration.
+	pluginRoot := t.TempDir()
+	settingsKey := "   "
+
+	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:        "Fixture DSL",
+		Language:    "typescript",
+		Command:     "python3",
+		SettingsKey: &settingsKey,
+	})
+	if err != nil {
+		t.Fatalf("normalize backend language server registration: %v", err)
+	}
+	if normalized.SettingsKey != nil {
+		t.Fatalf("expected blank settings key to be omitted, got %#v", normalized.SettingsKey)
+	}
+}
+
 func TestDecodeBackendProbeResponseRejectsLanguageServerArgsNotArrayOfStrings(t *testing.T) {
 	// Malformed language-server payloads should fail decode before they reach runtime status.
 	_, err := decodeBackendProbeResponse([]byte(`{
@@ -132,6 +192,27 @@ func TestDecodeBackendProbeResponseRejectsLanguageServerArgsNotArrayOfStrings(t 
 	}
 	if !strings.Contains(err.Error(), "args") {
 		t.Fatalf("expected args decode error, got %v", err)
+	}
+}
+
+func TestDecodeBackendProbeResponseRejectsUnknownLanguageServerFields(t *testing.T) {
+	// Unknown language-server fields must fail decode instead of being silently ignored.
+	_, err := decodeBackendProbeResponse([]byte(`{
+		"schemaVersion": 1,
+		"languageServers": [
+			{
+				"name": "Fixture DSL",
+				"language": "typescript",
+				"command": "python3",
+				"unsupported": true
+			}
+		]
+	}`))
+	if err == nil {
+		t.Fatal("expected unknown language-server field to fail decode")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown-field decode error, got %v", err)
 	}
 }
 
