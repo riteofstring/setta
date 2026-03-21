@@ -410,3 +410,8 @@ categorize them.
   runtime ownership work: completion-claim rewrite/finalization behavior and
   the other still-missing caller-visible runtime branches rather than more
   config-file materialization cleanup
+- The managed-chat completion-guard wiring row is now closed too, so future
+  caller-visible AI work should stay focused on the remaining external-agent
+  runtime ownership rows and the still-missing app-generation/send-surface
+  contracts instead of reopening managed completion-tool prompt/config
+  shaping
