@@ -45,13 +45,19 @@ categorize them.
 
 ## Current Starting Backlog
 
-- The default differential manifest now has a concrete JSON-source mismatch:
-  `json_source_key_change_refresh`. `main` treats
-  `setVariantJsonSourceKeys` as a live-only file-backed refresh that changes
-  the next loaded subtree without updating the persisted store, while the Go
-  rewrite currently persists the trimmed keys but leaves the loaded and
-  persisted tree stale. Start the next JSON-source pass there before taking a
-  broader save/watch slice.
+- The default differential manifest no longer reports the
+  `json_source_key_change_refresh` mismatch. Existing-file
+  `setVariantJsonSourceKeys` edits now match `main`: the route validates the
+  selected dict path, refreshes the live file-backed subtree in memory, keeps
+  the persisted `jsonSourceKeys` and stored tree unchanged, and still marks
+  the frontend op complete. The remaining JSON-source backlog is still the
+  broader load/save/watch owner.
+- The current default-manifest mismatch is now
+  `settings_project_missing_required_section_fails_closed`. `main` currently
+  restarts into a generic startup-failure envelope after that corrupted
+  settings-shell state, while the Go rewrite surfaces a direct missing-section
+  summary. Start the next dedicated `/settings` pass there before expanding
+  broader settings-shell parity coverage.
 - Expand the differential manifest beyond the current bootstrap / websocket /
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
   reserved-name-save / required-view-mode-repair /
@@ -67,7 +73,8 @@ categorize them.
 - The narrow JSON-source key-edit validation branch is now closed too:
   existing-file `jsonSourceKeys` edits fail closed unless the target resolves
   to a dict, and missing-file edits stay accepted while marking the variant
-  `jsonSourceMissing`; the remaining JSON-source backlog is the larger
+  `jsonSourceMissing`; the existing-file key-change live-refresh branch is now
+  closed too, so the remaining JSON-source backlog is the larger
   load/save/watch owner
 - The latest-state stale-`activeIds`, empty-`windowSpaces`, and
   project/window-space load-normalization rows are now proved via the default
