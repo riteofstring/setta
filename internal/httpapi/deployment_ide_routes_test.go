@@ -164,6 +164,78 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 	}
 }
 
+func TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
+	storePath := filepath.Join(t.TempDir(), projectstate.MainFileName)
+	store, err := projectstate.NewStore(storePath, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new persisted project store: %v", err)
+	}
+	if err := store.Save(context.Background(), deploymentIDERouteDocument(nil)); err != nil {
+		t.Fatalf("seed persisted project store: %v", err)
+	}
+
+	persistedRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	if err != nil {
+		t.Fatalf("open persisted project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := persistedRuntime.Close(); err != nil {
+			t.Fatalf("close persisted project runtime: %v", err)
+		}
+	})
+	fixture.ProjectRuntime = persistedRuntime
+
+	if _, err := fixture.ProjectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.ShowParamDisplayNames = true
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate runtime snapshot: %v", err)
+	}
+	persistedDocument, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted project store: %v", err)
+	}
+	if persistedDocument.Projects["project-alpha"].ShowParamDisplayNames {
+		t.Fatal("did not expect unsaved runtime mutation to reach the persisted project store")
+	}
+
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteShareDeployments,
+		strings.NewReader(`{"deploymentName":"demo-share","projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected share publish 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload deploymentMetadataResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode share publish payload: %v", err)
+	}
+
+	publishedStore, err := projectstate.NewStore(filepath.Join(payload.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open published share store: %v", err)
+	}
+	document, err := publishedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load published share document: %v", err)
+	}
+	if !document.Projects["project-alpha"].ShowParamDisplayNames {
+		t.Fatal("expected share publish route to persist the latest runtime mutation")
+	}
+}
+
 func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	t.Parallel()
 
