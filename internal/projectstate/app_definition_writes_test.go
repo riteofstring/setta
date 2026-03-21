@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/appspec"
@@ -176,6 +177,55 @@ func TestRuntimeUpdateAppDefinitionMergesPatchAndRewritesStoredSpec(t *testing.T
 
 	if snapshot.Document.AppDefinition == nil || snapshot.Document.AppDefinition.AppSpecPath != appspec.DefaultPath() {
 		t.Fatalf("expected snapshot app definition with default path, got %#v", snapshot.Document.AppDefinition)
+	}
+}
+
+func TestRuntimeUpdateAppDefinitionRejectsUnknownComponentWithoutRewritingStoredSpec(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store := newTestStore(t, filepath.Join(root, "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+
+	runtime := openTestRuntime(t, store)
+	initial := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+	if _, _, err := runtime.SetAppDefinition(context.Background(), SetAppDefinitionInput{AppSpec: initial}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	_, _, err := runtime.UpdateAppDefinition(context.Background(), map[string]any{
+		"root": map[string]any{
+			"type": "Nope",
+		},
+	})
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown component") {
+		t.Fatalf("expected unknown component error, got %v", err)
+	}
+
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec after rejected update: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, initial) {
+		t.Fatalf("expected stored app spec %#v after rejected update, got %#v", initial, storedSpec)
 	}
 }
 
