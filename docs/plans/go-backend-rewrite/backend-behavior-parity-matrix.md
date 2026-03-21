@@ -5,7 +5,7 @@ Last audited: `2026-03-20`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `a89be57c47e015591cef0c16a106942df0db5bdc`
+- Target head: `043e3bbe759d026ef872846c204669f266ed15d7`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
