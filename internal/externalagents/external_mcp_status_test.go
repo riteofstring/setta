@@ -17,6 +17,16 @@ func TestBuildClaudeMCPStatusesIgnoresNonMCPPayloads(t *testing.T) {
 		payload any
 	}{
 		{
+			name: "non_mcp_system_message",
+			payload: map[string]any{
+				"type": "system_message",
+				"message": map[string]any{
+					"type": "init",
+					"id":   "bootstrap-event",
+				},
+			},
+		},
+		{
 			name: "non_mcp_error_event",
 			payload: map[string]any{
 				"type": "system_message",
@@ -68,6 +78,69 @@ func TestBuildClaudeMCPStatusesIgnoresNonMCPPayloads(t *testing.T) {
 				t.Fatalf("expected no MCP statuses, got %#v", statuses)
 			}
 		})
+	}
+}
+
+func TestBuildClaudeMCPStatusesCapturesRawPayloadStatusBranches(t *testing.T) {
+	t.Parallel()
+
+	now := func() time.Time { return time.Date(2026, 3, 20, 11, 7, 0, 0, time.UTC) }
+
+	failedStatuses := buildClaudeMCPStatuses(map[string]any{
+		"type": "system_message",
+		"message": map[string]any{
+			"mcp_servers": []any{
+				map[string]any{
+					"serverId":  "filesystem",
+					"status":    "failed",
+					"transport": "stdio",
+					"command":   "npx @modelcontextprotocol/server-filesystem .",
+					"error":     "spawn failed",
+				},
+			},
+		},
+	}, now)
+	if len(failedStatuses) != 1 {
+		t.Fatalf("expected one failed status row, got %#v", failedStatuses)
+	}
+	if failedStatuses[0].ServerID != "filesystem" {
+		t.Fatalf("unexpected failed status row %#v", failedStatuses[0])
+	}
+	if failedStatuses[0].State != mcpx.RuntimeStateError {
+		t.Fatalf("expected failed status row to become error, got %#v", failedStatuses[0])
+	}
+	if failedStatuses[0].Endpoint != "npx @modelcontextprotocol/server-filesystem ." {
+		t.Fatalf("expected failed status endpoint to preserve command, got %#v", failedStatuses[0])
+	}
+	if failedStatuses[0].LastError == nil || *failedStatuses[0].LastError != "spawn failed" {
+		t.Fatalf("expected failed status last error to persist, got %#v", failedStatuses[0])
+	}
+
+	disabledStatuses := buildClaudeMCPStatuses(map[string]any{
+		"type": "system_message",
+		"message": map[string]any{
+			"mcp_servers": []any{
+				map[string]any{
+					"serverId":  "filesystem",
+					"connected": false,
+					"status":    "disabled",
+					"transport": "stdio",
+					"command":   "npx @modelcontextprotocol/server-filesystem .",
+				},
+			},
+		},
+	}, now)
+	if len(disabledStatuses) != 1 {
+		t.Fatalf("expected one disabled status row, got %#v", disabledStatuses)
+	}
+	if disabledStatuses[0].ServerID != "filesystem" {
+		t.Fatalf("unexpected disabled status row %#v", disabledStatuses[0])
+	}
+	if disabledStatuses[0].State != mcpx.RuntimeStateDisabled {
+		t.Fatalf("expected disabled status row to stay disabled, got %#v", disabledStatuses[0])
+	}
+	if disabledStatuses[0].Endpoint != "npx @modelcontextprotocol/server-filesystem ." {
+		t.Fatalf("expected disabled status endpoint to preserve command, got %#v", disabledStatuses[0])
 	}
 }
 
@@ -202,6 +275,43 @@ func TestBuildOpenCodeMCPStatusesIgnoresEmptyNonMCPPayload(t *testing.T) {
 	}, func() time.Time { return time.Date(2026, 3, 20, 11, 15, 0, 0, time.UTC) })
 	if len(statuses) != 0 {
 		t.Fatalf("expected empty payload to stay empty, got %#v", statuses)
+	}
+}
+
+func TestBuildCodexMCPStatusesCapturesGenericServersContainer(t *testing.T) {
+	t.Parallel()
+
+	statuses := buildCodexMCPStatuses(map[string]any{
+		"id": 42,
+		"result": map[string]any{
+			"servers": []any{
+				map[string]any{
+					"id":        "setta",
+					"connected": true,
+					"transport": "streamable_http",
+					"endpoint":  "http://127.0.0.1:8000/mcp",
+					"toolCount": 8,
+				},
+			},
+		},
+	}, func() time.Time { return time.Date(2026, 3, 20, 11, 20, 0, 0, time.UTC) })
+	if len(statuses) != 1 {
+		t.Fatalf("expected one codex status row, got %#v", statuses)
+	}
+	if statuses[0].ServerID != "setta" {
+		t.Fatalf("unexpected codex server id %#v", statuses[0])
+	}
+	if statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected codex runtime state connected, got %#v", statuses[0])
+	}
+	if statuses[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected codex transport streamable_http, got %#v", statuses[0])
+	}
+	if statuses[0].Endpoint != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected codex endpoint to persist, got %#v", statuses[0])
+	}
+	if statuses[0].ToolCount != 8 {
+		t.Fatalf("expected codex tool count to persist, got %#v", statuses[0])
 	}
 }
 
