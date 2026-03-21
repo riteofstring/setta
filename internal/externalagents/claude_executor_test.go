@@ -528,6 +528,133 @@ func TestBuildClaudeStartPayloadPassesThroughMCPConfigPath(t *testing.T) {
 	}
 }
 
+func TestBuildClaudeStartPayloadUsesLatestUserPrompt(t *testing.T) {
+	t.Parallel()
+
+	payload := buildClaudeStartPayload(StartRequest{
+		Run: agentruns.NewRun(nil, map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "system-1",
+					"role": "system",
+					"content": []any{
+						map[string]any{"type": "text", "text": "System prompt"},
+					},
+				},
+				map[string]any{
+					"id":   "assistant-1",
+					"role": "assistant",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Earlier reply"},
+					},
+				},
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Latest request"},
+					},
+				},
+			},
+			"systemPrompt": "System prompt",
+		}, time.Date(2026, 3, 9, 13, 35, 0, 0, time.UTC)),
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType: externalagentconfigs.ToolTypeClaudeCode,
+			RunMode:  externalagentconfigs.RunModeSDK,
+		},
+		Inputs: map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "system-1",
+					"role": "system",
+					"content": []any{
+						map[string]any{"type": "text", "text": "System prompt"},
+					},
+				},
+				map[string]any{
+					"id":   "assistant-1",
+					"role": "assistant",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Earlier reply"},
+					},
+				},
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Latest request"},
+					},
+				},
+			},
+			"systemPrompt": "System prompt",
+		},
+	}, "/tmp/workspace", map[string]string{})
+
+	prompt := stringValue(payload["prompt"])
+	if prompt != "Latest request\n" {
+		t.Fatalf("expected latest user prompt with trailing newline, got %q", prompt)
+	}
+	if strings.Contains(prompt, "System prompt") || strings.Contains(prompt, "Earlier reply") {
+		t.Fatalf("expected prompt to exclude system and assistant text, got %q", prompt)
+	}
+}
+
+func TestBuildClaudeStartPayloadOmitsMaxTurnsWhenUnspecified(t *testing.T) {
+	t.Parallel()
+
+	payload := buildClaudeStartPayload(StartRequest{
+		Run: agentruns.NewRun(nil, map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Hello"},
+					},
+				},
+			},
+		}, time.Date(2026, 3, 9, 13, 36, 0, 0, time.UTC)),
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType: externalagentconfigs.ToolTypeClaudeCode,
+			RunMode:  externalagentconfigs.RunModeSDK,
+		},
+		Inputs: map[string]any{},
+	}, "/tmp/workspace", map[string]string{})
+
+	if _, ok := payload["maxTurns"]; ok {
+		t.Fatalf("expected maxTurns to be omitted when unspecified, got %#v", payload["maxTurns"])
+	}
+}
+
+func TestBuildClaudeStartPayloadHonorsExplicitMaxTurns(t *testing.T) {
+	t.Parallel()
+
+	payload := buildClaudeStartPayload(StartRequest{
+		Run: agentruns.NewRun(nil, map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Hello"},
+					},
+				},
+			},
+		}, time.Date(2026, 3, 9, 13, 37, 0, 0, time.UTC)),
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType: externalagentconfigs.ToolTypeClaudeCode,
+			RunMode:  externalagentconfigs.RunModeSDK,
+		},
+		Inputs: map[string]any{
+			"maxTurns": 7,
+		},
+	}, "/tmp/workspace", map[string]string{})
+
+	if got, ok := payload["maxTurns"].(int); !ok || got != 7 {
+		t.Fatalf("expected explicit maxTurns=7, got %#v", payload["maxTurns"])
+	}
+}
+
 func TestEnsureClaudeMCPConfigIncludesAuthAndAgenticHeaders(t *testing.T) {
 	t.Parallel()
 
