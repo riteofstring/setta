@@ -1,4 +1,4 @@
-import { MenuItem } from "./DropdownMenuItem";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
