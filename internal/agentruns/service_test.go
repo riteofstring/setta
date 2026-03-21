@@ -133,6 +133,49 @@ func TestRunStorePersistsRunsAndMetadataIndex(t *testing.T) {
 	}
 }
 
+func TestRunStoreSaveLoadAndListRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewRunStore(root)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 8, 0, 0, 0, time.UTC)
+	run := NewRun(nil, map[string]any{
+		"prompt": "hello",
+	}, now)
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	loaded, err := store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load run: %v", err)
+	}
+	if loaded.ID != run.ID {
+		t.Fatalf("expected loaded run %q, got %q", run.ID, loaded.ID)
+	}
+	if loaded.Status != RunStatusRunning {
+		t.Fatalf("expected running status, got %q", loaded.Status)
+	}
+	if !reflect.DeepEqual(loaded.Inputs, map[string]any{"prompt": "hello"}) {
+		t.Fatalf("unexpected loaded inputs %#v", loaded.Inputs)
+	}
+	if loaded.StartedAt == nil || !loaded.StartedAt.Equal(now) {
+		t.Fatalf("expected startedAt %v, got %#v", now, loaded.StartedAt)
+	}
+
+	runs, err := store.List()
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 || runs[0].ID != run.ID {
+		t.Fatalf("unexpected runs %#v", runs)
+	}
+}
+
 func TestRunStoreSaveInvokesAfterSaveListenersWithClonedRun(t *testing.T) {
 	t.Parallel()
 
