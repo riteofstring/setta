@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import select
 import shlex
 import socket
@@ -11,13 +14,15 @@ import sys
 import threading
 from datetime import datetime
 from pathlib import Path
+from time import time
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 
 SESSION_METADATA_FILENAME = "session.json"
 SESSION_SECRET_FILENAME = "secret"
 CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
+BOOTSTRAP_TOKEN_TTL_SECONDS = 60 * 10
 
 
 def _write_pid_file() -> None:
@@ -134,10 +139,52 @@ def _load_session_metadata(session_id_override: str | None = None) -> tuple[str,
     return session_id, metadata, secret
 
 
-def _mint_bootstrap_token(session_id: str, secret: bytes) -> str:
-    from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
+def _b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
-    return BOOTSTRAP_TOKEN_MANAGER.mint(session_id, secret)
+
+def _normalize_origin(raw_origin: str) -> str:
+    trimmed_origin = raw_origin.strip()
+    if not trimmed_origin:
+        return ""
+    parsed_origin = urlparse(trimmed_origin)
+    if parsed_origin.scheme not in {"http", "https"}:
+        return ""
+    if not parsed_origin.hostname:
+        return ""
+    if parsed_origin.username is not None or parsed_origin.password is not None:
+        return ""
+    hostname = parsed_origin.hostname
+    if ":" in hostname and not hostname.startswith("["):
+        hostname = f"[{hostname}]"
+    if parsed_origin.port is None:
+        return f"{parsed_origin.scheme}://{hostname}"
+    return f"{parsed_origin.scheme}://{hostname}:{parsed_origin.port}"
+
+
+def _mint_bootstrap_token(session_id: str, secret: bytes) -> str:
+    exp = int(time()) + BOOTSTRAP_TOKEN_TTL_SECONDS
+    payload = {
+        "exp": exp,
+        "nonce": secrets.token_urlsafe(16),
+        "sessionId": session_id,
+    }
+    payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(
+        "utf-8"
+    )
+    signature = hmac.new(secret, payload_bytes, hashlib.sha256).digest()
+    return f"{_b64url_encode(payload_bytes)}.{_b64url_encode(signature)}"
+
+
+def _mint_launcher_origin_handoff_proof(
+    session_id: str, launcher_origin: str, secret: bytes
+) -> str:
+    normalized_origin = _normalize_origin(launcher_origin)
+    if not session_id.strip() or not normalized_origin or not secret:
+        return ""
+    payload = f"{session_id.strip()}\n{normalized_origin}".encode("utf-8")
+    digest = hmac.new(secret, payload, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
 def _build_bootstrap_urls(host: str, port: int, token: str) -> tuple[str, str]:
@@ -313,12 +360,10 @@ def _extract_launcher_origin(command: str) -> str | None:
             candidate = match.group(1)
     if candidate is None:
         return None
-    try:
-        from setta.utils.launcher_origin_handoff import normalize_launcher_origin
-
-        return normalize_launcher_origin(candidate)
-    except Exception:
+    normalized = _normalize_origin(candidate)
+    if not normalized:
         return None
+    return normalized
 
 
 def _extract_session_id(command: str) -> str | None:
@@ -517,19 +562,14 @@ def _handle_remote_command(command: str) -> int:
         }
         requested_launcher_origin = _extract_launcher_origin(command)
         if requested_launcher_origin is not None:
-            try:
-                from setta.utils.launcher_origin_handoff import (
-                    mint_launcher_origin_handoff_proof,
-                )
-
+            launcher_origin_proof = _mint_launcher_origin_handoff_proof(
+                session_id=session_id,
+                launcher_origin=requested_launcher_origin,
+                secret=secret,
+            )
+            if launcher_origin_proof:
                 payload["launcherOrigin"] = requested_launcher_origin
-                payload["launcherOriginProof"] = mint_launcher_origin_handoff_proof(
-                    session_id=session_id,
-                    launcher_origin=requested_launcher_origin,
-                    secret=secret,
-                )
-            except Exception:
-                pass
+                payload["launcherOriginProof"] = launcher_origin_proof
         _emit_json(payload)
         return 0
 

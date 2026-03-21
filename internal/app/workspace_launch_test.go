@@ -223,8 +223,12 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	t.Setenv("SETTA_RUNTIME_ROOT", "/remote/runtime")
 	t.Setenv("SETTA_FILES_LOCATION", "global")
 
+	remoteWorkspace := filepath.Join(t.TempDir(), "remote-workspace")
+	if err := os.MkdirAll(remoteWorkspace, 0o755); err != nil {
+		t.Fatalf("create remote workspace: %v", err)
+	}
 	remoteSessionsRoot := filepath.Join(t.TempDir(), "remote-sessions")
-	remoteSession := createAppRemoteSSHSession(t, remoteSessionsRoot)
+	remoteSession := createAppRemoteSSHSession(t, remoteSessionsRoot, remoteWorkspace)
 	t.Setenv("SETTA_SESSIONS_ROOT", remoteSessionsRoot)
 	t.Setenv("SETTA_SESSION_ID", remoteSession.ID)
 
@@ -263,7 +267,7 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	launchIntentRequest, err := http.NewRequest(
 		http.MethodPost,
 		server.URL+"/api"+httpapi.RouteCreateWorkspaceLaunchIntent,
-		strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace","sshTarget":"user@host","localPort":61000},"returnUrl":"http://launcher.example:7999/home"}`),
+		strings.NewReader(`{"launchRequest":{"workspaceRoot":"`+remoteWorkspace+`","sshTarget":"user@host","localPort":61000},"returnUrl":"http://launcher.example:7999/home"}`),
 	)
 	if err != nil {
 		t.Fatalf("new create workspace launch intent request: %v", err)
@@ -368,7 +372,7 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	}
 }
 
-func createAppRemoteSSHSession(t *testing.T, sessionsRoot string) auth.SessionMetadata {
+func createAppRemoteSSHSession(t *testing.T, sessionsRoot string, workspaceRoot string) auth.SessionMetadata {
 	t.Helper()
 
 	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
@@ -378,7 +382,7 @@ func createAppRemoteSSHSession(t *testing.T, sessionsRoot string) auth.SessionMe
 		t.Fatalf("new session registry: %v", err)
 	}
 	session, err := registry.CreateSession(localsessions.CreateSessionInput{
-		WorkspaceRoot:      "/tmp/workspace",
+		WorkspaceRoot:      workspaceRoot,
 		Host:               "127.0.0.1",
 		Port:               61234,
 		PID:                os.Getpid(),
