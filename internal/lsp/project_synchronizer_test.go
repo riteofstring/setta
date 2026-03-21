@@ -134,6 +134,52 @@ func TestProjectSynchronizerPreservesDiskBackedPythonSectionContent(t *testing.T
 	}
 }
 
+// Non-runnable code sections should still materialize to their canonical files
+// so the shared synchronizer path can track and type-check them like other
+// bound code sections.
+func TestProjectSynchronizerMaterializesNonRunnableCodeSections(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        syncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	document, sectionPath := lspNonRunnableCodeDocument(t, settaFilesRoot)
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize non-runnable code document: %v", err)
+	}
+
+	sectionCode, err := os.ReadFile(sectionPath)
+	if err != nil {
+		t.Fatalf("read non-runnable code file: %v", err)
+	}
+	if string(sectionCode) != "{\"ok\": true}\n" {
+		t.Fatalf("unexpected non-runnable code content %q", string(sectionCode))
+	}
+
+	tracked, ok := syncer.synced[sectionPath]
+	if !ok {
+		t.Fatalf("expected tracked non-runnable document at %q, got %#v", sectionPath, syncer.synced)
+	}
+	if tracked.LanguageID != "json" {
+		t.Fatalf("expected tracked languageID json, got %q", tracked.LanguageID)
+	}
+}
+
 // Code-section callbacks must refresh even when the canonical file content is
 // unchanged so later publishes honor newly-muted or newly-suppressed state.
 func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutContentChanges(t *testing.T) {
@@ -1084,6 +1130,60 @@ func lspPluginLanguageDiagnosticsDocument(t *testing.T, settaFilesRoot string) (
 	}
 
 	return document, filepath.Join(settaFilesRoot, "code", "plugin-typescript.ts")
+}
+
+func lspNonRunnableCodeDocument(t *testing.T, settaFilesRoot string) (projectstate.Document, string) {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Non Runnable Project",
+				SectionVariantMap: map[string]string{
+					"config-section": "config-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"config-section": {
+						ID:               "config-section",
+						Name:             "Config",
+						VariantIDs:       []string{"config-variant"},
+						DefaultVariantID: "config-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"config-variant": {ID: "config-variant", ImplID: "config-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"config-impl": {
+						ID:   "config-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguage("json"),
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/config.json",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"config-impl",
+							"type":"Code",
+							"code":"{\"ok\": true}\n",
+							"codeLanguage":"json",
+							"children":[]
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize non-runnable code document: %v", err)
+	}
+
+	return document, filepath.Join(settaFilesRoot, "code", "config.json")
 }
 
 type lspTypeCheckPluginLanguagePaths struct {

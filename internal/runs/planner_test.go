@@ -52,6 +52,65 @@ func TestPlannerPlanUsesDirectEntryPathForNeverMode(t *testing.T) {
 	}
 }
 
+func TestPlannerPlanRunsManualBashEntryWhenPythonCodegenDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	document := fixture.runtime.Snapshot().Document
+	project := document.Projects["project-alpha"]
+	project.SectionVariantMap["code-section"] = "code-bash-variant"
+	document.Projects["project-alpha"] = project
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	}()
+
+	planner := newPlannerForTest(t, plannerTestFixture{
+		runtime:        runtime,
+		settaFilesRoot: fixture.settaFilesRoot,
+		runtimeRoot:    fixture.runtimeRoot,
+		bashPath:       fixture.bashPath,
+	})
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		RunSnapshotMode: RunSnapshotModeNever,
+	})
+	if err != nil {
+		t.Fatalf("plan bash run: %v", err)
+	}
+
+	if plan.TargetKind != projectstate.RunTargetKindManualCode {
+		t.Fatalf("expected manual code target kind, got %q", plan.TargetKind)
+	}
+	if plan.SectionID != "code-section" {
+		t.Fatalf("expected code-section entry section, got %q", plan.SectionID)
+	}
+	if plan.VariantID != "code-bash-variant" {
+		t.Fatalf("expected bash variant id, got %q", plan.VariantID)
+	}
+	if plan.Language != projectstate.CodeLanguageBash {
+		t.Fatalf("expected bash language, got %q", plan.Language)
+	}
+	if plan.EntryPath != fixture.bashPath {
+		t.Fatalf("expected bash entry path %q, got %q", fixture.bashPath, plan.EntryPath)
+	}
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Fatalf("resolve bash executable: %v", err)
+	}
+	expectedCommand := shellQuote(bashPath) + " " + shellQuote(fixture.bashPath)
+	if plan.Command != expectedCommand {
+		t.Fatalf("expected command %q, got %q", expectedCommand, plan.Command)
+	}
+}
+
 func TestPlannerPlanUsesGeneratedEntryForPythonCodegenProjects(t *testing.T) {
 	t.Parallel()
 
@@ -446,6 +505,43 @@ func TestPlannerPlanRejectsMissingEntryTarget(t *testing.T) {
 	}
 	if err != ErrRunTargetRequired {
 		t.Fatalf("expected ErrRunTargetRequired, got %v", err)
+	}
+}
+
+func TestPlannerPlanRejectsNonRunnableCodeLanguage(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	document := fixture.runtime.Snapshot().Document
+	project := document.Projects["project-alpha"]
+	impl := project.SectionImpls["code-python-impl"].Clone()
+	impl.Code.Language = projectstate.CodeLanguage("json")
+	project.SectionImpls["code-python-impl"] = impl
+	document.Projects["project-alpha"] = project
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	}()
+
+	planner := newPlannerForTest(t, plannerTestFixture{
+		runtime:        runtime,
+		settaFilesRoot: fixture.settaFilesRoot,
+		runtimeRoot:    fixture.runtimeRoot,
+	})
+
+	_, err = planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "code-section",
+		RunSnapshotMode: RunSnapshotModeNever,
+	})
+	if err != ErrRunTargetNotRunnable {
+		t.Fatalf("expected ErrRunTargetNotRunnable, got %v", err)
 	}
 }
 
