@@ -50,6 +50,7 @@ categorize them.
   `json_source_save_missing_key_path` or
   `json_source_save_same_key_path_last_write_wins` or
   `json_source_save_canonical_storage_clears_persisted_values` or
+  `json_source_save_restart_round_trip_canonical_storage` or
   `json_source_startup_shared_pair_load` or
   `json_source_shared_pair_route_refresh_keeps_peer_tree` or
   `json_source_shared_pair_route_missing_preserves_loaded_tree` mismatches.
@@ -61,13 +62,13 @@ categorize them.
   after writing the backing file so the file stays canonical on disk, app
   startup now hydrates shared `(file, jsonSourceKeys)` pairs into distinct
   section trees while leaving persisted project state untouched until a later
-  save, successful one-section shared-file route refreshes leave peer trees
-  untouched, and same-key re-submits after a loaded backing file disappears
-  now preserve the live tree instead of persisting a new missing flag.
-- The remaining JSON-source backlog is now the broader
-  watcher/autosave reload behavior (`json_source.watcher.*`) plus the
-  broader file-backed round-trip row
-  (`json_source.sections.file_backed_load_merge_and_save_round_trip_canonical_storage`).
+  save, save plus restart now rehydrates the live tree from the backing file
+  while leaving persisted JSON-source leaf values blank, successful
+  one-section shared-file route refreshes leave peer trees untouched, and
+  same-key re-submits after a loaded backing file disappears now preserve the
+  live tree instead of persisting a new missing flag.
+- The remaining JSON-source backlog is now only the watcher/autosave reload
+  behavior (`json_source.watcher.*`).
 - The default differential manifest now matches `main` again after tightening
   `settings_project_missing_required_section_fails_closed` to the stable
   fail-closed contract instead of comparing noisy startup log text.
@@ -83,8 +84,8 @@ categorize them.
   the remaining matrix `Missing` rows. The linked-chat admission lifecycle is
   no longer part of that queue because the underlying `invoke_linked_chat`
   tool is already an explicit intentional divergence on the Go MCP surface.
-  The remaining queue is the broader ordinary-project JSON-source runtime
-  owner, especially its reload/watch behavior.
+  The remaining queue is the JSON-source watcher owner, especially normalized
+  path matching plus autosave deferral and deferred-reload flush behavior.
 - The previously isolated dedicated-`/settings` persisted-layout gap is now
   closed; keep any newly uncovered non-caller-visible mismatches explicit
   instead of folding them back into broader live-contract rows
