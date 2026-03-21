@@ -22,6 +22,7 @@ import (
 
 const (
 	claudeSidecarFileName  = "claude_sdk_runner.py"
+	claudeMCPConfigName    = ".mcp.json"
 	claudeMaxStderrLines   = 200
 	claudeStdoutBufferSize = 1024 * 1024
 )
@@ -30,30 +31,33 @@ var (
 	errClaudeExecutorRunStoreRequired      = errors.New("claude executor run store is required")
 	errClaudeExecutorRuntimeRequired       = errors.New("claude executor runtime is required")
 	errClaudeExecutorWorkspaceRootRequired = errors.New("claude executor workspace root is required")
+	errClaudeExecutorSettaServerURLMissing = errors.New("claude executor setta server url is required")
 	errClaudeExecutorSidecarRequired       = errors.New("claude executor sidecar path is required")
 	errClaudeExecutorPythonRequired        = errors.New("claude executor python command is required")
 )
 
 type ClaudeExecutorOptions struct {
-	Runs          *agentruns.RunStore
-	Runtime       *Runtime
-	WorkspaceRoot string
-	RuntimeRoot   string
-	ProcessEnv    map[string]string
-	PythonCommand string
-	SidecarPath   string
-	TimeNow       func() time.Time
+	Runs           *agentruns.RunStore
+	Runtime        *Runtime
+	WorkspaceRoot  string
+	SettaServerURL string
+	RuntimeRoot    string
+	ProcessEnv     map[string]string
+	PythonCommand  string
+	SidecarPath    string
+	TimeNow        func() time.Time
 }
 
 type ClaudeExecutor struct {
-	runs          *agentruns.RunStore
-	runtime       *Runtime
-	workspaceRoot string
-	runtimeRoot   string
-	processEnv    map[string]string
-	pythonCommand string
-	sidecarPath   string
-	timeNow       func() time.Time
+	runs           *agentruns.RunStore
+	runtime        *Runtime
+	workspaceRoot  string
+	settaServerURL string
+	runtimeRoot    string
+	processEnv     map[string]string
+	pythonCommand  string
+	sidecarPath    string
+	timeNow        func() time.Time
 }
 
 type claudeResultPayload struct {
@@ -74,6 +78,10 @@ func NewClaudeExecutor(options ClaudeExecutorOptions) (*ClaudeExecutor, error) {
 	if workspaceRoot == "" {
 		return nil, errClaudeExecutorWorkspaceRootRequired
 	}
+	settaServerURL := strings.TrimSpace(options.SettaServerURL)
+	if settaServerURL == "" {
+		return nil, errClaudeExecutorSettaServerURLMissing
+	}
 	sidecarPath, err := resolveClaudeSidecarPath(options.SidecarPath)
 	if err != nil {
 		return nil, err
@@ -85,14 +93,15 @@ func NewClaudeExecutor(options ClaudeExecutorOptions) (*ClaudeExecutor, error) {
 		}
 	}
 	return &ClaudeExecutor{
-		runs:          options.Runs,
-		runtime:       options.Runtime,
-		workspaceRoot: workspaceRoot,
-		runtimeRoot:   strings.TrimSpace(options.RuntimeRoot),
-		processEnv:    cloneStringAnyMapToStringMap(options.ProcessEnv),
-		pythonCommand: strings.TrimSpace(options.PythonCommand),
-		sidecarPath:   sidecarPath,
-		timeNow:       timeNow,
+		runs:           options.Runs,
+		runtime:        options.Runtime,
+		workspaceRoot:  workspaceRoot,
+		settaServerURL: settaServerURL,
+		runtimeRoot:    strings.TrimSpace(options.RuntimeRoot),
+		processEnv:     cloneStringAnyMapToStringMap(options.ProcessEnv),
+		pythonCommand:  strings.TrimSpace(options.PythonCommand),
+		sidecarPath:    sidecarPath,
+		timeNow:        timeNow,
 	}, nil
 }
 
@@ -151,6 +160,12 @@ func (e *ClaudeExecutor) Start(ctx context.Context, request StartRequest) (Start
 	if err := e.prepareClaudeSettings(request.ExternalConfig); err != nil {
 		cleanupStart()
 		return StartResponse{}, err
+	}
+	if cleanupMCPDir, err := e.ensureClaudeMCPConfig(&request); err != nil {
+		cleanupStart()
+		return StartResponse{}, err
+	} else if strings.TrimSpace(cleanupMCPDir) != "" {
+		cleanupPaths = append(cleanupPaths, cleanupMCPDir)
 	}
 
 	envMap := e.buildRuntimeEnv(request.ExternalConfig)
@@ -554,6 +569,42 @@ func (e *ClaudeExecutor) prepareClaudeSettings(config externalagentconfigs.Confi
 
 func resolveClaudeSettingsPath(config externalagentconfigs.Config, workspaceRoot string) string {
 	return externalagentconfigs.ResolveClaudeSettingsPath(config, workspaceRoot)
+}
+
+func (e *ClaudeExecutor) ensureClaudeMCPConfig(request *StartRequest) (string, error) {
+	if request == nil {
+		return "", nil
+	}
+	if request.Inputs == nil {
+		request.Inputs = map[string]any{}
+	}
+	if strings.TrimSpace(stringValue(request.Inputs["mcpConfig"])) != "" {
+		return "", nil
+	}
+	configDir, err := os.MkdirTemp("", "setta-claude-mcp-")
+	if err != nil {
+		return "", fmt.Errorf("create claude mcp config dir: %w", err)
+	}
+	configPath := filepath.Join(configDir, claudeMCPConfigName)
+	content, err := json.MarshalIndent(map[string]any{
+		"mcpServers": map[string]any{
+			mcpx.DefaultServerID: map[string]any{
+				"type": "sse",
+				"url":  e.settaServerURL,
+			},
+		},
+	}, "", "  ")
+	if err != nil {
+		_ = os.RemoveAll(configDir)
+		return "", fmt.Errorf("encode claude mcp config: %w", err)
+	}
+	content = append(content, '\n')
+	if err := os.WriteFile(configPath, content, 0o644); err != nil {
+		_ = os.RemoveAll(configDir)
+		return "", fmt.Errorf("write claude mcp config: %w", err)
+	}
+	request.Inputs["mcpConfig"] = configPath
+	return configDir, nil
 }
 
 func buildClaudeStartPayload(request StartRequest, workingDir string, envMap map[string]string) map[string]any {

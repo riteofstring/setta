@@ -1025,11 +1025,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		claudeExecutor, err := externalagents.NewClaudeExecutor(externalagents.ClaudeExecutorOptions{
-			Runs:          agentRunStore,
-			Runtime:       externalAgentRuntime,
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			RuntimeRoot:   cfg.Paths.RuntimeRoot,
-			ProcessEnv:    llmconfig.CurrentProcessEnv(),
+			Runs:           agentRunStore,
+			Runtime:        externalAgentRuntime,
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
+			ProcessEnv:     llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

@@ -85,6 +85,67 @@ func TestClaudeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestClaudeExecutorGeneratesTempMCPConfigWhenMissing(t *testing.T) {
+	// This run inspects the generated Claude temp MCP config inside the fixture
+	// sidecar, then exposes the path so the test can verify cleanup afterwards.
+	fixture := newClaudeExecutorFixture(t, "generated_mcp_config")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Inspect the generated MCP config"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude generated-mcp run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	configPath := extractMessageText(lastMessage)
+	if filepath.Base(configPath) != claudeMCPConfigName {
+		t.Fatalf("expected assistant message to carry generated %q path, got %q", claudeMCPConfigName, configPath)
+	}
+	statuses := loadExternalMCPStatusSnapshot(persisted.Outputs)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one persisted external MCP status, got %#v", statuses)
+	}
+	if statuses[0].ServerID != mcpx.DefaultServerID {
+		t.Fatalf("expected generated MCP status for %q, got %#v", mcpx.DefaultServerID, statuses)
+	}
+	if statuses[0].Transport != mcpx.TransportSSE {
+		t.Fatalf("expected generated MCP transport sse, got %#v", statuses[0])
+	}
+	if statuses[0].Endpoint != fixture.executor.settaServerURL {
+		t.Fatalf("expected generated MCP endpoint %q, got %#v", fixture.executor.settaServerURL, statuses[0])
+	}
+	if statuses[0].State != mcpx.RuntimeStateUnknown {
+		t.Fatalf("expected generated MCP status to remain unknown before runtime reports, got %#v", statuses[0])
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		t.Fatalf("expected generated MCP config cleanup, stat err=%v", err)
+	}
+}
+
 func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	fixture := newClaudeExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
@@ -285,17 +346,29 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read claude persisted external runtime statuses: %v", err)
 	}
-	if len(statuses) != 1 {
-		t.Fatalf("expected one claude runtime status row, got %#v", statuses)
+	if len(statuses) != 2 {
+		t.Fatalf("expected filesystem plus generated setta runtime status rows, got %#v", statuses)
 	}
 	if got := statuses[0].ServerID; got != "filesystem" {
-		t.Fatalf("unexpected claude status server id %q", got)
+		t.Fatalf("unexpected first claude status server id %q", got)
 	}
 	if statuses[0].State != mcpx.RuntimeStateError {
 		t.Fatalf("expected claude runtime error state, got %#v", statuses[0])
 	}
 	if statuses[0].LastError == nil || *statuses[0].LastError != "spawn failed" {
 		t.Fatalf("expected claude runtime last error, got %#v", statuses[0])
+	}
+	if got := statuses[1].ServerID; got != mcpx.DefaultServerID {
+		t.Fatalf("unexpected generated claude status server id %q", got)
+	}
+	if statuses[1].Transport != mcpx.TransportSSE {
+		t.Fatalf("expected generated claude status transport sse, got %#v", statuses[1])
+	}
+	if statuses[1].Endpoint != fixture.executor.settaServerURL {
+		t.Fatalf("expected generated claude status endpoint %q, got %#v", fixture.executor.settaServerURL, statuses[1])
+	}
+	if statuses[1].State != mcpx.RuntimeStateUnknown {
+		t.Fatalf("expected generated claude status to remain unknown, got %#v", statuses[1])
 	}
 }
 
@@ -652,12 +725,13 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 		t.Fatalf("new runtime: %v", err)
 	}
 	claudeExecutor, err := NewClaudeExecutor(ClaudeExecutorOptions{
-		Runs:          runs,
-		Runtime:       runtime,
-		WorkspaceRoot: root,
-		ProcessEnv:    llmconfig.CurrentProcessEnv(),
-		PythonCommand: pythonCommand,
-		SidecarPath:   sidecarPath,
+		Runs:           runs,
+		Runtime:        runtime,
+		WorkspaceRoot:  root,
+		SettaServerURL: mcpx.BuildSettaServerURL("127.0.0.1", 8000),
+		ProcessEnv:     llmconfig.CurrentProcessEnv(),
+		PythonCommand:  pythonCommand,
+		SidecarPath:    sidecarPath,
 		TimeNow: func() time.Time {
 			return now
 		},
@@ -840,6 +914,46 @@ func runClaudeFixtureProcess(scenario string) error {
 	}
 
 	switch scenario {
+	case "generated_mcp_config":
+		configPath := strings.TrimSpace(stringValue(startPayload["mcpConfigPath"]))
+		if configPath == "" {
+			return fmt.Errorf("expected generated mcpConfigPath, got %#v", startPayload)
+		}
+		if filepath.Base(configPath) != claudeMCPConfigName {
+			return fmt.Errorf("expected generated mcpConfigPath basename %q, got %q", claudeMCPConfigName, filepath.Base(configPath))
+		}
+		content, err := os.ReadFile(configPath)
+		if err != nil {
+			return fmt.Errorf("read generated claude mcp config: %w", err)
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal(content, &payload); err != nil {
+			return fmt.Errorf("decode generated claude mcp config: %w", err)
+		}
+		rawServers, ok := payload["mcpServers"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected generated mcpServers map, got %#v", payload["mcpServers"])
+		}
+		settaServer, ok := rawServers[mcpx.DefaultServerID].(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected generated setta mcp server entry, got %#v", rawServers)
+		}
+		if got := strings.TrimSpace(stringValue(settaServer["type"])); got != "sse" {
+			return fmt.Errorf("expected generated setta transport sse, got %#v", settaServer)
+		}
+		if got := strings.TrimSpace(stringValue(settaServer["url"])); got != "http://127.0.0.1:8000/mcp" {
+			return fmt.Errorf("expected generated setta url, got %#v", settaServer)
+		}
+		if err := emitClaudeAssistantTurn(emit, "session-generated-mcp", "assistant-generated-mcp", configPath); err != nil {
+			return err
+		}
+		return emit(map[string]any{
+			"type":      "result",
+			"sessionId": "session-generated-mcp",
+			"isError":   false,
+			"result":    "ok",
+			"usage":     map[string]any{"input_tokens": 5, "output_tokens": 3},
+		})
 	case "approval":
 		if err := emit(map[string]any{
 			"type":       "approval_request",
