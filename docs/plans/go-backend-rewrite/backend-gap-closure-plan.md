@@ -52,18 +52,20 @@ categorize them.
   the persisted `jsonSourceKeys` and stored tree unchanged, and still marks
   the frontend op complete. The remaining JSON-source backlog is still the
   broader load/save/watch owner.
-- The current default-manifest mismatch is now
-  `settings_project_missing_required_section_fails_closed`. `main` currently
-  restarts into a generic startup-failure envelope after that corrupted
-  settings-shell state, while the Go rewrite surfaces a direct missing-section
-  summary. Start the next dedicated `/settings` pass there before expanding
-  broader settings-shell parity coverage.
+- The default differential manifest now matches `main` again after tightening
+  `settings_project_missing_required_section_fails_closed` to the stable
+  fail-closed contract instead of comparing noisy startup log text.
 - Expand the differential manifest beyond the current bootstrap / websocket /
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
   reserved-name-save / required-view-mode-repair /
   deleted-active-tab-repair / missing-required-section /
   code-obj-backfill / display-name-backfill / workspace-launch
   outdated-settings slice
+- With the default manifest clean, the next queue should come directly from
+  the remaining matrix `Missing` rows. The best current candidates are the
+  broader ordinary-project JSON-source runtime owner and the plugin
+  backend-registered UI-setting handler path, because both are still caller-
+  visible and still completely missing rather than just lightly proved.
 - The previously isolated dedicated-`/settings` persisted-layout gap is now
   closed; keep any newly uncovered non-caller-visible mismatches explicit
   instead of folding them back into broader live-contract rows
