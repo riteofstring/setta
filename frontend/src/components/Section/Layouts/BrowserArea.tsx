@@ -19,8 +19,6 @@ import {
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
-  type DragEventHandler,
-  type ReactNode,
   Suspense,
   lazy,
   useCallback,
@@ -28,6 +26,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEventHandler,
+  type ReactNode,
 } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
 import {
@@ -67,7 +67,11 @@ import { formatBytes } from "utils/attachments";
 import { resolvePathWithinRoot } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   filterFileBrowserFolderItems,
@@ -93,7 +97,11 @@ import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
+  FileBrowserDownloadURLEntry,
+  FileBrowserRootResponse,
   FolderContentItem,
+  GetFileBrowserDownloadURLsResponse,
+  GetFolderContentsResponse,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -143,10 +151,13 @@ type OpenableBrowserItem = {
   type: string;
 };
 
-type FileUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
+type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
+type GetFileBrowserDownloadURLsRouteResponse =
+  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
+type GetFolderContentsRouteResponse =
+  ResponseDataAndStatus<GetFolderContentsResponse>;
+type GetFileBrowserRootRouteResponse =
+  ResponseDataAndStatus<FileBrowserRootResponse>;
 
 type FileTextPreview = {
   text: string;
@@ -275,8 +286,8 @@ function BrowserThumbnailContent({
   label,
 }: {
   previewKind: BrowserPreviewKind;
-  thumbnailUrl?: string | null | undefined;
-  badgeText?: string | null | undefined;
+  thumbnailUrl?: string | null;
+  badgeText?: string | null;
   label: string;
 }) {
   if (previewKind === "image" && thumbnailUrl) {
@@ -615,10 +626,10 @@ function ThumbnailItem({
   onDragStart,
   itemPath,
 }: {
-  size?: string;
-  thumbnailUrl?: string | null | undefined;
+  size: string;
+  thumbnailUrl?: string | null;
   previewKind: BrowserPreviewKind;
-  badgeText?: string | null | undefined;
+  badgeText?: string | null;
   label: string;
   children: ReactNode;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
@@ -1520,9 +1531,10 @@ function ItemsColumn({
       const aggregated: Record<string, FileUrlEntry> = {};
       const chunks = _.chunk(pending, FILE_URL_REQUEST_CHUNK_SIZE);
       for (const chunk of chunks) {
-        const res = await route_get_file_browser_download_urls({
-          paths: chunk,
-        });
+        const res: GetFileBrowserDownloadURLsRouteResponse =
+          await route_get_file_browser_download_urls({
+            paths: chunk,
+          });
         for (const path of chunk) {
           fileUrlRequests.current.delete(path);
         }
@@ -1674,12 +1686,13 @@ function ItemsColumn({
       }
       const requestId = folderRequestIdRef.current + 1;
       folderRequestIdRef.current = requestId;
-      const res = await route_get_folder_contents({
-        folderPath: safeFolder,
-        ignorePatterns: rootInfo?.ignorePatterns ?? null,
-        includeSize: true,
-        missingFolderBehavior: "empty",
-      });
+      const res: GetFolderContentsRouteResponse =
+        await route_get_folder_contents({
+          folderPath: safeFolder,
+          ignorePatterns: rootInfo?.ignorePatterns ?? null,
+          includeSize: true,
+          missingFolderBehavior: "empty",
+        });
       if (folderRequestIdRef.current !== requestId) {
         return;
       }
@@ -1947,7 +1960,8 @@ function ItemsColumn({
     const requestId = rootRequestIdRef.current + 1;
     rootRequestIdRef.current = requestId;
     const loadRoot = async () => {
-      const res = await route_get_file_browser_root();
+      const res: GetFileBrowserRootRouteResponse =
+        await route_get_file_browser_root();
       if (!res200(res)) {
         return;
       }
@@ -2046,12 +2060,13 @@ function ItemsColumn({
 
         let listing = folderContentsCacheRef.current.get(folder);
         if (!listing) {
-          const res = await route_get_folder_contents({
-            folderPath: folder,
-            ignorePatterns: rootInfo.ignorePatterns ?? null,
-            includeSize: true,
-            missingFolderBehavior: "empty",
-          });
+          const res: GetFolderContentsRouteResponse =
+            await route_get_folder_contents({
+              folderPath: folder,
+              ignorePatterns: rootInfo.ignorePatterns ?? null,
+              includeSize: true,
+              missingFolderBehavior: "empty",
+            });
           if (recursiveFilterRequestIdRef.current !== requestId) {
             return;
           }
