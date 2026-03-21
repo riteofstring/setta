@@ -10,8 +10,9 @@ exec "${SCRIPT_DIR}/run-codex-loop.sh" \
   --prompt-file "${PROMPT_FILE}" \
   --followup-prompt-file "${FOLLOWUP_PROMPT_FILE}" \
   --pre-session-command "./scripts/run-backend-gap-hunt-candidate-miner.sh" \
+  --stop-on-pre-session-exit-code 10 \
   --workdir "${ROOT_DIR}" \
   --iterations 100000 \
-  --new-session-every 3 \
+  --new-session-every 10 \
   --yolo \
   "$@"

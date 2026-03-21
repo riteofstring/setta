@@ -465,6 +465,59 @@ def test_run_codex_loop_script_runs_pre_session_command_only_for_fresh_batches(
     assert (calls_dir / "args_3.txt").exists()
 
 
+def test_run_codex_loop_script_stops_cleanly_on_pre_session_exit_code(
+    tmp_path: Path,
+) -> None:
+    # A configured pre-session exit code should stop the loop without treating
+    # the empty-backlog signal as an error.
+    sandbox_root, calls_dir = _build_codex_loop_sandbox(tmp_path)
+    prompt_file = sandbox_root / "prompt.txt"
+    output_dir = sandbox_root / "outputs"
+    workdir = sandbox_root / "workspace"
+    pre_session_script = workdir / "refresh-backlog.sh"
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    prompt_file.write_text("Stop when the backlog is empty.\n", encoding="utf-8")
+    pre_session_script.write_text(
+        "#!/usr/bin/env bash\nset -euo pipefail\nexit 10\n",
+        encoding="utf-8",
+    )
+    pre_session_script.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-codex-loop.sh"),
+            "--prompt-file",
+            str(prompt_file),
+            "--pre-session-command",
+            "./refresh-backlog.sh",
+            "--stop-on-pre-session-exit-code",
+            "10",
+            "--iterations",
+            "3",
+            "--output-dir",
+            str(output_dir),
+            "--workdir",
+            str(workdir),
+        ],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == (
+        "stopped:pre-session-exit:10"
+    )
+    assert not (calls_dir / "args_1.txt").exists()
+
+
 def test_run_codex_loop_script_continues_on_error_by_default(tmp_path: Path) -> None:
     # The loop should keep running after a failed iteration even without an
     # explicit --continue-on-error flag.
@@ -613,7 +666,7 @@ def test_backend_parity_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> N
     assert args[4] == "--workdir"
     assert args[5] == str(sandbox_root)
     assert args[6] == "--iterations"
-    assert args[7] == "100000"
+    assert args[7] == "1000"
     assert args[8] == "--new-session-every"
     assert args[9] == "10"
     assert args[10] == "--yolo"
@@ -628,8 +681,9 @@ def test_backend_parity_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> N
 
 def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> None:
     # The proactive gap-hunt wrapper should pin the dedicated prompt files,
-    # refresh the backlog before each fresh session batch, keep the shorter
-    # default session cadence, and still forward caller-supplied loop
+    # refresh the backlog before each fresh session batch, stop cleanly when
+    # that backlog is empty, keep the longer default session cadence, and
+    # still forward caller-supplied loop
     # arguments unchanged after forcing the yolo-equivalent exec policy.
     sandbox_root, capture_file = _build_gap_hunt_wrapper_sandbox(tmp_path)
 
@@ -672,20 +726,21 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
     )
     assert args[4] == "--pre-session-command"
     assert args[5] == "./scripts/run-backend-gap-hunt-candidate-miner.sh"
-    assert args[6] == "--workdir"
-    assert args[7] == str(sandbox_root)
-    assert args[8] == "--iterations"
-    assert args[9] == "100000"
-    assert args[10] == "--new-session-every"
-    assert args[11] == "3"
-    assert args[12] == "--yolo"
-    assert args[13:] == [
+    assert args[6] == "--stop-on-pre-session-exit-code"
+    assert args[7] == "10"
+    assert args[8] == "--workdir"
+    assert args[9] == str(sandbox_root)
+    assert args[10] == "--iterations"
+    assert args[11] == "100000"
+    assert args[12] == "--new-session-every"
+    assert args[13] == "10"
+    assert args[14] == "--yolo"
+    assert args[15:] == [
         "--iterations",
         "9",
         "--output-dir",
         str(sandbox_root / "outputs"),
     ]
     assert "tmp/backend-gap-hunt-candidates.md" in prompt_text
-    assert "candidate miner inside Codex" in prompt_text
-    assert "Build a shortlist of at least 5 concrete candidate gaps" in prompt_text
-    assert "uncited source tests" in prompt_text
+    assert "Each uncited source test is a clue" in prompt_text
+    assert "add the test to `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`" in prompt_text

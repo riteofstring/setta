@@ -1,16 +1,12 @@
-Automated message: continue the proactive backend gap-hunt loop. You may use up to 5 subagents when useful. Commit frequently.
+Automated message: continue the backend gap-hunt loop.
 
-First compare the current `HEAD`, worktree state, and `tmp/backend-gap-hunt-candidates.md` with the last successful report in this session. The outer wrapper regenerates that backlog before each fresh Codex session batch, so treat it as the current default queue rather than rerunning the miner inside Codex.
+Use `tmp/backend-gap-hunt-candidates.md` as the current queue. The outer wrapper regenerates it before each fresh session batch. Do not rerun the candidate miner inside Codex unless the developer explicitly asks for that.
 
-If `HEAD` is unchanged, the worktree is clean, and that prior report for this `HEAD` already audited at least 5 deterministic-source candidates and either landed a concrete gap or left an evidence-backed next-candidate shortlist, reply exactly:
-`No new high-confidence gap leads found for unchanged HEAD <sha>`
+Treat each uncited source test as a clue for a possible Go implementation gap:
+1. Read the source test, the current Go implementation/tests, and any live caller evidence needed to judge the behavior.
+2. If you find a real Go gap, fix it and add or update executable proof.
+3. If there is no Go gap, add the test to `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md` so it is narrowly cited and removed from the uncited list.
+4. In all cases, update the matrix/docs in the same change so every inspected test is no longer uncited.
+5. Run the relevant targeted parity/tests for the touched slice.
 
-Otherwise:
-1. Continue from the uncited source tests in the file-backed backlog first. Treat those uncited tests as strong places to look for unknown Go gaps. Do not spend time rerunning the candidate miner inside Codex.
-2. Keep skeptical-omission pressure. If the uncited-test backlog is exhausted, mine at least 3 new candidates from deterministic sources and report them clearly so the next fresh session can start from a regenerated backlog.
-3. Prefer targeted proof and `./scripts/run-backend-differential-parity.sh --baseline-ref main --only <scenario>` or focused tests over full-manifest reruns.
-4. If a proof mismatches, fix or classify it, update focused tests plus matrix/docs, and iterate until that slice is green or explicitly blocked.
-5. Before the next successful report for a changed `HEAD` that touched behavior or added new proof, run the targeted parity and tests that validate the touched slice. Run the full default/corpus manifests only if that `HEAD` still needs broad confirmation.
-6. Report the exact commands run, backlog changes, ruled-out leads, and the current best unresolved candidates.
-
-Never treat old green scenarios, matrix counts, touching each area once, or rechecking already-justified intentional divergences as completion evidence. The point of this loop is to surface new high-value gaps quickly, not to re-prove the old queue.
+Report the exact commands run, what gap was fixed or ruled out, and which uncited tests were removed from the backlog.

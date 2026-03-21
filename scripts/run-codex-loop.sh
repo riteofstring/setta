@@ -23,6 +23,9 @@ Options:
                              Defaults to --prompt-file.
   --pre-session-command CMD  Shell command to run before each fresh session
                              batch starts. Runs in --workdir.
+  --stop-on-pre-session-exit-code N
+                             Stop the loop cleanly if the pre-session command
+                             exits with code N.
   --iterations N             Total number of loop iterations. Default: 100
   --new-session-every N      Start a new Codex session every N iterations.
                              Default: 1
@@ -59,6 +62,7 @@ workdir="${ROOT_DIR}"
 model=""
 yolo_mode="0"
 stop_on_error="0"
+stop_on_pre_session_exit_code=""
 codex_extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -81,6 +85,11 @@ while [[ $# -gt 0 ]]; do
     --iterations)
       require_value "$1" "${2:-}"
       iterations="$2"
+      shift 2
+      ;;
+    --stop-on-pre-session-exit-code)
+      require_value "$1" "${2:-}"
+      stop_on_pre_session_exit_code="$2"
       shift 2
       ;;
     --new-session-every)
@@ -160,6 +169,15 @@ fi
 
 if [[ ! "${iterations}" =~ ^[0-9]+$ ]] || [[ "${iterations}" -lt 1 ]]; then
   echo "--iterations must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ -n "${stop_on_pre_session_exit_code}" ]] && (
+  [[ ! "${stop_on_pre_session_exit_code}" =~ ^[0-9]+$ ]] \
+  || [[ "${stop_on_pre_session_exit_code}" -lt 0 ]] \
+  || [[ "${stop_on_pre_session_exit_code}" -gt 255 ]]
+); then
+  echo "--stop-on-pre-session-exit-code must be an integer between 0 and 255" >&2
   exit 1
 fi
 
@@ -255,6 +273,11 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     pre_session_exit_code="$?"
     set -e
     if [[ "${pre_session_exit_code}" -ne 0 ]]; then
+      if [[ -n "${stop_on_pre_session_exit_code}" ]] && [[ "${pre_session_exit_code}" == "${stop_on_pre_session_exit_code}" ]]; then
+        echo "stopped:pre-session-exit:${pre_session_exit_code}" > "${status_file}"
+        echo "[$iteration/$iterations] Stopping loop after pre-session command exit code ${pre_session_exit_code}"
+        break
+      fi
       echo "pre-session-failure:${pre_session_exit_code}" > "${status_file}"
       echo "[$iteration/$iterations] Pre-session command failed with exit code ${pre_session_exit_code}" >&2
       if [[ "${stop_on_error}" == "1" ]]; then

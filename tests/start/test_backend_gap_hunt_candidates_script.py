@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
@@ -17,13 +18,9 @@ def _load_backend_gap_hunt_candidates_module() -> ModuleType:
     return module
 
 
-def test_generate_report_surfaces_status_revisits_and_uncited_sources(
-    tmp_path: Path,
-) -> None:
-    # The miner should keep unknown gap leads on top, while pushing retained
-    # and already-justified divergence work into lower-priority sections. An
-    # uncited test in a retained-only family should not outrank a live caller
-    # weak-proof row.
+def test_generate_report_returns_only_uncited_source_tests(tmp_path: Path) -> None:
+    # The miner should emit only uncited source tests and omit the discarded
+    # ranking/summary sections from the rendered report.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -33,11 +30,9 @@ def test_generate_report_surfaces_status_revisits_and_uncited_sources(
         / "backend-behavior-parity-matrix.md"
     )
     tests_root = repo_root_path / "tests"
-    docs_root = repo_root_path / "docs" / "reference"
 
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "api").mkdir(parents=True, exist_ok=True)
-    docs_root.mkdir(parents=True, exist_ok=True)
 
     matrix_path.write_text(
         """# Backend Behavior Parity Matrix
@@ -51,9 +46,7 @@ def test_generate_report_surfaces_status_revisits_and_uncited_sources(
 
 | Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runner.summary.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `backend/setta/api/runner.py::SettaRunner` | `Retained Python boundary` | retained row |
-| `terminal.cli_sender` | `docs/reference/urls-and-routes.md` | `internal/terminal.go` | `` | `frontend/src/components/Terminal.tsx` | `Intentional divergence` | justified divergence |
-| `view_mode.toggle` | `docs/reference/view-modes.md` | `internal/view_modes.go` | `TestToggleViewModePersists` | `frontend/src/components/Pages/MainContainerCore.tsx` | `Proved` | proved row |
+| `runner.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
 """,
         encoding="utf-8",
     )
@@ -67,131 +60,31 @@ def test_uncited_lookup_failure() -> None:
 """,
         encoding="utf-8",
     )
-    (docs_root / "view-modes.md").write_text("# View Modes\n", encoding="utf-8")
-    (docs_root / "chat-toolkit.md").write_text("# Chat Toolkit\n", encoding="utf-8")
-    (docs_root / "ui-style-consistency.md").write_text(
-        "# UI Style Consistency\n",
-        encoding="utf-8",
-    )
 
     module = _load_backend_gap_hunt_candidates_module()
     report = module.generate_report(
         repo_root_path=repo_root_path,
         matrix_path=matrix_path,
         tests_path=tests_root,
-        docs_path=docs_root,
-        limit=10,
     )
 
-    go_owned_candidate_keys = {
-        candidate.key for candidate in report.go_owned_candidates
-    }
-    low_priority_divergence_candidate_keys = {
-        candidate.key for candidate in report.low_priority_divergence_candidates
-    }
-    retained_candidate_keys = {
-        candidate.key for candidate in report.retained_boundary_candidates
-    }
-
-    assert "matrix-status:runner.summary.lookup" in retained_candidate_keys
-    assert (
-        "matrix-status:terminal.cli_sender"
-        in low_priority_divergence_candidate_keys
-    )
-    assert "matrix-status:terminal.cli_sender" not in go_owned_candidate_keys
-    assert "weak-proof:view_mode.toggle" in go_owned_candidate_keys
-    assert (
-        "test:tests/api/test_runner.py::test_uncited_lookup_failure"
-        in go_owned_candidate_keys
-    )
-    assert "doc:docs/reference/chat-toolkit.md" not in go_owned_candidate_keys
-    assert report.go_owned_candidates[0].key == (
-        "weak-proof:view_mode.toggle"
-    )
-
-    uncited_tests = {
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
-    }
-    uncited_docs = {doc_ref.path for doc_ref in report.uncited_docs}
-
-    assert "tests/api/test_runner.py::test_uncited_lookup_failure" in uncited_tests
-    assert "tests/api/test_runner.py::test_cited_lookup" not in uncited_tests
-    assert "docs/reference/chat-toolkit.md" in uncited_docs
-    assert "docs/reference/view-modes.md" not in uncited_docs
-    assert "docs/reference/ui-style-consistency.md" not in uncited_docs
+    assert [
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+    ] == ["tests/api/test_runner.py::test_uncited_lookup_failure"]
 
     rendered = module.render_report(report)
     assert "## Uncited Source Tests" in rendered
     assert "tests/api/test_runner.py::test_uncited_lookup_failure" in rendered
-    assert "## Unknown Go Gap Leads" not in rendered
-    assert "## Caller-Liveness Rechecks" not in rendered
-
-
-def test_generate_report_caps_repeated_retained_families(
-    tmp_path: Path,
-) -> None:
-    # Repeated retained families should be capped so one family does not occupy
-    # the entire retained-audit section of the backlog.
-    repo_root_path = tmp_path / "workspace"
-    matrix_path = (
-        repo_root_path
-        / "docs"
-        / "plans"
-        / "go-backend-rewrite"
-        / "backend-behavior-parity-matrix.md"
-    )
-    tests_root = repo_root_path / "tests"
-    docs_root = repo_root_path / "docs" / "reference"
-
-    matrix_path.parent.mkdir(parents=True, exist_ok=True)
-    tests_root.mkdir(parents=True, exist_ok=True)
-    docs_root.mkdir(parents=True, exist_ok=True)
-
-    matrix_path.write_text(
-        """# Backend Behavior Parity Matrix
-
-## Audit Boundary
-
-- Source baseline: `main@abc123`
-- Target head: `deadbeef`
-
-## Matrix
-
-| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `chat_toolkit.history.append` | `tests/llm/test_chat_toolkit.py::test_append` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.append` | `Retained Python boundary` | retained row |
-| `chat_toolkit.history.get` | `tests/llm/test_chat_toolkit.py::test_get` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.get` | `Retained Python boundary` | retained row |
-| `chat_toolkit.history.delete` | `tests/llm/test_chat_toolkit.py::test_delete` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.delete` | `Retained Python boundary` | retained row |
-| `chat_toolkit.history.create` | `tests/llm/test_chat_toolkit.py::test_create` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.create` | `Retained Python boundary` | retained row |
-| `listener.sdk.bootstrap` | `tests/api/test_listener.py::test_bootstrap` | `internal/listener.go` | `` | `backend/setta/api/listener.py::SettaListener` | `Retained Python boundary` | retained row |
-| `listener.sdk.realtime` | `tests/api/test_listener.py::test_realtime` | `internal/listener.go` | `` | `backend/setta/api/listener.py::SettaListener` | `Retained Python boundary` | retained row |
-""",
-        encoding="utf-8",
-    )
-    (docs_root / "chat-toolkit.md").write_text("# Chat Toolkit\n", encoding="utf-8")
-
-    module = _load_backend_gap_hunt_candidates_module()
-    report = module.generate_report(
-        repo_root_path=repo_root_path,
-        matrix_path=matrix_path,
-        tests_path=tests_root,
-        docs_path=docs_root,
-        limit=12,
-    )
-
-    retained_titles = [candidate.title for candidate in report.retained_boundary_candidates]
-
-    assert (
-        sum(title.startswith("chat_toolkit.") for title in retained_titles)
-        <= module.MAX_CANDIDATES_PER_FAMILY
-    )
+    assert "## Summary" not in rendered
+    assert "Generated:" not in rendered
+    assert "Matrix rows parsed" not in rendered
 
 
 def test_generate_report_recognizes_class_scoped_matrix_test_citations(
     tmp_path: Path,
 ) -> None:
-    # Matrix citations often reference unittest-style class scopes, so the
-    # miner should not keep flagging those methods as uncited.
+    # Matrix citations often include unittest-style class scopes, so those
+    # cited methods should not remain in the uncited backlog.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -201,11 +94,9 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
         / "backend-behavior-parity-matrix.md"
     )
     tests_root = repo_root_path / "tests"
-    docs_root = repo_root_path / "docs" / "reference"
 
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "api").mkdir(parents=True, exist_ok=True)
-    docs_root.mkdir(parents=True, exist_ok=True)
 
     matrix_path.write_text(
         """# Backend Behavior Parity Matrix
@@ -233,30 +124,23 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
 """,
         encoding="utf-8",
     )
-    (docs_root / "view-modes.md").write_text("# View Modes\n", encoding="utf-8")
 
     module = _load_backend_gap_hunt_candidates_module()
     report = module.generate_report(
         repo_root_path=repo_root_path,
         matrix_path=matrix_path,
         tests_path=tests_root,
-        docs_path=docs_root,
-        limit=10,
     )
 
-    uncited_tests = {
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
-    }
-
-    assert "tests/api/test_runner.py::test_class_cited" not in uncited_tests
-    assert "tests/api/test_runner.py::test_class_uncited" in uncited_tests
+    assert [
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+    ] == ["tests/api/test_runner.py::test_class_uncited"]
 
 
-def test_generate_report_includes_tests_start_tree(
+def test_generate_report_requires_exact_code_span_test_citations(
     tmp_path: Path,
 ) -> None:
-    # Startup/backend parity tests are part of the backend test corpus and
-    # should not be silently excluded from uncited-test discovery.
+    # Free-text mentions should not remove a test from the uncited backlog.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -266,11 +150,51 @@ def test_generate_report_includes_tests_start_tree(
         / "backend-behavior-parity-matrix.md"
     )
     tests_root = repo_root_path / "tests"
-    docs_root = repo_root_path / "docs" / "reference"
+
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+
+    matrix_path.write_text(
+        """# Backend Behavior Parity Matrix
+
+Mention tests/api/test_runner.py::test_uncited_lookup_failure in prose only.
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_uncited_lookup_failure() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert [
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+    ] == ["tests/api/test_runner.py::test_uncited_lookup_failure"]
+
+
+def test_generate_report_includes_tests_start_tree(tmp_path: Path) -> None:
+    # Differential parity tests under tests/start are real gap-hunt clues and
+    # should remain in the uncited backlog.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
 
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
     (tests_root / "start").mkdir(parents=True, exist_ok=True)
-    docs_root.mkdir(parents=True, exist_ok=True)
 
     matrix_path.write_text(
         """# Backend Behavior Parity Matrix
@@ -287,7 +211,7 @@ def test_generate_report_includes_tests_start_tree(
 """,
         encoding="utf-8",
     )
-    (tests_root / "start" / "test_bootstrap.py").write_text(
+    (tests_root / "start" / "test_backend_differential_parity.py").write_text(
         """def test_start_tree_is_collected() -> None:
     assert True
 """,
@@ -299,23 +223,16 @@ def test_generate_report_includes_tests_start_tree(
         repo_root_path=repo_root_path,
         matrix_path=matrix_path,
         tests_path=tests_root,
-        docs_path=docs_root,
-        limit=5,
     )
 
-    uncited_tests = {
-        f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
-    }
-
-    assert "tests/start/test_bootstrap.py::test_start_tree_is_collected" in uncited_tests
+    assert [
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+    ] == ["tests/start/test_backend_differential_parity.py::test_start_tree_is_collected"]
 
 
-def test_generate_report_prioritizes_uncited_tests_with_live_matrix_family_signal(
-    tmp_path: Path,
-) -> None:
-    # Exact uncited tests should rise to the top when the same test file is
-    # already matrix-backed on a live caller surface. That is a stronger
-    # unknown-gap lead than deepening proof on an already-green row.
+def test_generate_report_excludes_gap_hunt_script_tests(tmp_path: Path) -> None:
+    # The uncited backlog should stay focused on tests that can reveal Go
+    # implementation gaps rather than the loop/miner wiring itself.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -325,11 +242,61 @@ def test_generate_report_prioritizes_uncited_tests_with_live_matrix_family_signa
         / "backend-behavior-parity-matrix.md"
     )
     tests_root = repo_root_path / "tests"
-    docs_root = repo_root_path / "docs" / "reference"
 
     matrix_path.parent.mkdir(parents=True, exist_ok=True)
-    (tests_root / "websockets").mkdir(parents=True, exist_ok=True)
-    docs_root.mkdir(parents=True, exist_ok=True)
+    (tests_root / "start").mkdir(parents=True, exist_ok=True)
+
+    matrix_path.write_text("# Backend Behavior Parity Matrix\n", encoding="utf-8")
+    (tests_root / "start" / "test_backend_gap_hunt_candidates_script.py").write_text(
+        """def test_gap_hunt_wrapper() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "start" / "test_run_codex_loop_script.py").write_text(
+        """def test_loop_wrapper() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "start" / "test_backend_differential_parity.py").write_text(
+        """def test_real_gap_hunt_clue() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert [
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report
+    ] == ["tests/start/test_backend_differential_parity.py::test_real_gap_hunt_clue"]
+
+
+def test_script_returns_special_exit_code_when_uncited_backlog_is_empty(
+    tmp_path: Path,
+) -> None:
+    # An empty uncited-test backlog should still write the report file and then
+    # signal the loop to stop cleanly with the dedicated exit code.
+    root = repo_root()
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+    output_path = repo_root_path / "tmp" / "backend-gap-hunt-candidates.md"
+
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
 
     matrix_path.write_text(
         """# Backend Behavior Parity Matrix
@@ -343,39 +310,37 @@ def test_generate_report_prioritizes_uncited_tests_with_live_matrix_family_signa
 
 | Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `listener.transport.cited` | `tests/websockets/test_listener_transport.py::test_listener_delta_cited` | `internal/realtime/listener.go` | `TestListenerDeltaCited` | `frontend/src/state/actions/websocketReceive.ts` | `Proved` | live websocket family |
-| `ai.send.validation` | `docs/reference/external-agents.md` | `internal/httpapi/ai_routes.go` | `TestAISendValidationEnvelope` | `frontend/src/state/actions/ai.ts` | `Proved` | live route family |
+| `runner.lookup` | `tests/api/test_runner.py::test_only_cited_case` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | cited row |
 """,
         encoding="utf-8",
     )
-    (tests_root / "websockets" / "test_listener_transport.py").write_text(
-        """def test_listener_delta_cited() -> None:
-    assert True
-
-
-def test_listener_delta_uncited() -> None:
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_only_cited_case() -> None:
     assert True
 """,
         encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "backend_gap_hunt_candidates.py"),
+            "--repo-root",
+            str(repo_root_path),
+            "--output",
+            str(output_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
     )
 
     module = _load_backend_gap_hunt_candidates_module()
-    report = module.generate_report(
-        repo_root_path=repo_root_path,
-        matrix_path=matrix_path,
-        tests_path=tests_root,
-        docs_path=docs_root,
-        limit=5,
-    )
 
-    go_owned_candidate_keys = [
-        candidate.key for candidate in report.go_owned_candidates
-    ]
-
-    assert report.go_owned_candidates[0].key == (
-        "test:tests/websockets/test_listener_transport.py::test_listener_delta_uncited"
+    assert result.returncode == module.EMPTY_UNCITED_SOURCE_TESTS_EXIT_CODE
+    assert output_path.read_text(encoding="utf-8") == (
+        "# Backend Gap Hunt Candidates\n\n## Uncited Source Tests\n\n"
     )
-    assert "weak-proof:ai.send.validation" in go_owned_candidate_keys
 
 
 def _build_gap_hunt_candidate_wrapper_sandbox(
@@ -436,8 +401,8 @@ def test_gap_hunt_candidate_wrapper_sources_activate_and_forwards_repo_root(
             str(sandbox_root / "scripts" / "run-backend-gap-hunt-candidate-miner.sh"),
             "--output",
             "tmp/custom-gap-hunt.md",
-            "--limit",
-            "12",
+            "--matrix-path",
+            "docs/custom-matrix.md",
         ],
         cwd=sandbox_root,
         env=os.environ.copy(),
@@ -454,5 +419,10 @@ def test_gap_hunt_candidate_wrapper_sources_activate_and_forwards_repo_root(
     assert args[0] == str(sandbox_root / "scripts" / "backend_gap_hunt_candidates.py")
     assert args[1] == "--repo-root"
     assert args[2] == str(sandbox_root)
-    assert args[3:] == ["--output", "tmp/custom-gap-hunt.md", "--limit", "12"]
+    assert args[3:] == [
+        "--output",
+        "tmp/custom-gap-hunt.md",
+        "--matrix-path",
+        "docs/custom-matrix.md",
+    ]
     assert "GAP_HUNT_CANDIDATE_MINER_SANDBOX=1" in env_snapshot
