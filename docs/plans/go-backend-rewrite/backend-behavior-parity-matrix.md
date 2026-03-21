@@ -5,7 +5,7 @@ Last audited: `2026-03-19`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `f73cd7d012e365c3d996bc52ee944cbfb358ee59`
+- Target head: `c4281a10be0cfc6a1708d312671c64fa560eb93a`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -120,6 +120,9 @@ Last audited: `2026-03-19`
 - plus the targeted launcher invalid-runtime-root slice: runtime-log
   initialization failures now surface the typed pre-spawn error across the
   launcher, local-launch, and packaged `setta launch --json` boundaries
+- plus the targeted scoped UI-setting project-default slice: omitted
+  `projectConfigId` now resolves from the active agentic/share project scope
+  on the live MCP UI-setting tool family
 - plus the targeted launch-CLI typed config slice: packaged
   `setta launch --json` now preserves source-style machine-readable config and
   profile failure codes instead of collapsing them into generic bad requests
@@ -853,13 +856,17 @@ Last audited: `2026-03-19`
 
 - Rows audited in this pass: `1253`
 - Status counts:
-  - `Proved`: `1070`
+  - `Proved`: `1071`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `28`
+  - `Missing`: `27`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
   - `Dormant / unproven caller`: `18`
 - Audit fixes landed while building this matrix:
+  - `internal/mcpx/ui_setting_tools.go`: scoped UI-setting search/get/set now
+    default omitted `projectConfigId` from the active agentic/share project
+    context instead of hard-requiring callers to resend it on every scoped
+    tool call
   - `internal/settacli/remote_stop.go` and `internal/settacli/cli.go`:
     packaged local `setta stop` now resolves local runtime config, defaults to
     IDE-only session selection, honors `--session` / `--latest` / `--all`,
@@ -2807,7 +2814,7 @@ Last audited: `2026-03-19`
 | `app_definition.stream.temporary_ids_translate_on_route_and_authenticated_sse` | `backend/setta/mcp/server.py` temporary-id conversion at invocation edge; `tests/mcp/test_id_conversion.py`; `backend/setta/mcp/tools/app_tools.py::stream_app_definition` | `internal/mcpx/temporary_ids.go`; `internal/mcpx/server.go::newStreamAppDefinitionHandler` | `TestTemporaryIDStoreResolvesKnownTemporaryIDsAndRejectsUnknownNumericIDs`; `TestServerTranslatesTemporaryIDsAtInvocationEdge`; `TestMCPToolCallRouteStreamAppDefinitionAcceptsTemporaryIDs`; `TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthenticatedSSE` | both the MCP tool-call route and authenticated-SSE session still accept temporary `projectConfigId` inputs for streamed app-definition patches | `Proved` | Stream-app-definition still resolves temporary project ids to the canonical project before applying patches and persisting the app spec. |
 | `ui_settings.read_write.temporary_ids_translate_on_route_and_authenticated_sse` | `backend/setta/mcp/server.py` temporary-id conversion at invocation edge; `tests/mcp/test_id_conversion.py`; `backend/setta/mcp/tools/ui_settings.py::{get_ui_setting_value,set_ui_setting_value}` | `internal/mcpx/temporary_ids.go`; `internal/mcpx/ui_setting_tools.go::{newGetUISettingValueHandler,newSetUISettingValueHandler}` | `TestTemporaryIDStoreResolvesKnownTemporaryIDsAndRejectsUnknownNumericIDs`; `TestServerUISettingToolsTranslateTemporaryProjectIDs`; `TestMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs`; `TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE` | read/write UI-setting MCP callers still accept temporary ids on both surviving transports | `Proved` | UI-setting reads and writes still canonicalize temporary project ids while persisting against the real project snapshot. |
 | `ui_settings.reveal.temporary_ids_translate_project_and_section` | `backend/setta/mcp/server.py` temporary-id conversion at invocation edge; `tests/mcp/test_id_conversion.py`; `backend/setta/mcp/tools/ui_settings.py::reveal_ui_setting` | `internal/mcpx/temporary_ids.go`; `internal/mcpx/ui_setting_tools.go::newRevealUISettingHandler` | `TestTemporaryIDStoreResolvesKnownTemporaryIDsAndRejectsUnknownNumericIDs`; `TestServerRevealUISettingTranslatesTemporaryIDs`; `TestMCPToolCallRouteRevealUISettingAcceptsTemporaryIDs` | the reveal tool-call route still accepts temporary ids for both `projectConfigId` and `sectionIdToActivate` | `Proved` | Reveal requests still resolve temporary project and section ids before routing the frontend highlight request. |
-| `ui_settings.scope.optional_project_config_and_share_default_resolution` | `backend/setta/mcp/tools/ui_settings.py`; `tests/mcp/test_ui_setting_tools.py` keep `projectConfigId` optional on the source tool surface, resolving the current project from agentic/share scope and failing closed only when the requested share session has no project default | `internal/mcpx/ui_setting_tools.go::resolveScopedUISettingRegistry` currently calls `readRequiredStringArgument(arguments, "projectConfigId")` on the live tool path | current Go share-scope coverage proves only deterministic routing once a project id is already present; there is no Go proof or implementation for omitted-`projectConfigId` default resolution on the tool surface | the live UI-setting tool family still runs in scoped chat/share sessions where callers expect the backend to resolve the active project without resending the id every time | `Missing` | The source UI-setting tools allowed omitted `projectConfigId` and resolved the project from the active scope or share-session default, but the rewrite still hard-requires `projectConfigId` on the live tool handlers. |
+| `ui_settings.scope.optional_project_config_and_share_default_resolution` | `backend/setta/mcp/tools/ui_settings.py`; `tests/mcp/test_ui_setting_tools.py` keep `projectConfigId` optional on the source tool surface, resolving the current project from agentic/share scope and failing closed only when the requested share session has no project default | `internal/mcpx/ui_setting_tools.go::{resolveScopedUISettingRegistry,resolveScopedProjectConfigIDArgument}` | `TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext`; `TestServerSetUISettingValueDefaultsProjectConfigIDFromShareScope`; `TestServerUISettingToolsRejectMissingScopedProjectContextWhenProjectIDOmitted` | the live UI-setting tool family still runs in scoped chat/share sessions where callers expect the backend to resolve the active project without resending the id every time | `Proved` | Omitted `projectConfigId` now resolves from the active agentic/share project scope on scoped UI-setting calls, and the tool family still fails closed with `missing_context` when no scoped project context exists. |
 | `ui_settings.reveal.right_pane_section_resolution_precedence` | `docs/reference/mcp-system-overview.md` documents right-pane reveal behavior requiring section context when none is active, and `tests/mcp/test_ui_setting_tools.py` keeps explicit-section precedence over context-derived active-section fallback on the source reveal path | `internal/uisettings/reveal.go::resolveRevealActiveSection` | `TestRevealServicePrefersExplicitRightPaneSectionOverContextAndActiveSelection`; `TestRevealServiceRejectsMissingActiveSectionForRightPaneReveal`; `TestRevealServiceRejectsIncompatibleRightPaneTab` | the standalone `reveal_ui_setting` tool remains active, and right-pane reveal selection remains caller-visible whenever the current frontend pane depends on backend-owned section targeting | `Proved` | Right-pane reveal selection now has direct Go proof for the successful precedence branch too: explicit `sectionIdToActivate` wins over both scoped context and active-section fallback, so reveal dispatch keeps the intended target even when the fallback section would be incompatible with the requested right-pane tab. |
 | `ui_settings.reveal.share_scope_deterministic_without_affinity` | `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_share_scope_succeeds_without_affinity_when_target_is_deterministic` | `internal/uisettings/reveal.go::resolveTargetFrontendID` | `TestRevealServiceScopesDeterministicSelectionToShareSessionWithoutAffinity` | `internal/mcpx/ui_setting_tools.go::newRevealUISettingHandler` still routes `reveal_ui_setting` through the same reveal coordinator | `Proved` | Share-scoped reveals still succeed without a frontend affinity token when exactly one frontend target is available in the requested share session. |
 | `ui_settings.reveal.share_scope_ambiguous_without_affinity_fails` | `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_origin`; `::test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_affinity_and_meta_frontend_affinity_is_malformed` | `internal/uisettings/reveal.go::resolveTargetFrontendID` | `TestRevealServiceRejectsAmbiguousFrontendSelectionWithoutAffinity`; `TestRevealServiceRejectsAmbiguousFrontendSelectionWithinShareSession` | the same MCP reveal tool surface still depends on the reveal coordinator for routing failures | `Proved` | Multi-frontend reveal routing still fails closed with a structured ambiguity error when no valid affinity token selects a target. |

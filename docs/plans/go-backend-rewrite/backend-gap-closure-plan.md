@@ -425,3 +425,9 @@ categorize them.
   next practical missing work should come from the heavier launcher/process-
   cleanup and JSON-source runtime rows rather than reopening local CLI
   selector behavior
+- The scoped UI-setting omitted-`projectConfigId` row is now closed too:
+  scoped MCP UI-setting calls once again default from the active
+  agentic/share project context and still fail closed when no scoped project
+  context exists, so the next practical queue should stay on the heavier
+  external-agent runtime, launcher/process-cleanup, and JSON-source runtime
+  rows rather than reopening UI-setting scope plumbing
