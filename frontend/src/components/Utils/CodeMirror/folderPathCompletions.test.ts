@@ -1,6 +1,7 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { route_get_folder_contents } from "utils/generatedEndpoints";
+import { createFolderContentItem } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createDynamicFolderPathCompletionSource,
@@ -33,9 +34,21 @@ describe("createFolderPathCompletionSource", () => {
   it("returns folder completions for the current directory", async () => {
     mockedGetFolderContents.mockResolvedValue({
       data: [
-        { name: "alpha", type: "folder", fullPath: "/root/alpha" },
-        { name: "beta", type: "folder", fullPath: "/root/beta" },
-        { name: "file.txt", type: "file", fullPath: "/root/file.txt" },
+        createFolderContentItem({
+          name: "alpha",
+          type: "folder",
+          fullPath: "/root/alpha",
+        }),
+        createFolderContentItem({
+          name: "beta",
+          type: "folder",
+          fullPath: "/root/beta",
+        }),
+        createFolderContentItem({
+          name: "file.txt",
+          type: "file",
+          fullPath: "/root/file.txt",
+        }),
       ],
       status: 200,
       hasResponse: true,
@@ -85,7 +98,13 @@ describe("createFolderPathCompletionSource", () => {
 
   it("supports absolute completions outside the root when enabled", async () => {
     mockedGetFolderContents.mockResolvedValue({
-      data: [{ name: "projects", type: "folder", fullPath: "/Users/projects" }],
+      data: [
+        createFolderContentItem({
+          name: "projects",
+          type: "folder",
+          fullPath: "/Users/projects",
+        }),
+      ],
       status: 200,
       hasResponse: true,
     });
@@ -112,7 +131,11 @@ describe("createFolderPathCompletionSource", () => {
   it("supports outside-root Windows absolute completions when enabled", async () => {
     mockedGetFolderContents.mockResolvedValue({
       data: [
-        { name: "projects", type: "folder", fullPath: "C:/Users/projects" },
+        createFolderContentItem({
+          name: "projects",
+          type: "folder",
+          fullPath: "C:/Users/projects",
+        }),
       ],
       status: 200,
       hasResponse: true,
@@ -140,7 +163,13 @@ describe("createFolderPathCompletionSource", () => {
 
   it("uses backslashes when completing Windows-style paths", async () => {
     mockedGetFolderContents.mockResolvedValue({
-      data: [{ name: "src", type: "folder", fullPath: "C:\\repo\\src" }],
+      data: [
+        createFolderContentItem({
+          name: "src",
+          type: "folder",
+          fullPath: "C:\\repo\\src",
+        }),
+      ],
       status: 200,
       hasResponse: true,
     });
@@ -166,12 +195,24 @@ describe("createDynamicFolderPathCompletionSource", () => {
   it("invalidates cache when allowOutsideWorkspaceRoot changes", async () => {
     mockedGetFolderContents
       .mockResolvedValueOnce({
-        data: [{ name: "alpha", type: "folder", fullPath: "/root/alpha" }],
+        data: [
+          createFolderContentItem({
+            name: "alpha",
+            type: "folder",
+            fullPath: "/root/alpha",
+          }),
+        ],
         status: 200,
         hasResponse: true,
       })
       .mockResolvedValueOnce({
-        data: [{ name: "beta", type: "folder", fullPath: "/root/beta" }],
+        data: [
+          createFolderContentItem({
+            name: "beta",
+            type: "folder",
+            fullPath: "/root/beta",
+          }),
+        ],
         status: 200,
         hasResponse: true,
       });
@@ -207,7 +248,11 @@ describe("createDynamicFolderPathCompletionSource", () => {
   it("supports outside-root Windows absolute completions", async () => {
     mockedGetFolderContents.mockResolvedValue({
       data: [
-        { name: "projects", type: "folder", fullPath: "C:/Users/projects" },
+        createFolderContentItem({
+          name: "projects",
+          type: "folder",
+          fullPath: "C:/Users/projects",
+        }),
       ],
       status: 200,
       hasResponse: true,

@@ -1,0 +1,385 @@
+package plugins
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"setta/internal/config"
+)
+
+func TestServiceDispatchRegisteredBackendRouteInvokesGoBackendExecutable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	response, matched, err := service.DispatchRegisteredBackendRoute(context.Background(), BackendHTTPRequest{
+		Context: BackendRequestContext{
+			ServerMode:     config.ModeIDE,
+			HasAuth:        true,
+			SessionID:      "session-123",
+			ShareSessionID: "share-abc",
+		},
+		Method:   http.MethodPost,
+		Path:     "/items",
+		RawQuery: "view=full",
+		Headers: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: []byte(`{"name":"example"}`),
+	})
+	if err != nil {
+		t.Fatalf("dispatch backend route: %v", err)
+	}
+	if !matched {
+		t.Fatal("expected backend route match")
+	}
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected created response, got %#v", response.StatusCode)
+	}
+	if got := response.Headers["X-Plugin"]; len(got) != 1 || got[0] != "backend-fixture" {
+		t.Fatalf("unexpected response headers %#v", response.Headers)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body, &payload); err != nil {
+		t.Fatalf("decode backend route response body: %v", err)
+	}
+	if payload["method"] != http.MethodPost || payload["path"] != "/items" || payload["rawQuery"] != "view=full" {
+		t.Fatalf("unexpected backend route payload %#v", payload)
+	}
+	if payload["sessionId"] != "session-123" || payload["shareSessionId"] != "share-abc" {
+		t.Fatalf("expected request context in backend route payload, got %#v", payload)
+	}
+	bodyPayload, ok := payload["body"].(map[string]any)
+	if !ok || bodyPayload["name"] != "example" {
+		t.Fatalf("unexpected backend route body payload %#v", payload["body"])
+	}
+}
+
+func TestServiceLookupRegisteredBackendRouteReportsPathMismatch(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	lookup, err := service.LookupRegisteredBackendRoute(http.MethodGet, "/items")
+	if err != nil {
+		t.Fatalf("lookup registered backend route: %v", err)
+	}
+	if lookup.Matched {
+		t.Fatalf("expected GET /items to miss method match, got %#v", lookup)
+	}
+	if !lookup.PathExists {
+		t.Fatalf("expected GET /items to report path match, got %#v", lookup)
+	}
+}
+
+func TestServiceDispatchRegisteredBackendRouteFallsBackFromHeadToGet(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	response, matched, err := service.DispatchRegisteredBackendRoute(context.Background(), BackendHTTPRequest{
+		Context: BackendRequestContext{
+			ServerMode: config.ModeIDE,
+		},
+		Method: http.MethodHead,
+		Path:   "/health",
+	})
+	if err != nil {
+		t.Fatalf("dispatch HEAD backend route: %v", err)
+	}
+	if !matched {
+		t.Fatal("expected HEAD backend route match")
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected HEAD backend route 200, got %#v", response.StatusCode)
+	}
+}
+
+func TestServiceInvokeRegisteredListenerEndpointInvokesGoBackendExecutable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerListenerEndpoint"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	result, handled, err := service.InvokeRegisteredListenerEndpoint(context.Background(), BackendListenerEndpointRequest{
+		Context: BackendRequestContext{
+			ServerMode:      config.ModeIDE,
+			HasAuth:         true,
+			SessionID:       "session-123",
+			ProjectConfigID: "project-alpha",
+		},
+		EndpointName: "route_backend_fixture_ping",
+		Payload: map[string]any{
+			"projectConfigId": "project-alpha",
+			"value":           "ping",
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke registered listener endpoint: %v", err)
+	}
+	if !handled {
+		t.Fatal("expected listener endpoint to be handled")
+	}
+
+	resultPayload, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map listener result, got %#v", result)
+	}
+	if resultPayload["endpointName"] != "route_backend_fixture_ping" || resultPayload["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected listener result payload %#v", resultPayload)
+	}
+	if resultPayload["sessionId"] != "session-123" || resultPayload["hasAuth"] != true {
+		t.Fatalf("unexpected listener auth payload %#v", resultPayload)
+	}
+	payload, ok := resultPayload["payload"].(map[string]any)
+	if !ok || payload["value"] != "ping" {
+		t.Fatalf("unexpected listener payload %#v", resultPayload["payload"])
+	}
+}
+
+func TestServiceBackendUISettingRoundTripInvokesGoBackendExecutable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	writePluginBackendUISettingFixtureMainGo(t, pluginRoot, false)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	settings, err := service.GetBackendUISettings("setta-fixture-full")
+	if err != nil {
+		t.Fatalf("get backend ui settings: %v", err)
+	}
+	if len(settings) != 1 {
+		t.Fatalf("expected one backend ui setting, got %#v", settings)
+	}
+	if settings[0].LocalSettingID != "backend_enabled" || settings[0].ReadHandlerID != "read-backend-enabled" {
+		t.Fatalf("unexpected backend ui setting registration %#v", settings[0])
+	}
+
+	value, err := service.ReadBackendUISettingValue(context.Background(), BackendUISettingReadOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "read-backend-enabled",
+		ProjectConfigID: "project-alpha",
+	})
+	if err != nil {
+		t.Fatalf("read backend ui setting value: %v", err)
+	}
+	if value != false {
+		t.Fatalf("expected default backend ui setting value false, got %#v", value)
+	}
+
+	if err := service.WriteBackendUISettingValue(context.Background(), BackendUISettingWriteOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "write-backend-enabled",
+		ProjectConfigID: "project-alpha",
+		Value:           true,
+	}); err != nil {
+		t.Fatalf("write backend ui setting value: %v", err)
+	}
+
+	updatedValue, err := service.ReadBackendUISettingValue(context.Background(), BackendUISettingReadOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "read-backend-enabled",
+		ProjectConfigID: "project-alpha",
+	})
+	if err != nil {
+		t.Fatalf("read backend ui setting value after write: %v", err)
+	}
+	if updatedValue != true {
+		t.Fatalf("expected updated backend ui setting value true, got %#v", updatedValue)
+	}
+}
+
+func writePluginBackendUISettingFixtureMainGo(t *testing.T, pluginRoot string, invalidPostWrite bool) {
+	t.Helper()
+
+	assignment := "state.Enabled = value"
+	if invalidPostWrite {
+		assignment = "if value {\n\t\tstate.Enabled = \"invalid-value\"\n\t} else {\n\t\tstate.Enabled = value\n\t}"
+	}
+
+	source := fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	backendProbeArg = "--setta-plugin-backend-probe"
+	backendRuntimeArg = "--setta-plugin-backend-runtime"
+)
+
+type runtimeRequest struct {
+	SchemaVersion int               `+"`json:\"schemaVersion\"`"+`
+	Kind          string            `+"`json:\"kind\"`"+`
+	UISetting     *uiSettingRequest `+"`json:\"uiSetting,omitempty\"`"+`
+}
+
+type uiSettingRequest struct {
+	HandlerID       string `+"`json:\"handlerId\"`"+`
+	Operation       string `+"`json:\"operation\"`"+`
+	ProjectConfigID string `+"`json:\"projectConfigId\"`"+`
+	Value           any    `+"`json:\"value,omitempty\"`"+`
+}
+
+type runtimeResponse struct {
+	SchemaVersion int            `+"`json:\"schemaVersion\"`"+`
+	UISetting     map[string]any `+"`json:\"uiSetting,omitempty\"`"+`
+}
+
+type stateFile struct {
+	Enabled any `+"`json:\"enabled\"`"+`
+}
+
+func main() {
+	if len(os.Args) != 2 {
+		return
+	}
+	switch os.Args[1] {
+	case backendProbeArg:
+		writeJSON(map[string]any{
+			"schemaVersion": 1,
+			"uiSettings": []map[string]any{
+				{
+					"id":             "backend_enabled",
+					"title":          "Backend Enabled",
+					"description":    "Enable backend-provided fixture behavior.",
+					"paneId":         "full-settings-pane",
+					"revealKey":      "full-settings",
+					"synonyms":       []string{"backend enabled"},
+					"mutability":     "writable",
+					"valueSchema":    map[string]any{"type": "boolean"},
+					"readHandlerId":  "read-backend-enabled",
+					"writeHandlerId": "write-backend-enabled",
+				},
+			},
+			"routes":            []map[string]any{},
+			"staticDirs":        []map[string]any{},
+			"listenerEndpoints": []map[string]any{},
+		})
+	case backendRuntimeArg:
+		handleRuntime()
+	}
+}
+
+func handleRuntime() {
+	var request runtimeRequest
+	decoder := json.NewDecoder(os.Stdin)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		fail("decode backend runtime request: %%v", err)
+	}
+	switch strings.TrimSpace(request.Kind) {
+	case "ui_setting":
+		if request.UISetting == nil {
+			fail("ui setting runtime payload is required")
+		}
+		handleUISetting(*request.UISetting)
+	default:
+		fail("unsupported backend runtime kind %%q", request.Kind)
+	}
+}
+
+func handleUISetting(request uiSettingRequest) {
+	switch strings.TrimSpace(request.HandlerID) {
+	case "read-backend-enabled":
+		if strings.TrimSpace(request.Operation) != "read" {
+			fail("unexpected ui setting operation %%q", request.Operation)
+		}
+		state := loadState()
+		writeJSON(runtimeResponse{
+			SchemaVersion: 1,
+			UISetting: map[string]any{
+				"value": state.Enabled,
+			},
+		})
+	case "write-backend-enabled":
+		if strings.TrimSpace(request.Operation) != "write" {
+			fail("unexpected ui setting operation %%q", request.Operation)
+		}
+		value, ok := request.Value.(bool)
+		if !ok {
+			fail("ui setting write value must be boolean")
+		}
+		state := loadState()
+		%s
+		saveState(state)
+		writeJSON(runtimeResponse{
+			SchemaVersion: 1,
+			UISetting: map[string]any{
+				"value": state.Enabled,
+			},
+		})
+	default:
+		fail("unsupported ui setting handler %%q", request.HandlerID)
+	}
+}
+
+func statePath() string {
+	return filepath.Join(".", "backend_ui_setting_state.json")
+}
+
+func loadState() stateFile {
+	bytes, err := os.ReadFile(statePath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateFile{Enabled: false}
+		}
+		fail("read ui setting state: %%v", err)
+	}
+	var state stateFile
+	if err := json.Unmarshal(bytes, &state); err != nil {
+		fail("decode ui setting state: %%v", err)
+	}
+	if state.Enabled == nil {
+		state.Enabled = false
+	}
+	return state
+}
+
+func saveState(state stateFile) {
+	payload, err := json.Marshal(state)
+	if err != nil {
+		fail("encode ui setting state: %%v", err)
+	}
+	if err := os.WriteFile(statePath(), payload, 0o644); err != nil {
+		fail("write ui setting state: %%v", err)
+	}
+}
+
+func writeJSON(payload any) {
+	if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+		fail("encode payload: %%v", err)
+	}
+}
+
+func fail(format string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(1)
+}
+`, assignment)
+
+	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "main.go"), []byte(source), 0o644); err != nil {
+		t.Fatalf("write backend ui setting fixture main.go: %v", err)
+	}
+}

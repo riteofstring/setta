@@ -7,6 +7,19 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("generated task board defaults", () => {
+  it("creates task board sections with empty columns by default", () => {
+    const first = createTaskBoardSectionImpl();
+    const second = createTaskBoardSectionImpl();
+
+    first.columns.push(createTaskBoardColumn({ name: "Todo" }));
+    first.tasks.push(createTaskBoardTask({ title: "Task A" }));
+
+    expect(first.columns).not.toBe(second.columns);
+    expect(first.tasks).not.toBe(second.tasks);
+    expect(second.columns).toEqual([]);
+    expect(second.tasks).toEqual([]);
+  });
+
   it("uses a null columns sentinel for user default task board settings", () => {
     const first = createUserDefaultTaskBoardSectionImpl();
     const second = createUserDefaultTaskBoardSectionImpl();
