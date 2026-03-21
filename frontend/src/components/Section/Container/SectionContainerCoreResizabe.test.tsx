@@ -5,13 +5,12 @@ import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
+  createProjectChatWindowInstance,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AreaSwitch,
-  SectionContainerCoreResizable,
-} from "./SectionContainerCoreResizabe";
+import { SectionAreaSwitch } from "./SectionAreaSwitch";
+import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 type MockProjectState = {
   projectConfig: {
@@ -20,12 +19,43 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
+type MockReactFlowState = {
+  viewportInteractionActive: boolean;
+  transform: [number, number, number];
+};
+
+type MockNodeInternalsState = {
+  x: Map<string, { width: number | null; height: number | null }>;
+};
+
+let mockSectionImpl: {
+  type: string;
+  isMinimized: boolean;
+  metaControlStyle: boolean;
+} = {
+  type: SectionTypeEnum.Code,
+  isMinimized: false,
+  metaControlStyle: false,
+};
+
 let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-1",
   },
   projectChatWindowing: createProjectChatWindowingState(),
 };
+
+let mockReactFlowState: MockReactFlowState = {
+  viewportInteractionActive: false,
+  transform: [0, 0, 1],
+};
+
+let mockNodeInternalsState: MockNodeInternalsState = {
+  x: new Map([["section-123", { width: 200, height: 100 }]]),
+};
+
+let mockIsRoot = false;
+let mockIsActiveSection = false;
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -56,27 +86,48 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({ children }: { children: ReactNode }) => (
-    <section data-testid="mock-custom-resizable">{children}</section>
+  CustomResizable: ({
+    children,
+    surfaceClassName = "",
+    useMetaControlStyle = false,
+  }: {
+    children: ReactNode;
+    surfaceClassName?: string;
+    useMetaControlStyle?: boolean;
+  }) => (
+    <section
+      data-testid="mock-custom-resizable"
+      data-surface-class={surfaceClassName}
+      data-meta-control-style={useMetaControlStyle ? "true" : "false"}
+    >
+      {children}
+    </section>
   ),
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
-  getCurrEffectiveSectionImpl: () => ({
-    type: SectionTypeEnum.Code,
-    isMinimized: false,
-    metaControlStyle: false,
-  }),
+  getCurrEffectiveSectionImpl: () => mockSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection: () => null,
 }));
 
 vi.mock("state/actions/uiTypes/utils", () => ({
-  getIsRoot: () => false,
+  getIsRoot: () => mockIsRoot,
 }));
 
 vi.mock("state/definitions", () => ({
   useProjectState: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
+  useNodeInternals: (selector: (state: MockNodeInternalsState) => unknown) =>
+    selector(mockNodeInternalsState),
+}));
+
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (selector: (state: MockReactFlowState) => unknown) =>
+    selector(mockReactFlowState),
+}));
+
+vi.mock("state/activeSectionUI", () => ({
+  useIsSectionUIActive: () => mockIsActiveSection,
 }));
 
 vi.mock("../Header/SectionHeader", () => ({
@@ -183,12 +234,26 @@ vi.mock("./TextBlockMetaControlMenuButton", () => ({
 
 describe("SectionContainerCoreResizable", () => {
   beforeEach(() => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Code,
+      isMinimized: false,
+      metaControlStyle: false,
+    };
+    mockIsRoot = false;
     mockProjectState = {
       projectConfig: {
         id: "project-1",
       },
       projectChatWindowing: createProjectChatWindowingState(),
     };
+    mockReactFlowState = {
+      viewportInteractionActive: false,
+      transform: [0, 0, 1],
+    };
+    mockNodeInternalsState = {
+      x: new Map([["section-123", { width: 200, height: 100 }]]),
+    };
+    mockIsActiveSection = false;
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
@@ -199,13 +264,75 @@ describe("SectionContainerCoreResizable", () => {
       projectChatWindowing: createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {
-          "project-chat-window-1": {
+          "project-chat-window-1": createProjectChatWindowInstance({
             instanceId: "project-chat-window-1",
             placement: ChatWindowPlacementEnum.floating,
             sectionIdOrNull: "section-123",
             isClosed: true,
             isMinimized: false,
-          },
+            isMaximized: false,
+            bounds: { x: 0, y: 0, width: 320, height: 200 },
+            dockMetrics: {
+              widthFraction: null,
+              preferredWidthPx: null,
+            },
+            zIndex: 1,
+            mode: ChatWindowModeEnum.section_mode,
+            title: "Section window",
+            lastFocusedAt: 0,
+            chatId: null,
+          }),
+        },
+      }),
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
+    expect(markup).toContain('data-instance-id="project-chat-window-1"');
+    expect(markup).not.toContain('data-testid="mock-code-area"');
+  });
+
+  it("keeps the canvas placeholder for minimized external non-chat section bindings", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Code,
+      isMinimized: true,
+      metaControlStyle: false,
+    };
+    mockProjectState = {
+      projectConfig: {
+        id: "project-1",
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstance({
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            isClosed: true,
+            isMinimized: false,
+            isMaximized: false,
+            bounds: { x: 0, y: 0, width: 320, height: 200 },
+            dockMetrics: {
+              widthFraction: null,
+              preferredWidthPx: null,
+            },
+            zIndex: 1,
+            mode: ChatWindowModeEnum.section_mode,
+            title: "Section window",
+            lastFocusedAt: 0,
+            chatId: null,
+          }),
         },
       }),
     };
@@ -228,7 +355,7 @@ describe("SectionContainerCoreResizable", () => {
 
   it("routes workspace section windows through the section-owned surface id", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionAreaSwitch
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
@@ -250,9 +377,99 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-project-chat-controlled="false"');
   });
 
+  it("routes meta-control canvas chrome through the shared grid descriptor", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.MetaControl,
+      isMinimized: false,
+      metaControlStyle: false,
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.MetaControl}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-meta-control-menu"');
+    expect(markup).not.toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-meta-control-style="true"');
+    expect(markup).toContain('data-surface-class="bg-transparent');
+    expect(markup).toContain("group-hover/card-section:z-[170]");
+    expect(markup).toContain("grid");
+    expect(markup).toContain("grid-cols-1");
+    expect(markup).not.toContain("section-grid-cols");
+  });
+
+  it("routes standard canvas chrome through the shared section grid shell", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-testid="mock-code-area"');
+    expect(markup).toContain("section-grid-cols");
+  });
+
+  it("keeps root incrementers inside the same shared grid canvas shell", () => {
+    mockIsRoot = true;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-testid="mock-incrementer"');
+    expect(markup).toContain('data-testid="mock-code-area"');
+    expect(markup).toContain("section-grid-cols");
+  });
+
+  it("keeps text-block meta-control menus even when the normal header is hidden", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.TextBlock,
+      isMinimized: false,
+      metaControlStyle: true,
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.TextBlock}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+        hideHeader
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-textblock-meta-control-menu"');
+    expect(markup).not.toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-meta-control-style="true"');
+    expect(markup).toContain("section-grid-cols");
+  });
+
   it("preserves explicit standalone thread ownership overrides", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionAreaSwitch
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"

@@ -1,18 +1,14 @@
 import React from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { ParamGroupContainer } from "../../Params/GroupContainer";
-import { KwargsControls } from "../SectionParts/KwargsControls";
+import { Tier1DenseParamSectionBody } from "./Tier1DenseParamSectionBody";
 
 function _GlobalVariablesArea({ sectionId, bgColor }) {
   return (
-    <>
-      <KwargsControls sectionId={sectionId} />
-      <ParamGroupContainer
-        sectionId={sectionId}
-        bgColor={bgColor}
-        sectionTypeName={SectionTypeEnum.GlobalVariables}
-      />
-    </>
+    <Tier1DenseParamSectionBody
+      sectionId={sectionId}
+      bgColor={bgColor}
+      sectionTypeName={SectionTypeEnum.GlobalVariables}
+    />
   );
 }
 
