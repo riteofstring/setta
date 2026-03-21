@@ -97,3 +97,20 @@ func HasRetainedImageAttachmentFromImageModeThread(
 	}
 	return false
 }
+
+func NormalizeSubmittedTurnAppGenerationByMessageID(
+	raw any,
+	submittedMessageID string,
+	requestedMode *string,
+) map[string]string {
+	normalized := NormalizeAppGenerationByMessageID(raw)
+	if strings.TrimSpace(submittedMessageID) == "" {
+		return normalized
+	}
+	if requestedMode == nil || strings.TrimSpace(*requestedMode) == "" {
+		normalized[submittedMessageID] = ChatAppGenerationMessageModePlainChat
+		return normalized
+	}
+	normalized[submittedMessageID] = strings.TrimSpace(*requestedMode)
+	return normalized
+}

@@ -97,3 +97,35 @@ func TestHasRetainedImageAttachmentFromImageModeThreadRequiresUserTurnImageModeA
 		t.Fatal("expected plain-chat or assistant attachments not to count as retained image provenance")
 	}
 }
+
+func TestNormalizeSubmittedTurnAppGenerationByMessageIDRecordsPlainChatWhenModeUnset(t *testing.T) {
+	t.Parallel()
+
+	normalized := NormalizeSubmittedTurnAppGenerationByMessageID(
+		map[string]any{"msg-old": ChatAppGenerationMessageModeMCPServer},
+		"msg-new",
+		nil,
+	)
+
+	if normalized["msg-old"] != ChatAppGenerationMessageModeMCPServer {
+		t.Fatalf("expected prior normalized entries to survive, got %#v", normalized)
+	}
+	if normalized["msg-new"] != ChatAppGenerationMessageModePlainChat {
+		t.Fatalf("expected submitted turn to default to plain_chat, got %#v", normalized)
+	}
+}
+
+func TestNormalizeSubmittedTurnAppGenerationByMessageIDOverridesSubmittedMode(t *testing.T) {
+	t.Parallel()
+
+	requestedMode := ChatAppGenerationMessageModeJSONRender
+	normalized := NormalizeSubmittedTurnAppGenerationByMessageID(
+		map[string]any{"msg-new": ChatAppGenerationMessageModePlainChat},
+		"msg-new",
+		&requestedMode,
+	)
+
+	if normalized["msg-new"] != ChatAppGenerationMessageModeJSONRender {
+		t.Fatalf("expected submitted turn to use requested mode, got %#v", normalized)
+	}
+}

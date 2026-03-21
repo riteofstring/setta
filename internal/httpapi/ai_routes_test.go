@@ -226,7 +226,7 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 		t.Fatalf("unexpected frontendAffinityToken %#v", got)
 	}
 	appGenerationByMessageID, ok := runs[0].Inputs["appGenerationByMessageId"].(map[string]any)
-	if !ok || appGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+	if !ok || appGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModePlainChat {
 		t.Fatalf("expected persisted app-generation provenance, got %#v", runs[0].Inputs["appGenerationByMessageId"])
 	}
 	state, err := fixture.runtime.GetLiveChatState(runs[0].ID)
@@ -235,6 +235,53 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 	}
 	if state == nil || !state.WaitingForResponse {
 		t.Fatalf("expected active waiting state, got %#v", state)
+	}
+}
+
+func TestRegisterAIRoutesOverridesSubmittedTurnProvenanceWithRequestedMode(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Build the app."}]},
+			"engineConfigId":"engine-external",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false,
+			"appGenerationMode":"mcp_server",
+			"appGenerationByMessageId":{"user-1":"plain_chat"}
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	runs, err := fixture.store.List()
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one persisted run, got %#v", runs)
+	}
+	appGenerationByMessageID, ok := runs[0].Inputs["appGenerationByMessageId"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted app-generation provenance, got %#v", runs[0].Inputs["appGenerationByMessageId"])
+	}
+	if appGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+		t.Fatalf("expected submitted turn to use requested mode, got %#v", appGenerationByMessageID)
 	}
 }
 
@@ -303,6 +350,45 @@ func TestRegisterAIRoutesStartsManagedChat(t *testing.T) {
 	}
 	if len(runs) != 0 {
 		t.Fatalf("expected managed route test not to persist external runs through the stubbed starter, got %#v", runs)
+	}
+}
+
+func TestRegisterAIRoutesNormalizesSubmittedTurnToPlainChatWhenModeUnset(t *testing.T) {
+	t.Parallel()
+
+	managedStarter := &aiRouteStubManagedStarter{}
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Just answer plainly."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	appGenerationByMessageID, ok := fixture.managedStarter.lastInputs["appGenerationByMessageId"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected managed app-generation provenance, got %#v", fixture.managedStarter.lastInputs["appGenerationByMessageId"])
+	}
+	if appGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
+		t.Fatalf("expected submitted turn to normalize to plain_chat, got %#v", appGenerationByMessageID)
 	}
 }
 

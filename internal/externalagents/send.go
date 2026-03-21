@@ -403,9 +403,21 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		}
 		priorMessages = buildInputMessages(priorMessages, normalizedMessage)
 	}
-	appGenerationByMessageID := agentruns.NormalizeAppGenerationByMessageID(nil)
+	submittedMessageID, err := messageID(priorMessages[len(priorMessages)-1])
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	appGenerationByMessageID := agentruns.NormalizeSubmittedTurnAppGenerationByMessageID(
+		nil,
+		submittedMessageID,
+		appGenerationMode,
+	)
 	if request.AdditionalInputs != nil {
-		appGenerationByMessageID = agentruns.NormalizeAppGenerationByMessageID(request.AdditionalInputs["appGenerationByMessageId"])
+		appGenerationByMessageID = agentruns.NormalizeSubmittedTurnAppGenerationByMessageID(
+			request.AdditionalInputs["appGenerationByMessageId"],
+			submittedMessageID,
+			appGenerationMode,
+		)
 	}
 	if appGenerationMode != nil && *appGenerationMode == AppGenerationModeJSONRenderWithImage {
 		if !agentruns.MessageHasImageAttachment(normalizedMessage) &&
@@ -418,6 +430,7 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if inputs == nil {
 		inputs = map[string]any{}
 	}
+	inputs["appGenerationByMessageId"] = appGenerationByMessageID
 	inputs["chatId"] = chatID
 	inputs["projectConfigId"] = projectConfigID
 	inputs["thinking"] = request.Thinking
