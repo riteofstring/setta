@@ -13,8 +13,29 @@ import (
 )
 
 const maxToolCallRounds = 8
+const missingCompletionStatusToolAssistantMessage = "Completion guard is enabled, but the required `report_completion_status` tool is unavailable for this managed run. Add the default Setta MCP server to `mcpServerIds` or disable completion guard."
 
 var ErrToolLoopLimitExceeded = errors.New("managed llm tool-call loop limit exceeded")
+
+type completionStatusToolRequiredError struct {
+	reason string
+}
+
+func (e *completionStatusToolRequiredError) Error() string {
+	message := "Completion guard is enabled, but the default Setta report_completion_status tool is unavailable"
+	if reason := strings.TrimSpace(e.reason); reason != "" {
+		message += ": " + reason
+	}
+	return fmt.Sprintf("%s: %s", ErrToolsUnsupported.Error(), message)
+}
+
+func (e *completionStatusToolRequiredError) Unwrap() error {
+	return ErrToolsUnsupported
+}
+
+func (e *completionStatusToolRequiredError) AssistantFailureMessage() string {
+	return missingCompletionStatusToolAssistantMessage
+}
 
 type ToolClient interface {
 	InitToolsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor
@@ -147,9 +168,15 @@ func parseToolCallArguments(raw string) (map[string]any, error) {
 
 func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) ([]map[string]any, map[string]mcpx.ToolDescriptor, *toolAllowlist, error) {
 	if len(request.MCPServerIDs) == 0 {
+		if err := requireCompletionStatusToolInPayload(request, nil, "managed LLM config resolved no MCP servers"); err != nil {
+			return nil, nil, nil, err
+		}
 		return nil, nil, nil, nil
 	}
 	if tools == nil {
+		if err := requireCompletionStatusToolInPayload(request, nil, "MCP tool client is unavailable"); err != nil {
+			return nil, nil, nil, err
+		}
 		return nil, nil, nil, fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
 	}
 	allowlist, err := normalizeToolAllowlist(request)
@@ -158,6 +185,9 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 	}
 	serverIDs := resolveAllowedServerIDs(request.MCPServerIDs, allowlist)
 	if len(serverIDs) == 0 {
+		if err := requireCompletionStatusToolInPayload(request, nil, "the active tool allowlist removed every available MCP server"); err != nil {
+			return nil, map[string]mcpx.ToolDescriptor{}, allowlist, err
+		}
 		return nil, map[string]mcpx.ToolDescriptor{}, allowlist, nil
 	}
 
@@ -170,6 +200,9 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 		combined[name] = descriptor
 	}
 	if len(combined) == 0 {
+		if err := requireCompletionStatusToolInPayload(request, nil, "no MCP tools are available for the configured servers"); err != nil {
+			return nil, map[string]mcpx.ToolDescriptor{}, allowlist, err
+		}
 		return nil, map[string]mcpx.ToolDescriptor{}, allowlist, nil
 	}
 
@@ -200,7 +233,21 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 		payload = append(payload, toolPayload)
 		available[name] = descriptor
 	}
+	if err := requireCompletionStatusToolInPayload(request, available, "the provider tool payload omitted the default Setta completion-report tool"); err != nil {
+		return nil, nil, allowlist, err
+	}
 	return payload, available, allowlist, nil
+}
+
+func requireCompletionStatusToolInPayload(request agentruns.ExecutionRequest, available map[string]mcpx.ToolDescriptor, reason string) error {
+	if !request.CompletionGuardEnabled {
+		return nil
+	}
+	requiredToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_completion_status")
+	if _, ok := available[requiredToolName]; ok {
+		return nil
+	}
+	return &completionStatusToolRequiredError{reason: reason}
 }
 
 func normalizeToolAllowlist(request agentruns.ExecutionRequest) (*toolAllowlist, error) {

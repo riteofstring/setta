@@ -40,6 +40,10 @@ type RequestValidator interface {
 
 type CompletionGuardProvider func() (bool, error)
 
+type assistantFailureMessageError interface {
+	AssistantFailureMessage() string
+}
+
 type ExecutionRequest struct {
 	Profile                agentprofiles.Profile
 	Run                    Run
@@ -209,17 +213,7 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		var err error
 		request, err = s.buildExecutionRequest(runContext)
 		if err != nil {
-			runContext.run.Outputs = buildOutputs(nil, s.buildRunMetadata(runContext), nil)
-			runContext.run.Status = RunStatusFailed
-			finishedAt := s.timeNow().UTC()
-			runContext.run.FinishedAt = &finishedAt
-			if saveErr := s.runs.Save(runContext.run); saveErr != nil {
-				return Run{}, saveErr
-			}
-			if recordErr := s.recordEvent(&runContext.run, "run_failed", map[string]any{"error": err.Error()}); recordErr != nil {
-				return Run{}, recordErr
-			}
-			return s.runs.Load(runContext.run.ID)
+			return s.failRun(runContext, err)
 		}
 	}
 	result, execErr := s.executor.Execute(ctx, request)
@@ -233,17 +227,7 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		return s.cancelRun(runContext.run.ID)
 	}
 	if execErr != nil {
-		runContext.run.Outputs = buildOutputs(nil, s.buildRunMetadata(runContext), nil)
-		runContext.run.Status = RunStatusFailed
-		finishedAt := s.timeNow().UTC()
-		runContext.run.FinishedAt = &finishedAt
-		if err := s.runs.Save(runContext.run); err != nil {
-			return Run{}, err
-		}
-		if err := s.recordEvent(&runContext.run, "run_failed", map[string]any{"error": execErr.Error()}); err != nil {
-			return Run{}, err
-		}
-		return s.runs.Load(runContext.run.ID)
+		return s.failRun(runContext, execErr)
 	}
 
 	runContext.run.ToolCalls = cloneToolCalls(result.ToolCalls)
@@ -337,6 +321,24 @@ func (s *Service) persistExecutionResult(run *Run, context runContext, result Ex
 	run.Cost = cloneFloat64Ptr(result.Cost)
 	run.Outputs = buildOutputs(result.Outputs, s.buildRunMetadata(context), result.Cost)
 	return s.runs.Save(*run)
+}
+
+func (s *Service) failRun(runContext runContext, cause error) (Run, error) {
+	runContext.run.Outputs = buildFailureOutputs(runContext.run.ID, assistantFailureMessage(cause), s.buildRunMetadata(runContext))
+	runContext.run.Status = RunStatusFailed
+	finishedAt := s.timeNow().UTC()
+	runContext.run.FinishedAt = &finishedAt
+	if err := s.runs.Save(runContext.run); err != nil {
+		return Run{}, err
+	}
+	eventPayload := map[string]any{}
+	if cause != nil {
+		eventPayload["error"] = cause.Error()
+	}
+	if err := s.recordEvent(&runContext.run, "run_failed", eventPayload); err != nil {
+		return Run{}, err
+	}
+	return s.runs.Load(runContext.run.ID)
 }
 
 func cloneStringSlice(values []string) []string {
@@ -623,6 +625,43 @@ func buildOutputs(base map[string]any, metadata map[string]any, cost *float64) m
 		outputs["cost"] = *cost
 	}
 	return outputs
+}
+
+func buildFailureOutputs(runID string, message string, metadata map[string]any) map[string]any {
+	base := map[string]any{}
+	if trimmed := strings.TrimSpace(message); trimmed != "" {
+		base["messages"] = []any{buildAssistantFailureMessage(runID, trimmed)}
+	}
+	return buildOutputs(base, metadata, nil)
+}
+
+func buildAssistantFailureMessage(runID string, message string) map[string]any {
+	messageID := "assistant_failed"
+	if trimmedRunID := strings.TrimSpace(runID); trimmedRunID != "" {
+		messageID += "_" + trimmedRunID
+	}
+	return map[string]any{
+		"id":   messageID,
+		"role": "assistant",
+		"content": []any{
+			map[string]any{
+				"type": "text",
+				"text": message,
+			},
+		},
+		"attachments": []any{},
+	}
+}
+
+func assistantFailureMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	var visibleErr assistantFailureMessageError
+	if !errors.As(err, &visibleErr) {
+		return ""
+	}
+	return strings.TrimSpace(visibleErr.AssistantFailureMessage())
 }
 
 func buildSystemPrompt(basePrompt string, profile agentprofiles.Profile, projectConfigID string, temporaryIDs TemporaryIDs, completionGuardEnabled bool) (string, error) {

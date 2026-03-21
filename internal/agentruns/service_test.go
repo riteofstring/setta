@@ -38,6 +38,18 @@ type stubTemporaryIDs struct {
 	mapping map[string]string
 }
 
+type visibleExecutorError struct {
+	message string
+}
+
+func (e visibleExecutorError) Error() string {
+	return e.message
+}
+
+func (e visibleExecutorError) AssistantFailureMessage() string {
+	return e.message
+}
+
 func (s *stubTemporaryIDs) EnsureTemporaryID(canonicalID string) (string, error) {
 	if s.mapping == nil {
 		s.mapping = map[string]string{}
@@ -313,6 +325,55 @@ func TestServiceRunSubAgentMarksRunFailedWhenExecutorFails(t *testing.T) {
 	lastEvent := loaded.Events[len(loaded.Events)-1]
 	if lastEvent.Type != "run_failed" {
 		t.Fatalf("expected run_failed event, got %#v", lastEvent)
+	}
+}
+
+func TestServiceRunSubAgentPersistsAssistantFailureMessageForVisibleErrors(t *testing.T) {
+	t.Parallel()
+
+	service, _, runs, _ := buildServiceFixture(t, visibleExecutorError{
+		message: "Completion guard is enabled, but the required `report_completion_status` tool is unavailable for this managed run.",
+	})
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	run, err := service.RunSubAgent(context.Background(), profile, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("run sub agent: %v", err)
+	}
+	if run.Status != RunStatusFailed {
+		t.Fatalf("expected failed run, got %q", run.Status)
+	}
+	loaded, err := runs.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load failed run: %v", err)
+	}
+	messages, ok := loaded.Outputs["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected persisted assistant failure message, got %#v", loaded.Outputs["messages"])
+	}
+	message, ok := messages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted assistant failure payload, got %#v", messages[0])
+	}
+	if message["role"] != "assistant" {
+		t.Fatalf("expected assistant failure role, got %#v", message["role"])
+	}
+	content, ok := message["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected assistant failure content, got %#v", message["content"])
+	}
+	textBlock, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant failure text block, got %#v", content[0])
+	}
+	if textBlock["text"] != "Completion guard is enabled, but the required `report_completion_status` tool is unavailable for this managed run." {
+		t.Fatalf("unexpected assistant failure text %#v", textBlock["text"])
 	}
 }
 

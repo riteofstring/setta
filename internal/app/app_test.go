@@ -2142,6 +2142,226 @@ func TestAppManagedChatOmitsCompletionStatusToolWhenGuardDisabled(t *testing.T) 
 	}
 }
 
+func TestAppManagedChatFailsClosedWhenCompletionReportToolMissing(t *testing.T) {
+	// Managed chat should fail before any provider call when completion guard
+	// is enabled but the managed LLM config cannot supply report_completion_status.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
+			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
+	serverURL := "http://" + listener.Addr().String()
+
+	providerCalled := make(chan struct{}, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case providerCalled <- struct{}{}:
+		default:
+		}
+		http.Error(w, "provider should not be called", http.StatusInternalServerError)
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:           "primary",
+				Model:        "gpt-4o-mini",
+				Provider:     "openai",
+				BaseURL:      provider.URL + "/v1",
+				APIKeyEnv:    "OPENAI_API_KEY",
+				MCPServerIDs: []string{},
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
+
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	setAppCompletionGuardEnabled(t, app, true)
+	seedAppEmptyProject(t, app)
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(
+		http.MethodPost,
+		serverURL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reply only after completion reporting."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("new send request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("send managed chat: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var chatID string
+	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode send chat id: %v", err)
+	}
+	if strings.TrimSpace(chatID) == "" {
+		t.Fatal("expected managed chat id")
+	}
+
+	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	runType := "llm_chat"
+	projectID := "project-alpha"
+	failedRunID := ""
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		runs, err := runStore.ListByMetadata(agentruns.RunFilter{
+			RunType:         &runType,
+			ChatID:          &chatID,
+			ProjectConfigID: &projectID,
+		})
+		if err != nil {
+			t.Fatalf("list managed runs: %v", err)
+		}
+		for _, run := range runs {
+			if run.Status == agentruns.RunStatusFailed {
+				failedRunID = run.ID
+				return true
+			}
+		}
+		return false
+	})
+	if strings.TrimSpace(failedRunID) == "" {
+		t.Fatal("expected failed managed run id")
+	}
+	failedRun, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), failedRunID)
+	if err != nil {
+		t.Fatalf("wait for managed runtime failure: %v", err)
+	}
+	if failedRun.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed managed run, got %#v", failedRun)
+	}
+
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+	}
+	var hydrated hydratePayload
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			serverURL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed chat: %v", err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
+		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
+	})
+
+	assistantText := appTestMessageText(hydrated.Messages[1])
+	if !strings.Contains(assistantText, "Completion guard is enabled") {
+		t.Fatalf("expected completion-guard failure text, got %#v", hydrated.Messages[1])
+	}
+	if !strings.Contains(assistantText, "report_completion_status") {
+		t.Fatalf("expected completion tool name in failure text, got %#v", hydrated.Messages[1])
+	}
+
+	select {
+	case <-providerCalled:
+		t.Fatal("expected managed chat to fail before contacting provider")
+	default:
+	}
+}
+
 func TestAppServesManagedChatSendThroughOpenAIThinkingExecutor(t *testing.T) {
 	// The real IDE app should run managed OpenAI thinking chat sends through
 	// the Go-owned Responses executor and persist the streamed thinking block.

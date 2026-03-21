@@ -1,7 +1,9 @@
 package managedllm
 
 import (
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/agentprofiles"
@@ -281,6 +283,70 @@ func TestBuildToolDefinitionsKeepsCompletionStatusToolForScopedRun(t *testing.T)
 	want := []string{"setta__report_completion_status"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected tool names %#v", got)
+	}
+}
+
+func TestBuildToolDefinitionsFailsClosedWhenCompletionStatusToolMissing(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		request agentruns.ExecutionRequest
+		tools   ToolClient
+	}{
+		{
+			name: "missing tool payload",
+			request: agentruns.ExecutionRequest{
+				MCPServerIDs:           nil,
+				CompletionGuardEnabled: true,
+			},
+			tools: &stubToolClient{},
+		},
+		{
+			name: "wrong completion tool namespace",
+			request: agentruns.ExecutionRequest{
+				MCPServerIDs:           []string{"other"},
+				CompletionGuardEnabled: true,
+			},
+			tools: &stubToolClient{
+				discoverableTools: map[string]mcpx.ToolDescriptor{
+					"other__report_completion_status": {
+						ServerID:       "other",
+						NamespacedName: "other__report_completion_status",
+						RemoteName:     "report_completion_status",
+						InputSchema:    map[string]any{},
+					},
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, _, _, err := buildToolDefinitions(testCase.request, testCase.tools)
+			if err == nil {
+				t.Fatal("expected missing completion-status tool error")
+			}
+			if !errors.Is(err, ErrToolsUnsupported) {
+				t.Fatalf("expected ErrToolsUnsupported, got %v", err)
+			}
+			if !strings.Contains(err.Error(), "Completion guard is enabled") {
+				t.Fatalf("expected completion guard error message, got %q", err.Error())
+			}
+			if !strings.Contains(err.Error(), "report_completion_status") {
+				t.Fatalf("expected completion tool name in error, got %q", err.Error())
+			}
+			visibleErr, ok := err.(interface{ AssistantFailureMessage() string })
+			if !ok {
+				t.Fatalf("expected assistant failure message carrier, got %T", err)
+			}
+			if !strings.Contains(visibleErr.AssistantFailureMessage(), "report_completion_status") {
+				t.Fatalf("expected assistant failure message to mention completion tool, got %q", visibleErr.AssistantFailureMessage())
+			}
+		})
 	}
 }
 
