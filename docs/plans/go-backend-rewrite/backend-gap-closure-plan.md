@@ -315,6 +315,10 @@ categorize them.
   (`profileLookupHome` propagation or typed invalid-runtime-root startup
   failures) before the backlog steps back up into broader completion-gate,
   OpenCode read-only, or other runtime-heavy gaps
+- That launcher profile-home propagation row is now closed too, so the
+  remaining small launcher queue is mostly the typed invalid-runtime-root
+  startup-failure slice before the backlog rises back into broader
+  completion-gate, OpenCode read-only, or other runtime-heavy behavior gaps
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
