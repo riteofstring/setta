@@ -580,6 +580,34 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	}
 }
 
+func TestServerUISettingToolsRejectMissingScopedProjectContextWhenProjectIDOmitted(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"settingId": "core.app.spec_path",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value without scoped project context: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected missing scoped project context to return structured tool error")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != scopeViolationErrorCode {
+		t.Fatalf("expected scope violation code, got %#v", payload["code"])
+	}
+	if payload["reason"] != "missing_context" {
+		t.Fatalf("expected missing_context reason, got %#v", payload["reason"])
+	}
+}
+
 func TestServerGetUISettingValueReturnsStructuredPayload(t *testing.T) {
 	t.Parallel()
 
