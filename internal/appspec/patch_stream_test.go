@@ -23,6 +23,73 @@ func TestParsePatchLinesIgnoresCommentsAndBlanks(t *testing.T) {
 	}
 }
 
+func TestParsePatchLineAcceptsValidRootElementNestedAndRemovePatches(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		raw  string
+		want PatchOp
+	}{
+		{
+			name: "root_set",
+			raw:  "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"app-root\"}",
+			want: PatchOp{
+				Op:       "set",
+				Path:     "/root",
+				Value:    "app-root",
+				HasValue: true,
+			},
+		},
+		{
+			name: "element_set",
+			raw:  "{\"op\":\"set\",\"path\":\"/elements/app-root\",\"value\":{\"key\":\"app-root\",\"type\":\"Card\"}}",
+			want: PatchOp{
+				Op:   "set",
+				Path: "/elements/app-root",
+				Value: map[string]any{
+					"key":  "app-root",
+					"type": "Card",
+				},
+				HasValue: true,
+			},
+		},
+		{
+			name: "nested_element_set",
+			raw:  "{\"op\":\"set\",\"path\":\"/elements/app-root/props/title\",\"value\":\"Hello\"}",
+			want: PatchOp{
+				Op:       "set",
+				Path:     "/elements/app-root/props/title",
+				Value:    "Hello",
+				HasValue: true,
+			},
+		},
+		{
+			name: "element_remove",
+			raw:  "{\"op\":\"remove\",\"path\":\"/elements/old\"}",
+			want: PatchOp{
+				Op:   "remove",
+				Path: "/elements/old",
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := ParsePatchLine(testCase.raw)
+			if got == nil {
+				t.Fatalf("expected parsed patch for %q", testCase.raw)
+			}
+			if !reflect.DeepEqual(*got, testCase.want) {
+				t.Fatalf("expected parsed patch %#v, got %#v", testCase.want, *got)
+			}
+		})
+	}
+}
+
 func TestParsePatchLineReturnsNilForInvalidPayloads(t *testing.T) {
 	t.Parallel()
 
