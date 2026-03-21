@@ -298,6 +298,10 @@ categorize them.
   `expectedOldValue` writer contract or the terminal websocket share-session
   keepalive touch behavior before returning to broader launcher, AI-route, or
   JSON-source runtime gaps
+- The MCP/UI-setting `expectedOldValue` writer row is now closed too, so the
+  next smallest missing slice is likely the terminal websocket share-session
+  keepalive touch behavior, with the remaining Codex `enabled_tools` runtime
+  config row still looking like the next compact external-agent follow-up
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared

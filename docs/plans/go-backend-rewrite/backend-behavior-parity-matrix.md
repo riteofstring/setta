@@ -5,7 +5,7 @@ Last audited: `2026-03-19`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `0cc377e12726a53c62ca1c80382fa57bf4811b6d`
+- Target head: `e2b025d45bdaddb333500770680c1e0f4740c161`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -45,6 +45,9 @@ Last audited: `2026-03-19`
 - plus the targeted MCP bridge auth-cookie slice: bootstrap-consume selection
   now prefers the session-scoped auth cookie and rejects a lone base auth
   cookie without a session suffix
+- plus the targeted UI-setting expected-old-value slice:
+  `set_ui_setting_value` now exposes and forwards optional
+  `expectedOldValue` compare-and-set input on the live MCP surface
 - plus the targeted UI-setting plugin-availability slice: `pending_restart`
   and effective shadowed runtime entries on the MCP settings tool surface
 - plus the targeted local-launch metadata slice: post-trust launcher
@@ -769,9 +772,9 @@ Last audited: `2026-03-19`
 
 - Rows audited in this pass: `1253`
 - Status counts:
-  - `Proved`: `1036`
+  - `Proved`: `1037`
   - `Implemented, proof incomplete`: `1`
-  - `Missing`: `61`
+  - `Missing`: `60`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
   - `Dormant / unproven caller`: `18`
@@ -818,6 +821,11 @@ Last audited: `2026-03-19`
   - `internal/settacmd/{mcp.go,mcp_test.go}`: bootstrap consume now prefers
     the session-scoped auth cookie returned by the backend and fails closed
     when the response only includes the unsuffixed base auth cookie
+  - `internal/mcpx/{server.go,ui_setting_tools.go,ui_setting_tools_test.go}`:
+    the generic `set_ui_setting_value` MCP surface now advertises and forwards
+    optional `expectedOldValue` inputs into the shared UI-setting writer
+    contract instead of hiding compare-and-set behavior behind separate helper
+    tools only
   - `internal/externalagentconfigs/preflight_test.go`: non-Claude external-
     agent health coverage now proves supported-versus-available
     classification across Codex/OpenCode tool-mode branches and the Node-
@@ -2553,7 +2561,7 @@ Last audited: `2026-03-19`
 | `app_definition.http_stream_app_spec_legacy_surface_is_dormant` | `backend/setta/types/routes.py::Route.STREAM_APP_SPEC`; `docs/reference/app-spec-patching.md`; `docs/reference/urls-and-routes.md` | no direct Go HTTP route; superseded by `internal/mcpx/server.go::newStreamAppDefinitionHandler` and `internal/projectstate/app_definition_stream.go::StreamAppDefinition` | `TestMCPToolCallRouteSupportsStreamAppDefinition`; `TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition`; `TestServerListsToolsAndScopesToolCalls` | rewrite docs explicitly list `streamAppSpec` among the remaining legacy app-spec helpers with no proven current caller | `Dormant / unproven caller` | The source streaming HTTP helper is now an explicitly dormant legacy surface; the proven rewrite path is the MCP `stream_app_definition` tool rather than `/api/streamAppSpec`. |
 | `ui_settings.search_read_write_reveal_core_watch_setting` | `tests/mcp/test_ui_setting_tools.py` watch-setting tool flow at lines 391-437; `backend/setta/mcp/tools/ui_settings.py`; `backend/setta/ui_settings/registry.py` core watch-code entries | `internal/mcpx/ui_setting_tools.go`; `internal/uisettings/registry.go` | `TestServerSearchUISettingsReturnsRankedCoreResults`; `TestServerGetUISettingValueReturnsStructuredPayload`; `TestServerSetUISettingValueWritesAndValidates`; `TestServerRevealUISettingReturnsStructuredPayload`; `TestMCPToolCallRouteSupportsUISettingSearchReadWrite`; `TestMCPToolCallRouteSupportsRevealUISetting` | the MCP tool-call route and authenticated-SSE app surface still expose `search_ui_settings`, `get_ui_setting_value`, `set_ui_setting_value`, and the basic `reveal_ui_setting` flow | `Proved` | This row covers the basic structured tool surface only; detailed share-scope affinity precedence and reveal fail-closed behavior are tracked separately below. |
 | `ui_settings.write.structured_validation_error_and_old_value_drift` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_returns_structured_validation_error`; `...test_set_ui_setting_value_watch_code_folders_invalid_item_shape_is_typed_and_side_effect_free`; `...test_set_ui_setting_value_rejects_writer_old_value_drift` | `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; `internal/uisettings/registry.go::WriteValue` | `TestServerSetUISettingValueWritesAndValidates`; `TestServerSetUISettingValueRejectsWriterOldValueDrift`; `TestRegistryWriteValueMapsStaleCompareAndSetToMutationFailed` | the bounded UI-setting tool surface still returns typed per-setting errors in structured content rather than failing the whole tool call | `Proved` | Invalid UI-setting values and stale compare-and-set writes still return structured per-setting error payloads without clobbering the persisted value. |
-| `ui_settings.write.expected_old_value_writer_contract` | `docs/reference/mcp-system-overview.md`; `tests/mcp/test_ui_setting_tools.py` keep `set_ui_setting_value` responsible for forwarding `expectedOldValue` when the source writer contract supports it and for rejecting unsupported writers fail closed | `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; compare-and-set-only helpers remain separate in `internal/mcpx/server.go` | current Go coverage only proves generic `mutation_failed` writer responses through `TestServerSetUISettingValueRejectsWriterOldValueDrift`; there is no tool-argument support or route test for caller-supplied `expectedOldValue` on `set_ui_setting_value` itself | the standalone `set_ui_setting_value` MCP tool remains active on both direct tool-call and authenticated-SSE transports | `Missing` | The source `set_ui_setting_value` tool accepted `expectedOldValue` generically and failed closed when a writer did not support it, but the rewrite still does not read that argument on the live tool surface and instead pushes compare-and-set support into separate helpers only. |
+| `ui_settings.write.expected_old_value_writer_contract` | `docs/reference/mcp-system-overview.md`; `tests/mcp/test_ui_setting_tools.py` keep `set_ui_setting_value` responsible for forwarding `expectedOldValue` when the source writer contract supports it and for rejecting unsupported writers fail closed | `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; `internal/mcpx/server.go` | `TestServerUISettingToolsExposeScopedSingletonMetadata`; `TestServerSetUISettingValueForwardsExpectedOldValue`; `TestServerSetUISettingValueRejectsWriterOldValueDrift` | the standalone `set_ui_setting_value` MCP tool remains active on both direct tool-call and authenticated-SSE transports | `Proved` | The generic `set_ui_setting_value` tool now exposes `expectedOldValue` in its live MCP schema, forwards caller-supplied values into the shared writer contract, and still fails closed with structured `mutation_failed` output when compare-and-set expectations are stale or a writer drifts from the current persisted value. |
 | `ui_settings.compare_and_set.watch_code_noops_and_new_input_baselines` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_watch_code_noops_do_not_broadcast_or_rebaseline`; `backend/setta/ui_settings/registry.py::_write_watch_code_enabled`; `_write_watch_code_folders`; `_write_watch_code_files` | `internal/projectstate/ui_settings_compare_and_set.go::CompareAndSetWatchCodeEnabled`; `CompareAndSetWatchCodeFolders`; `CompareAndSetWatchCodeFiles` | `TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree`; `TestRuntimeCompareAndSetWatchCodeFilesWritesAndBaselinesNewInputs`; `TestMCPToolCallRouteCompareAndSetWatchCodeEnabledReturnsMutationFailed`; `TestMCPToolCallRouteCompareAndSetWatchCodeFolders`; `TestMCPToolCallRouteCompareAndSetWatchCodeFilesAcceptsTemporaryIDs` | watch-code UI-setting writes remain active on the MCP tool surface | `Proved` | Same-value watch-code compare-and-set writes remain side-effect free, while newly added watch inputs still baseline only the new paths. |
 | `ui_settings.compare_and_set.show_param_display_names_stale_precondition` | `backend/setta/ui_settings/registry.py::_write_show_param_display_names`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_show_param_display_names_same_value_is_noop` | `internal/projectstate/ui_settings_compare_and_set.go::CompareAndSetShowParamDisplayNames` | `TestRuntimeCompareAndSetShowParamDisplayNamesWritesWhenExpectedMatches`; `TestRuntimeCompareAndSetShowParamDisplayNamesRejectsStaleExpectedOldValue`; `TestMCPToolCallRouteCompareAndSetShowParamDisplayNames` | callers still mutate this setting through `set_ui_setting_value` rather than a separate frontend-only path | `Proved` | Show-param-display-name writes still honor compare-and-set preconditions and refuse stale writes without mutating project state. |
 | `ui_settings.compare_and_set.app_metadata_noops_and_materialization` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_app_metadata_noops_do_not_materialize_app_definition`; `tests/project_state/test_ui_setting_reveal_leases.py::test_compare_and_set_app_definition_metadata_noops_do_not_materialize_state`; `backend/setta/ui_settings/registry.py` app-metadata writers | `internal/projectstate/app_definition_compare_and_set.go` | `TestRuntimeCompareAndSetAppDefinitionMetadataNoopsAreSideEffectFreeOnFreshProject`; `TestRuntimeCompareAndSetAppDefinitionSpecVersionMaterializesMinimalSpec`; `TestRuntimeCompareAndSetAppDefinitionCatalogIDRejectsUnknownCatalog`; `TestRuntimeCompareAndSetAppDefinitionSpecPathNormalizesAndPersistsMinimalSpec`; `TestRuntimeCompareAndSetAppDefinitionThemeModePreservesThemePayload`; `TestRuntimeCompareAndSetAppDefinitionMetadataRejectsStaleExpectedOldValue` | app-metadata UI settings remain exposed through the MCP UI-setting tools | `Proved` | Same-value app-metadata compare-and-set writes stay side-effect free on fresh projects, while real writes materialize the minimal app-spec/metadata state and still reject stale expected-old values. |
