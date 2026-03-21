@@ -1714,3 +1714,76 @@ Record:
       - another immediate global top-level leaf-grid restore
 - Next action:
   - Turn the next non-preview repeated row/body seam into a measured experiment, then rerun authoritative `settings` plus `tier1Synthetic`.
+
+## 2026-03-20 039
+
+- Item: Benchmark the narrower top-level `CodeParam` leaf-grid restore under the canonical `settings` and `tier1Synthetic` scenes, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - Structural change under test:
+    - restore the old explicit grid/value contract only for top-level `CodeParam` leaf rows
+    - keep the broader rejected `textLabelLeaf` restore out of scope
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - `5` files passed
+      - `10` tests passed
+  - Live CDP structural/visual sanity while the experiment was active:
+    - fresh subagent inspection confirmed the worktree `settings` page was rendering the `All Settings` canvas instead of a blank fallback
+    - no obvious overlap, clipping, or broken alignment was visible in the inspected viewport
+    - the visible page still read as a heavy loading/initial-state screen with a large gray canvas area and centered spinner
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-code-leaf-grid-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 362.208ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 29726.330ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 564.553ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 53.392ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 47.864ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 682.091ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 13277.829ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 17.274ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 116.784ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 131.181ms`
+  - Decision:
+    - reject this narrower `CodeParam`-only leaf-grid restore as a keep for `HEAD`
+    - no same-code confirmation rerun was justified because the first paired `settings` matrix already regressed too strongly on the mandatory real-project target
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Refine the next Tier 1 target around the non-code repeated value/body path that still dominates `settings`, not another explicit grid/value restore for `CodeParam` leaves.
+
+## 2026-03-20 040
+
+- Item: Reconcile the post-revert baseline read after rejecting the narrower `CodeParam` leaf-grid restore.
+- Status: `in_progress`
+- Details:
+  - Reverted the experimental code changes after recording the dead-end report.
+  - Focused reverted-baseline verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - `5` files passed
+      - `9` tests passed
+  - Fresh subagent CDP comparison after the revert did not show clean full-page parity against untouched `main`:
+    - `http://127.0.0.1:3087/settings` showed the `OVERVIEW` sidebar alongside the authoritative `All Settings` view
+    - `http://127.0.0.1:3011/settings` still showed the canvas-only framing without that sidebar
+  - Current read:
+    - the code-leaf experiment itself is reverted in source and the focused tests are green again
+    - but full-page worktree-vs-main visual parity on `All Settings` is still not a trustworthy baseline gate on its own because a broader retained mismatch remains
+    - keep using seam-specific DOM/projection checks plus the canonical benchmark scenes while this broader layout mismatch stays unresolved
+- Next action:
+  - Continue the next Tier 1 pass on the non-code repeated value/body seam, while keeping the broader `settings` full-page parity mismatch visible in the append-only log instead of treating it as resolved.

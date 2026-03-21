@@ -671,6 +671,38 @@ Current execution note:
     - untouched `main` still differs materially from the worktree at the top-level leaf-row contract seam
     - that seam is promising for the real `settings` target, but the broad restore is too coarse to keep for all Tier 1 text-leaf rows
     - revisit it only through a narrower section-family or value-family-specific follow-up, not as another global `textLabelLeaf` restore
+- the next narrower code-leaf grid-contract restore experiment was also benchmarked and rejected under the authoritative `All Settings` harness:
+  - experimental files:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - row-contract change under test:
+    - restore the older explicit grid/value contract only for top-level `CodeParam` leaf rows
+    - leave non-code text leaves on the retained nested-guide-removal baseline
+  - authoritative paired read:
+    - `settings` regressed too strongly to justify a same-code confirmation rerun:
+      - benchmark `Paint`:
+        - `148.237ms -> 362.208ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 29726.330ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 564.553ms`
+    - `tier1Synthetic` improved materially on the same first paired rerun:
+      - benchmark `Paint`:
+        - `825.999ms -> 682.091ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 13277.829ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 17.274ms`
+  - keep the structural finding even though the code change is rejected:
+    - narrowing the old row contract specifically to `CodeParam` leaves flips the earlier broad result in the wrong direction
+    - this means the real `settings` win is probably not driven by the repeated code-leaf family
+    - revisit the untouched-`main` row contract only through a non-code or different section-family-specific follow-up, not another immediate `CodeParam`-only restore
+  - post-revert visual note:
+    - a fresh subagent compare still did not show clean full-page `settings` parity between the worktree and untouched `main`
+    - keep that broader `All Settings` framing mismatch visible in the log instead of treating `main` comparison alone as the proof that this experiment reverted cleanly
+    - for this checkpoint, treat source reversion plus the focused green Vitest suite as the actual revert proof
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -685,6 +717,10 @@ Current execution note:
     - the `All Settings` target likes more of the untouched `main` row contract
     - but the broad `textLabelLeaf` restore still regressed the canonical `tier1Synthetic` scene after confirmation
     - the next pass, if any, should narrow to the section families or value families that actually drive the `settings` win
+  - avoid another immediate `CodeParam`-only leaf-grid restore:
+    - the narrower code-leaf subset does the opposite of what the plan needs
+    - it helps `tier1Synthetic` while making `settings` dramatically worse
+    - the next row-contract follow-up should target the non-code repeated value/body path that still dominates `settings`
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
@@ -708,6 +744,10 @@ Current execution note:
       - the rejected broad leaf-grid restore changes this read slightly:
         - the untouched `main` row contract is still worth mining
         - but the next experiment should probably target the row families that dominate `settings` without broadening to every top-level text leaf on `tier1Synthetic`
+      - the rejected narrower code-leaf restore sharpens that read further:
+        - the next worthwhile pass should avoid `CodeParam`-specific explicit grid/value restores
+        - instead it should target the non-code repeated value/body surfaces that still dominate `settings`
+        - likely directions now are the plain text / dict / list-object repeated value-host path or another always-mounted non-preview body seam in those rows
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 
