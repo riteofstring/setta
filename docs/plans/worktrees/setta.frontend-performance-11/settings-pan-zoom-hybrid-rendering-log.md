@@ -891,3 +891,95 @@ Record:
     - preserve this rerun only as an append-only dead-end record
 - Next action:
   - Revert the uncommitted text-input underline simplification and continue from the retained dense-row baseline.
+
+## 2026-03-20 019
+
+- Item: Benchmark Tier 1 DummyCodeMirror preview flattening and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - flatten inactive `DummyCodeMirror` preview DOM in `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - remove per-line `.cm-line` wrappers from inactive previews
+    - keep `TextInputCodeMirror` behavior otherwise the same apart from typed activation-state plumbing needed for the experiment
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+      - result:
+        - `2` files passed
+        - `7` tests passed
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `7` files passed
+        - `29` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "DummyCodeMirror\\.tsx|TextInputCodeMirror\\.tsx"`
+      - result:
+        - no matching diagnostics while the experimental code was live
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-dummy-codemirror-flattening-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-dummy-codemirror-flattening-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `149.024ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3200.209ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `792.474ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `13130.617ms`
+  - Because the first paired matrix still looked ambiguous, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - confirmation:
+          - `153.234ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - confirmation:
+          - `3297.211ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - confirmation:
+          - `804.049ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - confirmation:
+          - `13365.574ms`
+  - CDP structural and visual compare:
+    - compared worktree `http://127.0.0.1:3012/settings` against untouched `main` `http://127.0.0.1:3087/settings`
+    - the experimental worktree page reduced sampled inactive preview `.cm-line` nodes from `215` to `0` while keeping the same sampled `ParamInput` count at `215`
+    - the representative sampled inactive preview still read `300` with near-identical geometry:
+      - untouched `main`:
+        - width `106.774`
+        - height `8.611`
+      - worktree experiment:
+        - width `109.271`
+        - height `8.537`
+    - no broken layout or obvious collapse showed up in the viewport screenshots
+  - Decision:
+    - reject this DummyCodeMirror preview flattening experiment
+    - keep the retained nested-guide-removal baseline at `HEAD`
+    - preserve this rerun only as an append-only dead-end record because the structural DOM win did not survive the canonical `settings` confirmation rerun
+- Next action:
+  - Continue from the retained dense-row baseline and choose the next Tier 1 slice from deeper repeated row/body simplification or shared Tier 1 ownership cleanup instead of isolated DummyCodeMirror wrapper flattening.

@@ -585,10 +585,16 @@ Current execution note:
   - replacing the dense text-input wrapper pseudo underline with a direct border helped `settings`
   - but it did not hold up on the canonical `tier1Synthetic` confirmation rerun
   - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
+- the next DummyCodeMirror preview-flattening experiment was also benchmarked and rejected:
+  - flattening inactive `DummyCodeMirror` previews removed all sampled `.cm-line` wrappers on the live `settings` page while keeping the same text and near-identical sample geometry
+  - the first paired rerun improved `tier1Synthetic`
+  - but the same-code `settings` confirmation rerun regressed aggregate `Paint` and `RunTask`
+  - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
   - avoid returning to broader preview-gating experiments unless they clearly help both canonical scenes
+  - avoid spending another immediate cycle on isolated DummyCodeMirror wrapper flattening unless a larger shared Tier 1 body change makes that seam materially cheaper again
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 
