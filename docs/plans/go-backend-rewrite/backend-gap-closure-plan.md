@@ -310,6 +310,11 @@ categorize them.
   next practical external-agent queue steps up into the broader completion-
   gate/runtime rewrite rows or the still-missing OpenCode read-only runtime-
   config behavior instead of another tiny Codex settings slice
+- That deployment binary-download policy row is now closed too, so the next
+  cheap non-external-agent queue is likely one of the small launcher slices
+  (`profileLookupHome` propagation or typed invalid-runtime-root startup
+  failures) before the backlog steps back up into broader completion-gate,
+  OpenCode read-only, or other runtime-heavy gaps
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
