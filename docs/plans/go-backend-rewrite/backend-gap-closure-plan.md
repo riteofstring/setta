@@ -306,6 +306,10 @@ categorize them.
   the next smallest missing slice is likely the Codex `enabled_tools` runtime
   config contract before the backlog steps up into broader launcher, AI-route,
   JSON-source runtime, or other websocket/listener policy gaps
+- That Codex `enabled_tools` runtime-config row is now closed too, so the
+  next practical external-agent queue steps up into the broader completion-
+  gate/runtime rewrite rows or the still-missing OpenCode read-only runtime-
+  config behavior instead of another tiny Codex settings slice
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
