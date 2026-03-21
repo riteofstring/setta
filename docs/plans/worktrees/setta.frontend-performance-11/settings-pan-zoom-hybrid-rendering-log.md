@@ -335,3 +335,64 @@ Record:
   - This confirms the standardized harness reproduces the same paint-focused regression pattern on both the real-project and synthetic scenes.
 - Next action:
   - Implement the selective top-level shell rollback toward the `bf6487690` baseline in the shared shell seam, then re-run this same paired matrix.
+
+## 2026-03-20 010
+
+- Item: Implement and measure the first selective top-level shell rollback toward the `bf6487690` baseline.
+- Status: `done`
+- Details:
+  - Restored the shared shell toward the grid-era baseline in:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - Explicitly deferred:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - the old gesture-time compositor-promotion behavior remains off because it conflicts with the no-blur motion contract
+  - Updated direct shell coverage to match the restored grid behavior:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - Revalidated the adjacent shell consumers:
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      - result:
+        - `35` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-shell-rollback-rerun.md`
+  - Key measurement read:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before rollback:
+          - `619.310ms`
+        - after rollback:
+          - `159.227ms`
+      - slow overview pan paint:
+        - before:
+          - `118.025ms` horizontal
+          - `121.345ms` vertical
+        - after:
+          - `29.623ms` horizontal
+          - `28.612ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before rollback:
+          - `1533.374ms`
+        - after rollback:
+          - `1433.618ms`
+      - benchmark window duration:
+        - before:
+          - `20997.810ms`
+        - after:
+          - `17550.145ms`
+  - CDP visual sanity:
+    - opened and inspected:
+      - `http://127.0.0.1:3012/settings`
+      - `http://127.0.0.1:3087/settings`
+    - captured targeted first-section screenshots for main/worktree:
+      - `perf/tmp/worktree-settings-first-section.png`
+      - `perf/tmp/main-settings-first-section.png`
+    - shell remained visually intact, but a strict pixel-parity gate is still pending
+- Next action:
+  - Keep the shell rollback, then move into the next planned Tier 1 work:
+    - further active-body flattening
+    - section-body render-mode / preview infrastructure

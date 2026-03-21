@@ -374,6 +374,18 @@ Acceptance criteria:
 - no visual regressions on section shell sizing and interaction affordances
 - Tier 1 sections are back on the intended top-level grid-style shell before deeper body work continues
 
+Current execution note:
+
+- the first selective rollback checkpoint should restore the shared shell through:
+  - `frontend/src/components/Section/Container/sectionChrome.ts`
+  - `frontend/src/components/Section/Header/SectionHeader.tsx`
+- it should not automatically revive the old gesture-time compositor-promotion path in:
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+- success condition for keeping that checkpoint:
+  - `settings` shows a material paint reduction
+  - the shell stays visually intact
+  - if dense Tier 1 scenes still remain far above untouched `main`, move on to body/render-mode work instead of iterating on shell-only changes
+
 ## Phase 1A: Restore Local Body Layouts For Sparse Sections
 
 After the shared top-level shell baseline is restored, selectively restore richer local body layouts for sparse section types where the branch-specific flattening work is not buying meaningful multiplicative performance.

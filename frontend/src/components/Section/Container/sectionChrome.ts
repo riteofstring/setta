@@ -249,9 +249,11 @@ export function getCanvasSectionChrome({
     bgColor: surfaceMode.bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
-    surfaceLayout: "windowFlow",
     frameClassName: surfaceMode.useMetaControlStyle
       ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
+      : undefined,
+    layoutClassName: surfaceMode.isMetaControl
+      ? "grid-cols-1 grid-rows-1"
       : undefined,
     metaHoverZIndexClassName: surfaceMode.useMetaControlStyle
       ? "group-hover/card-section:z-[170]"
@@ -310,7 +312,6 @@ export function getWindowSectionChrome({
       bgColor: surfaceMode.bgColor,
       hasSectionStyleTheme,
       positionAndSizeLocked,
-      surfaceLayout: "windowFlow",
       cornerClassName,
       hideFrameBorder: isStandalonePage,
     }),

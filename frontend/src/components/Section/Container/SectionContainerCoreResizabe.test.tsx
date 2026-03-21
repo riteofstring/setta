@@ -272,7 +272,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-project-chat-controlled="false"');
   });
 
-  it("routes meta-control canvas chrome through the windowFlow descriptor", () => {
+  it("routes meta-control canvas chrome through the shared grid descriptor", () => {
     mockSectionImpl = {
       type: SectionTypeEnum.MetaControl,
       isMinimized: false,
@@ -295,12 +295,12 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-meta-control-style="true"');
     expect(markup).toContain('data-surface-class="bg-transparent');
     expect(markup).toContain("group-hover/card-section:z-[170]");
-    expect(markup).toContain("flex-col");
+    expect(markup).toContain("grid");
+    expect(markup).toContain("grid-cols-1");
     expect(markup).not.toContain("section-grid-cols");
-    expect(markup).not.toContain("grid-cols-1");
   });
 
-  it("routes standard canvas chrome through the windowFlow-style surface shell", () => {
+  it("routes standard canvas chrome through the shared section grid shell", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
@@ -314,11 +314,10 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-testid="mock-section-header"');
     expect(markup).toContain('data-testid="mock-code-area"');
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
+    expect(markup).toContain("section-grid-cols");
   });
 
-  it("keeps root incrementers inside the same windowFlow-style canvas shell", () => {
+  it("keeps root incrementers inside the same shared grid canvas shell", () => {
     mockIsRoot = true;
 
     const markup = renderToStaticMarkup(
@@ -335,8 +334,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="mock-section-header"');
     expect(markup).toContain('data-testid="mock-incrementer"');
     expect(markup).toContain('data-testid="mock-code-area"');
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
+    expect(markup).toContain("section-grid-cols");
   });
 
   it("keeps text-block meta-control menus even when the normal header is hidden", () => {
@@ -361,9 +359,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="mock-textblock-meta-control-menu"');
     expect(markup).not.toContain('data-testid="mock-section-header"');
     expect(markup).toContain('data-meta-control-style="true"');
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
-    expect(markup).not.toContain("grid-cols-1");
+    expect(markup).toContain("section-grid-cols");
   });
 
   it("preserves explicit standalone thread ownership overrides", () => {

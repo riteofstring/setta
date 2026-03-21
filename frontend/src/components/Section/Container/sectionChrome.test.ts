@@ -71,12 +71,12 @@ describe("sectionChrome", () => {
     expect(chrome.surfaceClassName).toContain(
       "group-hover/card-section:z-[170]",
     );
-    expect(chrome.surfaceClassName).toContain("flex-col");
+    expect(chrome.surfaceClassName).toContain("grid");
+    expect(chrome.surfaceClassName).toContain("grid-cols-1");
     expect(chrome.surfaceClassName).not.toContain("section-grid-cols");
-    expect(chrome.surfaceClassName).not.toContain("grid-cols-1");
   });
 
-  it("builds non-meta canvas chrome without the shared section grid", () => {
+  it("builds non-meta canvas chrome on the shared section grid", () => {
     const chrome = getCanvasSectionChrome({
       sectionTypeName: SectionTypeEnum.Code,
       textBlockMetaControlStyle: false,
@@ -88,8 +88,8 @@ describe("sectionChrome", () => {
     expect(chrome.bgColor).toBe("bg-white dark:bg-setta-900");
     expect(chrome.useMetaControlStyle).toBe(false);
     expect(chrome.headerVariant).toBe("sectionHeader");
-    expect(chrome.surfaceClassName).toContain("flex-col");
-    expect(chrome.surfaceClassName).not.toContain("section-grid-cols");
+    expect(chrome.surfaceClassName).toContain("section-grid-cols");
+    expect(chrome.surfaceClassName).toContain("grid");
   });
 
   it("keeps text-block meta-control chrome distinct from real meta-control layout", () => {
@@ -108,9 +108,7 @@ describe("sectionChrome", () => {
     expect(chrome.surfaceClassName).toContain(
       "group-hover/card-section:z-[170]",
     );
-    expect(chrome.surfaceClassName).toContain("flex-col");
-    expect(chrome.surfaceClassName).not.toContain("section-grid-cols");
-    expect(chrome.surfaceClassName).not.toContain("grid-cols-1");
+    expect(chrome.surfaceClassName).toContain("section-grid-cols");
   });
 
   it("builds standalone window chrome from the shared surface descriptor", () => {
@@ -130,8 +128,7 @@ describe("sectionChrome", () => {
     expect(chrome.outerShellClassName).toContain("border-0");
     expect(chrome.outerShellClassName).toContain("rounded-none");
     expect(chrome.innerShellClassName).toContain("before:border-0");
-    expect(chrome.innerShellClassName).toContain("flex-col");
-    expect(chrome.innerShellClassName).not.toContain("section-grid-cols");
+    expect(chrome.innerShellClassName).toContain("section-grid-cols");
     expect(chrome.innerShellClassName).toContain("rounded-none");
   });
 });
