@@ -128,6 +128,47 @@ func TestNewProductionCandidateProviderUsesDefaultAndExplicitGitHubCloneTimeout(
 	}
 }
 
+// UV install env should inherit pip index flags when uv-specific vars are absent.
+func TestBuildUVInstallEnvMapsPIPEnvVars(t *testing.T) {
+	t.Parallel()
+
+	envToMap := func(entries []string) map[string]string {
+		result := map[string]string{}
+		for _, entry := range entries {
+			name, value, ok := strings.Cut(entry, "=")
+			if !ok {
+				continue
+			}
+			result[name] = value
+		}
+		return result
+	}
+
+	mapped := envToMap(buildUVInstallEnv([]string{
+		"PIP_NO_INDEX=1",
+		"PIP_FIND_LINKS=/tmp/fixtures",
+	}, ""))
+	if mapped["UV_NO_INDEX"] != "1" {
+		t.Fatalf("expected UV_NO_INDEX to inherit pip flag, got %#v", mapped["UV_NO_INDEX"])
+	}
+	if mapped["UV_FIND_LINKS"] != "/tmp/fixtures" {
+		t.Fatalf("expected UV_FIND_LINKS to inherit pip flag, got %#v", mapped["UV_FIND_LINKS"])
+	}
+
+	preserved := envToMap(buildUVInstallEnv([]string{
+		"PIP_NO_INDEX=1",
+		"PIP_FIND_LINKS=/tmp/fixtures",
+		"UV_NO_INDEX=0",
+		"UV_FIND_LINKS=keep-existing",
+	}, ""))
+	if preserved["UV_NO_INDEX"] != "0" {
+		t.Fatalf("expected UV_NO_INDEX override to win, got %#v", preserved["UV_NO_INDEX"])
+	}
+	if preserved["UV_FIND_LINKS"] != "keep-existing" {
+		t.Fatalf("expected UV_FIND_LINKS override to win, got %#v", preserved["UV_FIND_LINKS"])
+	}
+}
+
 // PyPI candidate resolution should install from a local wheel artifact using pip and return a validated plugin root.
 func TestProductionCandidateProviderResolvePyPICandidateFromLocalWheel(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -419,6 +460,19 @@ func TestExtractPluginArtifactRejectsTarSymlinkEntries(t *testing.T) {
 
 	err = extractPluginArtifact(artifactPath, filepath.Join(t.TempDir(), "extract"))
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceArchiveTraversal)
+}
+
+// Artifact extraction should fail closed for unsupported file extensions.
+func TestExtractPluginArtifactRejectsUnsupportedArtifactType(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "plugin-artifact.txt")
+	if err := os.WriteFile(artifactPath, []byte("fixture"), 0o644); err != nil {
+		t.Fatalf("write unsupported artifact: %v", err)
+	}
+
+	err := extractPluginArtifact(artifactPath, filepath.Join(t.TempDir(), "extract"))
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceFetchFailed)
 }
 
 func buildLocalPyPIWheelFromFixture(t *testing.T, artifactDir string, fixtureName string, packageName string, version string) string {
