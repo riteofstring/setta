@@ -386,6 +386,10 @@ categorize them.
   generation and into the broader still-missing runtime behavior: OpenCode
   read-only session-config handling, external completion-gate ownership, and
   the remaining missing caller-visible runtime branches
+- The external completion-gate ownership rows are now closed too, so the
+  adjacent external-agent queue is down to the remaining caller-visible
+  runtime/start gaps: the image-mode attachment-history prerequisite first,
+  then the deployment/share external-agent route-mount parity slice
 - The two OpenCode read-only runtime rows are now closed too, the OpenCode
   permission-allowlist merge row is now closed as well, and the external
   completion-guard wiring row is now closed too, so the adjacent
