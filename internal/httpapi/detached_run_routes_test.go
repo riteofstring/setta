@@ -63,6 +63,46 @@ func TestRegisterDetachedRunRoutesStartsAndTracksRun(t *testing.T) {
 	}
 }
 
+func TestRegisterDetachedRunRoutesStartsAndTracksExplicitEntrySectionAndValidParamOverride(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	fixture := newHTTPTestDetachedRunFixture(t, "print('detached-route')\n", "run-explicit-entry")
+	handler := newHTTPTestDetachedRunHandler(t, authService, modes.NewPolicy(config.ModeIDE), fixture)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRunDetached,
+		strings.NewReader(`{"projectConfigId":"project-alpha","entrySectionId":"code-section","paramOverrides":{"params-section:param-text":"2"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var started RunDetachedResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode runDetached response: %v", err)
+	}
+	if started.RunID != fixture.runID {
+		t.Fatalf("expected run id %q, got %#v", fixture.runID, started.RunID)
+	}
+
+	status := waitForHTTPDetachedRunStatus(t, fixture.manager, fixture.runID, func(run detachedruns.Run) bool {
+		return run.Status != detachedruns.StatusRunning
+	})
+	if status.Status != detachedruns.StatusExited {
+		t.Fatalf("expected exited status, got %#v", status)
+	}
+	if status.EntrySectionID == nil || *status.EntrySectionID != "code-section" {
+		t.Fatalf("expected entry section id code-section, got %#v", status.EntrySectionID)
+	}
+}
+
 func TestRegisterDetachedRunRoutesCancelsRun(t *testing.T) {
 	t.Parallel()
 
@@ -279,9 +319,11 @@ func newHTTPTestDetachedRunFixture(t *testing.T, script string, runID string) ht
 				EntryCodeBlockID: "code-section",
 				TopLevelSectionIDs: []string{
 					"code-section",
+					"params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"code-section": "code-python-variant",
+					"code-section":   "code-python-variant",
+					"params-section": "params-variant",
 				},
 				Sections: map[string]projectstate.Section{
 					"code-section": {
@@ -290,11 +332,21 @@ func newHTTPTestDetachedRunFixture(t *testing.T, script string, runID string) ht
 						VariantIDs:       []string{"code-python-variant"},
 						DefaultVariantID: "code-python-variant",
 					},
+					"params-section": {
+						ID:               "params-section",
+						Name:             "Globals",
+						VariantIDs:       []string{"params-variant"},
+						DefaultVariantID: "params-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
 					"code-python-variant": {
 						ID:     "code-python-variant",
 						ImplID: "code-python-impl",
+					},
+					"params-variant": {
+						ID:     "params-variant",
+						ImplID: "params-impl",
 					},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
@@ -308,6 +360,32 @@ func newHTTPTestDetachedRunFixture(t *testing.T, script string, runID string) ht
 								AccessMode: projectstate.CodeFileAccessModeReadWrite,
 							},
 						},
+					},
+					"params-impl": {
+						ID:      "params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"params-impl","type":"Dict","codeObjVariantMap":{"param-text":"param-text-variant"}}`),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"param-text": {
+						ID:               "param-text",
+						Name:             "text_param",
+						VariantIDs:       []string{"param-text-variant"},
+						DefaultVariantID: "param-text-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"param-text-variant": {
+						ID:     "param-text-variant",
+						ImplID: "param-text-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"param-text-impl": {
+						ID:      "param-text-impl",
+						Type:    "TextParam",
+						Payload: projectstate.RawJSON(`{"id":"param-text-impl","type":"TextParam","value":"1"}`),
 					},
 				},
 			},

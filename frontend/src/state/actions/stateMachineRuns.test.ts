@@ -503,4 +503,24 @@ describe("stateMachineRuns", () => {
     expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
   });
+
+  it("does not dispatch workflow mutations in deployment mode", async () => {
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-1",
+    });
+
+    await expect(
+      startStateMachineRun("workflow-main", "section-start"),
+    ).resolves.toBe(false);
+    await expect(stopStateMachineRun("workflow-main")).resolves.toBe(false);
+    await expect(resetStateMachineRun("workflow-main")).resolves.toBe(false);
+
+    expect(mockedRouteStartStateMachineRun).not.toHaveBeenCalled();
+    expect(mockedRouteStopStateMachineRun).not.toHaveBeenCalled();
+    expect(mockedRouteResetStateMachine).not.toHaveBeenCalled();
+    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
+    expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+  });
 });
