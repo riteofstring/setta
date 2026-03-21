@@ -251,6 +251,83 @@ func TestServiceCreateChatPersistsProjectConfigID(t *testing.T) {
 	}
 }
 
+func TestServiceGetChatReturnsClonedMessages(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+
+	created, err := fixture.service.CreateChat(CreateChatRequest{
+		FirstMessage: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "hello"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create chat: %v", err)
+	}
+
+	loaded, err := fixture.service.GetChat(GetChatRequest{ChatID: created.ID})
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	content, ok := loaded.Messages[0]["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected one content block, got %#v", loaded.Messages[0]["content"])
+	}
+	block, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected text content block map, got %#v", content[0])
+	}
+	block["text"] = "changed"
+
+	reloaded, err := fixture.service.GetChat(GetChatRequest{ChatID: created.ID})
+	if err != nil {
+		t.Fatalf("reload chat: %v", err)
+	}
+	if firstMessageText(reloaded.Messages[0]) != "hello" {
+		t.Fatalf("expected original text to remain hello, got %#v", reloaded.Messages[0])
+	}
+}
+
+func TestServiceGetAllMetadataReturnsCopiedLLMConfig(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+
+	created, err := fixture.service.CreateChat(CreateChatRequest{
+		FirstMessage: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "hello"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create chat: %v", err)
+	}
+
+	metadata, err := fixture.service.GetAllMetadata(GetAllMetadataRequest{})
+	if err != nil {
+		t.Fatalf("get all metadata: %v", err)
+	}
+	if len(metadata) != 1 {
+		t.Fatalf("expected one metadata entry, got %#v", metadata)
+	}
+	metadata[0].LLMConfig.Model = "mutated-model"
+
+	reloaded, err := fixture.service.GetChat(GetChatRequest{ChatID: created.ID})
+	if err != nil {
+		t.Fatalf("reload chat: %v", err)
+	}
+	if reloaded.LLMConfig.Model != scriptableLLMConfigID {
+		t.Fatalf("expected original llm config model %q, got %#v", scriptableLLMConfigID, reloaded.LLMConfig)
+	}
+}
+
 func TestIsScriptableChatRunUsesInputsOnly(t *testing.T) {
 	t.Parallel()
 
