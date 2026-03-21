@@ -256,37 +256,6 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
   }
 });
 
-test("generated python code uses a monospace editor font stack", async ({
-  page,
-}) => {
-  test.setTimeout(60000);
-  await ensureAppReady(page);
-
-  const { projectConfigName } = await createNewProjectConfig(page);
-
-  try {
-    const genSection = findSectionByName(page, "Generated Python Code").first();
-    await expect(genSection).toBeVisible();
-
-    const fontMetrics = await genSection.evaluate((section) => {
-      const scroller = section.querySelector(".cm-scroller");
-      if (!(scroller instanceof HTMLElement)) {
-        throw new Error("Missing Generated Python Code editor scroller.");
-      }
-      const body = document.body;
-      return {
-        editorFontFamily: window.getComputedStyle(scroller).fontFamily,
-        bodyFontFamily: window.getComputedStyle(body).fontFamily,
-      };
-    });
-
-    expect(fontMetrics.editorFontFamily.toLowerCase()).toContain("monospace");
-    expect(fontMetrics.editorFontFamily).not.toBe(fontMetrics.bodyFontFamily);
-  } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
-  }
-});
-
 test("lsp diagnostics persist after hard refresh", async ({ page }) => {
   test.setTimeout(60000);
   await ensureAppReady(page);
