@@ -133,3 +133,67 @@ Record:
     - future synthetic Tier 1 / Tier 2 scenes should remain canonical checked-in fixtures too, but they may use a different storage seam than the special settings route
 - Next action:
   - Define and build the first deterministic Tier 1 synthetic benchmark scene fixture so the benchmark suite covers the dense param families beyond `settings`.
+
+## 2026-03-20 004
+
+- Item: Add the first ready canonical Tier 1 synthetic benchmark scene fixture and install path.
+- Status: `done`
+- Details:
+  - Added the checked-in Tier 1 synthetic fixture:
+    - `perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+  - Promoted `tier1Synthetic` from planned to ready in:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - Locked its benchmark focal point to:
+    - `tier1_callable_01`
+  - The current Tier 1 fixture composition is:
+    - 8 real `Callable` sections authored through backend manager operations
+    - 8 real `Dict` sections authored through backend manager operations
+    - 1 real `GlobalVariables` section authored through backend manager operations
+    - 5 copied heavy settings donors to cover nested list/object-style param paths:
+      - `sectionSizingPolicy`
+      - `callableSectionDefault`
+      - `globalVariablesSectionDefault`
+      - `dictSectionDefault`
+      - `listRootSectionDefault`
+  - Added benchmark-scene tests covering:
+    - ready Tier 1 manifest shape
+    - Tier 1 install into `project.json`
+    - resulting section-type counts
+    - rejection of the still-planned Tier 2 and combined scenes
+  - Updated the plan so the current ready canonical scene set now includes:
+    - `settings`
+    - `tier1Synthetic`
+- Next action:
+  - Wire a reproducible benchmark runner around `tier1Synthetic` on untouched `main` and this worktree, then start the top-level shell restoration work against both ready scenes.
+
+## 2026-03-20 005
+
+- Item: Replace the earlier Tier 1 synthetic scene draft with the final canonical fixture generated from checked-in builder logic.
+- Status: `done`
+- Details:
+  - Added a checked-in Tier 1 builder seam:
+    - `backend/setta/perf/section_benchmark_scene_builders.py`
+    - `perf/scripts/buildSectionBenchmarkScene.py`
+  - Rebuilt and checked in the canonical Tier 1 fixture:
+    - `perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+  - Corrected the Tier 1 manifest and benchmark target to the final builder-backed scene shape:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+    - target section pattern:
+      - `callable_00`
+  - Locked the final Tier 1 composition to:
+    - 8 `Callable` sections
+    - 12 top-level `Dict` sections
+    - 1 `GlobalVariables` section
+    - 4 `ListRoot` sections with 5 `Dict` children each
+    - 25 top-level sections and 45 total sections overall
+  - Updated focused coverage to match the final canonical scene:
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+    - `tests/perf/test_section_benchmark_scenes.py`
+  - Verification:
+    - `source activate.sh && python -m py_compile backend/setta/perf/section_benchmark_scene_builders.py perf/scripts/buildSectionBenchmarkScene.py`
+    - `node --test perf/scripts/sectionBenchmarkScenes.test.js perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.test.js`
+      - result: `6` passed
+    - `source activate.sh && pytest tests/perf/test_section_benchmark_scenes.py`
+      - result: `6` passed
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.

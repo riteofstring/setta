@@ -19,14 +19,20 @@
   },
   "tier1Synthetic": {
     "id": "tier1Synthetic",
-    "availability": "planned",
+    "availability": "ready",
     "category": "synthetic",
     "routePath": "/benchmark-tier1",
     "storageKind": "main_project_config",
     "fixturePath": "perf/fixtures/section-benchmarks/tier1-synthetic.project.json",
     "description": "Deterministic synthetic canvas covering the repeated Tier 1 dense param section families.",
+    "benchmarkConfig": {
+      "markPrefix": "section-benchmark",
+      "targetSectionPattern": "callable_00",
+      "includeResizePhase": false
+    },
     "notes": [
-      "Should include representative repeated counts for Callable, Dict, param-heavy dict variants, list/object-style param sections, and GlobalVariables when it shares the same body stack."
+      "Includes repeated Callable and Dict sections, a GlobalVariables singleton, and ListRoot sections with Dict children for list/object-style coverage.",
+      "The canonical fixture keeps 25 top-level sections and 45 total sections so the same CDP replay can run against a stable dense synthetic layout."
     ]
   },
   "tier2Synthetic": {

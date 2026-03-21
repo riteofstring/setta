@@ -2,7 +2,7 @@
 
 Date: 2026-03-20
 Worktree: `setta.frontend-performance-11`
-Current branch: `frontend-performance-11`
+Current branch: `frontend-performance-11-hybrid-rendering`
 Current HEAD at start: `b40672176`
 Related log: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-log.md`
 
@@ -675,10 +675,27 @@ Standardization rule for all synthetic scenes:
 
 Current ready scene materialization path:
 
-- `settings` is currently the only ready canonical scene fixture
-- it is a checked-in `setta-settings-project.json` style snapshot installed via:
+- the current ready canonical scene fixtures are:
+  - `settings`
+  - `tier1Synthetic`
+- `settings` is a checked-in `setta-settings-project.json` style snapshot installed via:
   - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root <target-state-root>`
 - this makes the `settings` benchmark reproducible without depending on ad hoc local edits to `setta_files_dev`
+
+Tier 1 readiness update:
+
+- `tier1Synthetic` is now also a ready canonical scene fixture
+- it is a checked-in `project.json` style single-config snapshot installed via:
+  - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root <target-state-root>`
+- it can be regenerated through the checked-in builder:
+  - `source activate.sh && python perf/scripts/buildSectionBenchmarkScene.py tier1Synthetic --output perf/fixtures/section-benchmarks/tier1-synthetic.project.json`
+- the current canonical Tier 1 composition is:
+  - 8 `Callable` sections
+  - 12 top-level `Dict` sections
+  - 1 `GlobalVariables` section
+  - 4 `ListRoot` sections with 5 `Dict` children each
+  - 25 top-level sections and 45 total sections overall
+- this keeps Tier 1 reproducible without depending on ad hoc local project edits, live settings-project state, or per-run scene authoring
 
 Current expectation for future synthetic scenes:
 
