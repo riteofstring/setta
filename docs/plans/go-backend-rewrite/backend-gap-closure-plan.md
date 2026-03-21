@@ -376,3 +376,8 @@ categorize them.
   adjacent external-agent runtime queue is now down to the OpenCode linked-
   chat recursion-header row plus the remaining Codex user-config
   bootstrap/import-marker reconciliation slices
+- The OpenCode linked-chat recursion-header row is now closed too, so the
+  adjacent external-agent queue should move to the remaining Codex user-config
+  bootstrap/import-marker reconciliation slices first, then back out to the
+  broader still-missing external-agent runtime behavior such as OpenCode
+  read-only handling and completion-gate ownership
