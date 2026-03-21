@@ -50,6 +50,8 @@ Use the same interaction loop on both commits:
 - Use Chrome DevTools MCP only.
 - Use the existing Chrome DevTools browser windows, not other browsers.
 - Keep the benchmark log append-only.
+- Treat the authoritative current-branch trace as the post-`ai.sh` rerun captured from `http://127.0.0.1:3011/settings`.
+- The earlier pre-restart current trace on `http://127.0.0.1:3111/settings` stays as a superseded artifact only.
 - Record:
   - exact URLs
   - exact commit ids
