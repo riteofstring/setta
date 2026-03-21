@@ -496,10 +496,14 @@ def build_unmapped_test_candidates(
 
 
 def test_is_narrowly_cited(matrix_text: str, test_ref: SourceTest) -> bool:
-    direct_ref = re.escape(f"{test_ref.path}::{test_ref.name}")
+    class_scope = r"(?:::[A-Za-z_][A-Za-z0-9_]*)*"
+    direct_ref = (
+        re.escape(test_ref.path) + class_scope + r"::" + re.escape(test_ref.name)
+    )
     grouped_ref = (
-        re.escape(f"{test_ref.path}::")
-        + r"(?:\{[^}]*\b"
+        re.escape(test_ref.path)
+        + class_scope
+        + r"::(?:\{[^}]*\b"
         + re.escape(test_ref.name)
         + r"\b[^}]*\})"
     )

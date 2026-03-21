@@ -185,6 +185,71 @@ def test_generate_report_caps_repeated_retained_families(
     )
 
 
+def test_generate_report_recognizes_class_scoped_matrix_test_citations(
+    tmp_path: Path,
+) -> None:
+    # Matrix citations often reference unittest-style class scopes, so the
+    # miner should not keep flagging those methods as uncited.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+    docs_root = repo_root_path / "docs" / "reference"
+
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+    docs_root.mkdir(parents=True, exist_ok=True)
+
+    matrix_path.write_text(
+        """# Backend Behavior Parity Matrix
+
+## Audit Boundary
+
+- Source baseline: `main@abc123`
+- Target head: `deadbeef`
+
+## Matrix
+
+| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.class_scope` | `tests/api/test_runner.py::TestRunnerCases::{test_class_cited}` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | class-scoped citation |
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "api" / "test_runner.py").write_text(
+        """class TestRunnerCases:
+    def test_class_cited(self) -> None:
+        assert True
+
+    def test_class_uncited(self) -> None:
+        assert True
+""",
+        encoding="utf-8",
+    )
+    (docs_root / "view-modes.md").write_text("# View Modes\n", encoding="utf-8")
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+        docs_path=docs_root,
+        limit=10,
+    )
+
+    uncited_tests = {
+        f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
+    }
+
+    assert "tests/api/test_runner.py::test_class_cited" not in uncited_tests
+    assert "tests/api/test_runner.py::test_class_uncited" in uncited_tests
+
+
 def _build_gap_hunt_candidate_wrapper_sandbox(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path]:
