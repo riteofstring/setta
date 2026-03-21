@@ -300,6 +300,53 @@ func TestRuntimeSetTopLevelSectionLayoutFiltersInvalidSectionsAndRestoresMissing
 	}
 }
 
+func TestRuntimeSetTopLevelSectionLayoutAndViewportPersistIntoActiveViewMode(t *testing.T) {
+	t.Parallel()
+
+	runtime := openViewModesTestRuntime(t)
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	layout := project.TopLevelSections["standalone-section"]
+	layout.X += 120
+	layout.Y += 80
+	layout.ZIndex = 6
+
+	if _, err := runtime.SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]TopLevelSectionLayout{
+		"parent-section":     project.TopLevelSections["parent-section"],
+		"standalone-section": layout,
+		"moving-section":     project.TopLevelSections["moving-section"],
+	}); err != nil {
+		t.Fatalf("SetTopLevelSectionLayout returned error: %v", err)
+	}
+
+	viewport := &Viewport{X: 12.5, Y: -3.25, Zoom: 1.4}
+	if _, err := runtime.SetViewport(context.Background(), "project-alpha", viewport); err != nil {
+		t.Fatalf("SetViewport returned error: %v", err)
+	}
+
+	project = runtime.Snapshot().Document.Projects["project-alpha"]
+	if got := project.TopLevelSections["standalone-section"]; !reflect.DeepEqual(got, layout) {
+		t.Fatalf("expected project layout %#v, got %#v", layout, got)
+	}
+	if !reflect.DeepEqual(project.Viewport, viewport) {
+		t.Fatalf("expected project viewport %#v, got %#v", viewport, project.Viewport)
+	}
+	if !project.ViewportInitialized {
+		t.Fatal("expected project viewport to be initialized")
+	}
+
+	viewMode := project.ViewModes["focus"]
+	if got := viewMode.TopLevelSections["standalone-section"]; !reflect.DeepEqual(got, layout) {
+		t.Fatalf("expected active view mode layout %#v, got %#v", layout, got)
+	}
+	if !reflect.DeepEqual(viewMode.Viewport, viewport) {
+		t.Fatalf("expected active view mode viewport %#v, got %#v", viewport, viewMode.Viewport)
+	}
+	if !viewMode.ViewportInitialized {
+		t.Fatal("expected active view mode viewport to be initialized")
+	}
+}
+
 func TestRuntimeCreateAndSwitchViewModesSwapLayoutAndViewportState(t *testing.T) {
 	t.Parallel()
 
