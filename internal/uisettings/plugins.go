@@ -246,8 +246,13 @@ func buildPluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string
 				return MutationResult{}, err
 			}
 			if _, err := pluginService.WriteConfig(ctx, plugins.ConfigWriteOptions{
-				PluginID: pluginID,
-				Config:   nextConfig,
+				PluginID:              pluginID,
+				Config:                nextConfig,
+				ExpectedCurrentConfig: cloneStringAnyMap(pluginEntry.Config.CurrentConfig),
+				SkipWriteIfCurrentMatchesExpected: reflect.DeepEqual(
+					cloneJSONValue(oldValue),
+					cloneJSONValue(value),
+				),
 			}); err != nil {
 				return MutationResult{}, normalizePluginConfigMutationError(pluginID, settingID, err)
 			}
@@ -476,6 +481,8 @@ func normalizePluginConfigMutationError(pluginID string, settingID string, err e
 	switch serviceErr.Code {
 	case plugins.ServiceErrorCodeNotFound:
 		return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable for UI setting access.", pluginID)
+	case plugins.ServiceErrorCodeConfigChanged:
+		return newSettingError(ErrorCodeMutationFailed, "%s changed since pre-write validation.", settingID)
 	default:
 		return newSettingError(ErrorCodeMutationFailed, "%s", serviceErr.Message)
 	}

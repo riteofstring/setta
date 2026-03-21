@@ -7,14 +7,17 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
 type ConfigWriteOptions struct {
-	PluginID string
-	Config   map[string]any
+	PluginID                          string
+	Config                            map[string]any
+	ExpectedCurrentConfig             map[string]any
+	SkipWriteIfCurrentMatchesExpected bool
 }
 
 type PluginConfigValidationResult struct {
@@ -48,10 +51,36 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 	if err := validatePluginConfig(entry, options.Config); err != nil {
 		return PluginConfigWriteResult{}, err
 	}
-
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
 		return PluginConfigWriteResult{}, err
+	}
+	currentConfig := runtimeCurrentConfig(entry, &state)
+	expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig)
+	if expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
+		return PluginConfigWriteResult{}, newServiceError(
+			ServiceErrorCodeConfigChanged,
+			"Plugin %s config changed since pre-write validation.",
+			entry.PluginID,
+		)
+	}
+	if options.SkipWriteIfCurrentMatchesExpected {
+		return PluginConfigWriteResult{
+			PluginID: entry.PluginID,
+			Config:   cloneStringAnyMap(currentConfig),
+			Validation: PluginConfigValidationResult{
+				OK: true,
+			},
+		}, nil
+	}
+	if reflect.DeepEqual(currentConfig, cloneStringAnyMap(options.Config)) {
+		return PluginConfigWriteResult{
+			PluginID: entry.PluginID,
+			Config:   cloneStringAnyMap(currentConfig),
+			Validation: PluginConfigValidationResult{
+				OK: true,
+			},
+		}, nil
 	}
 	if state.PluginConfigByID == nil {
 		state.PluginConfigByID = map[string]any{}

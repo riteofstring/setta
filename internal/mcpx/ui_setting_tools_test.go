@@ -22,6 +22,22 @@ type uiSettingDriftProjectState struct {
 	*projectstate.Runtime
 }
 
+type concurrentWritePluginMutationService struct {
+	*plugins.Service
+	beforeWriteConfig func(context.Context, plugins.ConfigWriteOptions) error
+}
+
+func (s *concurrentWritePluginMutationService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+	if s.beforeWriteConfig != nil {
+		hook := s.beforeWriteConfig
+		s.beforeWriteConfig = nil
+		if err := hook(ctx, options); err != nil {
+			return plugins.PluginConfigWriteResult{}, err
+		}
+	}
+	return s.Service.WriteConfig(ctx, options)
+}
+
 type recordingRevealService struct {
 	input  uisettings.RevealInput
 	result uisettings.RevealResult
@@ -1483,6 +1499,155 @@ func TestServerUISettingToolsSupportSchemaBackedPluginSettings(t *testing.T) {
 	}
 }
 
+func TestServerUISettingToolsSchemaBackedSameValueWriteIsNoOpWithoutPersistingPluginState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	pluginStatePath := filepath.Join(roots.settaFilesRoot, "plugins_state.json")
+	beforeStateInfo, err := os.Stat(pluginStatePath)
+	if err != nil {
+		t.Fatalf("stat plugin state before same-value write: %v", err)
+	}
+	beforeStateBytes, err := os.ReadFile(pluginStatePath)
+	if err != nil {
+		t.Fatalf("read plugin state before same-value write: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call same-value set_ui_setting_value for schema-backed plugin setting: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected same-value schema-backed plugin write success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["oldValue"] != false || setPayload["newValue"] != false || setPayload["changed"] != false {
+		t.Fatalf("expected same-value schema-backed plugin write false -> false without change, got %#v", setPayload)
+	}
+	afterStateInfo, err := os.Stat(pluginStatePath)
+	if err != nil {
+		t.Fatalf("stat plugin state after same-value write: %v", err)
+	}
+	afterStateBytes, err := os.ReadFile(pluginStatePath)
+	if err != nil {
+		t.Fatalf("read plugin state after same-value write: %v", err)
+	}
+	if !beforeStateInfo.ModTime().Equal(afterStateInfo.ModTime()) {
+		t.Fatalf("expected same-value schema-backed plugin write not to rewrite plugin state, before=%v after=%v", beforeStateInfo.ModTime(), afterStateInfo.ModTime())
+	}
+	if string(beforeStateBytes) != string(afterStateBytes) {
+		t.Fatalf("expected same-value schema-backed plugin write to leave plugin state unchanged, before=%q after=%q", string(beforeStateBytes), string(afterStateBytes))
+	}
+}
+
+func TestServerUISettingToolsRejectSchemaBackedPluginStalePreconditionWithoutClobberingNewerValue(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, baseService := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := baseService.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	service := &concurrentWritePluginMutationService{Service: baseService}
+	service.beforeWriteConfig = func(ctx context.Context, _ plugins.ConfigWriteOptions) error {
+		_, err := service.Service.WriteConfig(ctx, plugins.ConfigWriteOptions{
+			PluginID: "setta-fixture-full",
+			Config: map[string]any{
+				"enabled": true,
+				"label":   "updated-by-other-writer",
+			},
+		})
+		return err
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call stale schema-backed set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured stale schema-backed plugin response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed for stale schema-backed plugin write, got %#v", setError["code"])
+	}
+	message, ok := setError["message"].(string)
+	if !ok || !strings.Contains(message, "changed since pre-write validation") {
+		t.Fatalf("expected stale-precondition message, got %#v", setError["message"])
+	}
+
+	runtimeResponse, err := baseService.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("plugin runtime after stale schema-backed write: %v", err)
+	}
+	pluginEntry := mustFindPluginListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
+	if pluginEntry.Config.CurrentConfig["enabled"] != true {
+		t.Fatalf("expected concurrent schema-backed plugin value to remain true, got %#v", pluginEntry.Config.CurrentConfig)
+	}
+	if pluginEntry.Config.CurrentConfig["label"] != "updated-by-other-writer" {
+		t.Fatalf("expected concurrent schema-backed plugin label to remain updated-by-other-writer, got %#v", pluginEntry.Config.CurrentConfig)
+	}
+}
+
 func TestServerUISettingToolsSupportBackendRegisteredPluginSettings(t *testing.T) {
 	t.Parallel()
 
@@ -1592,6 +1757,66 @@ func TestServerUISettingToolsSupportBackendRegisteredPluginSettings(t *testing.T
 	updatedGetPayload := mustStructuredMap(t, updatedGetResult.StructuredContent)
 	if updatedGetPayload["value"] != true {
 		t.Fatalf("expected updated backend-registered plugin value true, got %#v", updatedGetPayload["value"])
+	}
+}
+
+func TestServerUISettingToolsBackendRegisteredSameValueWriteIsNoOpWithoutBackendWrite(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGo(t, installResult.SourcePath, false)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan backend-registered plugin runtime: %v", err)
+	}
+
+	backendStatePath := filepath.Join(installResult.SourcePath, "backend_ui_setting_state.json")
+	if _, err := os.Stat(backendStatePath); !os.IsNotExist(err) {
+		t.Fatalf("expected backend state file to be absent before same-value write, got %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+			"value":           false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call same-value set_ui_setting_value for backend-registered plugin setting: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected same-value backend-registered plugin write success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["oldValue"] != false || setPayload["newValue"] != false || setPayload["changed"] != false {
+		t.Fatalf("expected same-value backend-registered plugin write false -> false without change, got %#v", setPayload)
+	}
+	if _, err := os.Stat(backendStatePath); !os.IsNotExist(err) {
+		t.Fatalf("expected same-value backend-registered plugin write not to invoke backend write handler, got %v", err)
 	}
 }
 

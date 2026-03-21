@@ -9,6 +9,7 @@ const (
 	ServiceErrorCodeBackendRuntimeInvalid   ServiceErrorCode = "PLUGIN_BACKEND_RUNTIME_INVALID"
 	ServiceErrorCodeAssetInvalidPath        ServiceErrorCode = "PLUGIN_ASSET_INVALID_PATH"
 	ServiceErrorCodeAssetNotFound           ServiceErrorCode = "PLUGIN_ASSET_NOT_FOUND"
+	ServiceErrorCodeConfigChanged           ServiceErrorCode = "PLUGIN_CONFIG_CHANGED"
 	ServiceErrorCodeConfigInvalid           ServiceErrorCode = "PLUGIN_CONFIG_INVALID"
 	ServiceErrorCodeConfigSchemaInvalid     ServiceErrorCode = "PLUGIN_CONFIG_SCHEMA_INVALID"
 	ServiceErrorCodeInstallerUnavailable    ServiceErrorCode = "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE"
