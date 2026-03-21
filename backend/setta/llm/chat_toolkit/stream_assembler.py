@@ -1,10 +1,10 @@
+from setta.database.utils import create_new_id
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
     MessageThinkingContent,
     ToolCall,
 )
-from setta.types.id import create_new_id
 
 from .tool_calls import ToolCallAccumulator
 
