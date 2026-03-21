@@ -479,6 +479,67 @@ func TestCodexExecutorPrepareCodexHomeDoesNotCreateMissingCanonicalConfigInManag
 	}
 }
 
+func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersRootKey(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
+	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir explicit config dir: %v", err)
+	}
+	if err := os.WriteFile(explicitConfigPath, []byte("mcpServers = {}\n"), 0o644); err != nil {
+		t.Fatalf("write explicit codex config: %v", err)
+	}
+
+	executor := &CodexExecutor{
+		settaFilesRoot: root,
+	}
+	_, err := executor.prepareCodexHome(externalagentconfigs.Config{
+		ID:               "external-config",
+		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
+		SettingsFilePath: stringPtr(explicitConfigPath),
+	}, "chat-1", root, map[string]any{})
+	if err == nil {
+		t.Fatal("expected camel-case mcpServers root to be rejected")
+	}
+	if !strings.Contains(err.Error(), "mcp_servers") || !strings.Contains(err.Error(), "mcpServers") {
+		t.Fatalf("expected camel-case rejection error to mention mcp_servers and mcpServers, got %v", err)
+	}
+}
+
+func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersTables(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
+	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir explicit config dir: %v", err)
+	}
+	content := strings.Join([]string{
+		"[mcpServers.filesystem]",
+		"url = \"http://example.test/mcp\"",
+		"",
+	}, "\n")
+	if err := os.WriteFile(explicitConfigPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write explicit codex config: %v", err)
+	}
+
+	executor := &CodexExecutor{
+		settaFilesRoot: root,
+	}
+	_, err := executor.prepareCodexHome(externalagentconfigs.Config{
+		ID:               "external-config",
+		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
+		SettingsFilePath: stringPtr(explicitConfigPath),
+	}, "chat-1", root, map[string]any{})
+	if err == nil {
+		t.Fatal("expected camel-case mcpServers tables to be rejected")
+	}
+	if !strings.Contains(err.Error(), "mcp_servers") || !strings.Contains(err.Error(), "mcpServers") {
+		t.Fatalf("expected camel-case rejection error to mention mcp_servers and mcpServers, got %v", err)
+	}
+}
+
 func TestCodexExecutorEnsureCodexLoginUsesAPIKeyWhenSessionHomeLacksAuth(t *testing.T) {
 	t.Parallel()
 

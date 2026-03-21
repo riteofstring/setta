@@ -1102,6 +1102,11 @@ func loadCodexConfigPayload(path string) (map[string]any, error) {
 	if err := toml.Unmarshal(content, &payload); err != nil {
 		return nil, fmt.Errorf("decode codex base config: %w", err)
 	}
+	if _, ok := payload["mcpServers"]; ok {
+		return nil, fmt.Errorf(
+			"decode codex base config: top-level mcpServers is not supported; use mcp_servers",
+		)
+	}
 	return payload, nil
 }
 
