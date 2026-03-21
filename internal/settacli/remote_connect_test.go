@@ -812,8 +812,8 @@ func writeSettacliForegroundSSHWrapper(t *testing.T, repoRoot string, argvLogPat
 		"if [ \"$has_n$has_l\" = \"11\" ]; then\n" +
 		"  printf '%s\\n' \"$*\" >> \"$SETTA_SSH_STUB_ARGV_LOG_FILE\"\n" +
 		"  if [ \"$SETTA_SETTACLI_TUNNEL_MODE\" = \"persist\" ]; then\n" +
-		"    if [ -n \"$SETTA_SETTACLI_TUNNEL_PID_FILE\" ]; then printf '%s\\n' \"$$\" > \"$SETTA_SETTACLI_TUNNEL_PID_FILE\"; fi\n" +
 		"    trap 'exit 0' TERM INT\n" +
+		"    if [ -n \"$SETTA_SETTACLI_TUNNEL_PID_FILE\" ]; then printf '%s\\n' \"$$\" > \"$SETTA_SETTACLI_TUNNEL_PID_FILE\"; fi\n" +
 		"    while :; do sleep 1; done\n" +
 		"  fi\n" +
 		"  exit \"${SETTA_SETTACLI_TUNNEL_EXIT_CODE:-0}\"\n" +
