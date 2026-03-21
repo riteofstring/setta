@@ -97,6 +97,13 @@ following are true:
   continue to resolve sections by name/display name/id, params by core/display
   name, and variants by user-facing variant name while failing closed on
   missing or non-param lookups.
+- An exploratory differential slice now exists for live project-history replay:
+  `scripts/backend-differential-parity-exploratory-scenarios.yaml` drives
+  `undo` / `redo` through caller-visible view-mode flag mutations, oversized
+  step clamps, and post-undo branch truncation against `main`. That slice is
+  not in the green default manifest yet because the older `main` baseline still
+  diverges from the current branch on this surface and is tracked as a
+  classified baseline-only difference rather than a current Go-owned gap.
 - The default differential manifest now also proves the caller-visible
   fresh-project scaffold contract beyond counts: create/load and latest-state
   snapshots keep the default Python target fields, generated-section

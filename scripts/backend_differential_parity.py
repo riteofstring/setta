@@ -48,6 +48,8 @@ ROUTE_CREATE_PROJECT_CONFIG = "/api/createProjectConfig"
 ROUTE_LOAD_ALL_PROJECT_METADATA = "/api/loadAllProjectMetadata"
 ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
+ROUTE_UNDO = "/api/undo"
+ROUTE_REDO = "/api/redo"
 ROUTE_SET_VARIANT_JSON_SOURCE_KEYS = "/api/setVariantJsonSourceKeys"
 ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE = "/api/setProjectChatWindowingState"
 ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID = "/api/setProjectChatWindowChatId"
@@ -2101,6 +2103,8 @@ def execute_scenario(
         return execute_toggle_view_mode_broadcast(backend)
     if scenario.kind == "view_mode_user_facing_and_tab_broadcast":
         return execute_view_mode_user_facing_and_tab_broadcast(backend)
+    if scenario.kind == "project_history_undo_redo_route_contract":
+        return execute_project_history_undo_redo_route_contract(backend)
     if scenario.kind == "latest_state_after_create_project":
         return execute_latest_state_after_create_project(backend)
     if scenario.kind == "runner_summary_lookup_contract":
@@ -2446,6 +2450,186 @@ def execute_view_mode_user_facing_and_tab_broadcast(
         "toggleUserFacingWebsocketMessages": user_facing_messages,
         "toggleTabResponse": normalize_response_json(tab_response),
         "toggleTabWebsocketMessages": tab_messages,
+        "latestProjectState": latest_payload,
+    }
+    return summary, raw
+
+
+def execute_project_history_undo_redo_route_contract(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    load_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "Project Alpha"},
+    )
+    loaded = normalize_response_json(load_response)
+    if not isinstance(loaded, dict):
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded!r}"
+        )
+    project_id = find_project_id_by_name(backend, "Project Alpha")
+
+    before_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    before_payload = normalize_response_json(before_response)
+    if not isinstance(before_payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {before_payload!r}"
+        )
+    active_view_mode_id = summarize_project_history_view_mode_state(before_payload)[
+        "activeViewModeId"
+    ]
+
+    toggle_edit_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_TOGGLE_IS_EDITING_VIEW_MODE,
+        payload={
+            "projectConfigId": project_id,
+            "frontendOpId": "history-toggle-view-mode-op",
+        },
+    )
+    toggle_edit_payload = get_latest_project_state(backend, project_id)
+
+    toggle_user_facing_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_TOGGLE_VIEW_MODE_USER_FACING,
+        payload={
+            "projectConfigId": project_id,
+            "viewModeId": active_view_mode_id,
+            "frontendOpId": "history-toggle-view-mode-user-facing-op",
+        },
+    )
+    toggle_user_facing_payload = get_latest_project_state(backend, project_id)
+
+    undo_one_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_UNDO,
+        payload={"projectConfigId": project_id, "steps": 1},
+    )
+    undo_one_payload = get_latest_project_state(backend, project_id)
+
+    undo_clamp_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_UNDO,
+        payload={"projectConfigId": project_id, "steps": 10},
+    )
+    undo_clamp_payload = get_latest_project_state(backend, project_id)
+
+    redo_one_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_REDO,
+        payload={"projectConfigId": project_id, "steps": 1},
+    )
+    redo_one_payload = get_latest_project_state(backend, project_id)
+
+    redo_clamp_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_REDO,
+        payload={"projectConfigId": project_id, "steps": 10},
+    )
+    redo_clamp_payload = get_latest_project_state(backend, project_id)
+
+    undo_branch_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_UNDO,
+        payload={"projectConfigId": project_id, "steps": 1},
+    )
+    undo_branch_payload = get_latest_project_state(backend, project_id)
+
+    branch_tab_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_TOGGLE_VIEW_MODE_TAB,
+        payload={
+            "projectConfigId": project_id,
+            "viewModeId": active_view_mode_id,
+            "frontendOpId": "history-toggle-view-mode-tab-op",
+        },
+    )
+    branch_tab_payload = get_latest_project_state(backend, project_id)
+
+    redo_after_branch_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_REDO,
+        payload={"projectConfigId": project_id, "steps": 10},
+    )
+    redo_after_branch_payload = get_latest_project_state(backend, project_id)
+
+    latest_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    latest_payload = normalize_response_json(latest_response)
+    if not isinstance(latest_payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {latest_payload!r}"
+        )
+
+    summary = summarize_project_history_undo_redo_route_contract(
+        before_payload=before_payload,
+        toggle_edit_http_status=toggle_edit_response.status_code,
+        toggle_edit_payload=toggle_edit_payload,
+        toggle_user_facing_http_status=toggle_user_facing_response.status_code,
+        toggle_user_facing_payload=toggle_user_facing_payload,
+        undo_one_http_status=undo_one_response.status_code,
+        undo_one_payload=undo_one_payload,
+        undo_clamp_http_status=undo_clamp_response.status_code,
+        undo_clamp_payload=undo_clamp_payload,
+        redo_one_http_status=redo_one_response.status_code,
+        redo_one_payload=redo_one_payload,
+        redo_clamp_http_status=redo_clamp_response.status_code,
+        redo_clamp_payload=redo_clamp_payload,
+        undo_branch_http_status=undo_branch_response.status_code,
+        undo_branch_payload=undo_branch_payload,
+        branch_tab_http_status=branch_tab_response.status_code,
+        branch_tab_payload=branch_tab_payload,
+        redo_after_branch_http_status=redo_after_branch_response.status_code,
+        redo_after_branch_payload=redo_after_branch_payload,
+        latest_http_status=latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    raw = {
+        "loadedProjectConfig": loaded,
+        "beforeLatestProjectState": before_payload,
+        "afterToggleViewModeLatestState": toggle_edit_payload,
+        "afterToggleViewModeUserFacingLatestState": toggle_user_facing_payload,
+        "undoOneRouteResponse": normalize_response_json_allow_status(undo_one_response),
+        "undoOneResponse": undo_one_payload,
+        "undoClampRouteResponse": normalize_response_json_allow_status(
+            undo_clamp_response
+        ),
+        "undoClampResponse": undo_clamp_payload,
+        "redoOneRouteResponse": normalize_response_json_allow_status(redo_one_response),
+        "redoOneResponse": redo_one_payload,
+        "redoClampRouteResponse": normalize_response_json_allow_status(
+            redo_clamp_response
+        ),
+        "redoClampResponse": redo_clamp_payload,
+        "undoBranchRouteResponse": normalize_response_json_allow_status(
+            undo_branch_response
+        ),
+        "undoBranchResponse": undo_branch_payload,
+        "afterToggleViewModeTabLatestState": branch_tab_payload,
+        "redoAfterBranchRouteResponse": normalize_response_json_allow_status(
+            redo_after_branch_response
+        ),
+        "redoAfterBranchResponse": redo_after_branch_payload,
         "latestProjectState": latest_payload,
     }
     return summary, raw
@@ -5195,6 +5379,24 @@ def find_project_id_by_name(backend: BackendSession, project_name: str) -> str:
     )
 
 
+def get_latest_project_state(
+    backend: BackendSession,
+    project_id: str,
+) -> dict[str, Any]:
+    response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    payload = normalize_response_json(response)
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {payload!r}"
+        )
+    return payload
+
+
 def post_json(
     session: requests.Session,
     base_url: str,
@@ -5474,6 +5676,18 @@ def summarize_active_view_mode_flags(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def summarize_project_history_view_mode_state(payload: dict[str, Any]) -> dict[str, Any]:
+    flags = summarize_active_view_mode_flags(payload)
+    project_state = object_field(payload, "projectState")
+    project_config = object_field(project_state, "projectConfig")
+    return {
+        "activeViewModeId": flags["activeViewModeId"],
+        "isEditingViewMode": bool(project_config.get("isEditingViewMode", False)),
+        "isUserFacing": flags["isUserFacing"],
+        "isTab": flags["isTab"],
+    }
+
+
 def summarize_view_mode_flag_update(
     update_messages: list[dict[str, Any]],
     completed_op_id: str,
@@ -5571,6 +5785,71 @@ def summarize_view_mode_user_facing_and_tab_broadcast(
         "latestActiveViewModeMatchesBefore": (
             latest_flags["activeViewModeId"] == before_flags["activeViewModeId"]
         ),
+    }
+
+
+def summarize_project_history_undo_redo_route_contract(
+    before_payload: dict[str, Any],
+    toggle_edit_http_status: int,
+    toggle_edit_payload: dict[str, Any],
+    toggle_user_facing_http_status: int,
+    toggle_user_facing_payload: dict[str, Any],
+    undo_one_http_status: int,
+    undo_one_payload: dict[str, Any],
+    undo_clamp_http_status: int,
+    undo_clamp_payload: dict[str, Any],
+    redo_one_http_status: int,
+    redo_one_payload: dict[str, Any],
+    redo_clamp_http_status: int,
+    redo_clamp_payload: dict[str, Any],
+    undo_branch_http_status: int,
+    undo_branch_payload: dict[str, Any],
+    branch_tab_http_status: int,
+    branch_tab_payload: dict[str, Any],
+    redo_after_branch_http_status: int,
+    redo_after_branch_payload: dict[str, Any],
+    latest_http_status: int,
+    latest_payload: dict[str, Any],
+) -> dict[str, Any]:
+    before_state = summarize_project_history_view_mode_state(before_payload)
+    toggle_edit_state = summarize_project_history_view_mode_state(toggle_edit_payload)
+    toggle_user_facing_state = summarize_project_history_view_mode_state(
+        toggle_user_facing_payload
+    )
+    undo_one_state = summarize_project_history_view_mode_state(undo_one_payload)
+    undo_clamp_state = summarize_project_history_view_mode_state(undo_clamp_payload)
+    redo_one_state = summarize_project_history_view_mode_state(redo_one_payload)
+    redo_clamp_state = summarize_project_history_view_mode_state(redo_clamp_payload)
+    undo_branch_state = summarize_project_history_view_mode_state(undo_branch_payload)
+    branch_tab_state = summarize_project_history_view_mode_state(branch_tab_payload)
+    redo_after_branch_state = summarize_project_history_view_mode_state(
+        redo_after_branch_payload
+    )
+    latest_state = summarize_project_history_view_mode_state(latest_payload)
+
+    return {
+        "toggleEditHttpStatus": toggle_edit_http_status,
+        "toggleUserFacingHttpStatus": toggle_user_facing_http_status,
+        "undoOneHttpStatus": undo_one_http_status,
+        "undoClampHttpStatus": undo_clamp_http_status,
+        "redoOneHttpStatus": redo_one_http_status,
+        "redoClampHttpStatus": redo_clamp_http_status,
+        "undoBranchHttpStatus": undo_branch_http_status,
+        "branchTabHttpStatus": branch_tab_http_status,
+        "redoAfterBranchHttpStatus": redo_after_branch_http_status,
+        "latestHttpStatus": latest_http_status,
+        "beforeState": before_state,
+        "afterToggleEditState": toggle_edit_state,
+        "afterToggleUserFacingState": toggle_user_facing_state,
+        "afterUndoOneState": undo_one_state,
+        "afterUndoClampState": undo_clamp_state,
+        "afterRedoOneState": redo_one_state,
+        "afterRedoClampState": redo_clamp_state,
+        "afterUndoBranchState": undo_branch_state,
+        "afterBranchTabState": branch_tab_state,
+        "afterRedoAfterBranchState": redo_after_branch_state,
+        "latestState": latest_state,
+        "redoAfterBranchMatchesLatest": redo_after_branch_state == latest_state,
     }
 
 

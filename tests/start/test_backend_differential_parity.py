@@ -363,6 +363,182 @@ scenarios:
             },
         )
 
+    def test_summarize_project_history_undo_redo_route_contract(self) -> None:
+        harness = load_harness_module()
+
+        def build_payload(
+            *,
+            is_editing: bool,
+            is_user_facing: bool,
+            is_tab: bool,
+        ) -> dict[str, object]:
+            return {
+                "projectState": {
+                    "projectConfig": {
+                        "activeViewModeId": "view-mode-1",
+                        "isEditingViewMode": is_editing,
+                        "viewModes": {
+                            "view-mode-1": {
+                                "id": "view-mode-1",
+                                "isUserFacing": is_user_facing,
+                                "isTab": is_tab,
+                            }
+                        },
+                    }
+                }
+            }
+
+        summary = harness.summarize_project_history_undo_redo_route_contract(
+            before_payload=build_payload(
+                is_editing=False,
+                is_user_facing=False,
+                is_tab=False,
+            ),
+            toggle_edit_http_status=200,
+            toggle_edit_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=False,
+            ),
+            toggle_user_facing_http_status=200,
+            toggle_user_facing_payload=build_payload(
+                is_editing=True,
+                is_user_facing=True,
+                is_tab=False,
+            ),
+            undo_one_http_status=200,
+            undo_one_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=False,
+            ),
+            undo_clamp_http_status=200,
+            undo_clamp_payload=build_payload(
+                is_editing=False,
+                is_user_facing=False,
+                is_tab=False,
+            ),
+            redo_one_http_status=200,
+            redo_one_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=False,
+            ),
+            redo_clamp_http_status=200,
+            redo_clamp_payload=build_payload(
+                is_editing=True,
+                is_user_facing=True,
+                is_tab=False,
+            ),
+            undo_branch_http_status=200,
+            undo_branch_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=False,
+            ),
+            branch_tab_http_status=200,
+            branch_tab_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=True,
+            ),
+            redo_after_branch_http_status=200,
+            redo_after_branch_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=True,
+            ),
+            latest_http_status=200,
+            latest_payload=build_payload(
+                is_editing=True,
+                is_user_facing=False,
+                is_tab=True,
+            ),
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "toggleEditHttpStatus": 200,
+                "toggleUserFacingHttpStatus": 200,
+                "undoOneHttpStatus": 200,
+                "undoClampHttpStatus": 200,
+                "redoOneHttpStatus": 200,
+                "redoClampHttpStatus": 200,
+                "undoBranchHttpStatus": 200,
+                "branchTabHttpStatus": 200,
+                "redoAfterBranchHttpStatus": 200,
+                "latestHttpStatus": 200,
+                "beforeState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": False,
+                    "isUserFacing": False,
+                    "isTab": False,
+                },
+                "afterToggleEditState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": False,
+                },
+                "afterToggleUserFacingState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": True,
+                    "isTab": False,
+                },
+                "afterUndoOneState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": False,
+                },
+                "afterUndoClampState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": False,
+                    "isUserFacing": False,
+                    "isTab": False,
+                },
+                "afterRedoOneState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": False,
+                },
+                "afterRedoClampState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": True,
+                    "isTab": False,
+                },
+                "afterUndoBranchState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": False,
+                },
+                "afterBranchTabState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": True,
+                },
+                "afterRedoAfterBranchState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": True,
+                },
+                "latestState": {
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": True,
+                    "isUserFacing": False,
+                    "isTab": True,
+                },
+                "redoAfterBranchMatchesLatest": True,
+            },
+        )
+
     def test_resolve_frontend_websocket_route_reads_go_route(self) -> None:
         harness = load_harness_module()
 

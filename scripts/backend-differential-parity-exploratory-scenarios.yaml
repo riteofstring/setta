@@ -1,0 +1,6 @@
+scenarios:
+  - name: project_history_undo_redo_route_contract
+    kind: project_history_undo_redo_route_contract
+    seed: fixture
+    fixture: parity-fixtures/runner-summary-project.json
+    description: Undo and redo should replay caller-visible view-mode flag mutations, clamp oversized step counts, and truncate abandoned redo history after a fresh post-undo mutation.
