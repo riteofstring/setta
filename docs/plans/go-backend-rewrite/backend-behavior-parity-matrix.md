@@ -874,11 +874,11 @@ Last audited: `2026-03-19`
 
 ## Status Summary
 
-- Rows audited in this pass: `1253`
+- Rows audited in this pass: `1254`
 - Status counts:
-  - `Proved`: `1081`
+  - `Proved`: `1088`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `17`
+  - `Missing`: `13`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
   - `Dormant / unproven caller`: `18`
