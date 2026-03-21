@@ -293,6 +293,11 @@ categorize them.
   plausible bounded slice is the missing Codex `enabled_tools` runtime-config
   contract before the backlog steps up into broader completion-gate,
   deployment-mount, or OpenCode read-only behavior gaps
+- The MCP bridge bootstrap-cookie selection row is now closed too, so the
+  next smallest non-proof-only queue is likely either the MCP/UI-setting
+  `expectedOldValue` writer contract or the terminal websocket share-session
+  keepalive touch behavior before returning to broader launcher, AI-route, or
+  JSON-source runtime gaps
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
