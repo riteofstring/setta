@@ -5447,22 +5447,265 @@ func TestRegisterAIRoutesAllowsExplicitNullProjectConfigIDOnChatHydration(t *tes
 	}
 }
 
-func TestRegisterAIRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterAIRoutesAllowDeploymentLLMSurfacesWhenLLMAccessEnabled(t *testing.T) {
 	t.Parallel()
 
-	handler := newAIRouteTestHandler(t, config.ModeShare, nil, nil, nil, nil)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetExternalAgentChat,
-		strings.NewReader(`{"chatId":"chat-external","projectConfigId":"project-alpha"}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
+	type testCase struct {
+		name         string
+		setup        func(*testing.T, aiRouteFixture)
+		requestBody  string
+		route        string
+		expectedCode int
+	}
 
-	handler.ServeHTTP(response, request)
+	testCases := []testCase{
+		{
+			name:  "shared send route",
+			route: RouteGetLLMResponse,
+			requestBody: `{
+				"chatId":null,
+				"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new section."}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false,
+				"appGenerationByMessageId":{"user-1":"mcp_server"}
+			}`,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name: "managed hydrate route",
+			setup: func(t *testing.T, fixture aiRouteFixture) {
+				fixture.seedManagedHydrationRun(t)
+			},
+			route:        RouteGetLLMChat,
+			requestBody:  `{"chatId":"chat-managed","projectConfigId":"project-alpha"}`,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name: "managed stop route",
+			setup: func(t *testing.T, fixture aiRouteFixture) {
+				fixture.seedManagedRunningRun(t)
+			},
+			route:        RouteStopLLMChat,
+			requestBody:  `{"chatId":"chat-managed-stop"}`,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name: "external hydrate route",
+			setup: func(t *testing.T, fixture aiRouteFixture) {
+				fixture.seedHydrationRun(t)
+			},
+			route:        RouteGetExternalAgentChat,
+			requestBody:  `{"chatId":"chat-external","projectConfigId":"project-alpha"}`,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name: "external stop route",
+			setup: func(t *testing.T, fixture aiRouteFixture) {
+				run := fixture.seedRun("run-stop-deployment", agentruns.RunStatusRunning)
+				controller := &aiRouteStubController{}
+				if err := fixture.runtime.ActivateRun(run.ID, controller); err != nil {
+					t.Fatalf("activate run: %v", err)
+				}
+			},
+			route:        RouteStopExternalAgentRun,
+			requestBody:  `{"runId":"run-stop-deployment"}`,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name: "external approval route",
+			setup: func(t *testing.T, fixture aiRouteFixture) {
+				run := fixture.seedRun("run-approval-deployment", agentruns.RunStatusRunning)
+				controller := &aiRouteStubController{}
+				if err := fixture.runtime.ActivateRun(run.ID, controller); err != nil {
+					t.Fatalf("activate run: %v", err)
+				}
+				if err := fixture.runtime.RegisterApproval(externalagents.ApprovalState{
+					ApprovalID:      "approval-deployment",
+					RunID:           run.ID,
+					ProjectConfigID: "project-alpha",
+					ChatID:          "chat-alpha",
+				}); err != nil {
+					t.Fatalf("register approval: %v", err)
+				}
+			},
+			route:        RouteRespondExternalAgentApproval,
+			requestBody:  `{"approvalId":"approval-deployment","approved":true}`,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name: "external question route",
+			setup: func(t *testing.T, fixture aiRouteFixture) {
+				run := fixture.seedRun("run-question-deployment", agentruns.RunStatusRunning)
+				controller := &aiRouteStubController{}
+				if err := fixture.runtime.ActivateRun(run.ID, controller); err != nil {
+					t.Fatalf("activate run: %v", err)
+				}
+				if err := fixture.runtime.RegisterQuestion(externalagents.QuestionState{
+					ToolCallID:      "question-deployment",
+					RunID:           run.ID,
+					ProjectConfigID: "project-alpha",
+					ChatID:          "chat-alpha",
+				}); err != nil {
+					t.Fatalf("register question: %v", err)
+				}
+			},
+			route:        RouteRespondExternalAgentQuestion,
+			requestBody:  `{"toolCallId":"question-deployment","answers":{"Language":"Go"}}`,
+			expectedCode: http.StatusOK,
+		},
+	}
 
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+			if testCase.setup != nil {
+				testCase.setup(t, fixture)
+			}
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:   config.ModeShare,
+				Policy: map[string]any{"allowLLM": true},
+			})
+			shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-a")
+			if err != nil {
+				t.Fatalf("get or create share session: %v", err)
+			}
+			handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+				t,
+				config.ModeShare,
+				deploymentRuntime,
+				fixture.managed,
+				fixture.send,
+				fixture.service,
+				fixture.runtime,
+				fixture.transcriptionProfiles,
+				fixture.transcriptionSessions,
+				fixture.sessions,
+				fixture.follow,
+			)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+testCase.route,
+				strings.NewReader(testCase.requestBody),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, shareSession.ID)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != testCase.expectedCode {
+				t.Fatalf("expected %d, got %d with body %q", testCase.expectedCode, response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestRegisterAIRoutesBlockDeploymentLLMSurfacesWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		route       string
+		requestBody string
+	}{
+		{
+			name:  "shared send route",
+			route: RouteGetLLMResponse,
+			requestBody: `{
+				"chatId":null,
+				"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new section."}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+		},
+		{
+			name:        "managed hydrate route",
+			route:       RouteGetLLMChat,
+			requestBody: `{"chatId":"chat-managed","projectConfigId":"project-alpha"}`,
+		},
+		{
+			name:        "managed stop route",
+			route:       RouteStopLLMChat,
+			requestBody: `{"chatId":"chat-managed-stop"}`,
+		},
+		{
+			name:        "external hydrate route",
+			route:       RouteGetExternalAgentChat,
+			requestBody: `{"chatId":"chat-external","projectConfigId":"project-alpha"}`,
+		},
+		{
+			name:        "external stop route",
+			route:       RouteStopExternalAgentRun,
+			requestBody: `{"runId":"run-stop-deployment"}`,
+		},
+		{
+			name:        "external approval route",
+			route:       RouteRespondExternalAgentApproval,
+			requestBody: `{"approvalId":"approval-deployment","approved":true}`,
+		},
+		{
+			name:        "external question route",
+			route:       RouteRespondExternalAgentQuestion,
+			requestBody: `{"toolCallId":"question-deployment","answers":{"Language":"Go"}}`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:   config.ModeShare,
+				Policy: map[string]any{"allowLLM": false},
+			})
+			shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-a")
+			if err != nil {
+				t.Fatalf("get or create share session: %v", err)
+			}
+			handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+				t,
+				config.ModeShare,
+				deploymentRuntime,
+				fixture.managed,
+				fixture.send,
+				fixture.service,
+				fixture.runtime,
+				fixture.transcriptionProfiles,
+				fixture.transcriptionSessions,
+				fixture.sessions,
+				fixture.follow,
+			)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+testCase.route,
+				strings.NewReader(testCase.requestBody),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, shareSession.ID)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "llm_access_forbidden" {
+				t.Fatalf("expected llm_access_forbidden, got %#v", payload)
+			}
+		})
 	}
 }
 

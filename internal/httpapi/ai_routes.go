@@ -143,23 +143,26 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMChat, getLLMChatHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopLLMChat, stopLLMChatHandler(deps))
+	router.Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
+	router.Post(RouteGetLLMChat, getLLMChatHandler(deps))
+	router.Post(RouteStopLLMChat, stopLLMChatHandler(deps))
 	router.Post(RouteStartTranscriptionSession, startTranscriptionSessionHandler(deps))
 	router.Post(RouteAppendTranscriptionAudio, appendTranscriptionAudioHandler(deps))
 	router.Post(RouteStopTranscriptionSession, stopTranscriptionSessionHandler(deps))
 	router.Post(RouteCancelTranscriptionSession, cancelTranscriptionSessionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
+	router.Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
 	router.Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentApproval, respondExternalAgentApprovalHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentQuestion, respondExternalAgentQuestionHandler(deps))
+	router.Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
+	router.Post(RouteRespondExternalAgentApproval, respondExternalAgentApprovalHandler(deps))
+	router.Post(RouteRespondExternalAgentQuestion, respondExternalAgentQuestionHandler(deps))
 	return nil
 }
 
 func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeStrictJSONBodyWithRequiredFields[GetLLMResponseRequest](
 			r,
 			strictJSONFieldRequirement{Field: "thinking"},
@@ -236,6 +239,9 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func getLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeStrictJSONBodyWithRequiredFields[GetLLMChatRequest](
 			r,
 			strictJSONFieldRequirement{Field: "projectConfigId", AllowNull: true},
@@ -275,6 +281,9 @@ func getLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func stopLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeJSONBody[StopLLMChatRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
@@ -302,6 +311,9 @@ func stopLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func getExternalAgentChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeStrictJSONBodyWithRequiredFields[GetExternalAgentChatRequest](
 			r,
 			strictJSONFieldRequirement{Field: "projectConfigId", AllowNull: true},
@@ -358,7 +370,7 @@ func aiRouteAdditionalInputs(appGenerationByMessageID map[string]string) map[str
 	}
 }
 
-func ensureAIFollowSnapshotAllowed(
+func ensureAIRouteLLMAccessAllowed(
 	w http.ResponseWriter,
 	r *http.Request,
 	deps AIRouteDependencies,
@@ -397,7 +409,7 @@ func ensureAIFollowSnapshotAllowed(
 
 func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !ensureAIFollowSnapshotAllowed(w, r, deps) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
 			return
 		}
 		payload, err := decodeJSONBody[GetAIFollowSnapshotRequest](r)
@@ -423,6 +435,9 @@ func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func stopExternalAgentRunHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeJSONBody[StopExternalAgentRunRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
@@ -457,6 +472,9 @@ func stopExternalAgentRunHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func respondExternalAgentApprovalHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeJSONBody[RespondExternalAgentApprovalRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
@@ -497,6 +515,9 @@ func respondExternalAgentApprovalHandler(deps AIRouteDependencies) http.HandlerF
 
 func respondExternalAgentQuestionHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIRouteLLMAccessAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeJSONBody[RespondExternalAgentQuestionRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
