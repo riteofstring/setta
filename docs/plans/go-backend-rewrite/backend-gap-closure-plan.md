@@ -349,3 +349,8 @@ categorize them.
   `SETTA_HOME` default-path row, and the broader practical backlog is back on
   missing runtime behavior such as OpenCode read-only handling, process-group
   cleanup, and other still-missing caller-visible surfaces
+- That platform-default `SETTA_HOME` row is now proved too, which means the
+  explicit proof-incomplete backlog is exhausted for now; future sessions
+  should treat the matrix as a `Missing`-behavior queue first and only reopen
+  proof-only work when a new harness mismatch or unproved narrow owner
+  actually surfaces
