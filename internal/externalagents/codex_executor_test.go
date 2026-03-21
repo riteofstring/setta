@@ -389,7 +389,6 @@ func TestCodexExecutorReadsUsageFromThreadReadFallback(t *testing.T) {
 
 func TestCodexExecutorSkipsUsageWhenThreadTokenUsageReadTimesOut(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "usage_slow")
-	startedAt := time.Now()
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -408,6 +407,9 @@ func TestCodexExecutorSkipsUsageWhenThreadTokenUsageReadTimesOut(t *testing.T) {
 		t.Fatalf("start slow usage codex run: %v", err)
 	}
 
+	// Measure only the post-start completion window so suite-wide startup jitter
+	// does not masquerade as a slow token-usage probe.
+	startedAt := time.Now()
 	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
 	if elapsed := time.Since(startedAt); elapsed >= 3500*time.Millisecond {
 		t.Fatalf("expected usage timeout to stay short, run took %s", elapsed)
@@ -420,7 +422,6 @@ func TestCodexExecutorSkipsUsageWhenThreadTokenUsageReadTimesOut(t *testing.T) {
 
 func TestCodexExecutorIgnoresSlowMCPStatusProbeAndCompletesRun(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "slow_status")
-	startedAt := time.Now()
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -439,6 +440,9 @@ func TestCodexExecutorIgnoresSlowMCPStatusProbeAndCompletesRun(t *testing.T) {
 		t.Fatalf("start slow status codex run: %v", err)
 	}
 
+	// Measure only the post-start completion window so suite-wide startup jitter
+	// does not masquerade as a slow optional MCP status probe.
+	startedAt := time.Now()
 	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
 	if elapsed := time.Since(startedAt); elapsed >= 3500*time.Millisecond {
 		t.Fatalf("expected MCP status probe timeout to stay short, run took %s", elapsed)

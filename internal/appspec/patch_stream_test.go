@@ -44,6 +44,16 @@ func TestParsePatchLineReturnsNilForInvalidPayloads(t *testing.T) {
 	}
 }
 
+func TestParsePatchLinesRejectsInvalidPatchPath(t *testing.T) {
+	t.Parallel()
+
+	// Invalid JSONL patch lines must fail closed instead of being skipped.
+	_, err := ParsePatchLines("{\"op\":\"set\",\"path\":\"/not-allowed\",\"value\":1}")
+	if err == nil || err.Error() != `Unsupported patch path: "/not-allowed"` {
+		t.Fatalf("expected unsupported patch path error, got %v", err)
+	}
+}
+
 func TestApplyPatchOpsAppliesRootAndElementSet(t *testing.T) {
 	t.Parallel()
 
@@ -64,6 +74,26 @@ func TestApplyPatchOpsAppliesRootAndElementSet(t *testing.T) {
 	appRoot := elements["app-root"].(map[string]any)
 	if appRoot["type"] != "Card" {
 		t.Fatalf("expected Card element type, got %#v", appRoot["type"])
+	}
+}
+
+func TestApplyPatchOpsRemovesElement(t *testing.T) {
+	t.Parallel()
+
+	// Removing an element must delete it from the authoritative elements map.
+	ops, err := ParsePatchLines("{\"op\":\"set\",\"path\":\"/root\",\"value\":\"app-root\"}\n{\"op\":\"set\",\"path\":\"/elements/app-root\",\"value\":{\"key\":\"app-root\",\"type\":\"Card\"}}\n{\"op\":\"remove\",\"path\":\"/elements/app-root\"}")
+	if err != nil {
+		t.Fatalf("parse patch lines: %v", err)
+	}
+
+	spec, err := ApplyPatchOps(ops, nil)
+	if err != nil {
+		t.Fatalf("apply patch ops: %v", err)
+	}
+
+	elements := spec["elements"].(map[string]any)
+	if _, ok := elements["app-root"]; ok {
+		t.Fatalf("expected removed element to be absent, got %#v", elements["app-root"])
 	}
 }
 
