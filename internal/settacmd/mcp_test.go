@@ -47,7 +47,11 @@ func TestRunMCPHelpPrintsUsage(t *testing.T) {
 func TestRunMCPBridgeWithBootstrapToken(t *testing.T) {
 	t.Parallel()
 
-	server := newAuthenticatedBridgeCommandTestServer(t, "setta_auth_bridge=bootstrap-cookie", func(w http.ResponseWriter, r *http.Request) {
+	cookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "bootstrap-session")
+	if err != nil {
+		t.Fatalf("resolve bootstrap auth cookie name: %v", err)
+	}
+	server := newAuthenticatedBridgeCommandTestServer(t, cookieName+"=bootstrap-cookie", func(w http.ResponseWriter, r *http.Request) {
 		payload := struct {
 			Token string `json:"token"`
 		}{}
@@ -58,7 +62,7 @@ func TestRunMCPBridgeWithBootstrapToken(t *testing.T) {
 			t.Fatalf("expected bootstrap token, got %q", payload.Token)
 		}
 		http.SetCookie(w, &http.Cookie{
-			Name:  "setta_auth_bridge",
+			Name:  cookieName,
 			Value: "bootstrap-cookie",
 			Path:  "/",
 		})
@@ -105,7 +109,11 @@ func TestRunMCPBridgeWithBootstrapURL(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			server := newAuthenticatedBridgeCommandTestServer(t, "setta_auth_bridge="+testCase.token, func(w http.ResponseWriter, r *http.Request) {
+			cookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "bootstrap-url-session")
+			if err != nil {
+				t.Fatalf("resolve bootstrap-url auth cookie name: %v", err)
+			}
+			server := newAuthenticatedBridgeCommandTestServer(t, cookieName+"="+testCase.token, func(w http.ResponseWriter, r *http.Request) {
 				payload := struct {
 					Token string `json:"token"`
 				}{}
@@ -116,7 +124,7 @@ func TestRunMCPBridgeWithBootstrapURL(t *testing.T) {
 					t.Fatalf("expected bootstrap token %q, got %q", testCase.token, payload.Token)
 				}
 				http.SetCookie(w, &http.Cookie{
-					Name:  "setta_auth_bridge",
+					Name:  cookieName,
 					Value: testCase.token,
 					Path:  "/",
 				})
@@ -140,6 +148,59 @@ func TestRunMCPBridgeWithBootstrapURL(t *testing.T) {
 				t.Fatalf("mcp bridge returned error: %v", err)
 			}
 		})
+	}
+}
+
+func TestConsumeMCPBridgeBootstrapTokenPrefersSessionScopedCookieOverBaseCookie(t *testing.T) {
+	t.Parallel()
+
+	sessionCookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "bridge-session")
+	if err != nil {
+		t.Fatalf("resolve session-scoped auth cookie name: %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:  auth.DefaultAuthCookieName,
+			Value: "base-cookie",
+			Path:  "/",
+		})
+		http.SetCookie(w, &http.Cookie{
+			Name:  sessionCookieName,
+			Value: "session-cookie",
+			Path:  "/",
+		})
+		_, _ = io.WriteString(w, `{"status":"ok"}`)
+	}))
+	defer server.Close()
+
+	headers, err := consumeMCPBridgeBootstrapToken(server.URL+"/mcp", "bootstrap-token")
+	if err != nil {
+		t.Fatalf("consume bootstrap token: %v", err)
+	}
+	if got := headers.Get("Cookie"); got != sessionCookieName+"=session-cookie" {
+		t.Fatalf("expected session-scoped cookie header, got %q", got)
+	}
+}
+
+func TestConsumeMCPBridgeBootstrapTokenRejectsBaseCookieWithoutSessionSuffix(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:  auth.DefaultAuthCookieName,
+			Value: "base-cookie",
+			Path:  "/",
+		})
+		_, _ = io.WriteString(w, `{"status":"ok"}`)
+	}))
+	defer server.Close()
+
+	_, err := consumeMCPBridgeBootstrapToken(server.URL+"/mcp", "bootstrap-token")
+	if err == nil {
+		t.Fatal("expected base auth cookie without session suffix to be rejected")
+	}
+	if !strings.Contains(err.Error(), "session suffix") {
+		t.Fatalf("expected session-suffix rejection, got %v", err)
 	}
 }
 
