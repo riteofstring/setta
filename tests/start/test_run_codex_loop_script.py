@@ -744,6 +744,7 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
     assert "tmp/backend-gap-hunt-candidates.md" in prompt_text
     assert "Commit frequently." in prompt_text
     assert "Source Tests Missing Explicit Parity Disposition" in prompt_text
+    assert "pinned source baseline" in prompt_text
     assert "do not remove it with a bare citation" in prompt_text
     assert (
         "explicit Go/executable proof in the `Go tests` column" in prompt_text
