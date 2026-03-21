@@ -196,6 +196,44 @@ func TestServiceApplyLockfileSkipsPackageManagerDrift(t *testing.T) {
 	}
 }
 
+// Externally managed setta_files lock entries without a source spec should be
+// treated as observational state, not as install work.
+func TestServiceApplyLockfileSkipsExternallyManagedEntriesWithoutSourceSpec(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{
+			{
+				"pluginId":           "setta-fixture-frontend",
+				"version":            "0.1.0",
+				"canonicalSourceKey": "pypi:setta-fixture-frontend",
+				"scope":              "setta_files",
+				"sourceSpec":         nil,
+				"installerBackend":   nil,
+			},
+		},
+	})
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 0 {
+		t.Fatalf("expected no planned changes for external-managed lock entry, got %#v", checkResult.PlannedChanges)
+	}
+
+	applyResult, err := service.ApplyLockfile(context.Background(), false)
+	if err != nil {
+		t.Fatalf("apply lockfile: %v", err)
+	}
+	if !applyResult.Applied || len(applyResult.PlannedChanges) != 0 {
+		t.Fatalf("unexpected apply result %#v", applyResult)
+	}
+}
+
 // Lockfile apply should uninstall extra Setta-managed plugins that are absent from the lockfile.
 func TestServiceApplyLockfileUninstallsPluginsMissingFromLockfile(t *testing.T) {
 	t.Parallel()
