@@ -114,9 +114,72 @@ func TestServiceLogAndBroadcastHonorsUILogThresholdWhileStillLogging(t *testing.
 	}
 }
 
+func TestServiceLogAndBroadcastDefaultsUILogThresholdToEffectiveLoggerLevel(t *testing.T) {
+	t.Parallel()
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	server := newBackendLogTestServer(t, hub)
+	defer server.Close()
+
+	frontendSuppressed := dialBackendLogClient(t, server.URL, "frontend-a", realtime.ConnectionTypeFrontend, "")
+	waitForBackendLogConnection(t, hub, "frontend-a")
+
+	service, logs, err := newTestServiceWithLoggerLevel(hub, nil, slog.LevelWarn)
+	if err != nil {
+		t.Fatalf("new backend log service: %v", err)
+	}
+
+	if err := service.LogAndBroadcast(context.Background(), LogRequest{
+		Message:  "Suppressed info event",
+		Severity: SeverityInfo,
+	}); err != nil {
+		t.Fatalf("log and broadcast suppressed info event: %v", err)
+	}
+
+	assertNoBackendLogMessage(t, frontendSuppressed)
+	frontendSuppressed.CloseNow()
+	if strings.Contains(logs.String(), "Suppressed info event") {
+		t.Fatalf("did not expect warn-level logger to record suppressed info event, got %q", logs.String())
+	}
+
+	frontendDelivered := dialBackendLogClient(t, server.URL, "frontend-b", realtime.ConnectionTypeFrontend, "")
+	defer frontendDelivered.CloseNow()
+	waitForBackendLogConnection(t, hub, "frontend-b")
+
+	if err := service.LogAndBroadcast(context.Background(), LogRequest{
+		Message:  "Delivered warning event",
+		Severity: SeverityWarning,
+	}); err != nil {
+		t.Fatalf("log and broadcast delivered warning event: %v", err)
+	}
+
+	envelope := readBackendLogEnvelope(t, frontendDelivered)
+	if envelope.MessageType != MessageTypeBackendLogEvent {
+		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
+	}
+
+	var event Event
+	if err := json.Unmarshal(envelope.Content, &event); err != nil {
+		t.Fatalf("decode backend log event: %v", err)
+	}
+	if event.Severity != SeverityWarning {
+		t.Fatalf("expected warning severity, got %q", event.Severity)
+	}
+	if event.Message != "Delivered warning event" {
+		t.Fatalf("expected warning backend log message, got %q", event.Message)
+	}
+	if !strings.Contains(logs.String(), "Delivered warning event") {
+		t.Fatalf("expected warn-level logger to record delivered warning event, got %q", logs.String())
+	}
+}
+
 func newTestService(hub *realtime.WebsocketHub, env map[string]string) (*Service, *bytes.Buffer, error) {
+	return newTestServiceWithLoggerLevel(hub, env, slog.LevelInfo)
+}
+
+func newTestServiceWithLoggerLevel(hub *realtime.WebsocketHub, env map[string]string, level slog.Level) (*Service, *bytes.Buffer, error) {
 	buffer := &bytes.Buffer{}
-	logger := slog.New(slog.NewJSONHandler(buffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(slog.NewJSONHandler(buffer, &slog.HandlerOptions{Level: level}))
 	service, err := NewService(ServiceOptions{
 		Logger:       logger,
 		WebsocketHub: hub,
