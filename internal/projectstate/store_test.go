@@ -334,6 +334,115 @@ func TestStoreSaveCreatesReadableJSONFile(t *testing.T) {
 	}
 }
 
+func TestStoreSavePersistsChatMessageStartedAtAsString(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	store := newTestStore(t, projectPath)
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				Sections: map[string]Section{
+					"section-chat": {
+						ID:               "section-chat",
+						Name:             "Chat",
+						VariantIDs:       []string{"variant-chat"},
+						DefaultVariantID: "variant-chat",
+					},
+				},
+				SectionVariants: map[string]SectionVariant{
+					"variant-chat": {
+						ID:     "variant-chat",
+						ImplID: "impl-chat",
+					},
+				},
+				SectionImpls: map[string]SectionImpl{
+					"impl-chat": {
+						ID:   "impl-chat",
+						Kind: SectionKind("chat"),
+						Payload: mustRawJSON(t, `{
+							"id":"impl-chat",
+							"type":"Chat",
+							"messages":[
+								{
+									"id":"tool-message-1",
+									"role":"tool",
+									"tool_call_id":"tool-call-1",
+									"tool_name":"setta.test",
+									"arguments":{},
+									"result":{},
+									"content":[],
+									"is_error":false,
+									"started_at":"2026-03-20T01:02:03Z",
+									"completed_at":null
+								}
+							],
+							"inputText":"",
+							"waitingForResponse":false,
+							"toolCallArguments":{},
+							"branches":{}
+						}`),
+					},
+				},
+			},
+		},
+	}
+
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save project document: %v", err)
+	}
+
+	content, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read saved project document: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode saved project document: %v", err)
+	}
+
+	projects, ok := payload["projects"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected projects object, got %#v", payload["projects"])
+	}
+	project, ok := projects["project-alpha"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected project-alpha object, got %#v", projects["project-alpha"])
+	}
+	sectionImpls, ok := project["sectionImpls"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sectionImpls object, got %#v", project["sectionImpls"])
+	}
+	sectionImpl, ok := sectionImpls["impl-chat"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected impl-chat object, got %#v", sectionImpls["impl-chat"])
+	}
+	sectionPayload, ok := sectionImpl["payload"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected section payload object, got %#v", sectionImpl["payload"])
+	}
+	messages, ok := sectionPayload["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one persisted chat message, got %#v", sectionPayload["messages"])
+	}
+	message, ok := messages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted chat message object, got %#v", messages[0])
+	}
+	startedAt, ok := message["started_at"].(string)
+	if !ok {
+		t.Fatalf("expected started_at string, got %#v", message["started_at"])
+	}
+	if startedAt != "2026-03-20T01:02:03Z" {
+		t.Fatalf("expected started_at to round-trip, got %q", startedAt)
+	}
+}
+
 func newTestStore(t *testing.T, path string) *Store {
 	t.Helper()
 
