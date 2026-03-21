@@ -1,10 +1,12 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
@@ -13,8 +15,9 @@ import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { SectionBodyGate } from "./SectionBodyGate";
+import { getSectionBodyFamily, SectionBodyGate } from "./SectionBodyGate";
 import { getCanvasSectionChrome } from "./sectionChrome";
+import { shouldTrimSectionSecondaryChromeOnInteraction } from "./sectionBodyModePolicy";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 
 type SectionContainerCoreResizableProps = {
@@ -55,6 +58,16 @@ function _SectionContainerCoreResizable({
     }, _.isEqual);
 
   const isRoot = getIsRoot(sectionTypeName);
+  const isActiveSection = useIsSectionUIActive(sectionId);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const trimSecondaryChrome = shouldTrimSectionSecondaryChromeOnInteraction({
+    ownerKind: "canvas",
+    family: getSectionBodyFamily(sectionTypeName),
+    isActiveSection,
+    viewportInteractionActive,
+  });
   const sectionChrome = getCanvasSectionChrome({
     sectionTypeName,
     textBlockMetaControlStyle,
@@ -87,6 +100,7 @@ function _SectionContainerCoreResizable({
         isUserView={isUserView}
         isRoot={isRoot}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        trimSecondaryChrome={trimSecondaryChrome}
       />
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       <SectionBodyGate
@@ -113,6 +127,7 @@ function CanvasSectionChromeControl({
   isUserView,
   isRoot,
   hasSectionStyleTheme,
+  trimSecondaryChrome,
 }: {
   headerVariant:
     | "metaControlMenu"
@@ -125,6 +140,7 @@ function CanvasSectionChromeControl({
   isUserView: boolean;
   isRoot: boolean;
   hasSectionStyleTheme: boolean;
+  trimSecondaryChrome: boolean;
 }) {
   switch (headerVariant) {
     case "metaControlMenu":
@@ -158,7 +174,7 @@ function CanvasSectionChromeControl({
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
           extraControls={
-            !isUserView ? (
+            !isUserView && !trimSecondaryChrome ? (
               <SectionWindowToggleButton
                 sectionId={sectionId}
                 sectionTypeName={sectionTypeName}
@@ -167,6 +183,7 @@ function CanvasSectionChromeControl({
               />
             ) : null
           }
+          showSectionContainerControls={!trimSecondaryChrome}
         />
       );
     case "none":

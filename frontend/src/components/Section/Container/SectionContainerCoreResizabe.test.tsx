@@ -56,6 +56,7 @@ let mockNodeInternalsState: MockNodeInternalsState = {
 
 let mockIsRoot = false;
 let mockIsActiveSection = false;
+let mockSectionHeaderProps: Record<string, unknown> | null = null;
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -131,7 +132,18 @@ vi.mock("state/activeSectionUI", () => ({
 }));
 
 vi.mock("../Header/SectionHeader", () => ({
-  SectionHeader: () => <header data-testid="mock-section-header" />,
+  SectionHeader: (props: Record<string, unknown>) => {
+    mockSectionHeaderProps = props;
+    return (
+      <header
+        data-testid="mock-section-header"
+        data-show-section-container-controls={
+          props.showSectionContainerControls === false ? "false" : "true"
+        }
+        data-has-extra-controls={props.extraControls ? "true" : "false"}
+      />
+    );
+  },
 }));
 
 vi.mock("../Header/SectionWindowToggleButton", () => ({
@@ -254,6 +266,7 @@ describe("SectionContainerCoreResizable", () => {
       x: new Map([["section-123", { width: 200, height: 100 }]]),
     };
     mockIsActiveSection = false;
+    mockSectionHeaderProps = null;
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
@@ -420,6 +433,34 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="mock-section-header"');
     expect(markup).toContain('data-testid="mock-code-area"');
     expect(markup).toContain("section-grid-cols");
+  });
+
+  it("trims inactive tier 1 secondary header chrome while the viewport is moving", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Dict,
+      isMinimized: false,
+      metaControlStyle: false,
+    };
+    mockReactFlowState = {
+      viewportInteractionActive: true,
+      transform: [0, 0, 0.85],
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Dict}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-show-section-container-controls="false"');
+    expect(markup).toContain('data-has-extra-controls="false"');
+    expect(mockSectionHeaderProps?.showSectionContainerControls).toBe(false);
   });
 
   it("keeps root incrementers inside the same shared grid canvas shell", () => {

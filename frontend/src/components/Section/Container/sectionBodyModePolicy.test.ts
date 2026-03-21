@@ -2,6 +2,7 @@ import {
   getAutoSectionBodyRequestedMode,
   getProjectedNodeSizePx,
   SECTION_BODY_AUTO_MODE_THRESHOLDS,
+  shouldTrimSectionSecondaryChromeOnInteraction,
 } from "./sectionBodyModePolicy";
 import { describe, expect, it } from "vitest";
 
@@ -100,5 +101,45 @@ describe("sectionBodyModePolicy", () => {
       projectedWidthPx: null,
       projectedHeightPx: null,
     });
+  });
+
+  it("trims inactive tier 1 secondary chrome only while the canvas viewport is moving", () => {
+    expect(
+      shouldTrimSectionSecondaryChromeOnInteraction({
+        ownerKind: "canvas",
+        family: "tier1-dense-params",
+        isActiveSection: false,
+        viewportInteractionActive: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldTrimSectionSecondaryChromeOnInteraction({
+        ownerKind: "canvas",
+        family: "tier1-dense-params",
+        isActiveSection: true,
+        viewportInteractionActive: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps secondary chrome live for other families and non-canvas owners", () => {
+    expect(
+      shouldTrimSectionSecondaryChromeOnInteraction({
+        ownerKind: "canvas",
+        family: "tier2-code",
+        isActiveSection: false,
+        viewportInteractionActive: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldTrimSectionSecondaryChromeOnInteraction({
+        ownerKind: "window",
+        family: "tier1-dense-params",
+        isActiveSection: false,
+        viewportInteractionActive: true,
+      }),
+    ).toBe(false);
   });
 });

@@ -32,6 +32,11 @@ export const SECTION_BODY_AUTO_MODE_THRESHOLDS = {
   previewFallbackMaxZoomWithoutMeasuredSize: 0.55,
 } as const;
 
+type SectionSecondaryChromeTrimInputs = Pick<
+  SectionBodyAutoModeInputs,
+  "ownerKind" | "family" | "isActiveSection" | "viewportInteractionActive"
+>;
+
 function isPreviewEligibleFamily(family: SectionBodyFamily): boolean {
   return SECTION_BODY_AUTO_MODE_THRESHOLDS.previewEligibleFamilies.includes(
     family as (typeof SECTION_BODY_AUTO_MODE_THRESHOLDS.previewEligibleFamilies)[number],
@@ -87,6 +92,21 @@ export function getAutoSectionBodyRequestedMode({
     isSmallEnoughForPreview
     ? "preview"
     : "live";
+}
+
+export function shouldTrimSectionSecondaryChromeOnInteraction({
+  ownerKind,
+  family,
+  isActiveSection,
+  viewportInteractionActive,
+}: SectionSecondaryChromeTrimInputs): boolean {
+  if (ownerKind !== "canvas") {
+    return false;
+  }
+  if (family !== "tier1-dense-params") {
+    return false;
+  }
+  return viewportInteractionActive && !isActiveSection;
 }
 
 export function resolveRequestedMode(
