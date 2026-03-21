@@ -3,6 +3,7 @@ package plugins
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -61,6 +62,45 @@ func TestNormalizeBackendProbeResponseRejectsInvalidStaticDirRoutePrefixes(t *te
 			}
 			if !strings.Contains(err.Error(), "static dir 0: routePrefix") {
 				t.Fatalf("expected static dir routePrefix validation error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeBackendProbeResponseNormalizesAndRestrictsRouteMethods(t *testing.T) {
+	// Backend route registrations should uppercase, dedupe, and reject unsupported methods.
+	pluginRoot := t.TempDir()
+
+	normalized, err := normalizeBackendProbeResponse(pluginRoot, "setta-fixture-backend", backendProbeResponse{
+		Routes: []PluginRegisteredBackendRoute{{
+			Path:    "/items",
+			Methods: []string{"get", "GET", "post", " patch "},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("normalize backend route methods: %v", err)
+	}
+	if got := normalized.Routes[0].Methods; !slices.Equal(got, []string{"GET", "PATCH", "POST"}) {
+		t.Fatalf("expected normalized route methods, got %#v", got)
+	}
+
+	testCases := map[string][]string{
+		"options": {"OPTIONS"},
+		"trace":   {"TRACE"},
+	}
+	for name, methods := range testCases {
+		t.Run(name, func(t *testing.T) {
+			_, err := normalizeBackendProbeResponse(pluginRoot, "setta-fixture-backend", backendProbeResponse{
+				Routes: []PluginRegisteredBackendRoute{{
+					Path:    "/items",
+					Methods: methods,
+				}},
+			})
+			if err == nil {
+				t.Fatalf("expected unsupported methods %#v to fail", methods)
+			}
+			if !strings.Contains(err.Error(), "unsupported method") {
+				t.Fatalf("expected unsupported-method error, got %v", err)
 			}
 		})
 	}
@@ -171,6 +211,25 @@ func TestNormalizeBackendLanguageServerRegistrationTreatsBlankSettingsKeyAsOmitt
 	}
 	if normalized.SettingsKey != nil {
 		t.Fatalf("expected blank settings key to be omitted, got %#v", normalized.SettingsKey)
+	}
+}
+
+func TestDecodeBackendProbeResponseRejectsRouteMethodsNotArrayOfStrings(t *testing.T) {
+	// Malformed route method payloads should fail decode before probe normalization runs.
+	_, err := decodeBackendProbeResponse([]byte(`{
+		"schemaVersion": 1,
+		"routes": [
+			{
+				"path": "/items",
+				"methods": "GET"
+			}
+		]
+	}`))
+	if err == nil {
+		t.Fatal("expected malformed route methods payload to fail decode")
+	}
+	if !strings.Contains(err.Error(), "methods") {
+		t.Fatalf("expected route methods decode error, got %v", err)
 	}
 }
 

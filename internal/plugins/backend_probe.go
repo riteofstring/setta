@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os/exec"
 	"path"
@@ -25,6 +26,15 @@ const (
 )
 
 var backendProbeTimeout = 5 * time.Second
+
+var allowedBackendRouteMethods = map[string]struct{}{
+	http.MethodDelete: {},
+	http.MethodGet:    {},
+	http.MethodHead:   {},
+	http.MethodPatch:  {},
+	http.MethodPost:   {},
+	http.MethodPut:    {},
+}
 
 type backendProbeResponse struct {
 	SchemaVersion     int                                `json:"schemaVersion"`
@@ -416,8 +426,11 @@ func normalizeBackendRouteRegistration(route PluginRegisteredBackendRoute) (Plug
 		if method == "" {
 			return PluginRegisteredBackendRoute{}, fmt.Errorf("methods must be non-empty")
 		}
+		if _, ok := allowedBackendRouteMethods[method]; !ok {
+			return PluginRegisteredBackendRoute{}, fmt.Errorf("unsupported method %s", method)
+		}
 		if _, exists := seenMethods[method]; exists {
-			return PluginRegisteredBackendRoute{}, fmt.Errorf("duplicate method %s", method)
+			continue
 		}
 		seenMethods[method] = struct{}{}
 		methods = append(methods, method)

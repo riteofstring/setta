@@ -64,6 +64,43 @@ func TestServiceDispatchRegisteredBackendRouteInvokesGoBackendExecutable(t *test
 	}
 }
 
+func TestServiceDispatchRegisteredBackendRoutePreservesRepeatedQueryParamsInRawQuery(t *testing.T) {
+	// Backend route dispatch should preserve repeated query parameters on the public raw-query transport.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	response, matched, err := service.DispatchRegisteredBackendRoute(context.Background(), BackendHTTPRequest{
+		Context: BackendRequestContext{
+			ServerMode: config.ModeIDE,
+		},
+		Method:   http.MethodPost,
+		Path:     "/items",
+		RawQuery: "kind=first&kind=second&single=value&kind=third",
+		Headers: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: []byte(`{"name":"example"}`),
+	})
+	if err != nil {
+		t.Fatalf("dispatch backend route with repeated query params: %v", err)
+	}
+	if !matched {
+		t.Fatal("expected backend route match")
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body, &payload); err != nil {
+		t.Fatalf("decode backend route response body: %v", err)
+	}
+	if payload["rawQuery"] != "kind=first&kind=second&single=value&kind=third" {
+		t.Fatalf("expected repeated query params to be preserved, got %#v", payload["rawQuery"])
+	}
+}
+
 func TestServiceLookupRegisteredBackendRouteReportsPathMismatch(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
