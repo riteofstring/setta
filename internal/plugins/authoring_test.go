@@ -96,6 +96,50 @@ func TestServiceInitTemplateRejectsInvalidIDsAndExistingTarget(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInitTargetExists)
 }
 
+// Init should reject empty and malformed plugin ids without writing any files.
+func TestServiceInitTemplateRejectsEmptyAndMalformedIDsWithoutWrites(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	for _, pluginID := range []string{
+		"   ",
+		"../escape",
+		"bad/id",
+		`bad\id`,
+		"-starts-with-dash",
+		"has spaces",
+	} {
+		beforeEntries, err := os.ReadDir(roots.workspaceRoot)
+		if err != nil {
+			t.Fatalf("read workspace entries before init: %v", err)
+		}
+		beforeNames := map[string]struct{}{}
+		for _, entry := range beforeEntries {
+			beforeNames[entry.Name()] = struct{}{}
+		}
+
+		_, err = service.InitTemplate(InitTemplateOptions{
+			PluginID: pluginID,
+			Template: "frontend",
+			OutDir:   roots.workspaceRoot,
+		})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeInitInvalidID)
+
+		afterEntries, err := os.ReadDir(roots.workspaceRoot)
+		if err != nil {
+			t.Fatalf("read workspace entries after init: %v", err)
+		}
+		if len(beforeEntries) != len(afterEntries) {
+			t.Fatalf("expected no new entries after invalid init for %q", pluginID)
+		}
+		for _, entry := range afterEntries {
+			if _, ok := beforeNames[entry.Name()]; !ok {
+				t.Fatalf("unexpected workspace entry %q after invalid init for %q", entry.Name(), pluginID)
+			}
+		}
+	}
+}
+
 // Init should scaffold a Go-backed backend template instead of pointing new authoring at Python.
 func TestServiceInitTemplateGeneratesGoBackendScaffold(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
