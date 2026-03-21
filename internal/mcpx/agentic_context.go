@@ -20,6 +20,8 @@ const (
 	AgenticContextSectionIDHeader        = "x-setta-section-id"
 	AgenticContextFrontendAffinityHeader = "x-setta-frontend-affinity-token"
 	AgenticContextAllowUnscopedHeader    = "x-setta-allow-unscoped"
+	AgenticContextLinkedChatDepthHeader  = "x-setta-linked-chat-depth"
+	AgenticContextLinkedChatChainHeader  = "x-setta-linked-chat-chain-section-ids"
 	scopeViolationErrorCode              = "scope_violation"
 	projectNotFoundErrorCode             = "project_not_found"
 	agenticEdgeKindChatChat              = "chat_chat"

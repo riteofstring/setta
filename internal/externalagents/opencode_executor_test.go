@@ -384,8 +384,13 @@ func TestPrepareOpenCodeConfigInjectsAuthAndAgenticHeaders(t *testing.T) {
 		ChatID:          "chat-alpha",
 		SectionID:       &sectionID,
 		Inputs: map[string]any{
-			"frontendAffinityToken": "frontend-alpha",
-			"allowUnscoped":         true,
+			"frontendAffinityToken":     "frontend-alpha",
+			"allowUnscoped":             true,
+			"linkedChatInvocationDepth": float64(1),
+			"linkedChatInvocationChainSectionIds": []any{
+				"section-root",
+				"section-mid",
+			},
 		},
 	}
 	executor := &OpenCodeExecutor{
@@ -456,6 +461,12 @@ func TestPrepareOpenCodeConfigInjectsAuthAndAgenticHeaders(t *testing.T) {
 	}
 	if got := stringValue(headerPayload[mcpx.AgenticContextAllowUnscopedHeader]); got != "true" {
 		t.Fatalf("expected allow-unscoped header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextLinkedChatDepthHeader]); got != "1" {
+		t.Fatalf("expected linked-chat depth header, got %#v", headerPayload)
+	}
+	if got := stringValue(headerPayload[mcpx.AgenticContextLinkedChatChainHeader]); got != "section-root,section-mid" {
+		t.Fatalf("expected linked-chat chain header, got %#v", headerPayload)
 	}
 }
 

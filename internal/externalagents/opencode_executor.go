@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -677,7 +679,103 @@ func (e *OpenCodeExecutor) buildOpenCodeMCPHeaders(request StartRequest) (map[st
 	if boolValue(request.Inputs["allowUnscoped"]) {
 		headers[mcpx.AgenticContextAllowUnscopedHeader] = "true"
 	}
+	linkedChatDepth, err := normalizeLinkedChatInvocationDepth(request.Inputs["linkedChatInvocationDepth"])
+	if err != nil {
+		return nil, err
+	}
+	if linkedChatDepth > 0 {
+		headers[mcpx.AgenticContextLinkedChatDepthHeader] = strconv.Itoa(linkedChatDepth)
+	}
+	linkedChatChain, err := normalizeLinkedChatInvocationChainSectionIDs(
+		request.Inputs["linkedChatInvocationChainSectionIds"],
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(linkedChatChain) > 0 {
+		headers[mcpx.AgenticContextLinkedChatChainHeader] = strings.Join(linkedChatChain, ",")
+	}
 	return headers, nil
+}
+
+func normalizeLinkedChatInvocationDepth(raw any) (int, error) {
+	if raw == nil {
+		return 0, nil
+	}
+	var depth int
+	switch value := raw.(type) {
+	case bool:
+		return 0, errors.New("linkedChatInvocationDepth must be an integer")
+	case int:
+		depth = value
+	case int32:
+		depth = int(value)
+	case int64:
+		depth = int(value)
+	case float64:
+		if math.IsNaN(value) || math.IsInf(value, 0) || math.Trunc(value) != value {
+			return 0, errors.New("linkedChatInvocationDepth must be an integer")
+		}
+		depth = int(value)
+	case string:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return 0, nil
+		}
+		parsed, err := strconv.Atoi(trimmed)
+		if err != nil {
+			return 0, errors.New("linkedChatInvocationDepth must be an integer")
+		}
+		depth = parsed
+	default:
+		return 0, errors.New("linkedChatInvocationDepth must be an integer")
+	}
+	if depth < 0 {
+		return 0, errors.New("linkedChatInvocationDepth must be non-negative")
+	}
+	return depth, nil
+}
+
+func normalizeLinkedChatInvocationChainSectionIDs(raw any) ([]string, error) {
+	if raw == nil {
+		return []string{}, nil
+	}
+	rawEntries := []any{}
+	switch value := raw.(type) {
+	case string:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return []string{}, nil
+		}
+		parts := strings.Split(trimmed, ",")
+		rawEntries = make([]any, 0, len(parts))
+		for _, part := range parts {
+			rawEntries = append(rawEntries, part)
+		}
+	case []string:
+		rawEntries = make([]any, 0, len(value))
+		for _, entry := range value {
+			rawEntries = append(rawEntries, entry)
+		}
+	case []any:
+		rawEntries = value
+	default:
+		return nil, errors.New("linkedChatInvocationChainSectionIds must be a list of section ids")
+	}
+
+	chain := make([]string, 0, len(rawEntries))
+	for _, rawEntry := range rawEntries {
+		entry, ok := rawEntry.(string)
+		if !ok {
+			return nil, errors.New("linkedChatInvocationChainSectionIds must be a list of section ids")
+		}
+		trimmed := strings.TrimSpace(entry)
+		if trimmed == "" {
+			return nil, errors.New("linkedChatInvocationChainSectionIds cannot contain empty values")
+		}
+		chain = append(chain, trimmed)
+	}
+	return chain, nil
 }
 
 func parseOpenCodePermission(value string) any {
