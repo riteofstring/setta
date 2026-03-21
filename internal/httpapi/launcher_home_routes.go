@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/auth"
+	"setta/internal/frontendorigins"
 	"setta/internal/launcher"
 	"setta/internal/modes"
 )
@@ -22,6 +24,7 @@ const RouteOpenLauncherWorkspace = "/openLauncherWorkspace"
 
 type LauncherHomeRouteDependencies struct {
 	ModePolicy       modes.Policy
+	Auth             *auth.Service
 	DefaultSettaHome string
 	Home             *launcher.HomeService
 	OpenWorkspace    *launcher.OpenWorkspaceService
@@ -165,7 +168,7 @@ func RegisterLauncherHomeRoutes(router chi.Router, deps LauncherHomeRouteDepende
 	router.Post(RoutePinLauncherRecentWorkspace, pinLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home))
 	router.Get(RouteGetLauncherFilesystemRoots, getLauncherFilesystemRootsHandler(deps.Home))
 	router.Post(RouteListLauncherDirectory, listLauncherDirectoryHandler(deps.Home))
-	router.Post(RouteOpenLauncherWorkspace, openLauncherWorkspaceHandler(deps.OpenWorkspace))
+	router.Post(RouteOpenLauncherWorkspace, openLauncherWorkspaceHandler(deps.Auth, deps.OpenWorkspace))
 	return nil
 }
 
@@ -307,12 +310,17 @@ func listLauncherDirectoryHandler(home *launcher.HomeService) http.HandlerFunc {
 	}
 }
 
-func openLauncherWorkspaceHandler(openWorkspace *launcher.OpenWorkspaceService) http.HandlerFunc {
+func openLauncherWorkspaceHandler(authService *auth.Service, openWorkspace *launcher.OpenWorkspaceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[launcherOpenWorkspaceRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
+		}
+
+		var currentSession *auth.CurrentSession
+		if authService != nil {
+			currentSession, _ = authService.CurrentSession()
 		}
 
 		result, err := openWorkspace.OpenWorkspace(launcher.OpenWorkspaceInput{
@@ -324,6 +332,8 @@ func openLauncherWorkspaceHandler(openWorkspace *launcher.OpenWorkspaceService) 
 			SettaFilesLocationProvided: payload.settaFilesLocationProvided,
 			RuntimeRoot:                launcherStringOrEmpty(payload.RuntimeRoot),
 			CreateIfMissing:            payload.CreateIfMissing,
+			RequestOrigin:              frontendorigins.ResolveRequestOrigin(r, true),
+			CurrentSession:             currentSession,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusOK, launcherOpenWorkspaceErrorResponse(err))

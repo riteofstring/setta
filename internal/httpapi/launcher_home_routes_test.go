@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/frontendorigins"
 	"setta/internal/launcher"
 	"setta/internal/modes"
 )
@@ -585,6 +586,92 @@ func TestRegisterLauncherHomeRoutesOpenWorkspaceRejectsSymlinkEscape(t *testing.
 	}
 }
 
+func TestRegisterLauncherHomeRoutesOpenWorkspaceReturnsTrustedOriginStoreInvalid(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	workspaceRoot := filepath.Join(allowedRoot, "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(currentSession.Metadata.RuntimeRoot, "trusted_frontend_origins.json"), []byte("{"), 0o600); err != nil {
+		t.Fatalf("write invalid trusted origins store: %v", err)
+	}
+	sessionLauncher := &httpAPICapturingLauncher{
+		result: launcher.IDELaunchResult{
+			Session: auth.SessionMetadata{
+				ID:   "session-1",
+				Host: "127.0.0.1",
+				Port: 61234,
+			},
+			Secret: []byte("secret"),
+			Paths: config.Paths{
+				WorkspaceRoot:         workspaceRoot,
+				SettaHome:             defaultSettaHome,
+				SettaFilesRoot:        filepath.Join(workspaceRoot, "setta_files"),
+				ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
+				RuntimeRoot:           currentSession.Metadata.RuntimeRoot,
+			},
+			StartedNew: false,
+		},
+	}
+	openWorkspaceService, err := launcher.NewOpenWorkspaceService(launcher.OpenWorkspaceServiceOptions{
+		DefaultSettaHome: defaultSettaHome,
+		Home:             home,
+		Sessions:         sessionLauncher,
+		TrustedOrigins:   trustedOrigins,
+		ResolveLauncherSessionAuthExpiry: func(time.Time) (int64, error) {
+			return time.Now().Add(time.Hour).Unix(), nil
+		},
+		MintBootstrapToken: func(string, []byte, time.Time) (string, error) {
+			return "tok", nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new open workspace service: %v", err)
+	}
+	handler := newLauncherHomeRouteTestHandlerWithAuth(t, config.ModeLauncher, defaultSettaHome, home, openWorkspaceService, authService)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteOpenLauncherWorkspace,
+		stringsReader(`{"workspaceRoot":"`+workspaceRoot+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://launcher.example:9001")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherOpenWorkspaceResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode open workspace payload: %v", err)
+	}
+	if payload.Ok || payload.Error == nil || payload.Error.Code != "TrustedFrontendOriginStoreInvalid" {
+		t.Fatalf("unexpected trust-failure payload %#v", payload)
+	}
+}
+
 func TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode(t *testing.T) {
 	t.Parallel()
 
@@ -600,6 +687,10 @@ func TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode(t *testing.T)
 }
 
 func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSettaHome string, home *launcher.HomeService, openWorkspace *launcher.OpenWorkspaceService) http.Handler {
+	return newLauncherHomeRouteTestHandlerWithAuth(t, mode, defaultSettaHome, home, openWorkspace, nil)
+}
+
+func newLauncherHomeRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, defaultSettaHome string, home *launcher.HomeService, openWorkspace *launcher.OpenWorkspaceService, authService *auth.Service) http.Handler {
 	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
@@ -612,6 +703,7 @@ func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSett
 		Register: func(r chi.Router) {
 			if err := RegisterLauncherHomeRoutes(r, LauncherHomeRouteDependencies{
 				ModePolicy:       modes.NewPolicy(mode),
+				Auth:             authService,
 				DefaultSettaHome: defaultSettaHome,
 				Home:             home,
 				OpenWorkspace:    openWorkspace,
@@ -649,6 +741,7 @@ func newLauncherHomeOpenWorkspaceService(t *testing.T, defaultSettaHome string, 
 
 type httpAPICapturingLauncher struct {
 	input      *launcher.IDELaunchInput
+	result     launcher.IDELaunchResult
 	resultFunc func(launcher.IDELaunchInput) (launcher.IDELaunchResult, error)
 	err        error
 }
@@ -666,7 +759,7 @@ func (l *httpAPICapturingLauncher) EnsureSession(input launcher.IDELaunchInput) 
 	if l.err != nil {
 		return launcher.IDELaunchResult{}, l.err
 	}
-	return launcher.IDELaunchResult{}, nil
+	return l.result, nil
 }
 
 func urlQueryEscape(value string) string {

@@ -12,6 +12,7 @@ import (
 
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/frontendorigins"
 )
 
 const (
@@ -46,6 +47,8 @@ type OpenWorkspaceInput struct {
 	SettaFilesLocationProvided bool
 	RuntimeRoot                string
 	CreateIfMissing            bool
+	RequestOrigin              string
+	CurrentSession             *auth.CurrentSession
 }
 
 type OpenWorkspaceResult struct {
@@ -61,19 +64,27 @@ type OpenWorkspaceResult struct {
 }
 
 type OpenWorkspaceServiceOptions struct {
-	DefaultSettaHome   string
-	Home               *HomeService
-	Sessions           IDEWorkspaceSessionLauncher
-	Now                func() time.Time
-	MintBootstrapToken BootstrapTokenMintFunc
+	DefaultSettaHome                 string
+	Home                             *HomeService
+	Sessions                         IDEWorkspaceSessionLauncher
+	TrustedOrigins                   *frontendorigins.Service
+	Now                              func() time.Time
+	MintBootstrapToken               BootstrapTokenMintFunc
+	ResolveLauncherSessionAuthExpiry func(time.Time) (int64, error)
+	RollbackLocalSession             func(auth.SessionMetadata, string) error
+	UpdateLastUsedWorkspace          func(string, string) error
 }
 
 type OpenWorkspaceService struct {
-	defaultSettaHome   string
-	home               *HomeService
-	sessions           IDEWorkspaceSessionLauncher
-	now                func() time.Time
-	mintBootstrapToken BootstrapTokenMintFunc
+	defaultSettaHome                 string
+	home                             *HomeService
+	sessions                         IDEWorkspaceSessionLauncher
+	trustedOrigins                   *frontendorigins.Service
+	now                              func() time.Time
+	mintBootstrapToken               BootstrapTokenMintFunc
+	resolveLauncherSessionAuthExpiry func(time.Time) (int64, error)
+	rollbackLocalSession             func(auth.SessionMetadata, string) error
+	updateLastUsedWorkspace          func(string, string) error
 }
 
 func NewOpenWorkspaceService(options OpenWorkspaceServiceOptions) (*OpenWorkspaceService, error) {
@@ -96,12 +107,27 @@ func NewOpenWorkspaceService(options OpenWorkspaceServiceOptions) (*OpenWorkspac
 		tokenManager := auth.NewBootstrapTokenManager(defaultOpenWorkspaceBootstrapTTL, auth.NewNonceTracker())
 		mintBootstrapToken = tokenManager.Mint
 	}
+	if options.TrustedOrigins != nil && options.ResolveLauncherSessionAuthExpiry == nil {
+		return nil, fmt.Errorf("launcher session auth expiry resolver is required when trusted origins are enabled")
+	}
+	rollbackLocalSession := options.RollbackLocalSession
+	if rollbackLocalSession == nil {
+		rollbackLocalSession = rollbackStartedLocalSession
+	}
+	updateLastUsedWorkspace := options.UpdateLastUsedWorkspace
+	if updateLastUsedWorkspace == nil {
+		updateLastUsedWorkspace = UpdateLauncherLastUsedWorkspaceIfInstalled
+	}
 	return &OpenWorkspaceService{
-		defaultSettaHome:   defaultSettaHome,
-		home:               options.Home,
-		sessions:           options.Sessions,
-		now:                now,
-		mintBootstrapToken: mintBootstrapToken,
+		defaultSettaHome:                 defaultSettaHome,
+		home:                             options.Home,
+		sessions:                         options.Sessions,
+		trustedOrigins:                   options.TrustedOrigins,
+		now:                              now,
+		mintBootstrapToken:               mintBootstrapToken,
+		resolveLauncherSessionAuthExpiry: options.ResolveLauncherSessionAuthExpiry,
+		rollbackLocalSession:             rollbackLocalSession,
+		updateLastUsedWorkspace:          updateLastUsedWorkspace,
 	}, nil
 }
 
@@ -213,7 +239,37 @@ func (s *OpenWorkspaceService) OpenWorkspace(input OpenWorkspaceInput) (OpenWork
 		}
 	}
 
-	_ = UpdateLauncherLastUsedWorkspaceIfInstalled(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
+	normalizedRequestOrigin := frontendorigins.NormalizeOrigin(input.RequestOrigin)
+	if err := s.trustLaunchedWorkspaceOriginForLauncherSession(normalizedRequestOrigin, bootstrapURLFragment, input.CurrentSession); err != nil {
+		if launchResult.StartedNew {
+			if rollbackErr := s.rollbackLocalSession(launchResult.Session, launchResult.Paths.RuntimeRoot); rollbackErr != nil {
+				return OpenWorkspaceResult{}, &OpenWorkspaceError{
+					Code: "LocalRollbackFailed",
+					Message: fmt.Sprintf(
+						"Launch trust persistence failed and rollback of local session %s also failed: %v",
+						launchResult.Session.ID,
+						rollbackErr,
+					),
+				}
+			}
+		}
+		code := "InternalError"
+		message := "Internal Server Error"
+		switch {
+		case isTrustedOriginUnavailableError(err):
+			code = "TrustedFrontendOriginStoreUnavailable"
+			message = err.Error()
+		case isTrustedOriginStateError(err):
+			code = "TrustedFrontendOriginStoreInvalid"
+			message = err.Error()
+		}
+		return OpenWorkspaceResult{}, &OpenWorkspaceError{
+			Code:    code,
+			Message: message,
+		}
+	}
+
+	_ = s.updateLastUsedWorkspace(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
 	_, _ = s.home.AddRecentWorkspace(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot, nil)
 
 	return OpenWorkspaceResult{
@@ -294,6 +350,53 @@ func openWorkspaceErrorFromLaunch(err error) error {
 		Code:    "InternalError",
 		Message: "Internal Server Error",
 	}
+}
+
+func (s *OpenWorkspaceService) trustLaunchedWorkspaceOriginForLauncherSession(
+	requestOrigin string,
+	bootstrapURLFragment string,
+	currentSession *auth.CurrentSession,
+) error {
+	if s == nil || s.trustedOrigins == nil {
+		return nil
+	}
+	if strings.TrimSpace(requestOrigin) == "" || currentSession == nil {
+		return nil
+	}
+	launchedWorkspaceOrigin := resolveBootstrapOrigin(bootstrapURLFragment)
+	if launchedWorkspaceOrigin == "" || launchedWorkspaceOrigin == requestOrigin {
+		return nil
+	}
+	exp, err := s.resolveLauncherSessionAuthExpiry(s.now().UTC())
+	if err != nil {
+		return fmt.Errorf("resolve launcher session auth expiry: %w", err)
+	}
+	_, err = s.trustedOrigins.TrustOrigin(launchedWorkspaceOrigin, currentSession.Metadata.ID, exp)
+	return err
+}
+
+func resolveBootstrapOrigin(bootstrapURLFragment string) string {
+	parsedBootstrapURL, err := url.Parse(strings.TrimSpace(bootstrapURLFragment))
+	if err != nil {
+		return ""
+	}
+	if parsedBootstrapURL.Scheme != "http" && parsedBootstrapURL.Scheme != "https" {
+		return ""
+	}
+	if strings.TrimSpace(parsedBootstrapURL.Host) == "" {
+		return ""
+	}
+	return frontendorigins.NormalizeOrigin(parsedBootstrapURL.Scheme + "://" + parsedBootstrapURL.Host)
+}
+
+func isTrustedOriginStateError(err error) bool {
+	var stateErr *frontendorigins.StoreStateError
+	return errors.As(err, &stateErr)
+}
+
+func isTrustedOriginUnavailableError(err error) bool {
+	var unavailableErr *frontendorigins.StoreUnavailableError
+	return errors.As(err, &unavailableErr)
 }
 
 func BuildBootstrapURLFragment(host string, port int, token string) (string, error) {

@@ -281,6 +281,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			DefaultSettaHome: cfg.Paths.SettaHome,
 			Home:             launcherHome,
 			Sessions:         localSessionLauncher,
+			TrustedOrigins:   trustedOrigins,
+			ResolveLauncherSessionAuthExpiry: func(now time.Time) (int64, error) {
+				_, payload, err := authService.MintAuthCookie(now)
+				if err != nil {
+					return 0, err
+				}
+				return payload.Exp, nil
+			},
 		})
 		if err != nil {
 			return nil, err
@@ -1468,6 +1476,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterLauncherHomeRoutes(r, httpapi.LauncherHomeRouteDependencies{
 				ModePolicy:       modePolicy,
+				Auth:             authService,
 				DefaultSettaHome: cfg.Paths.SettaHome,
 				Home:             launcherHome,
 				OpenWorkspace:    launcherOpenWorkspace,
