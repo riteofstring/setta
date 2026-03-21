@@ -43,6 +43,7 @@ type OpenCodeExecutorOptions struct {
 	Runtime            *Runtime
 	WorkspaceRoot      string
 	SettaFilesRoot     string
+	SettaServerURL     string
 	CurrentSession     *auth.CurrentSession
 	AuthCookieBaseName string
 	RuntimeRoot        string
@@ -56,6 +57,7 @@ type OpenCodeExecutor struct {
 	runtime            *Runtime
 	workspaceRoot      string
 	settaFilesRoot     string
+	settaServerURL     string
 	currentSession     *auth.CurrentSession
 	authCookieBaseName string
 	runtimeRoot        string
@@ -94,6 +96,7 @@ func NewOpenCodeExecutor(options OpenCodeExecutorOptions) (*OpenCodeExecutor, er
 		runtime:            options.Runtime,
 		workspaceRoot:      workspaceRoot,
 		settaFilesRoot:     settaFilesRoot,
+		settaServerURL:     strings.TrimSpace(options.SettaServerURL),
 		currentSession:     cloneCurrentSession(options.CurrentSession),
 		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
 		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
@@ -536,9 +539,6 @@ func (e *OpenCodeExecutor) seedOpenCodeMCPStatuses(runID string, configPath stri
 func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Config, chatID string, inputs map[string]any, settaHeaders map[string]string) (string, error) {
 	baseRoot := filepath.Join(e.settaFilesRoot, codexSettingsRootName, "opencode", config.ID)
 	baseConfigPath := resolveOpenCodeBaseConfig(config, baseRoot)
-	if config.SettingsMode == externalagentconfigs.SettingsModeReadOnly {
-		return baseConfigPath, nil
-	}
 	runtimePath := filepath.Join(baseRoot, "sessions", chatID, openCodeConfigFileName)
 	if err := os.MkdirAll(filepath.Dir(runtimePath), 0o755); err != nil {
 		return "", fmt.Errorf("create opencode runtime config dir: %w", err)
@@ -551,7 +551,14 @@ func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Con
 		}
 		payload = loaded
 	}
-	applyOpenCodeRuntimeConfig(payload, config, inputs, settaHeaders)
+	applyOpenCodeRuntimeConfig(
+		payload,
+		config,
+		inputs,
+		e.settaServerURL,
+		settaHeaders,
+		allowOpenCodeManagedSettingsUpdate(config, baseConfigPath),
+	)
 	content, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encode opencode runtime config: %w", err)
@@ -592,8 +599,58 @@ func loadOpenCodeConfigPayload(path string) (map[string]any, error) {
 	return payload, nil
 }
 
-func applyOpenCodeRuntimeConfig(payload map[string]any, config externalagentconfigs.Config, inputs map[string]any, settaHeaders map[string]string) {
+func allowOpenCodeManagedSettingsUpdate(config externalagentconfigs.Config, baseConfigPath string) bool {
+	if config.SettingsMode == externalagentconfigs.SettingsModeReadOnly {
+		return false
+	}
+	if config.SettingsMode == externalagentconfigs.SettingsModeExplicitPath {
+		return config.SettingsAllowSettaEdits
+	}
+	if strings.TrimSpace(baseConfigPath) != "" && !config.SettingsAllowSettaEdits {
+		return false
+	}
+	return true
+}
+
+func applyOpenCodeRuntimeConfig(
+	payload map[string]any,
+	config externalagentconfigs.Config,
+	inputs map[string]any,
+	settaServerURL string,
+	settaHeaders map[string]string,
+	allowManagedSettings bool,
+) {
 	if payload == nil {
+		return
+	}
+	if strings.TrimSpace(settaServerURL) != "" || len(settaHeaders) > 0 {
+		existingMCP, _ := mapValue(payload["mcp"])
+		if existingMCP == nil {
+			existingMCP = map[string]any{}
+		}
+		existingSettaEntry := ensureAnyMapFromValue(existingMCP[mcpx.DefaultServerID])
+		headerEntry := ensureAnyMapFromValue(existingSettaEntry["headers"])
+		settaEntry := map[string]any{
+			"type":    "remote",
+			"url":     strings.TrimSpace(settaServerURL),
+			"enabled": true,
+		}
+		for key, value := range headerEntry {
+			settaHeaderValue, ok := value.(string)
+			if ok {
+				headerEntry[key] = settaHeaderValue
+			}
+		}
+		for key, value := range settaHeaders {
+			headerEntry[key] = value
+		}
+		if len(headerEntry) > 0 {
+			settaEntry["headers"] = headerEntry
+		}
+		existingMCP[mcpx.DefaultServerID] = settaEntry
+		payload["mcp"] = existingMCP
+	}
+	if !allowManagedSettings {
 		return
 	}
 	model := strings.TrimSpace(stringValue(inputs["model"]))
@@ -625,20 +682,6 @@ func applyOpenCodeRuntimeConfig(payload map[string]any, config externalagentconf
 		for key, value := range config.SettingsManagedBlock.OpenCode.MCP {
 			existingMCP[key] = deepCloneJSONValue(value)
 		}
-		payload["mcp"] = existingMCP
-	}
-	if len(settaHeaders) > 0 {
-		existingMCP, _ := mapValue(payload["mcp"])
-		if existingMCP == nil {
-			existingMCP = map[string]any{}
-		}
-		settaEntry := ensureAnyMapFromValue(existingMCP[mcpx.DefaultServerID])
-		headerEntry := ensureAnyMapFromValue(settaEntry["headers"])
-		for key, value := range settaHeaders {
-			headerEntry[key] = value
-		}
-		settaEntry["headers"] = headerEntry
-		existingMCP[mcpx.DefaultServerID] = settaEntry
 		payload["mcp"] = existingMCP
 	}
 	externalagentconfigs.ForceOpenCodeOpenAITextVerbosity(payload, "gpt-5.2-chat-latest", "medium")

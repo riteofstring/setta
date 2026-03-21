@@ -1056,6 +1056,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runtime:            externalAgentRuntime,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+			SettaServerURL:     mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
 			CurrentSession:     authServiceCurrentSessionOrNil(authService),
 			AuthCookieBaseName: authService.AuthCookieBaseName(),
 			RuntimeRoot:        cfg.Paths.RuntimeRoot,
