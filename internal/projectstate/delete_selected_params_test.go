@@ -172,8 +172,9 @@ func TestProjectDeleteSelectedParamsSupportsGlobalVariables(t *testing.T) {
 	}
 }
 
-// Callable param deletion should remove the created child and prune its
-// code-object records while leaving existing protected params intact.
+// Callable param deletion should remove only the targeted child and prune its
+// code-object records while leaving existing protected and editable siblings
+// intact.
 func TestProjectDeleteSelectedParamsRemovesCallableParam(t *testing.T) {
 	t.Parallel()
 
@@ -198,8 +199,8 @@ func TestProjectDeleteSelectedParamsRemovesCallableParam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve callable-root after delete: %v", err)
 	}
-	if got := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(got, []string{"callable-param"}) {
-		t.Fatalf("expected callable children [callable-param], got %#v", got)
+	if got := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(got, []string{"callable-param", "editable-kwarg"}) {
+		t.Fatalf("expected callable children [callable-param editable-kwarg], got %#v", got)
 	}
 
 	section, variant, _, err := project.ResolveSection("callable-section")
@@ -218,7 +219,8 @@ func TestProjectDeleteSelectedParamsRemovesCallableParam(t *testing.T) {
 	}
 }
 
-// Protected params should be skipped instead of failing the whole mutation.
+// Protected params should be skipped instead of failing the whole mutation or
+// disturbing other existing callable children.
 func TestProjectDeleteSelectedParamsSkipsNonEditableParams(t *testing.T) {
 	t.Parallel()
 
@@ -239,7 +241,7 @@ func TestProjectDeleteSelectedParamsSkipsNonEditableParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve callable-root after skipped delete: %v", err)
 	}
-	if got := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(got, []string{"callable-param"}) {
+	if got := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(got, []string{"callable-param", "editable-kwarg"}) {
 		t.Fatalf("expected callable children unchanged, got %#v", got)
 	}
 	if _, ok := project.CodeObjs["callable-param"]; !ok {
