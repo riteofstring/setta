@@ -4,8 +4,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -20,7 +18,7 @@ from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -188,15 +186,6 @@ class BrowserSavedSearch(BaseModel, extra="forbid"):
     )
     color: str = "#3b82f6"
     quickInfo: str = ""
-
-
-class BrowserAreaItemType(str, Enum):
-    Image = "Image"
-    Video = "Video"
-    Text = "Text"
-    Data = "Data"
-    Brushes = "Brushes"
-    Other = "Other"
 
 
 class BrowserAreaItem(BaseModel, extra="forbid"):

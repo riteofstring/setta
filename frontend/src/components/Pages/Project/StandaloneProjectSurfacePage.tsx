@@ -43,7 +43,6 @@ import { shallow } from "zustand/shallow";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
-import { useProjectSurfaceGlobalListeners } from "./useProjectSurfaceGlobalListeners";
 
 type StandaloneSurfaceTarget =
   | {
@@ -75,21 +74,6 @@ type StandaloneSurfaceTarget =
     };
 
 type StandaloneSurfaceErrorCode = "chat_not_found" | "llm_disallowed";
-
-type StandaloneProjectChatTarget = Extract<
-  StandaloneSurfaceTarget,
-  { kind: "project_chat" | "project_chat_thread" | "project_chat_thread_not_found" }
->;
-
-type StandaloneNonChatTarget = Exclude<
-  StandaloneSurfaceTarget,
-  StandaloneProjectChatTarget
->;
-
-type StandaloneRenderableNonChatTarget = Extract<
-  StandaloneSurfaceTarget,
-  { kind: "section" | "window_space" }
->;
 
 function normalizeStandaloneChatId(
   chatId: string | null | undefined,
@@ -258,280 +242,52 @@ function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
 function StandaloneManagedChatBlockedSurface() {
   return (
     <StandaloneSurfaceShell>
-      <StandaloneManagedChatBlockedBody />
-    </StandaloneSurfaceShell>
-  );
-}
-
-function StandaloneManagedChatBlockedBody() {
-  return (
-    <div
-      className="relative min-h-0 flex-1"
-      data-testid="standalone-managed-chat-blocked"
-    >
-      <NotFound
-        title="Managed Chat Unavailable"
-        description="This deployment does not allow LLM access for standalone managed chat surfaces."
-      />
-    </div>
-  );
-}
-
-function StandaloneProjectChatThreadNotFoundBody({
-  isRouteInvalid,
-}: {
-  isRouteInvalid: boolean;
-}) {
-  return (
-    <div
-      className="relative min-h-0 flex-1"
-      data-testid="standalone-project-chat-thread-not-found"
-    >
-      <NotFound
-        title="Thread Not Found"
-        description={
-          isRouteInvalid
-            ? "This standalone project chat route is invalid."
-            : "No project chat thread matches this standalone route."
-        }
-      />
-    </div>
-  );
-}
-
-function StandaloneSectionNotFoundSurface() {
-  return (
-    <StandaloneSurfaceShell>
       <div
         className="relative min-h-0 flex-1"
-        data-testid="standalone-section-not-found"
+        data-testid="standalone-managed-chat-blocked"
       >
         <NotFound
-          title="Section Not Found"
-          description="No section matches this standalone route."
+          title="Managed Chat Unavailable"
+          description="This deployment does not allow LLM access for standalone managed chat surfaces."
         />
       </div>
     </StandaloneSurfaceShell>
   );
 }
 
-function StandaloneWindowSpaceNotFoundSurface() {
+type StandaloneProjectSurfacePageLoadState = {
+  doneLoading: boolean;
+  is404: boolean;
+};
+
+export function StandaloneProjectSurfacePage() {
+  const [doneLoading, is404] = useLoadProjectConfig();
   return (
-    <StandaloneSurfaceShell>
-      <div
-        className="relative min-h-0 flex-1"
-        data-testid="standalone-window-space-not-found"
-      >
-        <NotFound
-          title="Window Space Not Found"
-          description="No saved window space matches this standalone route."
-        />
-      </div>
-    </StandaloneSurfaceShell>
+    <StandaloneProjectSurfacePageWithLoadState
+      doneLoading={doneLoading === true}
+      is404={is404 === true}
+    />
   );
 }
 
-function StandaloneProjectChatRouteSurface({
-  projectConfigId,
-  projectConfigName,
-  target,
-  canUseManagedChat,
-}: {
-  projectConfigId: string;
-  projectConfigName: string | undefined;
-  target: StandaloneProjectChatTarget;
-  canUseManagedChat: boolean;
-}) {
+export function StandaloneProjectSurfacePageWithLoadState({
+  doneLoading,
+  is404,
+}: StandaloneProjectSurfacePageLoadState) {
+  const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
+    useParams();
   const navigate = useNavigate();
-  const agentRuns = useAIStore((state) =>
-    target.kind === "project_chat_thread"
-      ? state.agentRuns
-      : UNTRACKED_STANDALONE_AGENT_RUNS,
-  );
-  const projectChatHistoryEntries = useMemo(
-    () =>
-      target.kind === "project_chat_thread" && agentRuns
-        ? buildChatHistoryEntries(agentRuns, {
-            projectConfigId,
-            unscopedOnly: true,
-          })
-        : [],
-    [agentRuns, projectConfigId, target.kind],
-  );
-  const standaloneProjectChatThreadEntry = useMemo(() => {
-    if (target.kind !== "project_chat_thread") {
-      return null;
-    }
-    return (
-      projectChatHistoryEntries.find(
-        (entry) => entry.chatId === target.chatId,
-      ) ?? null
-    );
-  }, [projectChatHistoryEntries, target]);
-  const projectChatThreadTitle =
-    target.kind === "project_chat_thread"
-      ? standaloneProjectChatThreadEntry?.label ??
-        `Chat ${target.chatId.slice(0, 8)}`
-      : null;
-  const standaloneSurfaceOwnerKey = buildStandaloneSurfaceOwnerKey(
-    projectConfigId,
-    target,
-  );
-  const [standaloneSurfaceErrorState, setStandaloneSurfaceErrorState] =
-    useState<{
-      ownerKey: string | null;
-      errorCode: StandaloneSurfaceErrorCode | null;
-    }>({
-      ownerKey: null,
-      errorCode: null,
-    });
-  const previousCanUseManagedChat = useRef(canUseManagedChat);
-  const standaloneProjectChatId =
-    target.kind === "project_chat_thread" ? target.chatId : null;
-  const standaloneProjectChatThreadRouteInvalid =
-    target.kind === "project_chat_thread_not_found";
-  const standaloneProjectChatThreadMissing =
-    target.kind === "project_chat_thread" &&
-    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
-    standaloneSurfaceErrorState.errorCode === "chat_not_found";
-  const standaloneManagedChatDenied =
-    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
-    standaloneSurfaceErrorState.errorCode === "llm_disallowed";
-  const shouldBlockStandaloneManagedChat =
-    (!canUseManagedChat &&
-      (target.kind === "project_chat" ||
-        target.kind === "project_chat_thread")) ||
-    standaloneManagedChatDenied;
-
-  const setStandaloneSurfaceErrorCode = (errorCode: string | null) => {
-    const normalizedErrorCode = normalizeStandaloneSurfaceErrorCode(errorCode);
-    setStandaloneSurfaceErrorState((current) => {
-      if (
-        current.ownerKey === standaloneSurfaceOwnerKey &&
-        current.errorCode === normalizedErrorCode
-      ) {
-        return current;
-      }
-      return {
-        ownerKey: standaloneSurfaceOwnerKey,
-        errorCode: normalizedErrorCode,
-      };
-    });
-  };
-
-  useEffect(() => {
-    setStandaloneSurfaceErrorState((current) => {
-      if (current.ownerKey === standaloneSurfaceOwnerKey) {
-        return current;
-      }
-      return {
-        ownerKey: standaloneSurfaceOwnerKey,
-        errorCode: null,
-      };
-    });
-  }, [standaloneSurfaceOwnerKey]);
-
-  useEffect(() => {
-    if (!previousCanUseManagedChat.current && canUseManagedChat) {
-      setStandaloneSurfaceErrorState((current) => {
-        if (current.errorCode !== "llm_disallowed") {
-          return current;
-        }
-        return {
-          ownerKey: standaloneSurfaceOwnerKey,
-          errorCode: null,
-        };
-      });
-    }
-    previousCanUseManagedChat.current = canUseManagedChat;
-  }, [canUseManagedChat, standaloneSurfaceOwnerKey]);
-
-  const setStandaloneProjectChatId = (
-    next: SetStateAction<string | null | undefined>,
-  ) => {
-    if (!projectConfigName) {
-      return;
-    }
-    const resolvedChatId =
-      typeof next === "function"
-        ? next(standaloneProjectChatId ?? undefined)
-        : next;
-    navigate(
-      buildStandaloneProjectChatPath(
-        projectConfigName,
-        normalizeStandaloneChatId(resolvedChatId),
+  const target = useProjectState(
+    (state) =>
+      resolveStandaloneSurfaceTarget(
+        state,
+        sectionSlug,
+        chatId,
+        windowSpaceSlug,
       ),
-    );
-  };
-
-  useEffect(() => {
-    document.title = resolveStandaloneDocumentTitle(
-      projectConfigName,
-      target,
-      false,
-      standaloneProjectChatThreadMissing
-        ? "Thread Not Found"
-        : projectChatThreadTitle,
-    );
-  }, [
-    projectConfigName,
-    projectChatThreadTitle,
-    standaloneProjectChatThreadMissing,
-    target,
-  ]);
-
-  if (
-    standaloneProjectChatThreadRouteInvalid ||
-    standaloneProjectChatThreadMissing
-  ) {
-    return (
-      <StandaloneProjectChatThreadNotFoundBody
-        isRouteInvalid={standaloneProjectChatThreadRouteInvalid}
-      />
-    );
-  }
-
-  if (shouldBlockStandaloneManagedChat) {
-    return <StandaloneManagedChatBlockedBody />;
-  }
-
-  return (
-    <ProjectChatWindowSurface
-      title={projectChatThreadTitle ?? "Project AI Chat"}
-      mode={ChatWindowModeEnum.project_ai_mode}
-      instanceId={`standalone-project-chat:${projectConfigId}`}
-      actions={[]}
-      showHeader={false}
-      allowLayoutMutations={false}
-      onTitleClick={() => {}}
-      roundedClassName="rounded-none"
-    >
-      <UnifiedChatSurface
-        mode="project_ai_mode"
-        host="standalone_page"
-        surfaceId={buildStandalonePageProjectChatSurfaceId(projectConfigId)}
-        projectChatId={standaloneProjectChatId}
-        setProjectChatId={setStandaloneProjectChatId}
-        onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
-        dataTestId={
-          target.kind === "project_chat_thread"
-            ? "standalone-project-chat-thread-surface"
-            : "standalone-project-chat-surface"
-        }
-      />
-    </ProjectChatWindowSurface>
+    shallow,
   );
-}
-
-function StandaloneNonChatRouteSurface({
-  projectConfigId,
-  target,
-  canUseManagedChat,
-}: {
-  projectConfigId: string;
-  target: StandaloneRenderableNonChatTarget;
-  canUseManagedChat: boolean;
-}) {
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
     useProjectState(
       (state) => ({
@@ -559,10 +315,37 @@ function StandaloneNonChatRouteSurface({
     }
     return state.projectConfig.windowSpaces[target.windowSpaceId] ?? null;
   }, shallow);
-  const standaloneSurfaceOwnerKey = buildStandaloneSurfaceOwnerKey(
-    projectConfigId,
-    target,
+  const { isDeploymentMode, allowLLM } = useShareSession(
+    (state) => ({
+      isDeploymentMode: state.isDeploymentMode,
+      allowLLM: state.sharePolicy?.allowLLM ?? false,
+    }),
+    shallow,
   );
+  const agentRuns = useAIStore((state) => state.agentRuns);
+  const projectChatHistoryEntries = useMemo(
+    () =>
+      buildChatHistoryEntries(agentRuns, {
+        projectConfigId,
+        unscopedOnly: true,
+      }),
+    [agentRuns, projectConfigId],
+  );
+  const standaloneProjectChatThreadEntry = useMemo(() => {
+    if (target.kind !== "project_chat_thread") {
+      return null;
+    }
+    return (
+      projectChatHistoryEntries.find(
+        (entry) => entry.chatId === target.chatId,
+      ) ?? null
+    );
+  }, [projectChatHistoryEntries, target]);
+  const projectChatThreadTitle =
+    target.kind === "project_chat_thread"
+      ? standaloneProjectChatThreadEntry?.label ??
+        `Chat ${target.chatId.slice(0, 8)}`
+      : null;
   const [standaloneSurfaceErrorState, setStandaloneSurfaceErrorState] =
     useState<{
       ownerKey: string | null;
@@ -571,14 +354,33 @@ function StandaloneNonChatRouteSurface({
       ownerKey: null,
       errorCode: null,
     });
-  const previousCanUseManagedChat = useRef(canUseManagedChat);
+  const resolvedDoneLoading = doneLoading === true;
+  const resolvedIs404 = is404 === true;
+  const canUseManagedChat = canUseManagedChatLLM({
+    isDeploymentMode,
+    allowLLM,
+  });
+  const standaloneSurfaceOwnerKey = buildStandaloneSurfaceOwnerKey(
+    projectConfigId,
+    target,
+  );
+  const standaloneProjectChatId =
+    target.kind === "project_chat_thread" ? target.chatId : null;
+  const standaloneProjectChatThreadRouteInvalid =
+    target.kind === "project_chat_thread_not_found";
+  const standaloneProjectChatThreadMissing =
+    target.kind === "project_chat_thread" &&
+    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
+    standaloneSurfaceErrorState.errorCode === "chat_not_found";
   const standaloneTargetRequiresManagedChat =
-    target.kind === "section"
-      ? standaloneSectionRequiresManagedChat(
-          managedChatAuthorityState,
-          target.sectionId,
-        )
-      : false;
+    target.kind === "project_chat" || target.kind === "project_chat_thread"
+      ? true
+      : target.kind === "section"
+        ? standaloneSectionRequiresManagedChat(
+            managedChatAuthorityState,
+            target.sectionId,
+          )
+        : false;
   const standaloneWindowSpaceHasVisibleWindows =
     target.kind === "window_space" && standaloneWindowSpace
       ? standaloneWindowSpaceHasAllowedWindows(
@@ -597,6 +399,7 @@ function StandaloneNonChatRouteSurface({
         !standaloneWindowSpaceHasVisibleWindows
       : (!canUseManagedChat && standaloneTargetRequiresManagedChat) ||
         standaloneManagedChatDenied;
+  const previousCanUseManagedChat = useRef(canUseManagedChat);
 
   const setStandaloneSurfaceErrorCode = (errorCode: string | null) => {
     const normalizedErrorCode = normalizeStandaloneSurfaceErrorCode(errorCode);
@@ -641,8 +444,144 @@ function StandaloneNonChatRouteSurface({
     previousCanUseManagedChat.current = canUseManagedChat;
   }, [canUseManagedChat, standaloneSurfaceOwnerKey]);
 
+  useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
+  useAddMouseLocationListener();
+  usePluginRuntimeBootstrap(resolvedDoneLoading && !resolvedIs404);
+  const setStandaloneProjectChatId = (
+    next: SetStateAction<string | null | undefined>,
+  ) => {
+    if (!projectConfigName) {
+      return;
+    }
+    const resolvedChatId =
+      typeof next === "function"
+        ? next(standaloneProjectChatId ?? undefined)
+        : next;
+    navigate(
+      buildStandaloneProjectChatPath(
+        projectConfigName,
+        normalizeStandaloneChatId(resolvedChatId),
+      ),
+    );
+  };
+
+  useEffect(() => {
+    document.title = resolveStandaloneDocumentTitle(
+      projectConfigName,
+      target,
+      resolvedIs404,
+      standaloneProjectChatThreadMissing
+        ? "Thread Not Found"
+        : projectChatThreadTitle,
+    );
+  }, [
+    resolvedIs404,
+    projectConfigName,
+    projectChatThreadTitle,
+    standaloneProjectChatThreadMissing,
+    target,
+  ]);
+
+  if (!resolvedDoneLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (resolvedIs404) {
+    return <NotFound />;
+  }
+
   if (shouldBlockStandaloneManagedChat) {
     return <StandaloneManagedChatBlockedSurface />;
+  }
+
+  if (
+    target.kind === "project_chat" ||
+    target.kind === "project_chat_thread" ||
+    target.kind === "project_chat_thread_not_found"
+  ) {
+    if (
+      standaloneProjectChatThreadRouteInvalid ||
+      standaloneProjectChatThreadMissing
+    ) {
+      return (
+        <StandaloneSurfaceShell>
+          <div
+            className="relative min-h-0 flex-1"
+            data-testid="standalone-project-chat-thread-not-found"
+          >
+            <NotFound
+              title="Thread Not Found"
+              description={
+                standaloneProjectChatThreadRouteInvalid
+                  ? "This standalone project chat route is invalid."
+                  : "No project chat thread matches this standalone route."
+              }
+            />
+          </div>
+        </StandaloneSurfaceShell>
+      );
+    }
+
+    return (
+      <StandaloneSurfaceShell>
+        <ProjectChatWindowSurface
+          title={projectChatThreadTitle ?? "Project AI Chat"}
+          mode={ChatWindowModeEnum.project_ai_mode}
+          instanceId={`standalone-project-chat:${projectConfigId}`}
+          actions={[]}
+          showHeader={false}
+          allowLayoutMutations={false}
+          onTitleClick={() => {}}
+          roundedClassName="rounded-none"
+        >
+          <UnifiedChatSurface
+            mode="project_ai_mode"
+            host="standalone_page"
+            surfaceId={buildStandalonePageProjectChatSurfaceId(projectConfigId)}
+            projectChatId={standaloneProjectChatId}
+            setProjectChatId={setStandaloneProjectChatId}
+            onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
+            dataTestId={
+              target.kind === "project_chat_thread"
+                ? "standalone-project-chat-thread-surface"
+                : "standalone-project-chat-surface"
+            }
+          />
+        </ProjectChatWindowSurface>
+      </StandaloneSurfaceShell>
+    );
+  }
+
+  if (target.kind === "section_not_found") {
+    return (
+      <StandaloneSurfaceShell>
+        <div
+          className="relative min-h-0 flex-1"
+          data-testid="standalone-section-not-found"
+        >
+          <NotFound
+            title="Section Not Found"
+            description="No section matches this standalone route."
+          />
+        </div>
+      </StandaloneSurfaceShell>
+    );
+  }
+
+  if (target.kind === "window_space_not_found") {
+    return (
+      <StandaloneSurfaceShell>
+        <div
+          className="relative min-h-0 flex-1"
+          data-testid="standalone-window-space-not-found"
+        >
+          <NotFound
+            title="Window Space Not Found"
+            description="No saved window space matches this standalone route."
+          />
+        </div>
+      </StandaloneSurfaceShell>
+    );
   }
 
   if (target.kind === "window_space") {
@@ -701,116 +640,5 @@ function StandaloneNonChatRouteSurface({
         />
       </div>
     </StandaloneSurfaceShell>
-  );
-}
-
-type StandaloneProjectSurfacePageLoadState = {
-  doneLoading: boolean;
-  is404: boolean;
-};
-
-const UNTRACKED_STANDALONE_AGENT_RUNS = null;
-
-export function StandaloneProjectSurfacePage() {
-  const [doneLoading, is404] = useLoadProjectConfig();
-  return (
-    <StandaloneProjectSurfacePageWithLoadState
-      doneLoading={doneLoading === true}
-      is404={is404 === true}
-    />
-  );
-}
-
-export function StandaloneProjectSurfacePageWithLoadState({
-  doneLoading,
-  is404,
-}: StandaloneProjectSurfacePageLoadState) {
-  useProjectSurfaceGlobalListeners();
-  const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
-    useParams();
-  const target = useProjectState(
-    (state) =>
-      resolveStandaloneSurfaceTarget(
-        state,
-        sectionSlug,
-        chatId,
-        windowSpaceSlug,
-      ),
-    shallow,
-  );
-  const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const { isDeploymentMode, allowLLM } = useShareSession(
-    (state) => ({
-      isDeploymentMode: state.isDeploymentMode,
-      allowLLM: state.sharePolicy?.allowLLM ?? false,
-    }),
-    shallow,
-  );
-  const resolvedDoneLoading = doneLoading === true;
-  const resolvedIs404 = is404 === true;
-  const canUseManagedChat = canUseManagedChatLLM({
-    isDeploymentMode,
-    allowLLM,
-  });
-
-  useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
-  useAddMouseLocationListener();
-  usePluginRuntimeBootstrap(resolvedDoneLoading && !resolvedIs404);
-
-  useEffect(() => {
-    if (
-      target.kind === "project_chat" ||
-      target.kind === "project_chat_thread" ||
-      target.kind === "project_chat_thread_not_found"
-    ) {
-      return;
-    }
-    document.title = resolveStandaloneDocumentTitle(
-      projectConfigName,
-      target,
-      resolvedIs404,
-      null,
-    );
-  }, [projectConfigName, resolvedIs404, target]);
-
-  if (!resolvedDoneLoading) {
-    return <LoadingSpinner />;
-  }
-
-  if (resolvedIs404) {
-    return <NotFound />;
-  }
-
-  if (
-    target.kind === "project_chat" ||
-    target.kind === "project_chat_thread" ||
-    target.kind === "project_chat_thread_not_found"
-  ) {
-    return (
-      <StandaloneSurfaceShell>
-        <StandaloneProjectChatRouteSurface
-          projectConfigId={projectConfigId}
-          projectConfigName={projectConfigName}
-          target={target}
-          canUseManagedChat={canUseManagedChat}
-        />
-      </StandaloneSurfaceShell>
-    );
-  }
-
-  if (target.kind === "section_not_found") {
-    return <StandaloneSectionNotFoundSurface />;
-  }
-
-  if (target.kind === "window_space_not_found") {
-    return <StandaloneWindowSpaceNotFoundSurface />;
-  }
-
-  return (
-    <StandaloneNonChatRouteSurface
-      projectConfigId={projectConfigId}
-      target={target}
-      canUseManagedChat={canUseManagedChat}
-    />
   );
 }
