@@ -48,12 +48,20 @@ categorize them.
 - The default differential manifest no longer reports the
   `json_source_key_change_refresh` or
   `json_source_save_missing_key_path` or
-  `json_source_save_same_key_path_last_write_wins` mismatches. Existing-file
-  `setVariantJsonSourceKeys` edits now match `main`, and ordinary project
-  save now recreates missing `jsonSourceKeys` objects in backing `.json`
-  files before writing values while keeping same-path shared-file collisions
-  last-write-wins. The remaining JSON-source backlog is now the broader
-  runtime/load/watch/canonical-storage owner.
+  `json_source_save_same_key_path_last_write_wins` or
+  `json_source_startup_shared_pair_load` mismatches. Existing-file
+  `setVariantJsonSourceKeys` edits now match `main`, ordinary project save
+  now recreates missing `jsonSourceKeys` objects in backing `.json` files
+  before writing values while keeping same-path shared-file collisions
+  last-write-wins, and app startup now hydrates shared `(file,
+  jsonSourceKeys)` pairs into distinct section trees while leaving persisted
+  project state untouched until a later save.
+- The remaining JSON-source backlog is now narrower and should stay split:
+  selective single-section shared-file reload
+  (`json_source.load.unrequested_shared_variant_preserves_existing_tree_while_matching_pairs_share_missing_flag`),
+  watcher/autosave reload behavior (`json_source.watcher.*`), and the broader
+  canonical-storage/clear-values round-trip row
+  (`json_source.sections.file_backed_load_merge_and_save_round_trip_canonical_storage`).
 - The default differential manifest now matches `main` again after tightening
   `settings_project_missing_required_section_fails_closed` to the stable
   fail-closed contract instead of comparing noisy startup log text.
