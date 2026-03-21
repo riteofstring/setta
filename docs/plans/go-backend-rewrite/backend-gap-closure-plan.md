@@ -363,3 +363,7 @@ categorize them.
   adjacent health/preflight queue is mostly down to the harder temp-MCP,
   auth-header, and config-bootstrap/runtime slices rather than more payload
   shaping on the existing health response
+- The Claude SDK temp-`.mcp.json` producer row is now closed too, so the
+  adjacent external-agent queue should move to the remaining scoped-header
+  injection and user-config bootstrap/reconciliation slices rather than
+  revisiting temp-config creation itself
