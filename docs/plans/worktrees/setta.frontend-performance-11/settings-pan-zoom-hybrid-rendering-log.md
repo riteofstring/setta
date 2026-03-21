@@ -2294,3 +2294,93 @@ Record:
     - the next Tier 1 pass should narrow back down to static shell deletion or tighter ownership cleanup, not another row-wide expansion rewrite
 - Next action:
   - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and pick the next narrower static Tier 1 row/body seam.
+
+## 2026-03-21 053
+
+- Item: Benchmark the static kwargs wrapper-collapse experiment on the repeated section-card chrome path, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Why this seam was chosen:
+    - fresh seam discovery after the flat-row rejection pointed back at the repeated section-card/header/kwargs area
+    - the narrowest static DOM cut there was to remove one steady-state wrapper from every kwargs strip without changing buttons, icons, or the filter field
+  - Experimental files under test:
+    - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+    - `frontend/src/components/Section/SectionParts/kwargsControlsStyles.ts`
+    - focused tests:
+      - `frontend/src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts`
+      - `frontend/src/components/Section/SectionParts/kwargsControlsStyles.test.ts`
+  - Structural change under test:
+    - move the kwargs strip alignment onto the outer `section-args` host
+    - remove the extra intermediate wrapper around the `Args` label plus action buttons
+    - keep the same action buttons, icon glyph hosts, and filter field
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts src/components/Section/SectionParts/kwargsControlsStyles.test.ts`
+      - `2` files passed
+      - `5` tests passed
+  - Filtered typecheck while the experiment was live:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "KwargsControls|kwargsControlsStyles"`
+    - no matching diagnostics were emitted during the filtered check
+  - Fresh subagent CDP check while the experiment was live:
+    - chrome-devtools MCP was accessible
+    - `http://127.0.0.1:3011/settings` and `http://127.0.0.1:3011/benchmark-tier1` both loaded normally
+    - kwargs strips looked visually normal at ordinary zoom
+    - the extra wrapper was gone in the live DOM
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-kwargs-wrapper-collapse-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 411.305ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 26868.322ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 473.547ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 705.238ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 13848.719ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 18.406ms`
+  - Same-code worktree confirmation rerun:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 416.632ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 29908.138ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 471.926ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 37.364ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 58.886ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 699.518ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14159.511ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 18.635ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 116.646ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 143.242ms`
+  - Decision:
+    - reject this kwargs wrapper-collapse experiment as a keep for `HEAD`
+    - even a one-wrapper static deletion inside the kwargs strip broadens aggregate work on the mandatory real `settings` route
+    - the repeated section-card/header/kwargs seam is too sensitive for another local wrapper-deletion pass right now
+- Next action:
+  - Revert this experiment cleanly, rerun focused reverted-baseline verification, and move the next Tier 1 pass away from the repeated section-card/header/kwargs shell.
+
+## 2026-03-21 054
+
+- Item: Refine the next Tier 1 target after rejecting the kwargs wrapper collapse.
+- Status: `in_progress`
+- Details:
+  - Reverted the kwargs wrapper-collapse experiment after recording the dead-end report.
+  - Current read:
+    - the repeated section-card/header/kwargs seam is still architecturally interesting
+    - but local kwargs-shell deletion is now ruled out as a safe next mechanism
+    - the next Tier 1 pass should move back to a different dense row/body ownership seam instead of spending another cycle in the section-card chrome
+- Next action:
+  - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and choose the next non-kwargs static Tier 1 seam.

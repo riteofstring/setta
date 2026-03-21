@@ -909,6 +909,37 @@ Current execution note:
           - this eager render-entry flattening increased costs on both canonical scenes instead of trimming them
         - do not keep this flat row render path at `HEAD`
         - if the Tier 1 dense row seam is mined again, the next pass should avoid broad precomputed row expansion and instead look for narrower static shell deletion or ownership cleanup
+      - the next static Tier 1 kwargs-shell experiment then collapsed the extra wrapper around the repeated kwargs action strip and was rejected too:
+        - experimental files:
+          - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+          - `frontend/src/components/Section/SectionParts/kwargsControlsStyles.ts`
+        - mechanism under test:
+          - move the kwargs strip alignment onto the outer `section-args` host
+          - remove the extra intermediate wrapper around the `Args` label plus action buttons
+          - keep the same buttons, icon glyph hosts, and filter field
+        - browser verification:
+          - a fresh subagent confirmed that `/settings` and `/benchmark-tier1` both loaded normally
+          - kwargs strips looked visually normal at ordinary zoom
+          - the live DOM showed the wrapper collapse with no extra intermediate wrapper article between the strip host and the inner controls
+        - paired benchmark read:
+          - the first paired matrix improved `tier1Synthetic` paint but made the mandatory real `settings` scene much worse
+          - untouched `main` also shifted sharply on the same run, so the decision was gated on a same-code worktree confirmation rerun
+        - authoritative worktree confirmation deltas versus the retained baseline:
+          - `settings` benchmark `Paint`:
+            - `148.237ms -> 416.632ms`
+          - `settings` benchmark `RunTask`:
+            - `3235.187ms -> 29908.138ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `66.774ms -> 471.926ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `825.999ms -> 699.518ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `13271.540ms -> 14159.511ms`
+        - mechanism read:
+          - even a one-wrapper static deletion inside the kwargs strip broadens aggregate work on the real `settings` route
+          - the repeated section-card/header/kwargs seam is sensitive, and local kwargs-shell deletion is not a safe next Tier 1 mechanism
+        - do not keep this kwargs wrapper collapse at `HEAD`
+        - the next static Tier 1 pass should move away from the repeated section-card/header/kwargs shell and back into a different dense row/body ownership seam
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

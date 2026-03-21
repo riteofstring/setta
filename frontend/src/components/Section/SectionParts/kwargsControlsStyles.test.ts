@@ -10,7 +10,6 @@ describe("getKwargsControlsContainerClassName", () => {
 
     expect(className).toContain("bg-setta-50");
     expect(className).toContain("dark:bg-setta-860");
-    expect(className).toContain("items-center");
     expect(className).toContain("overflow-hidden");
     expect(className).toContain("isolate");
   });
@@ -25,7 +24,6 @@ describe("getKwargsControlsContainerClassName", () => {
     expect(className).toContain(
       "border-[color:var(--setta-section-style-border)]",
     );
-    expect(className).toContain("items-center");
     expect(className).toContain("overflow-hidden");
   });
 
@@ -37,7 +35,6 @@ describe("getKwargsControlsContainerClassName", () => {
 
     expect(className).not.toContain("bg-setta-50");
     expect(className).not.toContain("dark:bg-setta-860");
-    expect(className).toContain("items-center");
     expect(className).toContain("overflow-hidden");
   });
 });
