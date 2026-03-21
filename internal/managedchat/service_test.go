@@ -217,6 +217,39 @@ func TestResolveContextUsageAcceptsCodexAliases(t *testing.T) {
 	}
 }
 
+func TestResolveContextUsageMarksMissingContextWindowAsEstimated(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeManagedChat,
+		"chatId":  "chat-usage-estimated",
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Outputs = map[string]any{
+		"usage": map[string]any{
+			"promptTokens":     42,
+			"completionTokens": 7,
+		},
+		"metadata": map[string]any{
+			"model":    "gpt-5-runtime",
+			"provider": "openai",
+		},
+	}
+
+	usage := resolveContextUsage(run)
+	if usage == nil {
+		t.Fatal("expected prompt-token usage to remain available")
+	}
+	if usage.ContextUsedTokens == nil || *usage.ContextUsedTokens != 42 {
+		t.Fatalf("unexpected context used tokens %#v", usage.ContextUsedTokens)
+	}
+	if usage.ContextWindowTokens != nil {
+		t.Fatalf("expected missing context window to stay nil, got %#v", usage.ContextWindowTokens)
+	}
+	if !usage.Estimated {
+		t.Fatalf("expected missing context window to mark usage estimated, got %#v", usage)
+	}
+}
+
 func TestResolveContextUsageRejectsFractionalUsageValuesAndKeepsValidStringWindow(t *testing.T) {
 	t.Parallel()
 

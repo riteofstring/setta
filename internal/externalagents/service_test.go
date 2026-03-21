@@ -587,6 +587,59 @@ func TestResolveContextUsageIgnoresNonFiniteUsageValues(t *testing.T) {
 	}
 }
 
+func TestResolveContextUsageDoesNotInferContextWindowFromRuntimeMetadata(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+		"chatId":  "chat-usage-no-inference",
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Outputs = map[string]any{
+		"usage": map[string]any{
+			"promptTokens":     11,
+			"completionTokens": 2,
+		},
+		"metadata": map[string]any{
+			"model":    "gpt-5-runtime",
+			"provider": "openai",
+		},
+	}
+
+	usage := resolveContextUsage(run)
+	if usage == nil {
+		t.Fatal("expected persisted usage without inferred context window")
+	}
+	if usage.ContextUsedTokens == nil || *usage.ContextUsedTokens != 11 {
+		t.Fatalf("unexpected context used tokens %#v", usage.ContextUsedTokens)
+	}
+	if usage.ContextWindowTokens != nil {
+		t.Fatalf("expected runtime metadata to be ignored for context window, got %#v", usage.ContextWindowTokens)
+	}
+	if !usage.Estimated {
+		t.Fatalf("expected missing persisted context window to stay estimated, got %#v", usage)
+	}
+}
+
+func TestResolveContextUsageReturnsNilWhenOnlyNonFiniteValuesPresent(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+		"chatId":  "chat-usage-none",
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Outputs = map[string]any{
+		"usage": map[string]any{
+			"promptTokens":        math.NaN(),
+			"completionTokens":    math.Inf(1),
+			"contextWindowTokens": math.Inf(-1),
+		},
+	}
+
+	if usage := resolveContextUsage(run); usage != nil {
+		t.Fatalf("expected all-non-finite usage payload to be ignored, got %#v", usage)
+	}
+}
+
 func TestResolveContextUsageAcceptsCodexAliasesAndPrefersExplicitContextUsedTokens(t *testing.T) {
 	t.Parallel()
 
