@@ -6,7 +6,7 @@
   "settaVersionRange": ">=0.0.0",
   "enabledByDefault": true,
   "backend": {
-    "entrypoint": "backend/entrypoint.py"
+    "entrypoint": "backend/main.go"
   },
   "frontend": {
     "entrypoint": "frontend/dist/index.js",
