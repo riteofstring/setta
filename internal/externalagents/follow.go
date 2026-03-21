@@ -144,17 +144,13 @@ func (s *FollowService) Snapshot(projectConfigID string) []realtime.AIFollowTool
 	if s == nil {
 		return []realtime.AIFollowToolArgumentsUpdateContent{}
 	}
-	trimmedProjectID := strings.TrimSpace(projectConfigID)
-	if trimmedProjectID == "" {
-		return []realtime.AIFollowToolArgumentsUpdateContent{}
-	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	byChat := make(map[followChatKey]followRunEntry)
 	for _, entry := range s.entriesByRun {
-		if entry.ProjectConfigID != trimmedProjectID {
+		if entry.ProjectConfigID != projectConfigID {
 			continue
 		}
 		key := followChatKey{

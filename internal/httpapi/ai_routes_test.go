@@ -1723,6 +1723,104 @@ func TestRegisterAIRoutesAllowDeploymentAIFollowSnapshotWhenLLMAccessEnabled(t *
 	}
 }
 
+func TestRegisterAIRoutesAIFollowSnapshotPreservesExactProjectConfigIDMatching(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	managedRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	managedRun.ID = "run-managed-follow"
+	fixture.managedLive.ActivateRun(managedRun)
+	if err := fixture.managedLive.ApplyChunk(context.Background(), managedchat.StreamChunkParams{
+		RunID:           managedRun.ID,
+		ChatID:          "chat-managed",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-managed",
+			ToolCallID:      "tool-call-managed",
+			ToolName:        mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+			ArgumentsDelta:  `{"sectionId":"section-managed"}`,
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{"section": {"section-managed"}},
+		},
+	}); err != nil {
+		t.Fatalf("apply managed preview chunk: %v", err)
+	}
+
+	run := fixture.seedRun("run-follow", agentruns.RunStatusRunning)
+	if err := fixture.runtime.ActivateRun(run.ID, &aiRouteStubController{}); err != nil {
+		t.Fatalf("activate external run: %v", err)
+	}
+	if err := fixture.runtime.SetLiveChatState(run.ID, externalagents.ChatState{
+		Messages: []map[string]any{
+			{
+				"id":      "assistant-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id": "tool-call-1",
+						"function": map[string]any{
+							"name": mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+							"arguments": map[string]any{
+								"sectionId": "section-alpha",
+							},
+						},
+					},
+				},
+			},
+		},
+		ToolCallArguments: map[string]string{
+			"tool-call-1": `{"sectionId":"section-alpha"}`,
+		},
+		WaitingForResponse: true,
+	}); err != nil {
+		t.Fatalf("set external live follow state: %v", err)
+	}
+
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime, fixture.follow)
+
+	for _, testCase := range []struct {
+		name         string
+		body         string
+		expectedSize int
+	}{
+		{name: "exact_match", body: `{"projectConfigId":"project-alpha"}`, expectedSize: 2},
+		{name: "surrounding_whitespace_not_trimmed", body: `{"projectConfigId":" project-alpha "}`, expectedSize: 0},
+		{name: "blank_string_allowed", body: `{"projectConfigId":""}`, expectedSize: 0},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteGetAIFollowSnapshot,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload []realtime.AIFollowToolArgumentsUpdateContent
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode snapshot response: %v", err)
+			}
+			if len(payload) != testCase.expectedSize {
+				t.Fatalf("expected %d snapshot entries, got %#v", testCase.expectedSize, payload)
+			}
+		})
+	}
+}
+
 func TestRegisterAIRoutesBlockDeploymentAIFollowSnapshotWhenLLMAccessDisabled(t *testing.T) {
 	t.Parallel()
 
@@ -1765,30 +1863,50 @@ func TestRegisterAIRoutesBlockDeploymentAIFollowSnapshotWhenLLMAccessDisabled(t 
 	}
 }
 
-func TestRegisterAIRoutesRejectsMissingProjectIDForAIFollowSnapshot(t *testing.T) {
+func TestRegisterAIRoutesAIFollowSnapshotReturnsValidationEnvelopeForMalformedJSONAndMissingProjectID(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime, fixture.follow)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetAIFollowSnapshot,
-		strings.NewReader(`{"projectConfigId":"   "}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
 
-	handler.ServeHTTP(response, request)
+	for _, testCase := range []struct {
+		name           string
+		body           string
+		expectedDetail string
+	}{
+		{name: "malformed_json", body: `{"projectConfigId":`, expectedDetail: "unexpected end of JSON input"},
+		{name: "missing_project_config_id", body: `{}`, expectedDetail: "projectConfigId: Field required"},
+		{name: "null_project_config_id", body: `{"projectConfigId":null}`, expectedDetail: "projectConfigId: Field required"},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteGetAIFollowSnapshot,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
 
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-	}
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode follow snapshot error payload: %v", err)
-	}
-	if payload.Error.Code != "project_config_id_required" {
-		t.Fatalf("expected project_config_id_required, got %#v", payload)
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode follow snapshot validation payload: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message != testCase.expectedDetail {
+				t.Fatalf("expected validation detail %q, got %#v", testCase.expectedDetail, payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
 	}
 }
 

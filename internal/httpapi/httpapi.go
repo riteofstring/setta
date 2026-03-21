@@ -544,6 +544,27 @@ func rawJSONBodyFromRequest(r *http.Request) []byte {
 	return append([]byte(nil), value...)
 }
 
+func requestHasTopLevelJSONField(r *http.Request, field string, allowNull bool) (bool, error) {
+	body := bytes.TrimSpace(rawJSONBodyFromRequest(r))
+	if len(body) == 0 {
+		body = []byte("{}")
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil {
+		return false, err
+	}
+
+	value, ok := fields[field]
+	if !ok {
+		return false, nil
+	}
+	if !allowNull && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return false, nil
+	}
+	return true, nil
+}
+
 type requestIDContextKey struct{}
 
 func requestIDFromContext(ctx context.Context) string {

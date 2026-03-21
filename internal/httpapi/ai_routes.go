@@ -414,12 +414,20 @@ func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
 		}
 		payload, err := decodeJSONBody[GetAIFollowSnapshotRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
-		projectConfigID := strings.TrimSpace(payload.ProjectConfigID)
-		if projectConfigID == "" {
-			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+		hasProjectConfigID, err := requestHasTopLevelJSONField(r, "projectConfigId", false)
+		if err != nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		if !hasProjectConfigID {
+			writeValidationError(
+				w,
+				http.StatusUnprocessableEntity,
+				(&strictJSONMissingFieldError{Field: "projectConfigId"}).Error(),
+			)
 			return
 		}
 		if deps.ManagedChats == nil || deps.ExternalAgentFollow == nil {
@@ -427,8 +435,8 @@ func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		snapshot := deps.ManagedChats.AIFollowSnapshot(projectConfigID)
-		snapshot = append(snapshot, deps.ExternalAgentFollow.Snapshot(projectConfigID)...)
+		snapshot := deps.ManagedChats.AIFollowSnapshot(payload.ProjectConfigID)
+		snapshot = append(snapshot, deps.ExternalAgentFollow.Snapshot(payload.ProjectConfigID)...)
 		writeJSON(w, http.StatusOK, snapshot)
 	}
 }

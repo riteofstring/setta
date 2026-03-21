@@ -125,17 +125,13 @@ func (r *LiveRuntime) AIFollowSnapshot(projectConfigID string) []realtime.AIFoll
 	if r == nil {
 		return []realtime.AIFollowToolArgumentsUpdateContent{}
 	}
-	trimmedProjectID := strings.TrimSpace(projectConfigID)
-	if trimmedProjectID == "" {
-		return []realtime.AIFollowToolArgumentsUpdateContent{}
-	}
 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	keys := make([]managedAIFollowChatKey, 0, len(r.followByChat))
 	for key, entry := range r.followByChat {
-		if key.ProjectConfigID != trimmedProjectID || len(entry.IDsByType) == 0 {
+		if key.ProjectConfigID != projectConfigID || len(entry.IDsByType) == 0 {
 			continue
 		}
 		keys = append(keys, key)
