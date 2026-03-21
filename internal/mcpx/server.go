@@ -3442,6 +3442,7 @@ func defaultToolDefinitions(
 				Metadata: tools.Metadata{
 					Kind:           tools.KindDiscoverable,
 					AccessType:     tools.AccessTypeRead,
+					RequiresLLM:    true,
 					SearchCategory: "agentic",
 					SearchTags:     []string{"agent", "profile", "profiles", "workspace"},
 				},
@@ -3469,6 +3470,7 @@ func defaultToolDefinitions(
 				Metadata: tools.Metadata{
 					Kind:           tools.KindDiscoverable,
 					AccessType:     tools.AccessTypeRead,
+					RequiresLLM:    true,
 					SearchCategory: "agentic",
 					SearchTags:     []string{"agent", "profile", "lookup", "workspace"},
 				},
@@ -3493,6 +3495,8 @@ func defaultToolDefinitions(
 				Metadata: tools.Metadata{
 					Kind:           tools.KindDiscoverable,
 					AccessType:     tools.AccessTypeStructural,
+					RequiresLLM:    true,
+					StartsRun:      true,
 					SearchCategory: "agentic",
 					SearchTags:     []string{"agent", "profile", "run", "managed", "execute"},
 				},
@@ -7573,6 +7577,12 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 		"idPathsByType":  idPathsByType,
 		"searchTags":     append([]string(nil), metadata.SearchTags...),
 		"searchCategory": metadata.SearchCategory,
+	}
+	if metadata.RequiresLLM {
+		payload["requiresLLM"] = true
+	}
+	if metadata.StartsRun {
+		payload["startsRun"] = true
 	}
 	if metadata.DefaultTargetSingletonSection != "" {
 		payload["defaultTargetSingletonSection"] = metadata.DefaultTargetSingletonSection

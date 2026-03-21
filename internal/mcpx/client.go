@@ -881,6 +881,8 @@ func parseToolMetadata(toolName string, meta sdkmcp.Meta) (*tools.Metadata, erro
 	metadata := tools.Metadata{
 		Kind:                          tools.Kind(readOptionalString(payload, "toolKind")),
 		AccessType:                    tools.AccessType(readOptionalString(payload, "accessType")),
+		RequiresLLM:                   readOptionalBool(payload, "requiresLLM"),
+		StartsRun:                     readOptionalBool(payload, "startsRun"),
 		DefaultTargetSingletonSection: readOptionalString(payload, "defaultTargetSingletonSection"),
 		ResultFilter:                  tools.ResultFilter(readOptionalString(payload, "resultFilter")),
 		SearchTags:                    parseStringList(payload["searchTags"]),
@@ -1008,6 +1010,15 @@ func readOptionalString(payload map[string]any, key string) string {
 	}
 	stringValue, _ := value.(string)
 	return strings.TrimSpace(stringValue)
+}
+
+func readOptionalBool(payload map[string]any, key string) bool {
+	value, ok := payload[key]
+	if !ok {
+		return false
+	}
+	boolValue, _ := value.(bool)
+	return boolValue
 }
 
 func parseStringList(value any) []string {

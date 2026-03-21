@@ -318,6 +318,31 @@ func TestParseToolMetadataIncludesToolArgumentPreview(t *testing.T) {
 	}
 }
 
+func TestParseToolMetadataIncludesRuntimePolicyFlags(t *testing.T) {
+	t.Parallel()
+
+	metadata, err := parseToolMetadata("run_agent_profile", sdkmcp.Meta{
+		toolMetaNamespace: map[string]any{
+			"toolKind":    string(tools.KindDiscoverable),
+			"accessType":  string(tools.AccessTypeStructural),
+			"requiresLLM": true,
+			"startsRun":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse tool metadata: %v", err)
+	}
+	if metadata == nil {
+		t.Fatal("expected runtime policy metadata")
+	}
+	if !metadata.RequiresLLM {
+		t.Fatalf("expected requiresLLM=true, got %#v", metadata)
+	}
+	if !metadata.StartsRun {
+		t.Fatalf("expected startsRun=true, got %#v", metadata)
+	}
+}
+
 func mustMetadata(t *testing.T, toolName string, metadata tools.Metadata) *tools.Metadata {
 	t.Helper()
 	normalized, err := metadata.Normalize(toolName)

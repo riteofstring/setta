@@ -55,6 +55,8 @@ type ToolArgumentPreviewMetadata struct {
 type Metadata struct {
 	Kind                          Kind
 	AccessType                    AccessType
+	RequiresLLM                   bool
+	StartsRun                     bool
 	IDPathsByType                 map[IDType][]string
 	ResultIDPathsByType           map[IDType][]string
 	ToolArgumentPreview           *ToolArgumentPreviewMetadata
@@ -203,6 +205,8 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 	return Metadata{
 		Kind:                          normalizedKind,
 		AccessType:                    normalizedAccessType,
+		RequiresLLM:                   m.RequiresLLM,
+		StartsRun:                     m.StartsRun,
 		IDPathsByType:                 idPathsByType,
 		ResultIDPathsByType:           resultIDPathsByType,
 		ToolArgumentPreview:           toolArgumentPreview,

@@ -177,6 +177,8 @@ func cloneMetadata(metadata Metadata) Metadata {
 	return Metadata{
 		Kind:                          metadata.Kind,
 		AccessType:                    metadata.AccessType,
+		RequiresLLM:                   metadata.RequiresLLM,
+		StartsRun:                     metadata.StartsRun,
 		IDPathsByType:                 clonedPaths,
 		ResultIDPathsByType:           clonedResultPaths,
 		ToolArgumentPreview:           clonedPreview,

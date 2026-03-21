@@ -901,6 +901,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if listAgentProfilesMeta["accessType"] != string(tools.AccessTypeRead) {
 		t.Fatalf("expected read access type for list_agent_profiles, got %#v", listAgentProfilesMeta["accessType"])
 	}
+	if listAgentProfilesMeta["requiresLLM"] != true {
+		t.Fatalf("expected list_agent_profiles requiresLLM metadata, got %#v", listAgentProfilesMeta["requiresLLM"])
+	}
+	if _, ok := listAgentProfilesMeta["startsRun"]; ok {
+		t.Fatalf("expected list_agent_profiles to omit startsRun, got %#v", listAgentProfilesMeta["startsRun"])
+	}
 	if paths, ok := listAgentProfilesMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected list_agent_profiles to have no id target paths, got %#v", paths)
 	}
@@ -908,12 +914,24 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if getAgentProfileMeta["accessType"] != string(tools.AccessTypeRead) {
 		t.Fatalf("expected read access type for get_agent_profile, got %#v", getAgentProfileMeta["accessType"])
 	}
+	if getAgentProfileMeta["requiresLLM"] != true {
+		t.Fatalf("expected get_agent_profile requiresLLM metadata, got %#v", getAgentProfileMeta["requiresLLM"])
+	}
+	if _, ok := getAgentProfileMeta["startsRun"]; ok {
+		t.Fatalf("expected get_agent_profile to omit startsRun, got %#v", getAgentProfileMeta["startsRun"])
+	}
 	if paths, ok := getAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected get_agent_profile to have no id target paths, got %#v", paths)
 	}
 	runAgentProfileMeta := mustStructuredMap(t, runAgentProfileTool.Meta[toolMetaNamespace])
 	if runAgentProfileMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for run_agent_profile, got %#v", runAgentProfileMeta["accessType"])
+	}
+	if runAgentProfileMeta["requiresLLM"] != true {
+		t.Fatalf("expected run_agent_profile requiresLLM metadata, got %#v", runAgentProfileMeta["requiresLLM"])
+	}
+	if runAgentProfileMeta["startsRun"] != true {
+		t.Fatalf("expected run_agent_profile startsRun metadata, got %#v", runAgentProfileMeta["startsRun"])
 	}
 	if paths, ok := runAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected run_agent_profile to have no id target paths, got %#v", paths)
