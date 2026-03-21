@@ -432,6 +432,160 @@ func TestPluginMaterializerTransitionsDirectoryOutputToFileOutput(t *testing.T) 
 	}
 }
 
+func TestPluginMaterializerPrunesOutputRootAfterProjectRename(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	generator := newStubPluginCodegenGenerator()
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-a",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "setta_gen.ts", Content: "export const value = 'first'\n"},
+	}
+
+	materializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new plugin materializer: %v", err)
+	}
+
+	originalDocument := pluginMaterializerTestDocument(
+		pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`),
+	)
+	if err := materializer.MaterializeDocument(context.Background(), originalDocument); err != nil {
+		t.Fatalf("first materialize: %v", err)
+	}
+
+	originalRoot := pluginCodegenOutputRoot(settaFilesRoot, "Alpha")
+	if err := os.WriteFile(filepath.Join(originalRoot, "stale.txt"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write stale file under original root: %v", err)
+	}
+
+	// Project renames should move plugin outputs to the new root and prune the
+	// entire stale previous root instead of leaving behind old generated files.
+	renamedDocument := pluginMaterializerTestDocument(
+		pluginMaterializerTestProject(t, "Beta", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`),
+	)
+	if err := materializer.MaterializeDocument(context.Background(), renamedDocument); err != nil {
+		t.Fatalf("second materialize: %v", err)
+	}
+
+	if _, err := os.Stat(originalRoot); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected renamed project to prune old output root, got %v", err)
+	}
+	renamedOutput := filepath.Join(
+		pluginCodegenOutputRoot(settaFilesRoot, "Beta"),
+		pluginCodegenTargetDirName("stub-plugin:target-a"),
+		"setta_gen.ts",
+	)
+	if _, err := os.Stat(renamedOutput); err != nil {
+		t.Fatalf("expected renamed project output at new root, got %v", err)
+	}
+}
+
+func TestPluginMaterializerPrunesOutputRootAfterProjectDelete(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	generator := newStubPluginCodegenGenerator()
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-a",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "setta_gen.ts", Content: "export const value = 'first'\n"},
+	}
+
+	materializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new plugin materializer: %v", err)
+	}
+
+	document := pluginMaterializerTestDocument(
+		pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`),
+	)
+	if err := materializer.MaterializeDocument(context.Background(), document); err != nil {
+		t.Fatalf("first materialize: %v", err)
+	}
+
+	projectRoot := pluginCodegenOutputRoot(settaFilesRoot, "Alpha")
+	if err := os.WriteFile(filepath.Join(projectRoot, "stale.txt"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write stale file under project root: %v", err)
+	}
+
+	// Removing the project from the document should remove its entire plugin
+	// output root, not just the tracked generated files inside that tree.
+	if err := materializer.MaterializeDocument(context.Background(), projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects:      map[string]projectstate.Project{},
+	}); err != nil {
+		t.Fatalf("materialize after project delete: %v", err)
+	}
+
+	if _, err := os.Stat(projectRoot); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected deleted project to prune plugin output root, got %v", err)
+	}
+}
+
+func TestPluginMaterializerPrunesUnexpectedPluginOutputRoots(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	generator := newStubPluginCodegenGenerator()
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-a",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "setta_gen.ts", Content: "export const value = 'first'\n"},
+	}
+
+	materializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new plugin materializer: %v", err)
+	}
+
+	staleRoot := pluginCodegenOutputRoot(settaFilesRoot, "Removed Project")
+	if err := os.MkdirAll(filepath.Join(staleRoot, "stale-target"), 0o755); err != nil {
+		t.Fatalf("mkdir stale output root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(staleRoot, "stale-target", "setta_gen.ts"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write stale plugin output root: %v", err)
+	}
+
+	document := pluginMaterializerTestDocument(
+		pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`),
+	)
+
+	// Preexisting plugin roots that are no longer owned by any live project
+	// should be pruned during the document-level stale-root cleanup pass.
+	if err := materializer.MaterializeDocument(context.Background(), document); err != nil {
+		t.Fatalf("materialize with stale root present: %v", err)
+	}
+
+	if _, err := os.Stat(staleRoot); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected stale plugin output root to be pruned, got %v", err)
+	}
+	currentOutput := filepath.Join(
+		pluginCodegenOutputRoot(settaFilesRoot, "Alpha"),
+		pluginCodegenTargetDirName("stub-plugin:target-a"),
+		"setta_gen.ts",
+	)
+	if _, err := os.Stat(currentOutput); err != nil {
+		t.Fatalf("expected active plugin output to remain, got %v", err)
+	}
+}
+
 type stubPluginCodegenGenerator struct {
 	resolved  map[string]codegencontracts.PluginTargetResolution
 	generated map[string][]codegencontracts.PluginGeneratedFile
