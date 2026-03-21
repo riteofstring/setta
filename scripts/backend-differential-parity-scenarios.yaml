@@ -127,6 +127,10 @@ scenarios:
     kind: json_source_startup_shared_pair_load
     seed: none
     description: Restarting with two shared JSON-backed sections should hydrate both sections from the backing file while keeping distinct code-object trees per section.
+  - name: json_source_watcher_live_reload
+    kind: json_source_watcher_live_reload
+    seed: none
+    description: Editing a watched JSON source file on disk while the app is open should live-reload matching sections and emit a project-state websocket update.
   - name: json_source_save_canonical_storage_clears_persisted_values
     kind: json_source_save_canonical_storage_clears_persisted_values
     seed: none

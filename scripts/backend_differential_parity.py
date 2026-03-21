@@ -573,6 +573,19 @@ def seed_setta_files(
             {"alpha": {"fresh": 2}},
         )
         return
+    if scenario.kind == "json_source_watcher_live_reload":
+        write_json(
+            setta_files_root / PROJECT_FILE_NAME,
+            build_json_source_startup_shared_pair_load_store_payload(target),
+        )
+        write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+        workspace_data_root = setta_files_root.parent / "data"
+        workspace_data_root.mkdir(parents=True, exist_ok=True)
+        write_json_preserving_order(
+            workspace_data_root / "source.json",
+            {"alpha": {"fresh": 2}},
+        )
+        return
     if scenario.kind == "json_source_save_canonical_storage_clears_persisted_values":
         write_json(
             setta_files_root / PROJECT_FILE_NAME,
@@ -1943,6 +1956,8 @@ def execute_scenario(
         return execute_json_source_key_change_refresh(backend)
     if scenario.kind == "json_source_startup_shared_pair_load":
         return execute_json_source_startup_shared_pair_load(backend)
+    if scenario.kind == "json_source_watcher_live_reload":
+        return execute_json_source_watcher_live_reload(backend)
     if scenario.kind == "json_source_save_canonical_storage_clears_persisted_values":
         return execute_json_source_save_canonical_storage_clears_persisted_values(
             backend
@@ -2181,6 +2196,76 @@ def execute_json_source_startup_shared_pair_load(
             "payload": loaded_payload,
         },
         "persistedProject": persisted_project,
+    }
+
+
+def execute_json_source_watcher_live_reload(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    load_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "Project Alpha"},
+    )
+    loaded_payload = normalize_response_json(load_response)
+    if not isinstance(loaded_payload, dict):
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {loaded_payload!r}"
+        )
+    project_id = find_project_id_by_name(backend, "Project Alpha")
+
+    with websocket_connect(
+        backend.websocket_url,
+        additional_headers={"Cookie": build_cookie_header(backend.session)},
+        origin=backend.frontend_origin,
+        open_timeout=WEBSOCKET_TIMEOUT_SECONDS,
+        proxy=None,
+    ) as conn:
+        initial_messages = read_messages_until_timeout(
+            conn,
+            timeout=2.0,
+            max_messages=4,
+        )
+        write_json_preserving_order(
+            backend.workspace_root / "data" / "source.json",
+            {"alpha": {"fresh": 3}},
+        )
+        update_messages = read_messages_until_timeout(
+            conn,
+            timeout=WEBSOCKET_TIMEOUT_SECONDS,
+            max_messages=8,
+        )
+
+    latest_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    latest_payload = normalize_response_json(latest_response)
+    if not isinstance(latest_payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {latest_payload!r}"
+        )
+
+    summary = summarize_json_source_watcher_live_reload(
+        load_http_status=load_response.status_code,
+        websocket_messages=update_messages,
+        latest_http_status=latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    return summary, {
+        "loadProjectConfig": {
+            "status": load_response.status_code,
+            "payload": loaded_payload,
+        },
+        "initialMessages": initial_messages,
+        "websocketMessages": update_messages,
+        "latestProjectState": {
+            "status": latest_response.status_code,
+            "payload": latest_payload,
+        },
     }
 
 
@@ -4613,6 +4698,53 @@ def summarize_json_source_startup_shared_pair_load(
         ),
         "persistedPeer": summarize_json_source_variant_tree(
             persisted_project,
+            section_impl_id="json-impl-b",
+            old_root_id="old-root-b",
+            old_leaf_id="old-leaf-b",
+        ),
+    }
+
+
+def summarize_json_source_watcher_live_reload(
+    load_http_status: int,
+    websocket_messages: list[dict[str, Any]],
+    latest_http_status: int,
+    latest_payload: dict[str, Any],
+) -> dict[str, Any]:
+    update = find_message(websocket_messages, "UpdateFrontendProjectState")
+    websocket_target = None
+    websocket_peer = None
+    if update is not None:
+        update_content = object_field(update, "content")
+        websocket_project_state = object_field(update_content, "projectState")
+        websocket_target = summarize_json_source_variant_tree(
+            websocket_project_state,
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        )
+        websocket_peer = summarize_json_source_variant_tree(
+            websocket_project_state,
+            section_impl_id="json-impl-b",
+            old_root_id="old-root-b",
+            old_leaf_id="old-leaf-b",
+        )
+
+    latest_project_state = object_field(latest_payload, "projectState")
+    return {
+        "loadProjectConfigStatus": load_http_status,
+        "latestProjectStateStatus": latest_http_status,
+        "websocketUpdateReceived": update is not None,
+        "websocketTarget": websocket_target,
+        "websocketPeer": websocket_peer,
+        "latestTarget": summarize_json_source_variant_tree(
+            latest_project_state,
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        ),
+        "latestPeer": summarize_json_source_variant_tree(
+            latest_project_state,
             section_impl_id="json-impl-b",
             old_root_id="old-root-b",
             old_leaf_id="old-leaf-b",

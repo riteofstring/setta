@@ -2860,6 +2860,151 @@ class Route:
             },
         )
 
+    def test_summarize_json_source_watcher_live_reload(self) -> None:
+        harness = load_harness_module()
+
+        project_state = {
+            "sectionImpls": {
+                "json-impl-a": {
+                    "type": "Dict",
+                    "isJsonSource": True,
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamId": "old-root-a",
+                    "codeObjVariantMap": {
+                        "old-root-a": "old-root-a-variant",
+                        "fresh-a": "fresh-a-variant",
+                    },
+                },
+                "json-impl-b": {
+                    "type": "Dict",
+                    "isJsonSource": True,
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamId": "old-root-b",
+                    "codeObjVariantMap": {
+                        "old-root-b": "old-root-b-variant",
+                        "fresh-b": "fresh-b-variant",
+                    },
+                },
+            },
+            "codeObjs": {
+                "old-root-a": {"name": "alpha", "defaultVariant": "old-root-a-variant"},
+                "old-root-b": {"name": "alpha", "defaultVariant": "old-root-b-variant"},
+                "fresh-a": {"name": "fresh", "defaultVariant": "fresh-a-variant"},
+                "fresh-b": {"name": "fresh", "defaultVariant": "fresh-b-variant"},
+            },
+            "codeObjVariants": {
+                "old-root-a-variant": {"impl": "old-root-a-impl"},
+                "old-root-b-variant": {"impl": "old-root-b-impl"},
+                "fresh-a-variant": {"impl": "fresh-a-impl"},
+                "fresh-b-variant": {"impl": "fresh-b-impl"},
+            },
+            "codeObjImpls": {
+                "old-root-a-impl": {"type": "NestedParam", "children": ["fresh-a"]},
+                "old-root-b-impl": {"type": "NestedParam", "children": ["fresh-b"]},
+                "fresh-a-impl": {"type": "CodeParam", "value": "3"},
+                "fresh-b-impl": {"type": "CodeParam", "value": "3"},
+            },
+        }
+
+        summary = harness.summarize_json_source_watcher_live_reload(
+            load_http_status=200,
+            websocket_messages=[
+                {
+                    "messageType": "UpdateFrontendProjectState",
+                    "content": {"projectState": project_state},
+                }
+            ],
+            latest_http_status=200,
+            latest_payload={"projectState": project_state},
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "loadProjectConfigStatus": 200,
+                "latestProjectStateStatus": 200,
+                "websocketUpdateReceived": True,
+                "websocketTarget": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "3",
+                            }
+                        ],
+                    },
+                },
+                "websocketPeer": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "3",
+                            }
+                        ],
+                    },
+                },
+                "latestTarget": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "3",
+                            }
+                        ],
+                    },
+                },
+                "latestPeer": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "3",
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+
     def test_summarize_json_source_save_restart_round_trip_canonical_storage_failure(
         self,
     ) -> None:
