@@ -502,6 +502,11 @@ Current execution note:
   - more aggressive motion-time Tier 1 preview gating plus an SVG-based substrate helped `settings` modestly
   - but it regressed the canonical `tier1Synthetic` aggregate benchmark
   - keep the earlier narrower preview checkpoint at `HEAD` and treat the stronger variant as an append-only dead end
+- the first pane-aware offscreen-skip iteration was benchmarked and rejected too:
+  - resolving fully offscreen inactive Tier 1 bodies to `skip` during motion helped `settings` modestly
+  - but it regressed the canonical `tier1Synthetic` aggregate benchmark even more clearly
+  - do not keep that visibility-only shortcut at `HEAD`
+  - the next Tier 1 slice should either reduce live body cost directly or change the preview/warm representation in a way that helps both canonical scenes
 
 ## Phase 4: Eliminate Click-Wait Through Warm Activation
 

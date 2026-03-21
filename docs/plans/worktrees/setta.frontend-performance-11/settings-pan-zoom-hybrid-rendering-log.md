@@ -616,3 +616,41 @@ Record:
     - preserve this rerun only as an append-only dead-end record
 - Next action:
   - Revert the uncommitted stronger-preview experiment and continue from the earlier preview baseline.
+
+## 2026-03-20 015
+
+- Item: Benchmark a pane-aware offscreen-skip Tier 1 motion-time iteration and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental changes under test:
+    - keep the earlier narrow Tier 1 preview rollout
+    - additionally resolve fully offscreen inactive Tier 1 canvas bodies to `skip` during viewport motion
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-offscreen-skip-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-offscreen-skip-rerun`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `43` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe"`
+      - result:
+        - no matching diagnostics
+  - Key read versus the immediately previous preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `191.084ms -> 187.483ms`
+      - benchmark `RunTask`:
+        - `4259.584ms -> 4323.789ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `1611.081ms -> 1698.292ms`
+      - benchmark `RunTask`:
+        - `23785.273ms -> 24404.046ms`
+  - Decision:
+    - reject this pane-aware offscreen-skip iteration
+    - keep the earlier narrower preview checkpoint at `HEAD`
+    - preserve this rerun only as an append-only dead-end record
+- Next action:
+  - Revert the uncommitted offscreen-skip experiment and continue from the earlier preview baseline.
