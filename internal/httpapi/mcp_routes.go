@@ -24,6 +24,7 @@ type MCPStatusProvider interface {
 }
 
 type ExternalMCPStatusProvider interface {
+	Disabled() bool
 	ExternalRuntimeStatuses(chatID *string, engineConfigID *string) ([]mcpx.ServerRuntimeStatus, error)
 }
 
@@ -83,7 +84,7 @@ func mcpRuntimeStatusHandler(deps MCPRouteDependencies) http.HandlerFunc {
 }
 
 func externalRuntimeStatuses(request MCPRuntimeStatusRequest, provider ExternalMCPStatusProvider) ([]mcpx.ServerRuntimeStatus, error) {
-	if provider == nil {
+	if provider == nil || provider.Disabled() {
 		return []mcpx.ServerRuntimeStatus{}, nil
 	}
 	return provider.ExternalRuntimeStatuses(request.ChatID, request.EngineConfigID)

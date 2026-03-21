@@ -30,6 +30,33 @@ func (s stubMCPStatusProvider) RuntimeStatuses() []mcpx.ServerRuntimeStatus {
 	return cloned
 }
 
+type testExternalMCPStatusProvider struct {
+	runtime  *externalagents.Runtime
+	disabled bool
+	calls    []struct {
+		chatID         *string
+		engineConfigID *string
+	}
+}
+
+func (p *testExternalMCPStatusProvider) Disabled() bool {
+	return p.disabled
+}
+
+func (p *testExternalMCPStatusProvider) ExternalRuntimeStatuses(chatID *string, engineConfigID *string) ([]mcpx.ServerRuntimeStatus, error) {
+	p.calls = append(p.calls, struct {
+		chatID         *string
+		engineConfigID *string
+	}{
+		chatID:         chatID,
+		engineConfigID: engineConfigID,
+	})
+	if p.runtime == nil {
+		return []mcpx.ServerRuntimeStatus{}, nil
+	}
+	return p.runtime.ExternalRuntimeStatuses(chatID, engineConfigID)
+}
+
 func TestMCPRuntimeStatusRouteReturnsCurrentStatuses(t *testing.T) {
 	t.Parallel()
 
@@ -177,6 +204,7 @@ func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("upsert external runtime status: %v", err)
 	}
+	provider := &testExternalMCPStatusProvider{runtime: runtime}
 
 	handler, err := NewHandler(Dependencies{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -185,7 +213,7 @@ func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
 			if err := RegisterMCPRoutes(r, MCPRouteDependencies{
 				ModePolicy:             modes.NewPolicy(config.ModeIDE),
 				LLMConfigPath:          "/tmp/workspace/setta_files/llm_config.json",
-				ExternalStatusProvider: runtime,
+				ExternalStatusProvider: provider,
 			}); err != nil {
 				panic(err)
 			}
@@ -212,6 +240,57 @@ func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
 	}
 	if payload.ExternalServers[0].ServerID != "setta" || payload.ExternalServers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("unexpected external server status %#v", payload.ExternalServers[0])
+	}
+	if len(provider.calls) != 1 {
+		t.Fatalf("expected one external status provider call, got %#v", provider.calls)
+	}
+	if provider.calls[0].chatID == nil || *provider.calls[0].chatID != "chat-external" {
+		t.Fatalf("expected chat id chat-external, got %#v", provider.calls[0].chatID)
+	}
+	if provider.calls[0].engineConfigID == nil || *provider.calls[0].engineConfigID != "engine-external" {
+		t.Fatalf("expected engineConfigId engine-external, got %#v", provider.calls[0].engineConfigID)
+	}
+}
+
+func TestMCPRuntimeStatusRouteSkipsDisabledExternalProvider(t *testing.T) {
+	t.Parallel()
+
+	provider := &testExternalMCPStatusProvider{disabled: true}
+
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Register: func(r chi.Router) {
+			if err := RegisterMCPRoutes(r, MCPRouteDependencies{
+				ModePolicy:             modes.NewPolicy(config.ModeIDE),
+				LLMConfigPath:          "/tmp/workspace/setta_files/llm_config.json",
+				ExternalStatusProvider: provider,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/mcpServerRuntimeStatus", bytes.NewBufferString(`{"chatId":"chat-disabled","engineConfigId":"engine-disabled"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload MCPRuntimeStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if len(payload.ExternalServers) != 0 {
+		t.Fatalf("expected disabled provider to return no external servers, got %#v", payload.ExternalServers)
+	}
+	if len(provider.calls) != 0 {
+		t.Fatalf("expected disabled provider to skip runtime call, got %#v", provider.calls)
 	}
 }
 

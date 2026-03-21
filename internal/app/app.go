@@ -1647,7 +1647,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				LLMConfigPath:            mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),
 				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
 				Client:                   mcpClient,
-				ExternalStatusProvider:   externalAgentRuntime,
+				ExternalStatusProvider: externalMCPStatusProvider{
+					runtime: externalAgentRuntime,
+					send:    externalAgentSend,
+				},
 			}); err != nil {
 				panic(err)
 			}
