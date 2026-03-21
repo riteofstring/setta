@@ -70,6 +70,41 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	}
 }
 
+func TestCodexExecutorResumesExplicitThreadIDAndPersistsIt(t *testing.T) {
+	// These tests launch nested subprocess fixtures, so keep them serial.
+	fixture := newCodexExecutorFixture(t, "complete")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Resume this Codex thread"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+		AdditionalInputs: map[string]any{
+			"threadId": "thread-explicit-resume",
+		},
+	})
+	if err != nil {
+		t.Fatalf("start codex run with explicit thread id: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	if got := resolveRunOutputString(persisted, "threadId"); got != "thread-explicit-resume" {
+		t.Fatalf("expected persisted explicit thread id, got %q", got)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestBuildCodexPromptOmitsSystemAndDeveloperMessages(t *testing.T) {
 	t.Parallel()
 
