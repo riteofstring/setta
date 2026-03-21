@@ -1221,3 +1221,96 @@ Record:
     - inspect the code-param preview path and the repeated non-CodeMirror row surfaces that still dominate the live `settings` subtree
 - Next action:
   - Narrow the next concrete experiment onto the heavier repeated row family that still dominates `settings`, then benchmark it with the same canonical pair.
+
+## 2026-03-20 026
+
+- Item: Benchmark the text-family plain-preview experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - add an `inactivePreviewMode` seam in:
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - add a `plainText` inactive preview mode in:
+      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - route `CodeParam`, `TextParam`, and `TextAreaParam` through that plain-text inactive preview path from:
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - keep the activated real CodeMirror path unchanged
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `6` files passed
+        - `21` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-text-family-plain-preview-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-text-family-plain-preview-rerun`
+  - CDP structural and visual compare while the experiment was live:
+    - live worktree `settings`:
+      - `[id$="-ParamInput"]` count:
+        - `215`
+      - `[id$="-ParamInput"] .cm-line` count:
+        - `0`
+      - sampled inactive value roots were direct `DIV` nodes with `childCount: 0`
+    - live worktree `benchmark-tier1` after broadening the experiment to the whole text family:
+      - `[id$="-ParamInput"]` count:
+        - `210`
+      - roots with `.cm-line`:
+        - `0`
+      - flat value roots:
+        - `210`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `182.787ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `4171.807ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1056.290ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `23590.827ms`
+  - Decision:
+    - reject this text-family plain-preview experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the code changes and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - after restoring the tracked files from `HEAD` and forcing Vite to invalidate the touched modules:
+      - worktree `settings` returned to:
+        - `[id$="-ParamInput"]` count:
+          - `215`
+        - `[id$="-ParamInput"] .cm-line` count:
+          - `215`
+      - worktree `benchmark-tier1` returned to:
+        - `[id$="-ParamInput"]` count:
+          - `210`
+        - `[id$="-ParamInput"] .cm-line` count:
+          - `294`
+- Next action:
+  - Continue from the retained dense-row baseline and move away from immediate text-family inactive-preview simplification experiments; the next Tier 1 candidate should target a different repeated row/body seam.
+
+## 2026-03-20 027
+
+- Item: Choose the next Tier 1 target after the rejected text-family plain-preview experiment.
+- Status: `in_progress`
+- Details:
+  - Updated read after the rejection:
+    - this broad text/code inactive-preview simplification hit the intended rows directly
+    - but it still regressed both canonical scenes strongly
+    - that makes the immediate `TextInputCodeMirror` / `DummyCodeMirror` inactive-preview lane a poor next bet
+  - Current likely direction:
+    - stay in Phase 5
+    - target repeated row/body ownership or non-preview shared structure instead of another blurred text-family preview simplification
+- Next action:
+  - Turn the next candidate into a row/body-ownership experiment outside the immediate inactive preview lane, then rerun the same canonical benchmark pair.
