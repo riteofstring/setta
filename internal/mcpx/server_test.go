@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -1459,6 +1460,62 @@ func TestServerScopedReadToolsRejectEmptyReadableScope(t *testing.T) {
 		if !ok || !strings.Contains(message, "no readable sections") {
 			t.Fatalf("expected no-readable-sections message for %s, got %#v", toolName, payload["message"])
 		}
+	}
+}
+
+func TestServerScopedReadToolsRequireAgenticContextAndSectionContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	testCases := []struct {
+		name         string
+		request      ToolRequestContext
+		expectedCode string
+	}{
+		{
+			name:         "missing context",
+			request:      ToolRequestContext{},
+			expectedCode: "missing_context",
+		},
+		{
+			name: "missing section id",
+			request: ToolRequestContext{
+				Meta: map[string]any{
+					"projectConfigId": "project-alpha",
+					"chatId":          "chat-1",
+				},
+			},
+			expectedCode: "missing_section_id",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			for _, toolName := range []string{
+				"get_latest_project_state_summary",
+				"get_latest_lsp_diagnostics",
+			} {
+				result, err := server.InvokeTool(context.Background(), toolName, map[string]any{
+					"projectConfigId": "project-alpha",
+				}, testCase.request)
+				if err != nil {
+					t.Fatalf("invoke %s: %v", toolName, err)
+				}
+				if !result.IsError {
+					t.Fatalf("expected %s %s failure, got %#v", toolName, testCase.expectedCode, result.StructuredContent)
+				}
+				payload := mustStructuredMap(t, result.StructuredContent)
+				if payload["code"] != scopeViolationErrorCode {
+					t.Fatalf("expected scope_violation code for %s, got %#v", toolName, payload["code"])
+				}
+				if payload["reason"] != testCase.expectedCode {
+					t.Fatalf("expected %s reason for %s, got %#v", testCase.expectedCode, toolName, payload["reason"])
+				}
+			}
+		})
 	}
 }
 
@@ -6730,6 +6787,170 @@ func TestServerProjectStateSummaryCanUsePerCallMeta(t *testing.T) {
 	assertSummaryPayload(t, result.StructuredContent)
 }
 
+func TestServerSetAgenticContextPersistsSessionScopeForLaterToolCalls(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	requestContext := ToolRequestContext{SessionKey: "session-alpha"}
+	result, err := server.InvokeTool(context.Background(), "set_agentic_context", map[string]any{
+		"projectConfigId":       "project-alpha",
+		"chatId":                "chat-1",
+		"sectionId":             "chat-section",
+		"runId":                 "run-child",
+		"frontendAffinityToken": "frontend-1",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	stored := server.sessionAgenticContext(requestContext.SessionKey)
+	if stored == nil {
+		t.Fatal("expected session agentic context to be stored")
+	}
+	if stored.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected stored projectConfigId project-alpha, got %q", stored.ProjectConfigID)
+	}
+	if stored.ChatID != "chat-1" {
+		t.Fatalf("expected stored chatId chat-1, got %q", stored.ChatID)
+	}
+	if stored.SectionID != "chat-section" {
+		t.Fatalf("expected stored sectionId chat-section, got %q", stored.SectionID)
+	}
+	if stored.RunID != "run-child" {
+		t.Fatalf("expected stored runId run-child, got %q", stored.RunID)
+	}
+	if stored.FrontendAffinityToken != "frontend-1" {
+		t.Fatalf("expected stored frontend affinity frontend-1, got %q", stored.FrontendAffinityToken)
+	}
+
+	summaryResult, err := server.InvokeTool(context.Background(), "get_latest_project_state_summary", map[string]any{
+		"projectConfigId": "project-alpha",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke get_latest_project_state_summary after set_agentic_context: %v", err)
+	}
+	if summaryResult.IsError {
+		t.Fatalf("expected session-scoped project summary success, got %#v", summaryResult.StructuredContent)
+	}
+	assertSummaryPayload(t, summaryResult.StructuredContent)
+}
+
+func TestServerScopedReadToolsCanUseHeaderContextAndTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":            "11",
+		"chat-1":                   "12",
+		"chat-section":             "13",
+		"allowed-section":          "14",
+		"peer-chat-section":        "15",
+		"blocked-section":          "16",
+		"allowed-variant":          "17",
+		"peer-chat-variant":        "18",
+		"blocked-variant":          "19",
+		"allowed-params-section":   "20",
+		"allowed-params-variant":   "21",
+		"edge-context":             "22",
+		"edge-peer":                "23",
+		"allowed-callable-section": "24",
+		"allowed-callable-variant": "25",
+	})
+
+	server, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	headers := http.Header{}
+	headers.Set(AgenticContextProjectConfigIDHeader, "11")
+	headers.Set(AgenticContextChatIDHeader, "12")
+	headers.Set(AgenticContextSectionIDHeader, "13")
+	requestContext := ToolRequestContext{Headers: headers}
+
+	result, err := server.InvokeTool(context.Background(), "get_latest_project_state_summary", map[string]any{
+		"projectConfigId": "11",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke header-scoped temp-id project summary: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected header-scoped temp-id summary success, got %#v", result.StructuredContent)
+	}
+
+	summary := mustStructuredMap(t, result.StructuredContent)
+	projectConfig := mustStructuredMap(t, summary["projectConfig"])
+	if projectConfig["id"] != "11" {
+		t.Fatalf("expected translated project id 11, got %#v", projectConfig["id"])
+	}
+	sectionVariantMap := mustStructuredMap(t, projectConfig["sectionVariantMap"])
+	if _, ok := sectionVariantMap["14"]; !ok {
+		t.Fatalf("expected translated allowed-section key 14, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["15"]; !ok {
+		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["20"]; !ok {
+		t.Fatalf("expected translated allowed-params-section key 20, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["24"]; !ok {
+		t.Fatalf("expected translated allowed-callable-section key 24, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["16"]; ok {
+		t.Fatalf("did not expect blocked-section key 16 in scoped summary, got %#v", sectionVariantMap)
+	}
+
+	sections := mustStructuredList(t, summary["sections"])
+	sectionIDs := make([]string, 0, len(sections))
+	for _, rawSection := range sections {
+		section := mustStructuredMap(t, rawSection)
+		sectionID, ok := section["sectionId"].(string)
+		if !ok {
+			t.Fatalf("expected translated sectionId string, got %#v", section["sectionId"])
+		}
+		sectionIDs = append(sectionIDs, sectionID)
+	}
+	sort.Strings(sectionIDs)
+	if len(sectionIDs) != 4 || sectionIDs[0] != "14" || sectionIDs[1] != "15" || sectionIDs[2] != "20" || sectionIDs[3] != "24" {
+		t.Fatalf("unexpected translated section ids %#v", sectionIDs)
+	}
+
+	diagnosticsResult, err := server.InvokeTool(context.Background(), "get_latest_lsp_diagnostics", map[string]any{
+		"projectConfigId": "11",
+	}, requestContext)
+	if err != nil {
+		t.Fatalf("invoke header-scoped temp-id lsp diagnostics: %v", err)
+	}
+	if diagnosticsResult.IsError {
+		t.Fatalf("expected header-scoped temp-id diagnostics success, got %#v", diagnosticsResult.StructuredContent)
+	}
+	diagnosticsPayload := mustStructuredMap(t, diagnosticsResult.StructuredContent)
+	codeSections := mustStructuredMap(t, diagnosticsPayload["codeSections"])
+	if _, ok := codeSections["14"]; !ok {
+		t.Fatalf("expected translated allowed-section diagnostics key 14, got %#v", codeSections)
+	}
+	if _, ok := codeSections["15"]; ok {
+		t.Fatalf("did not expect peer-chat-section diagnostics key 15, got %#v", codeSections)
+	}
+	genCode := mustStructuredMap(t, diagnosticsPayload["genCode"])
+	genErrors := mustStructuredMap(t, genCode["errors"])
+	if _, ok := genErrors["14"]; !ok {
+		t.Fatalf("expected translated allowed-section gen diagnostics key 14, got %#v", genErrors)
+	}
+	if unmapped := mustStructuredList(t, diagnosticsPayload["unmappedGenCode"]); len(unmapped) != 0 {
+		t.Fatalf("expected scoped diagnostics to drop unmapped gen code, got %#v", unmapped)
+	}
+}
+
 func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	t.Parallel()
 
@@ -9649,6 +9870,46 @@ func TestServerReportCompletionStatusBuildsStructuredReportAndRejectsInvalidChec
 	}
 	if invalidPayload["message"] != "checkResults[0].checkName must be non-empty" {
 		t.Fatalf("unexpected invalid message %#v", invalidPayload["message"])
+	}
+}
+
+func TestServerReportCompletionStatusCanUsePerCallMeta(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := server.InvokeTool(context.Background(), "report_completion_status", map[string]any{
+		"taskId":               " task-a ",
+		"completionIntent":     true,
+		"requiresVerification": true,
+		"checkResults": []any{
+			map[string]any{
+				"checkName": "pytest",
+				"status":    "passed",
+			},
+		},
+	}, ToolRequestContext{
+		Meta: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke report_completion_status with per-call meta: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected report_completion_status success via per-call meta, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["taskId"] != "task-a" {
+		t.Fatalf("expected trimmed taskId, got %#v", payload["taskId"])
+	}
+	if payload["verificationStatus"] != string(verificationStatusPassed) {
+		t.Fatalf("expected verificationStatus passed, got %#v", payload["verificationStatus"])
 	}
 }
 
