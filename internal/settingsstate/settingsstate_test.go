@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/projectstate"
 )
@@ -644,5 +645,77 @@ func TestRuntimeMutateAndSaveBumpsRevisionOnlyOnChange(t *testing.T) {
 	}
 	if after.Revision != before.Revision+1 {
 		t.Fatalf("expected revision %d after change, got %d", before.Revision+1, after.Revision)
+	}
+}
+
+func TestRuntimeSaveWaitsForPendingMutation(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewStore(filepath.Join(t.TempDir(), DefaultFileName), StoreOptions{})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+	runtime, err := OpenRuntime(context.Background(), store)
+	if err != nil {
+		t.Fatalf("OpenRuntime returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("Close returned error: %v", err)
+		}
+	})
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	go func() {
+		_, _ = runtime.Mutate(func(document Document) (Document, error) {
+			close(started)
+			<-release
+			document["backend"].(map[string]any)["renameRefactorMode"] = "NEVER_RENAME"
+			return document, nil
+		})
+	}()
+
+	<-started
+
+	done := make(chan Snapshot, 1)
+	errs := make(chan error, 1)
+	go func() {
+		snapshot, saveErr := runtime.Save(context.Background())
+		if saveErr != nil {
+			errs <- saveErr
+			return
+		}
+		done <- snapshot
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("expected save to wait for the pending mutation")
+	case saveErr := <-errs:
+		t.Fatalf("save failed early: %v", saveErr)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+
+	var snapshot Snapshot
+	select {
+	case saveErr := <-errs:
+		t.Fatalf("save failed: %v", saveErr)
+	case snapshot = <-done:
+	}
+
+	if got := snapshot.Document["backend"].(map[string]any)["renameRefactorMode"]; got != "NEVER_RENAME" {
+		t.Fatalf("expected saved snapshot renameRefactorMode NEVER_RENAME, got %#v", got)
+	}
+
+	loaded, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if got := loaded["backend"].(map[string]any)["renameRefactorMode"]; got != "NEVER_RENAME" {
+		t.Fatalf("expected persisted renameRefactorMode NEVER_RENAME, got %#v", got)
 	}
 }
