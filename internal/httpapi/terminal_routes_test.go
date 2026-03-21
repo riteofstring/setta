@@ -1069,6 +1069,81 @@ func TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry(t *te
 	}
 }
 
+func TestRegisterTerminalRoutesGeneratedEntryDoesNotReuseAttachedTerminal(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	_, attachedTerminalID, err := runFixture.runtime.EnsureCodeSectionAttachedTerminal(
+		"project-alpha",
+		"code-section",
+		projectstate.TerminalSectionSeed{
+			SectionID: "attached-terminal",
+			VariantID: "attached-terminal-variant",
+			ImplID:    "attached-terminal-impl",
+			Name:      "Terminal",
+		},
+	)
+	if err != nil {
+		t.Fatalf("ensure attached terminal: %v", err)
+	}
+
+	attachedTerminalSessionID := terminals.BuildTerminalID(attachedTerminalID, "")
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:         attachedTerminalSessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveHTTPTestBashCommand(t),
+	})
+
+	attachedAttachment := attachHTTPTestTerminal(t, terminalService, attachedTerminalSessionID)
+	prepareHTTPInterruptShell(t, terminalService, attachedTerminalSessionID, attachedAttachment)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","runSnapshotMode":"never"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if project.HasTopLevelSection(attachedTerminalID) {
+		t.Fatalf("did not expect attached terminal %q to become top-level", attachedTerminalID)
+	}
+	if _, _, _, err := project.ResolveSection("terminal-seed-1"); err != nil {
+		t.Fatalf("expected generated-entry run to allocate a new top-level terminal instead of reusing attached terminal %q: %v", attachedTerminalID, err)
+	}
+	if !project.HasTopLevelSection("terminal-seed-1") {
+		t.Fatal("expected generated-entry run fallback terminal to be top-level")
+	}
+
+	fallbackAttachment := attachHTTPTestTerminal(t, terminalService, terminals.BuildTerminalID("terminal-seed-1", ""))
+	output := waitForHTTPTestOutputContains(t, fallbackAttachment, "ROUTE_GENERATED_OK")
+	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
+		t.Fatalf("expected generated entry output in fallback top-level terminal, got %q", output)
+	}
+}
+
 func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 	t.Parallel()
 
