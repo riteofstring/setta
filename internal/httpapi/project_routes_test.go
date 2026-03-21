@@ -1448,6 +1448,92 @@ func TestRegisterProjectRoutesSetVariantJSONSourceKeysRefreshesLiveTreeWithoutPe
 	}
 }
 
+func TestRegisterProjectRoutesSetVariantJSONSourceKeysReassignsLiveRootWhenCurrentRootIsLeaf(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"beta\":{\"second\":2,\"first\":[1,true]}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	storePath := filepath.Join(t.TempDir(), "project.json")
+	store, err := projectstate.NewStore(storePath, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(context.Background(), jsonSourceLeafRootRouteTestDocument(t)); err != nil {
+		t.Fatalf("save initial project document: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	if err != nil {
+		t.Fatalf("open persisted runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close persisted runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetVariantJSONSourceKeys,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","jsonSourceKeys":["beta"],"frontendOpId":"frontend-op-json-source-root-reassign"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := project.EffectiveSectionPayload("json-section", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective payload after live json-source root reassignment: %v", err)
+	}
+	topLevelParamID := projectstatePayloadString(payload, "topLevelParamId")
+	if topLevelParamID == "old-leaf" {
+		t.Fatalf("expected live refresh to replace leaf root old-leaf, got %q", topLevelParamID)
+	}
+	codeObjVariantMap := projectstatePayloadStringMap(payload, "codeObjVariantMap")
+	if _, ok := codeObjVariantMap["old-leaf"]; ok {
+		t.Fatalf("expected old leaf root to be pruned from live map, got %#v", codeObjVariantMap)
+	}
+	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, topLevelParamID)
+	if err != nil {
+		t.Fatalf("effective reassigned root payload after refresh: %v", err)
+	}
+	childIDs := projectstatePayloadStringArray(rootPayload, "children")
+	if len(childIDs) != 2 {
+		t.Fatalf("expected reassigned root children [second first], got %#v", childIDs)
+	}
+	secondPayload, secondCodeObj, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, childIDs[0])
+	if err != nil {
+		t.Fatalf("effective second payload after root reassignment: %v", err)
+	}
+	if secondCodeObj.Name != "second" {
+		t.Fatalf("expected first child to be named second, got %q", secondCodeObj.Name)
+	}
+	if got := projectstatePayloadString(secondPayload, "value"); got != "2" {
+		t.Fatalf("expected second child value 2, got %q", got)
+	}
+	firstPayload, firstCodeObj, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, childIDs[1])
+	if err != nil {
+		t.Fatalf("effective first payload after root reassignment: %v", err)
+	}
+	if firstCodeObj.Name != "first" {
+		t.Fatalf("expected second child to be named first, got %q", firstCodeObj.Name)
+	}
+	if got := projectstatePayloadString(firstPayload, "value"); got != "[1,true]" {
+		t.Fatalf("expected first child value [1,true], got %q", got)
+	}
+}
+
 func TestRegisterProjectRoutesSectionVariantMutationsUseDeploymentOverlayWhenVariantChangesAllowed(t *testing.T) {
 	t.Parallel()
 
@@ -13763,6 +13849,37 @@ func jsonSourceLiveRefreshRouteTestDocument(t *testing.T) projectstate.Document 
 			project.ID: project,
 		},
 	}
+}
+
+func jsonSourceLeafRootRouteTestDocument(t *testing.T) projectstate.Document {
+	t.Helper()
+
+	document := jsonSourceLiveRefreshRouteTestDocument(t)
+	project := document.Projects["project-alpha"]
+
+	leafRoot := project.CodeObjs["old-leaf"]
+	leafRoot.Name = "alpha"
+	project.CodeObjs["old-leaf"] = leafRoot
+	delete(project.CodeObjs, "old-root")
+	delete(project.CodeObjVariants, "old-root-variant")
+	delete(project.CodeObjImpls, "old-root-impl")
+	project.SectionImpls["json-impl-a"] = projectstate.SectionImpl{
+		ID:   "json-impl-a",
+		Kind: projectstate.SectionKind("dict"),
+		Payload: mustProjectRouteRawJSON(t, map[string]any{
+			"id":              "json-impl-a",
+			"type":            "Dict",
+			"isJsonSource":    true,
+			"configLanguage":  "json",
+			"jsonSourceKeys":  []string{"alpha"},
+			"topLevelParamId": "old-leaf",
+			"codeObjVariantMap": map[string]any{
+				"old-leaf": "old-leaf-variant",
+			},
+		}),
+	}
+	document.Projects["project-alpha"] = project
+	return document
 }
 
 func projectstatePayloadString(payload map[string]any, key string) string {
