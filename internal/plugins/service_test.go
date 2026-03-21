@@ -418,6 +418,55 @@ func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	}
 }
 
+// Scoped lifecycle mutations should still target the requested shadowed entry without disturbing the active higher-precedence copy.
+func TestServiceScopedLinkAndUninstallWorkForShadowedEntries(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	sourceRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "frontend")
+
+	if _, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+		Force:           true,
+	}); err != nil {
+		t.Fatalf("link workspace plugin: %v", err)
+	}
+
+	shadowedResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Scope:           scopePointer(PluginScopeSettaFiles),
+		Enable:          true,
+		Force:           true,
+	})
+	if err != nil {
+		t.Fatalf("link setta_files plugin: %v", err)
+	}
+	if shadowedResult.SourceScope != PluginScopeSettaFiles || shadowedResult.State != PluginRuntimeStateShadowed {
+		t.Fatalf("expected setta_files link result to be shadowed, got %#v", shadowedResult)
+	}
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-frontend",
+		Scope:    scopePointer(PluginScopeSettaFiles),
+	})
+	if err != nil {
+		t.Fatalf("uninstall shadowed setta_files plugin: %v", err)
+	}
+	if uninstallResult.PluginID != "setta-fixture-frontend" || uninstallResult.RemovedFromScope != PluginScopeSettaFiles {
+		t.Fatalf("unexpected uninstall result %#v", uninstallResult)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status after shadowed uninstall: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
+	if entry.SourceScope != PluginScopeWorkspace || entry.ShadowedBySourcePath != nil {
+		t.Fatalf("expected workspace entry to remain active and unshadowed, got %#v", entry)
+	}
+}
+
 // Existing-target installs should fail closed before metadata is written.
 func TestServiceInstallRejectsExistingTargetWithoutForce(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -510,6 +559,64 @@ func TestServiceUpdateWithExplicitTargetPersistsSourceMetadata(t *testing.T) {
 	}
 	if metadataEntry.CanonicalSourceKey != "pypi:setta_fixture_frontend" {
 		t.Fatalf("unexpected stored canonical source key %q", metadataEntry.CanonicalSourceKey)
+	}
+}
+
+// Updating a disabled plugin should keep it disabled rather than opportunistically re-enabling it.
+func TestServiceUpdatePreservesDisabledState(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+		"pypi:setta-fixture-frontend==0.2.0": {
+			FixtureName: "frontend",
+			Version:     "0.2.0",
+		},
+	}), config.ModeIDE)
+
+	if _, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+	if _, err := service.Disable(context.Background(), EnableDisableOptions{
+		PluginID: "setta-fixture-frontend",
+	}); err != nil {
+		t.Fatalf("disable plugin: %v", err)
+	}
+
+	updateResult, err := service.Update(context.Background(), UpdateOptions{
+		PluginID: "setta-fixture-frontend",
+		To:       "0.2.0",
+	})
+	if err != nil {
+		t.Fatalf("update disabled plugin: %v", err)
+	}
+	if updateResult.FromVersion != "0.1.0" || updateResult.ToVersion != "0.2.0" || updateResult.RestartRequired {
+		t.Fatalf("unexpected update result %#v", updateResult)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status after update: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-frontend", PluginRuntimeStateDisabled)
+	if entry.Version != "0.2.0" || entry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected disabled workspace entry at 0.2.0, got %#v", entry)
+	}
+
+	metadataEntry, ok, err := service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("load install metadata after update: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected updated install metadata")
+	}
+	if metadataEntry.Version != "0.2.0" {
+		t.Fatalf("expected metadata version 0.2.0, got %#v", metadataEntry)
 	}
 }
 

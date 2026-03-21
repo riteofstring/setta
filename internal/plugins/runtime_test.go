@@ -792,6 +792,63 @@ func TestServiceRuntimeReportsBackendRegistrationsFromProbe(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeShadowedEntriesDoNotReportPrimaryBackendRegistrations(t *testing.T) {
+	// Shadowed entries should keep their own empty registration slices instead of inheriting the active plugin's backend metadata.
+	roots := newFilesystemResolverTestRoots(t)
+	workspaceRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	settaFilesRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "backend")
+	for _, pluginRoot := range []string{workspaceRoot, settaFilesRoot} {
+		rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+			payload["capabilities"] = []string{
+				"registerCodegenTarget",
+				"registerRouter",
+				"registerStaticDir",
+				"registerListenerEndpoint",
+			}
+		})
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	entries := make([]StatusEntry, 0, 2)
+	for _, entry := range runtimeResponse.Status.Plugins {
+		if entry.PluginID == "setta-fixture-backend" {
+			entries = append(entries, entry)
+		}
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected two backend status entries, got %#v", entries)
+	}
+
+	activeEntry := mustFindStatusEntry(t, entries, "setta-fixture-backend", PluginRuntimeStateActive)
+	if activeEntry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected workspace entry to stay active, got %#v", activeEntry.SourceScope)
+	}
+	if len(activeEntry.RegisteredCodegenTargets) != 1 ||
+		len(activeEntry.RegisteredBackendRoutes) != 2 ||
+		len(activeEntry.RegisteredStaticDirs) != 1 ||
+		len(activeEntry.RegisteredListenerEndpoints) != 1 {
+		t.Fatalf("expected active entry registrations to stay populated, got %#v", activeEntry)
+	}
+
+	shadowedEntry := mustFindStatusEntry(t, entries, "setta-fixture-backend", PluginRuntimeStateShadowed)
+	if shadowedEntry.SourceScope != PluginScopeSettaFiles || shadowedEntry.ShadowedBySourcePath == nil || *shadowedEntry.ShadowedBySourcePath != activeEntry.SourcePath {
+		t.Fatalf("expected setta_files entry to be shadowed by workspace path, got %#v", shadowedEntry)
+	}
+	if len(shadowedEntry.RegisteredCodegenTargets) != 0 ||
+		len(shadowedEntry.RegisteredBackendRoutes) != 0 ||
+		len(shadowedEntry.RegisteredStaticDirs) != 0 ||
+		len(shadowedEntry.RegisteredListenerEndpoints) != 0 {
+		t.Fatalf("expected shadowed entry registrations to stay empty, got %#v", shadowedEntry)
+	}
+}
+
 func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing.T) {
 	// Backend runtime refresh after uninstall should clear the live registration surface.
 	preparePluginLanguageServerFixture(t)

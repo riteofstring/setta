@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -364,5 +365,44 @@ func TestStoreCreateHistorySnapshotCopiesInstalledPluginTree(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(historyEntry.SnapshotPath, "backend", "main.go")); err != nil {
 		t.Fatalf("expected snapshot backend entrypoint copy: %v", err)
+	}
+}
+
+// History snapshots should include a random suffix so repeated backups do not collide under the same plugin history root.
+func TestStoreCreateHistorySnapshotUsesUniqueSuffixes(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	firstEntry, err := store.CreateHistorySnapshot("setta-fixture-backend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("create first history snapshot: %v", err)
+	}
+	secondEntry, err := store.CreateHistorySnapshot("setta-fixture-backend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("create second history snapshot: %v", err)
+	}
+
+	if firstEntry.SnapshotPath == secondEntry.SnapshotPath {
+		t.Fatalf("expected distinct snapshot paths, got %q", firstEntry.SnapshotPath)
+	}
+
+	historyRoot := filepath.Join(store.HistoryRoot(), "workspace", "setta-fixture-backend")
+	pattern := regexp.MustCompile(`^\d{8}T\d{6}\.\d{9}Z-[0-9a-f]{8}$`)
+	for _, snapshotPath := range []string{firstEntry.SnapshotPath, secondEntry.SnapshotPath} {
+		if !strings.HasPrefix(snapshotPath, historyRoot) {
+			t.Fatalf("expected snapshot path under %q, got %q", historyRoot, snapshotPath)
+		}
+		if !pattern.MatchString(filepath.Base(snapshotPath)) {
+			t.Fatalf("expected collision-resistant snapshot suffix in %q", snapshotPath)
+		}
 	}
 }

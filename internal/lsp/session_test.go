@@ -79,6 +79,27 @@ func TestSessionFixtureServerDiagnosticsAndCompletion(t *testing.T) {
 	}
 }
 
+func TestSessionStartFailsWhenCommandMissing(t *testing.T) {
+	t.Parallel()
+
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot: t.TempDir(),
+		Command:       "setta-missing-language-server-bin",
+		Args:          []string{"--stdio"},
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	err = session.Start(context.Background())
+	if err == nil {
+		t.Fatal("expected missing command to fail on session start")
+	}
+	if !strings.Contains(err.Error(), "start process") {
+		t.Fatalf("expected start-process error, got %v", err)
+	}
+}
+
 // Signature-help requests share the same stdio/session boundary as completion,
 // so the fixture server should prove that we frame and decode the request.
 func TestSessionFixtureServerSignatureHelp(t *testing.T) {
