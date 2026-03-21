@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -304,6 +305,51 @@ func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
 	}
 	if stringValue(permission["shell"]) != "ask" || stringValue(permission["edit"]) != "deny" {
 		t.Fatalf("expected parsed JSON permission payload, got %#v", permission)
+	}
+}
+
+func TestResolveBundledNodeCommandPrefersExplicitPath(t *testing.T) {
+	if got := resolveBundledNodeCommand("  /custom/node  "); got != "/custom/node" {
+		t.Fatalf("expected explicit node path to win, got %q", got)
+	}
+}
+
+func TestResolveBundledNodeCommandUsesBundledNodeWhenPresent(t *testing.T) {
+	platformTag := resolveNodePlatformTag(runtime.GOOS, runtime.GOARCH)
+	if platformTag == "" {
+		t.Skipf("unsupported platform %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve current file path")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
+	binaryName := "node"
+	if runtime.GOOS == "windows" {
+		binaryName = "node.exe"
+	}
+	expected := filepath.Join(repoRoot, "backend", "setta", "vendor", "node", platformTag, binaryName)
+
+	if _, err := os.Stat(expected); err != nil {
+		if !os.IsNotExist(err) {
+			t.Fatalf("stat bundled node candidate: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Dir(expected), 0o755); err != nil {
+			t.Fatalf("mkdir bundled node dir: %v", err)
+		}
+		if err := os.WriteFile(expected, []byte("stub"), 0o755); err != nil {
+			t.Fatalf("write bundled node fixture: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := os.Remove(expected); err != nil && !os.IsNotExist(err) {
+				t.Fatalf("remove bundled node fixture: %v", err)
+			}
+		})
+	}
+
+	if got := resolveBundledNodeCommand(""); got != expected {
+		t.Fatalf("expected bundled node %q, got %q", expected, got)
 	}
 }
 
