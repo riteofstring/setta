@@ -70,6 +70,353 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	}
 }
 
+func TestBuildCodexPromptOmitsSystemAndDeveloperMessages(t *testing.T) {
+	t.Parallel()
+
+	prompt := buildCodexPrompt(map[string]any{
+		"messages": []any{
+			map[string]any{
+				"role":    "system",
+				"content": []any{map[string]any{"type": "text", "text": "System message"}},
+			},
+			map[string]any{
+				"role":    "user",
+				"content": []any{map[string]any{"type": "text", "text": "User request"}},
+			},
+			map[string]any{
+				"role":    "assistant",
+				"content": []any{map[string]any{"type": "text", "text": "Assistant reply"}},
+			},
+			map[string]any{
+				"role":    "developer",
+				"content": []any{map[string]any{"type": "text", "text": "Developer note"}},
+			},
+		},
+		"prompt": "Extra prompt.",
+	})
+
+	if !containsText(prompt, "User:\nUser request") {
+		t.Fatalf("expected user text in prompt, got %q", prompt)
+	}
+	if !containsText(prompt, "Assistant:\nAssistant reply") {
+		t.Fatalf("expected assistant text in prompt, got %q", prompt)
+	}
+	if !containsText(prompt, "Extra prompt.") {
+		t.Fatalf("expected extra prompt text in prompt, got %q", prompt)
+	}
+	if containsText(prompt, "System message") || containsText(prompt, "Developer note") || containsText(prompt, "System:\n") {
+		t.Fatalf("expected system/developer messages to be omitted, got %q", prompt)
+	}
+}
+
+func TestBuildCodexTurnParamsMapsPoliciesSandboxAndStructuredOutput(t *testing.T) {
+	t.Parallel()
+
+	request := StartRequest{
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType:       externalagentconfigs.ToolTypeCodex,
+			RunMode:        externalagentconfigs.RunModeAppServer,
+			DefaultModel:   stringPtr("gpt-5-codex"),
+			ApprovalPolicy: stringPtr("on-request"),
+			SandboxPolicy:  stringPtr("workspace-write"),
+		},
+		Inputs: map[string]any{
+			"effort":  "low",
+			"summary": "auto",
+			"outputSchema": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{"type": "string"},
+				},
+				"required": []any{"status"},
+			},
+		},
+	}
+
+	params, err := buildCodexTurnParams(request, "hello", "thread-1", "workspace")
+	if err != nil {
+		t.Fatalf("build codex turn params: %v", err)
+	}
+
+	if got := stringValue(params["approvalPolicy"]); got != "on-request" {
+		t.Fatalf("expected approvalPolicy on-request, got %#v", params["approvalPolicy"])
+	}
+	sandboxPolicy, ok := mapValue(params["sandboxPolicy"])
+	if !ok || stringValue(sandboxPolicy["type"]) != "workspaceWrite" {
+		t.Fatalf("expected workspaceWrite sandbox policy, got %#v", params["sandboxPolicy"])
+	}
+	if got := stringValue(params["effort"]); got != "low" {
+		t.Fatalf("expected effort low, got %#v", params["effort"])
+	}
+	if got := stringValue(params["summary"]); got != "auto" {
+		t.Fatalf("expected summary auto, got %#v", params["summary"])
+	}
+	if got := stringValue(params["cwd"]); got != "workspace" {
+		t.Fatalf("expected cwd workspace, got %#v", params["cwd"])
+	}
+	outputSchema, ok := mapValue(params["outputSchema"])
+	if !ok || stringValue(outputSchema["type"]) != "object" {
+		t.Fatalf("expected object output schema, got %#v", params["outputSchema"])
+	}
+	properties, ok := mapValue(outputSchema["properties"])
+	if !ok {
+		t.Fatalf("expected output schema properties, got %#v", outputSchema)
+	}
+	statusProperty, ok := mapValue(properties["status"])
+	if !ok || stringValue(statusProperty["type"]) != "string" {
+		t.Fatalf("expected status property type string, got %#v", properties["status"])
+	}
+}
+
+func TestMapCodexApprovalPolicyNormalizesSourceAliases(t *testing.T) {
+	t.Parallel()
+
+	if got := mapCodexApprovalPolicy("untrusted", ""); got != "untrusted" {
+		t.Fatalf("expected untrusted approval policy, got %q", got)
+	}
+	if got := mapCodexApprovalPolicy("on-failure", ""); got != "on-failure" {
+		t.Fatalf("expected on-failure approval policy, got %q", got)
+	}
+}
+
+func TestBuildCodexTurnParamsRejectsNonObjectOutputSchema(t *testing.T) {
+	t.Parallel()
+
+	_, err := buildCodexTurnParams(StartRequest{
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType: externalagentconfigs.ToolTypeCodex,
+			RunMode:  externalagentconfigs.RunModeAppServer,
+		},
+		Inputs: map[string]any{
+			"outputSchema": []any{"bad"},
+		},
+	}, "hello", "thread-1", ".")
+	if err == nil {
+		t.Fatal("expected non-object outputSchema to fail")
+	}
+}
+
+func TestBuildCodexApprovalStateIncludesCommandAndFileChangePayloads(t *testing.T) {
+	t.Parallel()
+
+	request := StartRequest{
+		Run:             agentruns.Run{ID: "run-1"},
+		ProjectConfigID: "project-1",
+		ChatID:          "chat-1",
+	}
+	testCases := []struct {
+		name        string
+		payload     map[string]any
+		wantID      string
+		wantCommand string
+		wantDiff    string
+	}{
+		{
+			name: "command execution",
+			payload: map[string]any{
+				"id":     42,
+				"method": "item/commandExecution/requestApproval",
+				"params": map[string]any{
+					"item": map[string]any{
+						"type":    "commandExecution",
+						"command": "rm -rf /tmp/example-dir",
+						"parsedCmd": map[string]any{
+							"cmd":  "rm",
+							"args": []any{"-rf", "/tmp/example-dir"},
+						},
+					},
+				},
+			},
+			wantID:      "42",
+			wantCommand: "rm -rf /tmp/example-dir",
+		},
+		{
+			name: "file change",
+			payload: map[string]any{
+				"id":     7,
+				"method": "item/fileChange/requestApproval",
+				"params": map[string]any{
+					"item": map[string]any{
+						"type": "fileChange",
+						"path": "/tmp/file.txt",
+						"diff": "---\n+++",
+					},
+				},
+			},
+			wantID:   "7",
+			wantDiff: "---\n+++",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			approvalState, arguments, err := buildCodexApprovalState(request, testCase.payload)
+			if err != nil {
+				t.Fatalf("build codex approval state: %v", err)
+			}
+			if approvalState.ApprovalID != testCase.wantID || approvalState.RunID != "run-1" || approvalState.ProjectConfigID != "project-1" || approvalState.ChatID != "chat-1" {
+				t.Fatalf("unexpected approval state %#v", approvalState)
+			}
+			if got := stringValue(arguments["approvalId"]); got != testCase.wantID {
+				t.Fatalf("expected approvalId %q, got %#v", testCase.wantID, arguments["approvalId"])
+			}
+			if got := stringValue(arguments["command"]); got != testCase.wantCommand {
+				t.Fatalf("expected command %q, got %#v", testCase.wantCommand, arguments["command"])
+			}
+			if got := stringValue(arguments["diff"]); got != testCase.wantDiff {
+				t.Fatalf("expected diff %q, got %#v", testCase.wantDiff, arguments["diff"])
+			}
+			inputPayload, ok := mapValue(arguments["input"])
+			if !ok {
+				t.Fatalf("expected approval input payload, got %#v", arguments["input"])
+			}
+			if testCase.wantDiff != "" && stringValue(inputPayload["diff"]) != testCase.wantDiff {
+				t.Fatalf("expected diff inside input payload, got %#v", inputPayload)
+			}
+			if testCase.wantCommand != "" && stringValue(inputPayload["command"]) != testCase.wantCommand {
+				t.Fatalf("expected command inside input payload, got %#v", inputPayload)
+			}
+		})
+	}
+}
+
+func TestCodexExecutorPersistsUsageWithContextWindow(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "usage_direct")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Reply with exactly HELLO."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start usage codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	usage, ok := persisted.Outputs["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted usage payload, got %#v", persisted.Outputs["usage"])
+	}
+	if int(floatValueForTest(usage["inputTokens"])) != 11 || int(floatValueForTest(usage["outputTokens"])) != 2 || int(floatValueForTest(usage["totalTokens"])) != 13 {
+		t.Fatalf("unexpected prompt/completion usage %#v", usage)
+	}
+	if int(floatValueForTest(usage["contextUsedTokens"])) != 11 || int(floatValueForTest(usage["contextWindowTokens"])) != 272000 {
+		t.Fatalf("unexpected context usage %#v", usage)
+	}
+	contextUsage := resolveContextUsage(persisted)
+	if contextUsage == nil || contextUsage.ContextWindowTokens == nil || *contextUsage.ContextWindowTokens != 272000 || contextUsage.ContextUsedTokens == nil || *contextUsage.ContextUsedTokens != 11 {
+		t.Fatalf("unexpected resolved context usage %#v", contextUsage)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorReadsUsageFromThreadReadFallback(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "usage_fallback")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Reply with exactly HELLO."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start fallback codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	usage, ok := persisted.Outputs["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted fallback usage payload, got %#v", persisted.Outputs["usage"])
+	}
+	if int(floatValueForTest(usage["inputTokens"])) != 69941 || int(floatValueForTest(usage["outputTokens"])) != 1455 {
+		t.Fatalf("unexpected fallback usage totals %#v", usage)
+	}
+	if int(floatValueForTest(usage["contextUsedTokens"])) != 24766 || int(floatValueForTest(usage["contextWindowTokens"])) != 258400 {
+		t.Fatalf("unexpected fallback context usage %#v", usage)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorSkipsUsageWhenThreadTokenUsageReadTimesOut(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "usage_slow")
+	startedAt := time.Now()
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Reply with exactly HELLO."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start slow usage codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if elapsed := time.Since(startedAt); elapsed >= 3500*time.Millisecond {
+		t.Fatalf("expected usage timeout to stay short, run took %s", elapsed)
+	}
+	if _, ok := persisted.Outputs["usage"]; ok {
+		t.Fatalf("expected timed-out usage probe to be omitted, got %#v", persisted.Outputs["usage"])
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorIgnoresSlowMCPStatusProbeAndCompletesRun(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "slow_status")
+	startedAt := time.Now()
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start slow status codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if elapsed := time.Since(startedAt); elapsed >= 3500*time.Millisecond {
+		t.Fatalf("expected MCP status probe timeout to stay short, run took %s", elapsed)
+	}
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	if _, ok := persisted.Outputs[externalMCPStatusSnapshotKey]; ok {
+		t.Fatalf("expected slow MCP status probe to be skipped, got %#v", persisted.Outputs[externalMCPStatusSnapshotKey])
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "complete")
 	writeCodexCompletionGuardSetting(t, fixture.root, true)
@@ -1524,6 +1871,14 @@ func runCodexFixtureProcess(scenario string) error {
 					return err
 				}
 				return nil
+			case "usage_direct", "usage_fallback", "usage_slow":
+				if err := emitAssistantTurn(writer, "assistant-usage", "HELLO"); err != nil {
+					return err
+				}
+			case "slow_status":
+				if err := emitAssistantTurn(writer, "assistant-slow-status", "Hello from Codex"); err != nil {
+					return err
+				}
 			default:
 				if err := emitAssistantTurn(writer, "assistant-1", "Hello from Codex"); err != nil {
 					return err
@@ -1553,8 +1908,82 @@ func runCodexFixtureProcess(scenario string) error {
 				}
 				return nil
 			}
+			if scenario == "slow_status" {
+				time.Sleep(4 * time.Second)
+			}
 			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{"servers": []any{}}}); err != nil {
 				return err
+			}
+		case "thread/tokenUsage/read":
+			params, _ := mapValue(payload["params"])
+			if got := stringValue(params["threadId"]); got == "" || got != "thread-"+scenario {
+				return fmt.Errorf("unexpected thread id for token-usage request: %#v", payload)
+			}
+			switch scenario {
+			case "usage_direct":
+				if err := emit(map[string]any{
+					"id": payload["id"],
+					"result": map[string]any{
+						"inputTokens":         11,
+						"outputTokens":        2,
+						"totalTokens":         13,
+						"contextUsedTokens":   11,
+						"contextWindowTokens": 272000,
+					},
+				}); err != nil {
+					return err
+				}
+			case "usage_fallback":
+				if err := emit(map[string]any{
+					"id": payload["id"],
+					"error": map[string]any{
+						"code":    -32600,
+						"message": "Invalid request: unknown variant `thread/tokenUsage/read`",
+					},
+				}); err != nil {
+					return err
+				}
+			case "usage_slow":
+				time.Sleep(4 * time.Second)
+				if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
+					return err
+				}
+			default:
+				if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
+					return err
+				}
+			}
+		case "thread/read":
+			params, _ := mapValue(payload["params"])
+			if got := stringValue(params["threadId"]); got == "" || got != "thread-"+scenario {
+				return fmt.Errorf("unexpected thread id for thread/read request: %#v", payload)
+			}
+			switch scenario {
+			case "usage_fallback":
+				if err := emit(map[string]any{
+					"id": payload["id"],
+					"result": map[string]any{
+						"thread": map[string]any{
+							"tokenUsage": map[string]any{
+								"total": map[string]any{
+									"inputTokens":  69941,
+									"outputTokens": 1455,
+								},
+								"last": map[string]any{
+									"inputTokens":  24766,
+									"outputTokens": 430,
+								},
+								"modelContextWindow": 258400,
+							},
+						},
+					},
+				}); err != nil {
+					return err
+				}
+			default:
+				if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
+					return err
+				}
 			}
 		default:
 			if scenario == "approval" && payload["id"] == float64(42) {

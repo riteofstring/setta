@@ -268,7 +268,11 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 	}
 
 	prompt := buildCodexPrompt(request.Inputs)
-	if _, err := session.sendRequest(ctx, "turn/start", buildCodexTurnParams(request, prompt, threadID, workingDir)); err != nil {
+	turnParams, err := buildCodexTurnParams(request, prompt, threadID, workingDir)
+	if err != nil {
+		return StartResponse{}, err
+	}
+	if _, err := session.sendRequest(ctx, "turn/start", turnParams); err != nil {
 		return StartResponse{}, err
 	}
 
@@ -398,7 +402,8 @@ func (e *CodexExecutor) handleEvent(
 	switch method {
 	case codexTurnCompletedMethod:
 		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
-		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusCompleted, nil, *state, session.threadID()); err != nil {
+		usagePayload := e.readThreadTokenUsage(session, session.threadID())
+		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusCompleted, nil, *state, session.threadID(), usagePayload); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -412,7 +417,8 @@ func (e *CodexExecutor) handleEvent(
 			}
 		}
 		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
-		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusFailed, errorPayload, *state, session.threadID()); err != nil {
+		usagePayload := e.readThreadTokenUsage(session, session.threadID())
+		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusFailed, errorPayload, *state, session.threadID(), usagePayload); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -473,6 +479,7 @@ func (e *CodexExecutor) finalizeRun(
 	extraPayload map[string]any,
 	state ChatState,
 	threadID string,
+	usagePayload map[string]any,
 ) error {
 	run, err := e.runs.Load(runID)
 	if err != nil {
@@ -485,6 +492,9 @@ func (e *CodexExecutor) finalizeRun(
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
 	if threadID != "" {
 		run.Outputs["threadId"] = threadID
+	}
+	if usagePayload != nil {
+		run.Outputs["usage"] = deepCloneJSONValue(usagePayload)
 	}
 	e.runtime.attachMCPStatusSnapshot(&run)
 	finishedAt := e.timeNow().UTC()
@@ -585,6 +595,34 @@ func (e *CodexExecutor) captureMCPStatuses(session *codexSession, runID string) 
 	if err := e.runtime.UpsertMCPStatuses(runID, buildCodexMCPStatuses(statusPayload, e.timeNow)); err != nil && !errors.Is(err, ErrRunNotActive) {
 		return
 	}
+}
+
+func (e *CodexExecutor) readThreadTokenUsage(session *codexSession, threadID string) map[string]any {
+	if e == nil || session == nil {
+		return nil
+	}
+	params := map[string]any{}
+	if trimmedThreadID := strings.TrimSpace(threadID); trimmedThreadID != "" {
+		params["threadId"] = trimmedThreadID
+	}
+
+	usageCtx, cancel := context.WithTimeout(context.Background(), codexMCPStatusTimeout)
+	defer cancel()
+	usagePayload, err := session.sendRequest(usageCtx, "thread/tokenUsage/read", params)
+	if err == nil {
+		return normalizeCodexThreadUsagePayload(usagePayload)
+	}
+	if !strings.Contains(err.Error(), "unknown variant") || !strings.Contains(err.Error(), "thread/tokenUsage/read") {
+		return nil
+	}
+
+	fallbackCtx, cancel := context.WithTimeout(context.Background(), codexMCPStatusTimeout)
+	defer cancel()
+	threadPayload, err := session.sendRequest(fallbackCtx, "thread/read", params)
+	if err != nil {
+		return nil
+	}
+	return normalizeCodexThreadUsagePayload(threadPayload)
 }
 
 func (e *CodexExecutor) resolveWorkingDir(config externalagentconfigs.Config) (string, func() error, error) {
@@ -1030,7 +1068,7 @@ func (s *codexSession) stderrTail() []string {
 	return append([]string(nil), s.stderrLines...)
 }
 
-func buildCodexTurnParams(request StartRequest, prompt string, threadID string, workingDir string) map[string]any {
+func buildCodexTurnParams(request StartRequest, prompt string, threadID string, workingDir string) (map[string]any, error) {
 	params := map[string]any{
 		"threadId": threadID,
 		"input": []any{
@@ -1058,7 +1096,126 @@ func buildCodexTurnParams(request StartRequest, prompt string, threadID string, 
 	if sandboxPolicy := buildCodexSandboxPolicy(stringValue(request.Inputs["sandboxPolicy"]), derefOptionalString(request.ExternalConfig.SandboxPolicy)); sandboxPolicy != nil {
 		params["sandboxPolicy"] = sandboxPolicy
 	}
-	return params
+	if rawOutputSchema, ok := request.Inputs["outputSchema"]; ok && rawOutputSchema != nil {
+		outputSchema, ok := rawOutputSchema.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("codex outputSchema must be a JSON object")
+		}
+		params["outputSchema"] = cloneAnyMap(outputSchema)
+	}
+	return params, nil
+}
+
+func normalizeCodexThreadUsagePayload(payload map[string]any) map[string]any {
+	candidate := extractCodexThreadUsageCandidate(payload)
+	if candidate == nil {
+		return nil
+	}
+	if tokenUsage, ok := mapValue(candidate["tokenUsage"]); ok && tokenUsage != nil {
+		return normalizeCodexTokenUsage(tokenUsage)
+	}
+	if usage, ok := mapValue(candidate["usage"]); ok && usage != nil {
+		return cloneAnyMap(usage)
+	}
+
+	normalized := map[string]any{}
+	for _, key := range []string{
+		"usedTokens",
+		"windowTokens",
+		"inputTokens",
+		"promptTokens",
+		"completionTokens",
+		"outputTokens",
+		"totalTokens",
+		"contextUsedTokens",
+		"contextWindowTokens",
+	} {
+		if value := deepCloneJSONValue(candidate[key]); value != nil {
+			normalized[key] = value
+		}
+	}
+	if normalized["contextWindowTokens"] == nil {
+		if value := deepCloneJSONValue(candidate["modelContextWindow"]); value != nil {
+			normalized["contextWindowTokens"] = value
+		}
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func extractCodexThreadUsageCandidate(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	candidates := []map[string]any{payload}
+	for _, key := range []string{"thread", "conversation", "data", "result"} {
+		if nested, ok := mapValue(payload[key]); ok && nested != nil {
+			candidates = append(candidates, nested)
+		}
+	}
+	for _, candidate := range candidates {
+		if candidate == nil {
+			continue
+		}
+		if _, ok := mapValue(candidate["tokenUsage"]); ok {
+			return candidate
+		}
+		if _, ok := mapValue(candidate["usage"]); ok {
+			return candidate
+		}
+		for _, key := range []string{
+			"usedTokens",
+			"windowTokens",
+			"inputTokens",
+			"promptTokens",
+			"completionTokens",
+			"outputTokens",
+			"contextUsedTokens",
+			"contextWindowTokens",
+			"modelContextWindow",
+		} {
+			if candidate[key] != nil {
+				return candidate
+			}
+		}
+	}
+	return nil
+}
+
+func normalizeCodexTokenUsage(tokenUsage map[string]any) map[string]any {
+	if tokenUsage == nil {
+		return nil
+	}
+	normalized := map[string]any{}
+	if total, ok := mapValue(tokenUsage["total"]); ok && total != nil {
+		for _, key := range []string{"inputTokens", "promptTokens", "outputTokens", "completionTokens", "totalTokens"} {
+			if value := deepCloneJSONValue(total[key]); value != nil {
+				normalized[key] = value
+			}
+		}
+	}
+	if normalized["contextUsedTokens"] == nil {
+		if last, ok := mapValue(tokenUsage["last"]); ok && last != nil {
+			for _, key := range []string{"contextUsedTokens", "inputTokens", "promptTokens", "usedTokens"} {
+				if value := deepCloneJSONValue(last[key]); value != nil {
+					normalized["contextUsedTokens"] = value
+					break
+				}
+			}
+		}
+	}
+	for _, key := range []string{"contextWindowTokens", "windowTokens", "modelContextWindow"} {
+		if value := deepCloneJSONValue(tokenUsage[key]); value != nil {
+			normalized["contextWindowTokens"] = value
+			break
+		}
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 func buildCodexPrompt(inputs map[string]any) string {
