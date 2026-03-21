@@ -267,6 +267,42 @@ func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	}
 }
 
+// Existing-target installs should fail closed before metadata is written.
+func TestServiceInstallRejectsExistingTargetWithoutForce(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	targetRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-backend")
+	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
+		t.Fatalf("create existing target root: %v", err)
+	}
+
+	_, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error, got %v", err)
+	}
+	if serviceErr.Code != ServiceErrorCodeTargetExists {
+		t.Fatalf("expected target exists error, got %q", serviceErr.Code)
+	}
+
+	metadata, err := service.store.LoadInstallMetadata()
+	if err != nil {
+		t.Fatalf("load install metadata after failed install: %v", err)
+	}
+	if len(metadata.Entries) != 0 {
+		t.Fatalf("expected no install metadata after failed install, got %#v", metadata.Entries)
+	}
+}
+
 // Update should persist explicit retargeted source metadata, not just the new version number.
 func TestServiceUpdateWithExplicitTargetPersistsSourceMetadata(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
