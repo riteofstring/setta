@@ -1942,8 +1942,8 @@ func TestServerAddKwargRespectsScopedWriteTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created callable param after add_kwarg: %v", err)
 	}
-	if codeObj.Name != "param" {
-		t.Fatalf("expected placeholder callable param name param, got %q", codeObj.Name)
+	if codeObj.Name != "" {
+		t.Fatalf("expected placeholder callable param name to start empty, got %q", codeObj.Name)
 	}
 	if paramImpl.Type != "CodeParam" {
 		t.Fatalf("expected created callable param type CodeParam, got %q", paramImpl.Type)

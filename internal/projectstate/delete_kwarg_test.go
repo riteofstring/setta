@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// Callable delete_kwarg should remove the last callable child and prune the
-// deleted code object even when the removed param is not core-name editable.
+// Callable delete_kwarg should remove only the last callable child, preserve
+// earlier callable params, and prune the deleted code object.
 func TestProjectDeleteKwargRemovesLastCallableParam(t *testing.T) {
 	t.Parallel()
 
@@ -17,16 +17,16 @@ func TestProjectDeleteKwargRemovesLastCallableParam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("delete kwarg from callable section: %v", err)
 	}
-	if result.CodeObjID != "callable-param" {
-		t.Fatalf("expected deleted callable codeObjId callable-param, got %q", result.CodeObjID)
+	if result.CodeObjID != "editable-kwarg" {
+		t.Fatalf("expected deleted callable codeObjId editable-kwarg, got %q", result.CodeObjID)
 	}
 
 	callablePayload, _, _, _, err := project.ResolveSectionCodeObject("callable-section", "callable-root")
 	if err != nil {
 		t.Fatalf("resolve callable root after delete_kwarg: %v", err)
 	}
-	if children := payloadStringArrayField(callablePayload, "children"); len(children) != 0 {
-		t.Fatalf("expected callable children to be empty, got %#v", children)
+	if children := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(children, []string{"callable-param"}) {
+		t.Fatalf("expected callable children [callable-param], got %#v", children)
 	}
 
 	section, variant, _, err := project.ResolveSection("callable-section")
