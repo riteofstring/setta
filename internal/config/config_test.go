@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -28,6 +30,29 @@ func TestEnsureUserConfigExistsWritesConfigJSONUnderSettaHome(t *testing.T) {
 	configPath := filepath.Join(settaHome, "config.json")
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatalf("stat config path %q: %v", configPath, err)
+	}
+}
+
+func TestLoadUserConfigUsesDefaultsWithoutCreatingFile(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	configPath := filepath.Join(settaHome, "config.json")
+
+	cfg, err := loadUserConfig(settaHome)
+	if err != nil {
+		t.Fatalf("load user config: %v", err)
+	}
+
+	if cfg.AutoMode != AutoModeCreateLocal {
+		t.Fatalf("expected default auto mode %q, got %q", AutoModeCreateLocal, cfg.AutoMode)
+	}
+	expectedBase := filepath.Join(settaHome, "setta_files")
+	if cfg.GlobalSettaFilesBase != expectedBase {
+		t.Fatalf("expected default global base %q, got %q", expectedBase, cfg.GlobalSettaFilesBase)
+	}
+	if _, err := os.Stat(configPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected config path %q to stay absent, stat err=%v", configPath, err)
 	}
 }
 
@@ -114,6 +139,30 @@ func TestLoadExpandsEnvBackedGlobalSettaFilesBase(t *testing.T) {
 	expectedGlobalRoot := buildFilesRootFromBase(globalBase, workspaceRoot)
 	if cfg.Paths.SettaFilesRoot != expectedGlobalRoot {
 		t.Fatalf("expected env-expanded global root %q, got %q", expectedGlobalRoot, cfg.Paths.SettaFilesRoot)
+	}
+}
+
+func TestLoadUserConfigResolvesRelativeGlobalSettaFilesBase(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	writeUserConfig(t, settaHome, map[string]any{
+		"globalSettaFilesBase": "state",
+		"autoMode":             "create_local",
+	})
+
+	cfg, err := loadUserConfig(settaHome)
+	if err != nil {
+		t.Fatalf("load user config: %v", err)
+	}
+
+	expectedBase := filepath.Join(settaHome, "state")
+	if cfg.GlobalSettaFilesBase != expectedBase {
+		t.Fatalf("expected relative global base %q, got %q", expectedBase, cfg.GlobalSettaFilesBase)
 	}
 }
 
@@ -391,6 +440,10 @@ func TestLoadUsesFilesLocationEnvGlobal(t *testing.T) {
 	if cfg.Paths.ResolvedFilesLocation != ResolvedFilesLocationGlobal {
 		t.Fatalf("expected global files location, got %q", cfg.Paths.ResolvedFilesLocation)
 	}
+	expectedRuntimeRoot := filepath.Join(expectedGlobalRoot, "runtime")
+	if cfg.Paths.RuntimeRoot != expectedRuntimeRoot {
+		t.Fatalf("expected runtime root %q, got %q", expectedRuntimeRoot, cfg.Paths.RuntimeRoot)
+	}
 }
 
 func TestLoadTrimsFilesLocationEnvWhitespace(t *testing.T) {
@@ -508,6 +561,72 @@ func TestLoadExplicitGlobalLocationCanCreateRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, "setta_files")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected workspace local root to stay absent when global location is explicit, stat err=%v", err)
+	}
+}
+
+func TestBuildFilesRootFromBaseSanitizesLeaf(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "___")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+
+	result := BuildFilesRootFromBase(filepath.Join(tmpDir, "state"), workspaceRoot)
+	if !strings.HasPrefix(filepath.Base(result), "workspace-") {
+		t.Fatalf("expected sanitized leaf to start with workspace-, got %q", result)
+	}
+}
+
+func TestBuildFilesRootFromBaseTruncatesLongWorkspaceNames(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, strings.Repeat("a", 200))
+
+	result := BuildFilesRootFromBase(filepath.Join(tmpDir, "state"), workspaceRoot)
+	resultLeaf := filepath.Base(result)
+	dashIndex := strings.LastIndex(resultLeaf, "-")
+	if dashIndex <= 0 {
+		t.Fatalf("expected hashed result leaf, got %q", resultLeaf)
+	}
+	prefix := resultLeaf[:dashIndex]
+	if len(prefix) > 48 {
+		t.Fatalf("expected truncated prefix length <= 48, got %d for %q", len(prefix), prefix)
+	}
+
+	sum := sha256.Sum256([]byte(canonicalWorkspaceRootForHash(workspaceRoot)))
+	expectedSuffix := hex.EncodeToString(sum[:4])
+	if !strings.HasSuffix(resultLeaf, "-"+expectedSuffix) {
+		t.Fatalf("expected digest suffix %q, got %q", expectedSuffix, resultLeaf)
+	}
+}
+
+func TestBuildFilesRootFromBaseUsesCanonicalWorkspacePath(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	baseRoot := filepath.Join(tmpDir, "state")
+	realParent := filepath.Join(tmpDir, "real_parent")
+	if err := os.MkdirAll(realParent, 0o755); err != nil {
+		t.Fatalf("mkdir real parent: %v", err)
+	}
+	realWorkspace := filepath.Join(realParent, "workspace")
+	if err := os.MkdirAll(realWorkspace, 0o755); err != nil {
+		t.Fatalf("mkdir real workspace: %v", err)
+	}
+
+	aliasParent := filepath.Join(tmpDir, "alias_parent")
+	if err := os.Symlink(realParent, aliasParent); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+	aliasWorkspace := filepath.Join(aliasParent, "workspace")
+
+	realRoot := BuildFilesRootFromBase(baseRoot, realWorkspace)
+	aliasRoot := BuildFilesRootFromBase(baseRoot, aliasWorkspace)
+	if realRoot != aliasRoot {
+		t.Fatalf("expected canonicalized roots to match, got %q and %q", realRoot, aliasRoot)
 	}
 }
 
@@ -1042,6 +1161,51 @@ func TestLoadPrefersEnvSettaFilesRootOverExistingLocalRoot(t *testing.T) {
 	}
 }
 
+func TestLoadPrefersProfileSettaFilesRootOverEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	profileRoot := filepath.Join(tmpDir, "profile_state", "setta_files")
+	envRoot := filepath.Join(tmpDir, "env_state", "setta_files_dev")
+
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(settaHome, "profiles"), 0o755); err != nil {
+		t.Fatalf("mkdir profiles: %v", err)
+	}
+
+	writeJSONFile(t, filepath.Join(settaHome, "profiles", "dev.json"), map[string]any{
+		"name":           "dev",
+		"workspaceRoot":  workspaceRoot,
+		"settaFilesRoot": profileRoot,
+	})
+
+	cfg, err := Load(LoadOptions{
+		CWD: workspaceRoot,
+		EnvLookup: testEnv{
+			filesRootEnv: envRoot,
+		}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+			Profile:       "dev",
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.SettaFilesRoot != profileRoot {
+		t.Fatalf("expected profile setta files root %q, got %q", profileRoot, cfg.Paths.SettaFilesRoot)
+	}
+	if !cfg.Paths.UsesExplicitSettaFiles {
+		t.Fatal("expected profile setta files root to remain explicit")
+	}
+}
+
 func TestLoadExplicitSettaFilesRootBypassesInvalidLocalRootFile(t *testing.T) {
 	t.Parallel()
 
@@ -1240,6 +1404,230 @@ func TestLoadRejectsConflictingEnvSettaFilesRootAndLocation(t *testing.T) {
 	}
 }
 
+func TestLoadAllowsExplicitLocationToOverrideProfileSettaFilesRoot(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	profileRoot := filepath.Join(tmpDir, "profile_state", "setta_files")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(settaHome, "profiles"), 0o755); err != nil {
+		t.Fatalf("mkdir profiles: %v", err)
+	}
+
+	writeJSONFile(t, filepath.Join(settaHome, "profiles", "dev.json"), map[string]any{
+		"name":           "dev",
+		"workspaceRoot":  workspaceRoot,
+		"settaFilesRoot": profileRoot,
+	})
+
+	cfg, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot:      workspaceRoot,
+			SettaHome:          settaHome,
+			Profile:            "dev",
+			SettaFilesLocation: "local",
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	expectedLocalRoot := filepath.Join(workspaceRoot, "setta_files")
+	if cfg.Paths.SettaFilesRoot != expectedLocalRoot {
+		t.Fatalf("expected explicit local root %q, got %q", expectedLocalRoot, cfg.Paths.SettaFilesRoot)
+	}
+	if cfg.Paths.ResolvedFilesLocation != ResolvedFilesLocationLocal {
+		t.Fatalf("expected explicit local location, got %q", cfg.Paths.ResolvedFilesLocation)
+	}
+	if cfg.Paths.UsesExplicitSettaFiles {
+		t.Fatal("expected explicit location to resolve through standard local selection")
+	}
+}
+
+func TestLoadUsesRuntimeRootEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	cfg, err := Load(LoadOptions{
+		CWD: workspaceRoot,
+		EnvLookup: testEnv{
+			runtimeRootEnv: runtimeRoot,
+		}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.RuntimeRoot != runtimeRoot {
+		t.Fatalf("expected runtime root env override %q, got %q", runtimeRoot, cfg.Paths.RuntimeRoot)
+	}
+}
+
+func TestLoadTrimsRuntimeRootEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	cfg, err := Load(LoadOptions{
+		CWD: workspaceRoot,
+		EnvLookup: testEnv{
+			runtimeRootEnv: "  " + runtimeRoot + "  ",
+		}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.RuntimeRoot != runtimeRoot {
+		t.Fatalf("expected trimmed runtime root env override %q, got %q", runtimeRoot, cfg.Paths.RuntimeRoot)
+	}
+}
+
+func TestLoadExpandsExplicitSettaFilesRootPathInputs(t *testing.T) {
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	homeDir := filepath.Join(tmpDir, "home")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+	t.Setenv("SETTA_STATE_BASE", filepath.Join(homeDir, "state_from_env"))
+
+	testCases := []struct {
+		name     string
+		rawPath  string
+		expected string
+	}{
+		{
+			name:     "tilde",
+			rawPath:  "~/state_from_tilde/setta_files_dev",
+			expected: filepath.Join(homeDir, "state_from_tilde", "setta_files_dev"),
+		},
+		{
+			name:     "env",
+			rawPath:  "$SETTA_STATE_BASE/setta_files",
+			expected: filepath.Join(homeDir, "state_from_env", "setta_files"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg, err := Load(LoadOptions{
+				CWD:       workspaceRoot,
+				EnvLookup: testEnv{}.lookup,
+				CLI: CLIOptions{
+					WorkspaceRoot:  workspaceRoot,
+					SettaHome:      settaHome,
+					SettaFilesRoot: testCase.rawPath,
+				},
+			})
+			if err != nil {
+				t.Fatalf("load config: %v", err)
+			}
+			if cfg.Paths.SettaFilesRoot != testCase.expected {
+				t.Fatalf("expected expanded setta files root %q, got %q", testCase.expected, cfg.Paths.SettaFilesRoot)
+			}
+		})
+	}
+}
+
+func TestLoadExpandsExplicitRuntimeRootPathInputs(t *testing.T) {
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	homeDir := filepath.Join(tmpDir, "home")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+	t.Setenv("SETTA_RUNTIME_BASE", filepath.Join(homeDir, "runtime_from_env"))
+
+	testCases := []struct {
+		name     string
+		rawPath  string
+		expected string
+	}{
+		{
+			name:     "tilde",
+			rawPath:  "~/runtime_from_tilde",
+			expected: filepath.Join(homeDir, "runtime_from_tilde"),
+		},
+		{
+			name:     "env",
+			rawPath:  "$SETTA_RUNTIME_BASE",
+			expected: filepath.Join(homeDir, "runtime_from_env"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg, err := Load(LoadOptions{
+				CWD:       workspaceRoot,
+				EnvLookup: testEnv{}.lookup,
+				CLI: CLIOptions{
+					WorkspaceRoot: workspaceRoot,
+					SettaHome:     settaHome,
+					RuntimeRoot:   testCase.rawPath,
+				},
+			})
+			if err != nil {
+				t.Fatalf("load config: %v", err)
+			}
+			if cfg.Paths.RuntimeRoot != testCase.expected {
+				t.Fatalf("expected expanded runtime root %q, got %q", testCase.expected, cfg.Paths.RuntimeRoot)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsInvalidAutoModeInUserConfig(t *testing.T) {
 	t.Parallel()
 
@@ -1407,6 +1795,40 @@ func TestLoadRejectsMissingWorkspace(t *testing.T) {
 	}
 	if configErr.Code != "InvalidWorkspace" {
 		t.Fatalf("expected InvalidWorkspace, got %q", configErr.Code)
+	}
+}
+
+func TestLoadRejectsRuntimeRootMatchingWorkspace(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	_, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+			RuntimeRoot:   workspaceRoot,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid runtime root error")
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidRuntimeRoot" {
+		t.Fatalf("expected InvalidRuntimeRoot, got %q", configErr.Code)
 	}
 }
 

@@ -842,6 +842,35 @@ func validateExistingDir(path string, label string) error {
 	return nil
 }
 
+func canonicalWorkspaceRootForHash(workspaceRoot string) string {
+	resolvedRoot, err := resolvePath(workspaceRoot, "")
+	if err != nil {
+		return filepath.Clean(workspaceRoot)
+	}
+	candidate := resolvedRoot
+	missingSegments := []string{}
+	for {
+		if _, err := os.Lstat(candidate); err == nil {
+			canonicalRoot, evalErr := filepath.EvalSymlinks(candidate)
+			if evalErr == nil && trimmed(canonicalRoot) != "" {
+				for index := len(missingSegments) - 1; index >= 0; index-- {
+					canonicalRoot = filepath.Join(canonicalRoot, missingSegments[index])
+				}
+				return filepath.Clean(canonicalRoot)
+			}
+			break
+		}
+
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			break
+		}
+		missingSegments = append(missingSegments, filepath.Base(candidate))
+		candidate = parent
+	}
+	return resolvedRoot
+}
+
 func BuildFilesRootFromBase(baseRoot string, workspaceRoot string) string {
 	sanitizedLeaf := sanitizeLeaf(filepath.Base(workspaceRoot))
 	if len(sanitizedLeaf) > 48 {
@@ -850,7 +879,7 @@ func BuildFilesRootFromBase(baseRoot string, workspaceRoot string) string {
 			sanitizedLeaf = "workspace"
 		}
 	}
-	sum := sha256.Sum256([]byte(workspaceRoot))
+	sum := sha256.Sum256([]byte(canonicalWorkspaceRootForHash(workspaceRoot)))
 	return filepath.Join(baseRoot, fmt.Sprintf("%s-%s", sanitizedLeaf, hex.EncodeToString(sum[:4])))
 }
 
