@@ -1094,6 +1094,43 @@ func TestHandlerReturnsBootstrapHTMLForUnauthorizedAuthenticatedRootRoutes(t *te
 	}
 }
 
+func TestHandlerReturnsJSONUnauthorizedForMCPToolCallRootRoute(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			r.Post(RouteMCPToolCall, func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	unauthorizedResponse := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, RouteMCPToolCall, bytes.NewBufferString(`{"tool":"list_mcp_tools","arguments":{}}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(unauthorizedResponse, request)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", unauthorizedResponse.Code)
+	}
+	if contentType := unauthorizedResponse.Header().Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("expected json unauthorized content type, got %q", contentType)
+	}
+	body := unauthorizedResponse.Body.String()
+	if !strings.Contains(body, `"code":"unauthorized"`) {
+		t.Fatalf("expected unauthorized json envelope, got %q", body)
+	}
+	if strings.Contains(body, "Setta Unauthorized") {
+		t.Fatalf("did not expect bootstrap html in json unauthorized response, got %q", body)
+	}
+}
+
 func TestHandlerInjectsRequestAuthContext(t *testing.T) {
 	t.Parallel()
 

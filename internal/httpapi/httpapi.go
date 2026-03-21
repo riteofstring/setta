@@ -322,11 +322,18 @@ func mintAndAttachSessionAuthCookie(
 }
 
 func writeUnauthorizedAuthResponse(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, apiPrefix) {
+	if requiresJSONUnauthorizedAuthResponse(r.URL.Path) {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
 		return
 	}
 	writeUnauthorizedBootstrapHTML(w)
+}
+
+func requiresJSONUnauthorizedAuthResponse(path string) bool {
+	if strings.HasPrefix(path, apiPrefix) {
+		return true
+	}
+	return path == RouteMCPToolCall
 }
 
 func writeAuthMiddlewareError(w http.ResponseWriter, r *http.Request, err error) {
