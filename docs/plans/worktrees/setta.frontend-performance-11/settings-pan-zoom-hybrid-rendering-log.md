@@ -2037,3 +2037,86 @@ Record:
       - preserve the current `.section-value` sibling geometry and keep combobox portal/menu behavior out of scope
 - Next action:
   - Choose and benchmark a shared `valueHostMode` seam for Dict/plain-label switch/dropdown rows that preserves current geometry instead of another local host-sizing tweak.
+
+## 2026-03-21 047
+
+- Item: Benchmark the shared `valueHostMode` seam for Dict/plain-label switch/dropdown rows under the canonical `settings` and `tier1Synthetic` scenes, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ConfiguredParamInputs.tsx`
+    - `frontend/src/components/Params/ParamUIs/DropdownInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+    - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`
+    - temporary focused tests:
+      - `frontend/src/components/Params/getParamValueHostMode.test.ts`
+      - `frontend/src/components/Params/ParamContainer.test.tsx`
+      - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+      - `frontend/src/components/Utils/Combobox/IdNameCombobox.test.tsx`
+  - Structural change under test:
+    - introduce a shared `valueHostMode` helper/policy at `ParamContainer -> ParamInput -> ParamUI`
+    - narrow it to top-level Dict `textLabelLeaf` rows with `SwitchParam` or `DropdownParam` value bodies
+    - make the switch path hostless under the shared `.section-value` wrapper
+    - make the dropdown path hostless at the `IdNameCombobox` outer wrapper while preserving the current `.section-value` sibling contract
+  - Why this seam was chosen:
+    - it was the strongest remaining non-code candidate after rejecting explicit grid restores, switch-root collapse, and switch-host flex retuning
+    - it kept the family focus on Dict/plain-label switch/dropdown rows while moving one level deeper into shared ownership
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/getParamValueHostMode.test.ts src/components/Params/ParamContainer.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Utils/Combobox/IdNameCombobox.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - `7` files passed
+      - `13` tests passed
+  - Fresh subagent CDP check while the experiment was live:
+    - `All Settings` was active
+    - the shared value-host treatment appeared live across the repeated switch/dropdown rows
+    - no obvious visual regression was visible in the current viewport, with the caveat that the inspected view was still zoomed out enough that this was a thumbnail-level confirmation rather than a close row-level inspection
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-shared-value-host-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 511.182ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 40801.357ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 579.305ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 45.713ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 71.480ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 872.664ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 23072.874ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 24.475ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 168.545ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 172.461ms`
+  - Decision:
+    - reject this shared `valueHostMode` experiment as a keep for `HEAD`
+    - no same-code confirmation rerun was justified because both canonical scenes already regressed on the first paired benchmark matrix
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Move away from switch/dropdown shared-host ownership and choose a different always-mounted Tier 1 row/body seam for the next experiment.
+
+## 2026-03-21 048
+
+- Item: Refine the next Tier 1 target after rejecting the shared `valueHostMode` experiment.
+- Status: `in_progress`
+- Details:
+  - Reverted the shared `valueHostMode` code after recording the dead-end report.
+  - Focused reverted-baseline verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - `5` files passed
+      - `6` tests passed
+  - Current read:
+    - the non-code family diagnosis is no longer enough to justify staying on the switch/dropdown host path
+    - the broader shared host ownership move regressed both canonical scenes, which makes it a stronger dead end than the earlier non-code probes
+    - the next Tier 1 pass should move away from switch/dropdown value-host ownership entirely and target a different always-mounted dense-row/body seam
+- Next action:
+  - Re-open Tier 1 seam discovery outside the switch/dropdown host lane and pick the next repeated row/body seam that does not perturb non-code value-host ownership.

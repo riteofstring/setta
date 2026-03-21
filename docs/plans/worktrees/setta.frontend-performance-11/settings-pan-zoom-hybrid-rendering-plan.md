@@ -832,6 +832,20 @@ Current execution note:
         - the strongest next seam is now a shared `valueHostMode` policy at `ParamContainer -> ParamInput -> ParamUI`, narrowly gated to top-level Dict `textLabelLeaf` rows with `SwitchParam` or `DropdownParam` value bodies
         - keep the current `.section-value` sibling contract intact and do not reopen the old explicit grid shell
         - if dropdowns join that path, make the combobox branch hostless only at the steady-state row/value chain and keep combobox portal/menu behavior out of scope for the experiment
+      - the shared `valueHostMode` experiment was then benchmarked and rejected too:
+        - the new shared host treatment was confirmed visually live on the repeated `All Settings` switch/dropdown rows
+        - but it regressed both canonical scenes, not just `settings`
+        - authoritative worktree deltas versus the retained baseline:
+          - `settings` benchmark `Paint`:
+            - `148.237ms -> 511.182ms`
+          - `settings` benchmark `RunTask`:
+            - `3235.187ms -> 40801.357ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `825.999ms -> 872.664ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `13271.540ms -> 23072.874ms`
+        - do not keep any part of that shared switch/dropdown host-ownership move at `HEAD`
+        - the next worthwhile Tier 1 pass should move away from switch/dropdown value-host ownership entirely and target a different always-mounted dense-row/body seam
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 
