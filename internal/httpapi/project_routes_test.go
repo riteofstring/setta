@@ -1192,6 +1192,144 @@ func TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs(t *test
 	}
 }
 
+func TestRegisterProjectRoutesSetVariantJSONSourceKeysValidatesExistingFilesAndMarksMissingFiles(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects missing path in existing file", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+			t.Fatalf("mkdir data: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"config\":{\"nested\":{}},\"leaf\":1}\n"), 0o644); err != nil {
+			t.Fatalf("write json source file: %v", err)
+		}
+
+		projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+			SchemaVersion: projectstate.CurrentSchemaVersion,
+			Projects: map[string]projectstate.Project{
+				"project-alpha": sectionVariantRouteTestProject(t, true),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := projectRuntime.Close(); err != nil {
+				t.Fatalf("close overlay runtime: %v", err)
+			}
+		})
+
+		handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetVariantJSONSourceKeys,
+			strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","jsonSourceKeys":["missing"]}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"json_source_keys_path_not_found"`) {
+			t.Fatalf("expected json_source_keys_path_not_found code, got %q", response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `jsonSourceKeys path not found: missing`) {
+			t.Fatalf("expected missing-path detail, got %q", response.Body.String())
+		}
+	})
+
+	t.Run("rejects leaf target in existing file", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+			t.Fatalf("mkdir data: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"config\":{\"nested\":{}},\"leaf\":1}\n"), 0o644); err != nil {
+			t.Fatalf("write json source file: %v", err)
+		}
+
+		projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+			SchemaVersion: projectstate.CurrentSchemaVersion,
+			Projects: map[string]projectstate.Project{
+				"project-alpha": sectionVariantRouteTestProject(t, true),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := projectRuntime.Close(); err != nil {
+				t.Fatalf("close overlay runtime: %v", err)
+			}
+		})
+
+		handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetVariantJSONSourceKeys,
+			strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","jsonSourceKeys":["leaf"]}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"json_source_keys_object_required"`) {
+			t.Fatalf("expected json_source_keys_object_required code, got %q", response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `jsonSourceKeys must resolve to an object: leaf`) {
+			t.Fatalf("expected leaf-object detail, got %q", response.Body.String())
+		}
+	})
+
+	t.Run("accepts missing file and marks section missing", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+
+		projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+			SchemaVersion: projectstate.CurrentSchemaVersion,
+			Projects: map[string]projectstate.Project{
+				"project-alpha": sectionVariantRouteTestProject(t, true),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := projectRuntime.Close(); err != nil {
+				t.Fatalf("close overlay runtime: %v", err)
+			}
+		})
+
+		handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetVariantJSONSourceKeys,
+			strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","jsonSourceKeys":["config"]}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+		}
+
+		project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := project.EffectiveSectionPayload("json-section", "json-variant-a")
+		if err != nil {
+			t.Fatalf("effective payload after json-source key edit: %v", err)
+		}
+		rawKeys, _ := payload["jsonSourceKeys"].([]any)
+		if len(rawKeys) != 1 || rawKeys[0] != "config" {
+			t.Fatalf("expected json-variant-a jsonSourceKeys [config], got %#v", rawKeys)
+		}
+		jsonSourceMissing, _ := payload["jsonSourceMissing"].(bool)
+		if !jsonSourceMissing {
+			t.Fatal("expected missing json source file to set jsonSourceMissing")
+		}
+	})
+}
+
 func TestRegisterProjectRoutesSectionVariantMutationsUseDeploymentOverlayWhenVariantChangesAllowed(t *testing.T) {
 	t.Parallel()
 

@@ -168,6 +168,22 @@ func (d *Document) SetVariantJSONSourceKeys(projectID string, sectionID string, 
 	return nil
 }
 
+func (d *Document) SetVariantJSONSourceKeysState(projectID string, sectionID string, variantID string, jsonSourceKeys []string, jsonSourceMissing bool) error {
+	if d == nil {
+		return ErrProjectNotFound
+	}
+
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	if err := project.SetVariantJSONSourceKeysState(sectionID, variantID, jsonSourceKeys, jsonSourceMissing); err != nil {
+		return err
+	}
+	d.Projects[project.ID] = project
+	return nil
+}
+
 func (r *Runtime) SetVariantJSONSourceKeys(ctx context.Context, projectID string, sectionID string, variantID string, jsonSourceKeys []string) (Snapshot, error) {
 	if r == nil {
 		return Snapshot{}, ErrRuntimeClosed
@@ -188,11 +204,36 @@ func (p *Project) SetVariantJSONSourceKeys(sectionID string, variantID string, j
 		return ErrJSONSourceKeyEditsDisabled
 	}
 
+	section, variant, _, payload, err := p.resolveVariantDictSectionMutationState(sectionID, variantID)
+	if err != nil {
+		return err
+	}
+	return p.setVariantSectionFields(section.ID, variant.ID, map[string]any{
+		"jsonSourceKeys":    normalizeJSONSourceKeys(jsonSourceKeys),
+		"jsonSourceMissing": payloadBoolField(payload, "jsonSourceMissing"),
+	})
+}
+
+func (p *Project) SetVariantJSONSourceKeysState(sectionID string, variantID string, jsonSourceKeys []string, jsonSourceMissing bool) error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+	if !p.AllowJSONSourceKeyEdits {
+		return ErrJSONSourceKeyEditsDisabled
+	}
+
 	section, variant, _, _, err := p.resolveVariantDictSectionMutationState(sectionID, variantID)
 	if err != nil {
 		return err
 	}
 
+	return p.setVariantSectionFields(section.ID, variant.ID, map[string]any{
+		"jsonSourceKeys":    normalizeJSONSourceKeys(jsonSourceKeys),
+		"jsonSourceMissing": jsonSourceMissing,
+	})
+}
+
+func normalizeJSONSourceKeys(jsonSourceKeys []string) []string {
 	normalized := make([]string, 0, len(jsonSourceKeys))
 	for _, key := range jsonSourceKeys {
 		trimmed := strings.TrimSpace(key)
@@ -201,10 +242,7 @@ func (p *Project) SetVariantJSONSourceKeys(sectionID string, variantID string, j
 		}
 		normalized = append(normalized, trimmed)
 	}
-
-	return p.setVariantSectionFields(section.ID, variant.ID, map[string]any{
-		"jsonSourceKeys": normalized,
-	})
+	return normalized
 }
 
 func (p *Project) resolveVariantDictSectionMutationState(sectionID string, variantID string) (Section, SectionVariant, SectionImpl, map[string]any, error) {

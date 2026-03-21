@@ -2633,12 +2633,31 @@ func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.Handler
 			return
 		}
 
-		if _, err := runtime.SetVariantJSONSourceKeys(
+		if _, err := runtime.MutateAndSave(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
-			projectID,
-			payload.SectionID,
-			payload.VariantID,
-			payload.JSONSourceKeys,
+			func(document projectstate.Document) (projectstate.Document, error) {
+				validation, err := projectstate.ValidateVariantJSONSourceKeys(
+					document,
+					deps.WorkspaceRoot,
+					projectID,
+					payload.SectionID,
+					payload.VariantID,
+					payload.JSONSourceKeys,
+				)
+				if err != nil {
+					return document, err
+				}
+				if err := document.SetVariantJSONSourceKeysState(
+					projectID,
+					payload.SectionID,
+					payload.VariantID,
+					validation.JSONSourceKeys,
+					validation.JSONSourceMissing,
+				); err != nil {
+					return document, err
+				}
+				return document, nil
+			},
 		); err != nil {
 			writeVariantJSONSourceMutationError(w, r, err)
 			return
@@ -7166,6 +7185,10 @@ func writeVariantJSONSourceMutationError(w http.ResponseWriter, r *http.Request,
 	switch {
 	case errors.Is(err, projectstate.ErrJSONSourceKeyEditsDisabled):
 		writeError(w, r, http.StatusForbidden, "json_source_key_edits_disabled", "JSON source key edits are disabled for this project.")
+	case errors.Is(err, projectstate.ErrJSONSourceKeysPathNotFound):
+		writeError(w, r, http.StatusBadRequest, "json_source_keys_path_not_found", err.Error())
+	case errors.Is(err, projectstate.ErrJSONSourceKeysMustResolveToObject):
+		writeError(w, r, http.StatusBadRequest, "json_source_keys_object_required", err.Error())
 	case errors.Is(err, projectstate.ErrSectionVariantDictSectionRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "dict_section_required", "Section variant must resolve to a dict section.")
 	default:

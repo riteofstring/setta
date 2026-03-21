@@ -3,6 +3,8 @@ package projectstate
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -112,6 +114,59 @@ func TestRuntimeSetVariantJSONSourceKeysRejectsDisabledEdits(t *testing.T) {
 	}
 }
 
+func TestValidateVariantJSONSourceKeysRejectsMissingExistingPath(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"config\":{\"nested\":{}},\"leaf\":1}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	document := sectionVariantMutationTestDocument(t, true, "data/source.json")
+	_, err := ValidateVariantJSONSourceKeys(
+		document,
+		workspaceRoot,
+		"project-alpha",
+		"dict-section",
+		"dict-variant",
+		[]string{"missing"},
+	)
+	if !errors.Is(err, ErrJSONSourceKeysPathNotFound) {
+		t.Fatalf("expected ErrJSONSourceKeysPathNotFound, got %v", err)
+	}
+	if got := err.Error(); got != "jsonSourceKeys path not found: missing" {
+		t.Fatalf("expected missing-path detail, got %q", got)
+	}
+}
+
+func TestValidateVariantJSONSourceKeysAcceptsMissingFileAndMarksMissing(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := sectionVariantMutationTestDocument(t, true, "data/source.json")
+
+	validation, err := ValidateVariantJSONSourceKeys(
+		document,
+		workspaceRoot,
+		"project-alpha",
+		"dict-section",
+		"dict-variant",
+		[]string{" config ", "", "nested"},
+	)
+	if err != nil {
+		t.Fatalf("ValidateVariantJSONSourceKeys returned error: %v", err)
+	}
+	if !validation.JSONSourceMissing {
+		t.Fatal("expected missing json source file to mark jsonSourceMissing")
+	}
+	if len(validation.JSONSourceKeys) != 2 || validation.JSONSourceKeys[0] != "config" || validation.JSONSourceKeys[1] != "nested" {
+		t.Fatalf("expected normalized jsonSourceKeys [config nested], got %#v", validation.JSONSourceKeys)
+	}
+}
+
 func TestRuntimeToggleVariantJSONSourceRejectsNonDictSection(t *testing.T) {
 	t.Parallel()
 
@@ -124,6 +179,22 @@ func TestRuntimeToggleVariantJSONSourceRejectsNonDictSection(t *testing.T) {
 }
 
 func openSectionVariantMutationTestRuntime(t *testing.T, allowJSONSourceKeyEdits bool) *Runtime {
+	t.Helper()
+
+	document := sectionVariantMutationTestDocument(t, allowJSONSourceKeyEdits, "")
+	runtime, err := OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+	return runtime
+}
+
+func sectionVariantMutationTestDocument(t *testing.T, allowJSONSourceKeyEdits bool, dictVariantName string) Document {
 	t.Helper()
 
 	project, err := Project{
@@ -152,6 +223,7 @@ func openSectionVariantMutationTestRuntime(t *testing.T, allowJSONSourceKeyEdits
 			"dict-variant": {
 				ID:     "dict-variant",
 				ImplID: "dict-impl",
+				Name:   dictVariantName,
 			},
 			"code-variant": {
 				ID:     "code-variant",
@@ -189,22 +261,13 @@ func openSectionVariantMutationTestRuntime(t *testing.T, allowJSONSourceKeyEdits
 		t.Fatalf("normalize section variant mutation project: %v", err)
 	}
 
-	runtime, err := OpenOverlayRuntime(Document{
+	return Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			project.ID: project,
 		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
 	}
-	t.Cleanup(func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close runtime: %v", err)
-		}
-	})
-	return runtime
 }
 
 func mustSectionVariantMutationRawJSON(t *testing.T, value any) RawJSON {
