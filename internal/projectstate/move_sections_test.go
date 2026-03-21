@@ -223,6 +223,192 @@ func TestRuntimeMoveSectionsWithinParentKeepsSelectedBlockContiguous(t *testing.
 	}
 }
 
+func TestProjectMoveSectionsFromMultipleParentsUpdatesParentage(t *testing.T) {
+	t.Parallel()
+
+	project, err := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"parent-a":  "parent-a-variant",
+			"parent-b":  "parent-b-variant",
+			"parent-c":  "parent-c-variant",
+			"child-a-1": "child-a-1-variant",
+			"child-a-2": "child-a-2-variant",
+			"child-b-1": "child-b-1-variant",
+			"child-b-2": "child-b-2-variant",
+			"child-c-1": "child-c-1-variant",
+		},
+		Sections: map[string]Section{
+			"parent-a": {
+				ID:               "parent-a",
+				Name:             "Parent A",
+				VariantIDs:       []string{"parent-a-variant"},
+				DefaultVariantID: "parent-a-variant",
+			},
+			"parent-b": {
+				ID:               "parent-b",
+				Name:             "Parent B",
+				VariantIDs:       []string{"parent-b-variant"},
+				DefaultVariantID: "parent-b-variant",
+			},
+			"parent-c": {
+				ID:               "parent-c",
+				Name:             "Parent C",
+				VariantIDs:       []string{"parent-c-variant"},
+				DefaultVariantID: "parent-c-variant",
+			},
+			"child-a-1": {
+				ID:               "child-a-1",
+				Name:             "Child A1",
+				ParentSectionID:  "parent-a",
+				VariantIDs:       []string{"child-a-1-variant"},
+				DefaultVariantID: "child-a-1-variant",
+			},
+			"child-a-2": {
+				ID:               "child-a-2",
+				Name:             "Child A2",
+				ParentSectionID:  "parent-a",
+				VariantIDs:       []string{"child-a-2-variant"},
+				DefaultVariantID: "child-a-2-variant",
+			},
+			"child-b-1": {
+				ID:               "child-b-1",
+				Name:             "Child B1",
+				ParentSectionID:  "parent-b",
+				VariantIDs:       []string{"child-b-1-variant"},
+				DefaultVariantID: "child-b-1-variant",
+			},
+			"child-b-2": {
+				ID:               "child-b-2",
+				Name:             "Child B2",
+				ParentSectionID:  "parent-b",
+				VariantIDs:       []string{"child-b-2-variant"},
+				DefaultVariantID: "child-b-2-variant",
+			},
+			"child-c-1": {
+				ID:               "child-c-1",
+				Name:             "Child C1",
+				ParentSectionID:  "parent-c",
+				VariantIDs:       []string{"child-c-1-variant"},
+				DefaultVariantID: "child-c-1-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"parent-a-variant":  {ID: "parent-a-variant", ImplID: "parent-a-impl"},
+			"parent-b-variant":  {ID: "parent-b-variant", ImplID: "parent-b-impl"},
+			"parent-c-variant":  {ID: "parent-c-variant", ImplID: "parent-c-impl"},
+			"child-a-1-variant": {ID: "child-a-1-variant", ImplID: "child-a-1-impl"},
+			"child-a-2-variant": {ID: "child-a-2-variant", ImplID: "child-a-2-impl"},
+			"child-b-1-variant": {ID: "child-b-1-variant", ImplID: "child-b-1-impl"},
+			"child-b-2-variant": {ID: "child-b-2-variant", ImplID: "child-b-2-impl"},
+			"child-c-1-variant": {ID: "child-c-1-variant", ImplID: "child-c-1-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"parent-a-impl": {
+				ID:   "parent-a-impl",
+				Kind: SectionKind("group"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":       "parent-a-impl",
+					"type":     "Group",
+					"children": []string{"child-a-1", "child-a-2"},
+				}),
+			},
+			"parent-b-impl": {
+				ID:   "parent-b-impl",
+				Kind: SectionKind("group"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":       "parent-b-impl",
+					"type":     "Group",
+					"children": []string{"child-b-1", "child-b-2"},
+				}),
+			},
+			"parent-c-impl": {
+				ID:   "parent-c-impl",
+				Kind: SectionKind("group"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":       "parent-c-impl",
+					"type":     "Group",
+					"children": []string{"child-c-1"},
+				}),
+			},
+			"child-a-1-impl": {
+				ID:      "child-a-1-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-a-1-impl", "type": "TextBlock"}),
+			},
+			"child-a-2-impl": {
+				ID:      "child-a-2-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-a-2-impl", "type": "TextBlock"}),
+			},
+			"child-b-1-impl": {
+				ID:      "child-b-1-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-b-1-impl", "type": "TextBlock"}),
+			},
+			"child-b-2-impl": {
+				ID:      "child-b-2-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-b-2-impl", "type": "TextBlock"}),
+			},
+			"child-c-1-impl": {
+				ID:      "child-c-1-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-c-1-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize multi-parent move project: %v", err)
+	}
+
+	newParentID := "parent-c"
+	newIndex := 0
+	if err := project.MoveSections(
+		MoveSectionsInput{
+			SectionIDs:  []string{"child-a-1", "child-b-2"},
+			NewParentID: &newParentID,
+			NewIndex:    &newIndex,
+		},
+		DefaultStructuralMutationSettings().SectionSizingPolicy,
+		DefaultStructuralMutationSettings().TerminalDefaultHeight,
+	); err != nil {
+		t.Fatalf("MoveSections returned error: %v", err)
+	}
+
+	parentAPayload, err := effectiveSectionPayload(project, "parent-a", "parent-a-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload parent-a: %v", err)
+	}
+	if got := payloadStringArrayField(parentAPayload, "children"); !reflect.DeepEqual(got, []string{"child-a-2"}) {
+		t.Fatalf("expected parent-a children [child-a-2], got %#v", got)
+	}
+
+	parentBPayload, err := effectiveSectionPayload(project, "parent-b", "parent-b-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload parent-b: %v", err)
+	}
+	if got := payloadStringArrayField(parentBPayload, "children"); !reflect.DeepEqual(got, []string{"child-b-1"}) {
+		t.Fatalf("expected parent-b children [child-b-1], got %#v", got)
+	}
+
+	parentCPayload, err := effectiveSectionPayload(project, "parent-c", "parent-c-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload parent-c: %v", err)
+	}
+	if got := payloadStringArrayField(parentCPayload, "children"); !reflect.DeepEqual(got, []string{"child-a-1", "child-b-2", "child-c-1"}) {
+		t.Fatalf("expected parent-c children [child-a-1 child-b-2 child-c-1], got %#v", got)
+	}
+
+	if got := project.Sections["child-a-1"].ParentSectionID; got != "parent-c" {
+		t.Fatalf("expected child-a-1 parent parent-c, got %q", got)
+	}
+	if got := project.Sections["child-b-2"].ParentSectionID; got != "parent-c" {
+		t.Fatalf("expected child-b-2 parent parent-c, got %q", got)
+	}
+}
+
 func TestRuntimeMoveSectionsAttachesAndDetachesTerminalThroughTheMoveRoute(t *testing.T) {
 	t.Parallel()
 
