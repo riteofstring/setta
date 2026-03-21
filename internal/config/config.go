@@ -435,18 +435,22 @@ func resolveSettaHomeWithoutProfile(explicitSettaHome string, envLookup func(str
 }
 
 func defaultSettaHome(envLookup func(string) (string, bool)) (string, error) {
-	if runtime.GOOS == "windows" {
+	return defaultSettaHomeFor(runtime.GOOS, envLookup, os.UserHomeDir)
+}
+
+func defaultSettaHomeFor(goos string, envLookup func(string) (string, bool), userHomeDir func() (string, error)) (string, error) {
+	if goos == "windows" {
 		if appData := lookupEnvTrimmed(envLookup, "APPDATA"); appData != "" {
 			return resolvePath(filepath.Join(appData, ".setta"), "")
 		}
-		home, err := os.UserHomeDir()
+		home, err := userHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("resolve user home: %w", err)
 		}
 		return resolvePath(filepath.Join(home, "AppData", "Roaming", ".setta"), "")
 	}
 
-	home, err := os.UserHomeDir()
+	home, err := userHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve user home: %w", err)
 	}

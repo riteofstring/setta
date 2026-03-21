@@ -431,6 +431,68 @@ func TestResolveSettaHomeExpandsEnvOverride(t *testing.T) {
 	}
 }
 
+func TestDefaultSettaHomeForUnixUsesDotSetta(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	home := filepath.Join(tmpDir, "home")
+
+	resolved, err := defaultSettaHomeFor("linux", testEnv{
+		settaHomeEnv: filepath.Join(tmpDir, "ignored"),
+	}.lookup, func() (string, error) {
+		return home, nil
+	})
+	if err != nil {
+		t.Fatalf("default setta home: %v", err)
+	}
+
+	expected := filepath.Join(home, ".setta")
+	if resolved != expected {
+		t.Fatalf("expected unix default setta home %q, got %q", expected, resolved)
+	}
+}
+
+func TestDefaultSettaHomeForWindowsUsesAppData(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	appData := filepath.Join(tmpDir, "AppData", "Roaming")
+
+	resolved, err := defaultSettaHomeFor("windows", testEnv{
+		"APPDATA": appData,
+	}.lookup, func() (string, error) {
+		t.Fatal("expected APPDATA branch without home fallback")
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("default setta home: %v", err)
+	}
+
+	expected := filepath.Join(appData, ".setta")
+	if resolved != expected {
+		t.Fatalf("expected windows APPDATA setta home %q, got %q", expected, resolved)
+	}
+}
+
+func TestDefaultSettaHomeForWindowsFallsBackToHomeRoaming(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	home := filepath.Join(tmpDir, "home")
+
+	resolved, err := defaultSettaHomeFor("windows", testEnv{}.lookup, func() (string, error) {
+		return home, nil
+	})
+	if err != nil {
+		t.Fatalf("default setta home: %v", err)
+	}
+
+	expected := filepath.Join(home, "AppData", "Roaming", ".setta")
+	if resolved != expected {
+		t.Fatalf("expected windows fallback setta home %q, got %q", expected, resolved)
+	}
+}
+
 func TestValidateSettaHomeNameRejectsNonstandardLeaf(t *testing.T) {
 	t.Parallel()
 
