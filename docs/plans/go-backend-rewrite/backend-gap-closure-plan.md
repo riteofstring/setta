@@ -263,6 +263,9 @@ categorize them.
   Codex runtime proof backlog is largely exhausted and the next cheap queue
   should likely move back to the remaining non-Codex proof rows or into the
   heavier missing implementation areas
+- That OpenCode JSON-permission row is now proved too, so the remaining
+  proof-incomplete backlog is less about executor config-shaping minutiae and
+  more about broader config-health/codegen/platform slices
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
