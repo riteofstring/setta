@@ -899,6 +899,251 @@ func TestClaudeEventParserDocumentedToolsPersistToolCallsAndResults(t *testing.T
 	}
 }
 
+func TestClaudeHandleEventApprovalRequestRegistersRuntimeApprovalAndPersistsToolCallMessage(t *testing.T) {
+	t.Parallel()
+
+	store, runtime, executor, parser, request, state := newActiveClaudeParserTestFixture(t)
+	changed, _, err := executor.handleEvent(request, parser, map[string]any{
+		"type":       "approval_request",
+		"approvalId": "approval-1",
+		"toolName":   "Bash",
+		"toolType":   "bash",
+		"input":      map[string]any{"command": "ls"},
+	}, state)
+	if err != nil || !changed {
+		t.Fatalf("approval_request changed=%v err=%v", changed, err)
+	}
+
+	approvalState, ok := runtime.approvals["approval-1"]
+	if !ok {
+		t.Fatalf("expected runtime approval registration, got %#v", runtime.approvals)
+	}
+	if approvalState.RunID != request.Run.ID || approvalState.ChatID != request.ChatID {
+		t.Fatalf("unexpected approval state %#v", approvalState)
+	}
+
+	assistant := assistantMessageForTest(t, state, "approval-1")
+	toolCalls, _ := assistant["tool_calls"].([]any)
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected approval tool call message, got %#v", assistant)
+	}
+	toolCall, ok := toolCalls[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected tool call payload, got %#v", toolCalls[0])
+	}
+	function, _ := mapValue(toolCall["function"])
+	if got := stringValue(function["name"]); got != codexApprovalToolName {
+		t.Fatalf("expected approval tool name %q, got %#v", codexApprovalToolName, function["name"])
+	}
+	arguments, _ := mapValue(function["arguments"])
+	if got := stringValue(arguments["approvalId"]); got != "approval-1" {
+		t.Fatalf("expected approval id in arguments, got %#v", arguments)
+	}
+	input, _ := mapValue(arguments["input"])
+	if got := stringValue(input["command"]); got != "ls" {
+		t.Fatalf("expected preserved approval input, got %#v", arguments)
+	}
+
+	persisted, err := store.Load(request.Run.ID)
+	if err != nil {
+		t.Fatalf("load run after approval request: %v", err)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "approval_request" {
+		t.Fatalf("expected approval_request event, got %#v", lastEvent)
+	}
+	if got := stringValue(lastEvent.Payload["approvalId"]); got != "approval-1" {
+		t.Fatalf("unexpected persisted approval event %#v", lastEvent.Payload)
+	}
+}
+
+func TestClaudeHandleEventQuestionApprovalRequestQueuesAndPersistsEvent(t *testing.T) {
+	t.Parallel()
+
+	store, _, executor, parser, request, state := newActiveClaudeParserTestFixture(t)
+	changed, _, err := executor.handleEvent(request, parser, map[string]any{
+		"type":       "approval_request",
+		"approvalId": "approval-1",
+		"toolName":   askUserQuestionToolName,
+		"toolType":   "question",
+		"input": map[string]any{
+			"questions": []any{map[string]any{"question": "Language", "type": "text"}},
+		},
+	}, state)
+	if err != nil || changed {
+		t.Fatalf("question approval_request changed=%v err=%v", changed, err)
+	}
+	if len(parser.pendingQuestionApprovals) != 1 || parser.pendingQuestionApprovals[0] != "approval-1" {
+		t.Fatalf("expected queued question approval, got %#v", parser.pendingQuestionApprovals)
+	}
+	if len(state.Messages) != 0 {
+		t.Fatalf("expected no approval placeholder message before tool call, got %#v", state.Messages)
+	}
+
+	persisted, err := store.Load(request.Run.ID)
+	if err != nil {
+		t.Fatalf("load run after queued question approval: %v", err)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "approval_request" {
+		t.Fatalf("expected approval_request event, got %#v", lastEvent)
+	}
+}
+
+func TestClaudeEventParserRegistersQuestionToolCallWithoutApprovalID(t *testing.T) {
+	t.Parallel()
+
+	_, runtime, _, parser, request, state := newActiveClaudeParserTestFixture(t)
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":    "message_start",
+		"message": map[string]any{"id": "assistant-question", "content": []any{}},
+	}, state); err != nil || !changed {
+		t.Fatalf("message_start changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_start",
+		"index": 0,
+		"content_block": map[string]any{
+			"type": "tool_use",
+			"id":   "question-1",
+			"name": askUserQuestionToolName,
+			"input": map[string]any{
+				"questions": []any{map[string]any{"question": "Language", "type": "text"}},
+			},
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("question tool_use changed=%v err=%v", changed, err)
+	}
+
+	questionState, ok := runtime.questions["question-1"]
+	if !ok {
+		t.Fatalf("expected runtime question registration, got %#v", runtime.questions)
+	}
+	if questionState.RunID != request.Run.ID || questionState.ChatID != request.ChatID {
+		t.Fatalf("unexpected runtime question state %#v", questionState)
+	}
+	if questionState.ResponseID != nil {
+		t.Fatalf("expected question to start without approval response id, got %#v", questionState)
+	}
+
+	assistant := assistantMessageForTest(t, state, "assistant-question")
+	toolCalls, _ := assistant["tool_calls"].([]any)
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected assistant question tool call, got %#v", assistant)
+	}
+	toolCall, ok := toolCalls[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected tool call payload, got %#v", toolCalls[0])
+	}
+	function, _ := mapValue(toolCall["function"])
+	if got := stringValue(function["name"]); got != askUserQuestionToolName {
+		t.Fatalf("expected AskUserQuestion tool call, got %#v", function)
+	}
+}
+
+func TestClaudeEventParserRegistersQuestionToolCallWithQueuedApprovalID(t *testing.T) {
+	t.Parallel()
+
+	_, runtime, _, parser, request, state := newActiveClaudeParserTestFixture(t)
+	if err := parser.queueQuestionApproval("approval-1"); err != nil {
+		t.Fatalf("queue question approval: %v", err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":    "message_start",
+		"message": map[string]any{"id": "assistant-question", "content": []any{}},
+	}, state); err != nil || !changed {
+		t.Fatalf("message_start changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_start",
+		"index": 0,
+		"content_block": map[string]any{
+			"type": "tool_use",
+			"id":   "question-1",
+			"name": askUserQuestionToolName,
+			"input": map[string]any{
+				"questions": []any{map[string]any{"question": "Language", "type": "text"}},
+			},
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("question tool_use changed=%v err=%v", changed, err)
+	}
+
+	questionState, ok := runtime.questions["question-1"]
+	if !ok {
+		t.Fatalf("expected runtime question registration, got %#v", runtime.questions)
+	}
+	if questionState.ResponseID == nil || *questionState.ResponseID != "approval-1" {
+		t.Fatalf("expected queued approval id to attach to question, got %#v", questionState)
+	}
+	if len(parser.pendingQuestionApprovals) != 0 || len(parser.pendingQuestionToolCalls) != 0 {
+		t.Fatalf("expected question approval queues to drain, got approvals=%#v toolCalls=%#v", parser.pendingQuestionApprovals, parser.pendingQuestionToolCalls)
+	}
+	if questionState.RunID != request.Run.ID {
+		t.Fatalf("unexpected runtime question state %#v", questionState)
+	}
+}
+
+func TestClaudeHandleEventQuestionApprovalAttachesToPreviouslyRegisteredToolCall(t *testing.T) {
+	t.Parallel()
+
+	store, runtime, executor, parser, request, state := newActiveClaudeParserTestFixture(t)
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":    "message_start",
+		"message": map[string]any{"id": "assistant-question", "content": []any{}},
+	}, state); err != nil || !changed {
+		t.Fatalf("message_start changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_start",
+		"index": 0,
+		"content_block": map[string]any{
+			"type": "tool_use",
+			"id":   "question-1",
+			"name": askUserQuestionToolName,
+			"input": map[string]any{
+				"questions": []any{map[string]any{"question": "Language", "type": "text"}},
+			},
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("question tool_use changed=%v err=%v", changed, err)
+	}
+	registered := runtime.questions["question-1"]
+	if registered.ResponseID != nil {
+		t.Fatalf("expected initial question registration without approval id, got %#v", registered)
+	}
+
+	changed, _, err := executor.handleEvent(request, parser, map[string]any{
+		"type":       "approval_request",
+		"approvalId": "approval-1",
+		"toolName":   askUserQuestionToolName,
+		"toolType":   "question",
+		"input": map[string]any{
+			"questions": []any{map[string]any{"question": "Language", "type": "text"}},
+		},
+	}, state)
+	if err != nil || changed {
+		t.Fatalf("late question approval changed=%v err=%v", changed, err)
+	}
+
+	questionState := runtime.questions["question-1"]
+	if questionState.ResponseID == nil || *questionState.ResponseID != "approval-1" {
+		t.Fatalf("expected late approval id to attach to existing question, got %#v", questionState)
+	}
+	if len(parser.pendingQuestionApprovals) != 0 || len(parser.pendingQuestionToolCalls) != 0 {
+		t.Fatalf("expected late question approval queues to drain, got approvals=%#v toolCalls=%#v", parser.pendingQuestionApprovals, parser.pendingQuestionToolCalls)
+	}
+
+	persisted, err := store.Load(request.Run.ID)
+	if err != nil {
+		t.Fatalf("load run after late question approval: %v", err)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "approval_request" {
+		t.Fatalf("expected persisted approval_request event, got %#v", lastEvent)
+	}
+}
+
 func TestClaudeEventParserPreservesThinkingSummaryAndSignatureDeltas(t *testing.T) {
 	t.Parallel()
 
@@ -2238,6 +2483,34 @@ func newClaudeParserTestFixture(t *testing.T) (*ClaudeExecutor, *claudeEventPars
 		ChatID:          "chat-alpha",
 	}
 	return &ClaudeExecutor{}, newClaudeEventParser(runtime, request), request, &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+}
+
+func newActiveClaudeParserTestFixture(t *testing.T) (*agentruns.RunStore, *Runtime, *ClaudeExecutor, *claudeEventParser, StartRequest, *ChatState) {
+	t.Helper()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-claude-parser", agentruns.RunStatusRunning)
+	controller := &stubRunController{}
+	if err := runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate parser run: %v", err)
+	}
+	sectionID := "section-alpha"
+	request := StartRequest{
+		Run:             run,
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       &sectionID,
+	}
+	executor := &ClaudeExecutor{
+		runs:    store,
+		runtime: runtime,
+		timeNow: func() time.Time { return time.Date(2026, 3, 20, 10, 5, 0, 0, time.UTC) },
+	}
+	return store, runtime, executor, newClaudeEventParser(runtime, request), request, &ChatState{
 		Messages:           []map[string]any{},
 		ToolCallArguments:  map[string]string{},
 		WaitingForResponse: true,

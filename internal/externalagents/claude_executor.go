@@ -327,7 +327,12 @@ func (e *ClaudeExecutor) handleEvent(
 		}
 		toolName := normalizeClaudeToolName(stringValue(payload["toolName"]))
 		if toolName == askUserQuestionToolName {
-			parser.queueQuestionApproval(approvalID)
+			if err := parser.queueQuestionApproval(approvalID); err != nil {
+				return false, nil, err
+			}
+			if err := e.persistApprovalRequestEvent(request.Run.ID, approvalID, payload); err != nil {
+				return false, nil, err
+			}
 			return false, nil, nil
 		}
 		approvalState := ApprovalState{
@@ -341,15 +346,7 @@ func (e *ClaudeExecutor) handleEvent(
 			return false, nil, err
 		}
 		appendApprovalRequestMessage(state, approvalID, buildClaudeApprovalArguments(payload))
-		run, err := e.runs.Load(request.Run.ID)
-		if err != nil {
-			return true, nil, err
-		}
-		appendRunEvent(&run, "approval_request", map[string]any{
-			"approvalId": approvalID,
-			"payload":    cloneAnyMap(payload),
-		}, e.timeNow())
-		if err := e.runs.Save(run); err != nil {
+		if err := e.persistApprovalRequestEvent(request.Run.ID, approvalID, payload); err != nil {
 			return true, nil, err
 		}
 		return true, nil, nil
@@ -393,6 +390,18 @@ func (e *ClaudeExecutor) handleEvent(
 	default:
 		return false, nil, nil
 	}
+}
+
+func (e *ClaudeExecutor) persistApprovalRequestEvent(runID string, approvalID string, payload map[string]any) error {
+	run, err := e.runs.Load(runID)
+	if err != nil {
+		return err
+	}
+	appendRunEvent(&run, "approval_request", map[string]any{
+		"approvalId": approvalID,
+		"payload":    cloneAnyMap(payload),
+	}, e.timeNow())
+	return e.runs.Save(run)
 }
 
 func (e *ClaudeExecutor) handleProcessExit(
@@ -1231,6 +1240,7 @@ type claudeEventParser struct {
 	toolCallSeededFromInput  map[string]bool
 	toolResultBuffersByID    map[string]*claudeToolResultBuffer
 	pendingQuestionApprovals []string
+	pendingQuestionToolCalls []string
 	pendingToolResults       []claudeToolResultMetadata
 }
 
@@ -1247,11 +1257,20 @@ func newClaudeEventParser(runtime *Runtime, request StartRequest) *claudeEventPa
 	}
 }
 
-func (p *claudeEventParser) queueQuestionApproval(approvalID string) {
-	if strings.TrimSpace(approvalID) == "" {
-		return
+func (p *claudeEventParser) queueQuestionApproval(approvalID string) error {
+	trimmedApprovalID := strings.TrimSpace(approvalID)
+	if trimmedApprovalID == "" {
+		return nil
 	}
-	p.pendingQuestionApprovals = append(p.pendingQuestionApprovals, approvalID)
+	if toolCallID := p.popPendingQuestionToolCall(); toolCallID != nil {
+		responseID := trimmedApprovalID
+		if err := p.runtime.RegisterQuestion(p.buildQuestionState(*toolCallID, &responseID)); err != nil && !errors.Is(err, ErrRunNotActive) {
+			return err
+		}
+		return nil
+	}
+	p.pendingQuestionApprovals = append(p.pendingQuestionApprovals, trimmedApprovalID)
+	return nil
 }
 
 func (p *claudeEventParser) popQuestionApproval() *string {
@@ -1261,6 +1280,15 @@ func (p *claudeEventParser) popQuestionApproval() *string {
 	approvalID := p.pendingQuestionApprovals[0]
 	p.pendingQuestionApprovals = append([]string(nil), p.pendingQuestionApprovals[1:]...)
 	return &approvalID
+}
+
+func (p *claudeEventParser) popPendingQuestionToolCall() *string {
+	if len(p.pendingQuestionToolCalls) == 0 {
+		return nil
+	}
+	toolCallID := p.pendingQuestionToolCalls[0]
+	p.pendingQuestionToolCalls = append([]string(nil), p.pendingQuestionToolCalls[1:]...)
+	return &toolCallID
 }
 
 func (p *claudeEventParser) takeToolResults() []claudeToolResultMetadata {
@@ -1569,18 +1597,25 @@ func (p *claudeEventParser) registerQuestion(toolCallID string, toolName string)
 	if toolName != askUserQuestionToolName {
 		return nil
 	}
-	state := QuestionState{
-		ToolCallID:      toolCallID,
-		RunID:           p.request.Run.ID,
-		ProjectConfigID: p.request.ProjectConfigID,
-		ChatID:          p.request.ChatID,
-		SectionID:       cloneOptionalString(p.request.SectionID),
-		ResponseID:      p.popQuestionApproval(),
+	state := p.buildQuestionState(toolCallID, p.popQuestionApproval())
+	if state.ResponseID == nil {
+		p.pendingQuestionToolCalls = append(p.pendingQuestionToolCalls, toolCallID)
 	}
 	if err := p.runtime.RegisterQuestion(state); err != nil && !errors.Is(err, ErrRunNotActive) {
 		return err
 	}
 	return nil
+}
+
+func (p *claudeEventParser) buildQuestionState(toolCallID string, responseID *string) QuestionState {
+	return QuestionState{
+		ToolCallID:      toolCallID,
+		RunID:           p.request.Run.ID,
+		ProjectConfigID: p.request.ProjectConfigID,
+		ChatID:          p.request.ChatID,
+		SectionID:       cloneOptionalString(p.request.SectionID),
+		ResponseID:      cloneOptionalString(responseID),
+	}
 }
 
 func decodeJSONObject(raw string) (map[string]any, bool) {
