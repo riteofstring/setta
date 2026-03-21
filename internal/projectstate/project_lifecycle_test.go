@@ -259,6 +259,131 @@ func TestDocumentCloneProjectCreatesIndependentCopy(t *testing.T) {
 	}
 }
 
+func TestDocumentCloneProjectKeepsCopiedGraphReferencesProjectScoped(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		Sections: map[string]Section{
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source",
+				VariantIDs:       []string{"source-variant"},
+				DefaultVariantID: "source-variant",
+			},
+			"target-section": {
+				ID:               "target-section",
+				Name:             "Target",
+				VariantIDs:       []string{"target-variant"},
+				DefaultVariantID: "target-variant",
+			},
+			"chat-section": {
+				ID:               "chat-section",
+				Name:             "Chat",
+				VariantIDs:       []string{"chat-variant"},
+				DefaultVariantID: "chat-variant",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"source-section": "source-variant",
+			"target-section": "target-variant",
+			"chat-section":   "chat-variant",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"source-variant": {ID: "source-variant", ImplID: "source-impl"},
+			"target-variant": {ID: "target-variant", ImplID: "target-impl"},
+			"chat-variant":   {ID: "chat-variant", ImplID: "chat-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"source-impl": {ID: "source-impl", Kind: SectionKind("dict")},
+			"target-impl": {ID: "target-impl", Kind: SectionKind("dict")},
+			"chat-impl":   {ID: "chat-impl", Kind: SectionKind("chat")},
+		},
+		CodeObjs: map[string]CodeObject{
+			"target-param": {
+				ID:               "target-param",
+				Name:             "target_param",
+				VariantIDs:       []string{"target-param-variant"},
+				DefaultVariantID: "target-param-variant",
+			},
+		},
+		CodeObjVariants: map[string]CodeObjectVariant{
+			"target-param-variant": {ID: "target-param-variant", ImplID: "target-param-impl"},
+		},
+		CodeObjImpls: map[string]CodeObjectImpl{
+			"target-param-impl": {ID: "target-param-impl", Type: "TextParam"},
+		},
+		Edges: []Edge{
+			{
+				ID:              "edge-1",
+				SourceSectionID: "source-section",
+				SourceVariantID: "source-variant",
+				SourcePortID:    "output-port",
+				TargetSectionID: "target-section",
+				TargetVariantID: "target-variant",
+				TargetPortID:    "target-param",
+			},
+		},
+		AgenticEdges: []AgenticEdge{
+			{
+				ID:              "agentic-edge-1",
+				SourceSectionID: "chat-section",
+				TargetSectionID: "target-section",
+				Kind:            "section_chat",
+			},
+		},
+	}
+
+	clonedProjectID, normalizedName, err := document.CloneProject("project-alpha", "Cloned Alpha")
+	if err != nil {
+		t.Fatalf("CloneProject returned error: %v", err)
+	}
+	if normalizedName != "Cloned Alpha" {
+		t.Fatalf("expected normalized cloned name, got %q", normalizedName)
+	}
+	if clonedProjectID == "project-alpha" {
+		t.Fatalf("expected new project id, got %q", clonedProjectID)
+	}
+
+	clonedProject, err := document.ProjectByID(clonedProjectID)
+	if err != nil {
+		t.Fatalf("ProjectByID clone returned error: %v", err)
+	}
+	if len(clonedProject.Edges) != 1 {
+		t.Fatalf("expected one copied edge, got %#v", clonedProject.Edges)
+	}
+	clonedEdge := clonedProject.Edges[0]
+	if _, ok := clonedProject.Sections[clonedEdge.SourceSectionID]; !ok {
+		t.Fatalf("expected copied edge source %q to remain project-scoped, got %#v", clonedEdge.SourceSectionID, clonedProject.Sections)
+	}
+	if _, ok := clonedProject.Sections[clonedEdge.TargetSectionID]; !ok {
+		t.Fatalf("expected copied edge target %q to remain project-scoped, got %#v", clonedEdge.TargetSectionID, clonedProject.Sections)
+	}
+	if _, ok := clonedProject.SectionVariants[clonedEdge.SourceVariantID]; !ok {
+		t.Fatalf("expected copied edge source variant %q to remain project-scoped, got %#v", clonedEdge.SourceVariantID, clonedProject.SectionVariants)
+	}
+	if _, ok := clonedProject.SectionVariants[clonedEdge.TargetVariantID]; !ok {
+		t.Fatalf("expected copied edge target variant %q to remain project-scoped, got %#v", clonedEdge.TargetVariantID, clonedProject.SectionVariants)
+	}
+	if _, ok := clonedProject.CodeObjs[clonedEdge.TargetPortID]; !ok {
+		t.Fatalf("expected copied edge target port %q to remain project-scoped, got %#v", clonedEdge.TargetPortID, clonedProject.CodeObjs)
+	}
+
+	if len(clonedProject.AgenticEdges) != 1 {
+		t.Fatalf("expected one copied agentic edge, got %#v", clonedProject.AgenticEdges)
+	}
+	clonedAgenticEdge := clonedProject.AgenticEdges[0]
+	if _, ok := clonedProject.Sections[clonedAgenticEdge.SourceSectionID]; !ok {
+		t.Fatalf("expected copied agentic edge source %q to remain project-scoped, got %#v", clonedAgenticEdge.SourceSectionID, clonedProject.Sections)
+	}
+	if _, ok := clonedProject.Sections[clonedAgenticEdge.TargetSectionID]; !ok {
+		t.Fatalf("expected copied agentic edge target %q to remain project-scoped, got %#v", clonedAgenticEdge.TargetSectionID, clonedProject.Sections)
+	}
+}
+
 func TestDocumentSaveAsNewProjectConfigWithRefsClearsSavedChatIDsAndResetsLiveWindowing(t *testing.T) {
 	t.Parallel()
 
