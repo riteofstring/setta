@@ -908,6 +908,48 @@ func TestRegisterAIRoutesGetLLMResponseSchemaFailuresReturnValidationEnvelope(t 
 			expectedDetail: "unexpectedField: Extra inputs are not permitted",
 		},
 		{
+			name: "missing_message",
+			body: `{
+				"chatId":null,
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "message: Field required",
+		},
+		{
+			name: "missing_engine_config_id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "engineConfigId: Field required",
+		},
+		{
+			name: "missing_project_config_id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "projectConfigId: Field required",
+		},
+		{
 			name: "missing_thinking",
 			body: `{
 				"chatId":null,
@@ -920,6 +962,36 @@ func TestRegisterAIRoutesGetLLMResponseSchemaFailuresReturnValidationEnvelope(t 
 				"searchEnabled":false
 			}`,
 			expectedDetail: "thinking: Field required",
+		},
+		{
+			name: "message_missing_role_discriminator",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "message: Unable to extract tag using discriminator 'role'",
+		},
+		{
+			name: "tool_message_missing_tool_call_id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"tool-managed","role":"tool","content":[]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "message.tool.tool_call_id: Field required",
 		},
 		{
 			name: "null_thinking",

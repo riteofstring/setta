@@ -663,7 +663,7 @@ func (e *llmResponseValidationError) Error() string {
 func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error) {
 	var payload GetLLMResponseRequest
 	if r.Body == nil {
-		return payload, &strictJSONMissingFieldError{Field: "thinking"}
+		return payload, &strictJSONMissingFieldError{Field: "message"}
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -685,7 +685,7 @@ func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error)
 	if err := json.Unmarshal(trimmedBody, &fields); err != nil {
 		return payload, err
 	}
-	for _, field := range []string{"thinking", "permissionMode", "searchEnabled"} {
+	for _, field := range []string{"message", "engineConfigId", "thinking", "projectConfigId", "permissionMode", "searchEnabled"} {
 		value, ok := fields[field]
 		if !ok {
 			return payload, &strictJSONMissingFieldError{Field: field}
@@ -694,6 +694,14 @@ func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error)
 			continue
 		}
 		switch field {
+		case "message":
+			return payload, &llmResponseValidationError{
+				message: "message: Input should be a valid dictionary",
+			}
+		case "engineConfigId", "projectConfigId":
+			return payload, &llmResponseValidationError{
+				message: field + ": Input should be a valid string",
+			}
 		case "thinking", "searchEnabled":
 			return payload, &llmResponseValidationError{
 				message: field + ": Input should be a valid boolean",
@@ -703,6 +711,9 @@ func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error)
 				message: "permissionMode: Input should be 'minimal', 'yolo' or 'config_toml_custom'",
 			}
 		}
+	}
+	if err := validateGetLLMResponseMessage(fields["message"]); err != nil {
+		return payload, err
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(trimmedBody))
@@ -740,6 +751,10 @@ func formatGetLLMResponseValidationMessage(err error) string {
 	var typeErr *json.UnmarshalTypeError
 	if errors.As(err, &typeErr) {
 		switch strings.TrimSpace(typeErr.Field) {
+		case "message":
+			return "message: Input should be a valid dictionary"
+		case "engineConfigId", "projectConfigId":
+			return strings.TrimSpace(typeErr.Field) + ": Input should be a valid string"
 		case "thinking", "searchEnabled":
 			return strings.TrimSpace(typeErr.Field) + ": Input should be a valid boolean"
 		case "permissionMode":
@@ -753,6 +768,55 @@ func formatGetLLMResponseValidationMessage(err error) string {
 	}
 
 	return err.Error()
+}
+
+func validateGetLLMResponseMessage(raw json.RawMessage) error {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return &llmResponseValidationError{
+			message: "message: Input should be a valid dictionary",
+		}
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &fields); err != nil {
+		return &llmResponseValidationError{
+			message: "message: Input should be a valid dictionary",
+		}
+	}
+
+	roleRaw, ok := fields["role"]
+	if !ok || bytes.Equal(bytes.TrimSpace(roleRaw), []byte("null")) {
+		return &llmResponseValidationError{
+			message: "message: Unable to extract tag using discriminator 'role'",
+		}
+	}
+
+	var role string
+	if err := json.Unmarshal(roleRaw, &role); err != nil || strings.TrimSpace(role) == "" {
+		return &llmResponseValidationError{
+			message: "message: Unable to extract tag using discriminator 'role'",
+		}
+	}
+
+	if strings.TrimSpace(role) != "tool" {
+		return nil
+	}
+
+	toolCallIDRaw, ok := fields["tool_call_id"]
+	if !ok || bytes.Equal(bytes.TrimSpace(toolCallIDRaw), []byte("null")) {
+		return &llmResponseValidationError{
+			message: "message.tool.tool_call_id: Field required",
+		}
+	}
+
+	var toolCallID string
+	if err := json.Unmarshal(toolCallIDRaw, &toolCallID); err != nil || strings.TrimSpace(toolCallID) == "" {
+		return &llmResponseValidationError{
+			message: "message.tool.tool_call_id: Field required",
+		}
+	}
+	return nil
 }
 
 func writeChatHydrationDecodeError(w http.ResponseWriter, r *http.Request, err error) {
