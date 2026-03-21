@@ -22,6 +22,10 @@ type blockingAppendEngine struct {
 	closeCalls int
 }
 
+type closableEngine struct {
+	closeCalls int
+}
+
 func (e *blockingAppendEngine) AppendAudio(context.Context, []byte, int, int) (Delta, error) {
 	e.started <- struct{}{}
 	<-e.release
@@ -35,6 +39,47 @@ func (e *blockingAppendEngine) Stop(context.Context) (Delta, error) {
 func (e *blockingAppendEngine) Close() error {
 	e.closeCalls++
 	return nil
+}
+
+func (e *closableEngine) AppendAudio(context.Context, []byte, int, int) (Delta, error) {
+	return Delta{}, nil
+}
+
+func (e *closableEngine) Stop(context.Context) (Delta, error) {
+	return Delta{}, nil
+}
+
+func (e *closableEngine) Close() error {
+	e.closeCalls++
+	return nil
+}
+
+func TestResolveAPIKeyRejectsWhitespaceOnlyValues(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolveAPIKey(map[string]string{
+		"OPENAI_API_KEY": "   ",
+	}, "OPENAI_API_KEY")
+	if !errors.Is(err, ErrMissingAPIKey) {
+		t.Fatalf("expected missing api key error, got %v", err)
+	}
+	if err.Error() != "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+}
+
+func TestResolveAPIKeyTrimsValues(t *testing.T) {
+	t.Parallel()
+
+	apiKey, err := resolveAPIKey(map[string]string{
+		"OPENAI_API_KEY": "  trimmed-secret  ",
+	}, "OPENAI_API_KEY")
+	if err != nil {
+		t.Fatalf("resolve api key: %v", err)
+	}
+	if apiKey != "trimmed-secret" {
+		t.Fatalf("expected trimmed api key, got %q", apiKey)
+	}
 }
 
 func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
@@ -456,6 +501,30 @@ func TestIsRealtimeFallbackErrorUsesStructuredStatusCodes(t *testing.T) {
 	}
 }
 
+func TestIsRealtimeFallbackErrorDoesNotFallbackOnMissingAPIKey(t *testing.T) {
+	t.Parallel()
+
+	err := newServiceError(
+		ErrMissingAPIKey,
+		"Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys.",
+	)
+	if isRealtimeFallbackError(err) {
+		t.Fatal("expected missing api key errors to fail closed without file fallback")
+	}
+}
+
+func TestIsRealtimeFallbackErrorFallsBackOnCapabilityMessage(t *testing.T) {
+	t.Parallel()
+
+	err := newServiceError(
+		ErrProviderFailure,
+		"Realtime transcription is unavailable for this model.",
+	)
+	if !isRealtimeFallbackError(err) {
+		t.Fatal("expected capability failure message to trigger file fallback")
+	}
+}
+
 func TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel(t *testing.T) {
 	t.Parallel()
 
@@ -759,6 +828,42 @@ func TestServicePruneExpiredSessionsRemovesIdleSession(t *testing.T) {
 	})
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("expected pruned session not found, got %v", err)
+	}
+}
+
+func TestServicePruneExpiredSessionsClosesIdleEngine(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC)
+	engine := &closableEngine{}
+	service := &Service{
+		llm:        newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{}, map[string]string{}),
+		sessionTTL: time.Second,
+		timeNow: func() time.Time {
+			return now
+		},
+		sessions: map[string]*activeSession{
+			"session-prune-close": {
+				scopeID:      "scope-1",
+				engine:       engine,
+				lastActivity: now,
+			},
+		},
+	}
+
+	now = now.Add(2 * time.Second)
+	if err := service.PruneExpiredSessions(context.Background()); err != nil {
+		t.Fatalf("prune expired sessions: %v", err)
+	}
+
+	service.mu.Lock()
+	session := service.sessions["session-prune-close"]
+	service.mu.Unlock()
+	if session != nil {
+		t.Fatalf("expected idle session to be pruned, got %#v", session)
+	}
+	if engine.closeCalls != 1 {
+		t.Fatalf("expected pruned idle session to close once, got %d close calls", engine.closeCalls)
 	}
 }
 
