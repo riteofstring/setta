@@ -235,6 +235,79 @@ func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInst
 	}
 }
 
+func TestCodexExecutorPrepareCodexHomePrefersExplicitBaseConfigPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	configID := "external-config"
+	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
+	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir explicit config dir: %v", err)
+	}
+	explicitConfig, err := toml.Marshal(map[string]any{
+		"mcp_servers": map[string]any{
+			"explicit": map[string]any{
+				"url": "http://explicit.example/mcp",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("encode explicit codex config: %v", err)
+	}
+	if err := os.WriteFile(explicitConfigPath, explicitConfig, 0o644); err != nil {
+		t.Fatalf("write explicit codex config: %v", err)
+	}
+
+	canonicalConfigPath := filepath.Join(root, codexSettingsRootName, "codex", configID, codexConfigFileName)
+	if err := os.MkdirAll(filepath.Dir(canonicalConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir canonical config dir: %v", err)
+	}
+	canonicalConfig, err := toml.Marshal(map[string]any{
+		"mcp_servers": map[string]any{
+			"canonical": map[string]any{
+				"url": "http://canonical.example/mcp",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("encode canonical codex config: %v", err)
+	}
+	if err := os.WriteFile(canonicalConfigPath, canonicalConfig, 0o644); err != nil {
+		t.Fatalf("write canonical codex config: %v", err)
+	}
+
+	executor := &CodexExecutor{
+		settaFilesRoot: root,
+	}
+	runtimeHome, err := executor.prepareCodexHome(externalagentconfigs.Config{
+		ID:               configID,
+		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
+		SettingsFilePath: stringPtr(explicitConfigPath),
+	}, "chat-1", root, map[string]any{})
+	if err != nil {
+		t.Fatalf("prepare codex home: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(runtimeHome, codexConfigFileName))
+	if err != nil {
+		t.Fatalf("read runtime codex config: %v", err)
+	}
+	runtimeConfig := map[string]any{}
+	if err := toml.Unmarshal(content, &runtimeConfig); err != nil {
+		t.Fatalf("decode runtime codex config: %v", err)
+	}
+	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
+	if !ok {
+		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
+	}
+	if _, ok := mapValue(mcpServers["explicit"]); !ok {
+		t.Fatalf("expected explicit-path mcp server to be preserved, got %#v", mcpServers)
+	}
+	if _, ok := mcpServers["canonical"]; ok {
+		t.Fatalf("expected canonical home config to be ignored when explicit path is set, got %#v", mcpServers)
+	}
+}
+
 func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
