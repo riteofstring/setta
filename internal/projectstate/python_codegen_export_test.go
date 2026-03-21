@@ -19,6 +19,12 @@ func TestDecodePythonSectionCodegenPolicyUsesDefaults(t *testing.T) {
 	if _, ok := policy.Allowlist["Callable"]; !ok {
 		t.Fatal("expected Callable in default section allowlist")
 	}
+	if _, ok := policy.Allowlist["TaskBoard"]; !ok {
+		t.Fatal("expected TaskBoard in default section allowlist")
+	}
+	if _, ok := policy.Allowlist["Spreadsheet"]; !ok {
+		t.Fatal("expected Spreadsheet in default section allowlist")
+	}
 	if _, ok := policy.Allowlist["Image"]; ok {
 		t.Fatal("did not expect Image in default section allowlist")
 	}

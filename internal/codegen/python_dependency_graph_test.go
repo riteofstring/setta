@@ -175,6 +175,82 @@ func TestBuildPythonDependencyGraphCallableSectionExportsParamsAndUniquePaths(t 
 	}
 }
 
+// The standalone sanitizer should stay in lockstep with the source helper for identifier-safe names.
+func TestSanitizePythonIdentifierMatchesSourceContracts(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "preserves simple identifier", input: "alpha", want: "alpha"},
+		{name: "preserves underscore prefix", input: "_alpha1", want: "_alpha1"},
+		{name: "replaces invalid characters", input: "user-id", want: "user_id"},
+		{name: "replaces whitespace", input: "white space", want: "white_space"},
+		{name: "prefixes digits", input: "123", want: "_123"},
+		{name: "prefixes digits after replacement", input: "123 abc", want: "_123_abc"},
+		{name: "avoids class keyword", input: "class", want: "_class"},
+		{name: "avoids for keyword", input: "for", want: "_for"},
+		{name: "empty falls back to underscore", input: "", want: "_"},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := sanitizePythonIdentifier(testCase.input); got != testCase.want {
+				t.Fatalf("sanitizePythonIdentifier(%q) = %q, want %q", testCase.input, got, testCase.want)
+			}
+		})
+	}
+}
+
+// Param nodes should preserve the resolved code-object value-policy representation from export.
+func TestBuildPythonDependencyGraphParamNodesUseResolvedValuePolicyRepresentation(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                string
+		paramID             string
+		pythonTargetPayload projectstate.RawJSON
+		expected            projectstate.PythonCodeObjValueRepresentationMode
+	}{
+		{
+			name:                "type policy representation",
+			paramID:             "param-1",
+			pythonTargetPayload: mustPythonCodeObjValuePolicyPayload(t, projectstate.PythonCodeObjValueRepresentationJSONParsed, "", ""),
+			expected:            projectstate.PythonCodeObjValueRepresentationJSONParsed,
+		},
+		{
+			name:                "override precedence",
+			paramID:             "param-override",
+			pythonTargetPayload: mustPythonCodeObjValuePolicyPayload(t, projectstate.PythonCodeObjValueRepresentationString, "param-override", projectstate.PythonCodeObjValueRepresentationJSONParsed),
+			expected:            projectstate.PythonCodeObjValueRepresentationJSONParsed,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := callableSectionProjectWithCodeObjValuePolicy(t, testCase.paramID, testCase.pythonTargetPayload)
+			exported := mustPythonCodegenExport(t, project)
+			graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+			if err != nil {
+				t.Fatalf("build python dependency graph: %v", err)
+			}
+
+			paramNode := mustParamNode(t, graph, PythonCodeObjectDependencyKey("section-1", testCase.paramID))
+			if paramNode.ValueRepresentation != testCase.expected {
+				t.Fatalf("expected value representation %q, got %q", testCase.expected, paramNode.ValueRepresentation)
+			}
+		})
+	}
+}
+
 // GlobalVariables should export params directly at the top level instead of creating a section node wrapper.
 func TestBuildPythonDependencyGraphGlobalVariablesExportsTopLevelParams(t *testing.T) {
 	t.Parallel()
@@ -528,6 +604,247 @@ func TestBuildPythonDependencyGraphSectionValueModes(t *testing.T) {
 			t.Fatalf("unexpected spreadsheet payload %q", literal.Payload)
 		}
 	})
+}
+
+// MetaControl sections should export the control param literal and resolved value representation for later formatting.
+func TestBuildPythonDependencyGraphMetaControlExportsControlValueAndRepresentation(t *testing.T) {
+	t.Parallel()
+
+	project := metaControlSectionProject(
+		t,
+		"text-control",
+		"TextParam",
+		"notes",
+		mustRawJSON(
+			t,
+			`{
+				"language":"python",
+				"codeObjValuePolicy":{
+					"codeObjOverrides":{
+						"control-param-1":{"representation":"string"}
+					}
+				}
+			}`,
+		),
+	)
+	exported := mustPythonCodegenExport(t, project)
+	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+	if err != nil {
+		t.Fatalf("build meta control graph: %v", err)
+	}
+
+	node := mustSectionNode(t, graph, PythonSectionDependencyKey("section-1"))
+	literal, ok := node.Value.(LiteralDependencyValue)
+	if !ok {
+		t.Fatalf("expected literal meta control value, got %#v", node.Value)
+	}
+	if literal.Payload != "notes" {
+		t.Fatalf("expected meta control value %q, got %q", "notes", literal.Payload)
+	}
+	if node.ControlCodeObjType != "TextParam" {
+		t.Fatalf("expected control type TextParam, got %q", node.ControlCodeObjType)
+	}
+	if node.ControlValueRepresentation != projectstate.PythonCodeObjValueRepresentationString {
+		t.Fatalf("expected control value representation string, got %q", node.ControlValueRepresentation)
+	}
+}
+
+// MetaControl export should honor the allowlist-derived include state and preserve expanded supported control types.
+func TestBuildPythonDependencyGraphMetaControlAllowlistAndExpandedTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("allowlist filter", func(t *testing.T) {
+		t.Parallel()
+
+		project := projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload: mustRawJSON(
+						t,
+						`{
+							"language":"python",
+							"sectionPolicy":{
+								"metaControlAllowlist":["TextParam"]
+							}
+						}`,
+					),
+				},
+			},
+			TopLevelSectionIDs: []string{"meta-text", "meta-slider"},
+			SectionVariantMap: map[string]string{
+				"meta-text":   "meta-text-variant-1",
+				"meta-slider": "meta-slider-variant-1",
+			},
+			Sections: map[string]projectstate.Section{
+				"meta-text": {
+					ID:               "meta-text",
+					Name:             "Meta Text",
+					VariantIDs:       []string{"meta-text-variant-1"},
+					DefaultVariantID: "meta-text-variant-1",
+				},
+				"meta-slider": {
+					ID:               "meta-slider",
+					Name:             "Meta Slider",
+					VariantIDs:       []string{"meta-slider-variant-1"},
+					DefaultVariantID: "meta-slider-variant-1",
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"meta-text-variant-1": {
+					ID:     "meta-text-variant-1",
+					ImplID: "meta-text-impl-1",
+				},
+				"meta-slider-variant-1": {
+					ID:     "meta-slider-variant-1",
+					ImplID: "meta-slider-impl-1",
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"meta-text-impl-1": {
+					ID: "meta-text-impl-1",
+					Payload: mustRawJSON(
+						t,
+						`{
+							"id":"meta-text-impl-1",
+							"type":"MetaControl",
+							"metaControlParamId":"control-param-text",
+							"codeObjVariantMap":{"control-param-text":"control-param-text-variant-1"}
+						}`,
+					),
+				},
+				"meta-slider-impl-1": {
+					ID: "meta-slider-impl-1",
+					Payload: mustRawJSON(
+						t,
+						`{
+							"id":"meta-slider-impl-1",
+							"type":"MetaControl",
+							"metaControlParamId":"control-param-slider",
+							"codeObjVariantMap":{"control-param-slider":"control-param-slider-variant-1"}
+						}`,
+					),
+				},
+			},
+			CodeObjs: map[string]projectstate.CodeObject{
+				"control-param-text": {
+					ID:               "control-param-text",
+					Name:             "text_control",
+					VariantIDs:       []string{"control-param-text-variant-1"},
+					DefaultVariantID: "control-param-text-variant-1",
+				},
+				"control-param-slider": {
+					ID:               "control-param-slider",
+					Name:             "slider_control",
+					VariantIDs:       []string{"control-param-slider-variant-1"},
+					DefaultVariantID: "control-param-slider-variant-1",
+				},
+			},
+			CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+				"control-param-text-variant-1": {
+					ID:     "control-param-text-variant-1",
+					ImplID: "control-param-text-impl-1",
+				},
+				"control-param-slider-variant-1": {
+					ID:     "control-param-slider-variant-1",
+					ImplID: "control-param-slider-impl-1",
+				},
+			},
+			CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+				"control-param-text-impl-1": {
+					ID: "control-param-text-impl-1",
+					Payload: mustRawJSON(
+						t,
+						`{"id":"control-param-text-impl-1","type":"TextParam","value":"notes"}`,
+					),
+				},
+				"control-param-slider-impl-1": {
+					ID: "control-param-slider-impl-1",
+					Payload: mustRawJSON(
+						t,
+						`{"id":"control-param-slider-impl-1","type":"SliderParam","value":"42"}`,
+					),
+				},
+			},
+		}
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build allowlist graph: %v", err)
+		}
+
+		allowedNode := mustSectionNode(t, graph, PythonSectionDependencyKey("meta-text"))
+		if !allowedNode.IncludeInCodegen {
+			t.Fatal("expected allowlisted meta control section to stay included")
+		}
+		blockedNode := mustSectionNode(t, graph, PythonSectionDependencyKey("meta-slider"))
+		if blockedNode.IncludeInCodegen {
+			t.Fatal("expected blocked meta control section to be excluded")
+		}
+	})
+
+	t.Run("expanded types", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			name        string
+			controlType string
+			value       string
+		}{
+			{name: "rotary", controlType: "RotaryParam", value: "3"},
+			{name: "text area", controlType: "TextAreaParam", value: "notes"},
+		}
+
+		for _, testCase := range testCases {
+			testCase := testCase
+			t.Run(testCase.name, func(t *testing.T) {
+				t.Parallel()
+
+				project := metaControlSectionProject(t, "meta-"+testCase.name, testCase.controlType, testCase.value, nil)
+				exported := mustPythonCodegenExport(t, project)
+				graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+				if err != nil {
+					t.Fatalf("build expanded meta control graph: %v", err)
+				}
+
+				node := mustSectionNode(t, graph, PythonSectionDependencyKey("section-1"))
+				if node.ControlCodeObjType != testCase.controlType {
+					t.Fatalf("expected control type %q, got %q", testCase.controlType, node.ControlCodeObjType)
+				}
+				if !node.IncludeInCodegen {
+					t.Fatal("expected supported meta control type to stay included")
+				}
+			})
+		}
+	})
+}
+
+// Plugin sections should register their sanitized full-path name in the lookup map used by dependency references.
+func TestBuildPythonDependencyGraphPluginSectionRegistersFullPathLookup(t *testing.T) {
+	t.Parallel()
+
+	project := singleSectionProject(
+		t,
+		"Plugin Section",
+		mustRawJSON(t, `{"id":"section-impl-1","type":"Plugin","data":{}}`),
+		nil,
+		nil,
+	)
+	exported := mustPythonCodegenExport(t, project)
+	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+	if err != nil {
+		t.Fatalf("build plugin graph: %v", err)
+	}
+
+	key, ok := graph.FullPathNameToKey["Plugin_Section"]
+	if !ok {
+		t.Fatal("expected plugin section full path to be indexed")
+	}
+	if key != PythonSectionDependencyKey("section-1") {
+		t.Fatalf("unexpected plugin section key %#v", key)
+	}
 }
 
 // Prompt exports plus Chat/Draw/Image file-mode branches should preserve the documented payloads and fallbacks end to end.
@@ -1198,6 +1515,180 @@ func pythonStateReferenceProject(
 	}
 }
 
+func metaControlSectionProject(
+	t *testing.T,
+	sectionName string,
+	controlType string,
+	controlValue string,
+	pythonTargetPayload projectstate.RawJSON,
+) projectstate.Project {
+	t.Helper()
+
+	codegenTargets := []projectstate.ProjectCodegenTarget{
+		{Language: string(projectstate.CodeLanguagePython)},
+	}
+	if len(pythonTargetPayload) > 0 {
+		codegenTargets[0].Payload = pythonTargetPayload
+	}
+
+	return projectstate.Project{
+		ID:             "project-alpha",
+		Name:           "Alpha",
+		CodegenTargets: codegenTargets,
+		TopLevelSectionIDs: []string{
+			"section-1",
+		},
+		SectionVariantMap: map[string]string{
+			"section-1": "section-variant-1",
+		},
+		Sections: map[string]projectstate.Section{
+			"section-1": {
+				ID:               "section-1",
+				Name:             sectionName,
+				VariantIDs:       []string{"section-variant-1"},
+				DefaultVariantID: "section-variant-1",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"section-variant-1": {
+				ID:     "section-variant-1",
+				ImplID: "section-impl-1",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"section-impl-1": {
+				ID: "section-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{
+						"id":"section-impl-1",
+						"type":"MetaControl",
+						"metaControlParamId":"control-param-1",
+						"codeObjVariantMap":{"control-param-1":"control-param-variant-1"}
+					}`,
+				),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"control-param-1": {
+				ID:               "control-param-1",
+				Name:             "control_param",
+				VariantIDs:       []string{"control-param-variant-1"},
+				DefaultVariantID: "control-param-variant-1",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"control-param-variant-1": {
+				ID:     "control-param-variant-1",
+				ImplID: "control-param-impl-1",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"control-param-impl-1": {
+				ID: "control-param-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"control-param-impl-1","type":"`+controlType+`","value":`+mustJSONString(t, controlValue)+`}`,
+				),
+			},
+		},
+	}
+}
+
+func callableSectionProjectWithCodeObjValuePolicy(
+	t *testing.T,
+	paramID string,
+	pythonTargetPayload projectstate.RawJSON,
+) projectstate.Project {
+	t.Helper()
+
+	return projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  pythonTargetPayload,
+			},
+		},
+		TopLevelSectionIDs: []string{"section-1"},
+		SectionVariantMap: map[string]string{
+			"section-1": "section-variant-1",
+		},
+		Sections: map[string]projectstate.Section{
+			"section-1": {
+				ID:               "section-1",
+				Name:             "Section",
+				VariantIDs:       []string{"section-variant-1"},
+				DefaultVariantID: "section-variant-1",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"section-variant-1": {
+				ID:     "section-variant-1",
+				ImplID: "section-impl-1",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"section-impl-1": {
+				ID: "section-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{
+						"id":"section-impl-1",
+						"type":"Callable",
+						"callable":"callable-1",
+						"codeObjVariantMap":{
+							"callable-1":"callable-variant-1",
+							"`+paramID+`":"param-variant-1"
+						}
+					}`,
+				),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"callable-1": {
+				ID:               "callable-1",
+				Name:             "Callable",
+				VariantIDs:       []string{"callable-variant-1"},
+				DefaultVariantID: "callable-variant-1",
+			},
+			paramID: {
+				ID:               paramID,
+				Name:             "param",
+				VariantIDs:       []string{"param-variant-1"},
+				DefaultVariantID: "param-variant-1",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"callable-variant-1": {
+				ID:     "callable-variant-1",
+				ImplID: "callable-impl-1",
+			},
+			"param-variant-1": {
+				ID:     "param-variant-1",
+				ImplID: "param-impl-1",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"callable-impl-1": {
+				ID: "callable-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"callable-impl-1","type":"CodeCallable","children":[`+mustJSONString(t, paramID)+`]}`,
+				),
+			},
+			"param-impl-1": {
+				ID: "param-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"param-impl-1","type":"SliderParam","value":"42"}`,
+				),
+			},
+		},
+	}
+}
+
 func mustPythonCodegenExport(t *testing.T, project projectstate.Project) projectstate.PythonCodegenExport {
 	t.Helper()
 
@@ -1276,4 +1767,30 @@ func mustPythonSectionTypePolicyPayload(
 			}
 		}`,
 	)
+}
+
+func mustPythonCodeObjValuePolicyPayload(
+	t *testing.T,
+	typeRepresentation projectstate.PythonCodeObjValueRepresentationMode,
+	overrideCodeObjID string,
+	overrideRepresentation projectstate.PythonCodeObjValueRepresentationMode,
+) projectstate.RawJSON {
+	t.Helper()
+
+	payload := `{
+		"language":"python",
+		"codeObjValuePolicy":{
+			"typePolicies":{
+				"SliderParam":{"representation":"` + string(typeRepresentation) + `"}
+			}`
+	if overrideCodeObjID != "" {
+		payload += `,
+			"codeObjOverrides":{
+				"` + overrideCodeObjID + `":{"representation":"` + string(overrideRepresentation) + `"}
+			}`
+	}
+	payload += `
+		}
+	}`
+	return mustRawJSON(t, payload)
 }

@@ -29,6 +29,9 @@ func TestProjectNormalizedReconcilesMissingPythonCodeBinding(t *testing.T) {
 	if got := impl.Code.Binding.AccessMode; got != CodeFileAccessModeReadWrite {
 		t.Fatalf("unexpected runner binding access mode %q", got)
 	}
+	if !impl.Code.Binding.AutoBinding {
+		t.Fatal("expected reconciled runner binding to be marked auto")
+	}
 }
 
 // Existing bindings stay authoritative; the canonical reconciliation should
@@ -70,6 +73,9 @@ func TestProjectNormalizedPreservesExistingPythonCodeBinding(t *testing.T) {
 	}
 	if got := impl.Code.Binding.Path; got != "code/custom_runner.py" {
 		t.Fatalf("unexpected preserved binding path %q", got)
+	}
+	if impl.Code.Binding.AutoBinding {
+		t.Fatal("expected explicit runner binding to remain manual")
 	}
 }
 
@@ -157,6 +163,34 @@ func TestProjectNormalizedUsesNestedListRootPathForPythonCodeBinding(t *testing.
 	}
 }
 
+func TestActiveSectionPathFullNameUsesImmediateParentForNestedListRoot(t *testing.T) {
+	t.Parallel()
+
+	project := testNestedListRootPathProject(t)
+
+	fullName, err := activeSectionPathFullName(project, "list")
+	if err != nil {
+		t.Fatalf("activeSectionPathFullName(list): %v", err)
+	}
+	if fullName != `Parent["Child"][0]` {
+		t.Fatalf("expected nested list-root path %q, got %q", `Parent["Child"][0]`, fullName)
+	}
+}
+
+func TestActiveSectionPathFullNameUsesListRootIndexForChildren(t *testing.T) {
+	t.Parallel()
+
+	project := testNestedListRootPathProject(t)
+
+	fullName, err := activeSectionPathFullName(project, "leaf")
+	if err != nil {
+		t.Fatalf("activeSectionPathFullName(leaf): %v", err)
+	}
+	if fullName != `Parent["Child"][0]["Leaf"]` {
+		t.Fatalf("expected list-root child path %q, got %q", `Parent["Child"][0]["Leaf"]`, fullName)
+	}
+}
+
 // Sections that collide after slug sanitization should stay unbound rather than
 // racing for the same canonical file path.
 func TestProjectNormalizedLeavesConflictingPythonCodeBindingsUnset(t *testing.T) {
@@ -231,6 +265,120 @@ func TestProjectNormalizedLeavesConflictingPythonCodeBindingsUnset(t *testing.T)
 		if impl.Code.Binding != nil {
 			t.Fatalf("expected conflicting binding to stay unset for %s, got %#v", sectionID, impl.Code.Binding)
 		}
+	}
+}
+
+func TestProjectMoveSectionsClearsConflictingAutoBindingsAfterNormalization(t *testing.T) {
+	t.Parallel()
+
+	project, err := testMoveConflictCodeBindingProject(t).Normalized()
+	if err != nil {
+		t.Fatalf("normalize initial project: %v", err)
+	}
+
+	for _, sectionID := range []string{"child-a", "child-b"} {
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			t.Fatalf("resolve %s before move: %v", sectionID, err)
+		}
+		if impl.Code == nil || impl.Code.Binding == nil {
+			t.Fatalf("expected auto binding for %s before move", sectionID)
+		}
+		if !impl.Code.Binding.AutoBinding {
+			t.Fatalf("expected %s binding to be marked auto before move", sectionID)
+		}
+	}
+
+	newParentID := "parent-a"
+	newIndex := 1
+	if err := project.MoveSections(
+		MoveSectionsInput{
+			SectionIDs:  []string{"child-b"},
+			NewParentID: &newParentID,
+			NewIndex:    &newIndex,
+		},
+		AutoLayoutSectionSizingPolicy{},
+		0,
+	); err != nil {
+		t.Fatalf("move child-b into parent-a: %v", err)
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize moved project: %v", err)
+	}
+
+	for _, sectionID := range []string{"child-a", "child-b"} {
+		_, _, impl, err := normalized.ResolveSection(sectionID)
+		if err != nil {
+			t.Fatalf("resolve %s after move: %v", sectionID, err)
+		}
+		if impl.Code == nil {
+			t.Fatalf("expected code impl for %s after move", sectionID)
+		}
+		if impl.Code.Binding != nil {
+			t.Fatalf("expected conflicting auto binding to clear for %s, got %#v", sectionID, impl.Code.Binding)
+		}
+	}
+}
+
+func TestProjectMoveSectionsPreservesManualBindingWhenConflictCreated(t *testing.T) {
+	t.Parallel()
+
+	project, err := testMoveConflictCodeBindingProject(t).Normalized()
+	if err != nil {
+		t.Fatalf("normalize initial project: %v", err)
+	}
+
+	if err := project.SetCodeFileBinding("child-b", CodeFileBinding{
+		Path:       "custom/manual_binding.py",
+		AccessMode: CodeFileAccessModeReadWrite,
+	}); err != nil {
+		t.Fatalf("set manual binding: %v", err)
+	}
+
+	newParentID := "parent-a"
+	newIndex := 1
+	if err := project.MoveSections(
+		MoveSectionsInput{
+			SectionIDs:  []string{"child-b"},
+			NewParentID: &newParentID,
+			NewIndex:    &newIndex,
+		},
+		AutoLayoutSectionSizingPolicy{},
+		0,
+	); err != nil {
+		t.Fatalf("move child-b into parent-a: %v", err)
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize moved project: %v", err)
+	}
+
+	_, _, childAImpl, err := normalized.ResolveSection("child-a")
+	if err != nil {
+		t.Fatalf("resolve child-a after move: %v", err)
+	}
+	if childAImpl.Code == nil {
+		t.Fatal("expected code impl for child-a after move")
+	}
+	if childAImpl.Code.Binding != nil {
+		t.Fatalf("expected conflicting auto binding to clear for child-a, got %#v", childAImpl.Code.Binding)
+	}
+
+	_, _, childBImpl, err := normalized.ResolveSection("child-b")
+	if err != nil {
+		t.Fatalf("resolve child-b after move: %v", err)
+	}
+	if childBImpl.Code == nil || childBImpl.Code.Binding == nil {
+		t.Fatal("expected manual binding for child-b after move")
+	}
+	if childBImpl.Code.Binding.Path != "custom/manual_binding.py" {
+		t.Fatalf("unexpected preserved manual binding path %q", childBImpl.Code.Binding.Path)
+	}
+	if childBImpl.Code.Binding.AutoBinding {
+		t.Fatal("expected preserved child-b binding to remain manual")
 	}
 }
 
@@ -343,6 +491,161 @@ func testPythonCodeBindingProject() Project {
 					"id":           "runner-impl",
 					"type":         "Code",
 					"code":         "print('runner')\n",
+					"codeLanguage": "python",
+					"children":     []string{},
+				}),
+			},
+		},
+	}
+}
+
+func testNestedListRootPathProject(t *testing.T) Project {
+	t.Helper()
+
+	return Project{
+		ID:   "project-alpha",
+		Name: "Demo Project",
+		SectionVariantMap: map[string]string{
+			"parent": "parent-variant",
+			"child":  "child-variant",
+			"list":   "list-variant",
+			"leaf":   "leaf-variant",
+		},
+		Sections: map[string]Section{
+			"parent": {
+				ID:               "parent",
+				Name:             "Parent",
+				VariantIDs:       []string{"parent-variant"},
+				DefaultVariantID: "parent-variant",
+			},
+			"child": {
+				ID:               "child",
+				Name:             "Child",
+				ParentSectionID:  "parent",
+				VariantIDs:       []string{"child-variant"},
+				DefaultVariantID: "child-variant",
+			},
+			"list": {
+				ID:               "list",
+				Name:             "Items",
+				ParentSectionID:  "child",
+				VariantIDs:       []string{"list-variant"},
+				DefaultVariantID: "list-variant",
+			},
+			"leaf": {
+				ID:               "leaf",
+				Name:             "Leaf",
+				ParentSectionID:  "list",
+				VariantIDs:       []string{"leaf-variant"},
+				DefaultVariantID: "leaf-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"parent-variant": {ID: "parent-variant", ImplID: "parent-impl"},
+			"child-variant":  {ID: "child-variant", ImplID: "child-impl"},
+			"list-variant":   {ID: "list-variant", ImplID: "list-impl"},
+			"leaf-variant":   {ID: "leaf-variant", ImplID: "leaf-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"parent-impl": {
+				ID:      "parent-impl",
+				Kind:    SectionKind("group"),
+				Payload: mustRawJSONForBindings(t, map[string]any{"id": "parent-impl", "type": "Group", "children": []string{"child"}}),
+			},
+			"child-impl": {
+				ID:      "child-impl",
+				Kind:    SectionKind("group"),
+				Payload: mustRawJSONForBindings(t, map[string]any{"id": "child-impl", "type": "Group", "children": []string{"list"}}),
+			},
+			"list-impl": {
+				ID:      "list-impl",
+				Kind:    SectionKind("list_root"),
+				Payload: mustRawJSONForBindings(t, map[string]any{"id": "list-impl", "type": "ListRoot", "children": []string{"leaf"}}),
+			},
+			"leaf-impl": {
+				ID:      "leaf-impl",
+				Kind:    SectionKindCode,
+				Payload: mustRawJSONForBindings(t, map[string]any{"id": "leaf-impl", "type": "Code", "codeLanguage": "python", "children": []string{}}),
+			},
+		},
+	}
+}
+
+func testMoveConflictCodeBindingProject(t *testing.T) Project {
+	t.Helper()
+
+	return Project{
+		ID:   "project-alpha",
+		Name: "Demo Project",
+		SectionVariantMap: map[string]string{
+			"parent-a": "parent-a-variant",
+			"parent-b": "parent-b-variant",
+			"child-a":  "child-a-variant",
+			"child-b":  "child-b-variant",
+		},
+		Sections: map[string]Section{
+			"parent-a": {
+				ID:               "parent-a",
+				Name:             "Group A",
+				VariantIDs:       []string{"parent-a-variant"},
+				DefaultVariantID: "parent-a-variant",
+			},
+			"parent-b": {
+				ID:               "parent-b",
+				Name:             "Group B",
+				VariantIDs:       []string{"parent-b-variant"},
+				DefaultVariantID: "parent-b-variant",
+			},
+			"child-a": {
+				ID:               "child-a",
+				Name:             "Foo Bar",
+				ParentSectionID:  "parent-a",
+				VariantIDs:       []string{"child-a-variant"},
+				DefaultVariantID: "child-a-variant",
+			},
+			"child-b": {
+				ID:               "child-b",
+				Name:             "Foo Bar",
+				ParentSectionID:  "parent-b",
+				VariantIDs:       []string{"child-b-variant"},
+				DefaultVariantID: "child-b-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"parent-a-variant": {ID: "parent-a-variant", ImplID: "parent-a-impl"},
+			"parent-b-variant": {ID: "parent-b-variant", ImplID: "parent-b-impl"},
+			"child-a-variant":  {ID: "child-a-variant", ImplID: "child-a-impl"},
+			"child-b-variant":  {ID: "child-b-variant", ImplID: "child-b-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"parent-a-impl": {
+				ID:      "parent-a-impl",
+				Kind:    SectionKind("group"),
+				Payload: mustRawJSONForBindings(t, map[string]any{"id": "parent-a-impl", "type": "Group", "children": []string{"child-a"}}),
+			},
+			"parent-b-impl": {
+				ID:      "parent-b-impl",
+				Kind:    SectionKind("group"),
+				Payload: mustRawJSONForBindings(t, map[string]any{"id": "parent-b-impl", "type": "Group", "children": []string{"child-b"}}),
+			},
+			"child-a-impl": {
+				ID:   "child-a-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{Language: CodeLanguagePython},
+				Payload: mustRawJSONForBindings(t, map[string]any{
+					"id":           "child-a-impl",
+					"type":         "Code",
+					"codeLanguage": "python",
+					"children":     []string{},
+				}),
+			},
+			"child-b-impl": {
+				ID:   "child-b-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{Language: CodeLanguagePython},
+				Payload: mustRawJSONForBindings(t, map[string]any{
+					"id":           "child-b-impl",
+					"type":         "Code",
 					"codeLanguage": "python",
 					"children":     []string{},
 				}),

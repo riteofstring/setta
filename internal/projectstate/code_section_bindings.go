@@ -32,10 +32,32 @@ func (p *Project) ReconcileCodeSectionBindings() error {
 		if !impl.IsCode() || impl.Code == nil {
 			continue
 		}
-		if impl.IsGeneratedEntrySection() || impl.Code.Binding != nil {
+		if impl.IsGeneratedEntrySection() {
 			continue
 		}
+		payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+		if err != nil {
+			return err
+		}
+		binding := effectiveCodeFileBinding(payload, impl.Code.Binding)
 		if _, blocked := conflicts[section.ID]; blocked {
+			if binding != nil && binding.AutoBinding {
+				updatedImpl, err := setCodeSectionBinding(impl, nil)
+				if err != nil {
+					return err
+				}
+				p.SectionImpls[variant.ImplID] = updatedImpl
+			}
+			continue
+		}
+		if binding != nil {
+			if impl.Code.Binding == nil {
+				updatedImpl, err := setCodeSectionBinding(impl, binding)
+				if err != nil {
+					return err
+				}
+				p.SectionImpls[variant.ImplID] = updatedImpl
+			}
 			continue
 		}
 
@@ -48,14 +70,18 @@ func (p *Project) ReconcileCodeSectionBindings() error {
 			continue
 		}
 
-		impl.Code.Binding = &CodeFileBinding{
+		updatedImpl, err := setCodeSectionBinding(impl, &CodeFileBinding{
 			Path: path.Join(
 				ProjectCodeSectionsRelativeRoot(p.Name),
 				sectionSlug+"."+codeLanguageExtension(impl.Code.Language),
 			),
-			AccessMode: CodeFileAccessModeReadWrite,
+			AccessMode:  CodeFileAccessModeReadWrite,
+			AutoBinding: true,
+		})
+		if err != nil {
+			return err
 		}
-		p.SectionImpls[variant.ImplID] = impl
+		p.SectionImpls[variant.ImplID] = updatedImpl
 	}
 	return nil
 }
@@ -160,4 +186,56 @@ func sanitizeSectionSlug(name string) string {
 		replaced = strings.ReplaceAll(replaced, "__", "_")
 	}
 	return strings.Trim(strings.ToLower(replaced), "_")
+}
+
+func effectiveCodeFileBinding(payload map[string]any, binding *CodeFileBinding) *CodeFileBinding {
+	if binding != nil {
+		return cloneCodeFileBinding(binding)
+	}
+
+	bindingObject, ok := payloadObjectField(payload, "codeFileBinding")
+	if !ok {
+		return nil
+	}
+
+	path := strings.TrimSpace(payloadStringField(bindingObject, "canonical_path"))
+	if path == "" {
+		path = strings.TrimSpace(payloadStringField(bindingObject, "path"))
+	}
+	if path == "" {
+		return nil
+	}
+
+	accessMode := strings.TrimSpace(payloadStringField(bindingObject, "access_mode"))
+	if accessMode == "" {
+		accessMode = strings.TrimSpace(payloadStringField(bindingObject, "accessMode"))
+	}
+
+	autoBinding, _ := bindingObject["autoBinding"].(bool)
+	return &CodeFileBinding{
+		Path:        path,
+		AccessMode:  CodeFileAccessMode(accessMode),
+		AutoBinding: autoBinding,
+	}
+}
+
+func setCodeSectionBinding(impl SectionImpl, binding *CodeFileBinding) (SectionImpl, error) {
+	updatedImpl := impl.Clone()
+	updatedImpl.Code.Binding = cloneCodeFileBinding(binding)
+
+	payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(updatedImpl))
+	if err != nil {
+		return SectionImpl{}, err
+	}
+	if binding == nil {
+		delete(payload, "codeFileBinding")
+	} else {
+		payload["codeFileBinding"] = codeFileBindingObject(*binding)
+	}
+	rawPayload, err := marshalProjectObject(payload)
+	if err != nil {
+		return SectionImpl{}, err
+	}
+	updatedImpl.Payload = rawPayload
+	return updatedImpl, nil
 }

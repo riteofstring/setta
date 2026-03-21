@@ -17,6 +17,45 @@ func TestProjectSetCodeObjectNameRejectsInvalidCallableParamFormat(t *testing.T)
 	}
 }
 
+func TestProjectSetCodeObjectNameRejectsInvalidCallableParamFormatForNonDefaultPassingStyles(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		passingStyle string
+	}{
+		{name: "args", passingStyle: "ARGS"},
+		{name: "kwargs", passingStyle: "KWARGS"},
+		{name: "positional_only", passingStyle: "POSITIONAL_ONLY"},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := codeObjectNameTestProject(t)
+			impl := project.CodeObjImpls["editable-kwarg-impl"]
+			impl.Payload = mustMarshalProjectObject(map[string]any{
+				"id":               "editable-kwarg-impl",
+				"type":             "CodeParam",
+				"coreNameEditable": true,
+				"passingStyle":     testCase.passingStyle,
+				"value":            "seed",
+			})
+			project.CodeObjImpls["editable-kwarg-impl"] = impl
+
+			err := project.SetCodeObjectName("editable-kwarg", "invalid name")
+			if !IsInvalidCodeObjectNameError(err) {
+				t.Fatalf("expected InvalidCodeObjectNameError, got %v", err)
+			}
+			if err == nil || err.Error() != "Param name must be a valid Python identifier." {
+				t.Fatalf("unexpected callable param name error: %v", err)
+			}
+		})
+	}
+}
+
 // Python-backed param validation needs explicit coverage for the documented
 // keyword, soft-keyword, path, and control-character cases the Python suite
 // already treated as source-of-truth behavior.

@@ -159,6 +159,68 @@ func TestLoadCurrentSessionReturnsNilWhenSecretMissing(t *testing.T) {
 	}
 }
 
+func TestLoadCurrentSessionReturnsNilWhenCanonicalWorkspacePathMissing(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	sessionID := "abc123"
+	metadata := writeSessionFixture(t, runtimeRoot, sessionID, []byte("test-secret"))
+	metadata.WorkspacePathCanonical = ""
+	metadataBytes, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal invalid metadata: %v", err)
+	}
+	metadataBytes = append(metadataBytes, '\n')
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "sessions", sessionID, "session.json"), metadataBytes, 0o644); err != nil {
+		t.Fatalf("rewrite invalid metadata: %v", err)
+	}
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup: envMap{
+			sessionIDEnv: sessionID,
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session with missing canonical workspace path: %v", err)
+	}
+	if currentSession != nil {
+		t.Fatalf("expected nil current session when canonical workspace path is missing, got %#v", currentSession)
+	}
+}
+
+func TestLoadCurrentSessionReturnsNilWhenServerModeMissing(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	sessionID := "abc123"
+	metadata := writeSessionFixture(t, runtimeRoot, sessionID, []byte("test-secret"))
+	metadata.ServerMode = ""
+	metadataBytes, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal invalid metadata: %v", err)
+	}
+	metadataBytes = append(metadataBytes, '\n')
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "sessions", sessionID, "session.json"), metadataBytes, 0o644); err != nil {
+		t.Fatalf("rewrite invalid metadata: %v", err)
+	}
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup: envMap{
+			sessionIDEnv: sessionID,
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session with missing server mode: %v", err)
+	}
+	if currentSession != nil {
+		t.Fatalf("expected nil current session when server mode is missing, got %#v", currentSession)
+	}
+}
+
 func TestLoadCurrentSessionReturnsNilAfterSecretDeletedOnLaterCall(t *testing.T) {
 	t.Parallel()
 
@@ -538,6 +600,35 @@ func TestServiceCookieNameIsSessionScopedAndSanitized(t *testing.T) {
 	}
 	if cookieName != "setta_auth_name_abc123" {
 		t.Fatalf("expected sanitized session-scoped cookie name, got %q", cookieName)
+	}
+}
+
+func TestNormalizeCookieBaseNameDefaultsAndSanitizesHTTPToken(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "empty", raw: "", want: DefaultAuthCookieName},
+		{name: "whitespace", raw: "   ", want: DefaultAuthCookieName},
+		{name: "trimmed", raw: " setta_auth ", want: "setta_auth"},
+		{name: "space replaced", raw: "setta auth", want: "setta_auth"},
+		{name: "semicolon replaced", raw: "setta;auth", want: "setta_auth"},
+		{name: "backslash replaced", raw: "setta\\auth", want: "setta_auth"},
+		{name: "http token kept", raw: "setta_auth-1", want: "setta_auth-1"},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := NormalizeCookieBaseName(testCase.raw); got != testCase.want {
+				t.Fatalf("NormalizeCookieBaseName(%q) = %q, want %q", testCase.raw, got, testCase.want)
+			}
+		})
 	}
 }
 

@@ -124,6 +124,30 @@ func TestPythonValueCodecFormatsParamRepresentations(t *testing.T) {
 		}
 	})
 
+	t.Run("code string literal", func(t *testing.T) {
+		t.Parallel()
+
+		node := &PythonParamNode{
+			PythonDependencyNodeBase: PythonDependencyNodeBase{
+				ID:               "param-code-string",
+				Name:             "code",
+				FullPathName:     "section__code",
+				Deps:             map[PythonDependencyKey]bool{},
+				IncludeInCodegen: true,
+				Value:            LiteralDependencyValue{Payload: "2+2"},
+			},
+			CodeObjectType:      "CodeParam",
+			ValueRepresentation: projectstate.PythonCodeObjValueRepresentationString,
+		}
+		rendered, err := codec.FormatParamExpression(node)
+		if err != nil {
+			t.Fatalf("format code string param: %v", err)
+		}
+		if rendered != "'2+2'" {
+			t.Fatalf("unexpected code string rendering %q", rendered)
+		}
+	})
+
 	t.Run("json parsed", func(t *testing.T) {
 		t.Parallel()
 
@@ -203,6 +227,41 @@ func TestPythonValueCodecFormatsPasswordAndFileHelpers(t *testing.T) {
 		}
 		if imports := codec.RequiredImports(); len(imports) != 1 || imports[0] != "from setta.code_gen.python import value_helpers as _helpers" {
 			t.Fatalf("unexpected password imports %#v", imports)
+		}
+	})
+
+	t.Run("meta control password section", func(t *testing.T) {
+		t.Parallel()
+
+		codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{
+			HelperModuleAlias: "_helpers",
+		})
+		node := &PythonSectionNode{
+			PythonDependencyNodeBase: PythonDependencyNodeBase{
+				ID:               "meta-password",
+				Name:             "Meta Password",
+				FullPathName:     "meta_password",
+				Deps:             map[PythonDependencyKey]bool{},
+				IncludeInCodegen: true,
+				Value:            LiteralDependencyValue{Payload: "ignored"},
+			},
+			SectionType:                "MetaControl",
+			ControlCodeObjType:         "PasswordParam",
+			ControlCodeObjImplID:       "meta-secret-impl",
+			ControlValueRepresentation: projectstate.PythonCodeObjValueRepresentationString,
+		}
+		rendered, handled, err := codec.FormatSection(node)
+		if err != nil {
+			t.Fatalf("format meta control password section: %v", err)
+		}
+		if !handled {
+			t.Fatal("expected meta control password section to be handled")
+		}
+		if rendered != "_helpers.read_password_value('meta-secret-impl')" {
+			t.Fatalf("unexpected meta control password rendering %q", rendered)
+		}
+		if imports := codec.RequiredImports(); len(imports) != 1 || imports[0] != "from setta.code_gen.python import value_helpers as _helpers" {
+			t.Fatalf("unexpected meta control password imports %#v", imports)
 		}
 	})
 
@@ -561,6 +620,66 @@ func TestPythonValueCodecFormatsPromptAndFileModeSections(t *testing.T) {
 				t.Fatalf("did not expect helper imports, got %#v", imports)
 			}
 		})
+	}
+}
+
+func TestPythonValueCodecFormatsTextBlockWithoutValue(t *testing.T) {
+	t.Parallel()
+
+	codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{})
+	node := &PythonSectionNode{
+		PythonDependencyNodeBase: PythonDependencyNodeBase{
+			ID:               "text",
+			Name:             "Text",
+			FullPathName:     "text",
+			Deps:             map[PythonDependencyKey]bool{},
+			IncludeInCodegen: true,
+			Value:            nil,
+		},
+		SectionType: "TextBlock",
+	}
+
+	rendered, handled, err := codec.FormatSection(node)
+	if err != nil {
+		t.Fatalf("format text block section: %v", err)
+	}
+	if !handled {
+		t.Fatal("expected text block section to be handled")
+	}
+	if rendered != "None" {
+		t.Fatalf("unexpected text block rendering %q", rendered)
+	}
+}
+
+func TestPythonValueCodecRejectsMissingFileRepresentedSectionValue(t *testing.T) {
+	t.Parallel()
+
+	codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{})
+	node := &PythonSectionNode{
+		PythonDependencyNodeBase: PythonDependencyNodeBase{
+			ID:               "draw",
+			Name:             "Draw",
+			FullPathName:     "draw",
+			Deps:             map[PythonDependencyKey]bool{},
+			IncludeInCodegen: true,
+			Value:            nil,
+		},
+		SectionType:    "Draw",
+		Representation: projectstate.PythonSectionRepresentationFileRead,
+	}
+
+	rendered, handled, err := codec.FormatSection(node)
+	if !handled {
+		t.Fatal("expected draw section to be handled")
+	}
+	if err == nil {
+		t.Fatal("expected missing file-backed section value to fail")
+	}
+	if rendered != "" {
+		t.Fatalf("expected empty rendering on failure, got %q", rendered)
+	}
+	if err.Error() != "codegen: Draw section draw missing value" {
+		t.Fatalf("unexpected missing value error %q", err)
 	}
 }
 

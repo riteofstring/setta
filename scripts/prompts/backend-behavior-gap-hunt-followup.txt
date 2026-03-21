@@ -2,6 +2,8 @@ Automated message: continue the backend gap-hunt loop.
 
 Use `tmp/backend-gap-hunt-candidates.md` as the current queue. The outer wrapper regenerates it before each fresh session batch. Do not rerun the candidate miner inside Codex unless the developer explicitly asks for that.
 
+Commit frequently.
+
 Treat each uncited source test as a clue for a possible Go implementation gap:
 1. Read the source test, the current Go implementation/tests, and any live caller evidence needed to judge the behavior.
 2. If you find a real Go gap, fix it and add or update executable proof.

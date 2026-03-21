@@ -377,6 +377,33 @@ var sectionSizingPolicyByTypeDefaults = []tsNamedLiteralObject{
 		},
 	},
 	{
+		Name: "StateMachineStart",
+		Fields: []tsLiteralField{
+			{Name: "minHeight", Value: "96"},
+			{Name: "maxHeight", Value: "100000"},
+			{Name: "minWidth", Value: "240"},
+			{Name: "maxWidth", Value: "100000"},
+		},
+	},
+	{
+		Name: "StateMachineGate",
+		Fields: []tsLiteralField{
+			{Name: "minHeight", Value: "120"},
+			{Name: "maxHeight", Value: "100000"},
+			{Name: "minWidth", Value: "240"},
+			{Name: "maxWidth", Value: "100000"},
+		},
+	},
+	{
+		Name: "StateMachineEnd",
+		Fields: []tsLiteralField{
+			{Name: "minHeight", Value: "96"},
+			{Name: "maxHeight", Value: "100000"},
+			{Name: "minWidth", Value: "240"},
+			{Name: "maxWidth", Value: "100000"},
+		},
+	},
+	{
 		Name: "Image",
 		Fields: []tsLiteralField{
 			{Name: "minHeight", Value: "100"},
@@ -2463,6 +2490,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "Dict", TypeExpr: "SectionSizingPolicyTypeEntry"},
 				TypeProperty{Name: "ListRoot", TypeExpr: "SectionSizingPolicyTypeEntry"},
 				TypeProperty{Name: "Group", TypeExpr: "SectionSizingPolicyTypeEntry"},
+				TypeProperty{Name: "StateMachineStart", TypeExpr: "SectionSizingPolicyTypeEntry"},
+				TypeProperty{Name: "StateMachineGate", TypeExpr: "SectionSizingPolicyTypeEntry"},
+				TypeProperty{Name: "StateMachineEnd", TypeExpr: "SectionSizingPolicyTypeEntry"},
 				TypeProperty{Name: "Image", TypeExpr: "SectionSizingPolicyTypeEntry"},
 				TypeProperty{Name: "Chart", TypeExpr: "SectionSizingPolicyTypeEntry"},
 				TypeProperty{Name: "Draw", TypeExpr: "SectionSizingPolicyTypeEntry"},

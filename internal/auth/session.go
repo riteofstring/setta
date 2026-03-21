@@ -73,7 +73,7 @@ func LoadCurrentSession(opts LoadCurrentSessionOptions) (*CurrentSession, error)
 		return nil, fmt.Errorf("decode session metadata: %w", err)
 	}
 	if err := validateSessionMetadata(metadata, sessionID); err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	secretBytes, err := os.ReadFile(metadata.SecretPath)
@@ -119,6 +119,9 @@ func validateSessionMetadata(metadata SessionMetadata, expectedSessionID string)
 	}
 	if metadata.ID != expectedSessionID {
 		return fmt.Errorf("session metadata id mismatch: expected %q, got %q", expectedSessionID, metadata.ID)
+	}
+	if strings.TrimSpace(metadata.WorkspacePathCanonical) == "" {
+		return fmt.Errorf("session canonical workspace path is required for session %q", metadata.ID)
 	}
 	if !filepath.IsAbs(metadata.SecretPath) {
 		return fmt.Errorf("session secret path must be absolute for session %q", metadata.ID)

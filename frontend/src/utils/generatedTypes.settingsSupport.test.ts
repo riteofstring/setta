@@ -22,6 +22,18 @@ describe("generated settings support", () => {
     expect(settings.sectionSizingPolicy.byType.Callable.hideSearchMinHeight).toBe(
       42,
     );
+    expect(settings.sectionSizingPolicy.byType.StateMachineStart.minWidth).toBe(
+      240,
+    );
+    expect(settings.sectionSizingPolicy.byType.StateMachineStart.minHeight).toBe(
+      96,
+    );
+    expect(settings.sectionSizingPolicy.byType.StateMachineGate.minHeight).toBe(
+      120,
+    );
+    expect(settings.sectionSizingPolicy.byType.StateMachineEnd.minWidth).toBe(
+      240,
+    );
     expect(settings.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight).toBe(
       36,
     );

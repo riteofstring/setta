@@ -51,7 +51,7 @@ func sectionImplPayloadUnchecked(impl SectionImpl) RawJSON {
 			payload["codeFileBinding"] = map[string]any{
 				"canonical_path": impl.Code.Binding.Path,
 				"access_mode":    string(impl.Code.Binding.AccessMode),
-				"autoBinding":    false,
+				"autoBinding":    impl.Code.Binding.AutoBinding,
 			}
 		}
 		if impl.Code.AttachedTerminalSectionID != "" {

@@ -247,6 +247,15 @@ func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testi
 	if got := settings.SectionSizingPolicy.ByType["TextBlock"]; got.MinWidth != 100 || got.MinHeight != 49 {
 		t.Fatalf("expected default TextBlock dimensions, got %#v", got)
 	}
+	if got := settings.SectionSizingPolicy.ByType["StateMachineStart"]; got.MinWidth != 240 || got.MinHeight != 96 {
+		t.Fatalf("expected default StateMachineStart dimensions, got %#v", got)
+	}
+	if got := settings.SectionSizingPolicy.ByType["StateMachineGate"]; got.MinWidth != 240 || got.MinHeight != 120 {
+		t.Fatalf("expected default StateMachineGate dimensions, got %#v", got)
+	}
+	if got := settings.SectionSizingPolicy.ByType["StateMachineEnd"]; got.MinWidth != 240 || got.MinHeight != 96 {
+		t.Fatalf("expected default StateMachineEnd dimensions, got %#v", got)
+	}
 	if settings.TerminalDefaultHeight != 150 {
 		t.Fatalf("expected default terminal height 150, got %v", settings.TerminalDefaultHeight)
 	}
@@ -296,6 +305,38 @@ func TestStructuralMutationSettingsForDocumentRejectsInvalidValues(t *testing.T)
 	document["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"] = "auto"
 	if _, err := StructuralMutationSettingsForDocument(document); !errors.Is(err, ErrSettingsValueInvalid) {
 		t.Fatalf("expected ErrSettingsValueInvalid for terminal default height, got %v", err)
+	}
+}
+
+func TestStructuralMutationSettingsForDocumentPreservesTaskBoardNilColumnsSentinelAcrossJSONRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal settings defaults: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatalf("unmarshal settings defaults: %v", err)
+	}
+
+	normalized, err := NormalizeRaw(raw)
+	if err != nil {
+		t.Fatalf("NormalizeRaw round-tripped defaults: %v", err)
+	}
+
+	settings, err := StructuralMutationSettingsForDocument(normalized)
+	if err != nil {
+		t.Fatalf("StructuralMutationSettingsForDocument round-tripped defaults: %v", err)
+	}
+	if got := settings.SectionDefaultsByType["TaskBoard"]["columns"]; got != nil {
+		t.Fatalf("expected task board columns sentinel nil after JSON round trip, got %#v", got)
 	}
 }
 

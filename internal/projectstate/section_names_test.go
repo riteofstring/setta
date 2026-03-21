@@ -111,6 +111,23 @@ func TestProjectSetSectionNameRejectsTopLevelIdentifierConflict(t *testing.T) {
 	}
 }
 
+func TestProjectSetSectionNameRejectsTopLevelSlugCollisionCaseInsensitive(t *testing.T) {
+	t.Parallel()
+
+	project := sectionNameTestProject(t)
+	existing := project.Sections["existing"]
+	existing.Name = "Foo"
+	project.Sections["existing"] = existing
+
+	err := project.SetSectionName("target", "foo")
+	if !IsInvalidSectionNameError(err) {
+		t.Fatalf("expected InvalidSectionNameError, got %v", err)
+	}
+	if err == nil || err.Error() != `Section path slug "foo" conflicts with another section.` {
+		t.Fatalf("unexpected top-level slug conflict error: %v", err)
+	}
+}
+
 // A parent rename can invalidate a descendant path slug, so validation needs to
 // check full-path collisions rather than only the renamed section itself.
 func TestProjectSetSectionNameRejectsDescendantSlugConflict(t *testing.T) {

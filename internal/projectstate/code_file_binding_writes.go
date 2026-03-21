@@ -86,6 +86,7 @@ func normalizeCodeFileBindingWrite(binding CodeFileBinding) (CodeFileBinding, er
 	if err != nil {
 		return CodeFileBinding{}, err
 	}
+	normalized.AutoBinding = false
 	return *normalized, nil
 }
 
@@ -103,6 +104,6 @@ func codeFileBindingObject(binding CodeFileBinding) map[string]any {
 	return map[string]any{
 		"canonical_path": binding.Path,
 		"access_mode":    string(binding.AccessMode),
-		"autoBinding":    false,
+		"autoBinding":    binding.AutoBinding,
 	}
 }

@@ -120,8 +120,9 @@ type CodeSectionImpl struct {
 }
 
 type CodeFileBinding struct {
-	Path       string             `json:"path"`
-	AccessMode CodeFileAccessMode `json:"accessMode,omitempty"`
+	Path        string             `json:"path"`
+	AccessMode  CodeFileAccessMode `json:"accessMode,omitempty"`
+	AutoBinding bool               `json:"autoBinding,omitempty"`
 }
 
 type TerminalSectionImpl struct{}

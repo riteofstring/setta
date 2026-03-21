@@ -217,6 +217,58 @@ func TestProjectCreateTopLevelSectionSeedsStateMachineDefaults(t *testing.T) {
 	}
 }
 
+func TestProjectCreateTopLevelSectionDefaultSizesMeetPolicyMinimums(t *testing.T) {
+	t.Parallel()
+
+	policy := defaultAutoLayoutSectionSizingPolicy()
+	for _, implType := range []string{
+		"Chart",
+		"Draw",
+		"Chat",
+		"StateMachineStart",
+		"StateMachineGate",
+		"StateMachineEnd",
+	} {
+		project := testCreateTopLevelSectionProject(t)
+
+		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+			ImplType: implType,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s top level section: %v", implType, err)
+		}
+
+		payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+		if err != nil {
+			t.Fatalf("effective %s payload: %v", implType, err)
+		}
+		size, ok := payloadObjectField(payload, "size")
+		if !ok {
+			t.Fatalf("expected created %s size payload, got %#v", implType, payload)
+		}
+
+		width, ok := size["width"].(float64)
+		if !ok {
+			t.Fatalf("expected created %s width to be numeric, got %#v", implType, size["width"])
+		}
+		height, ok := size["height"].(float64)
+		if !ok {
+			t.Fatalf("expected created %s height to be numeric, got %#v", implType, size["height"])
+		}
+
+		mins, ok := policy.ByType[implType]
+		if !ok {
+			t.Fatalf("expected default sizing policy entry for %s", implType)
+		}
+		if width < mins.MinWidth {
+			t.Fatalf("expected created %s width %.1f to meet min width %.1f", implType, width, mins.MinWidth)
+		}
+		if height < mins.MinHeight {
+			t.Fatalf("expected created %s height %.1f to meet min height %.1f", implType, height, mins.MinHeight)
+		}
+	}
+}
+
 func TestProjectCreateTopLevelSectionAppliesLayoutSnapshotViewportPlacementAndInitialName(t *testing.T) {
 	t.Parallel()
 

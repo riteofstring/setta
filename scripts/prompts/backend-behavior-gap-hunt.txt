@@ -1,5 +1,7 @@
 Read `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix-plan.md`, `docs/plans/go-backend-rewrite/backend-gap-closure-plan.md`, and `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`. Use `tmp/backend-gap-hunt-candidates.md` as the backlog for this loop. The outer wrapper regenerates it before each fresh session batch. Do not rerun the candidate miner inside Codex unless the developer explicitly asks for that.
 
+Commit frequently.
+
 Each uncited source test is a clue for a possible Go implementation gap.
 
 For the uncited tests you inspect this session:

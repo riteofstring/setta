@@ -742,5 +742,6 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
         str(sandbox_root / "outputs"),
     ]
     assert "tmp/backend-gap-hunt-candidates.md" in prompt_text
+    assert "Commit frequently." in prompt_text
     assert "Each uncited source test is a clue" in prompt_text
     assert "add the test to `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`" in prompt_text

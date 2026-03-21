@@ -1588,6 +1588,9 @@ export type SectionSizingPolicyByType = {
   Dict: SectionSizingPolicyTypeEntry;
   ListRoot: SectionSizingPolicyTypeEntry;
   Group: SectionSizingPolicyTypeEntry;
+  StateMachineStart: SectionSizingPolicyTypeEntry;
+  StateMachineGate: SectionSizingPolicyTypeEntry;
+  StateMachineEnd: SectionSizingPolicyTypeEntry;
   Image: SectionSizingPolicyTypeEntry;
   Chart: SectionSizingPolicyTypeEntry;
   Draw: SectionSizingPolicyTypeEntry;
@@ -1635,6 +1638,24 @@ export function createSectionSizingPolicyByType(options: Partial<SectionSizingPo
           minHeight: 0,
           maxHeight: 100000,
           minWidth: 200,
+          maxWidth: 100000,
+        },
+        StateMachineStart: {
+          minHeight: 96,
+          maxHeight: 100000,
+          minWidth: 240,
+          maxWidth: 100000,
+        },
+        StateMachineGate: {
+          minHeight: 120,
+          maxHeight: 100000,
+          minWidth: 240,
+          maxWidth: 100000,
+        },
+        StateMachineEnd: {
+          minHeight: 96,
+          maxHeight: 100000,
+          minWidth: 240,
           maxWidth: 100000,
         },
         Image: {
@@ -1785,6 +1806,33 @@ export function createSectionSizingPolicyByType(options: Partial<SectionSizingPo
         maxWidth: 100000,
       },
       options.Group ?? {},
+    ),
+    StateMachineStart: mergeGeneratedOptions(
+      {
+        minHeight: 96,
+        maxHeight: 100000,
+        minWidth: 240,
+        maxWidth: 100000,
+      },
+      options.StateMachineStart ?? {},
+    ),
+    StateMachineGate: mergeGeneratedOptions(
+      {
+        minHeight: 120,
+        maxHeight: 100000,
+        minWidth: 240,
+        maxWidth: 100000,
+      },
+      options.StateMachineGate ?? {},
+    ),
+    StateMachineEnd: mergeGeneratedOptions(
+      {
+        minHeight: 96,
+        maxHeight: 100000,
+        minWidth: 240,
+        maxWidth: 100000,
+      },
+      options.StateMachineEnd ?? {},
     ),
     Image: mergeGeneratedOptions(
       {

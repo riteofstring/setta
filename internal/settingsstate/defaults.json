@@ -180,6 +180,24 @@
         "minWidth": 200.0,
         "maxWidth": 100000.0
       },
+      "StateMachineStart": {
+        "minHeight": 96.0,
+        "maxHeight": 100000.0,
+        "minWidth": 240.0,
+        "maxWidth": 100000.0
+      },
+      "StateMachineGate": {
+        "minHeight": 120.0,
+        "maxHeight": 100000.0,
+        "minWidth": 240.0,
+        "maxWidth": 100000.0
+      },
+      "StateMachineEnd": {
+        "minHeight": 96.0,
+        "maxHeight": 100000.0,
+        "minWidth": 240.0,
+        "maxWidth": 100000.0
+      },
       "Image": {
         "minHeight": 100.0,
         "maxHeight": 100000.0,
