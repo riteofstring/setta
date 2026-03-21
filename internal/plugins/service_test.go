@@ -266,6 +266,79 @@ func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	}
 }
 
+func TestServiceUpdateMarksPendingRestartForBackendOnly(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	backendInstall, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !backendInstall.RestartRequired || backendInstall.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart, got %#v", backendInstall)
+	}
+
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after backend install: %v", err)
+	}
+
+	frontendInstall, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install frontend plugin: %v", err)
+	}
+	if frontendInstall.RestartRequired {
+		t.Fatalf("expected frontend install not to require restart, got %#v", frontendInstall)
+	}
+
+	backendUpdate, err := service.Update(context.Background(), UpdateOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("update backend plugin: %v", err)
+	}
+	if !backendUpdate.RestartRequired {
+		t.Fatalf("expected backend update to require restart")
+	}
+
+	frontendUpdate, err := service.Update(context.Background(), UpdateOptions{
+		PluginID: "setta-fixture-frontend",
+	})
+	if err != nil {
+		t.Fatalf("update frontend plugin: %v", err)
+	}
+	if frontendUpdate.RestartRequired {
+		t.Fatalf("expected frontend update not to require restart, got %#v", frontendUpdate)
+	}
+
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after updates: %v", err)
+	}
+	backendEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if backendEntry.State != PluginRuntimeStatePendingRestart || !backendEntry.RestartRequired {
+		t.Fatalf("expected backend entry pending restart after update, got %#v", backendEntry)
+	}
+	frontendEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeWorkspace)
+	if frontendEntry.State != PluginRuntimeStateActive || frontendEntry.RestartRequired {
+		t.Fatalf("expected frontend entry active without restart after update, got %#v", frontendEntry)
+	}
+}
+
 // Backend uninstall should remain visible as pending_restart until the runtime clears the tombstone.
 func TestServiceBackendUninstallSurfacesPendingRestartTombstone(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -554,6 +627,61 @@ func TestServiceEnableDisableLifecycleControls(t *testing.T) {
 	}
 	if serviceErr.Code != ServiceErrorCodeNotFound {
 		t.Fatalf("expected not found code, got %q", serviceErr.Code)
+	}
+}
+
+func TestServiceEnableDisableTracksEnablementSource(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("initial rescan: %v", err)
+	}
+	initial := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeWorkspace)
+	if initial.State != PluginRuntimeStateActive {
+		t.Fatalf("expected initial frontend plugin to be active, got %#v", initial)
+	}
+	if initial.EnablementSource == nil || *initial.EnablementSource != PluginEnablementSourceManifestDefault {
+		t.Fatalf("expected manifest-default enablement source, got %#v", initial.EnablementSource)
+	}
+
+	if _, err := service.Disable(context.Background(), EnableDisableOptions{
+		PluginID: "setta-fixture-frontend",
+	}); err != nil {
+		t.Fatalf("disable frontend plugin: %v", err)
+	}
+
+	snapshot, err = service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after disable: %v", err)
+	}
+	disabled := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeWorkspace)
+	if disabled.State != PluginRuntimeStateDisabled {
+		t.Fatalf("expected disabled frontend plugin, got %#v", disabled)
+	}
+	if disabled.EnablementSource == nil || *disabled.EnablementSource != PluginEnablementSourceWorkspaceDisabled {
+		t.Fatalf("expected workspace-disabled enablement source, got %#v", disabled.EnablementSource)
+	}
+
+	if _, err := service.Enable(context.Background(), EnableDisableOptions{
+		PluginID: "setta-fixture-frontend",
+	}); err != nil {
+		t.Fatalf("enable frontend plugin: %v", err)
+	}
+
+	snapshot, err = service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after enable: %v", err)
+	}
+	enabled := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeWorkspace)
+	if enabled.State != PluginRuntimeStateActive {
+		t.Fatalf("expected re-enabled frontend plugin to be active, got %#v", enabled)
+	}
+	if enabled.EnablementSource == nil || *enabled.EnablementSource != PluginEnablementSourceWorkspaceEnabled {
+		t.Fatalf("expected workspace-enabled enablement source, got %#v", enabled.EnablementSource)
 	}
 }
 

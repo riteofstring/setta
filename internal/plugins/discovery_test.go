@@ -112,6 +112,31 @@ func TestDiscoveryServiceRescanUsesPersistedEnablementAndRestartState(t *testing
 	}
 }
 
+func TestDiscoveryServiceRescanUsesGlobalAutoEnableSource(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	globalPluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "frontend")
+	writeJSONFile(t, filepath.Join(roots.settaHome, "plugins_global_state.json"), map[string]any{
+		"autoEnabledPluginIds": []string{"setta-fixture-frontend"},
+	})
+
+	service := mustNewDiscoveryService(t, roots, config.ModeIDE)
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins: %v", err)
+	}
+
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeGlobal)
+	if entry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active global plugin, got %q", entry.State)
+	}
+	if entry.SourcePath != globalPluginRoot {
+		t.Fatalf("expected global source path %q, got %q", globalPluginRoot, entry.SourcePath)
+	}
+	if entry.EnablementSource == nil || *entry.EnablementSource != PluginEnablementSourceGlobalAutoEnabled {
+		t.Fatalf("expected global auto-enabled source, got %#v", entry.EnablementSource)
+	}
+}
+
 // Invalid manifests should remain visible to rescan, and canonical source keys should prefer persisted install metadata when present.
 func TestDiscoveryServiceRescanKeepsInvalidEntriesAndMetadataCanonicalSourceKey(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
