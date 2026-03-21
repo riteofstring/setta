@@ -93,6 +93,26 @@ func TestEngineStoreRoundTripAndResolveManagedEngine(t *testing.T) {
 	}
 }
 
+func TestEngineStoreListReturnsEmptyWhenFileMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+
+	// First-run engine config reads intentionally return an empty list instead
+	// of writing seeded example configs into the workspace.
+	configs, err := store.List()
+	if err != nil {
+		t.Fatalf("list engine configs: %v", err)
+	}
+	if len(configs) != 0 {
+		t.Fatalf("expected no engine configs, got %#v", configs)
+	}
+}
+
 func TestRunStorePersistsRunsAndMetadataIndex(t *testing.T) {
 	t.Parallel()
 

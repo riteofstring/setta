@@ -6,6 +6,22 @@ import (
 	"testing"
 )
 
+func TestStoreListReturnsEmptyWhenFileMissing(t *testing.T) {
+	t.Parallel()
+
+	store := newTranscriptionProfileTestStore(t)
+
+	// Missing transcription profile files stay empty on first run; Go does not
+	// auto-seed the old Python example profile set.
+	profiles, err := store.List()
+	if err != nil {
+		t.Fatalf("list profiles: %v", err)
+	}
+	if len(profiles) != 0 {
+		t.Fatalf("expected no profiles, got %#v", profiles)
+	}
+}
+
 func TestStoreWriteListAndGetRoundTrip(t *testing.T) {
 	t.Parallel()
 

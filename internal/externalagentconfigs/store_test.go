@@ -67,6 +67,25 @@ func TestStoreRoundTripAndGet(t *testing.T) {
 	}
 }
 
+func TestStoreListReturnsEmptyWhenFileMissing(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	// First-run workspaces intentionally surface empty config state instead of
+	// seeding example external-agent definitions into a missing file.
+	configs, err := store.List()
+	if err != nil {
+		t.Fatalf("list configs: %v", err)
+	}
+	if len(configs) != 0 {
+		t.Fatalf("expected no configs, got %#v", configs)
+	}
+}
+
 func TestStoreReturnsNotFound(t *testing.T) {
 	t.Parallel()
 

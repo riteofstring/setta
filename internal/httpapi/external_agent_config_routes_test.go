@@ -84,6 +84,28 @@ func TestRegisterExternalAgentConfigRoutesListsConfigs(t *testing.T) {
 	}
 }
 
+func TestRegisterExternalAgentConfigRoutesReturnsEmptyList(t *testing.T) {
+	t.Parallel()
+
+	_, service := newExternalAgentConfigRouteTestService(t)
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, &externalAgentConfigRouteStubChecker{})
+
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetExternalAgentConfigs, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var configs []externalagentconfigs.Config
+	if err := json.Unmarshal(response.Body.Bytes(), &configs); err != nil {
+		t.Fatalf("decode configs: %v", err)
+	}
+	if len(configs) != 0 {
+		t.Fatalf("expected empty config list, got %#v", configs)
+	}
+}
+
 func TestRegisterExternalAgentConfigRoutesGetsConfig(t *testing.T) {
 	t.Parallel()
 
