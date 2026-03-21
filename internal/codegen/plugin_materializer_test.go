@@ -603,6 +603,71 @@ func TestPluginMaterializerPrunesUnexpectedPluginOutputRoots(t *testing.T) {
 	}
 }
 
+func TestPluginMaterializerPrunesRemovedTargetDirsAfterFreshMaterializerRestart(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	generator := newStubPluginCodegenGenerator()
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-a",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "setta_gen.ts", Content: "export const value = 'first'\n"},
+	}
+	generator.resolved["stub-plugin:target-b"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-b",
+	}
+	generator.generated["stub-plugin:target-b"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "setta_gen.ts", Content: "export const value = 'second'\n"},
+	}
+
+	firstMaterializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new first plugin materializer: %v", err)
+	}
+
+	firstDocument := pluginMaterializerTestDocument(
+		pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`),
+	)
+	if err := firstMaterializer.MaterializeDocument(context.Background(), firstDocument); err != nil {
+		t.Fatalf("first materialize: %v", err)
+	}
+
+	outputRoot := pluginCodegenOutputRoot(settaFilesRoot, "Alpha")
+	staleTargetDir := filepath.Join(outputRoot, pluginCodegenTargetDirName("stub-plugin:target-a"))
+	if _, err := os.Stat(staleTargetDir); err != nil {
+		t.Fatalf("expected initial target dir to exist, got %v", err)
+	}
+
+	secondMaterializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new second plugin materializer: %v", err)
+	}
+
+	secondDocument := pluginMaterializerTestDocument(
+		pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-b", `{"language":"stub-plugin:target-b"}`),
+	)
+	if err := secondMaterializer.MaterializeDocument(context.Background(), secondDocument); err != nil {
+		t.Fatalf("second materialize: %v", err)
+	}
+
+	if _, err := os.Stat(staleTargetDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected removed target dir to be pruned after restart, got %v", err)
+	}
+	activeTargetDir := filepath.Join(outputRoot, pluginCodegenTargetDirName("stub-plugin:target-b"))
+	if _, err := os.Stat(filepath.Join(activeTargetDir, "setta_gen.ts")); err != nil {
+		t.Fatalf("expected active target output after restart, got %v", err)
+	}
+}
+
 type stubPluginCodegenGenerator struct {
 	resolved  map[string]codegencontracts.PluginTargetResolution
 	generated map[string][]codegencontracts.PluginGeneratedFile
