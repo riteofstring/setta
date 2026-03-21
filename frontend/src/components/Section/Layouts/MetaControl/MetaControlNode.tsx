@@ -351,9 +351,9 @@ function TextInputControl({
   singleLine: boolean;
   minHeightClassName?: string;
 }) {
-  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-container h-full min-h-0 w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200`;
+  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} relative flex h-full min-h-0 w-full min-w-0 items-stretch rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200`;
   const sizeClassName = minHeightClassName ? ` ${minHeightClassName}` : "";
-  const inputClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child section-value block h-full w-full min-w-0 break-words px-3 py-2 leading-[1.4] cursor-text select-text${sizeClassName}`;
+  const inputClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value block h-full w-full min-h-0 min-w-0 flex-1 self-stretch break-words px-3 py-2 leading-[1.4] cursor-text select-text${sizeClassName}`;
   const realInputClassName = `${inputClassName} [&_*]:!outline-0 [&_.cm-content]:!px-0 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0`;
   return (
     <MetaControlTitleStack
@@ -524,8 +524,8 @@ function ColorControl({
         paramInfoId={controlParamId}
         value={value}
         onChange={onValueChange}
-        wrapperClassName={`${NO_DRAG_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
-        colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+        wrapperClassName={`${NO_DRAG_CLASS_NAME} section-value relative flex min-h-0 h-[calc(100%_-_4px)] w-[calc(100%_-_2px)] min-w-0 justify-self-start self-center items-stretch`}
+        colorPickerChoicesClasses="colorpicker relative flex h-full min-h-0 w-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-lg text-white"
       />
     </MetaControlTitleStack>
   );
@@ -582,14 +582,14 @@ function PasswordControl({
       sectionName={sectionName}
       contentClassName="items-stretch"
     >
-      <div className="single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto]">
+      <div className="relative flex h-full min-h-0 w-full min-w-0 items-stretch">
         <PasswordInput
-          className={`${NO_DRAG_CLASS_NAME} single-cell-child flex h-full w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
+          className={`${NO_DRAG_CLASS_NAME} flex h-full w-full min-w-0 flex-1 cursor-text select-text self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
           value={value}
           onChange={onValueChange}
-          gridArea="single-cell-child"
+          gridArea="section-value flex h-full min-w-0 flex-1 items-center"
         />
-        <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-0 border-b border-setta-200/50 dark:border-setta-600/30" />
       </div>
     </MetaControlTitleStack>
   );
@@ -676,8 +676,8 @@ function DateTimeControl({
     timeControlMode === TimeControlModeEnum.display;
   const containerClassName =
     isTimeDisplayMode && timeDisplayTransparent
-      ? "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-transparent bg-transparent px-3 py-2"
-      : "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850";
+      ? "relative flex h-full min-h-0 w-full min-w-0 items-stretch rounded-lg border border-transparent bg-transparent px-3 py-2"
+      : "relative flex h-full min-h-0 w-full min-w-0 items-stretch rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850";
 
   return (
     <MetaControlTitleStack
@@ -701,10 +701,10 @@ function DateTimeControl({
           dateSelectionMode={dateSelectionMode}
           dateCalendarWeekStart={dateCalendarWeekStart}
           dateIncludesTime={dateIncludesTime}
-          wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`}
+          wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex min-h-0 w-full min-w-0 flex-1 items-center gap-2`}
           inputClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`}
           formattedValueClassName="text-[10px] font-mono text-setta-500 dark:text-setta-400"
-          borderClassName="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400"
+          borderClassName="pointer-events-none absolute bottom-2 left-3 right-3 h-0 border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400"
         />
       </div>
     </MetaControlTitleStack>
