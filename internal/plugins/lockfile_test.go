@@ -267,6 +267,112 @@ func TestServiceApplyLockfileUninstallsPluginsMissingFromLockfile(t *testing.T) 
 	}
 }
 
+// Lockfile apply should reinstall a PyPI-managed plugin from the stored source spec and installer backend.
+func TestServiceApplyLockfileReinstallsPluginFromPyPISource(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:     roots.workspaceRoot,
+		SettaFilesRoot:    roots.settaFilesRoot,
+		SettaHome:         roots.settaHome,
+		ServerMode:        config.ModeIDE,
+		CandidateProvider: provider,
+	})
+	if err != nil {
+		t.Fatalf("new plugin service: %v", err)
+	}
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Installer:  installerPointer(PluginInstallerBackendPip),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+	if installResult.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active install state, got %q", installResult.State)
+	}
+
+	lockWrite, err := service.WriteLockfile()
+	if err != nil {
+		t.Fatalf("write lockfile: %v", err)
+	}
+	if lockWrite.PluginCount != 1 {
+		t.Fatalf("expected one lockfile entry, got %d", lockWrite.PluginCount)
+	}
+
+	content, err := os.ReadFile(lockWrite.LockfilePath)
+	if err != nil {
+		t.Fatalf("read lockfile: %v", err)
+	}
+	var lockfile PluginsLockFile
+	if err := json.Unmarshal(content, &lockfile); err != nil {
+		t.Fatalf("decode lockfile: %v", err)
+	}
+	if len(lockfile.Plugins) != 1 {
+		t.Fatalf("expected one lockfile plugin entry, got %#v", lockfile.Plugins)
+	}
+	if lockfile.Plugins[0].InstallerBackend == nil || *lockfile.Plugins[0].InstallerBackend != PluginInstallerBackendPip {
+		t.Fatalf("expected pip installer backend in lockfile, got %#v", lockfile.Plugins[0].InstallerBackend)
+	}
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-frontend",
+		Scope:    scopePointer(PluginScopeWorkspace),
+	})
+	if err != nil {
+		t.Fatalf("uninstall plugin: %v", err)
+	}
+	if uninstallResult.RemovedFromScope != PluginScopeWorkspace {
+		t.Fatalf("unexpected uninstall result %#v", uninstallResult)
+	}
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 1 || checkResult.PlannedChanges[0] != "install setta-fixture-frontend in workspace" {
+		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
+	}
+
+	applyResult, err := service.ApplyLockfile(context.Background(), false)
+	if err != nil {
+		t.Fatalf("apply lockfile: %v", err)
+	}
+	if !applyResult.Applied {
+		t.Fatalf("expected lockfile apply to complete")
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status: %v", err)
+	}
+	entries := make([]StatusEntry, 0)
+	for _, entry := range status.Plugins {
+		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
+			entries = append(entries, entry)
+		}
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected one primary plugin entry, got %#v", entries)
+	}
+	if entries[0].State != PluginRuntimeStateActive {
+		t.Fatalf("expected active state after reinstall, got %q", entries[0].State)
+	}
+}
+
 // Lockfile apply should preserve disabled state when reconciling a plugin source.
 func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

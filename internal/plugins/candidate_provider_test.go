@@ -1,7 +1,9 @@
 package plugins
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -228,6 +230,29 @@ func TestProductionCandidateProviderResolvePyPICandidateRejectsMetadataIdentityM
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceIdentityMismatch)
 }
 
+// PyPI candidate resolution should reject artifacts whose package metadata version does not match the manifest version.
+func TestProductionCandidateProviderResolvePyPICandidateRejectsMetadataVersionMismatch(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelFromFixture(t, artifactDir, "metadata-mismatch-version", "setta-fixture-metadata-version", "0.1.0")
+
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	spec, err := ParseSourceSpec("pypi:setta-fixture-metadata-version==0.1.0")
+	if err != nil {
+		t.Fatalf("parse source spec: %v", err)
+	}
+
+	_, err = provider.ResolveCandidate(context.Background(), spec, PluginInstallerBackendPip)
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceVersionMismatch)
+}
+
 // PyPI candidate resolution should reject artifacts that contain multiple plugin manifests.
 func TestProductionCandidateProviderResolvePyPICandidateRejectsAmbiguousPluginRoots(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -251,6 +276,71 @@ func TestProductionCandidateProviderResolvePyPICandidateRejectsAmbiguousPluginRo
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceAmbiguousRoot)
 }
 
+// Auto installer mode should fall back to pip when uv is not available on PATH.
+func TestProductionCandidateProviderResolvePyPICandidateFallsBackToPipWhenUVUnavailable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	provider.lookPath = func(binary string) (string, error) {
+		if binary == "uv" {
+			return "", exec.ErrNotFound
+		}
+		return exec.LookPath(binary)
+	}
+
+	spec, err := ParseSourceSpec("pypi:setta-fixture-frontend==0.1.0")
+	if err != nil {
+		t.Fatalf("parse source spec: %v", err)
+	}
+
+	candidate, err := provider.ResolveCandidate(context.Background(), spec, PluginInstallerBackendAuto)
+	if err != nil {
+		t.Fatalf("resolve PyPI candidate with auto installer fallback: %v", err)
+	}
+	defer func() {
+		if candidate.cleanup != nil {
+			_ = candidate.cleanup()
+		}
+	}()
+
+	if candidate.Manifest.ID != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin id %q", candidate.Manifest.ID)
+	}
+}
+
+// Explicit uv installer selection should fail deterministically when the uv binary is unavailable.
+func TestProductionCandidateProviderResolvePyPICandidateRequiresExplicitUVBinary(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	provider.lookPath = func(binary string) (string, error) {
+		if binary == "uv" {
+			return "", exec.ErrNotFound
+		}
+		return exec.LookPath(binary)
+	}
+
+	spec, err := ParseSourceSpec("pypi:setta-fixture-frontend==0.1.0")
+	if err != nil {
+		t.Fatalf("parse source spec: %v", err)
+	}
+
+	_, err = provider.ResolveCandidate(context.Background(), spec, PluginInstallerBackendUV)
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInstallerUnavailable)
+}
+
 // Artifact extraction should reject out-of-root zip members deterministically.
 func TestExtractPluginArtifactRejectsZipTraversal(t *testing.T) {
 	t.Parallel()
@@ -270,6 +360,40 @@ func TestExtractPluginArtifactRejectsZipTraversal(t *testing.T) {
 	}
 	if err := archive.Close(); err != nil {
 		t.Fatalf("close malicious archive: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close malicious archive file: %v", err)
+	}
+
+	err = extractPluginArtifact(artifactPath, filepath.Join(t.TempDir(), "extract"))
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceArchiveTraversal)
+}
+
+// Artifact extraction should reject tar symlink and hardlink members deterministically.
+func TestExtractPluginArtifactRejectsTarSymlinkEntries(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "malicious.tgz")
+	file, err := os.Create(artifactPath)
+	if err != nil {
+		t.Fatalf("create malicious archive: %v", err)
+	}
+	gzipWriter := gzip.NewWriter(file)
+	tarWriter := tar.NewWriter(gzipWriter)
+	header := &tar.Header{
+		Name:     "link-out",
+		Typeflag: tar.TypeSymlink,
+		Linkname: "/etc/passwd",
+		Mode:     0o777,
+	}
+	if err := tarWriter.WriteHeader(header); err != nil {
+		t.Fatalf("write malicious header: %v", err)
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
 	}
 	if err := file.Close(); err != nil {
 		t.Fatalf("close malicious archive file: %v", err)
