@@ -104,6 +104,51 @@ func TestRuntimeCompareAndSetShowParamDisplayNamesRejectsStaleExpectedOldValue(t
 	}
 }
 
+func TestRuntimeCompareAndSetShowParamDisplayNamesNoopIsSideEffectFree(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": layoutPresentationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	initialSnapshot := runtime.Snapshot()
+	snapshot, result, err := runtime.CompareAndSetShowParamDisplayNames(
+		context.Background(),
+		"project-alpha",
+		false,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("CompareAndSetShowParamDisplayNames no-op returned error: %v", err)
+	}
+	if snapshot.Revision != initialSnapshot.Revision {
+		t.Fatalf("expected no-op revision %d, got %d", initialSnapshot.Revision, snapshot.Revision)
+	}
+	if result.OldValue || result.NewValue {
+		t.Fatalf("expected false old/new values for no-op, got %#v", result)
+	}
+
+	project, err := runtime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after show-param no-op: %v", err)
+	}
+	if project.ShowParamDisplayNames {
+		t.Fatal("expected ShowParamDisplayNames to remain false after no-op")
+	}
+}
+
 func TestRuntimeCompareAndSetProjectNameRejectsStaleExpectedOldValue(t *testing.T) {
 	t.Parallel()
 
