@@ -116,6 +116,43 @@ func TestRuntimeUndoAndSaveTruncatesRedoAfterNewMutation(t *testing.T) {
 	}
 }
 
+func TestRuntimeHistoryKeepsBackToBackMutationsAsSeparateUndoSteps(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	if err := store.Save(context.Background(), runtimeHistoryTestDocument("project-alpha", "Alpha")); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntime(t, store)
+
+	mustSetRuntimeProjectName(t, runtime, "project-alpha", "Beta")
+	mustSetRuntimeProjectName(t, runtime, "project-alpha", "Gamma")
+
+	firstUndo, err := runtime.UndoAndSave(context.Background(), "project-alpha", 1)
+	if err != nil {
+		t.Fatalf("undo latest mutation: %v", err)
+	}
+	firstProject, err := firstUndo.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("load first undo project: %v", err)
+	}
+	if firstProject.Name != "Beta" {
+		t.Fatalf("expected first undo to land on Beta, got %q", firstProject.Name)
+	}
+
+	secondUndo, err := runtime.UndoAndSave(context.Background(), "project-alpha", 1)
+	if err != nil {
+		t.Fatalf("undo prior mutation: %v", err)
+	}
+	secondProject, err := secondUndo.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("load second undo project: %v", err)
+	}
+	if secondProject.Name != "Alpha" {
+		t.Fatalf("expected second undo to land on Alpha, got %q", secondProject.Name)
+	}
+}
+
 func TestRuntimeUndoAndRedoValidateProjectID(t *testing.T) {
 	t.Parallel()
 
