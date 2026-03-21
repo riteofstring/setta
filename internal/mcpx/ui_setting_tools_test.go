@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,6 +25,11 @@ import (
 
 type uiSettingDriftProjectState struct {
 	*projectstate.Runtime
+}
+
+type expectedOldValueRecordingProjectState struct {
+	*projectstate.Runtime
+	observedShowParamExpectedOldValues []*bool
 }
 
 type concurrentWritePluginMutationService struct {
@@ -175,6 +181,21 @@ func (s uiSettingDriftProjectState) CompareAndSetShowParamDisplayNames(
 	}
 	result.OldValue = !result.OldValue
 	return snapshot, result, nil
+}
+
+func (s *expectedOldValueRecordingProjectState) CompareAndSetShowParamDisplayNames(
+	ctx context.Context,
+	projectID string,
+	show bool,
+	expectedOldValue *bool,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error) {
+	if expectedOldValue == nil {
+		s.observedShowParamExpectedOldValues = append(s.observedShowParamExpectedOldValues, nil)
+	} else {
+		recorded := *expectedOldValue
+		s.observedShowParamExpectedOldValues = append(s.observedShowParamExpectedOldValues, &recorded)
+	}
+	return s.Runtime.CompareAndSetShowParamDisplayNames(ctx, projectID, show, expectedOldValue)
 }
 
 func (s *recordingRevealService) Reveal(_ context.Context, input uisettings.RevealInput) (uisettings.RevealResult, error) {
@@ -1380,6 +1401,82 @@ func TestServerSetUISettingValueWritesAndValidates(t *testing.T) {
 	}
 }
 
+func TestServerSetUISettingValueRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	initialResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.folders",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value before invalid watch folders write: %v", err)
+	}
+	if initialResult.IsError {
+		t.Fatalf("expected initial get_ui_setting_value success, got %#v", initialResult.StructuredContent)
+	}
+	initialPayload := mustStructuredMap(t, initialResult.StructuredContent)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.folders",
+			"value": []any{
+				map[string]any{
+					"path":      "./backend",
+					"recursive": true,
+					"extra":     "not-allowed",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with unsupported watch folder properties: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected structured unsupported-property failure, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["changed"] != false {
+		t.Fatalf("expected changed=false, got %#v", payload["changed"])
+	}
+	errorPayload := mustStructuredMap(t, payload["error"])
+	if errorPayload["code"] != string(uisettings.ErrorCodeInvalidValueType) {
+		t.Fatalf("expected invalid_value_type error code, got %#v", errorPayload["code"])
+	}
+	if !strings.Contains(fmt.Sprint(errorPayload["message"]), "unsupported properties") {
+		t.Fatalf("expected unsupported-properties message, got %#v", errorPayload["message"])
+	}
+
+	unchangedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.folders",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value after invalid watch folders write: %v", err)
+	}
+	if unchangedResult.IsError {
+		t.Fatalf("expected unchanged get_ui_setting_value success, got %#v", unchangedResult.StructuredContent)
+	}
+	unchangedPayload := mustStructuredMap(t, unchangedResult.StructuredContent)
+	if !reflect.DeepEqual(unchangedPayload["value"], initialPayload["value"]) {
+		t.Fatalf("expected watch code folders to remain unchanged, got before=%#v after=%#v", initialPayload["value"], unchangedPayload["value"])
+	}
+}
+
 func TestServerSetUISettingValueDefaultsProjectConfigIDFromShareScope(t *testing.T) {
 	t.Parallel()
 
@@ -1491,6 +1588,60 @@ func TestServerSetUISettingValueForwardsExpectedOldValue(t *testing.T) {
 	errorPayload := mustStructuredMap(t, stalePayload["error"])
 	if errorPayload["code"] != string(uisettings.ErrorCodeMutationFailed) {
 		t.Fatalf("expected mutation_failed error code, got %#v", errorPayload["code"])
+	}
+}
+
+func TestServerSetUISettingValueSuppliesCurrentValueWhenExpectedOldValueOmitted(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	recordingState := &expectedOldValueRecordingProjectState{Runtime: projectRuntime}
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  recordingState,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	firstResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value without expectedOldValue for first write: %v", err)
+	}
+	if firstResult.IsError {
+		t.Fatalf("expected first set_ui_setting_value success, got %#v", firstResult.StructuredContent)
+	}
+
+	secondResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value without expectedOldValue for second write: %v", err)
+	}
+	if secondResult.IsError {
+		t.Fatalf("expected second set_ui_setting_value success, got %#v", secondResult.StructuredContent)
+	}
+
+	if len(recordingState.observedShowParamExpectedOldValues) != 2 {
+		t.Fatalf("expected two observed expectedOldValue calls, got %d", len(recordingState.observedShowParamExpectedOldValues))
+	}
+	if recordingState.observedShowParamExpectedOldValues[0] == nil || *recordingState.observedShowParamExpectedOldValues[0] != false {
+		t.Fatalf("expected first omitted expectedOldValue to use current false value, got %#v", recordingState.observedShowParamExpectedOldValues[0])
+	}
+	if recordingState.observedShowParamExpectedOldValues[1] == nil || *recordingState.observedShowParamExpectedOldValues[1] != true {
+		t.Fatalf("expected second omitted expectedOldValue to use refreshed true value, got %#v", recordingState.observedShowParamExpectedOldValues[1])
 	}
 }
 
