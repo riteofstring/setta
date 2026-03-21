@@ -55,6 +55,7 @@ type ParamSwitchProps = {
   hasSectionStyleTheme: boolean;
   nestedParentParamIdLookup: NestedParentParamIdLookup | null;
   visibleParamIdLookup: RenderableParamIdLookup | null;
+  showResizeHandle?: boolean;
 };
 
 const EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP: NestedParentParamIdLookup = {};
@@ -190,6 +191,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
     hasSectionStyleTheme,
     isNestedChildInTree,
     listKey,
+    showResizeHandle = true,
   } = props;
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -339,6 +341,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
         dndRef={dndRef}
         dndStyle={dndStyle}
         dndClassName={isDragging ? "opacity-80" : ""}
+        showResizeHandle={showResizeHandle}
       >
         {label}
       </ParamContainer>
@@ -366,6 +369,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
               nestedRenderState.nestedParentParamIdLookup
             }
             visibleParamIdLookup={nestedRenderState.visibleParamIdLookup}
+            showResizeHandle={showResizeHandle}
           />
         );
       })}
@@ -387,7 +391,8 @@ function areParamSwitchPropsEqual(
     prevProps.listKey === nextProps.listKey &&
     prevProps.hasSectionStyleTheme === nextProps.hasSectionStyleTheme &&
     prevProps.nestedParentParamIdLookup === nextProps.nestedParentParamIdLookup &&
-    prevProps.visibleParamIdLookup === nextProps.visibleParamIdLookup
+    prevProps.visibleParamIdLookup === nextProps.visibleParamIdLookup &&
+    prevProps.showResizeHandle === nextProps.showResizeHandle
   );
 }
 

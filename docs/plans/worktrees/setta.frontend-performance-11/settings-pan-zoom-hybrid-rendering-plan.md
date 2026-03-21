@@ -610,6 +610,34 @@ Current execution note:
   - broadening the accepted row containment from `contain: layout` to `contain: layout paint` on the same repeated Tier 1 row shells made both canonical scenes materially worse
   - `settings` and `tier1Synthetic` both regressed on aggregate `Paint`, `RunTask`, and `UpdateLayoutTree` in the first paired rerun
   - keep the accepted `layout` containment only and do not carry the `paint` containment change at `HEAD`
+- the standardized `settings` harness now switches to the authoritative `All Settings` view before tracing:
+  - `perf/fixtures/section-benchmarks/scene-manifest.json`
+  - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+  - the stable authoritative `settings` target is now `groupSectionDefault`
+  - preserve older `Core`-view `/settings` traces only as diagnostics
+- the next accepted Tier 1 row/body seam reduction is shared area-level column resize handles:
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/ParamDndList.tsx`
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+  - `frontend/src/components/Params/ParamContainer.tsx`
+  - `frontend/src/components/Params/ParamColumnResizeHandle.tsx`
+  - authoritative worktree delta versus the same-harness retained baseline:
+    - `settings` benchmark `Paint`:
+      - `520.746ms -> 413.960ms`
+    - `settings` benchmark `RunTask`:
+      - `30027.733ms -> 27834.499ms`
+    - `tier1Synthetic` benchmark `Paint`:
+      - `918.136ms -> 747.929ms`
+    - `tier1Synthetic` benchmark `RunTask`:
+      - mixed:
+        - `13776.586ms -> 14454.825ms`
+      - but both slow overview-pan `Paint` phases still improved materially
+  - live `All Settings` geometry check on the kept checkpoint:
+    - `760` rows
+    - `45` shared overlays
+    - `274` nested rows
+    - sampled nested seam alignment stayed within roughly `1.55px` of the input start, which is close enough to treat the earlier theoretical nested-alignment concern as non-blocking for this checkpoint
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -630,6 +658,7 @@ Current execution note:
       - bg/border/hover/selection ownership is still fragmented across those modules
       - every Tier 1 leaf row pays for that split
       - the next worthwhile experiment should remove or hide more of that repeated structure than the rejected isolated style-token passes could reach
+      - the accepted shared-overlay handle checkpoint reduces one repeated row affordance already, so the next slice should try to compound that kind of win on other always-mounted dense-row surfaces
       - but it should do so without moving the full row shell responsibility onto `TextInputCodeMirror` itself
       - and it should hit the row families that still dominate `settings`, especially non-preview repeated row/body surfaces instead of another immediate inactive-preview-only tweak or another `contain` retune on the same row shell
 

@@ -21,6 +21,7 @@ type ParamDndListProps = {
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  showResizeHandle?: boolean;
 };
 
 function ParamDndListRows({
@@ -34,6 +35,7 @@ function ParamDndListRows({
   nestedParentParamIdLookup,
   visibleParamIdLookup,
   dndParentId,
+  showResizeHandle = true,
 }: ParamDndListProps & {
   nestedParentParamIdLookup: Record<string, true>;
   visibleParamIdLookup: Record<string, true> | null;
@@ -65,6 +67,7 @@ function ParamDndListRows({
         hasSectionStyleTheme={hasSectionStyleTheme}
         nestedParentParamIdLookup={nestedRenderState.nestedParentParamIdLookup}
         visibleParamIdLookup={nestedRenderState.visibleParamIdLookup}
+        showResizeHandle={showResizeHandle}
       />
     );
   });
@@ -78,6 +81,7 @@ export function ParamDndList({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
+  showResizeHandle = true,
 }: ParamDndListProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { canEditStructure } = useShareCapabilities();
@@ -115,6 +119,7 @@ export function ParamDndList({
           nestedParentParamIdLookup={nestedParentParamIdLookup}
           visibleParamIdLookup={visibleParamIdLookup}
           dndParentId=""
+          showResizeHandle={showResizeHandle}
         />
       </ParamDuplicateIndexProvider>
     );
@@ -139,6 +144,7 @@ export function ParamDndList({
           nestedParentParamIdLookup={nestedParentParamIdLookup}
           visibleParamIdLookup={visibleParamIdLookup}
           dndParentId={tree.rootId}
+          showResizeHandle={showResizeHandle}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>

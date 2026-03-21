@@ -54,6 +54,7 @@ import {
 } from "./paramAreaMeasurements";
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
+import { ParamColumnResizeHandle } from "./ParamColumnResizeHandle";
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
@@ -861,7 +862,7 @@ function PinnedParamsArea({
       </header>
 
       <div
-        className="section-args-nested section-key-value section-min-rows flex min-h-0 w-full flex-1 flex-col gap-y-1 pr-1.5"
+        className="section-args-nested section-key-value section-min-rows group/param-rows relative flex min-h-0 w-full flex-1 flex-col gap-y-1 pr-1.5"
         ref={rowsRef}
       >
         <ParamDndList
@@ -872,7 +873,9 @@ function PinnedParamsArea({
           isTopLevel={true}
           listKey="pinned"
           hasSectionStyleTheme={hasSectionStyleTheme}
+          showResizeHandle={false}
         />
+        <ParamColumnResizeHandle onMouseDown={handleColumnResizeStart} />
       </div>
     </section>
   );
@@ -978,22 +981,28 @@ function GetUnpinnedParams({
 
   return (
     <div
-      className={`section-args-nested flex min-h-0 min-w-0 !max-w-full flex-1 flex-col gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+      className={`section-args-nested group/param-rows relative flex min-h-0 min-w-0 !max-w-full flex-1 flex-col gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
         isScrollable ? "nowheel" : ""
       }`}
       ref={setContainerRef}
       style={shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined}
     >
       {!hideUnpinnedParams && (
-        <ParamDndList
-          sectionId={sectionId}
-          paramIds={topLevelParamIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={handleColumnResizeStart}
-          isTopLevel={true}
-          listKey="unpinned"
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
+        <>
+          <ParamDndList
+            sectionId={sectionId}
+            paramIds={topLevelParamIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={handleColumnResizeStart}
+            isTopLevel={true}
+            listKey="unpinned"
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            showResizeHandle={false}
+          />
+          {topLevelParamIds.length > 0 ? (
+            <ParamColumnResizeHandle onMouseDown={handleColumnResizeStart} />
+          ) : null}
+        </>
       )}
     </div>
   );

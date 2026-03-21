@@ -33,6 +33,7 @@ type ParamContainerProps = {
   dndRef?: React.Ref<HTMLElement>;
   dndStyle?: React.CSSProperties;
   dndClassName?: string;
+  showResizeHandle?: boolean;
 };
 
 function _ParamContainer({
@@ -55,6 +56,7 @@ function _ParamContainer({
   dndRef,
   dndStyle,
   dndClassName,
+  showResizeHandle = true,
 }: ParamContainerProps) {
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
@@ -133,7 +135,7 @@ function _ParamContainer({
           maybeErrorMessage={errorMessage}
         />
       )}
-      {!isNestedParam && (
+      {!isNestedParam && showResizeHandle && (
         <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
       )}
       {!isNestedParam && hasError && (
@@ -165,7 +167,8 @@ function areParamContainerPropsEqual(
     prevProps.dndListeners === nextProps.dndListeners &&
     prevProps.dndRef === nextProps.dndRef &&
     prevProps.dndStyle === nextProps.dndStyle &&
-    prevProps.dndClassName === nextProps.dndClassName
+    prevProps.dndClassName === nextProps.dndClassName &&
+    prevProps.showResizeHandle === nextProps.showResizeHandle
   );
 }
 

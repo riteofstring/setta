@@ -1417,3 +1417,104 @@ Record:
   - This supersedes the earlier temporary `backendArgs` default-view targeting note in the plan.
 - Next action:
   - Update the standardized `settings` benchmark automation so it switches to `All Settings`, then rerun any in-flight `settings` experiment matrix against that authoritative view before making a keep/reject call.
+
+## 2026-03-20 031
+
+- Item: Implement the authoritative `All Settings` setup path in the standardized `settings` benchmark runner.
+- Status: `done`
+- Details:
+  - Updated the checked-in `settings` scene manifest so it now carries the authoritative setup contract:
+    - `targetSectionPattern`:
+      - `groupSectionDefault`
+    - `preBenchmarkUi`:
+      - click the `All Settings` view-mode tab
+      - wait for `groupSectionDefault`
+  - Updated the generic runner to execute that scene-specific UI setup before tracing:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - Updated the scene/test helpers and the settings compatibility replay entry point to match the new target:
+    - `perf/scripts/sectionBenchmarkScenes.js`
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+    - `perf/scripts/runSectionBenchmarkViaCdp.test.js`
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+  - Verified in headed DevTools that both:
+    - worktree `http://127.0.0.1:3012/settings`
+    - untouched `main` `http://127.0.0.1:3087/settings`
+    - expose the same `All Settings` section inventory once the real tab button is clicked, including `groupSectionDefault`
+- Next action:
+  - Rerun the in-flight shared-column-handle experiment against authoritative `All Settings` plus `tier1Synthetic`, then decide whether to keep it.
+
+## 2026-03-20 032
+
+- Item: Benchmark the shared area-level Tier 1 column-handle experiment under the authoritative `All Settings` harness and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - replace repeated per-row Tier 1 param column resize handles with shared area-level overlays in:
+      - `frontend/src/components/Params/GroupContainer.tsx`
+      - `frontend/src/components/Params/ParamDndList.tsx`
+      - `frontend/src/components/Params/ParamSwitch.tsx`
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamColumnResizeHandle.tsx`
+  - Added focused regression coverage for the new overlay and the earlier recursive propagation bug:
+    - `frontend/src/components/Params/ParamColumnResizeHandle.test.tsx`
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - Recorded the authoritative rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-shared-column-handle-all-settings-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-shared-column-handle-all-settings-rerun`
+  - Same-harness retained-baseline control:
+    - temporarily stashed only the in-flight shared-handle files
+    - reran the worktree `settings` and `tier1Synthetic` pair with the new `All Settings` harness
+    - restored the experiment
+  - Worktree deltas versus that retained baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `520.746ms -> 413.960ms`
+      - benchmark `RunTask`:
+        - `30027.733ms -> 27834.499ms`
+      - overview horizontal pan slow `Paint`:
+        - `49.606ms -> 37.915ms`
+      - overview vertical pan slow `Paint`:
+        - `76.053ms -> 58.302ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `918.136ms -> 747.929ms`
+      - benchmark `RunTask`:
+        - mixed:
+          - `13776.586ms -> 14454.825ms`
+      - overview horizontal pan slow `Paint`:
+        - `155.469ms -> 129.172ms`
+      - overview vertical pan slow `Paint`:
+        - `197.840ms -> 147.883ms`
+  - Live `All Settings` geometry read on the kept checkpoint:
+    - `760` rendered param rows
+    - `45` shared overlays
+    - `274` nested rows
+    - sampled nested seam alignment stayed within roughly `1.55px` of the input start
+  - Decision:
+    - keep this checkpoint at `HEAD`
+    - accept the mixed `tier1Synthetic` `RunTask` signal because:
+      - the main target metric `Paint` improves strongly on both canonical scenes
+      - the real `settings` `All Settings` target improves on both aggregate hot metrics and the representative slow overview pans
+      - the live geometry check does not show the earlier theoretical nested-alignment concern as a blocker
+- Next action:
+  - Continue Phase 5 on repeated dense-row/body ownership, now that the shared handle duplication is removed, and target another always-mounted Tier 1 row/body seam rather than returning to the rejected inactive-preview lane.
+
+## 2026-03-20 033
+
+- Item: Choose the next Tier 1 target after the accepted shared area-level handle checkpoint.
+- Status: `in_progress`
+- Details:
+  - Updated read after the authoritative keep:
+    - repeated row affordances are still a worthwhile Tier 1 lane when the reduction is structural rather than a small style-token tweak
+    - the branch is still far behind untouched `main` on absolute paint totals, so the next slice should compound this kind of repeated live-body reduction
+  - Current likely direction:
+    - stay in Phase 5
+    - continue inside the fragmented leaf-row/body ownership seam split across:
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - prefer another always-mounted dense-row/body simplification over another immediate preview-only experiment
+- Next action:
+  - Turn the next repeated dense-row/body seam into a measured experiment, then rerun authoritative `All Settings` plus `tier1Synthetic` again.

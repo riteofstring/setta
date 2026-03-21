@@ -202,6 +202,8 @@ describe("ParamGroupContainer layout", () => {
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
     expect(markup).not.toContain("grid-cols-subgrid");
+    expect(markup).toContain('data-param-column-resize-overlay="true"');
+    expect(markup).not.toContain('data-param-resize-handle="true"');
   });
 
   it("keeps the pinned params shell flat", () => {
@@ -336,12 +338,14 @@ describe("ParamGroupContainer layout", () => {
       /<section[^>]*class=\"[^\"]*pb-3 pt-2[^\"]*\"[^>]*data-params-fixed=\"true\"[^>]*><header class=\"flex w-full gap-1 px-2\"/,
     );
     expect(markup).toContain(
-      'class="section-args-nested section-key-value section-min-rows flex min-h-0 w-full flex-1 flex-col gap-y-1 pr-1.5"',
+      'class="section-args-nested section-key-value section-min-rows group/param-rows relative flex min-h-0 w-full flex-1 flex-col gap-y-1 pr-1.5"',
     );
     expect(markup).not.toContain(
       'class="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"',
     );
     expect(markup).not.toContain("grid-cols-subgrid");
+    expect(markup).toContain('data-param-column-resize-overlay="true"');
+    expect(markup).not.toContain('data-param-resize-handle="true"');
   });
 
   it("keeps the edge strip rows flat", () => {
@@ -660,6 +664,8 @@ describe("ParamGroupContainer layout", () => {
     expect(markup).toContain(
       `</article><article id=\"ParamContainer-${sectionId}-${childParamId}\"`,
     );
+    expect(markup).toContain('data-param-column-resize-overlay="true"');
+    expect(markup).not.toContain('data-param-resize-handle="true"');
   });
 
   it("keeps a filtered nested child path and drops unrelated siblings", () => {
