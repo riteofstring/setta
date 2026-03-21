@@ -5,7 +5,7 @@ Last audited: `2026-03-19`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `60fcc4d451004d6082d6249c40bd627fc6b74965`
+- Target head: `affba5bade4deb758f8a65f608a4e522214205f2`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -90,6 +90,11 @@ Last audited: `2026-03-19`
 - plus the targeted settings fail-closed harness slice:
   `settings_project_missing_required_section_fails_closed` now compares the
   stable black-box fail-closed contract instead of unstable startup log text
+- plus the targeted backend-registered plugin UI-setting slice:
+  backend probe/discovery now carries registered UI-setting handler
+  definitions, the shared UI-setting registry exposes those entries on the
+  live MCP search/get/set surface, and post-write rereads now fail closed
+  with rollback when a backend handler returns a schema-invalid value
 - plus the targeted remote-stop CLI slice: conflicting remote path flags and
   documented SSH/remote-command/path pass-through on the packaged SSH stop
   surface
@@ -888,9 +893,9 @@ Last audited: `2026-03-19`
 
 - Rows audited in this pass: `1254`
 - Status counts:
-  - `Proved`: `1089`
+  - `Proved`: `1090`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `12`
+  - `Missing`: `11`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
   - `Dormant / unproven caller`: `18`
@@ -924,6 +929,12 @@ Last audited: `2026-03-19`
     the core UI-setting registry now exposes project-name and Python-codegen
     settings again, and the live MCP UI-setting tool surface can once again
     search, read, and write both settings
+  - `internal/plugins/{backend_probe.go,backend_runtime.go,discovery.go}`,
+    `internal/uisettings/plugins.go`, and `internal/mcpx/ui_setting_tools.go`:
+    plugin backends can now register UI-setting handlers through the probe
+    payload, the shared UI-setting registry exposes those entries alongside
+    schema-backed settings, and post-write rereads now roll back fail-closed
+    when a backend handler returns a schema-invalid value
   - `internal/launcher/session_launcher.go` plus
     `internal/launcher/session_process_{unix,windows}.go`: the launcher now
     spawns a dedicated process tree and tears down spawned descendants on
@@ -2901,7 +2912,7 @@ Last audited: `2026-03-19`
 | `ui_settings.plugin.schema_invalid_setting_stays_unavailable_while_healthy_siblings_survive` | `tests/mcp/test_ui_setting_tools.py::test_plugin_schema_tracks_multiple_invalid_entries_per_setting_id` | `internal/uisettings/plugins.go::parsePluginUISettingDefinitions`; `internal/uisettings/registry.go::MissingSettingError` | `TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKeepHealthySibling` | `get_ui_setting_value` still returns structured per-setting errors on the MCP tool surface | `Proved` | Invalid plugin schema entries now make only the affected setting ids unavailable while healthy sibling plugin settings remain readable. |
 | `ui_settings.plugin.register_pane_capability_gate_blocks_read_write` | `tests/mcp/test_ui_setting_tools.py::test_plugin_ui_setting_returns_plugin_unavailable_when_register_pane_not_effective` | `internal/uisettings/plugins.go::buildPluginRegistryMetadata`; `internal/uisettings/registry.go::MissingSettingError` | `TestServerUISettingToolsReturnPluginUnavailableForReadWriteWhenRegisterPaneCapabilityNotEffective` | MCP UI-setting reads and writes still surface the capability-gated `plugin_unavailable` error instead of mutating config | `Proved` | Plugin settings remain unavailable to read/write callers when the plugin is present but `registerPane` is not an effective capability. |
 | `ui_settings.plugin.schema_backed_roundtrip_and_reveal_metadata` | `tests/mcp/test_ui_setting_tools.py` schema-backed plugin-setting coverage keeps plugin settings discoverable through schema metadata, writable through the shared tool path, and revealable with backend-owned location/highlight metadata | `internal/uisettings/plugins.go::{parsePluginUISettingDefinitions,buildRuntimeEntries}`; `internal/mcpx/ui_setting_tools.go` | `TestServerUISettingToolsSupportSchemaBackedPluginSettings` | schema-backed plugin settings remain a live MCP UI-setting caller surface whenever plugins expose settings through `registerPane` plus schema metadata | `Proved` | Schema-backed plugin UI settings now have direct Go proof for the positive path too: they are discoverable, readable, writable, and still carry the generated reveal metadata that the shared reveal flow uses to target the correct frontend location. |
-| `ui_settings.plugin.backend_registered_handler_roundtrip_and_post_write_type_guard` | `tests/mcp/test_ui_setting_tools.py` keeps a separate source branch for backend-registered plugin settings whose read/write handlers enforce post-write type guards independent of config-schema-backed entries | the current Go plugin UI-setting registry only materializes schema-backed definitions from `internal/uisettings/plugins.go::parsePluginUISettingDefinitions` and exposes no backend-registered plugin-setting handler path | current Go UI-setting coverage proves schema-backed plugin settings only; there is no Go owner or test for backend-registered plugin-setting handlers or post-write type-guard rollback | the shared MCP UI-setting tool surface remains the caller-visible plugin-setting boundary, so missing backend-registered entries would still be visible if plugins depend on that source capability | `Missing` | The source plugin UI-setting surface supported backend-registered setting handlers with post-write type validation, but the rewrite currently only supports schema-backed plugin settings and has no equivalent backend-registered handler path at all. |
+| `ui_settings.plugin.backend_registered_handler_roundtrip_and_post_write_type_guard` | `tests/mcp/test_ui_setting_tools.py` keeps a separate source branch for backend-registered plugin settings whose read/write handlers enforce post-write type guards independent of config-schema-backed entries | `internal/plugins/{backend_probe.go,backend_runtime.go,discovery.go}`; `internal/uisettings/plugins.go`; `internal/mcpx/ui_setting_tools.go` | `TestServiceBackendUISettingRoundTripInvokesGoBackendExecutable`; `TestServerUISettingToolsSupportBackendRegisteredPluginSettings`; `TestServerUISettingToolsRollbackInvalidPostWriteBackendRegisteredPluginValue` | the shared MCP UI-setting tool surface remains the caller-visible plugin-setting boundary, so backend-registered plugin settings stay user-visible whenever a plugin depends on handler-owned setting values instead of schema-backed config storage | `Proved` | Plugin backends can now register UI-setting handlers through the probe/discovery path, the shared registry exposes those settings on the live MCP search/get/set surface, and backend writes now reread plus schema-validate the resulting value, rolling back fail-closed when the post-write value no longer matches the declared setting schema. |
 | `ui_settings.plugin.pending_restart_and_shadowed_runtime_entries_remain_available` | `tests/mcp/test_ui_setting_tools.py` keeps plugin UI settings available when the runtime entry is shadowed by another scope or sitting in `pending_restart`, as long as the effective plugin entry is still operational | `internal/uisettings/plugins.go`; `internal/uisettings/registry.go`; `internal/mcpx/ui_setting_tools.go` | `TestServerUISettingToolsKeepPendingRestartPluginSettingsAvailable`; `TestServerUISettingToolsKeepShadowedPluginSettingsAvailableThroughEffectiveEntry` | plugin UI-setting search/read/write remains active on the MCP tool surface, so state-filtered availability stays caller-visible whenever plugin runtime state changes underneath a settings surface | `Proved` | The Go plugin UI-setting registry now has direct MCP proof for both state-specific availability branches: schema-backed plugin settings remain searchable, readable, and writable while the effective runtime entry is `pending_restart`, and they stay available when shadowed duplicates exist in lower-precedence scopes. |
 | `codegen_targets.mcp_temporary_ids_and_plugin_registration_gate` | `backend/setta/mcp/server.py` temporary-id conversion at invocation edge; `tests/mcp/test_id_conversion.py`; `tests/project_state/test_codegen_targets.py::test_set_codegen_targets_rejects_unknown_plugin_target` | `internal/mcpx/temporary_ids.go`; `internal/mcpx/server.go`; `internal/projectstate/codegen_targets.go` | `TestTemporaryIDStoreResolvesKnownTemporaryIDsAndRejectsUnknownNumericIDs`; `TestMCPToolCallRouteSupportsPluginSetProjectConfigCodegenTargetsWithTemporaryIDs`; `TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsOverAuthenticatedSSE`; `TestAppIDEMCPServerSupportsLinkedPluginSetProjectConfigCodegenTargetsWithTemporaryIDsOverAuthenticatedSSE`; `TestAppIDEMCPToolCallRouteSupportsSetProjectConfigCodegenTargets` | MCP tool-call and authenticated-SSE callers still mutate codegen targets through the same tool name | `Proved` | MCP codegen-target writes still reject unregistered plugin languages, but once the plugin is linked the same tool accepts temporary project ids and persists the target against the canonical project. |
 | `transcription_profiles.reads_follow_deployment_llm_policy` | `backend/setta/routers/agentic.py::route_get_transcription_profiles` only calls `ctx.enforce_llm_allowed()`; `backend/setta/share/policy.py::ensure_share_llm_allowed` | `internal/httpapi/transcription_profile_routes.go::ensureTranscriptionProfileReadsAllowed` | `TestRegisterTranscriptionProfileRoutesAllowDeploymentReadsWhenLLMAccessEnabled`; `TestRegisterTranscriptionProfileRoutesBlockDeploymentReadsWhenLLMAccessDisabled`; `TestRegisterTranscriptionProfileRoutesAllowLauncherReadsAndBlockMutations` | `useHydrateAgenticState` still loads transcription profiles for `ProjectAISettings`, `ProjectChat`, `ChatAreaSettings`, `PromptSettings`, `PromptArea`, `StateMachineEdgeInspector`, and `ChatArea` | `Proved` | Transcription-profile reads now remain available in IDE/launcher and in share/app when deployment policy allows LLM access, while deployment/share reads still fail closed when `allowLLM` is disabled. |

@@ -63,9 +63,9 @@ categorize them.
   outdated-settings slice
 - With the default manifest clean, the next queue should come directly from
   the remaining matrix `Missing` rows. The best current candidates are the
-  broader ordinary-project JSON-source runtime owner and the plugin
-  backend-registered UI-setting handler path, because both are still caller-
-  visible and still completely missing rather than just lightly proved.
+  linked-chat admission lifecycle and the broader ordinary-project JSON-
+  source runtime owner, because both are still caller-visible and still
+  completely missing rather than just lightly proved.
 - The previously isolated dedicated-`/settings` persisted-layout gap is now
   closed; keep any newly uncovered non-caller-visible mismatches explicit
   instead of folding them back into broader live-contract rows
@@ -476,3 +476,9 @@ categorize them.
   onto the remaining bounded missing rows such as backend-registered plugin
   UI settings, linked-chat admission, or the broader JSON-source runtime
   cluster.
+- The backend-registered plugin UI-setting row is now closed too: plugin
+  backends can register handler-owned settings through probe/discovery, the
+  shared MCP UI-setting surface can search/read/write them, and post-write
+  type-guard failures now reread and roll back fail closed. The next
+  practical queue should stay on the remaining true `Missing` rows, starting
+  with linked-chat admission or the broader JSON-source runtime cluster.
