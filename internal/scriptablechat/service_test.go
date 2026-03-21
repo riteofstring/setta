@@ -299,6 +299,63 @@ func TestServiceCreateChatDerivesTruncatedNameFromFirstMessage(t *testing.T) {
 	}
 }
 
+func TestServiceCreateAndAppendDoNotPersistNameSource(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+
+	created, err := fixture.service.CreateChat(CreateChatRequest{
+		FirstMessage: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "External titles stay caller-owned"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create chat: %v", err)
+	}
+
+	persisted, err := fixture.runs.Load(created.ID)
+	if err != nil {
+		t.Fatalf("load created chat run: %v", err)
+	}
+	if persisted.Outputs["name"] != created.Name {
+		t.Fatalf("expected persisted name %q, got %#v", created.Name, persisted.Outputs["name"])
+	}
+	if _, ok := persisted.Outputs["nameSource"]; ok {
+		t.Fatalf("expected create chat not to persist nameSource, got %#v", persisted.Outputs["nameSource"])
+	}
+
+	_, err = fixture.service.AppendMessages(AppendMessagesRequest{
+		ChatID: created.ID,
+		Messages: []map[string]any{
+			{
+				"id":   "assistant-1",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Reply"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("append messages: %v", err)
+	}
+
+	updated, err := fixture.runs.Load(created.ID)
+	if err != nil {
+		t.Fatalf("load appended chat run: %v", err)
+	}
+	if updated.Outputs["name"] != created.Name {
+		t.Fatalf("expected append to keep persisted name %q, got %#v", created.Name, updated.Outputs["name"])
+	}
+	if _, ok := updated.Outputs["nameSource"]; ok {
+		t.Fatalf("expected append messages not to persist nameSource, got %#v", updated.Outputs["nameSource"])
+	}
+}
+
 func TestServiceGetAllMetadataUsesCachedNamesAndSortsByLastUpdated(t *testing.T) {
 	t.Parallel()
 
