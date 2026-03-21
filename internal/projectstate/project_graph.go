@@ -672,6 +672,9 @@ func (p Project) Normalized() (Project, error) {
 	if err := normalized.ReconcileCodeSectionBindings(); err != nil {
 		return Project{}, fmt.Errorf("reconcile code section bindings: %w", err)
 	}
+	if err := normalized.ReconcileGeneratedSectionBindings(); err != nil {
+		return Project{}, fmt.Errorf("reconcile generated section bindings: %w", err)
+	}
 
 	return normalized, nil
 }

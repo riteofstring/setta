@@ -86,6 +86,51 @@ func (p *Project) ReconcileCodeSectionBindings() error {
 	return nil
 }
 
+func (p *Project) ReconcileGeneratedSectionBindings() error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+
+	for _, sectionID := range sortedProjectSectionIDs(p.SectionVariantMap) {
+		_, variant, impl, err := p.ResolveSection(sectionID)
+		if err != nil {
+			return err
+		}
+		if !impl.IsGenerated() || impl.Generated == nil {
+			continue
+		}
+
+		var binding *CodeFileBinding
+		switch impl.Generated.Kind {
+		case GeneratedSectionKindPythonCode:
+			binding = p.GeneratedCodeBinding
+		case GeneratedSectionKindPythonMetadata:
+			binding = p.GeneratedMetadataBinding
+		default:
+			continue
+		}
+
+		updatedImpl := impl.Clone()
+		payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(updatedImpl))
+		if err != nil {
+			return err
+		}
+		if binding == nil {
+			delete(payload, "codeFileBinding")
+		} else {
+			payload["codeFileBinding"] = codeFileBindingObject(*binding)
+		}
+		rawPayload, err := marshalProjectObject(payload)
+		if err != nil {
+			return err
+		}
+		updatedImpl.Payload = rawPayload
+		p.SectionImpls[variant.ImplID] = updatedImpl
+	}
+
+	return nil
+}
+
 func (p Project) ActiveCodeSectionFiles() ([]ActiveCodeSectionFile, error) {
 	files := make([]ActiveCodeSectionFile, 0, len(p.SectionVariantMap))
 	for _, sectionID := range sortedProjectSectionIDs(p.SectionVariantMap) {

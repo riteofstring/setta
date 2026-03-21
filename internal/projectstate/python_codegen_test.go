@@ -149,3 +149,70 @@ func TestProjectReconcilePythonGeneratedBindingsClearsWhenPythonMissing(t *testi
 		t.Fatalf("expected generated metadata binding to clear, got %#v", project.GeneratedMetadataBinding)
 	}
 }
+
+func TestProjectNormalizedClearsGeneratedSectionBindingWithoutPythonTarget(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"gen-python-section",
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"gen-python-section": {},
+		},
+		Sections: map[string]Section{
+			"gen-python-section": {
+				ID:               "gen-python-section",
+				Name:             "Generated Python Code",
+				VariantIDs:       []string{"gen-python-variant"},
+				DefaultVariantID: "gen-python-variant",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"gen-python-section": "gen-python-variant",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"gen-python-variant": {
+				ID:     "gen-python-variant",
+				ImplID: "gen-python-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"gen-python-impl": {
+				ID:   "gen-python-impl",
+				Kind: SectionKindGenerated,
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonCode,
+				},
+				Payload: RawJSON(`{
+					"id":"gen-python-impl",
+					"type":"GenPythonCode",
+					"code":"print('hello')",
+					"codeFileBinding":{
+						"canonical_path":"code/generated.py",
+						"access_mode":"write_only",
+						"autoBinding":false
+					}
+				}`),
+			},
+		},
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+	if normalized.GeneratedCodeBinding != nil {
+		t.Fatalf("expected project generated code binding to stay nil, got %#v", normalized.GeneratedCodeBinding)
+	}
+
+	payload, err := effectiveSectionPayload(normalized, "gen-python-section", "gen-python-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload returned error: %v", err)
+	}
+	if binding, ok := payload["codeFileBinding"]; ok && binding != nil {
+		t.Fatalf("expected generated section payload binding to clear, got %#v", binding)
+	}
+}

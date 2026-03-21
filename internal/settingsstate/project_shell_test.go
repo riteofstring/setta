@@ -70,6 +70,9 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	if project.Name != SettingsProjectName {
 		t.Fatalf("expected settings project name %q, got %q", SettingsProjectName, project.Name)
 	}
+	if project.GeneratedCodeBinding != nil {
+		t.Fatalf("expected settings project generated code binding to stay nil, got %#v", project.GeneratedCodeBinding)
+	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected settings shell to show param display names")
 	}
