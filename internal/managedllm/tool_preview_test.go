@@ -67,3 +67,77 @@ func TestScanPartialJSONStringsHandlesEscapedPreviewString(t *testing.T) {
 		t.Fatalf("unexpected preview value %q", previewValue)
 	}
 }
+
+func TestExtractPreviewTargetIDsFromTokensCollectsArrayValuesAndObjectKeys(t *testing.T) {
+	t.Parallel()
+
+	tokens, err := scanPartialJSONStrings(
+		"{\"sectionId\":\"temp-1\",\"sectionIds\":[\"temp-2\",\"temp-3\"],\"sectionsById\":{\"temp-4\":true,\"temp-5\":false}}",
+	)
+	if err != nil {
+		t.Fatalf("scan partial json strings: %v", err)
+	}
+
+	idsByType := extractPreviewTargetIDsFromTokens(tokens, map[tools.IDType][]string{
+		tools.IDTypeSection: {"sectionId", "sectionIds", "sectionsById"},
+	})
+
+	got := idsByType[tools.IDTypeSection]
+	want := []string{"temp-1", "temp-2", "temp-3", "temp-4", "temp-5"}
+	if len(got) != len(want) {
+		t.Fatalf("expected section ids %#v, got %#v", want, got)
+	}
+	for index, expected := range want {
+		if got[index] != expected {
+			t.Fatalf("expected section id %q at index %d, got %#v", expected, index, got)
+		}
+	}
+}
+
+func TestExtractPreviewValueFromTokensReturnsPartialString(t *testing.T) {
+	t.Parallel()
+
+	tokens, err := scanPartialJSONStrings("{\"code\":\"print(")
+	if err != nil {
+		t.Fatalf("scan partial json strings: %v", err)
+	}
+	previewValue, ok := extractPreviewValueFromTokens(tokens, "code")
+	if !ok {
+		t.Fatal("expected preview value token")
+	}
+	if previewValue != "print(" {
+		t.Fatalf("unexpected preview value %q", previewValue)
+	}
+}
+
+func TestExtractPreviewValueFromTokensDecodesEscapes(t *testing.T) {
+	t.Parallel()
+
+	tokens, err := scanPartialJSONStrings("{\"code\":\"line1\\nline2\\u003a\"}")
+	if err != nil {
+		t.Fatalf("scan partial json strings: %v", err)
+	}
+	previewValue, ok := extractPreviewValueFromTokens(tokens, "code")
+	if !ok {
+		t.Fatal("expected preview value token")
+	}
+	if previewValue != "line1\nline2:" {
+		t.Fatalf("unexpected preview value %q", previewValue)
+	}
+}
+
+func TestExtractPreviewValueFromTokensUsesLatestMatchingValue(t *testing.T) {
+	t.Parallel()
+
+	tokens, err := scanPartialJSONStrings("{\"code\":\"first\",\"code\":\"second\"}")
+	if err != nil {
+		t.Fatalf("scan partial json strings: %v", err)
+	}
+	previewValue, ok := extractPreviewValueFromTokens(tokens, "code")
+	if !ok {
+		t.Fatal("expected preview value token")
+	}
+	if previewValue != "second" {
+		t.Fatalf("unexpected preview value %q", previewValue)
+	}
+}
