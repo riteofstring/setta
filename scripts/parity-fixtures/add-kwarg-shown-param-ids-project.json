@@ -1,0 +1,137 @@
+{
+  "defaultProjectId": "project-alpha",
+  "projects": {
+    "project-alpha": {
+      "allowJsonSourceKeyEdits": true,
+      "codeObjImpls": {
+        "shared-child-impl": {
+          "id": "shared-child-impl",
+          "payload": {
+            "coreNameEditable": true,
+            "id": "shared-child-impl",
+            "type": "TextParam",
+            "value": "seed"
+          },
+          "type": "TextParam"
+        },
+        "shared-root-impl": {
+          "id": "shared-root-impl",
+          "payload": {
+            "children": [
+              "shared-child",
+              "shared-secret"
+            ],
+            "id": "shared-root-impl",
+            "type": "NestedParam"
+          },
+          "type": "NestedParam"
+        },
+        "shared-secret-impl": {
+          "id": "shared-secret-impl",
+          "payload": {
+            "id": "shared-secret-impl",
+            "type": "PasswordParam",
+            "value": ""
+          },
+          "type": "PasswordParam"
+        }
+      },
+      "codeObjVariants": {
+        "shared-child-variant": {
+          "id": "shared-child-variant",
+          "implId": "shared-child-impl",
+          "nonPresetImplIds": [
+            "shared-child-impl"
+          ]
+        },
+        "shared-root-variant": {
+          "id": "shared-root-variant",
+          "implId": "shared-root-impl",
+          "nonPresetImplIds": [
+            "shared-root-impl"
+          ]
+        },
+        "shared-secret-variant": {
+          "id": "shared-secret-variant",
+          "implId": "shared-secret-impl",
+          "nonPresetImplIds": [
+            "shared-secret-impl"
+          ]
+        }
+      },
+      "codeObjs": {
+        "shared-child": {
+          "defaultVariantId": "shared-child-variant",
+          "id": "shared-child",
+          "name": "child",
+          "variantIds": [
+            "shared-child-variant"
+          ]
+        },
+        "shared-root": {
+          "defaultVariantId": "shared-root-variant",
+          "id": "shared-root",
+          "name": "root",
+          "variantIds": [
+            "shared-root-variant"
+          ]
+        },
+        "shared-secret": {
+          "defaultVariantId": "shared-secret-variant",
+          "id": "shared-secret",
+          "name": "secret",
+          "variantIds": [
+            "shared-secret-variant"
+          ]
+        }
+      },
+      "id": "project-alpha",
+      "name": "Project Alpha",
+      "projectChatWindowing": {
+        "instancesById": {},
+        "order": []
+      },
+      "sectionImpls": {
+        "dict-a-impl": {
+          "id": "dict-a-impl",
+          "kind": "dict",
+          "payload": {
+            "codeObjVariantMap": {
+              "shared-child": "shared-child-variant",
+              "shared-root": "shared-root-variant",
+              "shared-secret": "shared-secret-variant"
+            },
+            "id": "dict-a-impl",
+            "pinnedParams": [
+              "shared-child"
+            ],
+            "selectedParams": [],
+            "topLevelParamId": "shared-root",
+            "type": "Dict"
+          }
+        }
+      },
+      "sectionVariantMap": {
+        "dict-a": "dict-a-variant"
+      },
+      "sectionVariants": {
+        "dict-a-variant": {
+          "id": "dict-a-variant",
+          "implId": "dict-a-impl",
+          "name": "Dict A Variant"
+        }
+      },
+      "sections": {
+        "dict-a": {
+          "defaultVariantId": "dict-a-variant",
+          "id": "dict-a",
+          "name": "Dict A",
+          "variantIds": [
+            "dict-a-variant"
+          ]
+        }
+      }
+    }
+  },
+  "schemaVersion": 1
+}

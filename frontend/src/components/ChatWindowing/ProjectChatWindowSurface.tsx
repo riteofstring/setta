@@ -315,7 +315,6 @@ export function ProjectChatWindowSurface({
     bgColor,
     hasSectionStyleTheme: false,
     positionAndSizeLocked: false,
-    surfaceLayout: "windowFlow",
     cornerClassName: roundedClassName,
   });
 

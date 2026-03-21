@@ -1,8 +1,10 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
   updateShownParamIdsForPinnedParams,
@@ -13,6 +15,7 @@ import {
   useProjectState,
   useSettings,
   useTemporaryMiscState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -27,20 +30,32 @@ import {
   route_set_section_param_filter,
   route_set_section_pinned_params,
 } from "utils/generatedEndpoints";
+import {
+  isBaseParamCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
-import { getKwargsControlsRenderModel } from "./getKwargsControlsRenderModel";
+import { shallow } from "zustand/shallow";
 import { getKwargsControlsContainerClassName } from "./kwargsControlsStyles";
 
 type KwargsControlsProps = {
   sectionId: string;
-  showActionButtons?: boolean;
 };
 
-export function KwargsControls({
-  sectionId,
-  showActionButtons = true,
-}: KwargsControlsProps) {
+function getDeletableSelectedParamIds(
+  state: ZustandProjectState,
+  sectionId: string,
+  selectedParams: Array<string>,
+) {
+  return selectedParams.filter((paramId) => {
+    const paramImpl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
+    return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
+  });
+}
+
+export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
@@ -82,18 +97,21 @@ export function KwargsControls({
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
-  const {
-    callableMissing,
-    isCallableSection,
-    styleColor,
-    selectedParams,
-    edgeInputParams,
-    pinnedParams,
-    paramFilterValue,
-    deletableSelectedParamIds,
-  } = useProjectState(
-    (state) => getKwargsControlsRenderModel({ state, sectionId }),
-    _.isEqual,
+  const { callableMissing, isCallableSection, styleColor } = useProjectState(
+    (x) => {
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const isCallableSection = impl.type === SectionTypeEnum.Callable;
+      return {
+        callableMissing: isCallableSection && impl.callable == null,
+        isCallableSection,
+        styleColor: impl.styleColor ?? null,
+      };
+    },
+    shallow,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
@@ -121,6 +139,42 @@ export function KwargsControls({
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
+
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    ),
+  );
+  const { codeObjs, codeObjVariants, codeObjImpls, sectionVariants } =
+    useProjectState(
+      (state) => ({
+        codeObjs: state.codeObjs,
+        codeObjVariants: state.codeObjVariants,
+        codeObjImpls: state.codeObjImpls,
+        sectionVariants: state.sectionVariants,
+      }),
+      shallow,
+    );
+  const selectedParams = paramsImpl.selectedParams;
+  const edgeInputParams = paramsImpl.edgeInputParams;
+  const pinnedParams = paramsImpl.pinnedParams;
+  const deletableSelectedParamIds = useMemo(() => {
+    return getDeletableSelectedParamIds(
+      useProjectState.getState(),
+      sectionId,
+      selectedParams,
+    );
+  }, [
+    codeObjImpls,
+    codeObjVariants,
+    codeObjs,
+    paramsImpl,
+    sectionId,
+    sectionVariants,
+    selectedParams,
+  ]);
 
   const selectedAreAllEdgeInputs =
     selectedParams.length > 0 &&
@@ -333,100 +387,97 @@ export function KwargsControls({
   return (
     <>
       <section className={controlsContainerClassName} ref={controlsRef}>
-        {showActionButtons ? (
-          <article
-            className={`flex flex-wrap items-center ${
-              isCallableSection ? "py-1" : ""
-            }`}
-          >
-            <section className="ml-1 flex items-center gap-1">
-              <h3
-                className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
-              >
-                Args
-              </h3>
-              <button
-                className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-                onClick={() => {
-                  const payload = {
-                    projectConfigId: getCurrProjectConfigId(),
-                    sectionId,
-                  };
-                  void route_delete_kwarg(payload);
-                }}
-                tabIndex={0}
-                disabled={kwargButtonsDisabled}
-                aria-label="Remove arg"
-                {...getFloatingBoxHandlers({ content: "Remove arg" })}
-              >
-                <i
-                  className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
-                />
-              </button>
-              <button
-                className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-                onClick={() => {
-                  const payload = {
-                    projectConfigId: getCurrProjectConfigId(),
-                    sectionId,
-                  };
-                  void route_add_kwarg(payload);
-                }}
-                tabIndex={0}
-                disabled={kwargButtonsDisabled}
-                aria-label="Add arg"
-                {...getFloatingBoxHandlers({ content: "Add arg" })}
-              >
-                <i
-                  className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
-                />
-              </button>
+        <article
+          className={`flex flex-wrap items-center ${
+            isCallableSection ? "py-1" : ""
+          }`}
+        >
+          <section className="ml-1 flex items-center gap-1">
+            <h3
+              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
+            >
+              Args
+            </h3>
+            <button
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+              onClick={() => {
+                const payload = {
+                  projectConfigId: getCurrProjectConfigId(),
+                  sectionId,
+                };
+                void route_delete_kwarg(payload);
+              }}
+              tabIndex={0}
+              disabled={kwargButtonsDisabled}
+              aria-label="Remove arg"
+              {...getFloatingBoxHandlers({ content: "Remove arg" })}
+            >
+              <i
+                className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
+              />
+            </button>
+            <button
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+              onClick={() => {
+                const payload = {
+                  projectConfigId: getCurrProjectConfigId(),
+                  sectionId,
+                };
+                void route_add_kwarg(payload);
+              }}
+              tabIndex={0}
+              disabled={kwargButtonsDisabled}
+              aria-label="Add arg"
+              {...getFloatingBoxHandlers({ content: "Add arg" })}
+            >
+              <i
+                className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
+              />
+            </button>
 
-              <button
-                className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-                onClick={onClickPinParam}
-                tabIndex={0}
-                disabled={pinParamsDisabled}
-                aria-label={pinButtonLabel}
-                {...getFloatingBoxHandlers({ content: pinButtonLabel })}
-              >
-                <i
-                  className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
-                />
-              </button>
-              <button
-                className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-                onClick={onClickConvertToEdgeInputs}
-                tabIndex={0}
-                disabled={convertToEdgeDisabled}
-                aria-disabled={convertToEdgeDisabled}
-                aria-label={convertToEdgeAriaLabel}
-                {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
-              >
-                <i
-                  className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
-                />
-              </button>
-              <button
-                className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-                onClick={onClickDeleteSelectedKwargs}
-                tabIndex={0}
-                disabled={deleteSelectedDisabled}
-                aria-disabled={deleteSelectedDisabled}
-                aria-label="Delete selected args"
-                {...getFloatingBoxHandlers({ content: "Delete selected args" })}
-              >
-                <i
-                  className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
-                />
-              </button>
-            </section>
-          </article>
-        ) : null}
+            <button
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+              onClick={onClickPinParam}
+              tabIndex={0}
+              disabled={pinParamsDisabled}
+              aria-label={pinButtonLabel}
+              {...getFloatingBoxHandlers({ content: pinButtonLabel })}
+            >
+              <i
+                className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
+              />
+            </button>
+            <button
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+              onClick={onClickConvertToEdgeInputs}
+              tabIndex={0}
+              disabled={convertToEdgeDisabled}
+              aria-disabled={convertToEdgeDisabled}
+              aria-label={convertToEdgeAriaLabel}
+              {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
+            >
+              <i
+                className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
+              />
+            </button>
+            <button
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+              onClick={onClickDeleteSelectedKwargs}
+              tabIndex={0}
+              disabled={deleteSelectedDisabled}
+              aria-disabled={deleteSelectedDisabled}
+              aria-label="Delete selected args"
+              {...getFloatingBoxHandlers({ content: "Delete selected args" })}
+            >
+              <i
+                className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
+              />
+            </button>
+          </section>
+        </article>
 
         <ParamFilter
           sectionId={sectionId}
-          paramFilterValue={paramFilterValue}
           includeCallablePadding={isCallableSection}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
@@ -437,15 +488,21 @@ export function KwargsControls({
 
 function ParamFilter({
   sectionId,
-  paramFilterValue,
   includeCallablePadding,
   hasSectionStyleTheme,
 }: {
   sectionId: string;
-  paramFilterValue: string;
   includeCallablePadding: boolean;
   hasSectionStyleTheme: boolean;
 }) {
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    ),
+  );
+  const paramFilterValue = paramsImpl.paramFilter;
   const sectionIsActive = useIsSolelySectionUIActive(sectionId);
 
   const searchShortcut = useSettings((x) =>
