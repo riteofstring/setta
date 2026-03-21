@@ -707,6 +707,42 @@ func TestServerRevealUISettingReturnsStructuredPayload(t *testing.T) {
 	}
 }
 
+func TestServerRevealUISettingFailsClosedWhenRevealRuntimeUnavailable(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectRuntime,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", false)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.watch_code.enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting without runtime: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected reveal_ui_setting without runtime to fail")
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "internal_error" {
+		t.Fatalf("expected internal_error code, got %#v", payload["code"])
+	}
+	if payload["message"] != "UI setting reveal runtime is unavailable." {
+		t.Fatalf("expected unavailable message, got %#v", payload["message"])
+	}
+}
+
 func TestServerRevealUISettingUsesRequestMetaProjectAndSectionWhenSessionMissing(t *testing.T) {
 	t.Parallel()
 

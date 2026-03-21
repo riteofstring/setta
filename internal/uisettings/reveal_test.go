@@ -455,6 +455,41 @@ func TestRevealServiceRejectsMissingActiveSectionForRightPaneReveal(t *testing.T
 	}
 }
 
+func TestRevealServiceRejectsUnknownRightPaneSectionOverride(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:     "project-alpha",
+		ProjectView:         revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:            revealTestRegistry(t),
+		SettingID:           "core.project.show_param_display_names",
+		SectionIDToActivate: "missing-section",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if result.EmittedRevealCount != 0 {
+		t.Fatalf("expected emittedRevealCount=0, got %d", result.EmittedRevealCount)
+	}
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected single failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Unknown section id: missing-section" {
+		t.Fatalf("unexpected unknown section message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
 func TestRevealServiceRejectsIncompatibleRightPaneTab(t *testing.T) {
 	t.Parallel()
 
@@ -515,6 +550,20 @@ func TestRevealServiceRejectsMissingFrontendWithoutShareSession(t *testing.T) {
 	}
 	if result.Statuses[0].Error.Message != "No connected frontend is available for UI setting reveal." {
 		t.Fatalf("unexpected no-frontend message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestNewRevealServiceRejectsMissingResultHub(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewRevealService(RevealServiceOptions{
+		Transport: &stubRevealTransport{registry: realtime.NewRegistry(realtime.RegistryOptions{})},
+	})
+	if err == nil {
+		t.Fatal("expected missing reveal result hub error")
+	}
+	if err.Error() != "uisettings: reveal result hub is required" {
+		t.Fatalf("unexpected missing result hub error: %v", err)
 	}
 }
 
