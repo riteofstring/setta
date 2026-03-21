@@ -1945,3 +1945,95 @@ Record:
       - likely the switch/dropdown branches first
 - Next action:
   - Turn the shared non-code value-host ownership seam into the next measured experiment for Dict/plain-label switch/dropdown-heavy rows.
+
+## 2026-03-21 045
+
+- Item: Benchmark the shared switch compact-host experiment under the canonical `settings` and `tier1Synthetic` scenes, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/index.css`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - Structural change under test:
+    - add a compact shared switch value-host class
+    - apply it only to the switch path so repeated switch rows stop reserving the larger `.section-value` flex surface
+    - keep the old explicit grid shell rejected and untouched
+  - Why this seam was chosen:
+    - the live `settings` page still repeats switch/dropdown-heavy Dict/plain-label rows most heavily
+    - the next probe needed to stay in that family while moving away from explicit leaf-grid restores
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - `5` files passed
+      - `7` tests passed
+  - Fresh subagent CDP check while the experiment was live:
+    - `All Settings` was already active
+    - repeated rows such as `Is Frozen` and `Is Minimized` rendered with `section-value-compact` on the value host
+    - no obvious clipping, misalignment, or broken row rendering was visible in the inspected viewport
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-switch-compact-host-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 425.736ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 35192.596ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 498.884ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 37.906ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 57.729ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 723.167ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 15021.713ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 19.853ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 129.797ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 139.092ms`
+  - Decision:
+    - reject this switch compact-host experiment as a keep for `HEAD`
+    - no same-code confirmation rerun was justified because the first paired `settings` matrix already regressed too strongly on the mandatory real-project target
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Stay in the Dict/plain-label non-code family, but stop trying local width/flex retunes of the shared value-host geometry and move the next experiment deeper into the shared non-code input/value-host seam.
+
+## 2026-03-21 046
+
+- Item: Refine the next Tier 1 target after rejecting the switch compact-host experiment.
+- Status: `in_progress`
+- Details:
+  - Reverted the switch compact-host code after recording the dead-end report.
+  - Fresh post-revert CDP sanity attempt:
+    - a fresh subagent could not reach chrome-devtools MCP in its session, so the post-revert browser sanity check is currently blocked on a Chrome/CDP restart
+  - Current read:
+    - the family diagnosis is still consistent:
+      - `settings` remains dominated by Dict-backed plain-label non-code rows
+      - switch/dropdown-heavy value bodies are still the hottest visible non-code family
+    - the mechanism diagnosis is tighter now:
+      - explicit leaf-grid restores are wrong
+      - single-widget root collapses are wrong
+      - local flex/width retunes of the shared switch host are also wrong
+  - Active target refinement:
+    - keep working in the Dict/plain-label non-code row family
+    - preserve the current row geometry
+    - move to deeper ownership or DOM deletion inside the shared non-code value/input path spanning:
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+      - likely the switch/dropdown branches first
+    - fresh code-exploration read:
+      - `ParamContainer` already owns the row-shape signal via `labelShapeKey`, but it does not yet participate in value-host policy
+      - `ParamUI` still owns `.section-value` ad hoc per branch, which keeps the non-code row/value seam fragmented
+      - the strongest next experiment is a shared `valueHostMode` helper/policy at the `ParamContainer -> ParamInput -> ParamUI` seam, narrowly gated to:
+        - top-level Dict
+        - `textLabelLeaf`
+        - non-nested rows
+        - `SwitchParam` and `DropdownParam`
+      - preserve the current `.section-value` sibling geometry and keep combobox portal/menu behavior out of scope
+- Next action:
+  - Choose and benchmark a shared `valueHostMode` seam for Dict/plain-label switch/dropdown rows that preserves current geometry instead of another local host-sizing tweak.

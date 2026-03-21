@@ -824,6 +824,14 @@ Current execution note:
         - keep the same family focus
         - stop trying to restore the old explicit grid shell
         - move the next experiment to the shared non-code value-host ownership seam in `ParamContainer` / `ParamInput` / `ParamUI` for switch/dropdown-heavy Dict rows
+      - the rejected switch compact-host experiment sharpens that read one step further:
+        - shrinking the shared switch value host to an intrinsic-width compact surface was confirmed live on the repeated `All Settings` rows
+        - but it still made the mandatory real `settings` benchmark dramatically worse while only helping `tier1Synthetic` paint
+        - avoid another immediate local width/flex retune of the shared non-code value-host geometry
+        - the next worthwhile pass should preserve the current row geometry and instead target deeper ownership or DOM deletion inside the shared non-code value/input path
+        - the strongest next seam is now a shared `valueHostMode` policy at `ParamContainer -> ParamInput -> ParamUI`, narrowly gated to top-level Dict `textLabelLeaf` rows with `SwitchParam` or `DropdownParam` value bodies
+        - keep the current `.section-value` sibling contract intact and do not reopen the old explicit grid shell
+        - if dropdowns join that path, make the combobox branch hostless only at the steady-state row/value chain and keep combobox portal/menu behavior out of scope for the experiment
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 
