@@ -1,6 +1,6 @@
 # Backend Gap Closure Plan
 
-Last updated: `2026-03-19`
+Last updated: `2026-03-20`
 
 Purpose: define the default workflow for future Codex sessions that are
 closing remaining Go backend parity gaps.
@@ -97,6 +97,13 @@ following are true:
   continue to resolve sections by name/display name/id, params by core/display
   name, and variants by user-facing variant name while failing closed on
   missing or non-param lookups.
+- The default differential manifest now also proves the caller-visible
+  fresh-project scaffold contract beyond counts: create/load and latest-state
+  snapshots keep the default Python target fields, generated-section
+  singleton/name/type, active-view visibility/layout membership, and the
+  authoritative empty live project-chat windowing shape. Python-only
+  fresh-create binding transport details remain outside this slice because the
+  current live fresh-project callers do not read them directly.
 - The default differential manifest now also proves the `/settings`
   null-viewport stale-flag repair contract against `main`: when persisted
   active or inactive settings tabs carry `viewport=null` with stale

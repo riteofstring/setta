@@ -559,7 +559,7 @@ class Route:
                             "requiredParamIdsToPaths": {},
                         },
                     }
-                }
+                },
             }
         }
 
@@ -720,21 +720,177 @@ class Route:
             },
         )
 
+    def test_summarize_loaded_project_state_detects_default_scaffold_contract(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "genCodeBinding": {
+                "access_mode": "write_only",
+                "autoBinding": False,
+                "canonical_path": "code/sections/Example_Project/setta_gen.py",
+            },
+            "projectChatWindowing": {
+                "instancesById": {},
+                "nextInstanceNumber": 1,
+                "order": [],
+            },
+            "projectConfig": {
+                "id": "project-1",
+                "name": "Example Project",
+                "allowJsonSourceKeyEdits": True,
+                "viewModes": {
+                    "view-mode-1": {
+                        "id": "view-mode-1",
+                        "name": "Initial View",
+                        "topLevelSections": {
+                            "section-1": {"x": 0, "y": 0},
+                        },
+                        "visibilityBySectionId": {"section-1": True},
+                    }
+                },
+                "activeViewModeId": "view-mode-1",
+                "codegenTargets": [
+                    {
+                        "language": "python",
+                        "genCodePrefix": "",
+                        "genCodeSuffix": "state = SettaState()",
+                        "generateMetadata": False,
+                        "sectionPolicy": {},
+                        "codeObjValuePolicy": {},
+                    }
+                ],
+                "isEditingViewMode": False,
+                "topLevelSections": {"section-1": {"x": 0, "y": 0}},
+                "windowSpaces": {},
+            },
+            "sections": {
+                "section-1": {
+                    "defaultVariant": "variant-1",
+                    "name": "Generated Python Code",
+                    "variants": ["variant-1"],
+                }
+            },
+            "sectionVariants": {"variant-1": {"impl": "impl-1"}},
+            "sectionImpls": {
+                "impl-1": {
+                    "codeFileBinding": {
+                        "access_mode": "write_only",
+                        "autoBinding": False,
+                        "canonical_path": "code/sections/Example_Project/setta_gen.py",
+                    },
+                    "type": "GenPythonCode",
+                }
+            },
+            "singletonSections": {"GenPythonCode": "section-1"},
+        }
+
+        summary = harness.summarize_loaded_project_state(
+            payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "projectIDPresent": True,
+                "projectNamePresent": True,
+                "allowJsonSourceKeyEdits": True,
+                "viewModeCount": 1,
+                "activeViewModeIdPresent": True,
+                "activeViewModePresentInMap": True,
+                "activeViewModeNamePresent": True,
+                "isEditingViewMode": False,
+                "codegenTargetCount": 1,
+                "defaultCodegenTarget": {
+                    "language": "python",
+                    "genCodePrefix": "",
+                    "genCodeSuffix": "state = SettaState()",
+                    "generateMetadata": False,
+                    "hasSectionPolicy": True,
+                    "hasCodeObjValuePolicy": True,
+                },
+                "windowSpaceCount": 0,
+                "topLevelSectionCount": 1,
+                "generatedSectionName": "Generated Python Code",
+                "generatedSectionType": "GenPythonCode",
+                "generatedSectionVariantCount": 1,
+                "generatedSectionSingletonMatchesTopLevel": True,
+                "generatedSectionLayoutAtOrigin": True,
+                "generatedSectionLayoutHasExplicitSizeOverrides": False,
+                "generatedSectionVisibleInActiveViewMode": True,
+                "generatedSectionInActiveViewModeLayout": True,
+                "activeViewModeLayoutMatchesProjectLayout": True,
+                "projectChatWindowCount": 0,
+                "projectChatWindowOrder": [],
+                "projectChatNextInstanceNumber": 1,
+            },
+        )
+
     def test_summarize_latest_state_after_create_project_detects_defaults(self) -> None:
         harness = load_harness_module()
 
         payload = {
             "projectState": {
+                "genCodeBinding": {
+                    "access_mode": "write_only",
+                    "autoBinding": False,
+                    "canonical_path": "code/sections/Example_Project/setta_gen.py",
+                },
+                "projectChatWindowing": {
+                    "instancesById": {},
+                    "nextInstanceNumber": 1,
+                    "order": [],
+                },
                 "projectConfig": {
                     "id": "project-1",
-                    "name": "Example project",
-                    "viewModes": {"view-mode-1": {"id": "view-mode-1"}},
+                    "name": "Example Project",
+                    "allowJsonSourceKeyEdits": True,
+                    "viewModes": {
+                        "view-mode-1": {
+                            "id": "view-mode-1",
+                            "name": "Initial View",
+                            "topLevelSections": {
+                                "section-1": {"x": 0, "y": 0},
+                            },
+                            "visibilityBySectionId": {"section-1": True},
+                        }
+                    },
                     "activeViewModeId": "view-mode-1",
+                    "codegenTargets": [
+                        {
+                            "language": "python",
+                            "genCodePrefix": "",
+                            "genCodeSuffix": "state = SettaState()",
+                            "generateMetadata": False,
+                            "sectionPolicy": {},
+                            "codeObjValuePolicy": {},
+                        }
+                    ],
                     "isEditingViewMode": False,
-                    "topLevelSections": {},
+                    "topLevelSections": {"section-1": {"x": 0, "y": 0}},
                     "windowSpaces": {},
                 },
+                "sections": {
+                    "section-1": {
+                        "defaultVariant": "variant-1",
+                        "name": "Generated Python Code",
+                        "variants": ["variant-1"],
+                    }
+                },
+                "sectionVariants": {"variant-1": {"impl": "impl-1"}},
+                "sectionImpls": {
+                    "impl-1": {
+                        "codeFileBinding": {
+                            "access_mode": "write_only",
+                            "autoBinding": False,
+                            "canonical_path": "code/sections/Example_Project/setta_gen.py",
+                        },
+                        "type": "GenPythonCode",
+                    }
+                },
                 "shownParamIds": {},
+                "singletonSections": {"GenPythonCode": "section-1"},
             }
         }
 
@@ -746,14 +902,38 @@ class Route:
         self.assertEqual(
             summary,
             {
-                "httpStatus": 200,
                 "projectIDPresent": True,
                 "projectNamePresent": True,
+                "allowJsonSourceKeyEdits": True,
                 "viewModeCount": 1,
                 "activeViewModeIdPresent": True,
                 "activeViewModePresentInMap": True,
+                "activeViewModeNamePresent": True,
                 "isEditingViewMode": False,
-                "topLevelSectionCount": 0,
+                "codegenTargetCount": 1,
+                "defaultCodegenTarget": {
+                    "language": "python",
+                    "genCodePrefix": "",
+                    "genCodeSuffix": "state = SettaState()",
+                    "generateMetadata": False,
+                    "hasSectionPolicy": True,
+                    "hasCodeObjValuePolicy": True,
+                },
+                "windowSpaceCount": 0,
+                "topLevelSectionCount": 1,
+                "generatedSectionName": "Generated Python Code",
+                "generatedSectionType": "GenPythonCode",
+                "generatedSectionVariantCount": 1,
+                "generatedSectionSingletonMatchesTopLevel": True,
+                "generatedSectionLayoutAtOrigin": True,
+                "generatedSectionLayoutHasExplicitSizeOverrides": False,
+                "generatedSectionVisibleInActiveViewMode": True,
+                "generatedSectionInActiveViewModeLayout": True,
+                "activeViewModeLayoutMatchesProjectLayout": True,
+                "projectChatWindowCount": 0,
+                "projectChatWindowOrder": [],
+                "projectChatNextInstanceNumber": 1,
+                "httpStatus": 200,
                 "windowSpacesObjectPresent": True,
                 "shownParamEntryCount": 0,
             },
@@ -2237,15 +2417,13 @@ class Route:
 
         # Active project projection and inactive view-mode branches should both
         # clear stale initialized=true flags when the persisted viewport is null.
-        summary = (
-            harness.summarize_settings_project_viewport_initialized_null_viewport_repair(
-                initial_load_http_status=200,
-                restart_load_http_status=200,
-                restart_load_payload=restart_load_payload,
-                restart_latest_http_status=200,
-                restart_latest_payload=restart_latest_payload,
-                seeded_persisted_payload=seeded_persisted_payload,
-            )
+        summary = harness.summarize_settings_project_viewport_initialized_null_viewport_repair(
+            initial_load_http_status=200,
+            restart_load_http_status=200,
+            restart_load_payload=restart_load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload=restart_latest_payload,
+            seeded_persisted_payload=seeded_persisted_payload,
         )
 
         expected_view_mode_states = {
@@ -2820,6 +2998,7 @@ class Route:
                 "projectChatWindowingPresent": True,
                 "projectChatWindowCount": 0,
                 "projectChatWindowOrderCount": 0,
+                "projectChatWindowOrder": [],
                 "nextInstanceNumber": 1,
             },
         )
@@ -2852,6 +3031,7 @@ class Route:
                 "projectChatWindowingPresent": True,
                 "projectChatWindowCount": 0,
                 "projectChatWindowOrderCount": 0,
+                "projectChatWindowOrder": [],
                 "nextInstanceNumber": 1,
             },
         )

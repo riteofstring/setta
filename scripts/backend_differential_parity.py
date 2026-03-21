@@ -5258,33 +5258,159 @@ def normalize_response_json_allow_status(response: requests.Response) -> Any:
         return {"_rawText": response.text}
 
 
-def summarize_loaded_project_state(payload: dict[str, Any]) -> dict[str, Any]:
+def summarize_default_created_project_scaffold(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
     project_config = object_field(payload, "projectConfig")
     view_modes = object_field(project_config, "viewModes", allow_missing=True)
     active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
+    active_view_mode = expect_object(
+        view_modes.get(active_view_mode_id),
+        f"projectConfig.viewModes.{active_view_mode_id}",
+        allow_missing=True,
+    )
+    top_level_sections = object_field(
+        project_config, "topLevelSections", allow_missing=True
+    )
+    singleton_sections = object_field(payload, "singletonSections", allow_missing=True)
+    generated_section_id = normalized_string(singleton_sections.get("GenPythonCode"))
+    if not generated_section_id and len(top_level_sections) == 1:
+        generated_section_id = next(iter(top_level_sections))
+
+    sections = object_field(payload, "sections", allow_missing=True)
+    section = expect_object(
+        sections.get(generated_section_id),
+        f"sections.{generated_section_id}",
+        allow_missing=True,
+    )
+    section_variants = object_field(payload, "sectionVariants", allow_missing=True)
+    default_variant_id = normalized_string(
+        section.get("defaultVariant") or section.get("defaultVariantId")
+    )
+    section_variant = expect_object(
+        section_variants.get(default_variant_id),
+        f"sectionVariants.{default_variant_id}",
+        allow_missing=True,
+    )
+    section_impls = object_field(payload, "sectionImpls", allow_missing=True)
+    impl_id = normalized_string(
+        section_variant.get("impl") or section_variant.get("implId")
+    )
+    section_impl = expect_object(
+        section_impls.get(impl_id),
+        f"sectionImpls.{impl_id}",
+        allow_missing=True,
+    )
+    active_view_mode_visibility = object_field(
+        active_view_mode,
+        "visibilityBySectionId",
+        allow_missing=True,
+    )
+    active_view_mode_top_level_sections = object_field(
+        active_view_mode,
+        "topLevelSections",
+        allow_missing=True,
+    )
+    created_section_layout = expect_object(
+        top_level_sections.get(generated_section_id),
+        f"projectConfig.topLevelSections.{generated_section_id}",
+        allow_missing=True,
+    )
+    default_codegen_targets = summarize_project_codegen_targets(payload)
+    default_codegen_target = (
+        default_codegen_targets[0] if default_codegen_targets else {}
+    )
     project_chat_windowing = object_field(
         payload, "projectChatWindowing", allow_missing=True
     )
     instances_by_id = object_field(
         project_chat_windowing, "instancesById", allow_missing=True
     )
+    order = expect_list(
+        project_chat_windowing.get("order"),
+        "projectChatWindowing.order",
+        allow_missing=True,
+    )
+    window_spaces = object_field(project_config, "windowSpaces", allow_missing=True)
+
     return {
         "projectNamePresent": bool(normalized_string(project_config.get("name"))),
         "projectIDPresent": bool(normalized_string(project_config.get("id"))),
+        "allowJsonSourceKeyEdits": bool(project_config.get("allowJsonSourceKeyEdits")),
         "viewModeCount": len(view_modes),
         "activeViewModeIdPresent": bool(active_view_mode_id),
         "activeViewModePresentInMap": bool(
             active_view_mode_id and active_view_mode_id in view_modes
         ),
-        "isEditingViewMode": bool(project_config.get("isEditingViewMode", False)),
-        "windowSpaceCount": len(
-            object_field(project_config, "windowSpaces", allow_missing=True)
+        "activeViewModeNamePresent": bool(
+            normalized_string(active_view_mode.get("name"))
         ),
-        "topLevelSectionCount": len(
-            object_field(project_config, "topLevelSections", allow_missing=True)
+        "isEditingViewMode": bool(project_config.get("isEditingViewMode", False)),
+        "codegenTargetCount": len(default_codegen_targets),
+        "defaultCodegenTarget": {
+            "language": normalized_string(default_codegen_target.get("language")),
+            "genCodePrefix": normalized_string(
+                default_codegen_target.get("genCodePrefix")
+            ),
+            "genCodeSuffix": normalized_string(
+                default_codegen_target.get("genCodeSuffix")
+            ),
+            "generateMetadata": bool(
+                default_codegen_target.get("generateMetadata", False)
+            ),
+            "hasSectionPolicy": isinstance(
+                default_codegen_target.get("sectionPolicy"), dict
+            ),
+            "hasCodeObjValuePolicy": isinstance(
+                default_codegen_target.get("codeObjValuePolicy"), dict
+            ),
+        },
+        "windowSpaceCount": len(window_spaces),
+        "topLevelSectionCount": len(top_level_sections),
+        "generatedSectionName": normalized_string(section.get("name")),
+        "generatedSectionType": normalized_string(section_impl.get("type")),
+        "generatedSectionVariantCount": len(
+            expect_list(
+                section.get("variants"),
+                "sections.<generated>.variants",
+                allow_missing=True,
+            )
+        ),
+        "generatedSectionSingletonMatchesTopLevel": bool(
+            generated_section_id
+            and generated_section_id in top_level_sections
+            and normalized_string(singleton_sections.get("GenPythonCode"))
+            == generated_section_id
+        ),
+        "generatedSectionLayoutAtOrigin": (
+            created_section_layout.get("x") == 0
+            and created_section_layout.get("y") == 0
+        ),
+        "generatedSectionLayoutHasExplicitSizeOverrides": (
+            created_section_layout.get("w") is not None
+            or created_section_layout.get("h") is not None
+            or created_section_layout.get("width") is not None
+            or created_section_layout.get("height") is not None
+        ),
+        "generatedSectionVisibleInActiveViewMode": bool(
+            active_view_mode_visibility.get(generated_section_id)
+        ),
+        "generatedSectionInActiveViewModeLayout": generated_section_id
+        in active_view_mode_top_level_sections,
+        "activeViewModeLayoutMatchesProjectLayout": (
+            active_view_mode_top_level_sections.get(generated_section_id)
+            == top_level_sections.get(generated_section_id)
         ),
         "projectChatWindowCount": len(instances_by_id),
+        "projectChatWindowOrder": [normalized_string(item) for item in order],
+        "projectChatNextInstanceNumber": project_chat_windowing.get(
+            "nextInstanceNumber"
+        ),
     }
+
+
+def summarize_loaded_project_state(payload: dict[str, Any]) -> dict[str, Any]:
+    return summarize_default_created_project_scaffold(payload)
 
 
 def summarize_frontend_inventory(envelopes: list[dict[str, Any]]) -> dict[str, Any]:
@@ -5923,27 +6049,15 @@ def summarize_latest_state_after_create_project(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     project_state = object_field(payload, "projectState")
-    project_config = object_field(project_state, "projectConfig")
-    view_modes = object_field(project_config, "viewModes", allow_missing=True)
     shown_param_ids = object_field(project_state, "shownParamIds", allow_missing=True)
-    active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
-    raw_window_spaces = project_config.get("windowSpaces")
-    return {
-        "httpStatus": http_status,
-        "projectIDPresent": bool(normalized_string(project_config.get("id"))),
-        "projectNamePresent": bool(normalized_string(project_config.get("name"))),
-        "viewModeCount": len(view_modes),
-        "activeViewModeIdPresent": bool(active_view_mode_id),
-        "activeViewModePresentInMap": bool(
-            active_view_mode_id and active_view_mode_id in view_modes
-        ),
-        "isEditingViewMode": bool(project_config.get("isEditingViewMode", False)),
-        "topLevelSectionCount": len(
-            object_field(project_config, "topLevelSections", allow_missing=True)
-        ),
-        "windowSpacesObjectPresent": isinstance(raw_window_spaces, dict),
-        "shownParamEntryCount": len(shown_param_ids),
-    }
+    summary = summarize_default_created_project_scaffold(project_state)
+    summary["httpStatus"] = http_status
+    summary["windowSpacesObjectPresent"] = isinstance(
+        object_field(project_state, "projectConfig").get("windowSpaces"),
+        dict,
+    )
+    summary["shownParamEntryCount"] = len(shown_param_ids)
+    return summary
 
 
 def summarize_runner_summary_lookup_contract(
@@ -6029,6 +6143,7 @@ def summarize_persisted_project_windowing_after_create(
         "projectChatWindowingPresent": raw_windowing is not None,
         "projectChatWindowCount": len(instances_by_id),
         "projectChatWindowOrderCount": len(order),
+        "projectChatWindowOrder": [normalized_string(item) for item in order],
         "nextInstanceNumber": next_instance_number,
     }
 
@@ -7158,9 +7273,7 @@ def summarize_settings_project_viewport_initialized_null_viewport_repair(
     )
     seeded_project_config = seeded_settings_project
     if "projectConfig" in seeded_settings_project:
-        seeded_project_config = object_field(
-            seeded_settings_project, "projectConfig"
-        )
+        seeded_project_config = object_field(seeded_settings_project, "projectConfig")
     summary.update(
         summarize_settings_project_viewport_contract(
             seeded_project_config,
