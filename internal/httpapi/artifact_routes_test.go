@@ -88,6 +88,32 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 		t.Fatalf("expected route image bytes, got %q", string(imageBytes))
 	}
 
+	chartID := "artifacts/route-chart.csv"
+	chartPath := filepath.Join(settaFilesRoot, filepath.FromSlash(chartID))
+	if err := os.WriteFile(chartPath, []byte("x,y\n1,2\n3,4\n"), 0o644); err != nil {
+		t.Fatalf("write route chart data: %v", err)
+	}
+	chartLoadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedChartData, strings.NewReader(`{"paths":["`+chartID+`"]}`))
+	chartLoadRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, chartLoadRequest, authService)
+
+	chartLoadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(chartLoadResponse, chartLoadRequest)
+	if chartLoadResponse.Code != http.StatusOK {
+		t.Fatalf("expected chart load 200, got %d with body %q", chartLoadResponse.Code, chartLoadResponse.Body.String())
+	}
+
+	var chartPayload []*artifacts.ChartDataArtifact
+	if err := json.Unmarshal(chartLoadResponse.Body.Bytes(), &chartPayload); err != nil {
+		t.Fatalf("decode chart payload: %v", err)
+	}
+	if len(chartPayload) != 1 || chartPayload[0] == nil {
+		t.Fatalf("expected chart payload, got %#v", chartPayload)
+	}
+	if got := chartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
+		t.Fatalf("expected parsed chart column x values, got %#v", got)
+	}
+
 	fileRef, err := binaryStore.StoreBytes([]byte("route upload"), "text/plain", false)
 	if err != nil {
 		t.Fatalf("store file payload: %v", err)
@@ -246,6 +272,35 @@ func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 	}
 	if payload[0].ID != "artifacts/stroke.json" || !strings.Contains(string(payload[0].Value), "#000000") {
 		t.Fatalf("unexpected share overlay payload %#v", payload[0])
+	}
+
+	chartPath := filepath.Join(deploymentRoot, "artifacts", "chart.csv")
+	if err := os.WriteFile(chartPath, []byte("x,y\n1,2\n3,4\n"), 0o644); err != nil {
+		t.Fatalf("write share chart data: %v", err)
+	}
+
+	chartLoadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedChartData, strings.NewReader(`{"paths":["`+chartPath+`"]}`))
+	chartLoadRequest.Header.Set("Content-Type", "application/json")
+	chartLoadRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	chartLoadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(chartLoadResponse, chartLoadRequest)
+	if chartLoadResponse.Code != http.StatusOK {
+		t.Fatalf("expected share chart load 200, got %d with body %q", chartLoadResponse.Code, chartLoadResponse.Body.String())
+	}
+
+	var chartPayload []*artifacts.ChartDataArtifact
+	if err := json.Unmarshal(chartLoadResponse.Body.Bytes(), &chartPayload); err != nil {
+		t.Fatalf("decode share chart payload: %v", err)
+	}
+	if len(chartPayload) != 1 || chartPayload[0] == nil {
+		t.Fatalf("expected share chart payload, got %#v", chartPayload)
+	}
+	if chartPayload[0].ID != "artifacts/chart.csv" {
+		t.Fatalf("expected normalized share chart id, got %#v", chartPayload[0])
+	}
+	if got := chartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
+		t.Fatalf("expected parsed share chart column x values, got %#v", got)
 	}
 
 	fileRef, err := binaryStore.StoreBytes([]byte("share upload"), "text/plain", false)

@@ -3192,6 +3192,101 @@ func TestRegisterProjectRoutesAcceptRenameRefactorReturns404WhenPendingMissing(t
 	}
 }
 
+func TestRegisterProjectRoutesDeclineRenameRefactorForwardsPayloadAndReturnsOK(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	renameService := &stubProjectRouteRenameRefactorService{}
+	handler := newProjectRouteTestHandlerWithRenameService(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		nil,
+		renameService,
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeclineRenameRefactor,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"rename-op-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if renameService.declineProjectID != "project-alpha" || renameService.declineFrontendOpID != "rename-op-1" {
+		t.Fatalf("expected decline handler to forward payload, got project=%q frontendOp=%q", renameService.declineProjectID, renameService.declineFrontendOpID)
+	}
+}
+
+func TestRegisterProjectRoutesDeclineRenameRefactorReturns409WhenProjectMismatches(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandlerWithRenameService(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		nil,
+		&stubProjectRouteRenameRefactorService{
+			declineErr: fmt.Errorf("%w: frontend op rename-op-1 belongs to project-beta", projectstate.ErrRenameRefactorProjectMismatch),
+		},
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeclineRenameRefactor,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"rename-op-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"rename_refactor_project_mismatch"`) {
+		t.Fatalf("expected rename_refactor_project_mismatch response, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesSetCodeReturnsForbiddenForReadOnlyBinding(t *testing.T) {
 	t.Parallel()
 
@@ -11600,9 +11695,11 @@ func (f projectRouteChatSectionChatIDServiceFunc) GetChatID(ctx context.Context,
 }
 
 type stubProjectRouteRenameRefactorService struct {
-	setSectionNameErr error
-	acceptErr         error
-	declineErr        error
+	setSectionNameErr   error
+	acceptErr           error
+	declineErr          error
+	declineProjectID    string
+	declineFrontendOpID string
 }
 
 func (s *stubProjectRouteRenameRefactorService) SetSectionName(context.Context, string, string, string) error {
@@ -11613,7 +11710,9 @@ func (s *stubProjectRouteRenameRefactorService) AcceptRenameRefactor(context.Con
 	return s.acceptErr
 }
 
-func (s *stubProjectRouteRenameRefactorService) DeclineRenameRefactor(context.Context, string, string) error {
+func (s *stubProjectRouteRenameRefactorService) DeclineRenameRefactor(_ context.Context, projectID string, frontendOpID string) error {
+	s.declineProjectID = projectID
+	s.declineFrontendOpID = frontendOpID
 	return s.declineErr
 }
 
