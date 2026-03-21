@@ -1058,3 +1058,85 @@ Record:
   - No code change is retained under this item yet.
 - Next action:
   - Turn this leaf-row seam into the next concrete Tier 1 experiment, with the goal of removing or hiding more repeated row structure per leaf than the rejected wrapper- and radius-only passes could reach.
+
+## 2026-03-20 022
+
+- Item: Benchmark the Tier 1 leaf-row shell collapse experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - remove the extra name-input wrapper in `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - remove the extra text/code value wrapper in `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - thread the shell classes and label-shape marker through:
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - update `frontend/index.css` so the flattened CodeMirror roots carry the wrapper semantics directly
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Params/ParamContainer.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `7` files passed
+        - `28` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "TextInputCodeMirror\\.tsx|DummyCodeMirror\\.tsx|ParamNameInput\\.tsx|ParamUI\\.tsx"`
+      - result:
+        - still reported the existing baseline diagnostics in these files
+        - used Vitest plus the benchmark matrix as the acceptance gate for this experiment
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-leaf-row-shell-collapse-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-leaf-row-shell-collapse-rerun`
+  - CDP structural and visual compare while the experiment was live:
+    - `benchmark-tier1` sampled name-editable leaf row:
+      - the label root became a direct `.section-param-row` child
+      - the `.peer/textinput` value root also became a direct `.section-param-row` child
+    - `settings` sampled text/code row:
+      - the `.peer/textinput` root became a direct `.section-param-row` child instead of living under the old `.section-value` wrapper
+    - no obvious broken layout or collapse showed up in the viewport compare while the experiment was live
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `182.938ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3681.642ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1064.228ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `22421.685ms`
+  - Decision:
+    - reject this leaf-row shell collapse experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the code changes and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - `benchmark-tier1` sampled label wrapper returned to the old outer `.section-key...` host that owns the `data-param-label-shape`
+    - `settings` sampled `.peer/textinput` returned to living inside the `.section-value` wrapper
+- Next action:
+  - Continue from the retained dense-row baseline and keep working the repeated leaf-row/body seam, but do not push the full label/value shell ownership directly onto `TextInputCodeMirror` again as the next local experiment.
+
+## 2026-03-20 023
+
+- Item: Choose the next deeper Tier 1 leaf-row/body structural target after the rejected shell-collapse experiment.
+- Status: `in_progress`
+- Details:
+  - The seam is still the right area:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - Updated read after the rejection:
+    - wrapper count alone was not the right local lever when it moved shell ownership onto CodeMirror roots
+    - the next worthwhile pass should target repeated row/body ownership or structure without making `TextInputCodeMirror` the outer shell owner for the row label/value path
+    - likely candidates are now deeper boundary cleanup in `ParamContainer` / `ParamInput` / `ParamTextLabel` rather than another `TextInputCodeMirror`-centric collapse
+- Next action:
+  - Inspect the remaining repeated leaf-row/body ownership inside the retained baseline and turn that into the next concrete Tier 1 experiment.
