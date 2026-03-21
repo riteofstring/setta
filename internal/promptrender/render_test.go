@@ -70,3 +70,18 @@ func TestRenderJinjaReportsSyntaxErrors(t *testing.T) {
 		t.Fatal("expected syntax error")
 	}
 }
+
+func TestRenderJinjaReportsRenderErrors(t *testing.T) {
+	t.Parallel()
+
+	result := RenderJinja("Hello {{ name | missing_filter }}", map[string]string{"name": "Ada"})
+	if result.RenderedText != "" {
+		t.Fatalf("expected empty rendered text, got %q", result.RenderedText)
+	}
+	if len(result.MissingVariables) != 0 {
+		t.Fatalf("expected no missing variables on render error, got %#v", result.MissingVariables)
+	}
+	if result.RenderError == nil || *result.RenderError == "" {
+		t.Fatal("expected render error")
+	}
+}
