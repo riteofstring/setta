@@ -454,32 +454,33 @@ function TextParamConfigured({
   waitingForResult: boolean;
   isSelectingParams: boolean;
 }) {
+  const borderClassName = `relative after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-setta-200/50 after:content-[''] dark:after:bg-setta-600/30 ${!isSelectingParams ? "focus-within:after:!bg-blue-400" : ""}`;
+  const wrapperClassName = `section-value flex min-w-0 self-end ${borderClassName}`;
   return (
     <>
-      <TextInputCodeMirror
-        dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        value={value}
-        defaultVal={defaultVal}
-        onChange={onChange}
-        onEscape={(completionResult) => {
-          if (!completionResult) {
-            onEscape();
-          }
-        }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
-        language={configLanguage}
-        isDisabled={isDisabled}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
-      />
+      <div className={wrapperClassName}>
+        <TextInputCodeMirror
+          dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={(completionResult) => {
+            if (!completionResult) {
+              onEscape();
+            }
+          }}
+          dummyCodeClassName={`${NO_PAN_CLASS_NAME} peer/textinput min-w-0 w-full ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+          realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag peer/textinput min-w-0 w-full ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!px-0 [&_.cm-content]:!py-0 [&_.cm-content]:font-[inherit] [&_.cm-content]:text-xs [&_.cm-line]:!px-0 [&_.cm-scroller]:font-[inherit] py-[.125rem] font-mono`}
+          language={configLanguage}
+          isDisabled={isDisabled}
+          tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        />
+      </div>
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
-      <span
-        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
-      />
     </>
   );
 }
@@ -662,8 +663,8 @@ function ColorPickerParamConfigured({
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
-      colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+      wrapperClassName="section-value relative flex min-h-0 h-[calc(100%_-_4px)] w-[calc(100%_-_2px)] min-w-0 justify-self-start self-center items-stretch"
+      colorPickerChoicesClasses="colorpicker relative flex h-full min-h-0 w-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-lg text-white"
       isDisabled={isDisabled}
     />
   );
