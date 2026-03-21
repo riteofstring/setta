@@ -516,6 +516,70 @@ func TestServerSearchUISettingsReturnsRankedCoreResults(t *testing.T) {
 	}
 }
 
+func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"query": "watch toggle",
+			"limit": 3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_ui_settings without projectConfigId: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected search_ui_settings without projectConfigId success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	if len(searchResults) == 0 || mustStructuredMap(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
+		t.Fatalf("expected watch-code search result without projectConfigId, got %#v", searchResults)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"settingId": "core.app.spec_path",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value without projectConfigId: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_ui_setting_value without projectConfigId success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), getPayload["value"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"settingId": "core.project.show_param_display_names",
+			"value":     true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value without projectConfigId: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected set_ui_setting_value without projectConfigId success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", setPayload["changed"])
+	}
+}
+
 func TestServerGetUISettingValueReturnsStructuredPayload(t *testing.T) {
 	t.Parallel()
 
@@ -622,6 +686,67 @@ func TestServerSetUISettingValueWritesAndValidates(t *testing.T) {
 	errorPayload := mustStructuredMap(t, invalidPayload["error"])
 	if errorPayload["code"] != string(uisettings.ErrorCodeInvalidValueType) {
 		t.Fatalf("expected invalid_value_type error code, got %#v", errorPayload["code"])
+	}
+}
+
+func TestServerSetUISettingValueDefaultsProjectConfigIDFromShareScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "share-request",
+			ProjectConfigID:    "project-alpha",
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.watch_code.enabled",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSessionAndFrontendAffinity(
+		t,
+		clientSession,
+		"project-alpha",
+		"",
+		"",
+		"share-session-1",
+		"frontend-from-context",
+		true,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"frontendAffinityToken": "frontend-from-request",
+		},
+		Arguments: map[string]any{
+			"settingId":      "core.watch_code.enabled",
+			"value":          true,
+			"revealAfterSet": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call share-scope set_ui_setting_value without projectConfigId: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected share-scope set_ui_setting_value without projectConfigId success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected projectConfigID project-alpha, got %q", revealService.input.ProjectConfigID)
+	}
+	if revealService.input.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected shareSessionID share-session-1, got %q", revealService.input.ShareSessionID)
 	}
 }
 

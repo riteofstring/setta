@@ -65,7 +65,7 @@ type revealUISettingResult struct {
 
 func newSearchUISettingsHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, registry, err := resolveScopedUISettingRegistry(
+		_, registry, err := resolveScopedUISettingRegistry(
 			ctx,
 			arguments,
 			projectState,
@@ -98,7 +98,6 @@ func newSearchUISettingsHandler(projectState projectStateProvider, pluginMutatio
 			return nil, err
 		}
 
-		_ = projectConfigID
 		results, err := registry.Search(query, limit, sourceFilter)
 		if err != nil {
 			return nil, newToolError("invalid_arguments", "%s", err.Error())
@@ -390,10 +389,6 @@ func resolveScopedUISettingRegistry(
 	workspaceRoot string,
 	operation string,
 ) (string, *uisettings.Registry, error) {
-	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-	if err != nil {
-		return "", nil, err
-	}
 	if projectState == nil {
 		return "", nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
 	}
@@ -401,6 +396,10 @@ func resolveScopedUISettingRegistry(
 	invocation, ok := ToolInvocationFromContext(ctx)
 	if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
 		return "", nil, newToolError("internal_error", "%s invocation context is unavailable.", operation)
+	}
+	projectConfigID, err := resolveScopedProjectConfigIDArgument(arguments, invocation)
+	if err != nil {
+		return "", nil, err
 	}
 	if projectConfigID != invocation.AgenticContext.ProjectConfigID {
 		return "", nil, newToolError(
@@ -416,6 +415,20 @@ func resolveScopedUISettingRegistry(
 		return "", nil, newToolError("internal_error", "UI setting registry is unavailable: %s", err.Error())
 	}
 	return projectConfigID, registry, nil
+}
+
+func resolveScopedProjectConfigIDArgument(arguments map[string]any, invocation ToolInvocationContext) (string, error) {
+	if _, ok := arguments["projectConfigId"]; ok {
+		return readRequiredStringArgument(arguments, "projectConfigId")
+	}
+	projectConfigID := strings.TrimSpace(invocation.AgenticContext.ProjectConfigID)
+	if projectConfigID == "" {
+		return "", newToolError(
+			"invalid_arguments",
+			"projectConfigId is required when the active agentic context has no project default.",
+		)
+	}
+	return projectConfigID, nil
 }
 
 func readUISettingSourceFilterArgument(arguments map[string]any) (uisettings.SourceFilter, error) {
