@@ -330,6 +330,9 @@ categorize them.
   the only obvious proof-incomplete config holdout is still the platform-
   default `SETTA_HOME` path contract if a cross-platform-friendly proof path
   becomes worthwhile later
+- That recent-session grace row is now closed too, which leaves the launch
+  backlog focused on the heavier real runtime gaps such as process-group
+  cleanup rather than more small preflight or reuse-timing omissions
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
