@@ -300,7 +300,7 @@ func TestWebsocketHubDisconnectBroadcastsUpdatedInventory(t *testing.T) {
 	}
 }
 
-func TestWebsocketHubSendJSONReturnsFalseAndCleansClosedConnection(t *testing.T) {
+func TestWebsocketHubSendJSONReturnsDeliveryStatusAndCleansClosedConnection(t *testing.T) {
 	t.Parallel()
 
 	hub := NewWebsocketHub(WebsocketHubOptions{})
@@ -320,9 +320,28 @@ func TestWebsocketHubSendJSONReturnsFalseAndCleansClosedConnection(t *testing.T)
 	if !ok {
 		t.Fatal("expected live websocket connection for frontend-a")
 	}
-	liveConnection.conn.CloseNow()
 
 	delivered, err := hub.SendJSON(context.Background(), hubNotificationMessage{
+		MessageType: "Notification",
+		Content: hubNotificationContent{
+			Message: "before-close",
+		},
+	}, "frontend-a")
+	if err != nil {
+		t.Fatalf("send notification before close: %v", err)
+	}
+	if !delivered {
+		t.Fatal("expected delivery to succeed before the websocket closed")
+	}
+
+	message := readEnvelope(t, frontendA)
+	if message.MessageType != "Notification" {
+		t.Fatalf("expected notification message type before close, got %q", message.MessageType)
+	}
+
+	liveConnection.conn.CloseNow()
+
+	delivered, err = hub.SendJSON(context.Background(), hubNotificationMessage{
 		MessageType: "Notification",
 		Content: hubNotificationContent{
 			Message: "after-close",

@@ -3,10 +3,27 @@ package realtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/coder/websocket"
 )
+
+func TestListenerBroadcasterEmitRealtimeDeltasRejectsEmptyDeltas(t *testing.T) {
+	t.Parallel()
+
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{})
+
+	sequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+	})
+	if !errors.Is(err, ErrEmptyRealtimeDeltas) {
+		t.Fatalf("expected empty realtime deltas error, got %v", err)
+	}
+	if sequence != 0 || delivered != 0 {
+		t.Fatalf("expected no sequence or deliveries on empty delta rejection, got sequence=%d delivered=%d", sequence, delivered)
+	}
+}
 
 func TestListenerBroadcasterEmitRealtimeDeltasFiltersByDependencyAndShareSession(t *testing.T) {
 	t.Parallel()
