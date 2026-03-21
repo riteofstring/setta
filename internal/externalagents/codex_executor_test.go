@@ -671,6 +671,150 @@ func TestCodexExecutorOmitsCompletionReportToolWhenCompletionGuardDisabled(t *te
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestBuildCodexToolAllowlistReturnsNilForEmptyAllowlist(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		profile *agentprofiles.Profile
+	}{
+		{
+			name:    "nil profile",
+			profile: nil,
+		},
+		{
+			name: "nil allowlist",
+			profile: &agentprofiles.Profile{
+				ToolAllowlist: nil,
+			},
+		},
+		{
+			name: "empty allowlist",
+			profile: &agentprofiles.Profile{
+				ToolAllowlist: []string{},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			allowlist, err := buildCodexToolAllowlist(testCase.profile, true)
+			if err != nil {
+				t.Fatalf("build codex tool allowlist: %v", err)
+			}
+			if allowlist != nil {
+				t.Fatalf("expected nil allowlist, got %#v", allowlist)
+			}
+		})
+	}
+}
+
+func TestBuildCodexToolAllowlistRejectsBlankAndForeignServerEntries(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		entries   []string
+		wantError string
+	}{
+		{
+			name:      "blank entry",
+			entries:   []string{" "},
+			wantError: "toolAllowlist entries must be non-empty strings",
+		},
+		{
+			name:      "foreign server entry",
+			entries:   []string{"other__tool"},
+			wantError: "external tool allowlist only supports MCP server \"setta\": other__tool",
+		},
+		{
+			name:      "foreign mcp entry",
+			entries:   []string{"mcp__other__tool"},
+			wantError: "external tool allowlist only supports MCP server \"setta\": mcp__other__tool",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			allowlist, err := buildCodexToolAllowlist(&agentprofiles.Profile{
+				ToolAllowlist: testCase.entries,
+			}, true)
+			if err == nil || err.Error() != testCase.wantError {
+				t.Fatalf("expected error %q, got allowlist=%#v err=%v", testCase.wantError, allowlist, err)
+			}
+		})
+	}
+}
+
+func TestBuildCodexToolAllowlistNormalizesScopedAndAllowAllEntries(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                   string
+		entries                []string
+		completionGuardEnabled bool
+		wantAllowAll           bool
+		wantToolNames          []string
+	}{
+		{
+			name:                   "bare tool names",
+			entries:                []string{"runTool", "getProjectState"},
+			completionGuardEnabled: true,
+			wantToolNames:          []string{"getProjectState", "report_completion_status", "runTool", "set_agentic_context"},
+		},
+		{
+			name:                   "namespaced tool names",
+			entries:                []string{"setta__getProjectState", "mcp__setta__runTool"},
+			completionGuardEnabled: true,
+			wantToolNames:          []string{"getProjectState", "report_completion_status", "runTool", "set_agentic_context"},
+		},
+		{
+			name:                   "guard disabled omits completion report",
+			entries:                []string{"setta__getProjectState", "mcp__setta__runTool"},
+			completionGuardEnabled: false,
+			wantToolNames:          []string{"getProjectState", "runTool", "set_agentic_context"},
+		},
+		{
+			name:                   "server entry allows all",
+			entries:                []string{"setta"},
+			completionGuardEnabled: true,
+			wantAllowAll:           true,
+		},
+		{
+			name:                   "server entry overrides named tools",
+			entries:                []string{"setta__runTool", "setta", "getProjectState"},
+			completionGuardEnabled: true,
+			wantAllowAll:           true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			allowlist, err := buildCodexToolAllowlist(&agentprofiles.Profile{
+				ToolAllowlist: testCase.entries,
+			}, testCase.completionGuardEnabled)
+			if err != nil {
+				t.Fatalf("build codex tool allowlist: %v", err)
+			}
+			if allowlist == nil {
+				t.Fatal("expected non-nil allowlist")
+			}
+			if allowlist.allowAll != testCase.wantAllowAll {
+				t.Fatalf("expected allowAll=%t, got %#v", testCase.wantAllowAll, allowlist)
+			}
+			if got := append([]string(nil), allowlist.toolNames...); !equalStringSlices(got, testCase.wantToolNames) {
+				t.Fatalf("expected toolNames %#v, got %#v", testCase.wantToolNames, got)
+			}
+		})
+	}
+}
+
 func TestCodexExecutorPassesSessionScopedCODEXHOMEToProcessEnv(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "env_handoff")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
