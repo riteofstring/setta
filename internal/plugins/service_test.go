@@ -339,6 +339,114 @@ func TestServiceUpdateMarksPendingRestartForBackendOnly(t *testing.T) {
 	}
 }
 
+// Re-enabling an already-active backend plugin should stay a no-op after runtime refresh clears pending_restart.
+func TestServiceBackendEnableNoopWhenAlreadyActive(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !installResult.RestartRequired || installResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart, got %#v", installResult)
+	}
+
+	committedSnapshot, err := service.CommitBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("commit backend runtime refresh: %v", err)
+	}
+	activeEntry := mustFindDiscoveredPlugin(t, committedSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if activeEntry.State != PluginRuntimeStateActive || activeEntry.RestartRequired {
+		t.Fatalf("expected backend plugin to become active after commit, got %#v", activeEntry)
+	}
+
+	enabledResult, err := service.Enable(context.Background(), EnableDisableOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("enable already-active backend plugin: %v", err)
+	}
+	if enabledResult.State != PluginRuntimeStateActive || enabledResult.RestartRequired {
+		t.Fatalf("expected active backend enable to stay a no-op, got %#v", enabledResult)
+	}
+
+	state, err := service.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after backend enable noop: %v", err)
+	}
+	if len(state.PendingRestartBackendPluginIDs) != 0 {
+		t.Fatalf("expected no pending restart ids after backend enable noop, got %#v", state.PendingRestartBackendPluginIDs)
+	}
+}
+
+// Re-disabling an already-disabled backend plugin should stay a no-op once the prior restart-gated disable is committed.
+func TestServiceBackendDisableNoopWhenAlreadyDisabled(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !installResult.RestartRequired || installResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart, got %#v", installResult)
+	}
+
+	disableResult, err := service.Disable(context.Background(), EnableDisableOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("disable backend plugin: %v", err)
+	}
+	if disableResult.State != PluginRuntimeStatePendingRestart || !disableResult.RestartRequired {
+		t.Fatalf("expected first backend disable to remain pending restart, got %#v", disableResult)
+	}
+
+	committedSnapshot, err := service.CommitBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("commit backend runtime refresh after disable: %v", err)
+	}
+	disabledEntry := mustFindDiscoveredPlugin(t, committedSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if disabledEntry.State != PluginRuntimeStateDisabled || disabledEntry.RestartRequired {
+		t.Fatalf("expected backend plugin to become disabled after commit, got %#v", disabledEntry)
+	}
+
+	disabledResult, err := service.Disable(context.Background(), EnableDisableOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("disable already-disabled backend plugin: %v", err)
+	}
+	if disabledResult.State != PluginRuntimeStateDisabled || disabledResult.RestartRequired {
+		t.Fatalf("expected disabled backend to remain a no-op, got %#v", disabledResult)
+	}
+
+	state, err := service.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after backend disable noop: %v", err)
+	}
+	if len(state.PendingRestartBackendPluginIDs) != 0 {
+		t.Fatalf("expected no pending restart ids after backend disable noop, got %#v", state.PendingRestartBackendPluginIDs)
+	}
+}
+
 // Backend uninstall should remain visible as pending_restart until the runtime clears the tombstone.
 func TestServiceBackendUninstallSurfacesPendingRestartTombstone(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -377,6 +485,55 @@ func TestServiceBackendUninstallSurfacesPendingRestartTombstone(t *testing.T) {
 	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
 	if entry.State != PluginRuntimeStatePendingRestart || !entry.RestartRequired {
 		t.Fatalf("expected backend uninstall tombstone to stay pending_restart, got %#v", entry)
+	}
+}
+
+// Pending restart ids should survive a fresh service instance, then clear once the runtime refresh is committed.
+func TestServicePendingRestartPersistsAcrossReloadAndClearsOnCommit(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	initialService := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	installResult, err := initialService.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !installResult.RestartRequired || installResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart, got %#v", installResult)
+	}
+
+	reloadedService := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	reloadedSnapshot, err := reloadedService.Rescan()
+	if err != nil {
+		t.Fatalf("rescan with reloaded service: %v", err)
+	}
+	pendingEntry := mustFindDiscoveredPlugin(t, reloadedSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if pendingEntry.State != PluginRuntimeStatePendingRestart || !pendingEntry.RestartRequired {
+		t.Fatalf("expected reloaded service to preserve pending restart state, got %#v", pendingEntry)
+	}
+
+	committedSnapshot, err := reloadedService.CommitBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("commit backend runtime refresh after reload: %v", err)
+	}
+	activeEntry := mustFindDiscoveredPlugin(t, committedSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if activeEntry.State != PluginRuntimeStateActive || activeEntry.RestartRequired {
+		t.Fatalf("expected backend plugin to become active after reload commit, got %#v", activeEntry)
+	}
+
+	state, err := reloadedService.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after reload commit: %v", err)
+	}
+	if len(state.PendingRestartBackendPluginIDs) != 0 {
+		t.Fatalf("expected pending restart ids to clear after reload commit, got %#v", state.PendingRestartBackendPluginIDs)
 	}
 }
 
