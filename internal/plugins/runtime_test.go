@@ -88,6 +88,56 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeAndStatusExposePackageManagerDiscoveryMetadata(t *testing.T) {
+	// Runtime/status reads should preserve package-manager discovery metadata for active environment plugins.
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages, _ := installPackageManagerFixture(t, "frontend", "setta-fixture-frontend", "0.1.0", nil)
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if len(runtimeResponse.List.Plugins) != 1 {
+		t.Fatalf("expected one runtime list entry, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one runtime status entry, got %#v", runtimeResponse.Status.Plugins)
+	}
+
+	listEntry := runtimeResponse.List.Plugins[0]
+	if listEntry.PluginID != "setta-fixture-frontend" {
+		t.Fatalf("expected package-manager plugin id, got %#v", listEntry.PluginID)
+	}
+	if listEntry.SourceScope != PluginScopeSettaFiles || listEntry.SourceScopeLabel != "setta_files" {
+		t.Fatalf("expected setta_files package-manager scope, got %#v / %#v", listEntry.SourceScope, listEntry.SourceScopeLabel)
+	}
+	if listEntry.SourceManager != PluginSourceManagerPackageManager {
+		t.Fatalf("expected package-manager source manager, got %#v", listEntry.SourceManager)
+	}
+	if listEntry.CanonicalSourceKey != "pypi:setta-fixture-frontend" {
+		t.Fatalf("unexpected package-manager canonical source key %q", listEntry.CanonicalSourceKey)
+	}
+	if listEntry.SourceManagerHint == nil || *listEntry.SourceManagerHint != packageManagerSourceHint {
+		t.Fatalf("unexpected package-manager hint %#v", listEntry.SourceManagerHint)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.SourceScope != PluginScopeSettaFiles || statusEntry.SourceScopeLabel != "setta_files" {
+		t.Fatalf("expected setta_files package-manager status scope, got %#v / %#v", statusEntry.SourceScope, statusEntry.SourceScopeLabel)
+	}
+	if statusEntry.SourceManager != PluginSourceManagerPackageManager {
+		t.Fatalf("expected package-manager status source manager, got %#v", statusEntry.SourceManager)
+	}
+	if statusEntry.CanonicalSourceKey != "pypi:setta-fixture-frontend" {
+		t.Fatalf("unexpected status canonical source key %q", statusEntry.CanonicalSourceKey)
+	}
+	if statusEntry.SourceManagerHint == nil || *statusEntry.SourceManagerHint != packageManagerSourceHint {
+		t.Fatalf("unexpected status package-manager hint %#v", statusEntry.SourceManagerHint)
+	}
+}
+
 func TestServiceRuntimeEncodesFrontendAssetURLs(t *testing.T) {
 	// Frontend entrypoint URLs should escape reserved path characters and keep digest versioning.
 	roots := newFilesystemResolverTestRoots(t)
