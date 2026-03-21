@@ -846,6 +846,113 @@ func TestExecutorInlinesManagedAttachmentTextWhenAttachmentServiceIsAvailable(t 
 	}
 }
 
+func TestExecutorBuildsMissingAttachmentPlaceholderForExternalPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	externalRoot := filepath.Join(root, "attachments")
+	if err := os.MkdirAll(externalRoot, 0o755); err != nil {
+		t.Fatalf("mkdir external attachment root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(externalRoot, "notes.txt"), []byte("Secrets outside artifacts."), 0o644); err != nil {
+		t.Fatalf("write external attachment: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	attachmentService, err := chatattachments.NewService(chatattachments.ServiceOptions{
+		SettaFilesRoot: root,
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Sessions: executorTestSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	executor := NewExecutor(ExecutorOptions{Attachments: attachmentService})
+	_, executionTranscript, err := executor.parseTranscriptMessages([]any{
+		map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Hello"},
+			},
+			"attachments": []any{
+				map[string]any{"id": "attachments/notes.txt", "name": "notes.txt", "mimeType": "text/plain"},
+			},
+		},
+	}, "project-alpha")
+	if err != nil {
+		t.Fatalf("parse transcript messages with external attachment path: %v", err)
+	}
+
+	providerMessages, err := buildProviderMessages(openAIProvider, "System prompt", executionTranscript)
+	if err != nil {
+		t.Fatalf("build provider messages with external attachment path: %v", err)
+	}
+	if len(providerMessages) != 2 {
+		t.Fatalf("expected system and user provider messages, got %#v", providerMessages)
+	}
+	userPayload := providerMessages[1]
+	if _, ok := userPayload["attachments"]; ok {
+		t.Fatalf("expected provider payload to omit attachments, got %#v", userPayload["attachments"])
+	}
+	content, _ := userPayload["content"].(string)
+	if !strings.Contains(content, "Hello") {
+		t.Fatalf("expected original user text, got %q", content)
+	}
+	if !strings.Contains(content, "[Attachment missing: notes.txt]") {
+		t.Fatalf("expected missing attachment placeholder, got %q", content)
+	}
+	if strings.Contains(content, "Secrets outside artifacts.") {
+		t.Fatalf("expected external attachment contents to stay hidden, got %q", content)
+	}
+}
+
+func TestBuildOpenAIProviderMessageStripsCreatedAtFromToolMessages(t *testing.T) {
+	t.Parallel()
+
+	payload, include, err := buildOpenAIProviderMessage(map[string]any{
+		"id":           "tool-1",
+		"role":         "tool",
+		"tool_call_id": "tool-call-1",
+		"content":      []any{},
+		"createdAt":    123,
+	})
+	if err != nil {
+		t.Fatalf("build openai provider tool message: %v", err)
+	}
+	if !include {
+		t.Fatal("expected tool message to be included")
+	}
+	if payload["role"] != "tool" {
+		t.Fatalf("expected tool role, got %#v", payload["role"])
+	}
+	if payload["tool_call_id"] != "tool-call-1" {
+		t.Fatalf("expected tool call id tool-call-1, got %#v", payload["tool_call_id"])
+	}
+	if _, ok := payload["createdAt"]; ok {
+		t.Fatalf("expected createdAt to be stripped from provider payload, got %#v", payload)
+	}
+	content, ok := payload["content"].(string)
+	if !ok || content != "" {
+		t.Fatalf("expected empty string tool content fallback, got %#v", payload["content"])
+	}
+}
+
 func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	t.Parallel()
 
