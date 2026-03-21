@@ -1621,6 +1621,9 @@ func newPluginRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, service P
 
 type pluginRouteServiceStub struct {
 	runtimeFunc                          func(plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
+	getBackendUISettingsFunc             func(string) ([]plugins.PluginRegisteredUISetting, error)
+	readBackendUISettingValueFunc        func(context.Context, plugins.BackendUISettingReadOptions) (any, error)
+	writeBackendUISettingValueFunc       func(context.Context, plugins.BackendUISettingWriteOptions) error
 	rescanFunc                           func() (plugins.DiscoverySnapshot, error)
 	installFunc                          func(context.Context, plugins.InstallOptions) (plugins.PluginInstallResult, error)
 	linkFunc                             func(plugins.LinkOptions) (plugins.PluginInstallResult, error)
@@ -1645,6 +1648,27 @@ func (s pluginRouteServiceStub) Runtime(options plugins.RuntimeOptions) (plugins
 		return s.runtimeFunc(options)
 	}
 	return plugins.RuntimeResponse{}, nil
+}
+
+func (s pluginRouteServiceStub) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
+	if s.getBackendUISettingsFunc != nil {
+		return s.getBackendUISettingsFunc(pluginID)
+	}
+	return []plugins.PluginRegisteredUISetting{}, nil
+}
+
+func (s pluginRouteServiceStub) ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
+	if s.readBackendUISettingValueFunc != nil {
+		return s.readBackendUISettingValueFunc(ctx, options)
+	}
+	return nil, nil
+}
+
+func (s pluginRouteServiceStub) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
+	if s.writeBackendUISettingValueFunc != nil {
+		return s.writeBackendUISettingValueFunc(ctx, options)
+	}
+	return nil
 }
 
 func (s pluginRouteServiceStub) Rescan() (plugins.DiscoverySnapshot, error) {

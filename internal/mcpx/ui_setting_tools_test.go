@@ -3,8 +3,10 @@ package mcpx
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -1481,6 +1483,193 @@ func TestServerUISettingToolsSupportSchemaBackedPluginSettings(t *testing.T) {
 	}
 }
 
+func TestServerUISettingToolsSupportBackendRegisteredPluginSettings(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGo(t, installResult.SourcePath, false)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan backend-registered plugin runtime: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "backend enabled",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call backend-registered plugin search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected backend-registered plugin search success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	if len(searchResults) == 0 {
+		t.Fatal("expected backend-registered plugin search results")
+	}
+	firstResult := mustStructuredMap(t, searchResults[0])
+	if firstResult["settingId"] != "plugin::setta-fixture-full::backend_enabled" {
+		t.Fatalf("expected backend-registered plugin search result, got %#v", firstResult)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value for backend-registered plugin setting: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected backend-registered plugin get success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != false {
+		t.Fatalf("expected default backend-registered plugin value false, got %#v", getPayload["value"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value for backend-registered plugin setting: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected backend-registered plugin set success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["oldValue"] != false || setPayload["newValue"] != true || setPayload["changed"] != true {
+		t.Fatalf("expected backend-registered plugin write false -> true, got %#v", setPayload)
+	}
+
+	updatedGetResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call updated get_ui_setting_value for backend-registered plugin setting: %v", err)
+	}
+	if updatedGetResult.IsError {
+		t.Fatalf("expected updated backend-registered plugin get success, got %#v", updatedGetResult.StructuredContent)
+	}
+	updatedGetPayload := mustStructuredMap(t, updatedGetResult.StructuredContent)
+	if updatedGetPayload["value"] != true {
+		t.Fatalf("expected updated backend-registered plugin value true, got %#v", updatedGetPayload["value"])
+	}
+}
+
+func TestServerUISettingToolsRollbackInvalidPostWriteBackendRegisteredPluginValue(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGo(t, installResult.SourcePath, true)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan invalid-post-write backend-registered plugin runtime: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid-post-write set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured invalid-post-write response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed for invalid post-write backend value, got %#v", setError["code"])
+	}
+	message, ok := setError["message"].(string)
+	if !ok || !strings.Contains(message, "Rollback restored the previous value.") {
+		t.Fatalf("expected rollback-restored message, got %#v", setError["message"])
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value after rollback: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected backend-registered plugin get success after rollback, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != false {
+		t.Fatalf("expected backend-registered plugin value to roll back to false, got %#v", getPayload["value"])
+	}
+}
+
 func TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting(t *testing.T) {
 	t.Parallel()
 
@@ -2312,4 +2501,182 @@ func mustFindPluginStatusEntry(
 
 func testStringPointer(value string) *string {
 	return &value
+}
+
+func writeScopedPluginBackendUISettingFixtureMainGo(t *testing.T, pluginRoot string, invalidPostWrite bool) {
+	t.Helper()
+
+	assignment := "state.Enabled = value"
+	if invalidPostWrite {
+		assignment = "if value {\n\t\tstate.Enabled = \"invalid-value\"\n\t} else {\n\t\tstate.Enabled = value\n\t}"
+	}
+
+	source := fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	backendProbeArg = "--setta-plugin-backend-probe"
+	backendRuntimeArg = "--setta-plugin-backend-runtime"
+)
+
+type runtimeRequest struct {
+	SchemaVersion int               `+"`json:\"schemaVersion\"`"+`
+	Kind          string            `+"`json:\"kind\"`"+`
+	UISetting     *uiSettingRequest `+"`json:\"uiSetting,omitempty\"`"+`
+}
+
+type uiSettingRequest struct {
+	HandlerID       string `+"`json:\"handlerId\"`"+`
+	Operation       string `+"`json:\"operation\"`"+`
+	ProjectConfigID string `+"`json:\"projectConfigId\"`"+`
+	Value           any    `+"`json:\"value,omitempty\"`"+`
+}
+
+type runtimeResponse struct {
+	SchemaVersion int            `+"`json:\"schemaVersion\"`"+`
+	UISetting     map[string]any `+"`json:\"uiSetting,omitempty\"`"+`
+}
+
+type stateFile struct {
+	Enabled any `+"`json:\"enabled\"`"+`
+}
+
+func main() {
+	if len(os.Args) != 2 {
+		return
+	}
+	switch os.Args[1] {
+	case backendProbeArg:
+		writeJSON(map[string]any{
+			"schemaVersion": 1,
+			"uiSettings": []map[string]any{
+				{
+					"id":             "backend_enabled",
+					"title":          "Backend Enabled",
+					"description":    "Enable backend-provided fixture behavior.",
+					"paneId":         "full-settings-pane",
+					"revealKey":      "full-settings",
+					"synonyms":       []string{"backend enabled"},
+					"mutability":     "writable",
+					"valueSchema":    map[string]any{"type": "boolean"},
+					"readHandlerId":  "read-backend-enabled",
+					"writeHandlerId": "write-backend-enabled",
+				},
+			},
+			"routes":            []map[string]any{},
+			"staticDirs":        []map[string]any{},
+			"listenerEndpoints": []map[string]any{},
+		})
+	case backendRuntimeArg:
+		handleRuntime()
+	}
+}
+
+func handleRuntime() {
+	var request runtimeRequest
+	decoder := json.NewDecoder(os.Stdin)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		fail("decode backend runtime request: %%v", err)
+	}
+	switch strings.TrimSpace(request.Kind) {
+	case "ui_setting":
+		if request.UISetting == nil {
+			fail("ui setting runtime payload is required")
+		}
+		handleUISetting(*request.UISetting)
+	default:
+		fail("unsupported backend runtime kind %%q", request.Kind)
+	}
+}
+
+func handleUISetting(request uiSettingRequest) {
+	switch strings.TrimSpace(request.HandlerID) {
+	case "read-backend-enabled":
+		if strings.TrimSpace(request.Operation) != "read" {
+			fail("unexpected ui setting operation %%q", request.Operation)
+		}
+		state := loadState()
+		writeJSON(runtimeResponse{
+			SchemaVersion: 1,
+			UISetting: map[string]any{
+				"value": state.Enabled,
+			},
+		})
+	case "write-backend-enabled":
+		if strings.TrimSpace(request.Operation) != "write" {
+			fail("unexpected ui setting operation %%q", request.Operation)
+		}
+		value, ok := request.Value.(bool)
+		if !ok {
+			fail("ui setting write value must be boolean")
+		}
+		state := loadState()
+		%s
+		saveState(state)
+		writeJSON(runtimeResponse{
+			SchemaVersion: 1,
+			UISetting: map[string]any{
+				"value": state.Enabled,
+			},
+		})
+	default:
+		fail("unsupported ui setting handler %%q", request.HandlerID)
+	}
+}
+
+func statePath() string {
+	return filepath.Join(".", "backend_ui_setting_state.json")
+}
+
+func loadState() stateFile {
+	bytes, err := os.ReadFile(statePath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateFile{Enabled: false}
+		}
+		fail("read ui setting state: %%v", err)
+	}
+	var state stateFile
+	if err := json.Unmarshal(bytes, &state); err != nil {
+		fail("decode ui setting state: %%v", err)
+	}
+	if state.Enabled == nil {
+		state.Enabled = false
+	}
+	return state
+}
+
+func saveState(state stateFile) {
+	payload, err := json.Marshal(state)
+	if err != nil {
+		fail("encode ui setting state: %%v", err)
+	}
+	if err := os.WriteFile(statePath(), payload, 0o644); err != nil {
+		fail("write ui setting state: %%v", err)
+	}
+}
+
+func writeJSON(payload any) {
+	if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+		fail("encode payload: %%v", err)
+	}
+}
+
+func fail(format string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(1)
+}
+`, assignment)
+
+	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "main.go"), []byte(source), 0o644); err != nil {
+		t.Fatalf("write scoped backend ui setting fixture main.go: %v", err)
+	}
 }

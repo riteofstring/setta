@@ -22,6 +22,9 @@ const (
 type PluginRuntimeService interface {
 	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
 	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
+	GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error)
+	ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error)
+	WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error
 }
 
 type pluginUISettingDefinition struct {
@@ -38,8 +41,8 @@ type pluginUISettingDefinition struct {
 }
 
 type pluginUISettingParseResult struct {
-	Definitions           []pluginUISettingDefinition
-	InvalidSettingErrors  map[string]SettingError
+	Definitions          []pluginUISettingDefinition
+	InvalidSettingErrors map[string]SettingError
 }
 
 func NewScopedRegistry(runtime CoreProjectState, workspaceRoot string, pluginService PluginRuntimeService) (*Registry, error) {
@@ -82,12 +85,59 @@ func NewScopedRegistry(runtime CoreProjectState, workspaceRoot string, pluginSer
 		if err != nil {
 			continue
 		}
+		backendRegistrations, err := pluginService.GetBackendUISettings(pluginID)
+		if err != nil {
+			return nil, err
+		}
+		validBackendRegistrations := make([]plugins.PluginRegisteredUISetting, 0, len(backendRegistrations))
+		for _, registration := range backendRegistrations {
+			if _, err := parseExplicitPluginValueSchema(pluginID, registration.LocalSettingID, registration.ValueSchema); err != nil {
+				metadata.invalidPluginSettings[buildPluginSettingID(pluginID, registration.LocalSettingID)] = newSettingErrorValue(
+					ErrorCodePluginUnavailable,
+					"Plugin %s setting %s is unavailable for UI setting access (%s).",
+					pluginID,
+					registration.LocalSettingID,
+					err.Error(),
+				)
+				continue
+			}
+			validBackendRegistrations = append(validBackendRegistrations, registration)
+		}
+		contributionCount := map[string]int{}
 		for localSettingID, settingErr := range parseResult.InvalidSettingErrors {
 			metadata.invalidPluginSettings[buildPluginSettingID(pluginID, localSettingID)] = settingErr
 		}
 		for _, definition := range parseResult.Definitions {
+			contributionCount[definition.LocalSettingID]++
+		}
+		for _, registration := range validBackendRegistrations {
+			contributionCount[registration.LocalSettingID]++
+		}
+		for _, definition := range parseResult.Definitions {
+			if contributionCount[definition.LocalSettingID] > 1 {
+				metadata.invalidPluginSettings[buildPluginSettingID(pluginID, definition.LocalSettingID)] = newSettingErrorValue(
+					ErrorCodePluginUnavailable,
+					"Plugin %s setting %s is unavailable for UI setting access (declared in both schema and backend registration).",
+					pluginID,
+					definition.LocalSettingID,
+				)
+				continue
+			}
 			metadata.knownPluginSettingIDs[pluginSettingKey(pluginID, definition.LocalSettingID)] = struct{}{}
 			entries = append(entries, buildPluginRuntimeEntry(pluginService, pluginID, definition))
+		}
+		for _, registration := range validBackendRegistrations {
+			if contributionCount[registration.LocalSettingID] > 1 {
+				metadata.invalidPluginSettings[buildPluginSettingID(pluginID, registration.LocalSettingID)] = newSettingErrorValue(
+					ErrorCodePluginUnavailable,
+					"Plugin %s setting %s is unavailable for UI setting access (declared in both schema and backend registration).",
+					pluginID,
+					registration.LocalSettingID,
+				)
+				continue
+			}
+			metadata.knownPluginSettingIDs[pluginSettingKey(pluginID, registration.LocalSettingID)] = struct{}{}
+			entries = append(entries, buildPluginBackendRuntimeEntry(pluginService, registration))
 		}
 	}
 
@@ -212,6 +262,141 @@ func buildPluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string
 	return entry
 }
 
+func buildPluginBackendRuntimeEntry(pluginService PluginRuntimeService, registration plugins.PluginRegisteredUISetting) RuntimeEntry {
+	settingID := buildPluginSettingID(registration.PluginID, registration.LocalSettingID)
+	overviewTabKey := buildPluginPaneOverviewTabKey(registration.PluginID, registration.PaneID)
+	valueSchema, err := parseExplicitPluginValueSchema(registration.PluginID, registration.LocalSettingID, registration.ValueSchema)
+	if err != nil {
+		valueSchema = ValueSchema{}
+	}
+	metadata := Entry{
+		SettingID:   settingID,
+		Title:       registration.Title,
+		Synonyms:    append([]string(nil), registration.Synonyms...),
+		Description: registration.Description,
+		Location: Location{
+			Side:           SideLeft,
+			OverviewTabKey: overviewTabKey,
+			PluginID:       registration.PluginID,
+			PaneID:         registration.PaneID,
+		},
+		Highlight: Highlight{
+			Strategy:        HighlightStrategyPluginHandler,
+			PluginRevealKey: registration.RevealKey,
+		},
+		Source:      SourcePlugin,
+		PluginID:    registration.PluginID,
+		Mutability:  Mutability(registration.Mutability),
+		ValueSchema: cloneValueSchema(valueSchema),
+	}
+	entry := RuntimeEntry{
+		Metadata: metadata,
+		ReadValue: func(ctx context.Context, projectID string) (any, error) {
+			if _, err := requireActivePluginRuntimeEntry(pluginService, registration.PluginID); err != nil {
+				return nil, err
+			}
+			value, err := pluginService.ReadBackendUISettingValue(ctx, plugins.BackendUISettingReadOptions{
+				PluginID:        registration.PluginID,
+				HandlerID:       registration.ReadHandlerID,
+				ProjectConfigID: projectID,
+			})
+			if err != nil {
+				return nil, normalizePluginConfigMutationError(registration.PluginID, settingID, err)
+			}
+			if err := ValidateValue(metadata.ValueSchema, value); err != nil {
+				return nil, wrapPluginBackendInvalidValueError(registration.PluginID, settingID, "returned an invalid value", err)
+			}
+			return cloneJSONValue(value), nil
+		},
+	}
+	if metadata.Mutability == MutabilityWritable && registration.WriteHandlerID != nil {
+		writeHandlerID := *registration.WriteHandlerID
+		entry.WriteValue = func(ctx context.Context, projectID string, value any, expectedOldValue any) (MutationResult, error) {
+			if err := ValidateValue(metadata.ValueSchema, value); err != nil {
+				return MutationResult{}, err
+			}
+			if expectedOldValue != nil {
+				if err := ValidateValue(metadata.ValueSchema, expectedOldValue); err != nil {
+					return MutationResult{}, err
+				}
+			}
+			if _, err := requireActivePluginRuntimeEntry(pluginService, registration.PluginID); err != nil {
+				return MutationResult{}, err
+			}
+
+			oldValue, err := pluginService.ReadBackendUISettingValue(ctx, plugins.BackendUISettingReadOptions{
+				PluginID:        registration.PluginID,
+				HandlerID:       registration.ReadHandlerID,
+				ProjectConfigID: projectID,
+			})
+			if err != nil {
+				return MutationResult{}, normalizePluginConfigMutationError(registration.PluginID, settingID, err)
+			}
+			if err := ValidateValue(metadata.ValueSchema, oldValue); err != nil {
+				return MutationResult{}, wrapPluginBackendInvalidValueError(registration.PluginID, settingID, "returned an invalid value during pre-write validation", err)
+			}
+			if expectedOldValue != nil && !reflect.DeepEqual(cloneJSONValue(expectedOldValue), cloneJSONValue(oldValue)) {
+				return MutationResult{}, newSettingError(
+					ErrorCodeMutationFailed,
+					"Expected old value mismatch for %s.",
+					settingID,
+				)
+			}
+			if reflect.DeepEqual(cloneJSONValue(oldValue), cloneJSONValue(value)) {
+				return MutationResult{
+					OldValue:        cloneJSONValue(oldValue),
+					NewValue:        cloneJSONValue(oldValue),
+					NormalizedValue: cloneJSONValue(value),
+					Changed:         false,
+				}, nil
+			}
+
+			if err := pluginService.WriteBackendUISettingValue(ctx, plugins.BackendUISettingWriteOptions{
+				PluginID:        registration.PluginID,
+				HandlerID:       writeHandlerID,
+				ProjectConfigID: projectID,
+				Value:           value,
+			}); err != nil {
+				return MutationResult{}, normalizePluginConfigMutationError(registration.PluginID, settingID, err)
+			}
+
+			newValue, err := pluginService.ReadBackendUISettingValue(ctx, plugins.BackendUISettingReadOptions{
+				PluginID:        registration.PluginID,
+				HandlerID:       registration.ReadHandlerID,
+				ProjectConfigID: projectID,
+			})
+			if err != nil {
+				return MutationResult{}, normalizePluginConfigMutationError(registration.PluginID, settingID, err)
+			}
+			if err := ValidateValue(metadata.ValueSchema, newValue); err != nil {
+				if rollbackErr := rollbackPluginBackendUISettingValue(ctx, pluginService, registration.PluginID, registration.ReadHandlerID, writeHandlerID, projectID, oldValue); rollbackErr != nil {
+					return MutationResult{}, newSettingError(
+						ErrorCodeMutationFailed,
+						"Plugin backend ui setting write produced an invalid value for %s: %s. Rollback failed: %s",
+						settingID,
+						err.Error(),
+						rollbackErr.Error(),
+					)
+				}
+				return MutationResult{}, newSettingError(
+					ErrorCodeMutationFailed,
+					"Plugin backend ui setting write produced an invalid value for %s: %s. Rollback restored the previous value.",
+					settingID,
+					err.Error(),
+				)
+			}
+
+			return MutationResult{
+				OldValue:        cloneJSONValue(oldValue),
+				NewValue:        cloneJSONValue(newValue),
+				NormalizedValue: cloneJSONValue(value),
+				Changed:         !reflect.DeepEqual(oldValue, newValue),
+			}, nil
+		}
+	}
+	return entry
+}
+
 func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string) (plugins.ListEntry, error) {
 	if pluginService == nil {
 		return plugins.ListEntry{}, newSettingError(ErrorCodePluginUnavailable, "Plugin runtime is unavailable for plugin UI setting access.")
@@ -294,6 +479,46 @@ func normalizePluginConfigMutationError(pluginID string, settingID string, err e
 	default:
 		return newSettingError(ErrorCodeMutationFailed, "%s", serviceErr.Message)
 	}
+}
+
+func wrapPluginBackendInvalidValueError(pluginID string, settingID string, prefix string, err error) error {
+	var settingErr *SettingError
+	if errors.As(err, &settingErr) {
+		return newSettingError(settingErr.Code, "Plugin %s setting %s %s: %s", pluginID, settingID, prefix, settingErr.Message)
+	}
+	return newSettingError(ErrorCodeMutationFailed, "Plugin %s setting %s %s: %v", pluginID, settingID, prefix, err)
+}
+
+func rollbackPluginBackendUISettingValue(
+	ctx context.Context,
+	pluginService PluginRuntimeService,
+	pluginID string,
+	readHandlerID string,
+	writeHandlerID string,
+	projectID string,
+	oldValue any,
+) error {
+	if err := pluginService.WriteBackendUISettingValue(ctx, plugins.BackendUISettingWriteOptions{
+		PluginID:        pluginID,
+		HandlerID:       writeHandlerID,
+		ProjectConfigID: projectID,
+		Value:           cloneJSONValue(oldValue),
+	}); err != nil {
+		return err
+	}
+
+	rolledBackValue, err := pluginService.ReadBackendUISettingValue(ctx, plugins.BackendUISettingReadOptions{
+		PluginID:        pluginID,
+		HandlerID:       readHandlerID,
+		ProjectConfigID: projectID,
+	})
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(cloneJSONValue(rolledBackValue), cloneJSONValue(oldValue)) {
+		return fmt.Errorf("rollback produced %#v", rolledBackValue)
+	}
+	return nil
 }
 
 func parsePluginUISettingDefinitions(pluginID string, schemaJSON map[string]any) (pluginUISettingParseResult, error) {

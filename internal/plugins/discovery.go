@@ -387,6 +387,7 @@ func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin)
 	}
 	entry.RegisteredCodegenTargets = []PluginRegisteredCodegenTarget{}
 	entry.RegisteredLanguageServers = []PluginRegisteredLanguageServer{}
+	entry.RegisteredUISettings = []PluginRegisteredUISetting{}
 	entry.RegisteredBackendRoutes = []PluginRegisteredBackendRoute{}
 	entry.RegisteredStaticDirs = []PluginRegisteredStaticDir{}
 	entry.RegisteredListenerEndpoints = []PluginRegisteredListenerEndpoint{}
@@ -408,6 +409,7 @@ func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin)
 	}
 	entry.RegisteredCodegenTargets = probe.CodegenTargets
 	entry.RegisteredLanguageServers = probe.LanguageServers
+	entry.RegisteredUISettings = cloneRegisteredUISettings(probe.UISettings)
 	entry.RegisteredBackendRoutes = probe.Routes
 	entry.RegisteredStaticDirs = probe.StaticDirs
 	entry.RegisteredListenerEndpoints = probe.ListenerEndpoints

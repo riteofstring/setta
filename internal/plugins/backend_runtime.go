@@ -21,6 +21,7 @@ const (
 	backendRuntimeKindHTTP      = "http"
 	backendRuntimeKindListener  = "listener_endpoint"
 	backendRuntimeKindCodegen   = "codegen_target"
+	backendRuntimeKindUISetting = "ui_setting"
 )
 
 type BackendRequestContext struct {
@@ -59,12 +60,26 @@ type BackendCodegenTargetRequest struct {
 	TargetOptions map[string]any `json:"targetOptions"`
 }
 
+type BackendUISettingReadOptions struct {
+	PluginID        string
+	HandlerID       string
+	ProjectConfigID string
+}
+
+type BackendUISettingWriteOptions struct {
+	PluginID        string
+	HandlerID       string
+	ProjectConfigID string
+	Value           any
+}
+
 type backendRuntimeRequest struct {
 	SchemaVersion int                             `json:"schemaVersion"`
 	Kind          string                          `json:"kind"`
 	HTTP          *backendRuntimeHTTPRequest      `json:"http,omitempty"`
 	Listener      *BackendListenerEndpointRequest `json:"listenerEndpoint,omitempty"`
 	Codegen       *BackendCodegenTargetRequest    `json:"codegenTarget,omitempty"`
+	UISetting     *backendRuntimeUISettingRequest `json:"uiSetting,omitempty"`
 }
 
 type backendRuntimeHTTPRequest struct {
@@ -77,10 +92,11 @@ type backendRuntimeHTTPRequest struct {
 }
 
 type backendRuntimeResponse struct {
-	SchemaVersion int                             `json:"schemaVersion"`
-	HTTP          *backendRuntimeHTTPResponse     `json:"http,omitempty"`
-	Listener      *backendRuntimeListenerResponse `json:"listenerEndpoint,omitempty"`
-	Codegen       *backendRuntimeCodegenResponse  `json:"codegenTarget,omitempty"`
+	SchemaVersion int                              `json:"schemaVersion"`
+	HTTP          *backendRuntimeHTTPResponse      `json:"http,omitempty"`
+	Listener      *backendRuntimeListenerResponse  `json:"listenerEndpoint,omitempty"`
+	Codegen       *backendRuntimeCodegenResponse   `json:"codegenTarget,omitempty"`
+	UISetting     *backendRuntimeUISettingResponse `json:"uiSetting,omitempty"`
 }
 
 type backendRuntimeHTTPResponse struct {
@@ -101,6 +117,17 @@ type backendRuntimeCodegenResponse struct {
 type backendRuntimeCodegenFile struct {
 	RelativePath *string `json:"relativePath,omitempty"`
 	Content      *string `json:"content"`
+}
+
+type backendRuntimeUISettingRequest struct {
+	HandlerID       string `json:"handlerId"`
+	Operation       string `json:"operation"`
+	ProjectConfigID string `json:"projectConfigId"`
+	Value           any    `json:"value,omitempty"`
+}
+
+type backendRuntimeUISettingResponse struct {
+	Value json.RawMessage `json:"value,omitempty"`
 }
 
 type backendRuntimeResponseError struct {
@@ -223,6 +250,95 @@ func (s *Service) InvokeRegisteredListenerEndpoint(
 		return nil, true, err
 	}
 	return response, true, nil
+}
+
+func (s *Service) GetBackendUISettings(pluginID string) ([]PluginRegisteredUISetting, error) {
+	if s == nil {
+		return nil, ErrWorkspaceRootRequired
+	}
+
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		return nil, newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", pluginID)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return nil, err
+	}
+
+	entry, ok := findRuntimeActiveEntry(snapshot.Plugins, trimmedPluginID)
+	if !ok {
+		return nil, newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", trimmedPluginID)
+	}
+	return cloneRegisteredUISettings(entry.RegisteredUISettings), nil
+}
+
+func (s *Service) ReadBackendUISettingValue(ctx context.Context, options BackendUISettingReadOptions) (any, error) {
+	if s == nil {
+		return nil, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return nil, err
+	}
+
+	entry, ok := findRuntimeActiveEntry(snapshot.Plugins, strings.TrimSpace(options.PluginID))
+	if !ok {
+		return nil, newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", strings.TrimSpace(options.PluginID))
+	}
+
+	return invokeGoBackendUISetting(
+		ctx,
+		entry.SourcePath,
+		*entry.Manifest,
+		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
+		backendRuntimeUISettingRequest{
+			HandlerID:       strings.TrimSpace(options.HandlerID),
+			Operation:       "read",
+			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
+		},
+	)
+}
+
+func (s *Service) WriteBackendUISettingValue(ctx context.Context, options BackendUISettingWriteOptions) error {
+	if s == nil {
+		return ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return err
+	}
+
+	entry, ok := findRuntimeActiveEntry(snapshot.Plugins, strings.TrimSpace(options.PluginID))
+	if !ok {
+		return newServiceError(ServiceErrorCodeNotFound, "Plugin not active: %s", strings.TrimSpace(options.PluginID))
+	}
+
+	_, err = invokeGoBackendUISetting(
+		ctx,
+		entry.SourcePath,
+		*entry.Manifest,
+		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
+		backendRuntimeUISettingRequest{
+			HandlerID:       strings.TrimSpace(options.HandlerID),
+			Operation:       "write",
+			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
+			Value:           options.Value,
+		},
+	)
+	return err
 }
 
 func findRegisteredBackendRouteMatch(entries []DiscoveredPlugin, method string, requestPath string) (backendRouteMatch, BackendRouteLookup, error) {
@@ -462,6 +578,58 @@ func invokeGoBackendCodegenTarget(
 		)
 	}
 	return normalizeGeneratedCodegenFiles(target, response.Codegen.Files)
+}
+
+func invokeGoBackendUISetting(
+	ctx context.Context,
+	pluginRoot string,
+	manifest PluginManifest,
+	buildRoot string,
+	request backendRuntimeUISettingRequest,
+) (any, error) {
+	runtimeRequest := backendRuntimeRequest{
+		SchemaVersion: backendRuntimeSchemaVersion,
+		Kind:          backendRuntimeKindUISetting,
+		UISetting: &backendRuntimeUISettingRequest{
+			HandlerID:       strings.TrimSpace(request.HandlerID),
+			Operation:       strings.TrimSpace(request.Operation),
+			ProjectConfigID: strings.TrimSpace(request.ProjectConfigID),
+			Value:           request.Value,
+		},
+	}
+
+	response, err := invokeGoBackendRuntime(ctx, pluginRoot, manifest, buildRoot, runtimeRequest)
+	if err != nil {
+		return nil, err
+	}
+	if response.UISetting == nil {
+		return nil, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Invalid backend runtime response for plugin %s: missing ui setting response payload",
+			manifest.ID,
+		)
+	}
+	if strings.TrimSpace(request.Operation) == "write" {
+		return nil, nil
+	}
+	if response.UISetting.Value == nil {
+		return nil, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Invalid backend runtime response for plugin %s: ui setting read is missing value",
+			manifest.ID,
+		)
+	}
+
+	var value any
+	if err := json.Unmarshal(response.UISetting.Value, &value); err != nil {
+		return nil, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Invalid backend runtime response for plugin %s: decode ui setting value: %s",
+			manifest.ID,
+			err.Error(),
+		)
+	}
+	return value, nil
 }
 
 func invokeGoBackendRuntime(

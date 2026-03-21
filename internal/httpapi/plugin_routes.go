@@ -57,6 +57,9 @@ type PluginRouteService interface {
 	PluginRootRouteService
 	InvokeRegisteredListenerEndpoint(ctx context.Context, request plugins.BackendListenerEndpointRequest) (any, bool, error)
 	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
+	GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error)
+	ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error)
+	WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error
 	Rescan() (plugins.DiscoverySnapshot, error)
 	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
 	Link(options plugins.LinkOptions) (plugins.PluginInstallResult, error)

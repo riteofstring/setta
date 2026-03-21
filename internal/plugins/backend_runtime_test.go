@@ -3,7 +3,10 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"setta/internal/config"
@@ -148,5 +151,235 @@ func TestServiceInvokeRegisteredListenerEndpointInvokesGoBackendExecutable(t *te
 	payload, ok := resultPayload["payload"].(map[string]any)
 	if !ok || payload["value"] != "ping" {
 		t.Fatalf("unexpected listener payload %#v", resultPayload["payload"])
+	}
+}
+
+func TestServiceBackendUISettingRoundTripInvokesGoBackendExecutable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	writePluginBackendUISettingFixtureMainGo(t, pluginRoot, false)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	settings, err := service.GetBackendUISettings("setta-fixture-full")
+	if err != nil {
+		t.Fatalf("get backend ui settings: %v", err)
+	}
+	if len(settings) != 1 {
+		t.Fatalf("expected one backend ui setting, got %#v", settings)
+	}
+	if settings[0].LocalSettingID != "backend_enabled" || settings[0].ReadHandlerID != "read-backend-enabled" {
+		t.Fatalf("unexpected backend ui setting registration %#v", settings[0])
+	}
+
+	value, err := service.ReadBackendUISettingValue(context.Background(), BackendUISettingReadOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "read-backend-enabled",
+		ProjectConfigID: "project-alpha",
+	})
+	if err != nil {
+		t.Fatalf("read backend ui setting value: %v", err)
+	}
+	if value != false {
+		t.Fatalf("expected default backend ui setting value false, got %#v", value)
+	}
+
+	if err := service.WriteBackendUISettingValue(context.Background(), BackendUISettingWriteOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "write-backend-enabled",
+		ProjectConfigID: "project-alpha",
+		Value:           true,
+	}); err != nil {
+		t.Fatalf("write backend ui setting value: %v", err)
+	}
+
+	updatedValue, err := service.ReadBackendUISettingValue(context.Background(), BackendUISettingReadOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "read-backend-enabled",
+		ProjectConfigID: "project-alpha",
+	})
+	if err != nil {
+		t.Fatalf("read backend ui setting value after write: %v", err)
+	}
+	if updatedValue != true {
+		t.Fatalf("expected updated backend ui setting value true, got %#v", updatedValue)
+	}
+}
+
+func writePluginBackendUISettingFixtureMainGo(t *testing.T, pluginRoot string, invalidPostWrite bool) {
+	t.Helper()
+
+	assignment := "state.Enabled = value"
+	if invalidPostWrite {
+		assignment = "if value {\n\t\tstate.Enabled = \"invalid-value\"\n\t} else {\n\t\tstate.Enabled = value\n\t}"
+	}
+
+	source := fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	backendProbeArg = "--setta-plugin-backend-probe"
+	backendRuntimeArg = "--setta-plugin-backend-runtime"
+)
+
+type runtimeRequest struct {
+	SchemaVersion int               `+"`json:\"schemaVersion\"`"+`
+	Kind          string            `+"`json:\"kind\"`"+`
+	UISetting     *uiSettingRequest `+"`json:\"uiSetting,omitempty\"`"+`
+}
+
+type uiSettingRequest struct {
+	HandlerID       string `+"`json:\"handlerId\"`"+`
+	Operation       string `+"`json:\"operation\"`"+`
+	ProjectConfigID string `+"`json:\"projectConfigId\"`"+`
+	Value           any    `+"`json:\"value,omitempty\"`"+`
+}
+
+type runtimeResponse struct {
+	SchemaVersion int            `+"`json:\"schemaVersion\"`"+`
+	UISetting     map[string]any `+"`json:\"uiSetting,omitempty\"`"+`
+}
+
+type stateFile struct {
+	Enabled any `+"`json:\"enabled\"`"+`
+}
+
+func main() {
+	if len(os.Args) != 2 {
+		return
+	}
+	switch os.Args[1] {
+	case backendProbeArg:
+		writeJSON(map[string]any{
+			"schemaVersion": 1,
+			"uiSettings": []map[string]any{
+				{
+					"id":             "backend_enabled",
+					"title":          "Backend Enabled",
+					"description":    "Enable backend-provided fixture behavior.",
+					"paneId":         "full-settings-pane",
+					"revealKey":      "full-settings",
+					"synonyms":       []string{"backend enabled"},
+					"mutability":     "writable",
+					"valueSchema":    map[string]any{"type": "boolean"},
+					"readHandlerId":  "read-backend-enabled",
+					"writeHandlerId": "write-backend-enabled",
+				},
+			},
+			"routes":            []map[string]any{},
+			"staticDirs":        []map[string]any{},
+			"listenerEndpoints": []map[string]any{},
+		})
+	case backendRuntimeArg:
+		handleRuntime()
+	}
+}
+
+func handleRuntime() {
+	var request runtimeRequest
+	decoder := json.NewDecoder(os.Stdin)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		fail("decode backend runtime request: %%v", err)
+	}
+	switch strings.TrimSpace(request.Kind) {
+	case "ui_setting":
+		if request.UISetting == nil {
+			fail("ui setting runtime payload is required")
+		}
+		handleUISetting(*request.UISetting)
+	default:
+		fail("unsupported backend runtime kind %%q", request.Kind)
+	}
+}
+
+func handleUISetting(request uiSettingRequest) {
+	switch strings.TrimSpace(request.HandlerID) {
+	case "read-backend-enabled":
+		if strings.TrimSpace(request.Operation) != "read" {
+			fail("unexpected ui setting operation %%q", request.Operation)
+		}
+		state := loadState()
+		writeJSON(runtimeResponse{
+			SchemaVersion: 1,
+			UISetting: map[string]any{
+				"value": state.Enabled,
+			},
+		})
+	case "write-backend-enabled":
+		if strings.TrimSpace(request.Operation) != "write" {
+			fail("unexpected ui setting operation %%q", request.Operation)
+		}
+		value, ok := request.Value.(bool)
+		if !ok {
+			fail("ui setting write value must be boolean")
+		}
+		state := loadState()
+		%s
+		saveState(state)
+		writeJSON(runtimeResponse{
+			SchemaVersion: 1,
+			UISetting: map[string]any{
+				"value": state.Enabled,
+			},
+		})
+	default:
+		fail("unsupported ui setting handler %%q", request.HandlerID)
+	}
+}
+
+func statePath() string {
+	return filepath.Join(".", "backend_ui_setting_state.json")
+}
+
+func loadState() stateFile {
+	bytes, err := os.ReadFile(statePath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateFile{Enabled: false}
+		}
+		fail("read ui setting state: %%v", err)
+	}
+	var state stateFile
+	if err := json.Unmarshal(bytes, &state); err != nil {
+		fail("decode ui setting state: %%v", err)
+	}
+	if state.Enabled == nil {
+		state.Enabled = false
+	}
+	return state
+}
+
+func saveState(state stateFile) {
+	payload, err := json.Marshal(state)
+	if err != nil {
+		fail("encode ui setting state: %%v", err)
+	}
+	if err := os.WriteFile(statePath(), payload, 0o644); err != nil {
+		fail("write ui setting state: %%v", err)
+	}
+}
+
+func writeJSON(payload any) {
+	if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+		fail("encode payload: %%v", err)
+	}
+}
+
+func fail(format string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(1)
+}
+`, assignment)
+
+	if err := os.WriteFile(filepath.Join(pluginRoot, "backend", "main.go"), []byte(source), 0o644); err != nil {
+		t.Fatalf("write backend ui setting fixture main.go: %v", err)
 	}
 }

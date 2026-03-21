@@ -184,6 +184,18 @@ func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options 
 	return s.base.WriteConfig(ctx, options)
 }
 
+func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
+	return s.base.GetBackendUISettings(pluginID)
+}
+
+func (s *pluginMutationRuntimeService) ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
+	return s.base.ReadBackendUISettingValue(ctx, options)
+}
+
+func (s *pluginMutationRuntimeService) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
+	return s.base.WriteBackendUISettingValue(ctx, options)
+}
+
 func (s *pluginMutationRuntimeService) WriteLockfile() (plugins.PluginLockWriteResult, error) {
 	return s.base.WriteLockfile()
 }

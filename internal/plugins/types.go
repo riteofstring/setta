@@ -96,6 +96,20 @@ type PluginRegisteredLanguageServer struct {
 	SettingsKey *string  `json:"settingsKey,omitempty"`
 }
 
+type PluginRegisteredUISetting struct {
+	LocalSettingID string         `json:"localSettingId"`
+	PluginID       string         `json:"pluginId"`
+	Title          string         `json:"title"`
+	Description    string         `json:"description"`
+	Synonyms       []string       `json:"synonyms"`
+	PaneID         string         `json:"paneId"`
+	RevealKey      string         `json:"revealKey"`
+	Mutability     string         `json:"mutability"`
+	ValueSchema    map[string]any `json:"valueSchema"`
+	ReadHandlerID  string         `json:"readHandlerId"`
+	WriteHandlerID *string        `json:"writeHandlerId,omitempty"`
+}
+
 type PluginRegisteredBackendRoute struct {
 	Path    string   `json:"path"`
 	Methods []string `json:"methods"`
@@ -193,6 +207,7 @@ type DiscoveredPlugin struct {
 	RestartRequired             bool
 	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget
 	RegisteredLanguageServers   []PluginRegisteredLanguageServer
+	RegisteredUISettings        []PluginRegisteredUISetting
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
 	RegisteredStaticDirs        []PluginRegisteredStaticDir
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint

@@ -24,15 +24,18 @@ type backendProbeResponse struct {
 	SchemaVersion     int                                `json:"schemaVersion"`
 	CodegenTargets    []PluginRegisteredCodegenTarget    `json:"codegenTargets"`
 	LanguageServers   []PluginRegisteredLanguageServer   `json:"languageServers"`
+	UISettingsRaw     []map[string]any                   `json:"uiSettings"`
 	Routes            []PluginRegisteredBackendRoute     `json:"routes"`
 	StaticDirs        []PluginRegisteredStaticDir        `json:"staticDirs"`
 	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints"`
+
+	UISettings []PluginRegisteredUISetting `json:"-"`
 }
 
 func backendProbeRequired(capabilities []string) bool {
 	for _, capability := range capabilities {
 		switch capability {
-		case "registerCodegenTarget", "registerLanguageServer", "registerRouter", "registerStaticDir", "registerListenerEndpoint":
+		case "registerCodegenTarget", "registerLanguageServer", "registerPane", "registerRouter", "registerStaticDir", "registerListenerEndpoint":
 			return true
 		}
 	}
@@ -103,6 +106,9 @@ func decodeBackendProbeResponse(output []byte) (backendProbeResponse, error) {
 	}
 	if probe.LanguageServers == nil {
 		probe.LanguageServers = []PluginRegisteredLanguageServer{}
+	}
+	if probe.UISettingsRaw == nil {
+		probe.UISettingsRaw = []map[string]any{}
 	}
 	if probe.Routes == nil {
 		probe.Routes = []PluginRegisteredBackendRoute{}
@@ -177,6 +183,30 @@ func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe bac
 		}
 		return 0
 	})
+
+	normalizedUISettings := make([]PluginRegisteredUISetting, 0, len(probe.UISettingsRaw))
+	seenUISettingIDs := map[string]struct{}{}
+	for index, raw := range probe.UISettingsRaw {
+		normalized, err := normalizeBackendUISettingRegistration(pluginID, raw)
+		if err != nil {
+			return backendProbeResponse{}, fmt.Errorf("ui setting %d: %w", index, err)
+		}
+		if _, exists := seenUISettingIDs[normalized.LocalSettingID]; exists {
+			return backendProbeResponse{}, fmt.Errorf("duplicate ui setting id %s", normalized.LocalSettingID)
+		}
+		seenUISettingIDs[normalized.LocalSettingID] = struct{}{}
+		normalizedUISettings = append(normalizedUISettings, normalized)
+	}
+	slices.SortFunc(normalizedUISettings, func(left PluginRegisteredUISetting, right PluginRegisteredUISetting) int {
+		if left.LocalSettingID < right.LocalSettingID {
+			return -1
+		}
+		if left.LocalSettingID > right.LocalSettingID {
+			return 1
+		}
+		return 0
+	})
+	probe.UISettings = normalizedUISettings
 
 	routeKeys := map[string]struct{}{}
 	for index, route := range probe.Routes {
@@ -407,6 +437,144 @@ func normalizeBackendListenerEndpointRegistration(endpoint PluginRegisteredListe
 		return PluginRegisteredListenerEndpoint{}, fmt.Errorf("name is required")
 	}
 	return PluginRegisteredListenerEndpoint{Name: name}, nil
+}
+
+func normalizeBackendUISettingRegistration(pluginID string, raw map[string]any) (PluginRegisteredUISetting, error) {
+	if raw == nil {
+		return PluginRegisteredUISetting{}, fmt.Errorf("registration must be an object")
+	}
+
+	allowedKeys := map[string]struct{}{
+		"id":             {},
+		"title":          {},
+		"description":    {},
+		"paneId":         {},
+		"revealKey":      {},
+		"synonyms":       {},
+		"mutability":     {},
+		"valueSchema":    {},
+		"readHandlerId":  {},
+		"writeHandlerId": {},
+	}
+	for key := range raw {
+		if _, ok := allowedKeys[key]; ok {
+			continue
+		}
+		return PluginRegisteredUISetting{}, fmt.Errorf("unsupported key %q", key)
+	}
+
+	localSettingID, err := backendProbeRequiredString(raw["id"], "id")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+	if strings.Contains(localSettingID, "::") {
+		return PluginRegisteredUISetting{}, fmt.Errorf("id must not contain '::'")
+	}
+	title, err := backendProbeRequiredString(raw["title"], "title")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+	description, err := backendProbeRequiredString(raw["description"], "description")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+	paneID, err := backendProbeRequiredString(raw["paneId"], "paneId")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+	revealKey, err := backendProbeRequiredString(raw["revealKey"], "revealKey")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+	synonyms, err := backendProbeStringArray(raw["synonyms"], "synonyms")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+
+	mutability := "writable"
+	if rawMutability, ok := raw["mutability"]; ok && rawMutability != nil {
+		mutability, err = backendProbeRequiredString(rawMutability, "mutability")
+		if err != nil {
+			return PluginRegisteredUISetting{}, err
+		}
+	}
+	if mutability != "readOnly" && mutability != "writable" {
+		return PluginRegisteredUISetting{}, fmt.Errorf("mutability must be readOnly or writable")
+	}
+
+	rawValueSchema, ok := raw["valueSchema"]
+	if !ok {
+		return PluginRegisteredUISetting{}, fmt.Errorf("valueSchema is required")
+	}
+	valueSchema, ok := rawValueSchema.(map[string]any)
+	if !ok {
+		return PluginRegisteredUISetting{}, fmt.Errorf("valueSchema must be an object")
+	}
+
+	readHandlerID, err := backendProbeRequiredString(raw["readHandlerId"], "readHandlerId")
+	if err != nil {
+		return PluginRegisteredUISetting{}, err
+	}
+
+	var writeHandlerID *string
+	if rawWriteHandlerID, ok := raw["writeHandlerId"]; ok && rawWriteHandlerID != nil {
+		normalizedWriteHandlerID, err := backendProbeRequiredString(rawWriteHandlerID, "writeHandlerId")
+		if err != nil {
+			return PluginRegisteredUISetting{}, err
+		}
+		writeHandlerID = &normalizedWriteHandlerID
+	}
+	if mutability == "readOnly" && writeHandlerID != nil {
+		return PluginRegisteredUISetting{}, fmt.Errorf("writeHandlerId must be omitted when mutability=readOnly")
+	}
+	if mutability == "writable" && writeHandlerID == nil {
+		return PluginRegisteredUISetting{}, fmt.Errorf("writeHandlerId is required when mutability=writable")
+	}
+
+	return PluginRegisteredUISetting{
+		LocalSettingID: localSettingID,
+		PluginID:       strings.TrimSpace(pluginID),
+		Title:          title,
+		Description:    description,
+		Synonyms:       synonyms,
+		PaneID:         paneID,
+		RevealKey:      revealKey,
+		Mutability:     mutability,
+		ValueSchema:    cloneStringAnyMap(valueSchema),
+		ReadHandlerID:  readHandlerID,
+		WriteHandlerID: cloneOptionalString(writeHandlerID),
+	}, nil
+}
+
+func backendProbeRequiredString(raw any, fieldName string) (string, error) {
+	value, ok := raw.(string)
+	if !ok {
+		return "", fmt.Errorf("%s must be a non-empty string", fieldName)
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must be a non-empty string", fieldName)
+	}
+	return trimmed, nil
+}
+
+func backendProbeStringArray(raw any, fieldName string) ([]string, error) {
+	if raw == nil {
+		return []string{}, nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be a string array", fieldName)
+	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		value, err := backendProbeRequiredString(item, fieldName)
+		if err != nil {
+			return nil, fmt.Errorf("%s must be a string array", fieldName)
+		}
+		values = append(values, value)
+	}
+	return values, nil
 }
 
 func normalizeBackendRegistrationPath(raw string, label string) (string, error) {

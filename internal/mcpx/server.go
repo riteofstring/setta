@@ -209,6 +209,9 @@ type pluginMutationProvider interface {
 	Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
 	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
 	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
+	GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error)
+	ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error)
+	WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error
 }
 
 type pythonPackageProvider interface {
