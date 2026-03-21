@@ -166,6 +166,43 @@ func TestServiceHistoryReturnsBufferedOutput(t *testing.T) {
 	}
 }
 
+func TestServiceAttachAfterProcessExitReturnsBufferedHistory(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-exit-history", "")
+	shell := requireCommand(t, "sh")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: false,
+		Command:    []string{shell, "-c", "printf 'done\\n'"},
+	}); err != nil {
+		t.Fatalf("open terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected terminal to be created")
+	}
+
+	history := waitForHistoryContains(t, service, sessionID, "done")
+	if !strings.Contains(history, "done") {
+		t.Fatalf("expected exited terminal history to include output, got %q", history)
+	}
+
+	attachment, err := service.Attach(sessionID)
+	if err != nil {
+		t.Fatalf("attach exited terminal: %v", err)
+	}
+	t.Cleanup(attachment.Close)
+
+	if !strings.Contains(string(attachment.History), "done") {
+		t.Fatalf("expected exited terminal attachment history to include output, got %q", string(attachment.History))
+	}
+	if _, ok := <-attachment.Output; ok {
+		t.Fatal("expected exited terminal attachment output to be closed")
+	}
+}
+
 func TestServiceResizeUpdatesSessionAndPTY(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)

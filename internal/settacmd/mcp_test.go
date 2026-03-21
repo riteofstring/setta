@@ -204,6 +204,28 @@ func TestConsumeMCPBridgeBootstrapTokenRejectsBaseCookieWithoutSessionSuffix(t *
 	}
 }
 
+func TestConsumeMCPBridgeBootstrapTokenRejectsMissingAuthCookie(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:  "other-cookie",
+			Value: "other-value",
+			Path:  "/",
+		})
+		_, _ = io.WriteString(w, `{"status":"ok"}`)
+	}))
+	defer server.Close()
+
+	_, err := consumeMCPBridgeBootstrapToken(server.URL+"/mcp", "bootstrap-token")
+	if err == nil {
+		t.Fatal("expected missing auth cookie to be rejected")
+	}
+	if !strings.Contains(err.Error(), "session-scoped auth cookie") {
+		t.Fatalf("expected session-scoped auth cookie rejection, got %v", err)
+	}
+}
+
 func TestRunMCPBridgeWithCurrentSessionAuth(t *testing.T) {
 	now := time.Date(2026, time.March, 15, 12, 0, 0, 0, time.UTC)
 	workspaceRoot, expectedCookie := prepareMCPBridgeCurrentSession(t, now)

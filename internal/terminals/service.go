@@ -129,6 +129,7 @@ type session struct {
 	mu          sync.RWMutex
 	columns     int
 	rows        int
+	exited      bool
 	history     historyBuffer
 	attachments map[string]chan []byte
 
@@ -222,10 +223,13 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 	}
 
 	if existing, ok := s.sessions[normalized.ID]; ok {
-		if !existing.matches(normalized) {
+		if existing.isExited() {
+			delete(s.sessions, normalized.ID)
+		} else if !existing.matches(normalized) {
 			return SessionInfo{}, false, ErrSessionConflict
+		} else {
+			return existing.info(), false, nil
 		}
-		return existing.info(), false, nil
 	}
 
 	sessionCtx, cancel := context.WithCancel(context.Background())
@@ -301,6 +305,9 @@ func (s *Service) ReusableSession(sessionID string) bool {
 	if err != nil {
 		return false
 	}
+	if session.isExited() {
+		return false
+	}
 
 	reusable, err := sessionIsReusable(session)
 	if err != nil {
@@ -344,12 +351,20 @@ func (s *Service) Attach(sessionID string) (*Attachment, error) {
 		return nil, ErrUnknownSession
 	}
 
+	session.mu.Lock()
+	history := session.history.Bytes()
+	if session.exited {
+		session.mu.Unlock()
+		output := make(chan []byte)
+		close(output)
+		return &Attachment{
+			History: history,
+			Output:  output,
+		}, nil
+	}
 	attachmentID := fmt.Sprintf("attachment-%d", atomic.AddUint64(&s.nextAttachmentID, 1))
 	output := make(chan []byte, s.subscriberBuffer)
-
-	session.mu.Lock()
 	session.attachments[attachmentID] = output
-	history := session.history.Bytes()
 	session.mu.Unlock()
 
 	return &Attachment{
@@ -373,7 +388,7 @@ func (s *Service) History(sessionID string) (string, error) {
 }
 
 func (s *Service) Write(sessionID string, data []byte) error {
-	session, err := s.requireSession(sessionID)
+	session, err := s.requireLiveSession(sessionID)
 	if err != nil {
 		return err
 	}
@@ -381,7 +396,7 @@ func (s *Service) Write(sessionID string, data []byte) error {
 }
 
 func (s *Service) RunCommand(sessionID string, data []byte) error {
-	session, err := s.requireSession(sessionID)
+	session, err := s.requireLiveSession(sessionID)
 	if err != nil {
 		return err
 	}
@@ -428,7 +443,7 @@ func (s *Service) Resize(sessionID string, columns int, rows int) error {
 		return fmt.Errorf("terminal size must be positive")
 	}
 
-	session, err := s.requireSession(sessionID)
+	session, err := s.requireLiveSession(sessionID)
 	if err != nil {
 		return err
 	}
@@ -449,6 +464,7 @@ func (s *Service) Delete(ctx context.Context, sessionID string) error {
 		return err
 	}
 	s.cleanupSession(session, true)
+	s.removeSessionIfCurrent(session)
 	return waitForDone(ctx, session.waitDone)
 }
 
@@ -475,6 +491,9 @@ func (s *Service) InterruptProject(projectID string, shareSessionID string) (int
 	interruptedCount := 0
 	var err error
 	for _, session := range sessions {
+		if session.isExited() {
+			continue
+		}
 		interrupted, interruptErr := interruptTerminalSession(session)
 		if interruptErr != nil {
 			err = errors.Join(err, interruptErr)
@@ -512,6 +531,7 @@ func (s *Service) DeleteShareSession(ctx context.Context, shareSessionID string)
 	var err error
 	for _, session := range sessions {
 		s.cleanupSession(session, true)
+		s.removeSessionIfCurrent(session)
 		err = errors.Join(err, waitForDone(ctx, session.waitDone))
 	}
 	return err
@@ -533,6 +553,7 @@ func (s *Service) Close(ctx context.Context) error {
 	var err error
 	for _, session := range sessions {
 		s.cleanupSession(session, true)
+		s.removeSessionIfCurrent(session)
 		err = errors.Join(err, waitForDone(ctx, session.waitDone))
 	}
 	return err
@@ -543,6 +564,17 @@ func (s *Service) requireSession(sessionID string) (*session, error) {
 	session, ok := s.sessions[strings.TrimSpace(sessionID)]
 	s.mu.RUnlock()
 	if !ok {
+		return nil, ErrUnknownSession
+	}
+	return session, nil
+}
+
+func (s *Service) requireLiveSession(sessionID string) (*session, error) {
+	session, err := s.requireSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session.isExited() {
 		return nil, ErrUnknownSession
 	}
 	return session, nil
@@ -591,7 +623,6 @@ func (s *Service) waitLoop(session *session) {
 			slog.Any("error", err),
 		)
 	}
-	s.cleanupSession(session, false)
 }
 
 func (s *Service) cleanupSession(session *session, terminate bool) {
@@ -600,13 +631,11 @@ func (s *Service) cleanupSession(session *session, terminate bool) {
 			session.cancel()
 		}
 		session.markPromptReady()
+		session.markExited()
 
-		s.mu.Lock()
-		current, ok := s.sessions[session.id]
-		if ok && current == session {
-			delete(s.sessions, session.id)
+		if terminate {
+			s.removeSessionIfCurrent(session)
 		}
-		s.mu.Unlock()
 
 		_ = session.pty.Close()
 		session.removeAllAttachments()
@@ -617,6 +646,19 @@ func (s *Service) cleanupSession(session *session, terminate bool) {
 			slog.String("share_session_id", session.shareSessionID),
 		)
 	})
+}
+
+func (s *Service) removeSessionIfCurrent(session *session) {
+	if session == nil {
+		return
+	}
+
+	s.mu.Lock()
+	current, ok := s.sessions[session.id]
+	if ok && current == session {
+		delete(s.sessions, session.id)
+	}
+	s.mu.Unlock()
 }
 
 func (s *Service) normalizeOpenOptions(options OpenOptions) (OpenOptions, error) {
@@ -687,6 +729,18 @@ func (session *session) matches(options OpenOptions) bool {
 		return false
 	}
 	return equalStringSlices(session.env, options.Env)
+}
+
+func (session *session) isExited() bool {
+	session.mu.RLock()
+	defer session.mu.RUnlock()
+	return session.exited
+}
+
+func (session *session) markExited() {
+	session.mu.Lock()
+	session.exited = true
+	session.mu.Unlock()
 }
 
 func (session *session) appendOutput(data []byte) {
