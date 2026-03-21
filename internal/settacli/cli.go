@@ -279,13 +279,7 @@ func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 			if err != nil {
 				return err
 			}
-			if localsessions.IsSessionActive(selected) {
-				process, err := os.FindProcess(selected.PID)
-				if err == nil && process != nil {
-					_ = process.Kill()
-				}
-			}
-			if err := registry.DeleteSession(selected.ID); err != nil {
+			if err := deleteLocalSession(registry, selected); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprintf(stdout, "Deleted session %s.\n", selected.ID)
@@ -538,6 +532,8 @@ func filterSessionsByDefaultMode(sessions []auth.SessionMetadata, command string
 			mode = "ide"
 		case command == "api":
 			mode = "ide"
+		case command == "stop":
+			mode = "ide"
 		case command == "status" && connectInfo:
 			mode = "ide"
 		}
@@ -575,6 +571,16 @@ func selectSession(sessions []auth.SessionMetadata, sessionID string, latest boo
 		return sessions[0], nil
 	}
 	return auth.SessionMetadata{}, fmt.Errorf("multiple sessions found; use --session <id> or --latest")
+}
+
+func deleteLocalSession(registry *localsessions.Registry, session auth.SessionMetadata) error {
+	if localsessions.IsSessionActive(session) {
+		process, err := os.FindProcess(session.PID)
+		if err == nil && process != nil {
+			_ = process.Kill()
+		}
+	}
+	return registry.DeleteSession(session.ID)
 }
 
 func sessionToJSON(session auth.SessionMetadata) sessionJSON {

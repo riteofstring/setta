@@ -2,9 +2,12 @@ package settacli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +16,248 @@ import (
 	"setta/internal/localsessions"
 	"setta/internal/sshx"
 )
+
+func TestRunStopLocalAllScopesByWorkspaceAndDefaultsToIDE(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	olderIDEProc := fixture.startProcess(t, "setta.server:app")
+	olderIDE := fixture.createSession(t, olderIDEProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	newerIDEProc := fixture.startProcess(t, "setta.server:app")
+	newerIDE := fixture.createSession(t, newerIDEProc, 61235, time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC), "ide")
+	launcherProc := fixture.startProcess(t, "setta.server:app")
+	launcherSession := fixture.createSession(t, launcherProc, 61236, time.Date(2026, time.March, 8, 12, 10, 0, 0, time.UTC), "launcher")
+
+	otherWorkspace := filepath.Join(filepath.Dir(fixture.workspaceRoot), "other-workspace")
+	if err := os.MkdirAll(otherWorkspace, 0o755); err != nil {
+		t.Fatalf("mkdir other workspace: %v", err)
+	}
+	otherWorkspaceProc := fixture.startProcess(t, "setta.server:app")
+	otherWorkspaceSession := createLocalStopSessionForWorkspace(
+		t,
+		fixture,
+		otherWorkspaceProc,
+		otherWorkspace,
+		61237,
+		time.Date(2026, time.March, 8, 12, 15, 0, 0, time.UTC),
+		"ide",
+	)
+
+	stdout, stderr, err := fixture.run(
+		"stop",
+		"--workspace",
+		fixture.workspaceRoot,
+		"--all",
+	)
+	if err != nil {
+		t.Fatalf("run local stop --all: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	gotLines := strings.Split(strings.TrimSpace(stdout), "\n")
+	wantLines := []string{
+		"Stopped session " + olderIDE.ID + ".",
+		"Stopped session " + newerIDE.ID + ".",
+	}
+	sort.Strings(gotLines)
+	sort.Strings(wantLines)
+	if strings.Join(gotLines, "\n") != strings.Join(wantLines, "\n") {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitForSettacliHelperExit(t, olderIDEProc, 2*time.Second)
+	waitForSettacliHelperExit(t, newerIDEProc, 2*time.Second)
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", olderIDE.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session %q metadata to be removed, stat err=%v", olderIDE.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", newerIDE.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session %q metadata to be removed, stat err=%v", newerIDE.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", launcherSession.ID)); err != nil {
+		t.Fatalf("expected launcher session %q to remain, stat err=%v", launcherSession.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", otherWorkspaceSession.ID)); err != nil {
+		t.Fatalf("expected other-workspace session %q to remain, stat err=%v", otherWorkspaceSession.ID, err)
+	}
+}
+
+func TestRunStopLocalLatestDefaultsToIDEWithinWorkspace(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	olderIDEProc := fixture.startProcess(t, "setta.server:app")
+	olderIDE := fixture.createSession(t, olderIDEProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	latestIDEProc := fixture.startProcess(t, "setta.server:app")
+	latestIDE := fixture.createSession(t, latestIDEProc, 61235, time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC), "ide")
+	launcherProc := fixture.startProcess(t, "setta.server:app")
+	launcherSession := fixture.createSession(t, launcherProc, 61236, time.Date(2026, time.March, 8, 12, 10, 0, 0, time.UTC), "launcher")
+
+	otherWorkspace := filepath.Join(filepath.Dir(fixture.workspaceRoot), "other-workspace-latest")
+	if err := os.MkdirAll(otherWorkspace, 0o755); err != nil {
+		t.Fatalf("mkdir other workspace: %v", err)
+	}
+	otherWorkspaceProc := fixture.startProcess(t, "setta.server:app")
+	otherWorkspaceSession := createLocalStopSessionForWorkspace(
+		t,
+		fixture,
+		otherWorkspaceProc,
+		otherWorkspace,
+		61237,
+		time.Date(2026, time.March, 8, 12, 15, 0, 0, time.UTC),
+		"ide",
+	)
+
+	stdout, stderr, err := fixture.run(
+		"stop",
+		"--workspace",
+		fixture.workspaceRoot,
+		"--latest",
+	)
+	if err != nil {
+		t.Fatalf("run local stop --latest: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Stopped session "+latestIDE.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitForSettacliHelperExit(t, latestIDEProc, 2*time.Second)
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", latestIDE.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session %q metadata to be removed, stat err=%v", latestIDE.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", olderIDE.ID)); err != nil {
+		t.Fatalf("expected older IDE session %q to remain, stat err=%v", olderIDE.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", launcherSession.ID)); err != nil {
+		t.Fatalf("expected launcher session %q to remain, stat err=%v", launcherSession.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", otherWorkspaceSession.ID)); err != nil {
+		t.Fatalf("expected other-workspace session %q to remain, stat err=%v", otherWorkspaceSession.ID, err)
+	}
+}
+
+func TestRunStopLocalSessionSelectorStopsRequestedSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	firstProc := fixture.startProcess(t, "setta.server:app")
+	firstSession := fixture.createSession(t, firstProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	secondProc := fixture.startProcess(t, "setta.server:app")
+	secondSession := fixture.createSession(t, secondProc, 61235, time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"stop",
+		"--workspace",
+		fixture.workspaceRoot,
+		"--session",
+		firstSession.ID,
+	)
+	if err != nil {
+		t.Fatalf("run local stop --session: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Stopped session "+firstSession.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitForSettacliHelperExit(t, firstProc, 2*time.Second)
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", firstSession.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session %q metadata to be removed, stat err=%v", firstSession.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", secondSession.ID)); err != nil {
+		t.Fatalf("expected non-selected session %q to remain, stat err=%v", secondSession.ID, err)
+	}
+}
+
+func TestRunStopLocalProfileUsesProfileRuntimeSessionsRoot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	defaultProc := fixture.startProcess(t, "setta.server:app")
+	defaultSession := fixture.createSession(t, defaultProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	root := filepath.Dir(fixture.workspaceRoot)
+	lookupHome := filepath.Join(root, ".setta")
+	profileSettaHome := filepath.Join(root, "profile-home", ".setta-development")
+	profileRuntimeRoot := filepath.Join(root, "profile-runtime")
+	if err := os.MkdirAll(filepath.Join(lookupHome, "profiles"), 0o755); err != nil {
+		t.Fatalf("mkdir lookup profiles: %v", err)
+	}
+	if err := os.MkdirAll(profileSettaHome, 0o755); err != nil {
+		t.Fatalf("mkdir profile setta home: %v", err)
+	}
+	writeSettacliJSONFile(t, filepath.Join(lookupHome, "profiles", "dev.json"), map[string]any{
+		"name":               "dev",
+		"workspaceRoot":      fixture.workspaceRoot,
+		"settaHome":          profileSettaHome,
+		"runtimeRoot":        profileRuntimeRoot,
+		"settaFilesLocation": "local",
+	})
+
+	profileRegistry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot: filepath.Join(profileRuntimeRoot, "sessions"),
+	})
+	if err != nil {
+		t.Fatalf("new profile registry: %v", err)
+	}
+	profileProc := fixture.startProcess(t, "setta.server:app")
+	profileSession, err := profileRegistry.CreateSession(localsessions.CreateSessionInput{
+		WorkspaceRoot:      fixture.workspaceRoot,
+		Host:               "127.0.0.1",
+		Port:               61235,
+		PID:                profileProc.Process.Pid,
+		SettaFilesLocation: "local",
+		SettaFilesRoot:     fixture.settaFilesRoot,
+		RuntimeRoot:        profileRuntimeRoot,
+		SettaHome:          profileSettaHome,
+		ServerMode:         "ide",
+	})
+	if err != nil {
+		t.Fatalf("create profile session: %v", err)
+	}
+	profileSession.StartedAt = time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC)
+	if err := rewriteSessionMetadata(profileSession); err != nil {
+		t.Fatalf("rewrite profile session metadata: %v", err)
+	}
+
+	stdout, stderr, err := fixture.runFromCWD(
+		root,
+		"--profile-lookup-home",
+		lookupHome,
+		"--profile",
+		"dev",
+		"stop",
+		"--workspace",
+		fixture.workspaceRoot,
+		"--latest",
+	)
+	if err != nil {
+		t.Fatalf("run local stop with profile runtime root: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Stopped session "+profileSession.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitForSettacliHelperExit(t, profileProc, 2*time.Second)
+
+	if _, err := os.Stat(filepath.Join(profileRuntimeRoot, "sessions", profileSession.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected profile session %q metadata to be removed, stat err=%v", profileSession.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", defaultSession.ID)); err != nil {
+		t.Fatalf("expected default runtime session %q to remain, stat err=%v", defaultSession.ID, err)
+	}
+}
 
 func TestRunStopRemoteLatestForwardsProfileWithoutLocalValidation(t *testing.T) {
 	repoRoot := testRepoRootForSettacli(t)
@@ -302,11 +547,6 @@ func TestRunStopRemoteValidationRejectsInvalidFlagCombinations(t *testing.T) {
 		wantErrMessage string
 	}{
 		{
-			name:           "missing_ssh_target",
-			args:           []string{"stop", "--workspace", "/remote/workspace"},
-			wantErrMessage: "local stop is not implemented in cmd/setta-cli yet; provide <ssh_target> for remote stop",
-		},
-		{
 			name:           "extra_positional_argument",
 			args:           []string{"stop", "user@host", "--workspace", "/remote/workspace", "extra"},
 			wantErrMessage: "stop accepts flags after a single ssh_target, not additional positional arguments",
@@ -349,6 +589,74 @@ func TestRunStopRemoteValidationRejectsInvalidFlagCombinations(t *testing.T) {
 				t.Fatalf("expected %q, got %q", testCase.wantErrMessage, err.Error())
 			}
 		})
+	}
+}
+
+func createLocalStopSessionForWorkspace(
+	t *testing.T,
+	fixture *cliFixture,
+	proc *exec.Cmd,
+	workspaceRoot string,
+	port int,
+	startedAt time.Time,
+	serverMode string,
+) auth.SessionMetadata {
+	t.Helper()
+
+	if proc == nil || proc.Process == nil {
+		t.Fatal("process is required")
+	}
+	metadata, err := fixture.registry.CreateSession(localsessions.CreateSessionInput{
+		WorkspaceRoot:      workspaceRoot,
+		Host:               "127.0.0.1",
+		Port:               port,
+		PID:                proc.Process.Pid,
+		SettaFilesLocation: "local",
+		SettaFilesRoot:     fixture.settaFilesRoot,
+		RuntimeRoot:        fixture.runtimeRoot,
+		SettaHome:          fixture.settaHome,
+		ServerMode:         serverMode,
+	})
+	if err != nil {
+		t.Fatalf("create session for workspace: %v", err)
+	}
+	metadata.StartedAt = startedAt.UTC()
+	if err := rewriteSessionMetadata(metadata); err != nil {
+		t.Fatalf("rewrite session metadata: %v", err)
+	}
+	return metadata
+}
+
+func waitForSettacliHelperExit(t *testing.T, proc *exec.Cmd, timeout time.Duration) {
+	t.Helper()
+
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- proc.Wait()
+	}()
+	select {
+	case err := <-waitDone:
+		if err == nil {
+			t.Fatal("expected helper process to exit via kill signal")
+		}
+	case <-time.After(timeout):
+		t.Fatal("timed out waiting for helper process to exit")
+	}
+}
+
+func writeSettacliJSONFile(t *testing.T, path string, payload any) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir json parent: %v", err)
+	}
+	raw, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal json payload: %v", err)
+	}
+	raw = append(raw, '\n')
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatalf("write json payload: %v", err)
 	}
 }
 

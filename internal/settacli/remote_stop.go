@@ -4,9 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"setta/internal/auth"
+	"setta/internal/localsessions"
 	"setta/internal/sshx"
 )
 
@@ -42,17 +45,17 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 	if err := flags.Parse(flagArgs); err != nil {
 		return err
 	}
-	if sshTarget == "" {
-		return fmt.Errorf("local stop is not implemented in cmd/setta-cli yet; provide <ssh_target> for remote stop")
-	}
-	if flags.NArg() != 0 {
-		return fmt.Errorf("stop accepts flags after a single ssh_target, not additional positional arguments")
-	}
 	if strings.TrimSpace(parsed.sessionID) != "" && parsed.latest {
 		return fmt.Errorf("use either --session or --latest, not both")
 	}
 	if parsed.stopAll && (strings.TrimSpace(parsed.sessionID) != "" || parsed.latest) {
 		return fmt.Errorf("use --all by itself")
+	}
+	if flags.NArg() != 0 {
+		return fmt.Errorf("stop accepts flags after a single ssh_target, not additional positional arguments")
+	}
+	if sshTarget == "" {
+		return runLocalStop(parsed, global, stdout, envLookup, cwd)
 	}
 
 	workspaceRoot, err := resolveRemoteWorkspaceFlag(global.workspaceRoot, parsed.workspaceRoot, "stop")
@@ -108,6 +111,43 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 			SSHArgs:            strings.TrimSpace(parsed.sshArgs),
 			RemoteCommand:      strings.TrimSpace(parsed.remoteCommand),
 		}); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stdout, "Stopped session %s.\n", session.ID)
+	}
+	return nil
+}
+
+func runLocalStop(parsed stopFlags, global globalFlags, stdout io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	commandCfg, err := resolveCommandConfig(global, parsed.workspaceRoot, "stop", cwd, envLookup)
+	if err != nil {
+		return err
+	}
+	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot: filepath.Join(commandCfg.Paths.RuntimeRoot, "sessions"),
+	})
+	if err != nil {
+		return err
+	}
+	sessions, err := registry.LoadSessions()
+	if err != nil {
+		return err
+	}
+	sessions = filterSessionsForWorkspace(sessions, commandCfg.Paths.WorkspaceRoot)
+	if parsed.serverMode != "" && parsed.serverMode != "ide" && parsed.serverMode != "launcher" {
+		return fmt.Errorf("invalid --server-mode %q", parsed.serverMode)
+	}
+	sessions = filterSessionsByDefaultMode(sessions, "stop", false, strings.TrimSpace(parsed.serverMode))
+	sessions = localsessions.FilterActiveSessions(sessions)
+	if len(sessions) == 0 {
+		return fmt.Errorf("No matching Setta sessions found.")
+	}
+	targets, err := selectLocalStopTargets(sessions, parsed.sessionID, parsed.latest, parsed.stopAll)
+	if err != nil {
+		return err
+	}
+	for _, session := range targets {
+		if err := deleteLocalSession(registry, session); err != nil {
 			return err
 		}
 		_, _ = fmt.Fprintf(stdout, "Stopped session %s.\n", session.ID)
@@ -178,6 +218,31 @@ func selectRemoteStopTargets(sessions []sshx.RemoteSessionSummary, sessionID str
 	}
 	if len(sessions) == 1 {
 		return append([]sshx.RemoteSessionSummary(nil), sessions...), nil
+	}
+	return nil, fmt.Errorf("Multiple sessions found; use --session <id>, --latest, or --all.")
+}
+
+func selectLocalStopTargets(sessions []auth.SessionMetadata, sessionID string, latest bool, stopAll bool) ([]auth.SessionMetadata, error) {
+	if stopAll {
+		return append([]auth.SessionMetadata(nil), sessions...), nil
+	}
+	if trimmed := strings.TrimSpace(sessionID); trimmed != "" {
+		for _, session := range sessions {
+			if session.ID == trimmed {
+				return []auth.SessionMetadata{session}, nil
+			}
+		}
+		return nil, fmt.Errorf("Session %s not found.", trimmed)
+	}
+	if latest {
+		sorted := append([]auth.SessionMetadata(nil), sessions...)
+		sort.Slice(sorted, func(i int, j int) bool {
+			return sorted[i].StartedAt.After(sorted[j].StartedAt)
+		})
+		return []auth.SessionMetadata{sorted[0]}, nil
+	}
+	if len(sessions) == 1 {
+		return append([]auth.SessionMetadata(nil), sessions...), nil
 	}
 	return nil, fmt.Errorf("Multiple sessions found; use --session <id>, --latest, or --all.")
 }
