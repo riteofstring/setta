@@ -5039,6 +5039,7 @@ def execute_workspace_launch_outdated_settings_error(
         initial_settings_load_http_status=initial_settings_load_response.status_code,
         create_intent_http_status=create_intent_response.status_code,
         create_intent_payload=create_intent_payload,
+        expected_launch_return_url=return_url,
         launch_http_status=None
         if launch_response is None
         else launch_response.status_code,
@@ -7044,6 +7045,7 @@ def summarize_workspace_launch_outdated_settings_error(
     initial_settings_load_http_status: int,
     create_intent_http_status: int,
     create_intent_payload: Any,
+    expected_launch_return_url: str,
     launch_http_status: int | None,
     launch_payload: Any,
 ) -> dict[str, Any]:
@@ -7072,15 +7074,33 @@ def summarize_workspace_launch_outdated_settings_error(
         )
         error_code = normalized_string(error_payload.get("code"))
         error_message = normalized_string(error_payload.get("message"))
+        return_url = normalized_string(launch_payload.get("returnUrl"))
         if error_code:
             summary["launchErrorCode"] = error_code
         if error_message:
-            summary["launchErrorHasMigrationCopy"] = (
-                "older Setta settings/project format" in error_message
+            summary["launchErrorMessage"] = error_message
+        if return_url:
+            summary["launchReturnUrlPath"] = urlparse(return_url).path
+            summary["launchReturnUrlMatchesRequested"] = (
+                return_url == expected_launch_return_url
             )
-            summary["launchErrorHasSectionName"] = (
-                "spreadsheetSectionDefault" in error_message
-            )
+        launch_success_fields_present: list[str] = []
+        for field_name in [
+            "bootstrapUrlFragment",
+            "workspaceRoot",
+            "settaFilesLocation",
+            "settaFilesRoot",
+            "runtimeRoot",
+            "settaHome",
+            "profile",
+            "sessionId",
+            "startedNew",
+            "session",
+            "remoteCmdResolved",
+        ]:
+            if field_name in launch_payload and launch_payload[field_name] is not None:
+                launch_success_fields_present.append(field_name)
+        summary["launchSuccessFieldsPresent"] = launch_success_fields_present
     elif launch_http_status is not None:
         summary["launchErrorSummary"] = normalize_error_summary(launch_payload)
 

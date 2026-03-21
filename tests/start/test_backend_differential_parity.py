@@ -3163,6 +3163,7 @@ class Route:
         }
         launch_payload = {
             "ok": False,
+            "returnUrl": "http://launcher.example:7999/home",
             "error": {
                 "code": "OutdatedProjectSettings",
                 "message": (
@@ -3177,6 +3178,7 @@ class Route:
             initial_settings_load_http_status=200,
             create_intent_http_status=200,
             create_intent_payload=create_intent_payload,
+            expected_launch_return_url="http://launcher.example:7999/home",
             launch_http_status=200,
             launch_payload=launch_payload,
         )
@@ -3191,8 +3193,14 @@ class Route:
                 "createIntentHasToken": True,
                 "launchOk": False,
                 "launchErrorCode": "OutdatedProjectSettings",
-                "launchErrorHasMigrationCopy": True,
-                "launchErrorHasSectionName": True,
+                "launchErrorMessage": (
+                    "This workspace uses an older Setta settings/project format "
+                    "(missing settings section spreadsheetSectionDefault). "
+                    "Please migrate the project metadata and try again."
+                ),
+                "launchReturnUrlPath": "/home",
+                "launchReturnUrlMatchesRequested": True,
+                "launchSuccessFieldsPresent": [],
             },
         )
 
