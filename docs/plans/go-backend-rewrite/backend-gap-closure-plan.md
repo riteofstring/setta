@@ -275,6 +275,11 @@ categorize them.
   row and the plugin-codegen stale-root cleanup proof; the next cheap queue
   is effectively the codegen proof slice because the config-home row is still
   cross-platform awkward to prove honestly on one host OS
+- That plugin-codegen stale-root row is now proved too, so the only remaining
+  proof-incomplete row is the platform-default `SETTA_HOME` contract; at this
+  point the cheap proof-only queue is exhausted on the current host OS and the
+  next practical work should shift back to real `Missing` implementation gaps
+  unless we deliberately add cross-platform config-path proof infrastructure
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared

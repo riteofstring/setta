@@ -5,7 +5,7 @@ Last audited: `2026-03-18`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `e6e660252fe2658895dca35799989c6d280750f0`
+- Target head: `3af28b6af9f16359a61599a57721ac200989400a`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -64,6 +64,9 @@ Last audited: `2026-03-18`
 - plus the targeted external-agent preflight slice: non-Claude
   supported-versus-available classification and Node-backed command-path
   prerequisites on the live Project AI health surface
+- plus the targeted plugin-codegen stale-root slice: rename/delete-driven
+  output-root pruning and unexpected stale plugin-root cleanup on the
+  surviving main-save materialization path
 - plus the first bounded prompt-template / prompt-link slice: template CRUD
   persistence, deployment read-policy behavior, linked prompt refresh/delete
   guards, and prompt-section link error contracts
@@ -754,8 +757,8 @@ Last audited: `2026-03-18`
 
 - Rows audited in this pass: `1253`
 - Status counts:
-  - `Proved`: `1031`
-  - `Implemented, proof incomplete`: `2`
+  - `Proved`: `1032`
+  - `Implemented, proof incomplete`: `1`
   - `Missing`: `65`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
@@ -801,6 +804,10 @@ Last audited: `2026-03-18`
     agent health coverage now proves supported-versus-available
     classification across Codex/OpenCode tool-mode branches and the Node-
     backed command-path prerequisite contract for OpenCode SDK/server modes
+  - `internal/codegen/plugin_materializer_test.go`: plugin codegen coverage
+    now proves project-rename and project-delete stale-root pruning plus
+    document-level removal of unexpected stale plugin output roots on the
+    surviving main-save materialization path
   - `internal/projectstate/{project_chat_windowing.go,project_graph.go}` and
     `scripts/backend_differential_parity.py`: persisted project-chat loads now
     fail closed on source-invalid owner/mode combinations instead of
@@ -3161,4 +3168,4 @@ Last audited: `2026-03-18`
 | `codegen.refresh.plugin_output_path_canonicalization_and_absolute_path_rejection` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_rejects_absolute_output_paths`; `::test_refresh_plugin_codegen_canonicalizes_output_paths` | `internal/plugins/codegen_generation.go::GeneratePluginCodegenTarget`; `internal/codegen/plugin_materializer.go::MaterializeDocument`; `internal/app/app.go` main-runtime `AfterSave` hook | `TestServiceGeneratePluginCodegenTargetUsesDefaultFileName`; `TestServiceGeneratePluginCodegenTargetCanonicalizesRelativePath`; `TestServiceGeneratePluginCodegenTargetRejectsAbsolutePath`; `TestPluginMaterializerMaterializeDocumentWritesCanonicalPluginOutputs`; `TestPluginMaterializerRejectsAbsoluteAndEscapingOutputPaths`; `TestAppMainRuntimeSaveMaterializesPluginCodegenOutputsToCanonicalPath`; `TestAppMainRuntimeSaveRejectsAbsolutePluginCodegenOutputPath` | plugin backend codegen refresh now rides the persisted main-runtime save surface, which remains the Go-owned path that materializes generated outputs under `setta_files/code/sections/.../plugin_codegen/...` | `Proved` | Go now matches the source refresh path-hygiene contract on the surviving main-save materialization surface: backend codegen targets default and canonicalize relative output paths, and absolute or escaping paths fail closed before write. |
 | `codegen.refresh.plugin_output_cache_invalidation_rules` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_skips_unchanged_outputs`; `::test_refresh_plugin_codegen_regenerates_missing_outputs`; `::test_refresh_plugin_codegen_regenerates_modified_outputs`; `::test_refresh_plugin_codegen_detects_extra_output_files` | `internal/codegen/plugin_materializer.go::MaterializeDocument`; fingerprint/cache helpers in the same file; `internal/app/app.go` main-runtime `AfterSave` hook | `TestPluginMaterializerSkipsUnchangedOutputs`; `TestPluginMaterializerRegeneratesMissingOutput`; `TestPluginMaterializerRegeneratesModifiedOutput`; `TestPluginMaterializerRegeneratesWhenExtraOutputExists`; `TestPluginMaterializerRegeneratesWhenImplementationKeyChanges`; `TestAppMainRuntimeSaveMaterializesPluginCodegenOutputsToCanonicalPath` | plugin codegen refresh remains part of backend behavior parity, and the surviving Go proof now lives on the main-save materialization path rather than a separate refresh endpoint | `Proved` | The surviving Go refresh surface now reuses cached outputs only while the fingerprinted target and on-disk outputs still match, and it regenerates on missing/modified/extra outputs or implementation-key changes while pruning stale target dirs. |
 | `codegen.refresh.file_dir_transition_cleanup` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_dir_to_file_transition`; `::test_refresh_plugin_codegen_file_to_dir_transition` keep the source refresh contract that output-path transitions between file and directory shapes clean up the old artifact before rewriting the new one | `internal/codegen/plugin_materializer.go::preparePluginOutputPathForWrite`; `internal/codegen/plugin_materializer.go::materializeProjectLocked` | `TestPluginMaterializerTransitionsFileOutputToDirectoryOutput`; `TestPluginMaterializerTransitionsDirectoryOutputToFileOutput` | plugin backend codegen refresh still rides the persisted main-runtime save surface, so shape-transition cleanup remains caller-visible whenever a plugin changes one generated output from a file to a directory or vice versa | `Proved` | The plugin materializer now has direct Go proof for output-shape transitions too: file-to-dir and dir-to-file rewrites both remove the stale previous-shape artifact before the new output is written, instead of failing during later stale-output cleanup. |
-| `codegen.refresh.rename_delete_and_stale_target_cleanup_prunes_plugin_output_roots` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_cleans_stale_target_root_after_project_rename`; `::test_refresh_plugin_codegen_cleans_stale_target_root_after_project_delete`; `::test_refresh_plugin_codegen_prunes_stale_plugin_output_roots` keep stale target-root pruning on the source refresh path | `internal/codegen/plugin_materializer.go::{materializeProjectLocked,pruneUnexpectedPluginOutputs,pruneStalePluginGeneratedOutputs}` | current Go coverage proves cache invalidation inside one target root, but there is still no direct Go test isolating rename/delete-driven stale root pruning across plugin output roots | the same main-save plugin codegen surface remains live, so stale-root cleanup stays caller-visible when projects rename, delete, or stop emitting a previously generated plugin target | `Implemented, proof incomplete` | The Go plugin materializer appears to preserve the source stale-root cleanup path by pruning unexpected outputs and stale generated roots, but the matrix still lacks a direct Go proof isolating rename/delete and broader stale-target-root cleanup behavior. |
+| `codegen.refresh.rename_delete_and_stale_target_cleanup_prunes_plugin_output_roots` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_cleans_stale_target_root_after_project_rename`; `::test_refresh_plugin_codegen_cleans_stale_target_root_after_project_delete`; `::test_refresh_plugin_codegen_prunes_stale_plugin_output_roots` keep stale target-root pruning on the source refresh path | `internal/codegen/plugin_materializer.go::{materializeProjectLocked,pruneUnexpectedPluginOutputs,pruneStalePluginGeneratedOutputs}` | `TestPluginMaterializerPrunesOutputRootAfterProjectRename`; `TestPluginMaterializerPrunesOutputRootAfterProjectDelete`; `TestPluginMaterializerPrunesUnexpectedPluginOutputRoots` | the same main-save plugin codegen surface remains live, so stale-root cleanup stays caller-visible when projects rename, delete, or stop emitting a previously generated plugin target | `Proved` | The plugin materializer now has direct Go proof for the stale-root cleanup family too: renames and deletes prune the entire previous plugin output root, and document-level materialization removes unexpected stale plugin output roots that are no longer owned by any live project. |
