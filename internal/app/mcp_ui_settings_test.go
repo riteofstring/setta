@@ -23,6 +23,7 @@ import (
 func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -116,6 +117,9 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 		t.Fatalf("expected set_ui_setting_value success, got %#v", setResult.StructuredContent)
 	}
 	setPayload := mustStructuredMapValue(t, setResult.StructuredContent)
+	if _, ok := setPayload["error"]; ok {
+		t.Fatalf("did not expect structured set_ui_setting_value error, got %#v", setPayload)
+	}
 	if setPayload["changed"] != true {
 		t.Fatalf("expected changed=true, got %#v", setPayload["changed"])
 	}
@@ -132,6 +136,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -205,6 +210,13 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticat
 	if setResult.IsError {
 		t.Fatalf("expected temp-id set_ui_setting_value success, got %#v", setResult.StructuredContent)
 	}
+	setPayload := mustStructuredMapValue(t, setResult.StructuredContent)
+	if _, ok := setPayload["error"]; ok {
+		t.Fatalf("did not expect structured temp-id set_ui_setting_value error, got %#v", setPayload)
+	}
+	if setPayload["changed"] != true {
+		t.Fatalf("expected temp-id changed=true, got %#v", setPayload["changed"])
+	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
@@ -218,6 +230,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticat
 func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -311,6 +324,9 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		t.Fatalf("expected set_ui_setting_value success, got %#v", setPayload.StructuredContent)
 	}
 	setResult := mustStructuredMapValue(t, setPayload.StructuredContent)
+	if _, ok := setResult["error"]; ok {
+		t.Fatalf("did not expect structured route set_ui_setting_value error, got %#v", setResult)
+	}
 	if setResult["changed"] != true {
 		t.Fatalf("expected changed=true, got %#v", setResult["changed"])
 	}
@@ -319,6 +335,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 func TestAppIDEMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -384,6 +401,13 @@ func TestAppIDEMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.
 	setPayload := decodeAppToolCallRoutePayload(t, setResponse.Body)
 	if setPayload.IsError {
 		t.Fatalf("expected temp-id set_ui_setting_value success, got %#v", setPayload.StructuredContent)
+	}
+	setResult := mustStructuredMapValue(t, setPayload.StructuredContent)
+	if _, ok := setResult["error"]; ok {
+		t.Fatalf("did not expect structured temp-id route set_ui_setting_value error, got %#v", setResult)
+	}
+	if setResult["changed"] != true {
+		t.Fatalf("expected temp-id route changed=true, got %#v", setResult["changed"])
 	}
 }
 

@@ -7684,6 +7684,13 @@ func TestAppWiresSeparateProjectStateRuntimes(t *testing.T) {
 	if paths.Settings != filepath.Join(cfg.Paths.SettaFilesRoot, "setta-settings-project.json") {
 		t.Fatalf("expected settings project path %q, got %q", filepath.Join(cfg.Paths.SettaFilesRoot, "setta-settings-project.json"), paths.Settings)
 	}
+	settingsProject, err := projectStates.Settings().Snapshot().Document.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("expected bootstrapped settings project runtime: %v", err)
+	}
+	if settingsProject.Name != settingsstate.SettingsProjectName {
+		t.Fatalf("expected bootstrapped settings project name %q, got %q", settingsstate.SettingsProjectName, settingsProject.Name)
+	}
 
 	if _, err := projectStates.Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.Projects["project-alpha"] = projectstate.Project{
@@ -7718,8 +7725,8 @@ func TestAppWiresSeparateProjectStateRuntimes(t *testing.T) {
 	if mainSnapshot.Revision != 2 {
 		t.Fatalf("expected main revision 2, got %d", mainSnapshot.Revision)
 	}
-	if settingsSnapshot.Revision != 2 {
-		t.Fatalf("expected settings revision 2, got %d", settingsSnapshot.Revision)
+	if settingsSnapshot.Revision != 3 {
+		t.Fatalf("expected settings revision 3 after bootstrap and mutation, got %d", settingsSnapshot.Revision)
 	}
 	if _, ok := settingsSnapshot.Document.Projects["project-alpha"]; ok {
 		t.Fatal("did not expect main project in settings runtime")
