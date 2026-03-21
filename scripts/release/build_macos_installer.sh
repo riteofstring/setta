@@ -14,6 +14,8 @@ during postinstall:
 Optional environment variables:
   SETTA_DESKTOP_INSTALLER_VERSION   Installer version (default: 1.0.0)
   SETTA_DESKTOP_INSTALLER_RELEASE_MODE  Set to 1 to require explicit installer version
+  SETTA_DESKTOP_INSTALLER_PACKAGE_PATH  Packaged Setta wheel to bundle
+                                        (default: dist/setta-<version>-*.whl)
   SETTA_MACOS_SIGN_IDENTITY         productsign identity for the .pkg
   SETTA_MACOS_NOTARY_PROFILE        xcrun notarytool keychain profile name
   SETTA_MACOS_BUILD_DMG             Set to 1 to wrap the .pkg in a .dmg
@@ -51,6 +53,36 @@ if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Installer version must use major.minor.patch format (got '${version}')." >&2
   exit 1
 fi
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+artifact_helper="${repo_root}/scripts/lib/distribution_artifact_path.sh"
+package_path="${SETTA_DESKTOP_INSTALLER_PACKAGE_PATH:-}"
+if [[ -z "${package_path}" ]]; then
+  if [[ ! -f "${artifact_helper}" ]]; then
+    echo "Missing distribution artifact helper: ${artifact_helper}" >&2
+    exit 1
+  fi
+  # shellcheck source=/dev/null
+  . "${artifact_helper}"
+  package_path="$(
+    setta_resolve_single_dist_artifact \
+      "${repo_root}/dist" \
+      "setta-${version}-*.whl" \
+      "wheel"
+  )"
+elif [[ "${package_path}" != /* ]]; then
+  package_path="${repo_root}/${package_path}"
+fi
+if [[ ! -f "${package_path}" ]]; then
+  echo "Packaged Setta distribution not found: ${package_path}" >&2
+  echo "Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --wheel" >&2
+  exit 1
+fi
+if [[ "${package_path}" != *.whl ]]; then
+  echo "Native installers currently bundle a Setta wheel (.whl), got: ${package_path}" >&2
+  exit 1
+fi
+package_path="$(cd "$(dirname "${package_path}")" && pwd)/$(basename "${package_path}")"
+package_file_name="$(basename "${package_path}")"
 identifier="dev.setta.desktop.bootstrap"
 base_name="SettaDesktop-${version}"
 unsigned_pkg_path="${output_dir}/${base_name}-unsigned.pkg"
@@ -63,8 +95,11 @@ installer_scripts_root="$(mktemp -d)"
 trap 'rm -rf "${payload_root}" "${installer_scripts_root}"' EXIT
 
 mkdir -p "${payload_root}/usr/local/bin"
+mkdir -p "${payload_root}/usr/local/share/setta-installer"
 cp "scripts/install_desktop_launcher.sh" \
   "${payload_root}/usr/local/bin/setta-install-desktop"
+cp "${package_path}" \
+  "${payload_root}/usr/local/share/setta-installer/${package_file_name}"
 cat > "${payload_root}/usr/local/bin/setta-remove-desktop" <<'REMOVE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -73,26 +108,26 @@ REMOVE
 chmod +x "${payload_root}/usr/local/bin/setta-install-desktop"
 chmod +x "${payload_root}/usr/local/bin/setta-remove-desktop"
 
-cat > "${installer_scripts_root}/postinstall" <<'POSTINSTALL'
+cat > "${installer_scripts_root}/postinstall" <<POSTINSTALL
 #!/usr/bin/env bash
 set -euo pipefail
 
 installer_bin="/usr/local/bin/setta-install-desktop"
-if [[ ! -x "${installer_bin}" ]]; then
-  echo "Missing bootstrap installer command: ${installer_bin}" >&2
+if [[ ! -x "\${installer_bin}" ]]; then
+  echo "Missing bootstrap installer command: \${installer_bin}" >&2
   exit 1
 fi
 
-bootstrap_cmd="${installer_bin} --channel native-installer --install-source installer-managed --open-mode chrome-app"
-target_user="${SUDO_USER:-}"
-if [[ -z "${target_user}" || "${target_user}" == "root" ]]; then
-  target_user="$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null || true)"
+bootstrap_cmd="\${installer_bin} --package '/usr/local/share/setta-installer/${package_file_name}' --channel native-installer --install-source installer-managed --open-mode chrome-app"
+target_user="\${SUDO_USER:-}"
+if [[ -z "\${target_user}" || "\${target_user}" == "root" ]]; then
+  target_user="\$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null || true)"
 fi
 
-if [[ -n "${target_user}" && "${target_user}" != "root" && "${target_user}" != "loginwindow" ]]; then
-  /usr/bin/su - "${target_user}" -c "${bootstrap_cmd}"
+if [[ -n "\${target_user}" && "\${target_user}" != "root" && "\${target_user}" != "loginwindow" ]]; then
+  /usr/bin/su - "\${target_user}" -c "\${bootstrap_cmd}"
 else
-  /bin/bash -lc "${bootstrap_cmd}"
+  /bin/bash -lc "\${bootstrap_cmd}"
 fi
 POSTINSTALL
 chmod +x "${installer_scripts_root}/postinstall"
@@ -151,3 +186,4 @@ fi
 shasum -a 256 "${final_pkg_path}" > "${final_pkg_path}.sha256"
 
 echo "Built macOS installer: ${final_pkg_path}"
+echo "Bundled Setta package: ${package_path}"

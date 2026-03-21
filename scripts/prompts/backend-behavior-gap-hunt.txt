@@ -1,0 +1,18 @@
+Read `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix-plan.md`, `docs/plans/go-backend-rewrite/backend-gap-closure-plan.md`, and `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`. Use `tmp/backend-gap-hunt-candidates.md` as the backlog for this loop. The outer wrapper regenerates it before each fresh session batch from the matrix's pinned source baseline, not from this branch's current `tests/` tree. Do not rerun the candidate miner inside Codex unless the developer explicitly asks for that.
+
+The backlog can contain both `## Critical Backend Suite Failures` and `## Source Tests Missing Explicit Parity Disposition`. Always fix `## Critical Backend Suite Failures` first. If `tmp/backend-gap-hunt-backend-suite.log` exists, read it before making changes.
+
+Commit frequently.
+
+Each listed source test or critical backend-suite failure is a clue for a possible Go implementation gap.
+
+For the backlog items you inspect this session:
+1. Read the source test, the current Go implementation/tests, and any live caller evidence needed to judge the behavior.
+2. If you find a real Go gap, fix it and add or update executable proof.
+3. If there is no Go gap for a listed source test, do not remove it with a bare citation. Update `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md` so the test has an explicit disposition:
+   - `Proved` with explicit Go/executable proof in the `Go tests` column
+   - or a justified omission status such as `Retained Python boundary`, `Intentional divergence`, or `Dormant / unproven caller`, with a concrete justification in `Notes`
+4. In all cases, update the matrix/docs in the same change so every inspected source-test clue has an explicit disposition, and fix any critical backend-suite failure or leave a concrete explanation backed by executable proof.
+5. Run the relevant targeted parity/tests for the touched slice. When you touched a failure surfaced by the preflight suite, rerun the full Go backend suite command from the backlog entry before declaring it fixed.
+
+Report the exact commands run, what gap was fixed or ruled out, which source tests gained explicit dispositions, and whether the full Go backend suite passed.
