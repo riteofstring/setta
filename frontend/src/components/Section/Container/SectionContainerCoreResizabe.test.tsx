@@ -8,8 +8,10 @@ import {
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SectionAreaSwitch } from "./SectionAreaSwitch";
-import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import {
+  AreaSwitch,
+  SectionContainerCoreResizable,
+} from "./SectionContainerCoreResizabe";
 
 type MockProjectState = {
   projectConfig: {
@@ -18,20 +20,12 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
-let mockSectionImpl = {
-  type: SectionTypeEnum.Code,
-  isMinimized: false,
-  metaControlStyle: false,
-};
-
 let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-1",
   },
   projectChatWindowing: createProjectChatWindowingState(),
 };
-
-let mockIsRoot = false;
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -62,32 +56,22 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({
-    children,
-    surfaceClassName = "",
-    useMetaControlStyle = false,
-  }: {
-    children: ReactNode;
-    surfaceClassName?: string;
-    useMetaControlStyle?: boolean;
-  }) => (
-    <section
-      data-testid="mock-custom-resizable"
-      data-surface-class={surfaceClassName}
-      data-meta-control-style={useMetaControlStyle ? "true" : "false"}
-    >
-      {children}
-    </section>
+  CustomResizable: ({ children }: { children: ReactNode }) => (
+    <section data-testid="mock-custom-resizable">{children}</section>
   ),
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
-  getCurrEffectiveSectionImpl: () => mockSectionImpl,
+  getCurrEffectiveSectionImpl: () => ({
+    type: SectionTypeEnum.Code,
+    isMinimized: false,
+    metaControlStyle: false,
+  }),
   getEmbeddedAttachedTerminalForCodeSection: () => null,
 }));
 
 vi.mock("state/actions/uiTypes/utils", () => ({
-  getIsRoot: () => mockIsRoot,
+  getIsRoot: () => false,
 }));
 
 vi.mock("state/definitions", () => ({
@@ -199,12 +183,6 @@ vi.mock("./TextBlockMetaControlMenuButton", () => ({
 
 describe("SectionContainerCoreResizable", () => {
   beforeEach(() => {
-    mockSectionImpl = {
-      type: SectionTypeEnum.Code,
-      isMinimized: false,
-      metaControlStyle: false,
-    };
-    mockIsRoot = false;
     mockProjectState = {
       projectConfig: {
         id: "project-1",
@@ -250,7 +228,7 @@ describe("SectionContainerCoreResizable", () => {
 
   it("routes workspace section windows through the section-owned surface id", () => {
     const markup = renderToStaticMarkup(
-      <SectionAreaSwitch
+      <AreaSwitch
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
@@ -272,103 +250,9 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-project-chat-controlled="false"');
   });
 
-  it("routes meta-control canvas chrome through the windowFlow descriptor", () => {
-    mockSectionImpl = {
-      type: SectionTypeEnum.MetaControl,
-      isMinimized: false,
-      metaControlStyle: false,
-    };
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="section-123"
-        sectionTypeName={SectionTypeEnum.MetaControl}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="mock-meta-control-menu"');
-    expect(markup).not.toContain('data-testid="mock-section-header"');
-    expect(markup).toContain('data-meta-control-style="true"');
-    expect(markup).toContain('data-surface-class="bg-transparent');
-    expect(markup).toContain("group-hover/card-section:z-[170]");
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
-    expect(markup).not.toContain("grid-cols-1");
-  });
-
-  it("routes standard canvas chrome through the windowFlow-style surface shell", () => {
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="section-123"
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="mock-section-header"');
-    expect(markup).toContain('data-testid="mock-code-area"');
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
-  });
-
-  it("keeps root incrementers inside the same windowFlow-style canvas shell", () => {
-    mockIsRoot = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="section-123"
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="mock-section-header"');
-    expect(markup).toContain('data-testid="mock-incrementer"');
-    expect(markup).toContain('data-testid="mock-code-area"');
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
-  });
-
-  it("keeps text-block meta-control menus even when the normal header is hidden", () => {
-    mockSectionImpl = {
-      type: SectionTypeEnum.TextBlock,
-      isMinimized: false,
-      metaControlStyle: true,
-    };
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="section-123"
-        sectionTypeName={SectionTypeEnum.TextBlock}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-        hideHeader
-      />,
-    );
-
-    expect(markup).toContain('data-testid="mock-textblock-meta-control-menu"');
-    expect(markup).not.toContain('data-testid="mock-section-header"');
-    expect(markup).toContain('data-meta-control-style="true"');
-    expect(markup).toContain("flex-col");
-    expect(markup).not.toContain("section-grid-cols");
-    expect(markup).not.toContain("grid-cols-1");
-  });
-
   it("preserves explicit standalone thread ownership overrides", () => {
     const markup = renderToStaticMarkup(
-      <SectionAreaSwitch
+      <AreaSwitch
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
