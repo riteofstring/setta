@@ -1,16 +1,19 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useIsSectionUIActive } from "state/activeSectionUI";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { Tier1DenseParamSectionBody } from "./Tier1DenseParamSectionBody";
 
+let mockViewportInteractionActive = false;
+let mockIsActiveSection = false;
+
 vi.mock("forks/xyflow/core/store", () => ({
-  useReactFlow: vi.fn(),
+  useReactFlow: (
+    selector: (state: { viewportInteractionActive: boolean }) => unknown,
+  ) => selector({ viewportInteractionActive: mockViewportInteractionActive }),
 }));
 
 vi.mock("state/activeSectionUI", () => ({
-  useIsSectionUIActive: vi.fn(),
+  useIsSectionUIActive: () => mockIsActiveSection,
 }));
 
 vi.mock("../SectionParts/Search", () => ({
@@ -52,10 +55,8 @@ vi.mock("../../Params/GroupContainer", () => ({
 
 describe("Tier1DenseParamSectionBody", () => {
   it("trims kwargs action buttons for inactive tier 1 sections during viewport motion", () => {
-    vi.mocked(useReactFlow).mockImplementation((selector) =>
-      selector({ viewportInteractionActive: true }),
-    );
-    vi.mocked(useIsSectionUIActive).mockReturnValue(false);
+    mockViewportInteractionActive = true;
+    mockIsActiveSection = false;
 
     const markup = renderToStaticMarkup(
       <Tier1DenseParamSectionBody
@@ -70,10 +71,8 @@ describe("Tier1DenseParamSectionBody", () => {
   });
 
   it("renders the callable search chrome and the shared param stack", () => {
-    vi.mocked(useReactFlow).mockImplementation((selector) =>
-      selector({ viewportInteractionActive: false }),
-    );
-    vi.mocked(useIsSectionUIActive).mockReturnValue(false);
+    mockViewportInteractionActive = false;
+    mockIsActiveSection = false;
 
     const markup = renderToStaticMarkup(
       <Tier1DenseParamSectionBody
@@ -90,10 +89,8 @@ describe("Tier1DenseParamSectionBody", () => {
   });
 
   it("keeps the callable search visible when params are hidden", () => {
-    vi.mocked(useReactFlow).mockImplementation((selector) =>
-      selector({ viewportInteractionActive: false }),
-    );
-    vi.mocked(useIsSectionUIActive).mockReturnValue(false);
+    mockViewportInteractionActive = false;
+    mockIsActiveSection = false;
 
     const markup = renderToStaticMarkup(
       <Tier1DenseParamSectionBody
@@ -111,10 +108,8 @@ describe("Tier1DenseParamSectionBody", () => {
   });
 
   it("renders dict and global-variables bodies without the callable-only search row", () => {
-    vi.mocked(useReactFlow).mockImplementation((selector) =>
-      selector({ viewportInteractionActive: false }),
-    );
-    vi.mocked(useIsSectionUIActive).mockReturnValue(false);
+    mockViewportInteractionActive = false;
+    mockIsActiveSection = false;
 
     const dictMarkup = renderToStaticMarkup(
       <Tier1DenseParamSectionBody
@@ -138,10 +133,8 @@ describe("Tier1DenseParamSectionBody", () => {
   });
 
   it("skips the heavy param stack while a minimized tier-1 section stays collapsed", () => {
-    vi.mocked(useReactFlow).mockImplementation((selector) =>
-      selector({ viewportInteractionActive: false }),
-    );
-    vi.mocked(useIsSectionUIActive).mockReturnValue(false);
+    mockViewportInteractionActive = false;
+    mockIsActiveSection = false;
 
     const markup = renderToStaticMarkup(
       <Tier1DenseParamSectionBody
