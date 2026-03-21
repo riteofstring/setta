@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 import requests
@@ -17,6 +18,7 @@ from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
+from setta.utils.constants import C
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -455,6 +457,120 @@ def test_resolve_auth_headers_consumes_bootstrap_token(monkeypatch) -> None:
             {"token": "bootstrap-token"},
         )
     ]
+
+
+def test_resolve_auth_headers_uses_explicit_auth_headers_without_other_lookup(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(
+        base_url="http://127.0.0.1:8000",
+        auth_headers={"Cookie": "explicit=value"},
+        bootstrap_token="bootstrap-token",
+    )
+
+    def post(url: str, json: dict[str, str]) -> requests.Response:
+        raise AssertionError(f"unexpected bootstrap request to {url} with {json}")
+
+    monkeypatch.setattr(runner._session, "post", post)
+    monkeypatch.setattr(
+        runner_mod,
+        "load_current_session_secret",
+        lambda: (_ for _ in ()).throw(AssertionError("unexpected current session lookup")),
+    )
+    monkeypatch.setattr(
+        runner_mod,
+        "resolve_sessions_root",
+        lambda _root: (_ for _ in ()).throw(AssertionError("unexpected workspace session lookup")),
+    )
+
+    # Explicit auth_headers should short-circuit bootstrap, current-session,
+    # and workspace-session auth selection.
+    assert runner._resolve_auth_headers() == {"Cookie": "explicit=value"}
+
+
+def test_resolve_auth_headers_fails_closed_when_bootstrap_cookie_is_unusable(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(
+        base_url="http://127.0.0.1:8000",
+        bootstrap_token="bootstrap-token",
+    )
+
+    def post(url: str, json: dict[str, str]) -> requests.Response:
+        del json
+        response = requests.Response()
+        response.status_code = 200
+        response.url = url
+        response._content = b"{}"
+        cookies = requests.cookies.RequestsCookieJar()
+        cookies.set(C.AUTH_COOKIE_NAME, "base-cookie")
+        response.cookies = cookies
+        return response
+
+    monkeypatch.setattr(runner._session, "post", post)
+    monkeypatch.setattr(runner_mod, "load_current_session_secret", lambda: None)
+    monkeypatch.setattr(runner_mod, "resolve_sessions_root", lambda _root: None)
+
+    # A bootstrap response that omits a session-scoped auth cookie should
+    # fail closed instead of falling back to the unsuffixed base cookie name.
+    with pytest.raises(
+        ValueError, match="Bootstrap response did not include auth cookie."
+    ):
+        runner._resolve_auth_headers()
+
+
+def test_resolve_auth_headers_fails_closed_when_no_auth_source_resolves(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://127.0.0.1:8000")
+
+    monkeypatch.setattr(runner_mod, "load_current_session_secret", lambda: None)
+    monkeypatch.setattr(runner_mod, "resolve_sessions_root", lambda _root: None)
+
+    # Without explicit headers, bootstrap auth, a current session, or a
+    # matching workspace session, runner auth should refuse to fabricate a
+    # header and surface the documented configuration error.
+    with pytest.raises(ValueError, match="Missing Setta auth\\. Provide auth_headers"):
+        runner._resolve_auth_headers()
+
+
+def test_resolve_auth_headers_prefers_current_session_over_workspace_session(
+    tmp_path, monkeypatch
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    sessions_root = resolve_sessions_root(workspace_root)
+    assert sessions_root is not None
+    registry = SessionRegistry(sessions_root=sessions_root)
+    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+    workspace_session = registry.create_session(
+        workspace_path=workspace_root,
+        host="127.0.0.1",
+        port=61234,
+        pid=os.getpid(),
+    )
+    monkeypatch.setattr(
+        runner_mod,
+        "load_current_session_secret",
+        lambda: (SimpleNamespace(id="current-session"), b"current-secret"),
+    )
+    monkeypatch.setattr(
+        runner_mod.AUTH_COOKIE_MANAGER,
+        "mint",
+        lambda session_id, _secret: f"cookie-{session_id}",
+    )
+
+    # Current-session auth should win before the runner falls back to matching
+    # workspace sessions for the requested backend URL.
+    runner = SettaRunner(
+        base_url="http://127.0.0.1:61234",
+        workspace_root=workspace_root,
+    )
+
+    assert runner._resolve_auth_headers() == {
+        "Cookie": f"{auth_cookie_name('current-session')}=cookie-current-session"
+    }
+    assert workspace_session.id != "current-session"
 
 
 def test_run_detached_resolves_entry_section_name_via_summary(
