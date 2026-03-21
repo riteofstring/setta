@@ -1816,7 +1816,6 @@ class Route:
             {
                 "initialLoadHttpStatus": 200,
                 "restartStartupStatus": "failed",
-                "restartStartupErrorSummary": "Missing settings section spreadsheetSectionDefault.",
             },
         )
 

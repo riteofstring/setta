@@ -4185,9 +4185,6 @@ def summarize_settings_project_missing_required_section_fails_closed(
     }
     if restart_startup_error is not None:
         summary["restartStartupStatus"] = "failed"
-        summary["restartStartupErrorSummary"] = normalize_backend_error_summary(
-            restart_startup_error
-        )
         return summary
 
     summary["restartStartupStatus"] = "ready"
