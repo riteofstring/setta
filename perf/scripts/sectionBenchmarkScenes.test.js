@@ -8,7 +8,7 @@ const {
   listSectionBenchmarkScenes,
 } = require("./sectionBenchmarkScenes");
 
-test("settings scene is ready and keeps the compatibility benchmark config", () => {
+test("settings scene is ready and requires the authoritative all-settings benchmark config", () => {
   const scene = getSectionBenchmarkScene("settings");
 
   assert.equal(scene.availability, "ready");
@@ -18,8 +18,12 @@ test("settings scene is ready and keeps the compatibility benchmark config", () 
     scene.fixturePath,
     "perf/fixtures/section-benchmarks/settings.settings-project.json",
   );
+  assert.deepEqual(scene.preBenchmarkUi, {
+    clickViewModeLabel: "All Settings",
+    waitForText: "groupSectionDefault",
+  });
   assert.equal(scene.benchmarkConfig.markPrefix, "section-grid");
-  assert.equal(scene.benchmarkConfig.targetSectionPattern, "backendArgs");
+  assert.equal(scene.benchmarkConfig.targetSectionPattern, "groupSectionDefault");
   assert.equal(scene.benchmarkConfig.includeResizePhase, true);
 });
 

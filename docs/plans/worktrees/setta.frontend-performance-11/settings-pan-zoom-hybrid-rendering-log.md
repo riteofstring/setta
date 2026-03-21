@@ -1401,3 +1401,19 @@ Record:
     - target different repeated row/body ownership or structure instead of more `contain` tuning on the same shells
 - Next action:
   - Narrow the next candidate onto a different shared row/body seam, then rerun the same canonical benchmark pair.
+
+## 2026-03-20 030
+
+- Item: Tighten the `settings` benchmark contract to require the `All Settings` view on both untouched `main` and the worktree.
+- Status: `done`
+- Details:
+  - Updated the plan so the standardized `settings` benchmark is only authoritative when:
+    - untouched `main` is on the `All Settings` view
+    - the worktree is on the `All Settings` view
+    - the view switch happens inside the repeatable CDP automation path rather than as a manual prep step
+  - Explicitly downgraded default-route `/settings` runs that stay on the `Core` view:
+    - they can still be kept as historical diagnostics
+    - they must not be treated as the benchmark of record for future accept/reject decisions
+  - This supersedes the earlier temporary `backendArgs` default-view targeting note in the plan.
+- Next action:
+  - Update the standardized `settings` benchmark automation so it switches to `All Settings`, then rerun any in-flight `settings` experiment matrix against that authoritative view before making a keep/reject call.

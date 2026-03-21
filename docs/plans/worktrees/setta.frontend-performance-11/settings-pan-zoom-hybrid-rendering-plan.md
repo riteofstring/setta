@@ -687,6 +687,11 @@ At minimum, every meaningful performance checkpoint in this plan must run the st
 - untouched `main`
 - the current worktree branch
 
+For the `settings` benchmark specifically:
+
+- the authoritative run must switch both untouched `main` and the worktree to the `All Settings` view before the benchmark window starts
+- `/settings` runs that stay on the default `Core` view are diagnostic-only and must not be treated as the acceptance benchmark for this plan
+
 As the benchmark suite grows, meaningful checkpoints must also run the standardized synthetic benchmark scenes that correspond to the active tier scope of the work.
 
 Prefer using the existing replay and trace-summary helpers:
@@ -724,6 +729,12 @@ Compatibility rule:
 
 - keep `perf/scripts/settingsTopLevelGridBenchmarkReplay.js` as the settings-specific compatibility entry point
 - move shared replay logic into the generic section benchmark scripts instead of forking more settings-only helpers
+
+Settings-view rule:
+
+- the standardized `settings` harness must switch to the `All Settings` view on both untouched `main` and the worktree before tracing
+- the view switch should be part of the repeatable CDP automation path, not a manual precondition
+- any earlier `Core`-view `/settings` traces should be preserved only as historical diagnostics, not as the authoritative baseline for future accept/reject decisions
 
 Required benchmark coverage:
 
@@ -845,8 +856,9 @@ Tier 1 readiness update:
   - direct fixture install into a running dev instance's `project.json` root does not guarantee the new project route is immediately available
   - for `project.json` style scenes such as `tier1Synthetic`, the paired CDP benchmark flow should restart or explicitly rehydrate the target backend after install before treating the route as benchmark-ready
 - settings-scene targeting note:
-  - the `/settings` route starts in the `Core` view mode, so the standardized benchmark target must be a visible default-view section such as `backendArgs`
-  - do not target hidden settings sections such as `groupSectionDefault` in the shared replay harness unless the benchmark itself first switches view modes
+  - the `/settings` route starts in the `Core` view mode, but the authoritative benchmark for this plan must switch to `All Settings` first
+  - after the harness switches view modes, target a stable visible section in the `All Settings` canvas rather than a `Core`-only fallback such as `backendArgs`
+  - do not accept `Core`-view `/settings` traces as the benchmark of record once the `All Settings` automation path exists
 
 Current expectation for future synthetic scenes:
 

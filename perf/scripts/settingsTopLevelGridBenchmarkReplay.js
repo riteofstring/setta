@@ -9,7 +9,7 @@ function settingsTopLevelGridBenchmarkReplay(rawConfig = {}) {
   return sectionPanZoomBenchmarkReplay({
     sceneId: "settings",
     markPrefix: "section-grid",
-    targetSectionPattern: "backendArgs",
+    targetSectionPattern: "groupSectionDefault",
     includeResizePhase: true,
     ...rawConfig,
   });
@@ -19,7 +19,7 @@ const SETTINGS_TOP_LEVEL_GRID_BENCHMARK_REPLAY = `function settingsTopLevelGridB
   return (${SECTION_PAN_ZOOM_BENCHMARK_REPLAY})({
     sceneId: "settings",
     markPrefix: "section-grid",
-    targetSectionPattern: "backendArgs",
+    targetSectionPattern: "groupSectionDefault",
     includeResizePhase: true,
     ...rawConfig,
   });

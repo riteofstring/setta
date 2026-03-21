@@ -7,14 +7,19 @@
     "storageKind": "settings_project",
     "fixturePath": "perf/fixtures/section-benchmarks/settings.settings-project.json",
     "description": "Mandatory dense real-project baseline used for the hybrid rendering work.",
-    "targetSectionPattern": "backendArgs",
+    "targetSectionPattern": "groupSectionDefault",
+    "preBenchmarkUi": {
+      "clickViewModeLabel": "All Settings",
+      "waitForText": "groupSectionDefault"
+    },
     "benchmarkConfig": {
       "markPrefix": "section-grid",
-      "targetSectionPattern": "backendArgs",
+      "targetSectionPattern": "groupSectionDefault",
       "includeResizePhase": true
     },
     "notes": [
-      "This fixture is a checked-in snapshot of the settings project so benchmark reruns do not depend on ad hoc runtime state."
+      "This fixture is a checked-in snapshot of the settings project so benchmark reruns do not depend on ad hoc runtime state.",
+      "Authoritative benchmark runs must switch the settings route to the All Settings view before tracing."
     ]
   },
   "tier1Synthetic": {

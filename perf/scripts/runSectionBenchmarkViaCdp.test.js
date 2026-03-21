@@ -7,6 +7,7 @@ const {
   buildBenchmarkConfig,
   getHelpText,
   parseArgs,
+  prepareSceneUi,
 } = require("./runSectionBenchmarkViaCdp");
 
 test("parseArgs keeps summary path optional", () => {
@@ -37,12 +38,35 @@ test("parseArgs accepts help mode without other arguments", () => {
 });
 
 test("buildBenchmarkConfig merges the scene id into the replay config", () => {
+  const { scene, benchmarkConfig } = buildBenchmarkConfig("settings");
+
+  assert.equal(scene.id, "settings");
+  assert.deepEqual(scene.preBenchmarkUi, {
+    clickViewModeLabel: "All Settings",
+    waitForText: "groupSectionDefault",
+  });
+  assert.equal(benchmarkConfig.sceneId, "settings");
+  assert.equal(benchmarkConfig.targetSectionPattern, "groupSectionDefault");
+  assert.equal(benchmarkConfig.includeResizePhase, true);
+});
+
+test("buildBenchmarkConfig keeps synthetic scene replay config unchanged", () => {
   const { scene, benchmarkConfig } = buildBenchmarkConfig("tier1Synthetic");
 
   assert.equal(scene.id, "tier1Synthetic");
   assert.equal(benchmarkConfig.sceneId, "tier1Synthetic");
   assert.equal(benchmarkConfig.targetSectionPattern, "callable_00");
   assert.equal(benchmarkConfig.includeResizePhase, false);
+});
+
+test("prepareSceneUi is a no-op for scenes without pre-benchmark UI", async () => {
+  const page = {};
+
+  await assert.doesNotReject(
+    prepareSceneUi(page, {
+      id: "tier1Synthetic",
+    }),
+  );
 });
 
 test("help text documents the optional summary path", () => {

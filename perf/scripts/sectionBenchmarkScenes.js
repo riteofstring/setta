@@ -8,6 +8,9 @@ const SECTION_BENCHMARK_SCENES = Object.freeze(
       sceneId,
       Object.freeze({
         ...scene,
+        preBenchmarkUi: scene.preBenchmarkUi
+          ? Object.freeze({ ...scene.preBenchmarkUi })
+          : undefined,
         benchmarkConfig: scene.benchmarkConfig
           ? Object.freeze({ ...scene.benchmarkConfig })
           : undefined,

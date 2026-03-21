@@ -119,6 +119,31 @@ function buildBenchmarkConfig(sceneId) {
   };
 }
 
+async function prepareSceneUi(page, scene) {
+  if (!scene.preBenchmarkUi) {
+    return;
+  }
+  const {
+    clickViewModeLabel = null,
+    waitForText = null,
+  } = scene.preBenchmarkUi;
+
+  if (clickViewModeLabel !== null) {
+    const tabButton = page.locator(
+      `[data-testid="view-mode-tab-button"][aria-label="${clickViewModeLabel}"]`,
+    );
+    await tabButton.waitFor({ state: "visible", timeout: 30_000 });
+    await tabButton.click();
+  }
+
+  if (waitForText !== null) {
+    await page.getByText(waitForText, { exact: false }).first().waitFor({
+      state: "visible",
+      timeout: 30_000,
+    });
+  }
+}
+
 async function startTracing(client) {
   const traceEvents = [];
   const tracingComplete = new Promise((resolve) => {
@@ -158,6 +183,9 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
+    await page.waitForSelector(".react-flow__viewport", { timeout: 30_000 });
+    await page.waitForSelector(".react-flow__node", { timeout: 30_000 });
+    await prepareSceneUi(page, scene);
     await page.waitForSelector(".react-flow__viewport", { timeout: 30_000 });
     await page.waitForSelector(".react-flow__node", { timeout: 30_000 });
 
@@ -242,6 +270,7 @@ module.exports = {
   buildBenchmarkConfig,
   getHelpText,
   parseArgs,
+  prepareSceneUi,
   main,
 };
 
