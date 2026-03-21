@@ -1399,6 +1399,72 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 	t.Fatalf("expected dependency values to include section %q", sectionID)
 }
 
+func TestRegisterRoutesListenerInitCatalogIncludesSectionAndParamEntries(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	sectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Dict", "inputs")
+	_, addParamResult, err := projectRuntime.AddKwarg(context.Background(), "project-a", sectionID)
+	if err != nil {
+		t.Fatalf("add dict param: %v", err)
+	}
+	if _, err := projectRuntime.SetCodeObjectName(context.Background(), "project-a", addParamResult.CodeObjID, "count"); err != nil {
+		t.Fatalf("rename dict param: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-a"}}`)); err != nil {
+		t.Fatalf("write listener init: %v", err)
+	}
+
+	content := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
+	if content.DependencyCatalog == nil {
+		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
+	}
+
+	document := projectRuntime.Snapshot().Document
+	expectedEntries := map[string]string{
+		sectionID: routeListenerDependencyName(t, document, "project-a", sectionID, ""),
+		sectionID + "." + addParamResult.CodeObjID: routeListenerDependencyName(
+			t,
+			document,
+			"project-a",
+			sectionID,
+			addParamResult.CodeObjID,
+		),
+	}
+	for _, entry := range content.DependencyCatalog.Entries {
+		expectedName, ok := expectedEntries[entry.DependencyKey]
+		if !ok {
+			continue
+		}
+		if entry.FullPathName != expectedName {
+			t.Fatalf("expected dependency %q to use name %q, got %q", entry.DependencyKey, expectedName, entry.FullPathName)
+		}
+		delete(expectedEntries, entry.DependencyKey)
+	}
+	if len(expectedEntries) != 0 {
+		t.Fatalf("expected dependency catalog to include section and param entries, missing %#v", expectedEntries)
+	}
+}
+
 func TestRegisterRoutesListenerInitCatalogPreservesStableSanitizedSuffixes(t *testing.T) {
 	t.Parallel()
 
