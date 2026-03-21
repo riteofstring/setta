@@ -258,6 +258,111 @@ scenarios:
             },
         )
 
+    def test_summarize_view_mode_user_facing_and_tab_broadcast(self) -> None:
+        harness = load_harness_module()
+
+        # Keep the active view mode stable so the summary proves the caller-
+        # visible flags changed on the same mode across websocket and latest-
+        # state snapshots.
+        before_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "activeViewModeId": "view-mode-1",
+                    "viewModes": {
+                        "view-mode-1": {
+                            "id": "view-mode-1",
+                            "isUserFacing": False,
+                            "isTab": False,
+                        }
+                    },
+                }
+            }
+        }
+        user_facing_messages = [
+            {
+                "messageType": "UpdateFrontendProjectState",
+                "content": {
+                    "completedOpIds": ["toggle-view-mode-user-facing-op"],
+                    "projectState": {
+                        "projectConfig": {
+                            "activeViewModeId": "view-mode-1",
+                            "viewModes": {
+                                "view-mode-1": {
+                                    "id": "view-mode-1",
+                                    "isUserFacing": True,
+                                    "isTab": False,
+                                }
+                            },
+                        }
+                    },
+                },
+            }
+        ]
+        tab_messages = [
+            {
+                "messageType": "UpdateFrontendProjectState",
+                "content": {
+                    "completedOpIds": ["toggle-view-mode-tab-op"],
+                    "projectState": {
+                        "projectConfig": {
+                            "activeViewModeId": "view-mode-1",
+                            "viewModes": {
+                                "view-mode-1": {
+                                    "id": "view-mode-1",
+                                    "isUserFacing": True,
+                                    "isTab": True,
+                                }
+                            },
+                        }
+                    },
+                },
+            }
+        ]
+        latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "activeViewModeId": "view-mode-1",
+                    "viewModes": {
+                        "view-mode-1": {
+                            "id": "view-mode-1",
+                            "isUserFacing": True,
+                            "isTab": True,
+                        }
+                    },
+                }
+            }
+        }
+
+        summary = harness.summarize_view_mode_user_facing_and_tab_broadcast(
+            before_payload=before_payload,
+            user_facing_http_status=200,
+            user_facing_messages=user_facing_messages,
+            tab_http_status=200,
+            tab_messages=tab_messages,
+            latest_payload=latest_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "userFacingHttpStatus": 200,
+                "tabHttpStatus": 200,
+                "beforeIsUserFacing": False,
+                "beforeIsTab": False,
+                "websocketUserFacingUpdateReceived": True,
+                "websocketUserFacingCompletedOp": True,
+                "websocketIsUserFacing": True,
+                "websocketUserFacingIsTab": False,
+                "websocketTabUpdateReceived": True,
+                "websocketTabCompletedOp": True,
+                "websocketTabIsUserFacing": True,
+                "websocketIsTab": True,
+                "latestIsUserFacing": True,
+                "latestIsTab": True,
+                "latestActiveViewModeMatchesBefore": True,
+            },
+        )
+
     def test_resolve_frontend_websocket_route_reads_go_route(self) -> None:
         harness = load_harness_module()
 

@@ -11,6 +11,10 @@ scenarios:
     kind: toggle_view_mode_broadcast
     seed: none
     description: Toggling view-edit mode should persist and rebroadcast the updated latest project state.
+  - name: view_mode_user_facing_and_tab_broadcast
+    kind: view_mode_user_facing_and_tab_broadcast
+    seed: none
+    description: Toggling the active view mode's user-facing and tab flags should persist in latest state and rebroadcast the updated view-mode payload with completed op ids.
   - name: latest_state_after_create_project
     kind: latest_state_after_create_project
     seed: none
