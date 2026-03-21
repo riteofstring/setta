@@ -355,10 +355,18 @@ Use the `bf6487690` comparison as the top-level shell paint baseline and restore
 
 Scope:
 
+- treat this as a selective rollback/reintroduction task, not a broad conceptual cleanup
+- compare the current shared shell files directly against `bf6487690`
+- restore the old top-level shell behavior first in the shared shell seam:
+  - `frontend/src/components/Section/Container/sectionChrome.ts`
+  - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - any directly-coupled shell tests needed to preserve parity
+- treat `frontend/src/components/Section/Container/SectionContainerCore.tsx` as a separate optional sub-step for the old gesture-time compositor-promotion behavior, not as part of the default shell-layout rollback
 - compare current shell behavior against `bf6487690`
 - reintroduce the paint-friendlier top-level shell contract selectively
 - for Tier 1 dense param families, explicitly restore the old grid-style top-level shell behavior
 - keep the accepted lower-seam simplifications that are unrelated to the shell paint regression
+- do not broaden the rollback into section-owned body files unless a sparse-section restore task explicitly calls for it
 
 Acceptance criteria:
 
@@ -695,8 +703,14 @@ Tier 1 readiness update:
   - 12 top-level `Dict` sections
   - 1 `GlobalVariables` section
   - 4 `ListRoot` sections with 5 `Dict` children each
-  - 25 top-level sections and 45 total sections overall
+- 25 top-level sections and 45 total sections overall
 - this keeps Tier 1 reproducible without depending on ad hoc local project edits, live settings-project state, or per-run scene authoring
+- important live-run caveat:
+  - direct fixture install into a running dev instance's `project.json` root does not guarantee the new project route is immediately available
+  - for `project.json` style scenes such as `tier1Synthetic`, the paired CDP benchmark flow should restart or explicitly rehydrate the target backend after install before treating the route as benchmark-ready
+- settings-scene targeting note:
+  - the `/settings` route starts in the `Core` view mode, so the standardized benchmark target must be a visible default-view section such as `backendArgs`
+  - do not target hidden settings sections such as `groupSectionDefault` in the shared replay harness unless the benchmark itself first switches view modes
 
 Current expectation for future synthetic scenes:
 

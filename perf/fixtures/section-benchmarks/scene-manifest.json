@@ -7,10 +7,10 @@
     "storageKind": "settings_project",
     "fixturePath": "perf/fixtures/section-benchmarks/settings.settings-project.json",
     "description": "Mandatory dense real-project baseline used for the hybrid rendering work.",
-    "targetSectionPattern": "groupSectionDefault",
+    "targetSectionPattern": "backendArgs",
     "benchmarkConfig": {
       "markPrefix": "section-grid",
-      "targetSectionPattern": "groupSectionDefault",
+      "targetSectionPattern": "backendArgs",
       "includeResizePhase": true
     },
     "notes": [

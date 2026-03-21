@@ -6,7 +6,7 @@ function sectionPanZoomBenchmarkReplay(rawConfig = {}) {
     paneSelector: ".react-flow__pane",
     viewportSelector: ".react-flow__viewport",
     nodeSelector: ".react-flow__node",
-    targetSectionPattern: "groupSectionDefault",
+    targetSectionPattern: "backendArgs",
     gutterPx: 24,
     settleFrames: 10,
     phaseSettleFrames: 6,

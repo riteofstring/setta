@@ -235,3 +235,103 @@ Record:
     - result target path now resolves to `<cwd>/setta_files_dev/...` instead of the broader normalized Setta state root
 - Next action:
   - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 007
+
+- Item: Probe the live route-readiness of the installed Tier 1 scene on the running worktree and untouched-`main` dev instances.
+- Status: `blocked`
+- Details:
+  - Installed the ready canonical scenes into both live state roots:
+    - worktree:
+      - `setta.frontend-performance-11/setta_files_dev`
+    - untouched `main`:
+      - `setta/setta_files_dev`
+  - Verified the written project-config names on disk now include:
+    - `benchmark-tier1`
+  - Probed the live current-worktree Chrome debug session over CDP and found:
+    - existing authenticated page:
+      - `http://127.0.0.1:3211/settings`
+    - attempted benchmark route page:
+      - `http://127.0.0.1:3011/benchmark-tier1`
+      - title/body:
+        - `Not Found`
+        - `Project Not Found`
+  - This indicates the direct `project.json` fixture install did not make the new route benchmark-ready inside the already-running backend instance.
+  - `settings` remains route-ready because it uses the special `setta-settings-project.json` seam; `tier1Synthetic` currently does not.
+- Next action:
+  - Restart or explicitly rehydrate the worktree and untouched-`main` backend instances after `tier1Synthetic` install, then rerun the paired CDP benchmarks for:
+    - `settings`
+    - `tier1Synthetic`
+
+## 2026-03-20 008
+
+- Item: Harden the shared CDP benchmark runner against stale same-origin tabs and correct the standardized `settings` target to a visible default-view section.
+- Status: `done`
+- Details:
+  - Updated the CDP runner:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+  - The runner now always opens a fresh page in the connected browser context, navigates directly to the requested route, and closes that page afterward instead of reusing arbitrary same-origin tabs.
+  - This avoids a stale-auth / stale-route failure mode where the runner would attach to an existing same-origin tab that was sitting on a different app state such as `Project Not Found`.
+  - After the fresh-page change, the current-worktree Tier 1 synthetic scene became benchmarkable again on the fresh `ai.sh` ports:
+    - frontend:
+      - `http://127.0.0.1:3012`
+    - backend:
+      - `http://127.0.0.1:8012`
+    - CDP:
+      - `http://127.0.0.1:9234`
+  - A direct live probe of `/settings` on the restarted worktree showed the initial visible settings sections are:
+    - `backendArgs`
+    - `shortcutsArgs`
+    - `sectionSizingPolicyArgs`
+    - `languageServerArgs`
+    - `guiArgs`
+  - This explains the earlier `groupSectionDefault` mismatch:
+    - `groupSectionDefault` belongs to a different settings view-mode group and is not visible on the default `/settings` canvas
+  - Updated the shared settings benchmark target from `groupSectionDefault` to `backendArgs` in:
+    - `perf/fixtures/section-benchmarks/scene-manifest.json`
+    - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+    - `perf/scripts/sectionBenchmarkScenes.test.js`
+- Next action:
+  - Re-run the paired CDP `settings` / `tier1Synthetic` matrix on:
+    - current worktree
+    - untouched `main`
+  - then append the first comparable summary metrics before starting the selective `bf6487690` shell rollback work.
+
+## 2026-03-20 009
+
+- Item: Record the first standardized paired baseline on untouched `main` versus `frontend-performance-11-hybrid-rendering`.
+- Status: `done`
+- Details:
+  - Recorded the first full paired matrix with the standardized CDP runner for:
+    - `settings`
+    - `tier1Synthetic`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-paired-baseline`
+  - Added the paired benchmark report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-paired-baseline.md`
+  - Key benchmark-window totals:
+    - `settings`
+      - untouched `main`:
+        - `Paint 7.767ms`
+        - `UpdateLayoutTree 80.137ms`
+        - `RunTask 3846.496ms`
+      - worktree:
+        - `Paint 619.310ms`
+        - `UpdateLayoutTree 69.458ms`
+        - `RunTask 3828.264ms`
+    - `tier1Synthetic`
+      - untouched `main`:
+        - `Paint 18.947ms`
+        - `UpdateLayoutTree 27.026ms`
+        - `RunTask 17799.621ms`
+      - worktree:
+        - `Paint 1533.374ms`
+        - `UpdateLayoutTree 20.319ms`
+        - `RunTask 22296.154ms`
+  - The slow overview pan phases on untouched `main` again stayed at `0ms` paint for both scenes, while the worktree paid:
+    - about `118-121ms` paint on `settings`
+    - about `313-323ms` paint on `tier1Synthetic`
+  - This confirms the standardized harness reproduces the same paint-focused regression pattern on both the real-project and synthetic scenes.
+- Next action:
+  - Implement the selective top-level shell rollback toward the `bf6487690` baseline in the shared shell seam, then re-run this same paired matrix.

@@ -19,6 +19,7 @@ test("settings scene is ready and keeps the compatibility benchmark config", () 
     "perf/fixtures/section-benchmarks/settings.settings-project.json",
   );
   assert.equal(scene.benchmarkConfig.markPrefix, "section-grid");
+  assert.equal(scene.benchmarkConfig.targetSectionPattern, "backendArgs");
   assert.equal(scene.benchmarkConfig.includeResizePhase, true);
 });
 

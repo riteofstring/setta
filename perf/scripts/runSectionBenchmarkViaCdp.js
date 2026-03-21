@@ -150,41 +150,14 @@ async function main() {
   const { scene, benchmarkConfig } = buildBenchmarkConfig(options.sceneId);
 
   const browser = await chromium.connectOverCDP(options.browserUrl);
-  const targetOrigin = new URL(options.pageUrl).origin;
-  const existingPage =
-    browser
-      .contexts()
-      .flatMap((context) => context.pages().map((page) => ({ context, page })))
-      .find(({ page }) => page.url().startsWith(targetOrigin)) ?? null;
-  const context =
-    existingPage?.context ?? browser.contexts()[0] ?? (await browser.newContext());
-  const page = existingPage?.page ?? (await context.newPage());
-  const shouldClosePage = existingPage === null;
-  const targetUrl = new URL(options.pageUrl);
-  const targetRoute = {
-    pathname: targetUrl.pathname,
-    search: targetUrl.search,
-    hash: targetUrl.hash,
-  };
+  const context = browser.contexts()[0] ?? (await browser.newContext());
+  const page = await context.newPage();
 
   try {
-    if (existingPage === null) {
-      await page.goto(options.pageUrl, {
-        waitUntil: "domcontentloaded",
-        timeout: 30_000,
-      });
-    } else {
-      await page.waitForSelector(".react-flow__viewport", { timeout: 30_000 });
-      await page.evaluate(({ pathname, search, hash }) => {
-        window.history.pushState({}, "", `${pathname}${search}${hash}`);
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      }, targetRoute);
-      await page.waitForFunction(
-        (pathname) => window.location.pathname === pathname,
-        targetUrl.pathname,
-        { timeout: 10_000 },
-      );
-    }
+    await page.goto(options.pageUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
     await page.waitForSelector(".react-flow__viewport", { timeout: 30_000 });
     await page.waitForSelector(".react-flow__node", { timeout: 30_000 });
 
@@ -261,9 +234,7 @@ async function main() {
       )}\n`,
     );
   } finally {
-    if (shouldClosePage) {
-      await page.close();
-    }
+    await page.close();
   }
 }
 
@@ -275,8 +246,12 @@ module.exports = {
 };
 
 if (require.main === module) {
-  main().catch((error) => {
-    console.error(error.stack);
-    process.exit(1);
-  });
+  main()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error(error.stack);
+      process.exit(1);
+    });
 }
