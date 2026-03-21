@@ -352,7 +352,7 @@ func openBrowserBestEffort(rawURL string, stderr io.Writer) {
 	case "windows":
 		command = []string{"rundll32", "url.dll,FileProtocolHandler", rawURL}
 	}
-	if err := exec.Command(command[0], command[1:]...).Start(); err != nil && stderr != nil {
+	if err := exec.Command(command[0], command[1:]...).Run(); err != nil && stderr != nil {
 		_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", rawURL, err)
 	}
 }
