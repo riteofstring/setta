@@ -83,6 +83,52 @@ func TestResolvePythonSectionCodegenPolicyAppliesMetaControlAllowlistAndValidati
 	}
 }
 
+// Chart policy resolution should keep the documented expression/file_path support
+// while still rejecting unsupported file_read exports.
+func TestResolvePythonSectionCodegenPolicyAllowsDocumentedChartRepresentations(t *testing.T) {
+	t.Parallel()
+
+	policy := DefaultPythonSectionCodegenPolicy()
+	policy.TypePolicies["Chart"] = PythonSectionTypeCodegenPolicy{
+		Mode:           PythonSectionCodegenModeInclude,
+		Representation: PythonSectionRepresentationExpression,
+	}
+	resolved, err := ResolvePythonSectionCodegenPolicy(policy, "chart-1", "Chart", "")
+	if err != nil {
+		t.Fatalf("resolve chart expression policy: %v", err)
+	}
+	if !resolved.IncludeInCodegen {
+		t.Fatal("expected chart expression policy to include the section")
+	}
+	if resolved.Representation != PythonSectionRepresentationExpression {
+		t.Fatalf("expected chart expression representation, got %q", resolved.Representation)
+	}
+
+	policy.TypePolicies["Chart"] = PythonSectionTypeCodegenPolicy{
+		Mode:           PythonSectionCodegenModeInclude,
+		Representation: PythonSectionRepresentationFilePath,
+	}
+	resolved, err = ResolvePythonSectionCodegenPolicy(policy, "chart-1", "Chart", "")
+	if err != nil {
+		t.Fatalf("resolve chart file_path policy: %v", err)
+	}
+	if !resolved.IncludeInCodegen {
+		t.Fatal("expected chart file_path policy to include the section")
+	}
+	if resolved.Representation != PythonSectionRepresentationFilePath {
+		t.Fatalf("expected chart file_path representation, got %q", resolved.Representation)
+	}
+
+	policy.TypePolicies["Chart"] = PythonSectionTypeCodegenPolicy{
+		Mode:           PythonSectionCodegenModeInclude,
+		Representation: PythonSectionRepresentationFileRead,
+	}
+	_, err = ResolvePythonSectionCodegenPolicy(policy, "chart-1", "Chart", "")
+	if !errors.Is(err, ErrPythonSectionCodegenRepresentationUnsupported) {
+		t.Fatalf("expected unsupported chart file_read representation error, got %v", err)
+	}
+}
+
 // Code object value resolution should apply overrides on top of the default representation policy.
 func TestResolvePythonCodeObjValuePolicyUsesOverride(t *testing.T) {
 	t.Parallel()

@@ -290,6 +290,60 @@ func TestRuntimeSetProjectCodegenTargetsEnablesPythonTargetWithReconciledGenerat
 	}
 }
 
+// Live python-target mutations should preserve Chart section-policy selections
+// even though the dependency graph still has no Chart exporter.
+func TestRuntimeSetProjectCodegenTargetsPersistsChartSectionPolicy(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := codegenTargetsTestDocument()
+	document.Projects["project-alpha"] = projectWithPythonMutationFixtures()
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntime(t, store)
+
+	snapshot, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload: RawJSON(`{
+				"language":"python",
+				"sectionPolicy":{
+					"typePolicies":{
+						"Chart":{"mode":"include","representation":"file_path"}
+					}
+				}
+			}`),
+		},
+	}, nil, testPythonGeneratedSectionReconciler())
+	if err != nil {
+		t.Fatalf("set python codegen target with chart policy: %v", err)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	target, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode persisted python codegen target: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected persisted python codegen target")
+	}
+	policy, err := target.DecodedSectionPolicy()
+	if err != nil {
+		t.Fatalf("decode persisted section policy: %v", err)
+	}
+	chartPolicy, ok := policy.TypePolicies["Chart"]
+	if !ok {
+		t.Fatalf("expected persisted Chart section policy, got %#v", policy.TypePolicies)
+	}
+	if chartPolicy.Mode != PythonSectionCodegenModeInclude {
+		t.Fatalf("expected Chart policy mode include, got %q", chartPolicy.Mode)
+	}
+	if chartPolicy.Representation != PythonSectionRepresentationFilePath {
+		t.Fatalf("expected Chart policy representation file_path, got %q", chartPolicy.Representation)
+	}
+}
+
 // Plugin target changes should remain allowed when the existing Python target is carried through unchanged.
 func TestRuntimeSetProjectCodegenTargetsAllowsPluginMutationWithUnchangedPythonTarget(t *testing.T) {
 	t.Parallel()

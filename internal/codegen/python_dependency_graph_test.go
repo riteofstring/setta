@@ -741,6 +741,59 @@ func TestBuildPythonDependencyGraphSectionValueModesCoverPromptAndFileModeMatrix
 	}
 }
 
+// Chart codegen policy is still caller-visible on the live mutation surface, but
+// the dependency graph intentionally skips Chart sections because no exporter is
+// registered yet.
+func TestBuildPythonDependencyGraphSkipsChartSectionsEvenWhenPolicyIncludesChartFilePath(t *testing.T) {
+	t.Parallel()
+
+	project := singleSectionProject(
+		t,
+		"Chart Section",
+		mustRawJSON(
+			t,
+			`{
+				"id":"section-impl-1",
+				"type":"Chart",
+				"dataPath":"artifacts/chart.csv",
+				"chartSettings":{
+					"type":"line",
+					"xAxisColumn":null,
+					"secondYAxisColumns":["humidity"],
+					"xAxisLog":true,
+					"y1AxisLog":false,
+					"y2AxisLog":false
+				}
+			}`,
+		),
+		mustPythonSectionTypePolicyPayload(t, "Chart", projectstate.PythonSectionRepresentationFilePath),
+		nil,
+	)
+	exported := mustPythonCodegenExport(t, project)
+	resolvedSection, err := exported.ResolveSection("section-1")
+	if err != nil {
+		t.Fatalf("resolve chart section export: %v", err)
+	}
+	if !resolvedSection.Policy.IncludeInCodegen {
+		t.Fatal("expected chart section policy to include the section")
+	}
+	if resolvedSection.Policy.Representation != projectstate.PythonSectionRepresentationFilePath {
+		t.Fatalf("expected chart representation file_path, got %q", resolvedSection.Policy.Representation)
+	}
+
+	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+	if err != nil {
+		t.Fatalf("build chart dependency graph: %v", err)
+	}
+
+	if _, ok := graph.Node(PythonSectionDependencyKey("section-1")); ok {
+		t.Fatalf("expected chart section to be omitted from dependency graph, got %#v", graph.Nodes)
+	}
+	if len(graph.NodeOrder) != 0 {
+		t.Fatalf("expected chart-only export to produce no graph nodes, got %#v", graph.NodeOrder)
+	}
+}
+
 // Password params should only count as present when the graph builder is given a non-empty secret for that impl id.
 func TestBuildPythonDependencyGraphPasswordParamHonorsProvidedSecrets(t *testing.T) {
 	t.Parallel()
