@@ -541,7 +541,11 @@ func newChatAttachmentTestDeploymentRuntime(t *testing.T) (string, *deployments.
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
-			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+			"project-alpha": {
+				ID:                   "project-alpha",
+				Name:                 "Alpha",
+				ProjectChatWindowing: func() *projectstate.ProjectChatWindowingState { state := projectstate.DefaultProjectChatWindowingState(); return &state }(),
+			},
 		},
 	}
 	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
