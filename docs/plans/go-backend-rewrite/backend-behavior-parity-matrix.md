@@ -5,7 +5,7 @@ Last audited: `2026-03-19`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `81047387136909c94ec4c43c0a7db1ef4e40e99e`
+- Target head: `1aa30a842e26bcd85a2e7759f19231127eef966f`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -43,6 +43,9 @@ Last audited: `2026-03-19`
 - plus the targeted OpenCode read-only runtime slice: explicit-path no-edit
   config copies and shared read-only configs once again materialize
   session-scoped runtime artifacts while injecting the Setta MCP entry
+- plus the targeted OpenCode permission-allowlist slice: scoped profile
+  `toolAllowlist` entries now merge into the runtime `permission` map along
+  with completion-guard-dependent required Setta tools
 - plus the first bounded agent-profile slice: CRUD persistence, deployment
   read-policy behavior, and IDE-only mutation guards
 - plus the targeted transcription-append contract slice: large JSON-body
@@ -721,8 +724,8 @@ Last audited: `2026-03-19`
 - plus the targeted managed-chat / external-agent / MCP omission follow-up
   slice: managed execution-settings versus frontend-affinity splits, MCP
   runtime-status local-versus-external row splitting, Claude allowed-tools
-  passthrough, OpenCode tool-name namespace rewriting, the still-missing
-  OpenCode tool-allowlist merge into runtime permission rules, and
+  passthrough, OpenCode tool-name namespace rewriting, OpenCode
+  tool-allowlist merge into runtime permission rules, and
   external-agent config create/bootstrap/header splits that broader config
   rows had still implied
 - plus the targeted omission-closure follow-up slice: watch-code baseline
@@ -828,9 +831,9 @@ Last audited: `2026-03-19`
 
 - Rows audited in this pass: `1253`
 - Status counts:
-  - `Proved`: `1053`
+  - `Proved`: `1054`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `45`
+  - `Missing`: `44`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
   - `Dormant / unproven caller`: `18`
@@ -921,6 +924,13 @@ Last audited: `2026-03-19`
     per-chat session config even for explicit-path no-edit and shared
     read-only branches, injects the full Setta MCP remote entry into that
     derived config, and leaves the source base config bytes unchanged
+  - `internal/externalagents/{opencode_executor.go,opencode_executor_test.go}`:
+    OpenCode runtime config materialization now reads the persisted
+    completion-guard setting, merges scoped profile `toolAllowlist` entries
+    into the generated `permission` map, keeps required Setta tools in that
+    derived allowlist payload, omits `setta_report_completion_status` when
+    the completion guard is disabled, and fails closed if a scoped allowlist
+    is combined with a non-object permission payload
   - `internal/projectstate/project_chat_windowing.go` and
     `scripts/backend_differential_parity.py`: load normalization now clears
     section-bound project-chat and window-space titles and keeps only the
@@ -2927,7 +2937,7 @@ Last audited: `2026-03-19`
 | `external_agent.runtime.opencode_read_only_explicit_path_preserves_base_payload_and_injects_setta_entry_without_mutating_source_file` | `tests/agentic/test_external_agent_settings.py::test_build_opencode_settings_file_explicit_path_read_only` keeps a stronger source read-only contract explicit: Setta should leave the explicit-path source file untouched while still building a derived config payload that preserves the base config's existing contents and injects the Setta MCP entry for the live run | `internal/externalagents/opencode_executor.go::{prepareOpenCodeConfig,applyOpenCodeRuntimeConfig}`; `internal/app/app.go::New` | `TestPrepareOpenCodeConfigExplicitPathReadOnlyPreservesBasePayloadAndWritesSessionCopy`; `TestPrepareOpenCodeConfigInjectsAuthAndAgenticHeaders`; `TestAppServesManagedChatRoutes` | read-only OpenCode explicit-path configs remain a live Project AI settings option on the current external-agent surface, so this stronger non-mutation contract still matters whenever users point Setta at an existing OpenCode config | `Proved` | OpenCode explicit-path no-edit runtime prep now matches the source contract: it reads the base payload, writes a derived session-scoped config that preserves the base `model`, `permission`, and inherited non-Setta MCP entries, injects the Setta MCP remote entry plus headers for the live run, and leaves the explicit source file bytes unchanged. |
 | `external_agent.runtime.opencode_read_only_mode_reuses_base_config_instead_of_session_scoped_artifact` | `docs/reference/external-agents.md` describes OpenCode runtime config as session-scoped, but the current Go read-only settings path returns the canonical base config directly instead of preparing a per-chat session artifact | `internal/externalagents/opencode_executor.go::prepareOpenCodeConfig`; `internal/app/app.go::New` | `TestPrepareOpenCodeConfigReadOnlyModeWritesSessionScopedArtifact`; `TestOpenCodeExecutorPassesSessionScopedConfigPathToProcessEnv` | read-only OpenCode configs remain a live Project AI settings option on the current external-agent surface, so this branch is still caller-visible whenever a chat runs in that mode | `Proved` | OpenCode read-only runtime prep now restores the documented session-isolation contract too: even when the shared canonical config is read-only, the executor materializes a per-chat `sessions/<chat_id>/opencode.json` artifact for the live run, injects the Setta MCP entry into that derived file, and keeps the shared base config unchanged. |
 | `external_agent.runtime.codex_session_scoped_runtime_config_uses_streamable_setta_mcp_url` | `docs/reference/external-agents.md` records Codex session-scoped runtime configs as the live per-run config artifact and the active Codex MCP transport as streamable HTTP against the Setta MCP URL | `internal/externalagents/codex_executor.go::{prepareCodexHome,applyCodexRuntimeConfig}` inherits the shared Setta MCP entry into the per-chat `config.toml` | `TestServiceCreateAppliesCodexDefaultsAndWritesCanonicalConfig`; `TestCodexExecutorWritesSessionScopedRuntimeConfig` | the live Codex external-agent run surface still points `CODEX_HOME` at the per-chat session folder, so that session-scoped Setta MCP URL remains the runtime source of truth for tool calls | `Proved` | Codex session-scoped runtime config now has direct Go proof for preserving the Setta MCP URL into each per-chat `config.toml`, so live tool calls keep the same streamable Setta MCP endpoint the canonical config advertised. |
-| `external_agent.runtime.opencode_permission_rules_merge_profile_tool_allowlist_and_required_setta_tools` | `docs/reference/external-agents.md` says Setta writes the OpenCode `permission` map and merges tool allowlists into those permission rules, while the current Project AI settings surface still exposes per-profile `toolAllowlist` selection on the live external-agent caller path | `internal/externalagents/opencode_executor.go::applyOpenCodeRuntimeConfig` currently writes configured or runtime-derived permission payloads but does not fold the selected profile/request tool allowlist or the required Setta tool set into the generated OpenCode permission map | `TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput` proves the rewrite writes a runtime `permission` payload, but there is no Go proof of any allowlist merge because the current implementation never applies one | `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` still edits profile `toolAllowlist`, and `frontend/src/state/actions/ai.ts` still starts OpenCode chats through the shared backend-owned external-agent path | `Missing` | The source OpenCode adapter merged the selected profile/request tool allowlist plus the required Setta tools into the runtime `permission` rules, but the rewrite currently only writes the base permission payload and leaves those allowlist constraints unused on the OpenCode runtime path. |
+| `external_agent.runtime.opencode_permission_rules_merge_profile_tool_allowlist_and_required_setta_tools` | `docs/reference/external-agents.md` says Setta writes the OpenCode `permission` map and merges tool allowlists into those permission rules, while the current Project AI settings surface still exposes per-profile `toolAllowlist` selection on the live external-agent caller path | `internal/externalagents/opencode_executor.go::{Start,prepareOpenCodeConfig,applyOpenCodeRuntimeConfig,mergeOpenCodePermissionAllowlist}` | `TestApplyOpenCodeRuntimeConfigMergesToolAllowlistIntoPermission`; `TestApplyOpenCodeRuntimeConfigOmitsCompletionReportWhenGuardDisabled`; `TestApplyOpenCodeRuntimeConfigRejectsNonObjectPermissionWhenToolAllowlistIsScoped` | `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` still edits profile `toolAllowlist`, and `frontend/src/state/actions/ai.ts` still starts OpenCode chats through the shared backend-owned external-agent path | `Proved` | OpenCode runtime config materialization now matches the source allowlist contract too: scoped profile `toolAllowlist` entries merge into the generated `permission` map, `setta_*` is denied by default, selected tools plus required Setta runtime tools are re-allowed, `setta_report_completion_status` drops out when `completionGuardEnabled=false`, and scoped allowlists fail closed if they would otherwise merge into a non-object permission payload. |
 | `external_agent.runtime.opencode_permission_json_literal_passthrough` | `tests/agentic/test_external_agent_runner.py::test_opencode_config_accepts_json_permissions` keeps the source OpenCode runtime branch where JSON-string permission values are parsed and forwarded as structured permission payloads | `internal/externalagents/opencode_executor.go::{parseOpenCodePermission,applyOpenCodeRuntimeConfig}` parses JSON string literals before writing the runtime permission config | `TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission` | the live OpenCode runtime still accepts permission config from the canonical settings surface, so JSON-literal passthrough remains caller-visible when persisted configs take that form | `Proved` | The OpenCode runtime-config writer now has direct Go proof for the JSON-literal branch too: JSON-string permission values are parsed into structured permission payloads before being written into the per-chat runtime config. |
 | `external_agent.runtime.codex_and_opencode_session_scoped_runtime_configs_preserve_inherited_mcp_servers` | `docs/reference/external-agents.md` keeps Codex/OpenCode settings user-editable while Setta injects its own MCP entry at runtime; source settings coverage in `tests/agentic/test_external_agent_settings.py::test_build_codex_settings_file_runtime_output_persists_canonical_config_without_bootstrap_source` and `::test_build_opencode_settings_file_explicit_path_read_only` preserves existing non-Setta MCP server maps alongside Setta injection | `internal/externalagents/codex_executor.go::{prepareCodexHome,applyCodexRuntimeConfig}`; `internal/externalagents/opencode_executor.go::{prepareOpenCodeConfig,applyOpenCodeRuntimeConfig}` | `TestCodexExecutorWritesSessionScopedRuntimeConfig`; `TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput` | the same live external-agent run surface still seeds per-chat runtime config from the shared canonical config, so inherited MCP server preservation still matters for real Codex/OpenCode sessions | `Proved` | Session-scoped Codex and OpenCode runtime configs still carry forward inherited non-Setta MCP server maps from the canonical config instead of discarding them when Setta injects runtime approval/model overrides for the active chat. |
 | `external_agent.runtime.env_whitelist_reads_process_and_managed_env_only` | `tests/agentic/test_external_agent_runner.py::{test_env_whitelist_reads_process_env,test_env_whitelist_ignores_whitespace_process_values,test_env_whitelist_ignores_dotenv_without_managed_or_process_value}` | `internal/externalagentconfigs/env_vars.go::ResolveWhitelistedEnvVars`; `internal/externalagents/{codex_executor.go,claude_executor.go,opencode_executor.go}::buildRuntimeEnv` | `TestBuildRuntimeEnvUsesManagedAPIKeysForWhitelistedVars` | `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` still exposes `envVarWhitelist` on live external-agent configs, and the active executors still build adapter runtime env from that config rather than from ad-hoc CLI wrappers | `Proved` | Runtime env construction still passes through the standard process keys, resolves whitelisted secrets from process env or the managed API-key store, prefers the managed fallback when the process value is blank, and still refuses to import plain `.env`-only or missing keys into the live adapter process. |
