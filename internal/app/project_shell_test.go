@@ -250,6 +250,98 @@ func TestAppStartupLoadsSharedJSONSourceSectionsFromDisk(t *testing.T) {
 	assertProjectShellJSONSourceFreshValue(t, project, projectShellPayloadStringMap(peerPayload, "codeObjVariantMap"), projectShellPayloadString(peerPayload, "topLevelParamId"))
 }
 
+func TestAppJSONSourceWatcherReloadsRelativeVariantPathsAndBroadcastsProjectState(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 61238
+	prepareAppCurrentSession(t, cfg)
+
+	if err := os.MkdirAll(filepath.Join(cfg.Paths.WorkspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Paths.WorkspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"fresh\":2}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project-state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new main project store: %v", err)
+	}
+	if err := store.Save(context.Background(), jsonSourceStartupLoadAppTestDocument(t)); err != nil {
+		t.Fatalf("seed main project store: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	if err := os.WriteFile(filepath.Join(cfg.Paths.WorkspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"fresh\":3}}\n"), 0o644); err != nil {
+		t.Fatalf("rewrite json source payload: %v", err)
+	}
+
+	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 20)
+	var updatePayload realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(updateEnvelope.Content, &updatePayload); err != nil {
+		t.Fatalf("decode project update payload: %v", err)
+	}
+	if updatePayload.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha websocket update, got %#v", updatePayload.ProjectState.ProjectConfig.ID)
+	}
+
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after watcher reload: %v", err)
+	}
+	peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective peer payload after watcher reload: %v", err)
+	}
+	assertProjectShellJSONSourceLeafValue(
+		t,
+		project,
+		projectShellPayloadStringMap(targetPayload, "codeObjVariantMap"),
+		projectShellPayloadString(targetPayload, "topLevelParamId"),
+		"fresh",
+		"3",
+	)
+	assertProjectShellJSONSourceLeafValue(
+		t,
+		project,
+		projectShellPayloadStringMap(peerPayload, "codeObjVariantMap"),
+		projectShellPayloadString(peerPayload, "topLevelParamId"),
+		"fresh",
+		"3",
+	)
+}
+
 func TestAppServesProjectShellReadRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

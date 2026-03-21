@@ -25,48 +25,7 @@ func (d *Document) LoadAllJSONSourceVariantsFromDisk(workspaceRoot string) error
 	if err != nil {
 		return err
 	}
-	targetsByGroup := map[string][]jsonSourceLoadTarget{}
-	groupKeys := make([]string, 0)
-	for _, target := range targets {
-		groupKey := jsonSourceLoadGroupKey(target.ResolvedPath, target.JSONSourceKeys)
-		if _, ok := targetsByGroup[groupKey]; !ok {
-			groupKeys = append(groupKeys, groupKey)
-		}
-		targetsByGroup[groupKey] = append(targetsByGroup[groupKey], target)
-	}
-	sort.Strings(groupKeys)
-	for _, groupKey := range groupKeys {
-		groupTargets := targetsByGroup[groupKey]
-		if len(groupTargets) == 0 {
-			continue
-		}
-		sourceObject, missing := loadJSONSourceObjectFromDisk(groupTargets[0].ResolvedPath, groupTargets[0].JSONSourceKeys)
-		if missing {
-			for _, target := range groupTargets {
-				project, err := d.ProjectByID(target.ProjectID)
-				if err != nil {
-					return err
-				}
-				if err := project.SetSectionFieldForVariant(target.SectionID, target.VariantID, "jsonSourceMissing", true); err != nil {
-					return err
-				}
-				d.Projects[project.ID] = project
-			}
-			continue
-		}
-		for _, target := range groupTargets {
-			if err := d.RefreshVariantJSONSourceLiveTree(
-				target.ProjectID,
-				target.SectionID,
-				target.VariantID,
-				target.JSONSourceKeys,
-				*sourceObject.Clone(),
-			); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return d.reloadJSONSourceTargetsFromDisk(targets)
 }
 
 func collectJSONSourceLoadTargets(document Document, workspaceRoot string) ([]jsonSourceLoadTarget, error) {

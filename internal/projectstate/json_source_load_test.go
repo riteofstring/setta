@@ -6,6 +6,32 @@ import (
 	"testing"
 )
 
+func TestJSONSourceFileInputsNormalizesRelativeVariantPaths(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := jsonSourceSharedLoadTestDocument(t, false)
+
+	inputs, err := JSONSourceFileInputs(document, workspaceRoot)
+	if err != nil {
+		t.Fatalf("JSONSourceFileInputs returned error: %v", err)
+	}
+	if len(inputs) != 1 {
+		t.Fatalf("expected one json source input, got %#v", inputs)
+	}
+
+	input := inputs[0]
+	if input.Path != filepath.Join(workspaceRoot, "data", "source.json") {
+		t.Fatalf("expected normalized json source path, got %q", input.Path)
+	}
+	if len(input.Bindings) != 2 {
+		t.Fatalf("expected two json source bindings, got %#v", input.Bindings)
+	}
+	if input.Bindings[0].SectionID != "json-section-a" || input.Bindings[1].SectionID != "json-section-b" {
+		t.Fatalf("expected sorted bindings for both shared sections, got %#v", input.Bindings)
+	}
+}
+
 func TestDocumentLoadAllJSONSourceVariantsFromDiskRefreshesSharedPairsIntoDistinctTrees(t *testing.T) {
 	t.Parallel()
 
@@ -51,6 +77,60 @@ func TestDocumentLoadAllJSONSourceVariantsFromDiskRefreshesSharedPairsIntoDistin
 	assertJSONSourceTreeHasFreshValue(t, project, peerMap, payloadStringField(peerPayload, "topLevelParamId"))
 }
 
+func TestDocumentReloadJSONSourceBindingsFromDiskRefreshesRequestedBindingsOnly(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"fresh\":2}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	document := jsonSourceSharedLoadTestDocument(t, false)
+	if err := document.ReloadJSONSourceBindingsFromDisk(workspaceRoot, []JSONSourceFileBinding{
+		{
+			ProjectID: "project-alpha",
+			SectionID: "json-section-a",
+			VariantID: "json-variant-a",
+		},
+	}); err != nil {
+		t.Fatalf("ReloadJSONSourceBindingsFromDisk returned error: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after targeted reload: %v", err)
+	}
+	peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective peer payload after targeted reload: %v", err)
+	}
+	assertJSONSourceTreeHasFreshValue(t, project, payloadStringMapField(targetPayload, "codeObjVariantMap"), payloadStringField(targetPayload, "topLevelParamId"))
+
+	peerMap := payloadStringMapField(peerPayload, "codeObjVariantMap")
+	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(peerMap, payloadStringField(peerPayload, "topLevelParamId"))
+	if err != nil {
+		t.Fatalf("effective peer root payload after targeted reload: %v", err)
+	}
+	childIDs := payloadStringArrayField(rootPayload, "children")
+	if len(childIDs) != 1 {
+		t.Fatalf("expected one untouched peer child, got %#v", childIDs)
+	}
+	childPayload, childCodeObj, _, _, err := project.EffectiveCodeObjectPayload(peerMap, childIDs[0])
+	if err != nil {
+		t.Fatalf("effective peer child payload after targeted reload: %v", err)
+	}
+	if childCodeObj.Name != "peer-leaf" {
+		t.Fatalf("expected untouched peer child name peer-leaf, got %q", childCodeObj.Name)
+	}
+	if got := payloadStringField(childPayload, "value"); got != "2" {
+		t.Fatalf("expected untouched peer child value 2, got %q", got)
+	}
+}
+
 func TestDocumentLoadAllJSONSourceVariantsFromDiskMarksMatchingSharedPairsMissing(t *testing.T) {
 	t.Parallel()
 
@@ -76,6 +156,37 @@ func TestDocumentLoadAllJSONSourceVariantsFromDiskMarksMatchingSharedPairsMissin
 	}
 	if payloadStringField(peerPayload, "topLevelParamId") != "old-root-b" {
 		t.Fatalf("expected peer topLevelParamId old-root-b, got %q", payloadStringField(peerPayload, "topLevelParamId"))
+	}
+}
+
+func TestDocumentReloadJSONSourceBindingsFromDiskMarksRequestedBindingsMissingOnly(t *testing.T) {
+	t.Parallel()
+
+	document := jsonSourceSharedLoadTestDocument(t, false)
+	if err := document.ReloadJSONSourceBindingsFromDisk(t.TempDir(), []JSONSourceFileBinding{
+		{
+			ProjectID: "project-alpha",
+			SectionID: "json-section-a",
+			VariantID: "json-variant-a",
+		},
+	}); err != nil {
+		t.Fatalf("ReloadJSONSourceBindingsFromDisk returned error: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after targeted missing reload: %v", err)
+	}
+	peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective peer payload after targeted missing reload: %v", err)
+	}
+	if !payloadBoolField(targetPayload, "jsonSourceMissing") {
+		t.Fatal("expected requested target binding to be marked missing")
+	}
+	if payloadBoolField(peerPayload, "jsonSourceMissing") {
+		t.Fatal("expected untouched peer binding to remain loaded")
 	}
 }
 

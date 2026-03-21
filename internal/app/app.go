@@ -37,6 +37,7 @@ import (
 	"setta/internal/frontendorigins"
 	"setta/internal/gitread"
 	"setta/internal/httpapi"
+	"setta/internal/jsonsourcewatch"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
 	"setta/internal/lsp"
@@ -74,30 +75,31 @@ import (
 )
 
 type App struct {
-	config        config.Config
-	logger        *slog.Logger
-	authService   *auth.Service
-	runtime       *runtime.Manager
-	projectStates *projectstate.Registry
-	deployment    *deployments.Runtime
-	shareSessions modes.ShareSessionStore
-	terminals     *terminals.Service
-	binaryStore   *binarypayload.Store
-	runCode       *runs.Service
-	agentRuns     *agentruns.Service
-	agentRuntime  *agentruns.Runtime
-	runChains     *runchains.Runtime
-	settingsState *settingsstate.Runtime
-	websocketHub  *realtime.WebsocketHub
-	listeners     *realtime.ListenerBroadcaster
-	lspSync       *lsp.ProjectSynchronizer
-	watchCode     *watchcode.Service
-	boundCode     *boundcode.Service
-	promptWatcher *prompttemplates.Watcher
-	mcpServer     *mcpx.Server
-	mcpClient     *mcpx.Client
-	pluginRuntime *pluginBackendRuntimeRefresher
-	handler       http.Handler
+	config          config.Config
+	logger          *slog.Logger
+	authService     *auth.Service
+	runtime         *runtime.Manager
+	projectStates   *projectstate.Registry
+	deployment      *deployments.Runtime
+	shareSessions   modes.ShareSessionStore
+	terminals       *terminals.Service
+	binaryStore     *binarypayload.Store
+	runCode         *runs.Service
+	agentRuns       *agentruns.Service
+	agentRuntime    *agentruns.Runtime
+	runChains       *runchains.Runtime
+	settingsState   *settingsstate.Runtime
+	websocketHub    *realtime.WebsocketHub
+	listeners       *realtime.ListenerBroadcaster
+	lspSync         *lsp.ProjectSynchronizer
+	watchCode       *watchcode.Service
+	jsonSourceWatch *jsonsourcewatch.Service
+	boundCode       *boundcode.Service
+	promptWatcher   *prompttemplates.Watcher
+	mcpServer       *mcpx.Server
+	mcpClient       *mcpx.Client
+	pluginRuntime   *pluginBackendRuntimeRefresher
+	handler         http.Handler
 }
 
 func authServiceCurrentSessionOrNil(authService *auth.Service) *auth.CurrentSession {
@@ -138,79 +140,80 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	var (
-		projectStates         *projectstate.Registry
-		deploymentRuntime     *deployments.Runtime
-		projectRuntime        *projectstate.Runtime
-		settingsStateRuntime  *settingsstate.Runtime
-		codegenValidator      projectstate.CodegenTargetValidator
-		lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
-		lspRouter             *lsp.Router
-		projectLSPSyncer      *lsp.ProjectSynchronizer
-		lspCompletion         *lspcompletion.Service
-		lspSignature          *lspsignature.Service
-		pythonMaterializer    *codegen.PythonMaterializer
-		pluginMaterializer    *codegen.PluginMaterializer
-		watchCodeService      *watchcode.Service
-		boundCodeService      *boundcode.Service
-		externalAgentChats    *externalagents.Service
-		externalAgentFollow   *externalagents.FollowService
-		externalAgentRuntime  *externalagents.Runtime
-		externalAgentSend     *externalagents.SendService
-		externalAgentExecutor externalagents.Executor
-		attachmentService     *chatattachments.Service
-		watchCodeWarnings     *watchCodeWarningTracker
-		codeUpdates           *codeUpdateService
-		renameRefactors       *renameRefactorService
-		plannerFilesRoot      string
-		artifactsRoot         string
-		deploymentCatalog     *deployments.Catalog
-		sharePublisher        *deployments.SharePublisher
-		appPublisher          *deployments.AppPublisher
-		shareSessions         modes.ShareSessionStore
-		trustedOrigins        *frontendorigins.Service
-		launcherHome          *launcher.HomeService
-		launcherManagement    *launcher.ManagementService
-		launcherOpenWorkspace *launcher.OpenWorkspaceService
-		launchIntentService   *workspacelaunch.IntentService
-		localLaunchService    *workspacelaunch.LocalLaunchService
-		localSessionLauncher  *launcher.LocalIDESessionLauncher
-		sshRuntime            *sshx.Service
-		llmRuntime            *llmconfig.Runtime
-		llmService            *llmconfig.Service
-		engineStore           *agentruns.EngineStore
-		agentRunStore         *agentruns.RunStore
-		agentRunRuntime       *agentruns.Runtime
-		managedLiveRuntime    *managedchat.LiveRuntime
-		managedChatService    *managedchat.Service
-		stateMachineRuntime   *statemachineruns.Runtime
-		scriptableChatService *scriptablechat.Service
-		chatSectionChatIDs    *chatsections.Service
-		gitReadService        *gitread.Service
-		fileBrowserService    *filebrowser.Service
-		artifactService       *artifacts.Service
-		shareArtifactService  *shareartifacts.Service
-		projectShellService   *projectshell.Service
-		notificationStore     *notifications.Store
-		notificationService   *notifications.Service
-		appGenSkillService    *appgenskills.Service
-		pathRevealService     *pathreveal.Service
-		runChainRuntime       *runchains.Runtime
-		detachedRunManager    *detachedruns.Manager
-		externalConfigStore   *externalagentconfigs.Store
-		externalConfigService *externalagentconfigs.Service
-		externalPreflight     externalagentconfigs.Checker
-		transcriptionStore    *transcriptionprofiles.Store
-		transcriptionProfiles *transcriptionprofiles.Service
-		transcriptionSessions *transcriptionsessions.Service
-		agenticSummaryStatus  *agenticsummarycache.Service
-		promptTemplateStore   *prompttemplates.Store
-		promptTemplateWatcher *prompttemplates.Watcher
-		pluginStore           *plugins.Store
-		pluginDiscovery       *plugins.DiscoveryService
-		pluginMutationService *plugins.Service
-		pluginRuntimeRefresh  *pluginBackendRuntimeRefresher
-		pluginRouteService    httpapi.PluginRouteService
-		pythonPackages        *pythonenv.Runtime
+		projectStates          *projectstate.Registry
+		deploymentRuntime      *deployments.Runtime
+		projectRuntime         *projectstate.Runtime
+		settingsStateRuntime   *settingsstate.Runtime
+		codegenValidator       projectstate.CodegenTargetValidator
+		lspDiagnostics         *projectstate.LSPDiagnosticsRegistry
+		lspRouter              *lsp.Router
+		projectLSPSyncer       *lsp.ProjectSynchronizer
+		lspCompletion          *lspcompletion.Service
+		lspSignature           *lspsignature.Service
+		pythonMaterializer     *codegen.PythonMaterializer
+		pluginMaterializer     *codegen.PluginMaterializer
+		watchCodeService       *watchcode.Service
+		jsonSourceWatchService *jsonsourcewatch.Service
+		boundCodeService       *boundcode.Service
+		externalAgentChats     *externalagents.Service
+		externalAgentFollow    *externalagents.FollowService
+		externalAgentRuntime   *externalagents.Runtime
+		externalAgentSend      *externalagents.SendService
+		externalAgentExecutor  externalagents.Executor
+		attachmentService      *chatattachments.Service
+		watchCodeWarnings      *watchCodeWarningTracker
+		codeUpdates            *codeUpdateService
+		renameRefactors        *renameRefactorService
+		plannerFilesRoot       string
+		artifactsRoot          string
+		deploymentCatalog      *deployments.Catalog
+		sharePublisher         *deployments.SharePublisher
+		appPublisher           *deployments.AppPublisher
+		shareSessions          modes.ShareSessionStore
+		trustedOrigins         *frontendorigins.Service
+		launcherHome           *launcher.HomeService
+		launcherManagement     *launcher.ManagementService
+		launcherOpenWorkspace  *launcher.OpenWorkspaceService
+		launchIntentService    *workspacelaunch.IntentService
+		localLaunchService     *workspacelaunch.LocalLaunchService
+		localSessionLauncher   *launcher.LocalIDESessionLauncher
+		sshRuntime             *sshx.Service
+		llmRuntime             *llmconfig.Runtime
+		llmService             *llmconfig.Service
+		engineStore            *agentruns.EngineStore
+		agentRunStore          *agentruns.RunStore
+		agentRunRuntime        *agentruns.Runtime
+		managedLiveRuntime     *managedchat.LiveRuntime
+		managedChatService     *managedchat.Service
+		stateMachineRuntime    *statemachineruns.Runtime
+		scriptableChatService  *scriptablechat.Service
+		chatSectionChatIDs     *chatsections.Service
+		gitReadService         *gitread.Service
+		fileBrowserService     *filebrowser.Service
+		artifactService        *artifacts.Service
+		shareArtifactService   *shareartifacts.Service
+		projectShellService    *projectshell.Service
+		notificationStore      *notifications.Store
+		notificationService    *notifications.Service
+		appGenSkillService     *appgenskills.Service
+		pathRevealService      *pathreveal.Service
+		runChainRuntime        *runchains.Runtime
+		detachedRunManager     *detachedruns.Manager
+		externalConfigStore    *externalagentconfigs.Store
+		externalConfigService  *externalagentconfigs.Service
+		externalPreflight      externalagentconfigs.Checker
+		transcriptionStore     *transcriptionprofiles.Store
+		transcriptionProfiles  *transcriptionprofiles.Service
+		transcriptionSessions  *transcriptionsessions.Service
+		agenticSummaryStatus   *agenticsummarycache.Service
+		promptTemplateStore    *prompttemplates.Store
+		promptTemplateWatcher  *prompttemplates.Watcher
+		pluginStore            *plugins.Store
+		pluginDiscovery        *plugins.DiscoveryService
+		pluginMutationService  *plugins.Service
+		pluginRuntimeRefresh   *pluginBackendRuntimeRefresher
+		pluginRouteService     httpapi.PluginRouteService
+		pythonPackages         *pythonenv.Runtime
 	)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
@@ -443,6 +446,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
 							return err
 						}
+					}
+					if err := syncJSONSourceWatchInputs(jsonSourceWatchService, snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
+						return err
 					}
 					if watchCodeWarnings != nil {
 						watchCodeWarnings.ReconcileDocument(snapshot.Document)
@@ -1731,9 +1737,33 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	listenerBuiltInInvoker.SetHandler(handler)
+	if modePolicy.IsIDE() {
+		jsonSourceWatchService, err = newJSONSourceWatchService(jsonSourceWatchServiceOptions{
+			ProjectState:  projectRuntime,
+			WebsocketHub:  websocketHub,
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			Logger:        logger,
+		})
+		if err != nil {
+			_ = errors.Join(
+				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+				terminalService.Close(context.Background()),
+			)
+			return nil, err
+		}
+		if err := syncJSONSourceWatchInputs(jsonSourceWatchService, projectRuntime.Snapshot().Document, cfg.Paths.WorkspaceRoot); err != nil {
+			_ = errors.Join(
+				jsonSourceWatchService.Close(),
+				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+				terminalService.Close(context.Background()),
+			)
+			return nil, err
+		}
+	}
 	if err := promptTemplateWatcher.Start(context.Background()); err != nil {
 		_ = errors.Join(
 			promptTemplateWatcher.Close(),
+			closeJSONSourceWatchService(jsonSourceWatchService),
 			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
 			terminalService.Close(context.Background()),
 		)
@@ -1744,30 +1774,31 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	return &App{
-		config:        cfg,
-		logger:        logger,
-		authService:   authService,
-		runtime:       manager,
-		projectStates: projectStates,
-		deployment:    deploymentRuntime,
-		shareSessions: shareSessions,
-		terminals:     terminalService,
-		binaryStore:   binaryStore,
-		runCode:       runCodeService,
-		agentRuns:     agentRunService,
-		agentRuntime:  agentRunRuntime,
-		runChains:     runChainRuntime,
-		settingsState: settingsStateRuntime,
-		websocketHub:  websocketHub,
-		listeners:     listenerBroadcaster,
-		lspSync:       projectLSPSyncer,
-		watchCode:     watchCodeService,
-		boundCode:     boundCodeService,
-		promptWatcher: promptTemplateWatcher,
-		mcpServer:     mcpServer,
-		mcpClient:     mcpClient,
-		pluginRuntime: pluginRuntimeRefresh,
-		handler:       handler,
+		config:          cfg,
+		logger:          logger,
+		authService:     authService,
+		runtime:         manager,
+		projectStates:   projectStates,
+		deployment:      deploymentRuntime,
+		shareSessions:   shareSessions,
+		terminals:       terminalService,
+		binaryStore:     binaryStore,
+		runCode:         runCodeService,
+		agentRuns:       agentRunService,
+		agentRuntime:    agentRunRuntime,
+		runChains:       runChainRuntime,
+		settingsState:   settingsStateRuntime,
+		websocketHub:    websocketHub,
+		listeners:       listenerBroadcaster,
+		lspSync:         projectLSPSyncer,
+		watchCode:       watchCodeService,
+		jsonSourceWatch: jsonSourceWatchService,
+		boundCode:       boundCodeService,
+		promptWatcher:   promptTemplateWatcher,
+		mcpServer:       mcpServer,
+		mcpClient:       mcpClient,
+		pluginRuntime:   pluginRuntimeRefresh,
+		handler:         handler,
 	}, nil
 }
 
@@ -1854,6 +1885,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 func (a *App) Shutdown(ctx context.Context) error {
 	return errors.Join(
 		a.promptWatcher.Close(),
+		closeJSONSourceWatchService(a.jsonSourceWatch),
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),
@@ -1944,6 +1976,13 @@ func closeWatchCodeService(service *watchcode.Service) error {
 }
 
 func closeBoundCodeService(service *boundcode.Service) error {
+	if service == nil {
+		return nil
+	}
+	return service.Close()
+}
+
+func closeJSONSourceWatchService(service *jsonsourcewatch.Service) error {
 	if service == nil {
 		return nil
 	}
