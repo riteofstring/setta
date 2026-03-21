@@ -600,6 +600,16 @@ Current execution note:
   - avoid returning to broader preview-gating experiments unless they clearly help both canonical scenes
   - avoid spending another immediate cycle on isolated DummyCodeMirror wrapper flattening unless a larger shared Tier 1 body change makes that seam materially cheaper again
   - avoid spending another immediate cycle on isolated row-corner styling tweaks; the next candidate should hide or delete more real structure, ownership, or repeated body work than a single visual token change can reach
+  - current active structural target:
+    - consolidate the repeated leaf-row shell seam now split across:
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - current read:
+      - bg/border/hover/selection ownership is still fragmented across those modules
+      - every Tier 1 leaf row pays for that split
+      - the next worthwhile experiment should remove or hide more of that repeated structure than the rejected isolated style-token passes could reach
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

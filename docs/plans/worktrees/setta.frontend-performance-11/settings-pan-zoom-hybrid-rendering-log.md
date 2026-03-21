@@ -1040,3 +1040,21 @@ Record:
     - do not spend a same-code confirmation rerun on this one because the first paired matrix already regressed both canonical scenes strongly
 - Next action:
   - Continue from the retained dense-row baseline and pick the next Tier 1 candidate from deeper shared row/body ownership or structural simplification instead of isolated row-corner styling changes.
+
+## 2026-03-20 021
+
+- Item: Identify the next higher-leverage Tier 1 structural target after the rejected DummyCodeMirror and row-radius experiments.
+- Status: `in_progress`
+- Details:
+  - Inspected the repeated leaf-row path across:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - Current read:
+    - bg, border, hover, and selection ownership is still split across multiple shallow modules
+    - leaf rows still bounce across container, label, and input owners for one visual concept
+    - the next higher-ROI Tier 1 experiment should target that repeated leaf-row shell instead of another isolated style token
+  - No code change is retained under this item yet.
+- Next action:
+  - Turn this leaf-row seam into the next concrete Tier 1 experiment, with the goal of removing or hiding more repeated row structure per leaf than the rejected wrapper- and radius-only passes could reach.
