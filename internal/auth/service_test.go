@@ -227,6 +227,20 @@ func TestServiceBootstrapTokenRoundTripRejectsReplay(t *testing.T) {
 	}
 }
 
+func TestNonceTrackerPrunesExpiredNonces(t *testing.T) {
+	t.Parallel()
+
+	tracker := NewNonceTracker()
+	tracker.Consume("session-1", "nonce-1", 10, 0)
+
+	if !tracker.IsConsumed("session-1", "nonce-1", 0) {
+		t.Fatal("expected nonce to remain consumed before expiry")
+	}
+	if tracker.IsConsumed("session-1", "nonce-1", 10) {
+		t.Fatal("expected expired nonce to be pruned at expiry time")
+	}
+}
+
 func TestServiceBootstrapTokenRejectsExpiry(t *testing.T) {
 	t.Parallel()
 
