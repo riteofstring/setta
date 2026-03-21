@@ -113,14 +113,27 @@ Read docs/plans/go-backend-rewrite/backend-gap-closure-plan.md and continue the 
 
 Do not treat the plan text or parity-matrix status counts alone as completion evidence.
 
-Before declaring this session complete, you must:
+First:
 1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
 2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
-3. Fix or explicitly classify every mismatch you found this session.
-4. Add or update focused tests and update the parity matrix/docs as needed.
-5. Report the exact commands run and their outcomes.
 
-Only reply `No new executable parity gaps found` if the executable checks are green and there are no remaining mismatches or blockers at the end of this session.
+If either command finds a mismatch or blocker:
+3. Fix or explicitly classify it.
+4. Add/update focused tests and update the parity matrix/docs.
+5. Re-run until green or explicitly blocked.
+
+If both commands are green:
+6. Do not stop. Pick one high-risk surface from the plan's next-expansion backlog, retained Python boundary rows, or dormant/unproven caller rows that is still mostly covered by inspection rather than executable proof.
+7. Derive at least one new executable parity scenario from source-baseline evidence (`tests/`, `docs/reference/`, routes/public APIs, or helper/runtime behavior).
+8. Implement that scenario in the differential harness or corpus manifest.
+9. Run it against `main`.
+10. Fix or explicitly classify any mismatch it reveals, then update tests/matrix/docs and commit.
+
+Report the exact commands run and their outcomes.
+
+Only reply `No new executable parity gaps found` if:
+- the required existing parity commands are green, and
+- you either added a new executable parity slice this session or explicitly explained why no responsible new slice could be added.
 
 
 Queued follow-up prompt for the same session:
@@ -133,16 +146,29 @@ If the immediately previous successful report in this session already showed bot
 - `./scripts/run-backend-differential-parity.sh --baseline-ref main`
 - `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`
 
-In that unchanged-state case, just reply:
+If that same prior report also already added a new executable parity slice for this `HEAD`, or explicitly explained why no responsible new slice could be added, just reply:
 `No new executable parity gaps found for unchanged HEAD <sha>`
 
 Otherwise:
 1. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main`.
 2. Run `./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml`, or if that check is blocked by a baseline/harness problem, record the blocker explicitly instead of claiming completion.
-3. Fix or explicitly classify every mismatch you found this session.
-4. Add or update focused tests and update the parity matrix/docs as needed.
-5. Report the exact commands run and their outcomes.
+
+If either command finds a mismatch or blocker:
+3. Fix or explicitly classify it.
+4. Add/update focused tests and update the parity matrix/docs.
+5. Re-run until green or explicitly blocked.
+
+If both commands are green:
+6. Do not stop. Pick one high-risk surface from the plan's next-expansion backlog, retained Python boundary rows, or dormant/unproven caller rows that is still mostly covered by inspection rather than executable proof.
+7. Derive at least one new executable parity scenario from source-baseline evidence (`tests/`, `docs/reference/`, routes/public APIs, or helper/runtime behavior).
+8. Implement that scenario in the differential harness or corpus manifest.
+9. Run it against `main`.
+10. Fix or explicitly classify any mismatch it reveals, then update tests/matrix/docs and commit.
+
+Report the exact commands run and their outcomes.
 
 Do not treat the plan text or matrix counts alone as completion evidence.
-Only reply `No new executable parity gaps found` if the executable checks are green and there are no remaining mismatches or blockers.
+Only reply `No new executable parity gaps found` if:
+- the required existing parity commands are green, and
+- you either added a new executable parity slice this session or explicitly explained why no responsible new slice could be added.
  
