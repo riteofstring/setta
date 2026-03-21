@@ -17,16 +17,11 @@ DEFAULT_TESTS_PATH = Path("tests")
 DEFAULT_DOCS_PATH = Path("docs/reference")
 EXCLUDED_TEST_PARTS = {"helpers", "fixtures", "start", "__pycache__"}
 EXCLUDED_DOC_PARTS = {"dependencies"}
-CURRENT_CALLER_TOKENS = (
+GO_OWNED_CALLER_TOKENS = (
     "frontend/src/",
     "frontend/tests/e2e/",
     "frontend/src/state/actions/",
     "frontend/src/components/",
-    "backend/setta/api/",
-    "SettaRunner",
-    "SettaListener",
-    "chat_toolkit",
-    "setta.api.",
 )
 RETAINED_API_TOKENS = (
     "backend/setta/api/",
@@ -35,6 +30,7 @@ RETAINED_API_TOKENS = (
     "chat_toolkit",
     "setta.api.",
 )
+MAX_CANDIDATES_PER_FAMILY = 3
 TEST_AREA_PRIORITIES = {
     "api": 78,
     "routers": 76,
@@ -103,6 +99,7 @@ class Candidate:
     key: str
     title: str
     kind: str
+    queue: str
     score: int
     why: str
     source_evidence: list[str]
@@ -118,6 +115,8 @@ class CandidateReport:
     matrix_target: str | None
     matrix_row_count: int
     status_counts: dict[str, int]
+    go_owned_candidates: list[Candidate]
+    retained_boundary_candidates: list[Candidate]
     candidates: list[Candidate]
     uncited_tests: list[SourceTest]
     uncited_docs: list[ReferenceDoc]
@@ -291,6 +290,8 @@ def collect_reference_docs(docs_root: Path, repo_root_path: Path) -> list[Refere
         relative_path = path.relative_to(repo_root_path)
         if any(part in EXCLUDED_DOC_PARTS for part in relative_path.parts):
             continue
+        if path.stem not in DOC_PRIORITIES:
+            continue
         docs.append(
             ReferenceDoc(
                 path=relative_path.as_posix(),
@@ -300,8 +301,8 @@ def collect_reference_docs(docs_root: Path, repo_root_path: Path) -> list[Refere
     return docs
 
 
-def has_live_caller_signal(text: str) -> bool:
-    return any(token in text for token in CURRENT_CALLER_TOKENS)
+def has_go_owned_caller_signal(text: str) -> bool:
+    return any(token in text for token in GO_OWNED_CALLER_TOKENS)
 
 
 def has_retained_api_signal(text: str) -> bool:
@@ -322,7 +323,7 @@ def build_status_row_candidates(rows: list[MatrixRow]) -> list[Candidate]:
     candidates: list[Candidate] = []
     base_scores = {
         "Implemented, proof incomplete": 92,
-        "Retained Python boundary": 78,
+        "Retained Python boundary": 36,
         "Intentional divergence": 72,
         "Dormant / unproven caller": 62,
     }
@@ -338,17 +339,23 @@ def build_status_row_candidates(rows: list[MatrixRow]) -> list[Candidate]:
             ]
         )
         score = base_scores[row.status]
-        if has_live_caller_signal(row.transport_evidence):
+        go_owned_caller = has_go_owned_caller_signal(row.transport_evidence)
+        retained_api = has_retained_api_signal(text)
+        if go_owned_caller:
             score += 18
-        if has_retained_api_signal(text):
+        if retained_api:
             score += 12
         if not has_differential_scenario(row.go_tests):
             score += 6
+        queue = "go-owned-gap"
+        if row.status == "Retained Python boundary" and not go_owned_caller:
+            queue = "retained-boundary-audit"
         candidates.append(
             Candidate(
                 key=f"matrix-status:{row.row_id}",
                 title=row.row_id,
                 kind="matrix-status-revisit",
+                queue=queue,
                 score=score,
                 why=status_candidate_reason(row),
                 source_evidence=[row.source_evidence],
@@ -392,7 +399,7 @@ def suggested_proof_for_status_row(row: MatrixRow) -> str:
             "a differential parity scenario that exercises the public Python API "
             "surface directly."
         )
-    if has_live_caller_signal(row.transport_evidence):
+    if has_go_owned_caller_signal(row.transport_evidence):
         return (
             "Add a caller-visible proof slice: a targeted differential parity "
             "scenario or focused transport test on the live route/websocket path."
@@ -408,7 +415,7 @@ def build_weak_proof_candidates(rows: list[MatrixRow]) -> list[Candidate]:
     for row in rows:
         if row.status != "Proved":
             continue
-        if not has_live_caller_signal(row.transport_evidence):
+        if not has_go_owned_caller_signal(row.transport_evidence):
             continue
         if has_differential_scenario(row.go_tests):
             continue
@@ -423,6 +430,7 @@ def build_weak_proof_candidates(rows: list[MatrixRow]) -> list[Candidate]:
                 key=f"weak-proof:{row.row_id}",
                 title=row.row_id,
                 kind="weak-proof-row",
+                queue="go-owned-gap",
                 score=score,
                 why=(
                     "This row is marked proved on a live caller surface, but the "
@@ -462,6 +470,7 @@ def build_unmapped_test_candidates(
                 key=f"test:{test_ref.path}::{test_ref.name}",
                 title=f"{test_ref.path}::{test_ref.name}",
                 kind="uncited-source-test",
+                queue="go-owned-gap",
                 score=score,
                 why=(
                     "This exact source test is not cited narrowly in the parity "
@@ -523,6 +532,7 @@ def build_unmapped_doc_candidates(
                 key=f"doc:{doc_ref.path}",
                 title=doc_ref.path,
                 kind="uncited-reference-doc",
+                queue="go-owned-gap",
                 score=score,
                 why=(
                     "This reference doc is not cited in the parity matrix, so it "
@@ -540,17 +550,60 @@ def build_unmapped_doc_candidates(
     return candidates, uncited_docs
 
 
-def dedupe_and_rank(candidates: list[Candidate], limit: int) -> list[Candidate]:
+def dedupe_candidates(candidates: list[Candidate]) -> list[Candidate]:
     deduped: dict[str, Candidate] = {}
     for candidate in candidates:
         previous = deduped.get(candidate.key)
         if previous is None or candidate.score > previous.score:
             deduped[candidate.key] = candidate
+    return list(deduped.values())
+
+
+def matrix_candidate_family(title: str) -> str:
+    parts = title.split(".")
+    if not parts:
+        return title
+    if parts[0] == "chat_toolkit":
+        return "chat_toolkit"
+    if parts[0] == "listener" and len(parts) >= 2:
+        return ".".join(parts[:2])
+    if len(parts) >= 2:
+        return ".".join(parts[:2])
+    return parts[0]
+
+
+def candidate_family(candidate: Candidate) -> str:
+    if candidate.kind in {"matrix-status-revisit", "weak-proof-row"}:
+        return f"row:{matrix_candidate_family(candidate.title)}"
+    if candidate.kind == "uncited-source-test":
+        return f"test:{Path(candidate.title.split('::', 1)[0]).stem}"
+    if candidate.kind == "uncited-reference-doc":
+        return f"doc:{Path(candidate.title).stem}"
+    return f"{candidate.kind}:{candidate.title}"
+
+
+def rank_candidates(candidates: list[Candidate], limit: int) -> list[Candidate]:
     ranked = sorted(
-        deduped.values(),
+        candidates,
         key=lambda candidate: (-candidate.score, candidate.kind, candidate.title),
     )
-    return ranked[:limit]
+    selected: list[Candidate] = []
+    family_counts: dict[str, int] = {}
+    for candidate in ranked:
+        family = candidate_family(candidate)
+        if family_counts.get(family, 0) >= MAX_CANDIDATES_PER_FAMILY:
+            continue
+        selected.append(candidate)
+        family_counts[family] = family_counts.get(family, 0) + 1
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+def retained_audit_limit(limit: int) -> int:
+    if limit <= 1:
+        return 1
+    return max(3, min(10, limit // 2))
 
 
 def generate_report(
@@ -574,12 +627,23 @@ def generate_report(
     unmapped_doc_candidates, uncited_docs = build_unmapped_doc_candidates(
         docs, matrix_text
     )
-    ranked = dedupe_and_rank(
+    deduped = dedupe_candidates(
         status_candidates
         + weak_proof_candidates
         + unmapped_test_candidates
         + unmapped_doc_candidates,
+    )
+    go_owned_candidates = rank_candidates(
+        [candidate for candidate in deduped if candidate.queue == "go-owned-gap"],
         limit=limit,
+    )
+    retained_boundary_candidates = rank_candidates(
+        [
+            candidate
+            for candidate in deduped
+            if candidate.queue == "retained-boundary-audit"
+        ],
+        limit=retained_audit_limit(limit),
     )
 
     return CandidateReport(
@@ -589,7 +653,9 @@ def generate_report(
         matrix_target=matrix_target,
         matrix_row_count=len(rows),
         status_counts=status_counts(rows),
-        candidates=ranked,
+        go_owned_candidates=go_owned_candidates,
+        retained_boundary_candidates=retained_boundary_candidates,
+        candidates=go_owned_candidates + retained_boundary_candidates,
         uncited_tests=sorted(
             uncited_tests,
             key=lambda test_ref: (
@@ -633,11 +699,41 @@ def render_report(report: CandidateReport) -> str:
             f"- Uncited source tests: `{len(report.uncited_tests)}`",
             f"- Uncited reference docs: `{len(report.uncited_docs)}`",
             "",
-            "## Ranked Candidates",
+            "## Go-Owned Gap Candidates",
             "",
         ]
     )
-    for index, candidate in enumerate(report.candidates, start=1):
+    if not report.go_owned_candidates:
+        lines.append("- None in this run.")
+        lines.append("")
+
+    for index, candidate in enumerate(report.go_owned_candidates, start=1):
+        lines.append(
+            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+        )
+        lines.append(f"   Why: {candidate.why}")
+        if candidate.source_evidence:
+            lines.append(
+                "   Source evidence: " + "; ".join(candidate.source_evidence)
+            )
+        if candidate.current_evidence:
+            lines.append(
+                "   Current evidence: " + "; ".join(candidate.current_evidence)
+            )
+        lines.append(f"   Suggested next proof: {candidate.suggested_proof}")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Retained-Boundary Audits",
+            "",
+        ]
+    )
+    if not report.retained_boundary_candidates:
+        lines.append("- None in this run.")
+        lines.append("")
+
+    for index, candidate in enumerate(report.retained_boundary_candidates, start=1):
         lines.append(
             f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
         )
@@ -659,8 +755,8 @@ def render_report(report: CandidateReport) -> str:
             "",
             "- Regenerate this file after matrix updates or when the active gap-hunt "
             "session exhausts the current top candidates.",
-            "- Prefer working the top ranked unresolved candidates before mining the "
-            "green default manifest again.",
+            "- Prefer working the Go-owned gap candidates before retained-boundary "
+            "audits or the green default manifest.",
             "",
             "## Uncited Source Tests",
             "",

@@ -20,8 +20,8 @@ def _load_backend_gap_hunt_candidates_module() -> ModuleType:
 def test_generate_report_surfaces_status_revisits_and_uncited_sources(
     tmp_path: Path,
 ) -> None:
-    # The miner should combine matrix status rows, weak-proof rows, uncited
-    # source tests, and uncited reference docs into one ranked backlog.
+    # The miner should surface Go-owned candidates separately from retained
+    # boundary audits while still tracking uncited source tests and docs.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -49,7 +49,7 @@ def test_generate_report_surfaces_status_revisits_and_uncited_sources(
 
 | Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runner.summary.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `backend/setta/api/runner.py::SettaRunner`; `frontend/src/state/actions/share.ts` | `Retained Python boundary` | retained row |
+| `runner.summary.lookup` | `tests/api/test_runner.py::test_cited_lookup` | `internal/runner.go` | `TestRunnerLookup` | `backend/setta/api/runner.py::SettaRunner` | `Retained Python boundary` | retained row |
 | `view_mode.toggle` | `docs/reference/view-modes.md` | `internal/view_modes.go` | `TestToggleViewModePersists` | `frontend/src/components/Pages/MainContainerCore.tsx` | `Proved` | proved row |
 """,
         encoding="utf-8",
@@ -66,6 +66,10 @@ def test_uncited_lookup_failure() -> None:
     )
     (docs_root / "view-modes.md").write_text("# View Modes\n", encoding="utf-8")
     (docs_root / "chat-toolkit.md").write_text("# Chat Toolkit\n", encoding="utf-8")
+    (docs_root / "ui-style-consistency.md").write_text(
+        "# UI Style Consistency\n",
+        encoding="utf-8",
+    )
 
     module = _load_backend_gap_hunt_candidates_module()
     report = module.generate_report(
@@ -76,12 +80,20 @@ def test_uncited_lookup_failure() -> None:
         limit=10,
     )
 
-    candidate_keys = {candidate.key for candidate in report.candidates}
+    go_owned_candidate_keys = {
+        candidate.key for candidate in report.go_owned_candidates
+    }
+    retained_candidate_keys = {
+        candidate.key for candidate in report.retained_boundary_candidates
+    }
 
-    assert "matrix-status:runner.summary.lookup" in candidate_keys
-    assert "weak-proof:view_mode.toggle" in candidate_keys
-    assert "test:tests/api/test_runner.py::test_uncited_lookup_failure" in candidate_keys
-    assert "doc:docs/reference/chat-toolkit.md" in candidate_keys
+    assert "matrix-status:runner.summary.lookup" in retained_candidate_keys
+    assert "weak-proof:view_mode.toggle" in go_owned_candidate_keys
+    assert (
+        "test:tests/api/test_runner.py::test_uncited_lookup_failure"
+        in go_owned_candidate_keys
+    )
+    assert "doc:docs/reference/chat-toolkit.md" in go_owned_candidate_keys
 
     uncited_tests = {
         f"{test_ref.path}::{test_ref.name}" for test_ref in report.uncited_tests
@@ -92,6 +104,71 @@ def test_uncited_lookup_failure() -> None:
     assert "tests/api/test_runner.py::test_cited_lookup" not in uncited_tests
     assert "docs/reference/chat-toolkit.md" in uncited_docs
     assert "docs/reference/view-modes.md" not in uncited_docs
+    assert "docs/reference/ui-style-consistency.md" not in uncited_docs
+
+    rendered = module.render_report(report)
+    assert "## Go-Owned Gap Candidates" in rendered
+    assert "## Retained-Boundary Audits" in rendered
+
+
+def test_generate_report_caps_repeated_retained_families(
+    tmp_path: Path,
+) -> None:
+    # Repeated retained families should be capped so one family does not occupy
+    # the entire retained-audit section of the backlog.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+    docs_root = repo_root_path / "docs" / "reference"
+
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    tests_root.mkdir(parents=True, exist_ok=True)
+    docs_root.mkdir(parents=True, exist_ok=True)
+
+    matrix_path.write_text(
+        """# Backend Behavior Parity Matrix
+
+## Audit Boundary
+
+- Source baseline: `main@abc123`
+- Target head: `deadbeef`
+
+## Matrix
+
+| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `chat_toolkit.history.append` | `tests/llm/test_chat_toolkit.py::test_append` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.append` | `Retained Python boundary` | retained row |
+| `chat_toolkit.history.get` | `tests/llm/test_chat_toolkit.py::test_get` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.get` | `Retained Python boundary` | retained row |
+| `chat_toolkit.history.delete` | `tests/llm/test_chat_toolkit.py::test_delete` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.delete` | `Retained Python boundary` | retained row |
+| `chat_toolkit.history.create` | `tests/llm/test_chat_toolkit.py::test_create` | `internal/chat.go` | `` | `backend/setta/api/chat_toolkit.py::ChatHistoryClient.create` | `Retained Python boundary` | retained row |
+| `listener.sdk.bootstrap` | `tests/api/test_listener.py::test_bootstrap` | `internal/listener.go` | `` | `backend/setta/api/listener.py::SettaListener` | `Retained Python boundary` | retained row |
+| `listener.sdk.realtime` | `tests/api/test_listener.py::test_realtime` | `internal/listener.go` | `` | `backend/setta/api/listener.py::SettaListener` | `Retained Python boundary` | retained row |
+""",
+        encoding="utf-8",
+    )
+    (docs_root / "chat-toolkit.md").write_text("# Chat Toolkit\n", encoding="utf-8")
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+        docs_path=docs_root,
+        limit=12,
+    )
+
+    retained_titles = [candidate.title for candidate in report.retained_boundary_candidates]
+
+    assert (
+        sum(title.startswith("chat_toolkit.") for title in retained_titles)
+        <= module.MAX_CANDIDATES_PER_FAMILY
+    )
 
 
 def _build_gap_hunt_candidate_wrapper_sandbox(
