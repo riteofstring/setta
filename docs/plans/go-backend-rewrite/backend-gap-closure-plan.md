@@ -447,3 +447,11 @@ categorize them.
   closed too, so the remaining practical queue should stay on the heavier
   external-agent runtime, settings-slice, and JSON-source/runtime gaps unless
   another bounded launcher-home row appears from the harness
+- The live settings slice-path rows are now closed too: `loadSettings` /
+  `saveSettings` once again route claimed slices through the persisted
+  `/settings` shell, fall back unclaimed slices to the shared settings file,
+  and create missing claimed targets with defaults before read. The next
+  practical queue should move off the now-proved settings-slice owner and
+  onto the remaining bounded missing rows such as backend-registered plugin
+  UI settings, linked-chat admission, or the broader JSON-source runtime
+  cluster.
