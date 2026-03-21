@@ -415,3 +415,8 @@ categorize them.
   runtime ownership rows and the still-missing app-generation/send-surface
   contracts instead of reopening managed completion-tool prompt/config
   shaping
+- The local `status --delete-session` cluster is now closed too, so the next
+  adjacent packaged-CLI queue should move to the still-missing local
+  `setta stop` workspace-selection, default-IDE-scope, and profile-runtime-
+  root rows before jumping back to broader launcher or JSON-source runtime
+  work
