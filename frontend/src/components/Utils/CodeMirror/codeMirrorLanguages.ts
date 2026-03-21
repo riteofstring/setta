@@ -18,6 +18,15 @@ import {
 } from "utils/codeLanguage";
 
 const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
+const PYTHON_EXTENSIONS = [python()];
+const TYPESCRIPT_EXTENSIONS = [javascript({ typescript: true, jsx: false })];
+const TSX_EXTENSIONS = [javascript({ typescript: true, jsx: true })];
+const JAVASCRIPT_EXTENSIONS = [javascript({ jsx: false })];
+const JSX_EXTENSIONS = [javascript({ jsx: true })];
+const JSON_EXTENSIONS = [json()];
+const YAML_EXTENSIONS = [yaml()];
+const TOML_EXTENSIONS = [TOML_LANGUAGE];
+const MARKDOWN_EXTENSIONS = [markdown()];
 
 export type CodeMirrorParserLike = {
   parse: (input: string) => unknown;
@@ -28,25 +37,25 @@ export function getCodeMirrorLanguageExtensions(
   useJsx: boolean,
 ): Array<Extension> {
   if (language === "python") {
-    return [python()];
+    return PYTHON_EXTENSIONS;
   }
   if (language === "typescript") {
-    return [javascript({ typescript: true, jsx: useJsx })];
+    return useJsx ? TSX_EXTENSIONS : TYPESCRIPT_EXTENSIONS;
   }
   if (language === "javascript") {
-    return [javascript({ jsx: useJsx })];
+    return useJsx ? JSX_EXTENSIONS : JAVASCRIPT_EXTENSIONS;
   }
   if (language === "json") {
-    return [json()];
+    return JSON_EXTENSIONS;
   }
   if (language === "yaml") {
-    return [yaml()];
+    return YAML_EXTENSIONS;
   }
   if (language === "toml") {
-    return [TOML_LANGUAGE];
+    return TOML_EXTENSIONS;
   }
   if (language === "markdown") {
-    return [markdown()];
+    return MARKDOWN_EXTENSIONS;
   }
   return [];
 }
