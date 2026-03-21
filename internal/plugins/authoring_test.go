@@ -504,6 +504,37 @@ func TestServiceLinkBackendReplacementRequiresRestart(t *testing.T) {
 	}
 }
 
+// Link should ignore Python package dependency metadata for Go-backed backend plugins.
+func TestServiceLinkIgnoresPythonDependencySpecForGoBackendPlugin(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	sourceRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "backend")
+
+	if err := os.WriteFile(
+		filepath.Join(sourceRoot, "pyproject.toml"),
+		[]byte("[build-system]\nrequires = [\"setuptools==80.9.0\", \"wheel==0.45.1\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"setta-fixture-backend\"\nversion = \"0.1.0\"\ndescription = \"Backend fixture plugin for Setta tests\"\nrequires-python = \">=3.12\"\ndependencies = [\"not a valid requirement @@@\"]\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write invalid python dependency spec: %v", err)
+	}
+
+	linkResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+		Force:           false,
+	})
+	if err != nil {
+		t.Fatalf("link backend plugin with invalid python dependency spec: %v", err)
+	}
+	if linkResult.PluginID != "setta-fixture-backend" {
+		t.Fatalf("expected backend fixture plugin id, got %#v", linkResult.PluginID)
+	}
+	if !linkResult.RestartRequired || linkResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend link to stay restart-gated, got %#v", linkResult)
+	}
+}
+
 // Link should fail fast when the requested local source root does not exist.
 func TestServiceLinkRejectsMissingSourceRoot(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

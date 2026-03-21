@@ -148,3 +148,93 @@ func TestServiceWriteConfigRejectsInvalidSchemaDocument(t *testing.T) {
 		t.Fatalf("expected malformed schema write to skip persistence, got %#v", state.PluginConfigByID)
 	}
 }
+
+func TestServiceUninstallClearsPersistedPluginConfigBeforeRelink(t *testing.T) {
+	// Uninstall should clear persisted config so relinking the same plugin starts from defaults.
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	sourceRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
+
+	linkResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+		Force:           false,
+	})
+	if err != nil {
+		t.Fatalf("link plugin: %v", err)
+	}
+	if !linkResult.RestartRequired {
+		t.Fatalf("expected backend-capable full plugin link to require restart")
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after link: %v", err)
+	}
+
+	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "persisted-config",
+		},
+	}); err != nil {
+		t.Fatalf("write plugin config: %v", err)
+	}
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime after config write: %v", err)
+	}
+	if got := runtimeResponse.List.Plugins[0].Config.CurrentConfig["label"]; got != "persisted-config" {
+		t.Fatalf("expected persisted config label before uninstall, got %#v", got)
+	}
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-full",
+		Scope:    scopePointer(PluginScopeWorkspace),
+	})
+	if err != nil {
+		t.Fatalf("uninstall plugin: %v", err)
+	}
+	if !uninstallResult.RestartRequired {
+		t.Fatalf("expected uninstall to require restart for backend-capable plugin")
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after uninstall: %v", err)
+	}
+
+	state, err := service.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after uninstall: %v", err)
+	}
+	if _, ok := state.PluginConfigByID["workspace:setta-fixture-full"]; ok {
+		t.Fatalf("expected uninstall to clear persisted plugin config, got %#v", state.PluginConfigByID)
+	}
+
+	relinkResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+		Force:           false,
+	})
+	if err != nil {
+		t.Fatalf("relink plugin: %v", err)
+	}
+	if !relinkResult.RestartRequired {
+		t.Fatalf("expected relink to require restart for backend-capable plugin")
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after relink: %v", err)
+	}
+
+	runtimeResponse, err = service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime after relink: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 {
+		t.Fatalf("expected one relinked plugin, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.List.Plugins[0].Config.CurrentConfig) != 0 {
+		t.Fatalf("expected relinked plugin config to reset to defaults, got %#v", runtimeResponse.List.Plugins[0].Config.CurrentConfig)
+	}
+}
