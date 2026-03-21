@@ -2420,14 +2420,24 @@ func prepareHTTPInterruptShell(t *testing.T, service *terminals.Service, session
 func waitForHTTPReusableSession(t *testing.T, service *terminals.Service, sessionID string, want bool) {
 	t.Helper()
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(3 * time.Second)
 	last := service.ReusableSession(sessionID)
+	requiredStableSamples := 1
+	if want {
+		requiredStableSamples = 5
+	}
+	stableSamples := 0
 	for time.Now().Before(deadline) {
+		last = service.ReusableSession(sessionID)
 		if last == want {
-			return
+			stableSamples++
+			if stableSamples >= requiredStableSamples {
+				return
+			}
+		} else {
+			stableSamples = 0
 		}
 		time.Sleep(10 * time.Millisecond)
-		last = service.ReusableSession(sessionID)
 	}
 	t.Fatalf("expected reusable session %q=%v, got %v", sessionID, want, last)
 }
