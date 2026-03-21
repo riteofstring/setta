@@ -2212,3 +2212,85 @@ Record:
     - the next Tier 1 pass should stay on the repeated section-card/header/args-body area or another always-mounted dense-row/body seam, but it should do so through static DOM simplification or a cheaper steady-state representation instead of motion-time mount/unmount churn
 - Next action:
   - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and pick the next static repeated-chrome or args-body seam instead of another interaction-start toggle.
+
+## 2026-03-21 051
+
+- Item: Benchmark a flat Tier 1 row-render expansion on the repeated dense row seam, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Why this seam was chosen:
+    - fresh seam discovery moved the next Tier 1 target into the always-mounted dense row path shared across:
+      - `ParamDndList`
+      - `ParamSwitch`
+      - `ParamContainer`
+      - `ParamRowShell`
+    - the narrowest first experiment was to flatten row expansion before render while preserving the `<article>` row contract
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamDndContext.tsx`
+    - `frontend/src/components/Params/ParamDndList.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/getParamDndListRenderModel.ts`
+    - focused tests:
+      - `frontend/src/components/Params/getParamDndListRenderModel.test.ts`
+      - `frontend/src/components/Params/GroupContainer.test.tsx`
+      - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - Structural change under test:
+    - precompute a flat render-entry list from the visible child map before render
+    - keep the `<article>` row ids, sibling ordering, and row markup contract intact
+    - remove recursive child expansion from `ParamSwitch`
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/ParamContainer.test.tsx`
+      - `3` files passed
+      - `15` tests passed
+  - Filtered typecheck while the experiment was live:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "src/components/Params/(ParamDndContext|ParamDndList|ParamSwitch|getParamDndListRenderModel\\.ts)"`
+    - exact-optional diagnostics were still present in:
+      - `frontend/src/components/Params/ParamSwitch.tsx`
+    - the experiment was rejected before spending another pass on those live-only diagnostics
+  - Fresh subagent CDP check while the experiment was live:
+    - chrome-devtools MCP was accessible
+    - `http://127.0.0.1:3011/settings` and `http://127.0.0.1:3011/benchmark-tier1` still showed a flat sibling row order with no obvious normal-zoom regression
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-flat-row-render-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.513ms -> 515.349ms`
+      - benchmark `RunTask`:
+        - `3267.777ms -> 33790.741ms`
+      - benchmark `UpdateLayoutTree`:
+        - `68.701ms -> 530.598ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.305ms -> 47.829ms`
+      - overview vertical pan slow `Paint`:
+        - `27.086ms -> 70.376ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `853.807ms -> 882.828ms`
+      - benchmark `RunTask`:
+        - `13243.181ms -> 22976.333ms`
+      - benchmark `UpdateLayoutTree`:
+        - `19.763ms -> 25.850ms`
+      - overview horizontal pan slow `Paint`:
+        - `147.659ms -> 164.104ms`
+      - overview vertical pan slow `Paint`:
+        - `175.256ms -> 180.970ms`
+  - Decision:
+    - reject this flat Tier 1 row-render expansion as a keep for `HEAD`
+    - preserving the row markup contract did not offset the broader work added by the eager render-entry expansion
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Revert this experiment cleanly, rerun focused reverted-baseline verification, and choose a narrower static Tier 1 row/body seam that does not broaden work across the whole visible row stack.
+
+## 2026-03-21 052
+
+- Item: Refine the next Tier 1 target after rejecting the flat row render expansion.
+- Status: `in_progress`
+- Details:
+  - Reverted the flat row render expansion after recording the dead-end report.
+  - Current read:
+    - the dense row seam is still a plausible architectural target
+    - but broad precomputed row expansion is now ruled out as a mechanism
+    - the next Tier 1 pass should narrow back down to static shell deletion or tighter ownership cleanup, not another row-wide expansion rewrite
+- Next action:
+  - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and pick the next narrower static Tier 1 row/body seam.

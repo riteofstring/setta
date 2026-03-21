@@ -51,31 +51,6 @@ export function useParamDndChildrenForParent(
   return tempChildren ?? fallback;
 }
 
-export function useParamDndVisibleChildrenByParent(
-  fallback: Record<string, Array<string>> | null,
-) {
-  const context = useParamDndContext();
-  const { activeId, sectionId, listKey } = useParamDndState(
-    (state) => ({
-      activeId: state.activeId,
-      sectionId: state.sectionId,
-      listKey: state.listKey,
-    }),
-    _.isEqual,
-  );
-  const isActiveList = Boolean(
-    context &&
-      activeId &&
-      sectionId === context.sectionId &&
-      listKey === context.listKey,
-  );
-  const tempChildren = useParamDndChildren(
-    (state) => (isActiveList ? state.x : null),
-    _.isEqual,
-  );
-  return tempChildren ?? fallback;
-}
-
 export function ParamDndProvider({
   sectionId,
   listKey,

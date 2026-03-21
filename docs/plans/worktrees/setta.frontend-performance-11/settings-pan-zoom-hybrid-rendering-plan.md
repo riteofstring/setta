@@ -881,6 +881,34 @@ Current execution note:
         - do not keep this motion-time secondary chrome trim at `HEAD`
         - the next worthwhile Tier 1 pass should avoid another immediate conditional React subtree toggle on viewport interaction
         - if the repeated section-card/header/kwargs area is mined again, the next mechanism should be static DOM simplification or a cheaper representation rather than interaction-start mount/unmount churn
+      - the next static Tier 1 row-seam experiment then flattened recursive row expansion into a precomputed render-entry list and was rejected too:
+        - experimental files:
+          - `frontend/src/components/Params/ParamDndContext.tsx`
+          - `frontend/src/components/Params/ParamDndList.tsx`
+          - `frontend/src/components/Params/ParamSwitch.tsx`
+          - `frontend/src/components/Params/getParamDndListRenderModel.ts`
+        - mechanism under test:
+          - precompute a flat render-entry list from the visible child map before render
+          - keep the `<article>` row contract and sibling ordering unchanged
+          - remove recursive child expansion from `ParamSwitch`
+        - browser verification:
+          - a fresh subagent confirmed that `/settings` and `/benchmark-tier1` still rendered the row stack in the expected flat sibling order with no obvious normal-zoom regression
+        - authoritative worktree deltas versus the retained baseline:
+          - `settings` benchmark `Paint`:
+            - `148.513ms -> 515.349ms`
+          - `settings` benchmark `RunTask`:
+            - `3267.777ms -> 33790.741ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `68.701ms -> 530.598ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `853.807ms -> 882.828ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `13243.181ms -> 22976.333ms`
+        - mechanism read:
+          - preserving the row markup contract is not enough if the new expansion path broadens work ahead of render
+          - this eager render-entry flattening increased costs on both canonical scenes instead of trimming them
+        - do not keep this flat row render path at `HEAD`
+        - if the Tier 1 dense row seam is mined again, the next pass should avoid broad precomputed row expansion and instead look for narrower static shell deletion or ownership cleanup
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

@@ -870,6 +870,7 @@ function PinnedParamsArea({
           paramIds={topLevelParamIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
           listKey="pinned"
           hasSectionStyleTheme={hasSectionStyleTheme}
           showResizeHandle={false}
@@ -993,6 +994,7 @@ function GetUnpinnedParams({
             paramIds={topLevelParamIds}
             requiredParamIdsToPaths={requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
+            isTopLevel={true}
             listKey="unpinned"
             hasSectionStyleTheme={hasSectionStyleTheme}
             showResizeHandle={false}
