@@ -182,6 +182,91 @@ func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeHostVersionInvalid)
 }
 
+// Validate should fail closed on missing manifests, invalid JSON, missing paths,
+// invalid config schemas, incompatible Setta versions, and invalid host version strings.
+func TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	t.Run("missing manifest", func(t *testing.T) {
+		pluginRoot := filepath.Join(roots.workspaceRoot, "missing-manifest")
+		if err := os.MkdirAll(pluginRoot, 0o755); err != nil {
+			t.Fatalf("mkdir plugin root: %v", err)
+		}
+		_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceManifestNotFound)
+	})
+
+	t.Run("invalid manifest json", func(t *testing.T) {
+		pluginRoot := filepath.Join(roots.workspaceRoot, "invalid-manifest")
+		if err := os.MkdirAll(pluginRoot, 0o755); err != nil {
+			t.Fatalf("mkdir plugin root: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(pluginRoot, pluginManifestFileName), []byte("{bad-json"), 0o644); err != nil {
+			t.Fatalf("write invalid manifest: %v", err)
+		}
+		_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestInvalid)
+	})
+
+	t.Run("missing manifest paths", func(t *testing.T) {
+		pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-missing-path-plugin", "frontend")
+		manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+		if err != nil {
+			t.Fatalf("load manifest: %v", err)
+		}
+		if manifest.Frontend == nil {
+			t.Fatalf("expected frontend manifest in scaffold")
+		}
+		if err := os.Remove(filepath.Join(pluginRoot, filepath.FromSlash(manifest.Frontend.Entrypoint))); err != nil {
+			t.Fatalf("remove frontend entrypoint: %v", err)
+		}
+		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestPathNotFound)
+	})
+
+	t.Run("invalid config schema json", func(t *testing.T) {
+		pluginRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
+		manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+		if err != nil {
+			t.Fatalf("load manifest: %v", err)
+		}
+		if strings.TrimSpace(manifest.ConfigSchemaPath) == "" {
+			t.Fatalf("expected config schema path in full scaffold")
+		}
+		if err := os.WriteFile(filepath.Join(pluginRoot, filepath.FromSlash(manifest.ConfigSchemaPath)), []byte("{not-json"), 0o644); err != nil {
+			t.Fatalf("write invalid config schema: %v", err)
+		}
+		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
+	})
+
+	t.Run("incompatible setta version", func(t *testing.T) {
+		pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-incompatible-version-plugin", "frontend")
+		rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+			payload["settaVersionRange"] = ">=999.0.0"
+		})
+		_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestVersionMismatch)
+	})
+
+	t.Run("invalid host version", func(t *testing.T) {
+		invalidHostVersionService, err := NewService(ServiceOptions{
+			WorkspaceRoot:  roots.workspaceRoot,
+			SettaFilesRoot: roots.settaFilesRoot,
+			SettaHome:      roots.settaHome,
+			ServerMode:     config.ModeIDE,
+			SettaVersion:   "not-a-version",
+		})
+		if err != nil {
+			t.Fatalf("new service with invalid host version: %v", err)
+		}
+		pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-invalid-host-version-branch", "frontend")
+		_, err = invalidHostVersionService.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeHostVersionInvalid)
+	})
+}
+
 // Validate should accept backend capability names that the Go plugin runtime supports today.
 func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

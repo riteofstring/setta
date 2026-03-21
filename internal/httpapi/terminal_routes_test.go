@@ -1034,6 +1034,7 @@ func TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry(t *te
 
 	attachment := attachHTTPTestTerminal(t, terminalService, existingTerminalSessionID)
 	prepareHTTPInterruptShell(t, terminalService, existingTerminalSessionID, attachment)
+	waitForHTTPReusableSession(t, terminalService, existingTerminalSessionID, true)
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -2414,6 +2415,21 @@ func prepareHTTPInterruptShell(t *testing.T, service *terminals.Service, session
 	if !strings.Contains(output, "READY") {
 		t.Fatalf("expected shell readiness output, got %q", output)
 	}
+}
+
+func waitForHTTPReusableSession(t *testing.T, service *terminals.Service, sessionID string, want bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	last := service.ReusableSession(sessionID)
+	for time.Now().Before(deadline) {
+		if last == want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+		last = service.ReusableSession(sessionID)
+	}
+	t.Fatalf("expected reusable session %q=%v, got %v", sessionID, want, last)
 }
 
 func writeHTTPInterruptibleScript(t *testing.T) string {
