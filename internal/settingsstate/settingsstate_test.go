@@ -2,7 +2,9 @@ package settingsstate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -302,6 +304,50 @@ func TestStoreLoadBootstrapsDefaultsAndPersistsMutations(t *testing.T) {
 	}
 	if got := reloaded["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected saved rename mode ALWAYS_RENAME, got %#v", got)
+	}
+}
+
+func TestStoreLoadWritesMissingDefaultsBackToDisk(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewStore(filepath.Join(t.TempDir(), DefaultFileName), StoreOptions{})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+	if err := os.WriteFile(store.Path(), []byte("{\n  \"backend\": {\n    \"renameRefactorMode\": \"ALWAYS_RENAME\"\n  }\n}\n"), 0o644); err != nil {
+		t.Fatalf("seed partial settings file: %v", err)
+	}
+
+	// Loading an existing partial settings file should normalize the returned
+	// document and persist the missing default keys back to disk immediately.
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load partial settings returned error: %v", err)
+	}
+	if got := document["backend"].(map[string]any)["autosave"]; got != true {
+		t.Fatalf("expected load to seed missing backend defaults in memory, got %#v", got)
+	}
+
+	content, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatalf("read normalized settings file: %v", err)
+	}
+	var persisted map[string]any
+	if err := json.Unmarshal(content, &persisted); err != nil {
+		t.Fatalf("decode normalized settings file: %v", err)
+	}
+	backend, ok := persisted["backend"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted backend object, got %#v", persisted["backend"])
+	}
+	if got := backend["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected persisted renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+	if got := backend["autosave"]; got != true {
+		t.Fatalf("expected persisted missing backend default autosave=true, got %#v", got)
+	}
+	if _, ok := persisted["gui"].(map[string]any); !ok {
+		t.Fatalf("expected load writeback to persist default top-level branches, got %#v", persisted)
 	}
 }
 

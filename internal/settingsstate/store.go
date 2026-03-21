@@ -1,6 +1,7 @@
 package settingsstate
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -71,6 +72,24 @@ func (s *Store) Load(ctx context.Context) (Document, error) {
 	document, err := NormalizeRaw(raw)
 	if err != nil {
 		return nil, err
+	}
+	rawContent, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("encode loaded settings document: %w", err)
+	}
+	normalizedContent, err := json.Marshal(document)
+	if err != nil {
+		return nil, fmt.Errorf("encode normalized settings document: %w", err)
+	}
+	if !bytes.Equal(rawContent, normalizedContent) {
+		normalizedContent, err = json.MarshalIndent(document, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("encode normalized settings document for writeback: %w", err)
+		}
+		normalizedContent = append(normalizedContent, '\n')
+		if err := statefs.AtomicWriteFile(s.path, normalizedContent, defaultFileMode); err != nil {
+			return nil, fmt.Errorf("write normalized settings document: %w", err)
+		}
 	}
 	return document, nil
 }
