@@ -736,6 +736,35 @@ Current execution note:
   - post-revert visual note:
     - a fresh subagent check after the revert confirmed the switch-root collapse was no longer live on the page
     - no obvious visual regression was visible in the current viewport state
+- the next Dict/plain-label non-code leaf-grid restore experiment was also benchmarked and rejected under the authoritative `All Settings` harness:
+  - experimental files:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - row-contract change under test:
+    - restore the old explicit leaf-grid/value contract only for top-level Dict `textLabelLeaf` rows whose value type is `SwitchParam` or `DropdownParam`
+    - keep `CodeParam`, `TextInputCodeMirror`, and other code/value paths untouched
+  - why this seam was chosen:
+    - live page inspection and fixture exploration both showed that the strongest remaining repeated non-code family was Dict-backed plain-label switch/dropdown rows
+    - this was the first attempt to express that as a shared row contract instead of a widget-root-only change
+  - authoritative paired read:
+    - `settings` regressed too strongly to justify a same-code confirmation rerun:
+      - benchmark `Paint`:
+        - `148.237ms -> 438.650ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 34602.837ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 524.013ms`
+    - `tier1Synthetic` again improved on paint while still losing on the aggregate work budget:
+      - benchmark `Paint`:
+        - `825.999ms -> 719.639ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14396.235ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 19.537ms`
+  - keep the structural finding even though the code change is rejected:
+    - the Dict/plain-label non-code row family is still the right family to keep mining
+    - but the old explicit leaf-grid shell is not the right mechanism anymore, even when narrowed to that family
+    - the next pass should stay in this family but move to the shared non-code value-host ownership seam instead of restoring the old grid shell
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -757,6 +786,9 @@ Current execution note:
   - avoid another immediate single-widget root collapse inside the non-code lane:
     - the switch-root collapse proves that even a heavily repeated control can regress `settings` badly when the change is too local
     - keep the next pass at the shared Dict/plain-label row contract or shared value-host seam instead
+  - avoid another immediate explicit leaf-grid restore inside the non-code lane:
+    - the narrowed Dict/plain-label switch/dropdown restore still made `settings` dramatically worse
+    - even though the family diagnosis looks right, the old grid shell is no longer the right mechanism
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
@@ -788,6 +820,10 @@ Current execution note:
         - stay with Dict-backed plain-label leaf rows
         - start with switch/dropdown-heavy value bodies because that is what the live `settings` page repeats most
         - but express the next change through a shared row/value contract in `ParamSwitch` / `ParamContainer` / `ParamUI`, not by collapsing one widget root in isolation
+      - the rejected Dict/plain-label non-code leaf-grid restore sharpens the mechanism read further:
+        - keep the same family focus
+        - stop trying to restore the old explicit grid shell
+        - move the next experiment to the shared non-code value-host ownership seam in `ParamContainer` / `ParamInput` / `ParamUI` for switch/dropdown-heavy Dict rows
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

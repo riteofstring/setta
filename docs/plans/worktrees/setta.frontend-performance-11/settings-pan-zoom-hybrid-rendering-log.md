@@ -1871,3 +1871,77 @@ Record:
     - the next pass should reintroduce a narrower shared row/value contract for Dict-backed plain-label leaves with switch/dropdown value bodies
 - Next action:
   - Turn the Dict/plain-label non-code row contract into the next measured experiment, starting with switch/dropdown-heavy value bodies instead of another widget-local collapse.
+
+## 2026-03-20 043
+
+- Item: Benchmark the Dict/plain-label non-code leaf-grid restore under the canonical `settings` and `tier1Synthetic` scenes, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - Structural change under test:
+    - restore the old explicit leaf-grid/value contract only for top-level Dict `textLabelLeaf` rows whose value type is `SwitchParam` or `DropdownParam`
+    - keep `CodeParam`, `TextInputCodeMirror`, and other code/value paths untouched
+  - Why this seam was chosen:
+    - earlier subagent exploration showed the real page and the checked-in `settings` fixture are both dominated by Dict-backed plain-label switch/dropdown rows
+    - this was the first attempt to express that as a shared row contract instead of a widget-root-only tweak
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - `5` files passed
+      - `7` tests passed
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-dict-non-code-leaf-grid-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 438.650ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 34602.837ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 524.013ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 38.322ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 58.424ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 719.639ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14396.235ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 19.537ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 124.450ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 137.731ms`
+  - Decision:
+    - reject this Dict/plain-label non-code leaf-grid restore as a keep for `HEAD`
+    - no same-code confirmation rerun was justified because the first paired `settings` matrix already regressed too strongly on the mandatory real-project target
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Stay in the Dict/plain-label non-code family, but move the next experiment away from explicit grid-shell restores and toward the shared non-code value-host ownership seam.
+
+## 2026-03-20 044
+
+- Item: Refine the next Tier 1 target after rejecting the Dict/plain-label non-code leaf-grid restore.
+- Status: `in_progress`
+- Details:
+  - Reverted the Dict/plain-label non-code leaf-grid code after recording the dead-end report.
+  - Current read:
+    - the family diagnosis now looks consistent across the last few probes:
+      - `settings` is dominated by Dict-backed plain-label non-code rows
+      - switch/dropdown-heavy value bodies are the hottest visible non-code family
+    - the mechanism diagnosis is also clearer now:
+      - explicit leaf-grid restores are wrong, even when narrowed to the right family
+      - widget-root-only collapses are also too local
+  - Active target refinement:
+    - keep working in the Dict/plain-label non-code row family
+    - stop trying to revive the old grid shell
+    - move to the shared value-host seam spanning:
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+      - likely the switch/dropdown branches first
+- Next action:
+  - Turn the shared non-code value-host ownership seam into the next measured experiment for Dict/plain-label switch/dropdown-heavy rows.
