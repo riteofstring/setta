@@ -507,6 +507,10 @@ Current execution note:
   - but it regressed the canonical `tier1Synthetic` aggregate benchmark even more clearly
   - do not keep that visibility-only shortcut at `HEAD`
   - the next Tier 1 slice should either reduce live body cost directly or change the preview/warm representation in a way that helps both canonical scenes
+- the first accepted post-preview slice is now live-body cost reduction, not broader preview gating:
+  - row-level layout containment in `frontend/index.css` materially improved the canonical `tier1Synthetic` scene and improved the worktree-only `settings` confirmation rerun
+  - keep this containment at `HEAD`
+  - continue looking for deeper live row/body-cost reductions before widening preview policy again
 
 ## Phase 4: Eliminate Click-Wait Through Warm Activation
 
@@ -563,6 +567,18 @@ Acceptance criteria:
 - active-section interactivity remains responsive
 - DOM and paint cost fall further on active-body traces
 - touched ownership seams become easier to reason about and test at a boundary level instead of through fragile cross-module coupling
+
+Current execution note:
+
+- the first retained live-body reduction after the narrow preview rollout is row-level layout containment in:
+  - `frontend/index.css`
+- this checkpoint is now part of the accepted Tier 1 baseline because:
+  - the canonical `tier1Synthetic` scene improved strongly on the paired rerun
+  - the worktree-only `settings` confirmation rerun improved enough to treat the first noisier `settings` paired sample as non-blocking variance instead of a true regression
+- the next Phase 5 slice should stay in this class of work:
+  - deeper row/body DOM or paint reduction
+  - simplified ownership around the shared param-row stack
+  - avoid returning to broader preview-gating experiments unless they clearly help both canonical scenes
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

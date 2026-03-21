@@ -654,3 +654,82 @@ Record:
     - preserve this rerun only as an append-only dead-end record
 - Next action:
   - Revert the uncommitted offscreen-skip experiment and continue from the earlier preview baseline.
+
+## 2026-03-20 016
+
+- Item: Benchmark row-level layout containment in the Tier 1 dense-param body stack and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Added row-level layout containment in:
+    - `frontend/index.css`
+  - Containment now applies to:
+    - `.section-param-row`
+    - `.section-param-row > .section-key.param-row-label`
+    - `.section-param-row > .section-key-value.param-row-label`
+    - `.section-param-row > .section-value`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamRowShell.test.tsx src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/sectionBodyModePolicy.test.ts`
+      - result:
+        - `9` files passed
+        - `34` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-row-containment-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-row-containment-rerun`
+  - First paired rerun read versus the earlier accepted preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `191.084ms`
+        - after:
+          - `199.573ms`
+      - benchmark `RunTask`:
+        - before:
+          - `4259.584ms`
+        - after:
+          - `3874.692ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `1611.081ms`
+        - after:
+          - `1036.116ms`
+      - benchmark `RunTask`:
+        - before:
+          - `23785.273ms`
+        - after:
+          - `23033.465ms`
+  - Because the first paired `settings` sample looked noisy relative to the rest of the matrix, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same preview checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `191.084ms`
+        - confirmation:
+          - `167.804ms`
+      - benchmark `RunTask`:
+        - before:
+          - `4259.584ms`
+        - confirmation:
+          - `3421.807ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `1611.081ms`
+        - confirmation:
+          - `842.503ms`
+      - benchmark `RunTask`:
+        - before:
+          - `23785.273ms`
+        - confirmation:
+          - `13582.872ms`
+  - Decision:
+    - keep this row-containment checkpoint at `HEAD`
+    - treat it as the first accepted deeper live-body-cost reduction after the rejected stronger-preview and offscreen-skip experiments
+    - continue favoring deeper live row/body-cost reductions over broader preview gating until both canonical scenes benefit
+- Next action:
+  - Use the retained containment baseline to choose the next Tier 1 slice:
+    - deeper shared param-row/body-cost reduction
+    - or a more effective preview/warm representation that helps both `settings` and `tier1Synthetic`

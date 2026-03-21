@@ -472,6 +472,7 @@ html.dark body {
 }
 
 .section-param-row {
+  contain: layout;
   display: flex;
   align-items: center;
   min-width: 0;
@@ -490,18 +491,21 @@ html.dark body {
 }
 
 .section-param-row > .section-key.param-row-label {
+  contain: layout;
   flex: 0 0 var(--param-column-width, 200px);
   width: var(--param-column-width, 200px);
   min-width: 0;
 }
 
 .section-param-row > .section-key-value.param-row-label {
+  contain: layout;
   flex: 1 1 auto;
   width: auto !important;
   min-width: 0;
 }
 
 .section-param-row > .section-value {
+  contain: layout;
   flex: 1 1 0%;
   min-width: 0;
 }
