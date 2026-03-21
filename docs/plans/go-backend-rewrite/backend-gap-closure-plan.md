@@ -395,6 +395,10 @@ categorize them.
   parity rows first (`getLLMResponse`, managed hydrate/stop, and external
   hydrate/stop/approval/question), then back to the broader app-generation
   submitted-turn normalization gap
+- The deployment/share `allowLLM` AI-route mount rows are now closed too, so
+  the next caller-visible queue should move to the broader app-generation
+  submitted-turn normalization gap first, then the remaining external-agent
+  runtime ownership rows that are still truly missing
 - The two OpenCode read-only runtime rows are now closed too, the OpenCode
   permission-allowlist merge row is now closed as well, and the external
   completion-guard wiring row is now closed too, so the adjacent
