@@ -3445,6 +3445,90 @@ func TestServerUISettingToolsSupportBackendRegisteredPluginSettings(t *testing.T
 	}
 }
 
+func TestServerUISettingToolsRejectBackendRegisteredPluginStaleExpectedOldValueWithoutWrite(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGo(t, installResult.SourcePath, false)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan backend-registered plugin runtime: %v", err)
+	}
+
+	backendStatePath := filepath.Join(installResult.SourcePath, "backend_ui_setting_state.json")
+	if _, err := os.Stat(backendStatePath); !os.IsNotExist(err) {
+		t.Fatalf("expected backend state file to be absent before stale write, got %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"settingId":        "plugin::setta-fixture-full::backend_enabled",
+			"value":            true,
+			"expectedOldValue": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call stale backend-registered set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured stale backend-registered response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed for stale backend-registered plugin write, got %#v", setError["code"])
+	}
+	message, ok := setError["message"].(string)
+	if !ok || !strings.Contains(message, "changed since pre-write validation") {
+		t.Fatalf("expected stale-precondition message, got %#v", setError["message"])
+	}
+	if _, err := os.Stat(backendStatePath); !os.IsNotExist(err) {
+		t.Fatalf("expected stale backend-registered plugin write not to invoke backend write handler, got %v", err)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value after stale backend-registered write: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected backend-registered plugin get success after stale write, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != false {
+		t.Fatalf("expected backend-registered plugin value to remain false after stale write, got %#v", getPayload["value"])
+	}
+}
+
 func TestServerUISettingToolsBackendRegisteredReadTypeMismatchReturnsStructuredError(t *testing.T) {
 	t.Parallel()
 
@@ -3706,6 +3790,86 @@ func TestServerUISettingToolsRollbackInvalidPostWriteBackendRegisteredPluginValu
 	getPayload := mustStructuredMap(t, getResult.StructuredContent)
 	if getPayload["value"] != false {
 		t.Fatalf("expected backend-registered plugin value to roll back to false, got %#v", getPayload["value"])
+	}
+}
+
+func TestServerUISettingToolsReportRollbackFailureForInvalidPostWriteBackendRegisteredPluginValue(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	writeScopedPluginBackendUISettingFixtureMainGoWithBehavior(
+		t,
+		installResult.SourcePath,
+		backendUISettingFixtureBehaviorRollbackWriteFailure,
+	)
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan rollback-failure backend-registered plugin runtime: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call rollback-failure set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured rollback-failure response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed for rollback-failure backend value, got %#v", setError["code"])
+	}
+	message, ok := setError["message"].(string)
+	if !ok || !strings.Contains(message, "Rollback failed:") {
+		t.Fatalf("expected rollback-failed message, got %#v", setError["message"])
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::backend_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value after rollback failure: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected structured backend-registered plugin get response after rollback failure, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	getError := mustStructuredMap(t, getPayload["error"])
+	if getError["code"] != string(uisettings.ErrorCodeInvalidValueType) {
+		t.Fatalf("expected invalid_value_type after rollback failure leaves invalid backend value, got %#v", getError["code"])
 	}
 }
 
@@ -4872,16 +5036,66 @@ func testStringPointer(value string) *string {
 	return &value
 }
 
+type backendUISettingFixtureBehavior string
+
+const (
+	backendUISettingFixtureBehaviorNormal               backendUISettingFixtureBehavior = "normal"
+	backendUISettingFixtureBehaviorInvalidPostWrite     backendUISettingFixtureBehavior = "invalid_post_write"
+	backendUISettingFixtureBehaviorRollbackWriteFailure backendUISettingFixtureBehavior = "rollback_write_failure"
+)
+
 func writeScopedPluginBackendUISettingFixtureMainGo(t *testing.T, pluginRoot string, invalidPostWrite bool) {
-	writeScopedPluginBackendUISettingFixtureMainGoForLocalSetting(t, pluginRoot, "backend_enabled", invalidPostWrite)
+	behavior := backendUISettingFixtureBehaviorNormal
+	if invalidPostWrite {
+		behavior = backendUISettingFixtureBehaviorInvalidPostWrite
+	}
+	writeScopedPluginBackendUISettingFixtureMainGoForLocalSettingWithBehavior(
+		t,
+		pluginRoot,
+		"backend_enabled",
+		behavior,
+	)
+}
+
+func writeScopedPluginBackendUISettingFixtureMainGoWithBehavior(t *testing.T, pluginRoot string, behavior backendUISettingFixtureBehavior) {
+	writeScopedPluginBackendUISettingFixtureMainGoForLocalSettingWithBehavior(
+		t,
+		pluginRoot,
+		"backend_enabled",
+		behavior,
+	)
 }
 
 func writeScopedPluginBackendUISettingFixtureMainGoForLocalSetting(t *testing.T, pluginRoot string, localSettingID string, invalidPostWrite bool) {
+	behavior := backendUISettingFixtureBehaviorNormal
+	if invalidPostWrite {
+		behavior = backendUISettingFixtureBehaviorInvalidPostWrite
+	}
+	writeScopedPluginBackendUISettingFixtureMainGoForLocalSettingWithBehavior(
+		t,
+		pluginRoot,
+		localSettingID,
+		behavior,
+	)
+}
+
+func writeScopedPluginBackendUISettingFixtureMainGoForLocalSettingWithBehavior(
+	t *testing.T,
+	pluginRoot string,
+	localSettingID string,
+	behavior backendUISettingFixtureBehavior,
+) {
 	t.Helper()
 
 	assignment := "state.Enabled = value"
-	if invalidPostWrite {
+	switch behavior {
+	case backendUISettingFixtureBehaviorNormal:
+	case backendUISettingFixtureBehaviorInvalidPostWrite:
 		assignment = "if value {\n\t\tstate.Enabled = \"invalid-value\"\n\t} else {\n\t\tstate.Enabled = value\n\t}"
+	case backendUISettingFixtureBehaviorRollbackWriteFailure:
+		assignment = "if value {\n\t\tstate.Enabled = \"invalid-value\"\n\t} else {\n\t\tfail(\"rollback write failed\")\n\t}"
+	default:
+		t.Fatalf("unsupported backend ui setting fixture behavior %q", behavior)
 	}
 
 	source := fmt.Sprintf(`package main

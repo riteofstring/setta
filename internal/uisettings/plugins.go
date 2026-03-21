@@ -254,7 +254,7 @@ func buildPluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string
 			if expectedOldValue != nil && !reflect.DeepEqual(cloneJSONValue(expectedOldValue), cloneJSONValue(oldValue)) {
 				return MutationResult{}, newSettingError(
 					ErrorCodeMutationFailed,
-					"Expected old value mismatch for %s.",
+					"%s changed since pre-write validation.",
 					settingID,
 				)
 			}
@@ -361,7 +361,7 @@ func buildPluginBackendRuntimeEntry(pluginService PluginRuntimeService, registra
 			if expectedOldValue != nil && !reflect.DeepEqual(cloneJSONValue(expectedOldValue), cloneJSONValue(oldValue)) {
 				return MutationResult{}, newSettingError(
 					ErrorCodeMutationFailed,
-					"Expected old value mismatch for %s.",
+					"%s changed since pre-write validation.",
 					settingID,
 				)
 			}
