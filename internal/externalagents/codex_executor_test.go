@@ -220,6 +220,21 @@ func TestCodexExecutorPassesSessionScopedCODEXHOMEToProcessEnv(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInstructions(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"developer_instructions": "Base developer instructions",
+	}
+	applyCodexRuntimeConfig(payload, externalagentconfigs.Config{}, "/tmp/workspace", map[string]any{
+		"systemPrompt": "Runtime system prompt",
+	})
+
+	if got := stringValue(payload["developer_instructions"]); got != "Runtime system prompt\n\nBase developer instructions" {
+		t.Fatalf("expected system prompt to prepend existing developer instructions, got %q", got)
+	}
+}
+
 func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
