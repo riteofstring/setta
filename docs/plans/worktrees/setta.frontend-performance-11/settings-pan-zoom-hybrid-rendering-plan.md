@@ -940,6 +940,37 @@ Current execution note:
           - the repeated section-card/header/kwargs seam is sensitive, and local kwargs-shell deletion is not a safe next Tier 1 mechanism
         - do not keep this kwargs wrapper collapse at `HEAD`
         - the next static Tier 1 pass should move away from the repeated section-card/header/kwargs shell and back into a different dense row/body ownership seam
+      - the next non-kwargs row-metadata experiment then resolved `ParamContainer` tooltip pages lazily on hover and was rejected too:
+        - experimental files:
+          - `frontend/src/components/Params/ParamContainer.tsx`
+          - `frontend/src/components/Utils/FloatingBox.tsx`
+        - mechanism under test:
+          - remove tooltip-only store reads from `ParamContainer` render
+          - resolve row tooltip pages lazily from project state on hover instead
+          - keep row shell, label/value layout, resize handle, and error chrome unchanged
+        - browser verification:
+          - a fresh subagent confirmed that `/settings` and `/benchmark-tier1` both loaded normally
+          - ordinary-zoom row layout remained intact
+          - no obvious row hover, label, or value-structure regression was visible
+        - paired benchmark read:
+          - the first paired matrix again improved `tier1Synthetic` paint while making the mandatory real `settings` scene much worse
+          - untouched `main` shifted sharply on the same run again, so the decision was gated on a same-code worktree confirmation rerun
+        - authoritative worktree confirmation deltas versus the retained baseline:
+          - `settings` benchmark `Paint`:
+            - `148.237ms -> 415.111ms`
+          - `settings` benchmark `RunTask`:
+            - `3235.187ms -> 30081.420ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `66.774ms -> 478.980ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `825.999ms -> 716.475ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `13271.540ms -> 14250.819ms`
+        - mechanism read:
+          - tooltip-only row metadata is not the dominant reason the real `settings` row path is expensive
+          - lazy tooltip resolution alone is too narrow to rescue the non-kwargs row/body seam
+        - do not keep this lazy-tooltip `ParamContainer` path at `HEAD`
+        - the next Tier 1 pass should keep mining the non-kwargs row/body seam, but it needs a deeper `ParamSwitch -> ParamContainer` ownership change rather than tooltip-only laziness
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

@@ -1,12 +1,10 @@
-import { getLazyFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import {
-  getCurrEffectiveCodeObjImpl,
-  getParamDisplayName,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamRowShell } from "./ParamRowShell";
 import { ResizeHandle } from "./ResizeHandle";
@@ -38,37 +36,6 @@ type ParamContainerProps = {
   showResizeHandle?: boolean;
 };
 
-export function getParamContainerTooltipContent({
-  state,
-  sectionId,
-  paramInfoId,
-  errorMessage,
-}: {
-  state: Parameters<typeof getCurrEffectiveCodeObjImpl>[0];
-  sectionId: string;
-  paramInfoId: string;
-  errorMessage: string;
-}) {
-  const paramDescription =
-    getCurrEffectiveCodeObjImpl(state, sectionId, paramInfoId).description;
-  const paramName = getParamDisplayName(state, sectionId, paramInfoId);
-  if (errorMessage.length > 0) {
-    return [
-      {
-        content: errorMessage,
-        wrapperClassName:
-          "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
-        contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
-      },
-      {
-        title: paramName,
-        content: paramDescription,
-      },
-    ];
-  }
-  return [{ title: paramName, content: paramDescription }];
-}
-
 function _ParamContainer({
   sectionId,
   paramInfoId,
@@ -91,22 +58,57 @@ function _ParamContainer({
   dndClassName,
   showResizeHandle = true,
 }: ParamContainerProps) {
+  const codeObjImpl = useProjectState((x) =>
+    getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
+  );
+  const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
+  const showParamDisplayNames = useProjectState(
+    (x) => x.projectConfig.showParamDisplayNames,
+  );
+  const paramDescription = codeObjImpl.description;
+  const paramName = React.useMemo(() => {
+    if (!showParamDisplayNames) {
+      return paramCore.name;
+    }
+    if (isBaseParamCodeObjImpl(codeObjImpl) && codeObjImpl.coreNameEditable) {
+      return paramCore.name;
+    }
+    const trimmedDisplayName = paramCore.displayName.trim();
+    if (trimmedDisplayName.length > 0) {
+      return paramCore.displayName;
+    }
+    return paramCore.name;
+  }, [
+    codeObjImpl,
+    paramCore.displayName,
+    paramCore.name,
+    showParamDisplayNames,
+  ]);
+
   const errorMessage = maybeErrorMessage ?? "";
   const hasError = errorMessage.length > 0;
+
+  // TODO: fix quick hacky solution below. shouldn't use !important everywhere.
+  const tooltipContentArray = hasError
+    ? [
+        {
+          content: errorMessage,
+          wrapperClassName:
+            "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
+          contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
+        },
+        {
+          title: paramName,
+          content: paramDescription,
+        },
+      ]
+    : [{ title: paramName, content: paramDescription }];
+
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
-  const { onMouseEnter, onMouseLeave } = React.useMemo(
-    () =>
-      getLazyFloatingBoxHandlers(() =>
-        getParamContainerTooltipContent({
-          state: useProjectState.getState(),
-          sectionId,
-          paramInfoId,
-          errorMessage,
-        }),
-      ),
-    [errorMessage, paramInfoId, sectionId],
+  const { onMouseEnter, onMouseLeave } = getFloatingBoxHandlers(
+    ...tooltipContentArray,
   );
 
   return (

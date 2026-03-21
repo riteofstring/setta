@@ -2384,3 +2384,94 @@ Record:
     - the next Tier 1 pass should move back to a different dense row/body ownership seam instead of spending another cycle in the section-card chrome
 - Next action:
   - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and choose the next non-kwargs static Tier 1 seam.
+
+## 2026-03-21 055
+
+- Item: Benchmark lazy tooltip resolution in `ParamContainer` on the non-kwargs row metadata seam, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Why this seam was chosen:
+    - fresh seam discovery after the kwargs rejection moved the next Tier 1 target into the non-kwargs dense row/body path
+    - the narrowest first pass there was to remove tooltip-only store reads from `ParamContainer` render while keeping the row shell and widget geometry unchanged
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Utils/FloatingBox.tsx`
+    - focused tests:
+      - `frontend/src/components/Params/ParamContainer.test.tsx`
+      - `frontend/src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts`
+      - `frontend/src/components/Section/SectionParts/kwargsControlsStyles.test.ts`
+  - Structural change under test:
+    - move tooltip page construction out of `ParamContainer` render
+    - resolve the row tooltip pages lazily from project state on hover
+    - keep the row shell, label/value layout, resize handle, and error chrome unchanged
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts src/components/Section/SectionParts/kwargsControlsStyles.test.ts`
+      - `3` files passed
+      - `7` tests passed
+  - Filtered typecheck while the experiment was live:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "ParamContainer|FloatingBox"`
+    - no matching diagnostics were emitted during the filtered check
+  - Fresh subagent CDP check while the experiment was live:
+    - chrome-devtools MCP was accessible
+    - `http://127.0.0.1:3011/settings` and `http://127.0.0.1:3011/benchmark-tier1` both loaded normally
+    - ordinary-zoom row layout looked intact
+    - no obvious breakage was visible in row hover, label, or value structure
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-param-container-lazy-tooltip-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 421.940ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 29832.987ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 474.498ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 723.708ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14501.568ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 23.030ms`
+  - Same-code worktree confirmation rerun:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 415.111ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 30081.420ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 478.980ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 36.226ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 59.439ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 716.475ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14250.819ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 19.020ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 116.214ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 145.537ms`
+  - Decision:
+    - reject this lazy-tooltip `ParamContainer` experiment as a keep for `HEAD`
+    - tooltip-only row metadata is not the dominant reason the mandatory real `settings` row path is expensive
+    - the non-kwargs row/body seam remains promising, but tooltip-only laziness is too narrow a mechanism
+- Next action:
+  - Revert this experiment cleanly, rerun focused reverted-baseline verification, and turn the next non-kwargs Tier 1 pass into a deeper `ParamSwitch -> ParamContainer` ownership change.
+
+## 2026-03-21 056
+
+- Item: Refine the next non-kwargs Tier 1 target after rejecting lazy tooltip resolution in `ParamContainer`.
+- Status: `in_progress`
+- Details:
+  - Reverted the lazy-tooltip experiment after recording the dead-end report.
+  - Current read:
+    - the non-kwargs row/body seam still looks stronger than the repeated section-card/header/kwargs shell
+    - but tooltip-only laziness is too narrow a cut
+    - fresh seam discovery points at the broader `ParamSwitch -> ParamContainer` row metadata ownership split as the next likely target
+- Next action:
+  - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and turn the next Tier 1 pass into a broader row metadata ownership experiment rather than another tooltip-only tweak.
