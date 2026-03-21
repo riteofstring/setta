@@ -137,6 +137,35 @@ func TestServiceApplyLockfileRejectsDuplicateScopeEntries(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeLockfileInvalid)
 }
 
+// Lockfile apply must fail deterministically when the expected lockfile is absent.
+func TestServiceApplyLockfileFailsWhenLockfileMissing(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	_, err := service.ApplyLockfile(context.Background(), false)
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeLockfileNotFound)
+}
+
+// Lockfile apply must reject malformed JSON before any convergence work begins.
+func TestServiceApplyLockfileFailsOnInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	if err := os.MkdirAll(filepath.Dir(lockfilePath), 0o755); err != nil {
+		t.Fatalf("create lockfile directory: %v", err)
+	}
+	if err := os.WriteFile(lockfilePath, []byte("{not-valid-json"), 0o644); err != nil {
+		t.Fatalf("write invalid lockfile: %v", err)
+	}
+
+	_, err := service.ApplyLockfile(context.Background(), false)
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeLockfileInvalid)
+}
+
 // Lockfile apply should reject entries that need installation but omit sourceSpec.
 func TestServiceApplyLockfileRequiresSourceSpecForMissingPlugin(t *testing.T) {
 	t.Parallel()
