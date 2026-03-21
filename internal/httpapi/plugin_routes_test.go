@@ -1714,6 +1714,79 @@ func TestRegisterPluginRootRoutesPreserveRepeatedHeadersFromBackendResponse(t *t
 	}
 }
 
+func TestRegisterPluginRootRoutesRejectInvalidHeaderTransportValues(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                    string
+		headers                 map[string][]string
+		expectedMessageFragment string
+	}{
+		{
+			name: "non_latin_1_value",
+			headers: map[string][]string{
+				"X-Fixture": {"✓"},
+			},
+			expectedMessageFragment: "non-latin-1 header name or value",
+		},
+		{
+			name: "newline_in_name",
+			headers: map[string][]string{
+				"X-Fixture\nInvalid": {"value"},
+			},
+			expectedMessageFragment: "headers containing newline characters",
+		},
+		{
+			name: "newline_in_value",
+			headers: map[string][]string{
+				"X-Fixture": {"value\rinvalid"},
+			},
+			expectedMessageFragment: "headers containing newline characters",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := pluginRouteServiceStub{
+				lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+					if requestPath == "/headers" {
+						return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+					}
+					return plugins.BackendRouteLookup{}, nil
+				},
+				dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+					return plugins.BackendHTTPResponse{
+						StatusCode: http.StatusOK,
+						Headers:    tc.headers,
+						Body:       []byte(`{"ok":true}`),
+					}, true, nil
+				},
+			}
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/headers", nil)
+			newPluginRouteTestHandler(t, config.ModeIDE, service).ServeHTTP(response, request)
+
+			if response.Code != http.StatusBadGateway {
+				t.Fatalf("expected invalid header transport to fail with 502, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode invalid header transport payload: %v", err)
+			}
+			if payload.Error.Code != string(plugins.ServiceErrorCodeBackendRuntimeInvalid) {
+				t.Fatalf("expected backend runtime invalid code, got %#v", payload.Error)
+			}
+			if !strings.Contains(payload.Error.Message, tc.expectedMessageFragment) {
+				t.Fatalf("expected invalid header transport message to contain %q, got %#v", tc.expectedMessageFragment, payload.Error)
+			}
+		})
+	}
+}
+
 func TestRegisterPluginRootRoutesPreserveBackendRequestBodyBytes(t *testing.T) {
 	t.Parallel()
 

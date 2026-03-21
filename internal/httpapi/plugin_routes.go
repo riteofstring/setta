@@ -542,7 +542,9 @@ func dispatchRegisteredPluginBackendRoute(w http.ResponseWriter, r *http.Request
 		return nil
 	}
 
-	writePluginBackendHTTPResponse(w, response)
+	if err := writePluginBackendHTTPResponse(w, response); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -557,21 +559,32 @@ func cloneBackendRequestHeaders(headers http.Header) map[string][]string {
 	return cloned
 }
 
-func writePluginBackendHTTPResponse(w http.ResponseWriter, response plugins.BackendHTTPResponse) {
+func writePluginBackendHTTPResponse(w http.ResponseWriter, response plugins.BackendHTTPResponse) error {
+	validatedHeaders := make(http.Header)
 	for key, values := range response.Headers {
 		trimmedKey := strings.TrimSpace(key)
 		if trimmedKey == "" || strings.EqualFold(trimmedKey, "Content-Length") {
 			continue
 		}
-		for _, value := range values {
-			w.Header().Add(trimmedKey, value)
+		if err := validatePluginBackendHTTPHeaderName(trimmedKey); err != nil {
+			return err
 		}
+		for _, value := range values {
+			if err := validatePluginBackendHTTPHeaderValue(value); err != nil {
+				return err
+			}
+			validatedHeaders.Add(trimmedKey, value)
+		}
+	}
+	for key, values := range validatedHeaders {
+		w.Header()[key] = append([]string(nil), values...)
 	}
 	w.WriteHeader(response.StatusCode)
 	if len(response.Body) == 0 || pluginBackendHTTPStatusDisallowsBody(response.StatusCode) {
-		return
+		return nil
 	}
 	_, _ = w.Write(response.Body)
+	return nil
 }
 
 func pluginBackendHTTPStatusDisallowsBody(status int) bool {
@@ -579,6 +592,59 @@ func pluginBackendHTTPStatusDisallowsBody(status int) bool {
 		status == http.StatusNoContent ||
 		status == http.StatusResetContent ||
 		status == http.StatusNotModified
+}
+
+func validatePluginBackendHTTPHeaderName(name string) error {
+	if strings.ContainsAny(name, "\r\n") {
+		return invalidPluginBackendHTTPHeaderError("Plugin backend response returned headers containing newline characters.")
+	}
+	for index := 0; index < len(name); index++ {
+		if !pluginBackendHTTPHeaderNameByteAllowed(name[index]) {
+			return invalidPluginBackendHTTPHeaderError("Plugin backend response returned non-latin-1 header name or value.")
+		}
+	}
+	return nil
+}
+
+func validatePluginBackendHTTPHeaderValue(value string) error {
+	if strings.ContainsAny(value, "\r\n") {
+		return invalidPluginBackendHTTPHeaderError("Plugin backend response returned headers containing newline characters.")
+	}
+	for _, char := range value {
+		if char > 0xFF {
+			return invalidPluginBackendHTTPHeaderError("Plugin backend response returned non-latin-1 header name or value.")
+		}
+		if (char < 0x20 && char != '\t') || char == 0x7f {
+			return invalidPluginBackendHTTPHeaderError("Plugin backend response returned non-latin-1 header name or value.")
+		}
+	}
+	return nil
+}
+
+func pluginBackendHTTPHeaderNameByteAllowed(char byte) bool {
+	if char >= '0' && char <= '9' {
+		return true
+	}
+	if char >= 'a' && char <= 'z' {
+		return true
+	}
+	if char >= 'A' && char <= 'Z' {
+		return true
+	}
+	switch char {
+	case '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~':
+		return true
+	default:
+		return false
+	}
+}
+
+func invalidPluginBackendHTTPHeaderError(message string) error {
+	return &plugins.ServiceError{
+		Code:    plugins.ServiceErrorCodeBackendRuntimeInvalid,
+		Message: message,
+		Status:  http.StatusBadGateway,
+	}
 }
 
 func buildPluginAssetURL(pluginID string, relativePath string, sourceDigestSHA256 *string) string {
