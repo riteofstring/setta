@@ -296,6 +296,48 @@ func TestServiceApplyLockfileUninstallsPluginsMissingFromLockfile(t *testing.T) 
 	}
 }
 
+// Lockfile apply should also uninstall invalid filesystem plugin roots that discovery surfaced.
+func TestServiceApplyLockfileUninstallsInvalidFilesystemPlugins(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	invalidPluginRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-invalid-missing-manifest")
+	if err := os.MkdirAll(invalidPluginRoot, 0o755); err != nil {
+		t.Fatalf("create invalid plugin root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(invalidPluginRoot, "README.txt"), []byte("missing manifest\n"), 0o644); err != nil {
+		t.Fatalf("write invalid plugin marker: %v", err)
+	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan invalid plugin root: %v", err)
+	}
+
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{},
+	})
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 1 || checkResult.PlannedChanges[0] != "uninstall setta-invalid-missing-manifest from workspace" {
+		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
+	}
+
+	applyResult, err := service.ApplyLockfile(context.Background(), false)
+	if err != nil {
+		t.Fatalf("apply lockfile: %v", err)
+	}
+	if !applyResult.Applied {
+		t.Fatalf("expected apply result to be applied")
+	}
+	if _, err := os.Stat(invalidPluginRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected invalid plugin root to be removed, got err=%v", err)
+	}
+}
+
 // Lockfile apply should reinstall a PyPI-managed plugin from the stored source spec and installer backend.
 func TestServiceApplyLockfileReinstallsPluginFromPyPISource(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
