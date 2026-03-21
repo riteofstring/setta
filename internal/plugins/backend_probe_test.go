@@ -216,6 +216,65 @@ func TestDecodeBackendProbeResponseRejectsUnknownLanguageServerFields(t *testing
 	}
 }
 
+func TestNormalizeBackendCodegenTargetRegistrationRejectsInvalidFields(t *testing.T) {
+	// Codegen target registrations must fail closed on missing required fields and invalid default files.
+	testCases := []struct {
+		name    string
+		target  PluginRegisteredCodegenTarget
+		wantErr string
+	}{
+		{
+			name: "missing-target-id",
+			target: PluginRegisteredCodegenTarget{
+				Language:        "setta-fixture-backend-codegen:typescript",
+				Name:            "Fixture TypeScript State",
+				DefaultFileName: "fixture_state.ts",
+			},
+			wantErr: "targetId is required",
+		},
+		{
+			name: "missing-name",
+			target: PluginRegisteredCodegenTarget{
+				TargetID:        "typescript",
+				Language:        "setta-fixture-backend-codegen:typescript",
+				DefaultFileName: "fixture_state.ts",
+			},
+			wantErr: "name is required",
+		},
+		{
+			name: "missing-default-file-name",
+			target: PluginRegisteredCodegenTarget{
+				TargetID: "typescript",
+				Language: "setta-fixture-backend-codegen:typescript",
+				Name:     "Fixture TypeScript State",
+			},
+			wantErr: "defaultFileName is required",
+		},
+		{
+			name: "path-default-file-name",
+			target: PluginRegisteredCodegenTarget{
+				TargetID:        "typescript",
+				Language:        "setta-fixture-backend-codegen:typescript",
+				Name:            "Fixture TypeScript State",
+				DefaultFileName: "nested/fixture_state.ts",
+			},
+			wantErr: "must be a file name",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := normalizeBackendCodegenTargetRegistration("setta-fixture-backend", testCase.target)
+			if err == nil {
+				t.Fatalf("expected invalid codegen target registration %#v to fail", testCase.target)
+			}
+			if !strings.Contains(err.Error(), testCase.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", testCase.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestDecodeBackendProbeResponseRejectsUnsupportedSchemaVersion(t *testing.T) {
 	// Probe schema mismatches should fail closed instead of activating stale backends.
 	_, err := decodeBackendProbeResponse([]byte(`{

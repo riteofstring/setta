@@ -146,6 +146,36 @@ func TestServiceGeneratePluginCodegenTargetRejectsMissingResponsePayload(t *test
 	}
 }
 
+func TestServiceGeneratePluginCodegenTargetRejectsBlankLanguageAndUnknownTarget(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	_, err := service.GeneratePluginCodegenTarget(
+		context.Background(),
+		" ",
+		map[string]any{},
+		map[string]any{},
+	)
+	if err == nil {
+		t.Fatal("expected blank codegen language to fail")
+	}
+	if !strings.Contains(err.Error(), "codegen target language is required") {
+		t.Fatalf("expected blank language validation error, got %v", err)
+	}
+
+	_, err = service.GeneratePluginCodegenTarget(
+		context.Background(),
+		"setta-fixture-backend-codegen:missing",
+		map[string]any{},
+		map[string]any{},
+	)
+	if !strings.Contains(err.Error(), ErrRegisteredCodegenTargetNotFound.Error()) {
+		t.Fatalf("expected unknown target not-found error, got %v", err)
+	}
+}
+
 func TestServiceGeneratePluginCodegenTargetRejectsAbsolutePath(t *testing.T) {
 	t.Parallel()
 
