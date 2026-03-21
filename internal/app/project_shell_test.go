@@ -93,6 +93,61 @@ func TestAppSaveProjectRouteWritesJSONSourceFilesAndRecreatesMissingKeyPath(t *t
 	}
 }
 
+func TestAppStartupLoadsSharedJSONSourceSectionsFromDisk(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 61236
+	prepareAppCurrentSession(t, cfg)
+
+	if err := os.MkdirAll(filepath.Join(cfg.Paths.WorkspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Paths.WorkspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"fresh\":2}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project-state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new main project store: %v", err)
+	}
+	if err := store.Save(context.Background(), jsonSourceStartupLoadAppTestDocument(t)); err != nil {
+		t.Fatalf("seed main project store: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after app startup: %v", err)
+	}
+	peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective peer payload after app startup: %v", err)
+	}
+	if projectShellPayloadBool(targetPayload, "jsonSourceMissing") {
+		t.Fatal("expected target variant missing flag cleared")
+	}
+	if projectShellPayloadBool(peerPayload, "jsonSourceMissing") {
+		t.Fatal("expected peer variant missing flag cleared")
+	}
+	assertProjectShellJSONSourceFreshValue(t, project, projectShellPayloadStringMap(targetPayload, "codeObjVariantMap"), projectShellPayloadString(targetPayload, "topLevelParamId"))
+	assertProjectShellJSONSourceFreshValue(t, project, projectShellPayloadStringMap(peerPayload, "codeObjVariantMap"), projectShellPayloadString(peerPayload, "topLevelParamId"))
+}
+
 func TestAppServesProjectShellReadRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -290,6 +345,237 @@ func jsonSourceSaveAppTestDocument(t *testing.T) projectstate.Document {
 			project.ID: project,
 		},
 	}
+}
+
+func jsonSourceStartupLoadAppTestDocument(t *testing.T) projectstate.Document {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:                      "project-alpha",
+		Name:                    "Project Alpha",
+		AllowJSONSourceKeyEdits: true,
+		ProjectChatWindowing:    &projectstate.ProjectChatWindowingState{InstancesByID: map[string]projectstate.ProjectChatWindowInstance{}, Order: []string{}},
+		SectionVariantMap: map[string]string{
+			"json-section-a": "json-variant-a",
+			"json-section-b": "json-variant-b",
+		},
+		Sections: map[string]projectstate.Section{
+			"json-section-a": {
+				ID:               "json-section-a",
+				Name:             "JSON Source A",
+				VariantIDs:       []string{"json-variant-a"},
+				DefaultVariantID: "json-variant-a",
+			},
+			"json-section-b": {
+				ID:               "json-section-b",
+				Name:             "JSON Source B",
+				VariantIDs:       []string{"json-variant-b"},
+				DefaultVariantID: "json-variant-b",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"json-variant-a": {
+				ID:     "json-variant-a",
+				Name:   "data/source.json",
+				ImplID: "json-impl-a",
+			},
+			"json-variant-b": {
+				ID:     "json-variant-b",
+				Name:   "data/source.json",
+				ImplID: "json-impl-b",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"json-impl-a": {
+				ID:   "json-impl-a",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":              "json-impl-a",
+					"type":            "Dict",
+					"isJsonSource":    true,
+					"configLanguage":  "json",
+					"jsonSourceKeys":  []string{"alpha"},
+					"topLevelParamId": "old-root-a",
+					"codeObjVariantMap": map[string]any{
+						"old-root-a": "old-root-variant-a",
+						"old-leaf-a": "old-leaf-variant-a",
+					},
+				}),
+			},
+			"json-impl-b": {
+				ID:   "json-impl-b",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":              "json-impl-b",
+					"type":            "Dict",
+					"isJsonSource":    true,
+					"configLanguage":  "json",
+					"jsonSourceKeys":  []string{"alpha"},
+					"topLevelParamId": "old-root-b",
+					"codeObjVariantMap": map[string]any{
+						"old-root-b": "old-root-variant-b",
+						"old-leaf-b": "old-leaf-variant-b",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"old-root-a": {
+				ID:               "old-root-a",
+				Name:             "alpha",
+				VariantIDs:       []string{"old-root-variant-a"},
+				DefaultVariantID: "old-root-variant-a",
+			},
+			"old-leaf-a": {
+				ID:               "old-leaf-a",
+				Name:             "target-leaf",
+				VariantIDs:       []string{"old-leaf-variant-a"},
+				DefaultVariantID: "old-leaf-variant-a",
+			},
+			"old-root-b": {
+				ID:               "old-root-b",
+				Name:             "alpha",
+				VariantIDs:       []string{"old-root-variant-b"},
+				DefaultVariantID: "old-root-variant-b",
+			},
+			"old-leaf-b": {
+				ID:               "old-leaf-b",
+				Name:             "peer-leaf",
+				VariantIDs:       []string{"old-leaf-variant-b"},
+				DefaultVariantID: "old-leaf-variant-b",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"old-root-variant-a": {
+				ID:               "old-root-variant-a",
+				ImplID:           "old-root-impl-a",
+				NonPresetImplIDs: []string{"old-root-impl-a"},
+			},
+			"old-leaf-variant-a": {
+				ID:               "old-leaf-variant-a",
+				ImplID:           "old-leaf-impl-a",
+				NonPresetImplIDs: []string{"old-leaf-impl-a"},
+			},
+			"old-root-variant-b": {
+				ID:               "old-root-variant-b",
+				ImplID:           "old-root-impl-b",
+				NonPresetImplIDs: []string{"old-root-impl-b"},
+			},
+			"old-leaf-variant-b": {
+				ID:               "old-leaf-variant-b",
+				ImplID:           "old-leaf-impl-b",
+				NonPresetImplIDs: []string{"old-leaf-impl-b"},
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"old-root-impl-a": {
+				ID:   "old-root-impl-a",
+				Type: "NestedParam",
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":       "old-root-impl-a",
+					"type":     "NestedParam",
+					"children": []string{"old-leaf-a"},
+				}),
+			},
+			"old-leaf-impl-a": {
+				ID:   "old-leaf-impl-a",
+				Type: "CodeParam",
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":    "old-leaf-impl-a",
+					"type":  "CodeParam",
+					"value": "1",
+				}),
+			},
+			"old-root-impl-b": {
+				ID:   "old-root-impl-b",
+				Type: "NestedParam",
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":       "old-root-impl-b",
+					"type":     "NestedParam",
+					"children": []string{"old-leaf-b"},
+				}),
+			},
+			"old-leaf-impl-b": {
+				ID:   "old-leaf-impl-b",
+				Type: "CodeParam",
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":    "old-leaf-impl-b",
+					"type":  "CodeParam",
+					"value": "2",
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize json source startup-load app project: %v", err)
+	}
+
+	return projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	}
+}
+
+func assertProjectShellJSONSourceFreshValue(t *testing.T, project projectstate.Project, codeObjVariantMap map[string]string, topLevelParamID string) {
+	t.Helper()
+
+	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, topLevelParamID)
+	if err != nil {
+		t.Fatalf("effective root payload after app startup load: %v", err)
+	}
+	childIDs := projectShellPayloadStringArray(rootPayload, "children")
+	if len(childIDs) != 1 {
+		t.Fatalf("expected one refreshed child, got %#v", childIDs)
+	}
+	childPayload, childCodeObj, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, childIDs[0])
+	if err != nil {
+		t.Fatalf("effective child payload after app startup load: %v", err)
+	}
+	if childCodeObj.Name != "fresh" {
+		t.Fatalf("expected child name fresh, got %q", childCodeObj.Name)
+	}
+	if got := projectShellPayloadString(childPayload, "value"); got != "2" {
+		t.Fatalf("expected child value 2, got %q", got)
+	}
+}
+
+func projectShellPayloadString(payload map[string]any, key string) string {
+	value, _ := payload[key].(string)
+	return value
+}
+
+func projectShellPayloadStringArray(payload map[string]any, key string) []string {
+	rawEntries, _ := payload[key].([]any)
+	output := make([]string, 0, len(rawEntries))
+	for _, rawEntry := range rawEntries {
+		entry, ok := rawEntry.(string)
+		if !ok || strings.TrimSpace(entry) == "" {
+			continue
+		}
+		output = append(output, entry)
+	}
+	return output
+}
+
+func projectShellPayloadStringMap(payload map[string]any, key string) map[string]string {
+	rawEntries, _ := payload[key].(map[string]any)
+	output := make(map[string]string, len(rawEntries))
+	for entryKey, rawValue := range rawEntries {
+		value, ok := rawValue.(string)
+		if !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+		output[entryKey] = value
+	}
+	return output
+}
+
+func projectShellPayloadBool(payload map[string]any, key string) bool {
+	value, _ := payload[key].(bool)
+	return value
 }
 
 func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T) {

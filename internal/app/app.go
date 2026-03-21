@@ -512,6 +512,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		projectRuntime = projectStates.Main()
+		if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+			if err := document.LoadAllJSONSourceVariantsFromDisk(cfg.Paths.WorkspaceRoot); err != nil {
+				return document, err
+			}
+			return document, nil
+		}); err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
 		settingsStateStore, err := settingsstate.NewStore(
 			filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
 			settingsstate.StoreOptions{

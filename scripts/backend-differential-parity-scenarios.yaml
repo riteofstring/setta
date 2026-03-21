@@ -123,3 +123,7 @@ scenarios:
     kind: json_source_key_change_refresh
     seed: none
     description: Editing jsonSourceKeys on a JSON-backed dict section should match the baseline backend's live refresh and persisted-state contract.
+  - name: json_source_startup_shared_pair_load
+    kind: json_source_startup_shared_pair_load
+    seed: none
+    description: Restarting with two shared JSON-backed sections should hydrate both sections from the backing file while keeping distinct code-object trees per section.
