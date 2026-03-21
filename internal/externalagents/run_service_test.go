@@ -210,6 +210,49 @@ func TestRunServiceValidateRunRejectsMismatchedEngineConfigInput(t *testing.T) {
 	}
 }
 
+func TestRunServiceValidateRunRejectsInvalidMessageContentShape(t *testing.T) {
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile, err := fixture.profiles.Get("profile-alpha")
+	if err != nil {
+		t.Fatalf("get profile: %v", err)
+	}
+	service, err := NewRunService(RunServiceOptions{
+		ProjectState: fixture.service.projectState,
+		Engines:      fixture.service.engines,
+		Runs:         fixture.runs,
+		Configs:      fixture.service.configs,
+		Runtime:      fixture.runtime,
+		Preflight:    fixture.service.preflight,
+		Attachments:  fixture.service.attachments,
+		Executor: &asyncExternalRunExecutor{
+			runs:    fixture.runs,
+			runtime: fixture.runtime,
+			timeNow: func() time.Time { return fixture.now },
+		},
+		TimeNow: func() time.Time { return fixture.now },
+	})
+	if err != nil {
+		t.Fatalf("new run service: %v", err)
+	}
+
+	err = service.ValidateRun(profile, map[string]any{
+		"projectConfigId": "project-alpha",
+		"allowUnscoped":   true,
+		"messages": []any{
+			map[string]any{
+				"role":    "user",
+				"content": "bad",
+			},
+		},
+	})
+	if !errors.Is(err, ErrInvalidRunInput) {
+		t.Fatalf("expected invalid run input error, got %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "messages[0]: message content must be a list") {
+		t.Fatalf("expected invalid message content detail, got %v", err)
+	}
+}
+
 func TestRunServiceValidateRunReturnsPreflightUnavailable(t *testing.T) {
 	fixture := newSendServiceFixture(t, sendFixtureOptions{
 		preflightStatus: &externalagentconfigs.Status{

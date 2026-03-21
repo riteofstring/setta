@@ -356,6 +356,55 @@ func TestBuildOpenCodeStartPayloadRewritesMCPToolNamespaceInSystemPrompt(t *test
 	}
 }
 
+func TestBuildOpenCodeStartPayloadCarriesSystemPromptSeparatelyFromPromptMessages(t *testing.T) {
+	t.Parallel()
+
+	payload := buildOpenCodeStartPayload(
+		StartRequest{
+			Run: agentruns.NewRun(nil, map[string]any{
+				"messages": []any{
+					map[string]any{
+						"id":   "user-1",
+						"role": "user",
+						"content": []any{
+							map[string]any{"type": "text", "text": "Hello"},
+						},
+					},
+				},
+			}, time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)),
+			Inputs: map[string]any{
+				"systemPrompt": "System prompt",
+				"messages": []any{
+					map[string]any{
+						"id":   "user-1",
+						"role": "user",
+						"content": []any{
+							map[string]any{"type": "text", "text": "Hello"},
+						},
+					},
+				},
+			},
+		},
+		"/tmp/workspace",
+		externalagentconfigs.Config{},
+	)
+
+	prompt := stringValue(payload["prompt"])
+	if !containsText(prompt, "User:\nHello") {
+		t.Fatalf("expected prompt to include user message text, got %q", prompt)
+	}
+	if containsText(prompt, "System:\nSystem prompt") {
+		t.Fatalf("expected system prompt to stay out of prompt body, got %q", prompt)
+	}
+	systemPrompt := stringValue(payload["systemPrompt"])
+	if !containsText(systemPrompt, "System prompt") {
+		t.Fatalf("expected dedicated system prompt field to carry caller text, got %#v", payload["systemPrompt"])
+	}
+	if !containsText(systemPrompt, "<serverId>_<toolName>") {
+		t.Fatalf("expected dedicated system prompt field to retain OpenCode namespace guidance, got %#v", payload["systemPrompt"])
+	}
+}
+
 func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
 	t.Parallel()
 

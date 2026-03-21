@@ -560,5 +560,15 @@ func normalizeInputMessage(message map[string]any) (map[string]any, error) {
 	if strings.TrimSpace(stringValue(cloned["id"])) == "" {
 		cloned["id"] = newChatID()
 	}
-	return normalizeMessage(cloned)
+	normalized, err := normalizeMessage(cloned)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := normalized["content"]; !ok {
+		return nil, fmt.Errorf("message content is required")
+	}
+	if _, ok := normalized["content"].([]any); !ok {
+		return nil, fmt.Errorf("message content must be a list")
+	}
+	return normalized, nil
 }
