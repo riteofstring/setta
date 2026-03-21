@@ -482,3 +482,17 @@ categorize them.
   type-guard failures now reread and roll back fail closed. The next
   practical queue should stay on the remaining true `Missing` rows, starting
   with linked-chat admission or the broader JSON-source runtime cluster.
+- The JSON-source load-shaping and name-path reuse/prune rows are now closed
+  too: the surviving existing-file `setVariantJsonSourceKeys` live-refresh
+  path already had the implementation, and direct runtime plus route tests
+  now prove root reassignment, nested/code-param shaping, matching-name
+  reuse, and stale-sibling pruning. The remaining JSON-source backlog is the
+  broader file-backed load/save/watch owner, not this already-implemented
+  subtree refresh.
+- The linked-chat admission row is still open, but it is not a compact
+  project-windowing follow-up. Source review shows it would require a
+  deliberate caller-surface decision: either reintroduce a scoped linked-chat
+  MCP caller and add admit/persist/start/failure/complete lifecycle owners,
+  or intentionally keep the current “no standalone linked-chat tool” stance
+  and reclassify the row. Until that decision is made, the broader JSON-
+  source runtime cluster is the more practical next implementation queue.
