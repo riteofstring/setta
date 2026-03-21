@@ -1670,7 +1670,7 @@ func TestServerUISettingToolsRollbackInvalidPostWriteBackendRegisteredPluginValu
 	}
 }
 
-func TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting(t *testing.T) {
+func TestServerUISettingToolsReturnSettingNotFoundForUnknownSettingOnActivePlugin(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
@@ -1707,14 +1707,23 @@ func TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting(
 		},
 	})
 	if err != nil {
-		t.Fatalf("call disabled plugin search_ui_settings: %v", err)
+		t.Fatalf("call active plugin search_ui_settings: %v", err)
 	}
 	if searchResult.IsError {
-		t.Fatalf("expected structured disabled-plugin search response, got %#v", searchResult.StructuredContent)
+		t.Fatalf("expected structured active-plugin search response, got %#v", searchResult.StructuredContent)
 	}
 	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
-	if got := mustStructuredList(t, searchPayload["results"]); len(got) != 0 {
-		t.Fatalf("expected disabled plugin search results to be empty, got %#v", got)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	foundEnabled := false
+	for _, rawResult := range searchResults {
+		resultMap := mustStructuredMap(t, rawResult)
+		if resultMap["settingId"] == "plugin::setta-fixture-full::enabled" {
+			foundEnabled = true
+			break
+		}
+	}
+	if !foundEnabled {
+		t.Fatalf("expected active plugin setting in search results, got %#v", searchResults)
 	}
 
 	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

@@ -10177,7 +10177,7 @@ func TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsRejectInvalidI
 	}
 }
 
-func TestRegisterProjectRoutesSetViewportReturnsInternalErrorWithoutActiveViewMode(t *testing.T) {
+func TestRegisterProjectRoutesSetViewportUsesNormalizedActiveViewMode(t *testing.T) {
 	t.Parallel()
 
 	project := layoutPresentationRouteTestProject(t)
@@ -10209,6 +10209,40 @@ func TestRegisterProjectRoutesSetViewportReturnsInternalErrorWithoutActiveViewMo
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	normalizedProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if normalizedProject.ActiveViewModeID == "" {
+		t.Fatal("expected overlay runtime to repair the missing active view mode id")
+	}
+	activeViewMode, ok := normalizedProject.ViewModes[normalizedProject.ActiveViewModeID]
+	if !ok {
+		t.Fatalf("expected repaired active view mode %q to exist", normalizedProject.ActiveViewModeID)
+	}
+	expectedViewport := &projectstate.Viewport{X: 0, Y: 0, Zoom: 1}
+	if !reflect.DeepEqual(normalizedProject.Viewport, expectedViewport) {
+		t.Fatalf("expected normalized project viewport %#v, got %#v", expectedViewport, normalizedProject.Viewport)
+	}
+	if !normalizedProject.ViewportInitialized {
+		t.Fatal("expected normalized project viewportInitialized=true")
+	}
+	if !reflect.DeepEqual(activeViewMode.Viewport, expectedViewport) {
+		t.Fatalf("expected repaired active view mode viewport %#v, got %#v", expectedViewport, activeViewMode.Viewport)
+	}
+	if !activeViewMode.ViewportInitialized {
+		t.Fatal("expected repaired active view mode viewportInitialized=true")
+	}
+}
+
+func TestWriteProjectLayoutMutationErrorReturnsInternalErrorForMissingActiveViewMode(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetViewport, nil)
+	response := httptest.NewRecorder()
+
+	writeProjectLayoutMutationError(response, request, projectstate.ErrActiveViewModeRequired)
 	if response.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d with body %q", response.Code, response.Body.String())
 	}

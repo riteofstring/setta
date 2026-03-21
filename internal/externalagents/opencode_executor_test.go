@@ -977,7 +977,8 @@ func TestOpenCodeExecutorGuardEnabledRewritesMissingReportOnFinalize(t *testing.
 
 func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
 	// Verify server-mode runs merge runtime-config seeding with fetched `/mcp`
-	// status payloads and persist the resulting snapshot into run outputs.
+	// status payloads, including the generated Setta entry, and persist the
+	// resulting snapshot into run outputs.
 	statusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"servers":[{"id":"filesystem","connected":true,"transport":"stdio","command":"npx @modelcontextprotocol/server-filesystem .","toolCount":3}]}`))
@@ -1023,8 +1024,8 @@ func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read persisted external runtime statuses: %v", err)
 	}
-	if len(statuses) != 1 {
-		t.Fatalf("expected one persisted status row, got %#v", statuses)
+	if len(statuses) != 2 {
+		t.Fatalf("expected filesystem plus generated setta status rows, got %#v", statuses)
 	}
 	if got := statuses[0].ServerID; got != "filesystem" {
 		t.Fatalf("unexpected server id %q", got)
@@ -1034,6 +1035,18 @@ func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
 	}
 	if statuses[0].ToolCount != 3 {
 		t.Fatalf("expected fetched tool count, got %#v", statuses[0])
+	}
+	if got := statuses[1].ServerID; got != mcpx.DefaultServerID {
+		t.Fatalf("unexpected generated server id %q", got)
+	}
+	if statuses[1].Transport != mcpx.Transport("remote") {
+		t.Fatalf("expected generated setta transport remote, got %#v", statuses[1])
+	}
+	if statuses[1].Endpoint != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected generated setta endpoint %q, got %#v", "http://127.0.0.1:8000/mcp", statuses[1])
+	}
+	if statuses[1].State != mcpx.RuntimeStateUnknown {
+		t.Fatalf("expected generated setta status to remain unknown, got %#v", statuses[1])
 	}
 }
 
