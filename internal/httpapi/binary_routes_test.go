@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	binarypayload "setta/internal/binary"
@@ -366,6 +367,12 @@ func TestRegisterBinaryRoutesReturnNotFoundForUnknownDownloadContentID(t *testin
 func TestRegisterBinaryRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeShare,
+		Now:         &now,
+		GeneratedID: "share-session",
+	})
 	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
 	if err != nil {
 		t.Fatalf("new binary store: %v", err)
@@ -377,8 +384,10 @@ func TestRegisterBinaryRoutesBlocksDeploymentMode(t *testing.T) {
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
 			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeShare),
-				Store:      store,
+				ModePolicy:    modes.NewPolicy(config.ModeShare),
+				ShareSessions: deploymentRuntime,
+				Deployment:    deploymentRuntime,
+				Store:         store,
 			}); err != nil {
 				t.Fatalf("register binary routes: %v", err)
 			}
@@ -399,6 +408,134 @@ func TestRegisterBinaryRoutesBlocksDeploymentMode(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
 		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterBinaryRoutesAllowsDeploymentDownloadWhenPolicyEnabled(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeShare,
+		Now:         &now,
+		GeneratedID: "share-session",
+		Policy: map[string]any{
+			"allowFileDownloads": true,
+		},
+	})
+	shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-session")
+	if err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+	ref, err := store.StoreBytes([]byte("deployment-download"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store payload: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy:    modes.NewPolicy(config.ModeShare),
+				ShareSessions: deploymentRuntime,
+				Deployment:    deploymentRuntime,
+				Store:         store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/binary/"+ref.ContentID, nil)
+	request.Header.Set(modes.ShareSessionHeaderName, shareSession.ID)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if body := response.Body.String(); body != "deployment-download" {
+		t.Fatalf("expected deployment download body %q, got %q", "deployment-download", body)
+	}
+	if got := response.Header().Get("Content-Type"); !strings.Contains(got, "text/plain") {
+		t.Fatalf("expected text/plain content type, got %q", got)
+	}
+}
+
+func TestRegisterBinaryRoutesRejectsDeploymentDownloadWhenPolicyDisabled(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeShare,
+		Now:         &now,
+		GeneratedID: "share-session",
+		Policy: map[string]any{
+			"allowFileDownloads": false,
+		},
+	})
+	shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-session")
+	if err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+	ref, err := store.StoreBytes([]byte("deployment-download"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store payload: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy:    modes.NewPolicy(config.ModeShare),
+				ShareSessions: deploymentRuntime,
+				Deployment:    deploymentRuntime,
+				Store:         store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/binary/"+ref.ContentID, nil)
+	request.Header.Set(modes.ShareSessionHeaderName, shareSession.ID)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"binary_download_forbidden"`) {
+		t.Fatalf("expected binary_download_forbidden error, got %q", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Deployment policy disallows file downloads.") {
+		t.Fatalf("expected deployment policy message, got %q", response.Body.String())
 	}
 }
 

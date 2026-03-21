@@ -1464,8 +1464,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
-				ModePolicy: modePolicy,
-				Store:      binaryStore,
+				ModePolicy:    modePolicy,
+				ShareSessions: shareSessions,
+				Deployment:    deploymentRuntime,
+				Store:         binaryStore,
 			}); err != nil {
 				panic(err)
 			}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	binarypayload "setta/internal/binary"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 )
 
@@ -17,8 +18,10 @@ const (
 )
 
 type BinaryRouteDependencies struct {
-	ModePolicy modes.Policy
-	Store      *binarypayload.Store
+	ModePolicy    modes.Policy
+	ShareSessions modes.ShareSessionStore
+	Deployment    *deployments.Runtime
+	Store         *binarypayload.Store
 }
 
 func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error {
@@ -30,7 +33,20 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 	}
 
 	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteBinaryUpload, binaryUploadHandler(deps.Store))
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Get(RouteBinaryDownload, binaryDownloadHandler(deps.Store))
+	if deps.ModePolicy.IsDeployment() {
+		if deps.ShareSessions == nil {
+			return fmt.Errorf("share session store is required in deployment mode")
+		}
+		if deps.Deployment == nil {
+			return fmt.Errorf("deployment runtime is required in deployment mode")
+		}
+		router.With(RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.ShareSessions,
+		})).Get(RouteBinaryDownload, binaryDownloadHandler(deps.Store, deps.Deployment))
+		return nil
+	}
+	router.With(modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)).Get(RouteBinaryDownload, binaryDownloadHandler(deps.Store, nil))
 	return nil
 }
 
@@ -75,8 +91,11 @@ func binaryUploadHandler(store *binarypayload.Store) http.HandlerFunc {
 	}
 }
 
-func binaryDownloadHandler(store *binarypayload.Store) http.HandlerFunc {
+func binaryDownloadHandler(store *binarypayload.Store, deployment *deployments.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureBinaryDownloadsAllowed(w, r, deployment) {
+			return
+		}
 		contentID := chi.URLParam(r, "contentId")
 		path, err := store.ResolvePath(contentID)
 		if err != nil {
@@ -91,6 +110,26 @@ func binaryDownloadHandler(store *binarypayload.Store) http.HandlerFunc {
 		w.Header().Set("Content-Type", mediaType)
 		http.ServeFile(w, r, path)
 	}
+}
+
+func ensureBinaryDownloadsAllowed(w http.ResponseWriter, r *http.Request, deployment *deployments.Runtime) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !deployment.Policy().AllowFileDownloads {
+		writeError(w, r, http.StatusForbidden, "binary_download_forbidden", "Deployment policy disallows file downloads.")
+		return false
+	}
+	return true
 }
 
 func writeBinaryDownloadError(w http.ResponseWriter, r *http.Request, err error) {
