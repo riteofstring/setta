@@ -270,6 +270,11 @@ categorize them.
   proof-incomplete backlog is down to the platform-default `SETTA_HOME` row,
   the two external-agent preflight health rows, and the plugin-codegen
   stale-root cleanup proof
+- Those external-agent preflight health rows are now proved too, so the
+  proof-incomplete backlog is down to just the platform-default `SETTA_HOME`
+  row and the plugin-codegen stale-root cleanup proof; the next cheap queue
+  is effectively the codegen proof slice because the config-home row is still
+  cross-platform awkward to prove honestly on one host OS
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
