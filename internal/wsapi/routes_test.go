@@ -3752,6 +3752,82 @@ func TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutesDeploymentTerminalActivityTouchesShareSession(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newRouteDeploymentRuntimeWithPolicyAndNow(t, config.ModeApp, deployments.DefaultAppPolicy(), func() time.Time {
+		return now
+	})
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	session, ok := deploymentRuntime.Session("share-a")
+	if !ok {
+		t.Fatal("expected share session to exist")
+	}
+	if session.LastSeenAt != now {
+		t.Fatalf("expected initial session last-seen time %v, got %v", now, session.LastSeenAt)
+	}
+
+	terminalService := newRouteTerminalService(t)
+	terminalID := terminals.BuildTerminalID("section-a", "share-a")
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:             terminalID,
+		ProjectID:      "project-a",
+		ShareSessionID: "share-a",
+		AllowInput:     false,
+		Command:        readyQuietCatCommand(t, "deployment history"),
+	})
+	seedRouteTerminalHistory(t, terminalService, terminalID, "deployment history")
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeApp),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection+"?shareSessionId=share-a", nil, withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	if ready := readNextRawFrame(t, conn); ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", ready)
+	}
+	if history := readNextRawFrame(t, conn); !strings.Contains(history, "deployment history") {
+		t.Fatalf("expected deployment terminal history replay, got %q", history)
+	}
+
+	now = now.Add(1 * time.Minute)
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte("blocked input\n")); err != nil {
+		t.Fatalf("write deployment terminal input: %v", err)
+	}
+
+	waitForCondition(t, func() bool {
+		touched, ok := deploymentRuntime.Session("share-a")
+		return ok && touched.LastSeenAt == now
+	})
+
+	touched, ok := deploymentRuntime.Session("share-a")
+	if !ok {
+		t.Fatal("expected touched share session to remain available")
+	}
+	if touched.LastSeenAt != now {
+		t.Fatalf("expected terminal activity to touch share session at %v, got %v", now, touched.LastSeenAt)
+	}
+}
+
 func TestRegisterRoutesDeploymentTerminalAutoOpensReadOnlySession(t *testing.T) {
 	t.Parallel()
 	skipIfPTYUnsupported(t)
@@ -4058,10 +4134,20 @@ func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runt
 	if mode == config.ModeApp {
 		policy = deployments.DefaultAppPolicy()
 	}
-	return newRouteDeploymentRuntimeWithPolicy(t, mode, policy)
+	return newRouteDeploymentRuntimeWithPolicyAndNow(t, mode, policy, func() time.Time {
+		return time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	})
 }
 
 func newRouteDeploymentRuntimeWithPolicy(t *testing.T, mode config.Mode, policy deployments.Policy) *deployments.Runtime {
+	t.Helper()
+
+	return newRouteDeploymentRuntimeWithPolicyAndNow(t, mode, policy, func() time.Time {
+		return time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	})
+}
+
+func newRouteDeploymentRuntimeWithPolicyAndNow(t *testing.T, mode config.Mode, policy deployments.Policy, now func() time.Time) *deployments.Runtime {
 	t.Helper()
 
 	root := t.TempDir()
@@ -4098,9 +4184,7 @@ func newRouteDeploymentRuntimeWithPolicy(t *testing.T, mode config.Mode, policy 
 	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
 		DeploymentRoot: root,
 		RuntimeRoot:    runtimeRoot,
-		Now: func() time.Time {
-			return time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-		},
+		Now:            now,
 		IDGenerator: func() string {
 			return "generated-share"
 		},

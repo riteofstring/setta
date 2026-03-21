@@ -589,6 +589,9 @@ func serveTerminalConnection(
 				}
 				return message.Err
 			}
+			if err := touchShareSession(info.Modes, deps.Transport.ShareSessions); err != nil {
+				return mapModesError(err)
+			}
 
 			resize, isControl, err := decodeTerminalControlMessage(message.Payload)
 			if err != nil {
