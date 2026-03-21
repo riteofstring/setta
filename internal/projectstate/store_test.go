@@ -42,6 +42,67 @@ func TestStoreLoadRejectsNonObjectPayload(t *testing.T) {
 	}
 }
 
+func TestStoreLoadRejectsLegacyRemovedClockSectionPayload(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":               "project-alpha",
+				"name":             "Alpha",
+				"activeViewModeId": "view-main",
+				"viewModes": map[string]any{
+					"view-main": map[string]any{
+						"id":                    "view-main",
+						"name":                  "Main",
+						"visibilityBySectionId": map[string]any{},
+						"topLevelSections":      map[string]any{},
+					},
+				},
+				"projectChatWindowing": map[string]any{
+					"instancesById":      map[string]any{},
+					"order":              []any{},
+					"nextInstanceNumber": 1,
+				},
+				"sectionVariantMap": map[string]any{
+					"legacy-clock-section": "legacy-clock-variant",
+				},
+				"sections": map[string]any{
+					"legacy-clock-section": map[string]any{
+						"id":               "legacy-clock-section",
+						"name":             "Clock",
+						"variantIds":       []any{"legacy-clock-variant"},
+						"defaultVariantId": "legacy-clock-variant",
+					},
+				},
+				"sectionVariants": map[string]any{
+					"legacy-clock-variant": map[string]any{
+						"id":     "legacy-clock-variant",
+						"implId": "legacy-clock-impl",
+					},
+				},
+				"sectionImpls": map[string]any{
+					"legacy-clock-impl": map[string]any{
+						"type": "Clock",
+					},
+				},
+				"codeObjs":        map[string]any{},
+				"codeObjVariants": map[string]any{},
+				"codeObjImpls":    map[string]any{},
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	_, err := store.Load(context.Background())
+	if !errors.Is(err, ErrSectionImplIDRequired) {
+		t.Fatalf("expected legacy removed section payload to fail closed with missing impl id, got %v", err)
+	}
+}
+
 func TestStoreLoadRejectsInvalidJSON(t *testing.T) {
 	t.Parallel()
 

@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 )
@@ -45,6 +46,69 @@ func TestDecodePythonSectionCodegenPolicyUsesDefaults(t *testing.T) {
 	}
 	if got := policy.TypePolicies["StateMachineGate"].Representation; got != PythonSectionRepresentationExpression {
 		t.Fatalf("expected StateMachineGate default representation expression, got %q", got)
+	}
+}
+
+func TestDecodePythonSectionCodegenPolicyKeepsExplicitAllowlistWhenTypePoliciesMissing(t *testing.T) {
+	t.Parallel()
+
+	raw, err := json.Marshal(map[string]any{
+		"allowlist": []string{"Callable"},
+	})
+	if err != nil {
+		t.Fatalf("marshal explicit allowlist policy: %v", err)
+	}
+
+	policy, err := DecodePythonSectionCodegenPolicy(raw)
+	if err != nil {
+		t.Fatalf("decode explicit allowlist policy: %v", err)
+	}
+	if policy.AllowlistAllowAll {
+		t.Fatal("expected explicit allowlist to stay scoped")
+	}
+	if len(policy.Allowlist) != 1 {
+		t.Fatalf("expected exactly one explicit allowlist entry, got %#v", policy.Allowlist)
+	}
+	if _, ok := policy.Allowlist["Callable"]; !ok {
+		t.Fatal("expected Callable to stay in the explicit allowlist")
+	}
+	if _, ok := policy.Allowlist["TaskBoard"]; ok {
+		t.Fatal("did not expect TaskBoard to be auto-added to the explicit allowlist")
+	}
+	if _, ok := policy.Allowlist["Spreadsheet"]; ok {
+		t.Fatal("did not expect Spreadsheet to be auto-added to the explicit allowlist")
+	}
+}
+
+func TestDecodePythonSectionCodegenPolicyPreservesExplicitSpreadsheetExclusion(t *testing.T) {
+	t.Parallel()
+
+	raw, err := json.Marshal(map[string]any{
+		"allowlist": []string{
+			"Callable",
+			"Dict",
+			"ListRoot",
+			"Group",
+			"GlobalVariables",
+			"TextBlock",
+			"Draw",
+			"MetaControl",
+			"TaskBoard",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal explicit spreadsheet exclusion policy: %v", err)
+	}
+
+	policy, err := DecodePythonSectionCodegenPolicy(raw)
+	if err != nil {
+		t.Fatalf("decode explicit spreadsheet exclusion policy: %v", err)
+	}
+	if _, ok := policy.Allowlist["Spreadsheet"]; ok {
+		t.Fatal("did not expect Spreadsheet to be restored into the explicit allowlist")
+	}
+	if _, ok := policy.Allowlist["TaskBoard"]; !ok {
+		t.Fatal("expected TaskBoard to remain in the explicit allowlist")
 	}
 }
 
