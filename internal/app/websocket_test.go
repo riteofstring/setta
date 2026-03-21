@@ -1068,6 +1068,115 @@ func TestAppSetLLMAPIKeysBroadcastsRevisionedSnapshot(t *testing.T) {
 	}
 }
 
+func TestAppSetLLMAPIKeysRevisionConflictDoesNotBroadcastSnapshot(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-main": {
+				ID:        "openai-main",
+				Model:     "gpt-4o",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers:      map[string]llmconfig.ServerConfig{},
+		DefaultConfigID: "openai-main",
+	}); err != nil {
+		t.Fatalf("seed llm config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	firstRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteLLMAPIKeys,
+		strings.NewReader(`{"apiKeys":{"OPENAI_API_KEY":"saved-secret"},"expectedRevision":0}`),
+	)
+	if err != nil {
+		t.Fatalf("new initial llm api keys request: %v", err)
+	}
+	firstRequest.Header.Set("Content-Type", "application/json")
+	firstRequest.AddCookie(authCookie)
+
+	firstResponse, err := http.DefaultClient.Do(firstRequest)
+	if err != nil {
+		t.Fatalf("post initial llm api keys: %v", err)
+	}
+	defer firstResponse.Body.Close()
+	if firstResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(firstResponse.Body)
+		t.Fatalf("expected initial 200, got %d with body %q", firstResponse.StatusCode, string(body))
+	}
+	var firstPayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.NewDecoder(firstResponse.Body).Decode(&firstPayload); err != nil {
+		t.Fatalf("decode initial llm api keys response: %v", err)
+	}
+	if firstPayload.Revision <= 0 {
+		t.Fatalf("expected positive initial revision, got %#v", firstPayload)
+	}
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLLMAPIKeysUpdated, 4)
+
+	staleRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteLLMAPIKeys,
+		strings.NewReader(`{"apiKeys":{"OPENAI_API_KEY":"stale-secret"},"expectedRevision":0}`),
+	)
+	if err != nil {
+		t.Fatalf("new stale llm api keys request: %v", err)
+	}
+	staleRequest.Header.Set("Content-Type", "application/json")
+	staleRequest.AddCookie(authCookie)
+
+	staleResponse, err := http.DefaultClient.Do(staleRequest)
+	if err != nil {
+		t.Fatalf("post stale llm api keys: %v", err)
+	}
+	defer staleResponse.Body.Close()
+	if staleResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(staleResponse.Body)
+		t.Fatalf("expected 409, got %d with body %q", staleResponse.StatusCode, string(body))
+	}
+	var conflictPayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.NewDecoder(staleResponse.Body).Decode(&conflictPayload); err != nil {
+		t.Fatalf("decode stale llm api keys response: %v", err)
+	}
+	if conflictPayload.ErrorCode == nil || *conflictPayload.ErrorCode != llmconfig.ManagedAPIKeysRevisionConflictErrorCode {
+		t.Fatalf("expected revision conflict error code, got %#v", conflictPayload)
+	}
+	if conflictPayload.Revision != firstPayload.Revision {
+		t.Fatalf("expected stale write to preserve revision %d, got %#v", firstPayload.Revision, conflictPayload)
+	}
+
+	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeLLMAPIKeysUpdated, 500*time.Millisecond)
+}
+
 func TestAppExternalAgentConfigMutationsBroadcastSnapshotUpdates(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

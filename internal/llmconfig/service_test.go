@@ -55,6 +55,60 @@ func TestServiceSaveManagedAPIKeysUpdatesRuntimeWithConfiguredKeysOnly(t *testin
 	}
 }
 
+func TestServiceSaveManagedAPIKeysLeavesRuntimeUnchangedOnRevisionConflict(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime, err := NewRuntime(AllConfigs{
+		Configs: map[string]Config{
+			"openai-main": {
+				ID:        "openai-main",
+				Model:     "gpt-4o",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		ConfigPath:         Path(root),
+		ManagedAPIKeysPath: ManagedAPIKeysPath(root),
+		Runtime:            runtime,
+		ProcessEnv: func() map[string]string {
+			return map[string]string{}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	firstSnapshot, firstStatus := service.SaveManagedAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "initial-secret",
+	}, 0)
+	if firstStatus != ManagedAPIKeysWriteStatusSuccess {
+		t.Fatalf("expected initial write success, got %q with snapshot %#v", firstStatus, firstSnapshot)
+	}
+
+	conflictSnapshot, conflictStatus := service.SaveManagedAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "stale-secret",
+	}, 0)
+	if conflictStatus != ManagedAPIKeysWriteStatusRevisionConflict {
+		t.Fatalf("expected revision conflict, got %q with snapshot %#v", conflictStatus, conflictSnapshot)
+	}
+	if conflictSnapshot.ErrorCode == nil || *conflictSnapshot.ErrorCode != ManagedAPIKeysRevisionConflictErrorCode {
+		t.Fatalf("expected revision conflict error code, got %#v", conflictSnapshot)
+	}
+	if conflictSnapshot.Revision != firstSnapshot.Revision {
+		t.Fatalf("expected revision %d after conflict, got %#v", firstSnapshot.Revision, conflictSnapshot)
+	}
+	if runtimeKeys := runtime.APIKeys(); len(runtimeKeys) != 1 || runtimeKeys["OPENAI_API_KEY"] != "initial-secret" {
+		t.Fatalf("expected runtime keys to stay unchanged after revision conflict, got %#v", runtimeKeys)
+	}
+}
+
 func TestServiceSaveConfigRefreshesRuntimeKeysFromManagedStore(t *testing.T) {
 	t.Parallel()
 
