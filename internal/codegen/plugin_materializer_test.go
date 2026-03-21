@@ -98,6 +98,23 @@ func TestPluginMaterializerRejectsAbsoluteAndEscapingOutputPaths(t *testing.T) {
 	}
 }
 
+func TestPluginCodegenTargetDirNameAvoidsCrossTargetCollisions(t *testing.T) {
+	t.Parallel()
+
+	dirA := pluginCodegenTargetDirName("foo:bar_baz")
+	dirB := pluginCodegenTargetDirName("foo_bar:baz")
+
+	if !strings.HasPrefix(dirA, "foo_bar_baz__") {
+		t.Fatalf("expected normalized prefix for first target, got %q", dirA)
+	}
+	if !strings.HasPrefix(dirB, "foo_bar_baz__") {
+		t.Fatalf("expected normalized prefix for second target, got %q", dirB)
+	}
+	if dirA == dirB {
+		t.Fatalf("expected digest-suffixed target dirs to stay distinct, got %q", dirA)
+	}
+}
+
 func TestPluginMaterializerSkipsUnchangedOutputs(t *testing.T) {
 	t.Parallel()
 
