@@ -80,10 +80,11 @@ categorize them.
   `json_source_save_missing_key_path` /
   `json_source_save_same_key_path_last_write_wins` slice
 - With the default manifest clean, the next queue should come directly from
-  the remaining matrix `Missing` rows. The best current candidates are the
-  linked-chat admission lifecycle and the broader ordinary-project JSON-
-  source runtime owner, because both are still caller-visible and still
-  completely missing rather than just lightly proved.
+  the remaining matrix `Missing` rows. The linked-chat admission lifecycle is
+  no longer part of that queue because the underlying `invoke_linked_chat`
+  tool is already an explicit intentional divergence on the Go MCP surface.
+  The remaining queue is the broader ordinary-project JSON-source runtime
+  owner, especially its reload/watch behavior.
 - The previously isolated dedicated-`/settings` persisted-layout gap is now
   closed; keep any newly uncovered non-caller-visible mismatches explicit
   instead of folding them back into broader live-contract rows
