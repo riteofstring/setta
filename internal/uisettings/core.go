@@ -143,6 +143,29 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 		},
 		{
 			Metadata: Entry{
+				SettingID:   "core.project.name",
+				Title:       "Project Name",
+				Synonyms:    []string{"project name", "config name", "rename project"},
+				Description: "Project name shown in the overview header.",
+				Location:    Location{Side: SideLeft, OverviewTabKey: "Overview"},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.project.name"},
+				Source:      SourceCore,
+				Mutability:  MutabilityWritable,
+				ValueSchema: ValueSchema{Type: ValueTypeString, MinLength: intPointer(1)},
+			},
+			ReadValue: func(_ context.Context, projectID string) (any, error) {
+				project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+				if err != nil {
+					return nil, err
+				}
+				return project.Name, nil
+			},
+			WriteValue: func(ctx context.Context, projectID string, value any, expectedOldValue any) (MutationResult, error) {
+				return writeProjectNameSetting(ctx, runtime, projectID, value, expectedOldValue)
+			},
+		},
+		{
+			Metadata: Entry{
 				SettingID:   "core.project.show_param_display_names",
 				Title:       "Show Param Display Names",
 				Synonyms:    []string{"display names", "parameter display names", "param names"},
@@ -175,6 +198,29 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 					NormalizedValue: result.NewValue,
 					Changed:         result.OldValue != result.NewValue,
 				}, nil
+			},
+		},
+		{
+			Metadata: Entry{
+				SettingID:   "core.run_instructions.python_codegen_enabled",
+				Title:       "Python Codegen Enabled",
+				Synonyms:    []string{"python codegen", "generated code", "run instructions python"},
+				Description: "Enable or disable generated Python code sections for the project.",
+				Location:    Location{Side: SideLeft, OverviewTabKey: "Overview"},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.run_instructions.python_codegen_enabled"},
+				Source:      SourceCore,
+				Mutability:  MutabilityWritable,
+				ValueSchema: ValueSchema{Type: ValueTypeBoolean},
+			},
+			ReadValue: func(_ context.Context, projectID string) (any, error) {
+				project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+				if err != nil {
+					return nil, err
+				}
+				return project.HasPythonCodegenTarget(), nil
+			},
+			WriteValue: func(ctx context.Context, projectID string, value any, expectedOldValue any) (MutationResult, error) {
+				return writePythonCodegenEnabledSetting(ctx, runtime, projectID, value, expectedOldValue)
 			},
 		},
 		{
@@ -497,6 +543,122 @@ func wrapMutationError(err error) error {
 		return newSettingError(ErrorCodeMutationFailed, "%s", err.Error())
 	}
 	return err
+}
+
+func writeProjectNameSetting(
+	ctx context.Context,
+	runtime CoreProjectState,
+	projectID string,
+	value any,
+	expectedOldValue any,
+) (MutationResult, error) {
+	nextValue, expected, err := normalizeOptionalNonEmptyStringWrite(value, expectedOldValue)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	oldValue := project.Name
+	if expected != nil && oldValue != *expected {
+		return MutationResult{}, wrapMutationError(&projectstate.ExpectedOldValueMismatchError{
+			SettingID:        "core.project.name",
+			ExpectedOldValue: *expected,
+			ObservedOldValue: oldValue,
+		})
+	}
+	if oldValue == nextValue {
+		return MutationResult{
+			OldValue:        oldValue,
+			NewValue:        oldValue,
+			NormalizedValue: oldValue,
+			Changed:         false,
+		}, nil
+	}
+	if _, err := runtime.SetProjectName(ctx, projectID, nextValue); err != nil {
+		return MutationResult{}, wrapMutationError(err)
+	}
+	return MutationResult{
+		OldValue:        oldValue,
+		NewValue:        nextValue,
+		NormalizedValue: nextValue,
+		Changed:         true,
+	}, nil
+}
+
+func writePythonCodegenEnabledSetting(
+	ctx context.Context,
+	runtime CoreProjectState,
+	projectID string,
+	value any,
+	expectedOldValue any,
+) (MutationResult, error) {
+	nextValue, expected, err := normalizeOptionalBoolWrite(ValueSchema{Type: ValueTypeBoolean}, value, expectedOldValue)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	oldValue := project.HasPythonCodegenTarget()
+	if expected != nil && oldValue != *expected {
+		return MutationResult{}, wrapMutationError(&projectstate.ExpectedOldValueMismatchError{
+			SettingID:        "core.run_instructions.python_codegen_enabled",
+			ExpectedOldValue: *expected,
+			ObservedOldValue: oldValue,
+		})
+	}
+	if oldValue == nextValue {
+		return MutationResult{
+			OldValue:        oldValue,
+			NewValue:        oldValue,
+			NormalizedValue: oldValue,
+			Changed:         false,
+		}, nil
+	}
+	nextTargets := projectCodegenTargetsWithPythonEnabled(project.CodegenTargets, nextValue)
+	if _, err := runtime.SetProjectCodegenTargets(
+		ctx,
+		projectID,
+		nextTargets,
+		projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+	); err != nil {
+		return MutationResult{}, wrapMutationError(err)
+	}
+	return MutationResult{
+		OldValue:        oldValue,
+		NewValue:        nextValue,
+		NormalizedValue: nextValue,
+		Changed:         true,
+	}, nil
+}
+
+func projectCodegenTargetsWithPythonEnabled(targets []projectstate.ProjectCodegenTarget, enabled bool) []projectstate.ProjectCodegenTarget {
+	next := make([]projectstate.ProjectCodegenTarget, 0, len(targets)+1)
+	hasPython := false
+	for _, target := range targets {
+		if strings.TrimSpace(target.Language) == string(projectstate.CodeLanguagePython) {
+			hasPython = true
+			if enabled {
+				next = append(next, target.Clone())
+			}
+			continue
+		}
+		next = append(next, target.Clone())
+	}
+	if enabled && !hasPython {
+		next = append(next, projectstate.ProjectCodegenTarget{
+			Language: string(projectstate.CodeLanguagePython),
+		})
+	}
+	return next
 }
 
 func valueSchemaPointer(schema ValueSchema) *ValueSchema {

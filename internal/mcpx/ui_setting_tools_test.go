@@ -580,6 +580,121 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	}
 }
 
+func TestServerUISettingToolsRoundTripProjectNameAndPythonCodegenEnabled(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "project name",
+			"limit":           5,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_ui_settings for project name: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected search_ui_settings success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	if len(searchResults) == 0 || mustStructuredMap(t, searchResults[0])["settingId"] != "core.project.name" {
+		t.Fatalf("expected project-name search result, got %#v", searchResults)
+	}
+
+	projectNameResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.name",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value for project name: %v", err)
+	}
+	if projectNameResult.IsError {
+		t.Fatalf("expected project name read success, got %#v", projectNameResult.StructuredContent)
+	}
+	projectNamePayload := mustStructuredMap(t, projectNameResult.StructuredContent)
+	if projectNamePayload["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", projectNamePayload["value"])
+	}
+
+	setProjectNameResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.name",
+			"value":           "Renamed Project",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value for project name: %v", err)
+	}
+	if setProjectNameResult.IsError {
+		t.Fatalf("expected project name write success, got %#v", setProjectNameResult.StructuredContent)
+	}
+	setProjectNamePayload := mustStructuredMap(t, setProjectNameResult.StructuredContent)
+	if setProjectNamePayload["changed"] != true {
+		t.Fatalf("expected project name changed=true, got %#v", setProjectNamePayload["changed"])
+	}
+
+	pythonCodegenResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.run_instructions.python_codegen_enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value for python codegen enabled: %v", err)
+	}
+	if pythonCodegenResult.IsError {
+		t.Fatalf("expected python codegen read success, got %#v", pythonCodegenResult.StructuredContent)
+	}
+	pythonCodegenPayload := mustStructuredMap(t, pythonCodegenResult.StructuredContent)
+	if pythonCodegenPayload["value"] != false {
+		t.Fatalf("expected python codegen disabled, got %#v", pythonCodegenPayload["value"])
+	}
+
+	setPythonCodegenResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.run_instructions.python_codegen_enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value for python codegen enabled: %v", err)
+	}
+	if setPythonCodegenResult.IsError {
+		t.Fatalf("expected python codegen write success, got %#v", setPythonCodegenResult.StructuredContent)
+	}
+	setPythonCodegenPayload := mustStructuredMap(t, setPythonCodegenResult.StructuredContent)
+	if setPythonCodegenPayload["changed"] != true {
+		t.Fatalf("expected python codegen changed=true, got %#v", setPythonCodegenPayload["changed"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after UI setting writes: %v", err)
+	}
+	if project.Name != "Renamed Project" {
+		t.Fatalf("expected persisted project name Renamed Project, got %#v", project.Name)
+	}
+	if !project.HasPythonCodegenTarget() {
+		t.Fatal("expected python codegen target to be enabled after UI setting write")
+	}
+}
+
 func TestServerUISettingToolsRejectMissingScopedProjectContextWhenProjectIDOmitted(t *testing.T) {
 	t.Parallel()
 

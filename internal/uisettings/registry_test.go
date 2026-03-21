@@ -30,7 +30,9 @@ func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
 		"core.app.spec_path",
 		"core.app.spec_version",
 		"core.app.theme_mode",
+		"core.project.name",
 		"core.project.show_param_display_names",
+		"core.run_instructions.python_codegen_enabled",
 		"core.watch_code.enabled",
 		"core.watch_code.files",
 		"core.watch_code.folders",
@@ -86,6 +88,14 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 	if err != nil {
 		t.Fatalf("read app theme mode: %v", err)
 	}
+	projectName, err := registry.ReadValue(context.Background(), "project-alpha", "core.project.name")
+	if err != nil {
+		t.Fatalf("read project name: %v", err)
+	}
+	pythonCodegenEnabled, err := registry.ReadValue(context.Background(), "project-alpha", "core.run_instructions.python_codegen_enabled")
+	if err != nil {
+		t.Fatalf("read python codegen enabled: %v", err)
+	}
 
 	if catalogID != appspec.DefaultCatalogID {
 		t.Fatalf("expected default catalog id %q, got %#v", appspec.DefaultCatalogID, catalogID)
@@ -98,6 +108,12 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 	}
 	if themeMode != projectstate.DefaultAppThemeMode() {
 		t.Fatalf("expected default app theme mode %q, got %#v", projectstate.DefaultAppThemeMode(), themeMode)
+	}
+	if projectName != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", projectName)
+	}
+	if pythonCodegenEnabled != false {
+		t.Fatalf("expected python codegen disabled, got %#v", pythonCodegenEnabled)
 	}
 }
 
@@ -226,6 +242,68 @@ func TestRegistryWriteValueMapsStaleCompareAndSetToMutationFailed(t *testing.T) 
 	}
 	if settingErr.Code != ErrorCodeMutationFailed {
 		t.Fatalf("expected mutation_failed, got %q", settingErr.Code)
+	}
+}
+
+func TestRegistryWriteValueRoundTripsProjectNameAndPythonCodegenEnabled(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	projectNameResult, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.project.name",
+		"  Renamed Project  ",
+		"Alpha",
+	)
+	if err != nil {
+		t.Fatalf("write project name: %v", err)
+	}
+	if projectNameResult.OldValue != "Alpha" {
+		t.Fatalf("expected old project name Alpha, got %#v", projectNameResult.OldValue)
+	}
+	if projectNameResult.NewValue != "Renamed Project" {
+		t.Fatalf("expected new project name Renamed Project, got %#v", projectNameResult.NewValue)
+	}
+	if projectNameResult.NormalizedValue != "Renamed Project" {
+		t.Fatalf("expected normalized project name Renamed Project, got %#v", projectNameResult.NormalizedValue)
+	}
+
+	pythonCodegenResult, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.run_instructions.python_codegen_enabled",
+		true,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("write python codegen enabled: %v", err)
+	}
+	if pythonCodegenResult.OldValue != false {
+		t.Fatalf("expected old python codegen state false, got %#v", pythonCodegenResult.OldValue)
+	}
+	if pythonCodegenResult.NewValue != true {
+		t.Fatalf("expected new python codegen state true, got %#v", pythonCodegenResult.NewValue)
+	}
+	if pythonCodegenResult.NormalizedValue != true {
+		t.Fatalf("expected normalized python codegen state true, got %#v", pythonCodegenResult.NormalizedValue)
+	}
+
+	project, err := runtime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after writes: %v", err)
+	}
+	if project.Name != "Renamed Project" {
+		t.Fatalf("expected persisted project name Renamed Project, got %#v", project.Name)
+	}
+	if !project.HasPythonCodegenTarget() {
+		t.Fatal("expected python codegen target to be enabled after write")
 	}
 }
 

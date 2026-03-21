@@ -96,6 +96,7 @@ type ToolRegistration struct {
 
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
+	SetProjectName(ctx context.Context, projectID string, name string) (projectstate.Snapshot, error)
 	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
 	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
 	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)

@@ -138,6 +138,8 @@ type RuntimeEntry struct {
 
 type CoreProjectState interface {
 	Snapshot() projectstate.Snapshot
+	SetProjectName(ctx context.Context, projectID string, name string) (projectstate.Snapshot, error)
+	SetProjectCodegenTargets(ctx context.Context, projectID string, targets []projectstate.ProjectCodegenTarget, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, error)
 	CompareAndSetShowParamDisplayNames(ctx context.Context, projectID string, show bool, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
