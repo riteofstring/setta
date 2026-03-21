@@ -364,6 +364,61 @@ func TestServerRevealUISettingForwardsShareSessionID(t *testing.T) {
 	}
 }
 
+func TestServerRevealUISettingPrefersSessionShareSessionIDOverRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-1",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSession(
+		t,
+		clientSession,
+		"project-alpha",
+		"chat-1",
+		"chat-section",
+		"share-session-from-context",
+		false,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Meta: sdkmcp.Meta{
+			"shareSessionId": "share-session-from-request",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting with conflicting shareSessionId meta: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ShareSessionID != "share-session-from-context" {
+		t.Fatalf("expected session shareSessionID, got %q", revealService.input.ShareSessionID)
+	}
+}
+
 func TestServerRevealUISettingShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta(t *testing.T) {
 	t.Parallel()
 
@@ -420,6 +475,53 @@ func TestServerRevealUISettingShareScopePrefersAgenticFrontendAffinityTokenOverR
 	}
 	if revealService.input.FrontendAffinityToken != "frontend-from-context" {
 		t.Fatalf("expected session frontend affinity token, got %q", revealService.input.FrontendAffinityToken)
+	}
+}
+
+func TestServerRevealUISettingPrefersSessionSectionContextOverRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-1",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", false)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Meta: sdkmcp.Meta{
+			"sectionId": "missing-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting with conflicting sectionId meta: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ContextSectionID != "chat-section" {
+		t.Fatalf("expected session sectionId chat-section, got %q", revealService.input.ContextSectionID)
 	}
 }
 
@@ -627,6 +729,39 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	setPayload := mustStructuredMap(t, setResult.StructuredContent)
 	if setPayload["changed"] != true {
 		t.Fatalf("expected changed=true, got %#v", setPayload["changed"])
+	}
+}
+
+func TestServerUISettingToolsPreferSessionProjectConfigIDOverRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "missing-project",
+		},
+		Arguments: map[string]any{
+			"query": "watch toggle",
+			"limit": 3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_ui_settings with conflicting projectConfigId meta: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected session projectConfigId to stay authoritative, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	results := mustStructuredList(t, payload["results"])
+	if len(results) == 0 || mustStructuredMap(t, results[0])["settingId"] != "core.watch_code.enabled" {
+		t.Fatalf("expected watch-code search result, got %#v", results)
 	}
 }
 

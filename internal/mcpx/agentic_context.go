@@ -223,13 +223,16 @@ func resolveAgenticContextString(
 	sessionValue string,
 	rejectBlank bool,
 ) (string, error) {
+	if trimmedSessionValue := strings.TrimSpace(sessionValue); trimmedSessionValue != "" {
+		return trimmedSessionValue, nil
+	}
 	if metaValue, ok, err := readMetaString(meta, metaKey, rejectBlank); ok || err != nil {
 		return metaValue, err
 	}
 	if headerValue, ok, err := readHeaderString(headers, headerKey, rejectBlank); ok || err != nil {
 		return headerValue, err
 	}
-	return strings.TrimSpace(sessionValue), nil
+	return "", nil
 }
 
 func resolveFrontendAffinityToken(meta map[string]any, headers http.Header, sessionValue string) string {

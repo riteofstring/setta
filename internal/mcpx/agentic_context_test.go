@@ -462,6 +462,80 @@ func TestResolveAgenticContextIncludesRunIDFromMetaAndHeaders(t *testing.T) {
 	}
 }
 
+func TestResolveAgenticContextIncludesProjectConfigIDFromMetaWhenSessionMissing(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId": "project-from-meta",
+			},
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.ProjectConfigID != "project-from-meta" {
+		t.Fatalf("expected projectConfigId project-from-meta, got %q", resolved.ProjectConfigID)
+	}
+}
+
+func TestResolveAgenticContextPrefersSessionProjectShareChatRunAndSectionOverRequestMetaAndHeaders(t *testing.T) {
+	t.Parallel()
+
+	headers := http.Header{}
+	headers.Set(AgenticContextProjectConfigIDHeader, "project-from-header")
+	headers.Set(modes.ShareSessionHeaderName, "share-from-header")
+	headers.Set(AgenticContextChatIDHeader, "chat-from-header")
+	headers.Set(AgenticContextRunIDHeader, "run-from-header")
+	headers.Set(AgenticContextSectionIDHeader, "section-from-header")
+
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId": "project-from-meta",
+				"shareSessionId":  "share-from-meta",
+				"chatId":          "chat-from-meta",
+				"runId":           "run-from-meta",
+				"sectionId":       "section-from-meta",
+			},
+			Headers: headers,
+		},
+		&AgenticContext{
+			ProjectConfigID: "project-from-session",
+			ShareSessionID:  "share-from-session",
+			ChatID:          "chat-from-session",
+			RunID:           "run-from-session",
+			SectionID:       "section-from-session",
+		},
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.ProjectConfigID != "project-from-session" {
+		t.Fatalf("expected session projectConfigId, got %q", resolved.ProjectConfigID)
+	}
+	if resolved.ShareSessionID != "share-from-session" {
+		t.Fatalf("expected session shareSessionId, got %q", resolved.ShareSessionID)
+	}
+	if resolved.ChatID != "chat-from-session" {
+		t.Fatalf("expected session chatId, got %q", resolved.ChatID)
+	}
+	if resolved.RunID != "run-from-session" {
+		t.Fatalf("expected session runId, got %q", resolved.RunID)
+	}
+	if resolved.SectionID != "section-from-session" {
+		t.Fatalf("expected session sectionId, got %q", resolved.SectionID)
+	}
+}
+
 func TestResolveAgenticContextIncludesShareSessionIDFromMeta(t *testing.T) {
 	t.Parallel()
 
