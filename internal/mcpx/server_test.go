@@ -1413,6 +1413,75 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 }
 
+func TestServerDiscoverableToolsHaveExplicitAccessMetadata(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	allowNoTargets := map[string]struct{}{
+		"getInstalledPythonPackages": {},
+		"get_agent_profile":          {},
+		"list_agent_profiles":        {},
+		"read_file_range":            {},
+	}
+	missingAccess := []string{}
+	missingTargets := []string{}
+	for _, tool := range toolsResult.Tools {
+		if tool == nil {
+			continue
+		}
+
+		rawMeta, ok := tool.Meta[toolMetaNamespace]
+		if !ok {
+			missingAccess = append(missingAccess, tool.Name+" (missing setta metadata)")
+			continue
+		}
+		meta := mustStructuredMap(t, rawMeta)
+		if meta["toolKind"] != string(tools.KindDiscoverable) {
+			continue
+		}
+
+		accessType, _ := meta["accessType"].(string)
+		if strings.TrimSpace(accessType) == "" {
+			missingAccess = append(missingAccess, tool.Name+" (missing accessType)")
+			continue
+		}
+		if accessType != string(tools.AccessTypeRead) && accessType != string(tools.AccessTypeWrite) {
+			continue
+		}
+
+		idPaths := map[string]any{}
+		if rawPaths, ok := meta["idPathsByType"]; ok {
+			idPaths = mustStructuredMap(t, rawPaths)
+		}
+		_, hasResultFilter := meta["resultFilter"]
+		defaultSingleton, _ := meta["defaultTargetSingletonSection"].(string)
+		if len(idPaths) != 0 || hasResultFilter || strings.TrimSpace(defaultSingleton) != "" {
+			continue
+		}
+		if _, ok := allowNoTargets[tool.Name]; ok {
+			continue
+		}
+		missingTargets = append(missingTargets, tool.Name)
+	}
+
+	sort.Strings(missingAccess)
+	sort.Strings(missingTargets)
+	if len(missingAccess) != 0 {
+		t.Fatalf("expected explicit access metadata for discoverable tools, missing %#v", missingAccess)
+	}
+	if len(missingTargets) != 0 {
+		t.Fatalf("expected discoverable read/write tools to publish target hints, missing %#v", missingTargets)
+	}
+}
+
 func TestServerScopedReadToolsRejectEmptyReadableScope(t *testing.T) {
 	t.Parallel()
 

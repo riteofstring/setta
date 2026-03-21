@@ -2,6 +2,7 @@ package tools
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -206,6 +207,71 @@ func TestSearchIndexSearchRejectsBlankOrUnsearchableQueries(t *testing.T) {
 	}
 	if _, err := index.Search("!!!", 2); err != ErrToolSearchQueryUnsearchable {
 		t.Fatalf("expected unsearchable query error, got %v", err)
+	}
+}
+
+func TestBuildSearchTextFromSchemaIncludesNestedDefinitionDescriptions(t *testing.T) {
+	t.Parallel()
+
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"SectionSize": map[string]any{
+				"type":        "object",
+				"description": "Dimensions applied to a given section.",
+				"properties": map[string]any{
+					"width": map[string]any{
+						"description": "Horizontal dimension or auto.",
+						"anyOf": []any{
+							map[string]any{
+								"type":        "number",
+								"description": "Explicit pixel width.",
+							},
+							map[string]any{"$ref": "#/$defs/AutoSize"},
+						},
+					},
+					"height": map[string]any{
+						"$ref": "#/$defs/DimensionValue",
+					},
+				},
+			},
+			"AutoSize": map[string]any{
+				"type":        "string",
+				"description": "Use auto layout sizing hints.",
+			},
+			"DimensionValue": map[string]any{
+				"description": "Vertical dimension or auto.",
+				"anyOf": []any{
+					map[string]any{
+						"type":        "number",
+						"description": "Explicit pixel height.",
+					},
+					map[string]any{"const": "auto", "type": "string"},
+				},
+			},
+		},
+		"properties": map[string]any{
+			"sectionSizes": map[string]any{
+				"type":        "object",
+				"description": "Map of section IDs to size definitions.",
+				"additionalProperties": map[string]any{
+					"$ref": "#/$defs/SectionSize",
+				},
+			},
+		},
+	}
+
+	text := buildSearchTextFromSchema(schema)
+	for _, expected := range []string{
+		"sectionsizes",
+		"map of section ids to size definitions",
+		"horizontal dimension or auto",
+		"explicit pixel width",
+		"vertical dimension or auto",
+		"explicit pixel height",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("expected schema search text to include %q, got %q", expected, text)
+		}
 	}
 }
 

@@ -82,6 +82,16 @@ func TestRegistryRegisterNormalizesMetadataAndListsSorted(t *testing.T) {
 	}
 }
 
+func TestRegistryListReturnsEmptyWhenNoToolsRegistered(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	registered := registry.List()
+	if len(registered) != 0 {
+		t.Fatalf("expected empty tool list, got %#v", registered)
+	}
+}
+
 // Duplicate names should fail loudly so later MCP adapters do not depend on
 // last-write-wins behavior.
 func TestRegistryRegisterRejectsDuplicateNames(t *testing.T) {
