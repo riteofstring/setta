@@ -2222,14 +2222,63 @@ def execute_create_project_defaults(
 def execute_initial_frontend_websocket_inventory(
     backend: BackendSession,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    envelopes = read_frontend_messages(
-        websocket_url=backend.websocket_url,
-        frontend_origin=backend.frontend_origin,
-        cookie_header=build_cookie_header(backend.session),
-        wanted_types={"FrontendIdentity", "AllConnections"},
+    cookie_header = build_cookie_header(backend.session)
+    with websocket_connect(
+        backend.websocket_url,
+        additional_headers={"Cookie": cookie_header},
+        origin=backend.frontend_origin,
+        open_timeout=WEBSOCKET_TIMEOUT_SECONDS,
+        proxy=None,
+    ) as first_conn:
+        first_initial_messages = read_messages_until_timeout(
+            first_conn,
+            timeout=WEBSOCKET_TIMEOUT_SECONDS,
+            max_messages=4,
+        )
+        with websocket_connect(
+            backend.websocket_url,
+            additional_headers={"Cookie": cookie_header},
+            origin=backend.frontend_origin,
+            open_timeout=WEBSOCKET_TIMEOUT_SECONDS,
+            proxy=None,
+        ) as second_conn:
+            second_initial_messages = read_messages_until_timeout(
+                second_conn,
+                timeout=WEBSOCKET_TIMEOUT_SECONDS,
+                max_messages=4,
+            )
+            first_rebroadcast_messages = read_messages_until_timeout(
+                first_conn,
+                timeout=WEBSOCKET_TIMEOUT_SECONDS,
+                max_messages=4,
+            )
+            first_conn.send(
+                json.dumps(
+                    {
+                        "messageType": "CurrentAddressUpdate",
+                        "content": "/project#setta-ws-affinity=tab-secret",
+                    }
+                )
+            )
+            second_rebroadcast_messages = read_messages_until_timeout(
+                second_conn,
+                timeout=WEBSOCKET_TIMEOUT_SECONDS,
+                max_messages=4,
+            )
+
+    envelopes = (
+        first_initial_messages
+        + second_initial_messages
+        + first_rebroadcast_messages
+        + second_rebroadcast_messages
     )
     summary = summarize_frontend_inventory(envelopes)
-    return summary, {"messages": envelopes}
+    return summary, {
+        "firstInitialMessages": first_initial_messages,
+        "secondInitialMessages": second_initial_messages,
+        "firstRebroadcastMessages": first_rebroadcast_messages,
+        "secondRebroadcastMessages": second_rebroadcast_messages,
+    }
 
 
 def execute_toggle_view_mode_broadcast(
@@ -5058,25 +5107,34 @@ def summarize_loaded_project_state(payload: dict[str, Any]) -> dict[str, Any]:
 
 def summarize_frontend_inventory(envelopes: list[dict[str, Any]]) -> dict[str, Any]:
     identity = find_message(envelopes, "FrontendIdentity")
-    inventory = find_message(envelopes, "AllConnections")
-    connections = inventory.get("content") if inventory else None
-    if connections is None:
-        normalized_connections: list[dict[str, Any]] = []
-    else:
-        if not isinstance(connections, list):
-            raise ParityHarnessError(
-                f"AllConnections content must be a list, got {type(connections).__name__}"
-            )
-        normalized_connections = [
-            expect_object(entry, "AllConnections[]") for entry in connections
-        ]
-    upper_types = sorted(
-        normalized_string(entry.get("connectionType")).upper()
+    inventory = find_last_message(envelopes, "AllConnections")
+    normalized_connections = summarize_frontend_inventory_connections(inventory)
+    upper_types = [entry["connectionType"] for entry in normalized_connections]
+    frontend_connections = [
+        {
+            "currentAddress": entry["currentAddress"],
+            "shareSessionId": entry["shareSessionId"],
+        }
         for entry in normalized_connections
-        if normalized_string(entry.get("connectionType"))
-    )
+        if entry["connectionType"] == "FRONTEND"
+    ]
+    other_connections = [
+        {
+            "connectionType": entry["connectionType"],
+            "currentAddress": entry["currentAddress"],
+            "shareSessionId": entry["shareSessionId"],
+        }
+        for entry in normalized_connections
+        if entry["connectionType"] != "FRONTEND"
+    ]
+    identity_content = object_field(identity, "content", allow_missing=True)
     return {
         "frontendIdentityReceived": identity is not None,
+        "frontendAffinityTokenPresent": bool(
+            normalized_string(identity_content.get("frontendAffinityToken"))
+        )
+        if identity is not None
+        else False,
         "allConnectionsReceived": inventory is not None,
         "connectionCount": len(normalized_connections),
         "connectionTypes": upper_types,
@@ -5084,6 +5142,8 @@ def summarize_frontend_inventory(envelopes: list[dict[str, Any]]) -> dict[str, A
         "frontendConnectionCount": sum(
             1 for value in upper_types if value == "FRONTEND"
         ),
+        "frontendConnections": frontend_connections,
+        "otherConnections": other_connections,
     }
 
 
@@ -8782,26 +8842,6 @@ def read_persisted_settings_project_document(backend: BackendSession) -> dict[st
     return payload
 
 
-def read_frontend_messages(
-    websocket_url: str,
-    frontend_origin: str,
-    cookie_header: str,
-    wanted_types: set[str],
-) -> list[dict[str, Any]]:
-    with websocket_connect(
-        websocket_url,
-        additional_headers={"Cookie": cookie_header},
-        origin=frontend_origin,
-        open_timeout=WEBSOCKET_TIMEOUT_SECONDS,
-        proxy=None,
-    ) as conn:
-        return read_messages_until_timeout(
-            conn,
-            timeout=WEBSOCKET_TIMEOUT_SECONDS,
-            max_messages=max(6, len(wanted_types) * 3),
-        )
-
-
 def read_messages_until_timeout(
     conn: Any,
     timeout: float,
@@ -8832,6 +8872,15 @@ def find_message(
     messages: list[dict[str, Any]], message_type: str
 ) -> dict[str, Any] | None:
     for message in messages:
+        if normalized_string(message.get("messageType")) == message_type:
+            return message
+    return None
+
+
+def find_last_message(
+    messages: list[dict[str, Any]], message_type: str
+) -> dict[str, Any] | None:
+    for message in reversed(messages):
         if normalized_string(message.get("messageType")) == message_type:
             return message
     return None
@@ -8914,6 +8963,56 @@ def normalized_string(value: Any) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()
+
+
+def normalized_optional_string(value: Any) -> str | None:
+    normalized = normalized_string(value)
+    if not normalized:
+        return None
+    return normalized
+
+
+def summarize_frontend_inventory_connections(
+    inventory: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    connections = inventory.get("content") if inventory else None
+    if connections is None:
+        return []
+    if not isinstance(connections, list):
+        raise ParityHarnessError(
+            f"AllConnections content must be a list, got {type(connections).__name__}"
+        )
+
+    normalized_connections: list[dict[str, Any]] = []
+    for index, entry in enumerate(connections):
+        normalized_entry = expect_object(entry, f"AllConnections[{index}]")
+        connection_type = normalized_string(
+            normalized_entry.get("connectionType")
+        ).upper()
+        if not connection_type:
+            raise ParityHarnessError(
+                f"AllConnections[{index}].connectionType must be a non-empty string"
+            )
+        normalized_connections.append(
+            {
+                "connectionType": connection_type,
+                "currentAddress": normalized_optional_string(
+                    normalized_entry.get("currentAddress")
+                ),
+                "shareSessionId": normalized_optional_string(
+                    normalized_entry.get("shareSessionId")
+                ),
+            }
+        )
+
+    normalized_connections.sort(
+        key=lambda entry: (
+            entry["connectionType"],
+            entry["currentAddress"] or "",
+            entry["shareSessionId"] or "",
+        )
+    )
+    return normalized_connections
 
 
 def extract_load_window_spaces(payload: dict[str, Any]) -> dict[str, Any]:

@@ -6,7 +6,7 @@ scenarios:
   - name: initial_frontend_websocket_inventory
     kind: initial_frontend_websocket_inventory
     seed: none
-    description: Initial frontend websocket inventory should expose the same transport health view as the baseline backend.
+    description: Initial frontend websocket inventory should match the baseline backend for server-owned affinity tokens, the synthetic SERVER entry, and sanitized current-address rebroadcasts.
   - name: toggle_view_mode_broadcast
     kind: toggle_view_mode_broadcast
     seed: none

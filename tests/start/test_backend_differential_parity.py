@@ -204,6 +204,8 @@ scenarios:
     def test_summarize_frontend_inventory_normalizes_connection_type_case(self) -> None:
         harness = load_harness_module()
 
+        # Keep both the initial and rebroadcasted inventories so the summary
+        # proves the last caller-visible snapshot shape.
         messages = [
             {
                 "messageType": "FrontendIdentity",
@@ -216,6 +218,18 @@ scenarios:
                     {"id": "server-a", "connectionType": "SERVER"},
                 ],
             },
+            {
+                "messageType": "AllConnections",
+                "content": [
+                    {
+                        "id": "frontend-b",
+                        "connectionType": "frontend",
+                        "currentAddress": "/project",
+                    },
+                    {"id": "frontend-a", "connectionType": "FRONTEND"},
+                    {"id": "server-a", "connectionType": "SERVER"},
+                ],
+            },
         ]
 
         summary = harness.summarize_frontend_inventory(messages)
@@ -224,11 +238,23 @@ scenarios:
             summary,
             {
                 "frontendIdentityReceived": True,
+                "frontendAffinityTokenPresent": True,
                 "allConnectionsReceived": True,
-                "connectionCount": 2,
-                "connectionTypes": ["FRONTEND", "SERVER"],
+                "connectionCount": 3,
+                "connectionTypes": ["FRONTEND", "FRONTEND", "SERVER"],
                 "hasServerConnection": True,
-                "frontendConnectionCount": 1,
+                "frontendConnectionCount": 2,
+                "frontendConnections": [
+                    {"currentAddress": None, "shareSessionId": None},
+                    {"currentAddress": "/project", "shareSessionId": None},
+                ],
+                "otherConnections": [
+                    {
+                        "connectionType": "SERVER",
+                        "currentAddress": None,
+                        "shareSessionId": None,
+                    }
+                ],
             },
         )
 
