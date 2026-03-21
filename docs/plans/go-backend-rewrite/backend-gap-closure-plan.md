@@ -1,6 +1,6 @@
 # Backend Gap Closure Plan
 
-Last updated: `2026-03-18`
+Last updated: `2026-03-19`
 
 Purpose: define the default workflow for future Codex sessions that are
 closing remaining Go backend parity gaps.
@@ -288,6 +288,11 @@ categorize them.
   the same rule: keep taking small live transport/auth branches when they are
   truly isolated, but otherwise spend time on the remaining broader `Missing`
   route/runtime gaps rather than on more ledger cleanup
+- The Codex camel-case `mcpServers` validation row is now closed too, so the
+  remaining small external-agent runtime queue is narrower again: the next
+  plausible bounded slice is the missing Codex `enabled_tools` runtime-config
+  contract before the backlog steps up into broader completion-gate,
+  deployment-mount, or OpenCode read-only behavior gaps
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared

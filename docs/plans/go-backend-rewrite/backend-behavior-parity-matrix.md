@@ -1,11 +1,11 @@
 # Backend Behavior Parity Matrix
 
-Last audited: `2026-03-18`
+Last audited: `2026-03-19`
 
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `6e13f582f6fad485551b76156587347f5e8aa553`
+- Target head: `b22298e4172ebccae2113cdae14eee7e45b13eb1`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -61,6 +61,9 @@ Last audited: `2026-03-18`
 - plus the targeted Codex read-only runtime slice: explicit-path source-file
   immutability, canonical-byte preservation, and managed-local no-edit
   missing-canonical behavior on session runtime prep
+- plus the targeted Codex camel-case MCP-root slice: fail-closed rejection of
+  top-level `mcpServers` roots in inherited TOML config so session runtime
+  prep requires `mcp_servers`
 - plus the targeted external-agent preflight slice: non-Claude
   supported-versus-available classification and Node-backed command-path
   prerequisites on the live Project AI health surface
@@ -763,9 +766,9 @@ Last audited: `2026-03-18`
 
 - Rows audited in this pass: `1253`
 - Status counts:
-  - `Proved`: `1034`
+  - `Proved`: `1035`
   - `Implemented, proof incomplete`: `1`
-  - `Missing`: `63`
+  - `Missing`: `62`
   - `Retained Python boundary`: `119`
   - `Intentional divergence`: `16`
   - `Dormant / unproven caller`: `18`
@@ -806,6 +809,9 @@ Last audited: `2026-03-18`
     coverage now proves explicit-path source-file immutability, canonical-byte
     preservation, and managed-local no-edit missing-canonical behavior during
     session runtime config prep
+  - `internal/externalagents/{codex_executor.go,codex_executor_test.go}`:
+    Codex runtime prep now rejects camel-case top-level `mcpServers` roots in
+    inherited TOML config and tells callers to use `mcp_servers` instead
   - `internal/externalagentconfigs/preflight_test.go`: non-Claude external-
     agent health coverage now proves supported-versus-available
     classification across Codex/OpenCode tool-mode branches and the Node-
@@ -2778,7 +2784,7 @@ Last audited: `2026-03-18`
 | `external_agent.start.frontend_affinity_token_trimmed_and_forwarded` | `tests/routers/test_ai_agent_run_chats.py::test_get_llm_response_includes_execution_policy_for_external_runner`; source external sends trim frontend-affinity before persisting it into run inputs and live routing metadata | `internal/externalagents/send.go::StartChat`; `internal/httpapi/ai_routes.go::getLLMResponseHandler` | `TestSendServiceStartsExternalChatAndPersistsRunningRun`; `TestRegisterAIRoutesStartsExternalAgentChat` | `frontend/src/state/actions/frontendWebsocketAffinity.ts` and `frontend/src/state/actions/ai.ts` still pass `frontendAffinityToken` through `getLLMResponse` for external sends | `Proved` | External-agent starts still trim a non-blank frontend-affinity token and forward the normalized value into persisted run inputs and live routing state instead of preserving surrounding whitespace. |
 | `external_agent.start.whitespace_frontend_affinity_rejected` | `tests/routers/test_ai_agent_run_chats.py::test_get_llm_response_rejects_whitespace_only_frontend_affinity_token` | `internal/externalagents/send.go::StartChat`; `internal/httpapi/ai_routes.go::getLLMResponseHandler` | `TestSendServiceRejectsWhitespaceFrontendAffinityToken`; `TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend` | `frontend/src/state/actions/frontendWebsocketAffinity.ts` and `frontend/src/state/actions/ai.ts` still pass `frontendAffinityToken` through `getLLMResponse` for external sends | `Proved` | External-agent starts still reject whitespace-only frontend-affinity tokens instead of silently clearing or normalizing them into a different routing target. |
 | `external_agent.runtime.codex_and_mutable_opencode_session_scoped_runtime_config_artifacts` | `docs/reference/external-agents.md` records Codex `config.toml` and mutable OpenCode `opencode.json` runtime outputs under `sessions/<chat_id>/...` as the live per-chat artifact surface | `internal/externalagents/codex_executor.go::{prepareCodexHome,applyCodexRuntimeConfig}`; `internal/externalagents/opencode_executor.go::{prepareOpenCodeConfig,applyOpenCodeRuntimeConfig}` | `TestCodexExecutorWritesSessionScopedRuntimeConfig`; `TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput` | the current external-agent chat surface still dispatches runs through `getLLMResponse`, and Codex plus writable OpenCode settings modes still depend on these per-chat runtime artifacts instead of mutating one shared canonical config in place during live runs | `Proved` | Codex runs and non-read-only OpenCode runs still materialize per-chat runtime config artifacts under `external_agent_settings/<tool>/<config_id>/sessions/<chat_id>/...`: Codex writes a session `config.toml` carrying the runtime approval/sandbox/developer-instructions state, and OpenCode writable modes write a session `opencode.json` carrying the runtime model/permission state. The trusted-project persistence, separate env handoff, and read-only OpenCode branch are tracked explicitly below instead of being implied by this artifact row. |
-| `external_agent.runtime.codex_base_config_rejects_camel_case_mcpServers_root` | `tests/agentic/test_external_agent_settings.py::{test_build_codex_settings_file_rejects_camel_case_mcp_root_key,test_build_codex_settings_file_rejects_camel_only_mcp_tables}` keep the source fail-closed rule explicit that Codex base config must reject camel-case `mcpServers` roots and require `mcp_servers` instead | `internal/externalagents/codex_executor.go::{resolveCodexBaseConfig,loadCodexConfigPayload,applyCodexRuntimeConfig}` currently TOML-decode the base config and carry it forward without any explicit rejection of a top-level `mcpServers` payload | there is no Go test proving or enforcing the source `mcpServers` rejection branch because the current runtime config loader does not implement it | Codex explicit-path and canonical-config runs remain part of the live Project AI settings plus external-run caller surface, so fail-closed base-config validation still matters before a run starts | `Missing` | The source Codex config builder rejected camel-case `mcpServers` roots fail closed, but the rewrite currently accepts a TOML base config containing `mcpServers` without surfacing the documented validation error that tells callers to use `mcp_servers`. |
+| `external_agent.runtime.codex_base_config_rejects_camel_case_mcpServers_root` | `tests/agentic/test_external_agent_settings.py::{test_build_codex_settings_file_rejects_camel_case_mcp_root_key,test_build_codex_settings_file_rejects_camel_only_mcp_tables}` keep the source fail-closed rule explicit that Codex base config must reject camel-case `mcpServers` roots and require `mcp_servers` instead | `internal/externalagents/codex_executor.go::{resolveCodexBaseConfig,loadCodexConfigPayload,applyCodexRuntimeConfig}` | `TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersRootKey`; `TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersTables` | Codex explicit-path and canonical-config runs remain part of the live Project AI settings plus external-run caller surface, so fail-closed base-config validation still matters before a run starts | `Proved` | Codex runtime-config preparation now fails closed when inherited TOML config uses a top-level camel-case `mcpServers` root, including table-only forms like `[mcpServers.filesystem]`, and the surfaced error tells callers to use `mcp_servers` instead before session runtime prep continues. |
 | `external_agent.runtime.codex_explicit_path_base_config_skips_user_mcp_bootstrap` | `tests/agentic/test_external_agent_settings.py::test_build_codex_settings_file_explicit_path_does_not_bootstrap_user_servers` keeps the source opt-out branch explicit: when callers point Codex at an explicit base config path, Setta should use that base config directly instead of additionally bootstrapping user-home MCP servers into the derived runtime config | `internal/externalagents/codex_executor.go::resolveCodexBaseConfig`; `internal/externalagents/codex_executor.go::prepareCodexHome` | `TestCodexExecutorPrepareCodexHomePrefersExplicitBaseConfigPath` | Codex explicit-path configs remain a live Project AI settings option on the current external-agent surface, so this bootstrap opt-out remains caller-visible whenever users point Setta at an existing Codex config | `Proved` | The current Go Codex runtime prep now has direct proof for the explicit-path opt-out branch: when an explicit settings file is configured, session runtime prep loads that file and ignores the canonical home config instead of merging in additional home-owned MCP server state. |
 | `external_agent.runtime.codex_session_scoped_runtime_config_marks_project_trusted_by_raw_path_key` | `docs/reference/external-agents.md` treats Codex runtime prep as session-scoped config materialization plus trusted-project persistence for the active project path | `internal/externalagents/codex_executor.go::applyCodexRuntimeConfig` | `TestCodexExecutorWritesSessionScopedRuntimeConfig` | Codex chats still rely on the per-session runtime config prep path before the sidecar starts, so trusted-project persistence remains a live runtime-prep side effect rather than dead config bookkeeping | `Proved` | Codex runtime config preparation still writes the active project into the trusted-project map keyed by the raw project path before the session-scoped config is handed to the sidecar. |
 | `external_agent.runtime.codex_session_scoped_runtime_config_enabled_tools_follow_profile_allowlist_and_completion_guard` | `tests/agentic/test_external_agent_runner.py::test_codex_config_writes_tool_allowlist`; `::test_codex_config_omits_completion_report_tool_when_guard_disabled` keep `enabled_tools` on the source Codex session-config contract, driven by the selected profile allowlist plus completion-guard state | `internal/externalagents/codex_executor.go::applyCodexRuntimeConfig` currently prepends Setta runtime settings but never writes `enabled_tools` into the session-scoped Codex config | `TestCodexExecutorWritesSessionScopedRuntimeConfig` proves the per-chat runtime config artifact exists, but there is no Go proof or implementation for the source `enabled_tools` allowlist/completion-guard branch | the live Codex external-agent run surface still starts from the selected profile plus backend-owned completion-guard settings, so session-scoped tool allowlisting remains caller-visible whenever Codex runs | `Missing` | The source Codex runtime config wrote `enabled_tools` from the selected profile allowlist and omitted the completion-report tool when the guard was disabled, but the rewrite still materializes no session-scoped `enabled_tools` list at all. |
