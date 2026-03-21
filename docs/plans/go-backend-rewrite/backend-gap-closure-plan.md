@@ -324,6 +324,12 @@ categorize them.
   `setta launch --json` typed config-validation surface or the larger
   recent-session grace / process-group cleanup rows rather than another tiny
   pre-spawn startup-classification branch
+- That packaged `setta launch --json` typed config-validation row is now
+  closed too, so the remaining launch-owner backlog is mostly the real missing
+  runtime behavior slices like recent-session grace and process-group cleanup;
+  the only obvious proof-incomplete config holdout is still the platform-
+  default `SETTA_HOME` path contract if a cross-platform-friendly proof path
+  becomes worthwhile later
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
