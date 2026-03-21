@@ -427,6 +427,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					cfg.Paths.RuntimeRoot,
 				},
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+					if err := projectstate.SaveJSONSourceFiles(snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
+						return err
+					}
 					if watchCodeService != nil {
 						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
 							return err

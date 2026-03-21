@@ -30,6 +30,69 @@ import (
 	"setta/internal/wsapi"
 )
 
+func TestAppSaveProjectRouteWritesJSONSourceFilesAndRecreatesMissingKeyPath(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 61235
+	prepareAppCurrentSession(t, cfg)
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project-state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new main project store: %v", err)
+	}
+	if err := store.Save(context.Background(), jsonSourceSaveAppTestDocument(t)); err != nil {
+		t.Fatalf("seed main project store: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	saveRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveProject, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	if err != nil {
+		t.Fatalf("new save request: %v", err)
+	}
+	saveRequest.Header.Set("Content-Type", "application/json")
+	saveRequest.AddCookie(authCookie)
+
+	saveResponse, err := http.DefaultClient.Do(saveRequest)
+	if err != nil {
+		t.Fatalf("save project: %v", err)
+	}
+	defer saveResponse.Body.Close()
+	if saveResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(saveResponse.Body)
+		t.Fatalf("expected save 200, got %d with body %q", saveResponse.StatusCode, string(body))
+	}
+
+	content, err := os.ReadFile(filepath.Join(cfg.Paths.WorkspaceRoot, "data", "source.json"))
+	if err != nil {
+		t.Fatalf("read saved json source file: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode saved json source file: %v", err)
+	}
+	if got := payload["config"].(map[string]any)["nested"].(map[string]any)["value"]; got != float64(1) {
+		t.Fatalf("expected save route to recreate json source key path with value 1, got %#v", got)
+	}
+}
+
 func TestAppServesProjectShellReadRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -122,6 +185,110 @@ func TestAppServesProjectShellReadRoutes(t *testing.T) {
 	}
 	if projectPayload.ProjectConfig.Name != "Alpha" {
 		t.Fatalf("expected Alpha, got %q", projectPayload.ProjectConfig.Name)
+	}
+}
+
+func jsonSourceSaveAppTestDocument(t *testing.T) projectstate.Document {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:                      "project-alpha",
+		Name:                    "Project Alpha",
+		AllowJSONSourceKeyEdits: true,
+		ProjectChatWindowing:    &projectstate.ProjectChatWindowingState{InstancesByID: map[string]projectstate.ProjectChatWindowInstance{}, Order: []string{}},
+		SectionVariantMap: map[string]string{
+			"json-section": "json-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"json-section": {
+				ID:               "json-section",
+				Name:             "JSON Section",
+				VariantIDs:       []string{"json-variant"},
+				DefaultVariantID: "json-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"json-variant": {
+				ID:     "json-variant",
+				Name:   "data/source.json",
+				ImplID: "json-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"json-impl": {
+				ID:   "json-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":              "json-impl",
+					"type":            "Dict",
+					"isJsonSource":    true,
+					"configLanguage":  "json",
+					"jsonSourceKeys":  []string{"config", "nested"},
+					"topLevelParamId": "root",
+					"codeObjVariantMap": map[string]any{
+						"root":       "root-variant",
+						"value-leaf": "value-leaf-variant",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"root": {
+				ID:               "root",
+				Name:             "root",
+				VariantIDs:       []string{"root-variant"},
+				DefaultVariantID: "root-variant",
+			},
+			"value-leaf": {
+				ID:               "value-leaf",
+				Name:             "value",
+				VariantIDs:       []string{"value-leaf-variant"},
+				DefaultVariantID: "value-leaf-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"root-variant": {
+				ID:               "root-variant",
+				ImplID:           "root-impl",
+				NonPresetImplIDs: []string{"root-impl"},
+			},
+			"value-leaf-variant": {
+				ID:               "value-leaf-variant",
+				ImplID:           "value-leaf-impl",
+				NonPresetImplIDs: []string{"value-leaf-impl"},
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"root-impl": {
+				ID:   "root-impl",
+				Type: "NestedParam",
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":       "root-impl",
+					"type":     "NestedParam",
+					"children": []string{"value-leaf"},
+				}),
+			},
+			"value-leaf-impl": {
+				ID:   "value-leaf-impl",
+				Type: "CodeParam",
+				Payload: mustRawJSONValue(t, map[string]any{
+					"id":    "value-leaf-impl",
+					"type":  "CodeParam",
+					"value": "1",
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize json source save app project: %v", err)
+	}
+
+	return projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
 	}
 }
 
