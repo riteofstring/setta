@@ -98,3 +98,28 @@ Append-only log for comparing the current top-level section surface against the 
     - even the idle rerun leaves current `HEAD` far above the earlier baseline paint profile, especially in pan and zoom
 - Next action:
   - treat the paint regression as real unless a fully fresh geometry-matched baseline rerun disproves it after a DevTools recorder reset.
+
+## 2026-03-20 004
+
+- Item: Save the settings top-level grid benchmark replay and trace summary flow as checked-in scripts.
+- Status: `done`
+- Details:
+  - Added reusable replay helper:
+    - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+    - exports the exact browser-side replay function and prints it when run with `node`
+  - Added reusable trace summarizer:
+    - `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
+    - parses the `section-grid-*` user timing marks and sums the same trace-event totals used in the report
+  - Replay semantics now explicitly include:
+    - a full horizontal sweep across the project width at a zoomed-in pan scale
+    - a reset
+    - a full vertical sweep across the project height at the same pan scale
+    - a fit-to-project to detail zoom pass
+    - a smaller detail zoom pulse
+    - a calibrated resize pass on `groupSectionDefault`
+  - Browser smoke run:
+    - executed the saved replay helper on `http://127.0.0.1:3011/settings`
+    - confirmed `section-grid-horizontal-pan-*`, `section-grid-vertical-pan-*`, `section-grid-full-zoom-*`, `section-grid-detail-zoom-*`, and `section-grid-resize-*` marks all fired
+    - confirmed the vertical sweep no longer collapsed at fit scale
+- Next action:
+  - use the saved replay helper for the next fresh current-vs-`bf6487690` trace pair instead of pasting ad hoc benchmark code from chat history.

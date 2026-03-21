@@ -25,6 +25,10 @@ Superseded artifact:
 Method:
 
 - Chrome DevTools MCP only, inside the `ai.sh` Chrome instance.
+- Reusable replay helper:
+  - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+- Reusable trace summarizer:
+  - `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
 - The `bf6487690` dev instance ran from `/private/tmp/setta-top-level-grid-bf6487690`.
 - The baseline instance used a copied snapshot of the current worktree `setta_files_dev` so both traces ran against the same settings data shape.
 - Both pages were normalized to internal zoom `0.1` before replay.
@@ -160,3 +164,35 @@ Updated read:
 - So the overall conclusion does not change:
   - nested shell flattening still looks like the safer win
   - the top-level `sectionChrome` removal still is not a clean enough performance win to justify on speed alone
+
+## Saved Replay Helper
+
+To avoid relying on pasted chat snippets for future reruns, the settings benchmark replay is now saved in:
+
+- `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+
+That helper now bakes in the stronger settings-specific coverage requested after this report:
+
+- horizontal panning spans the full project width at a zoomed-in sweep scale
+- the view resets
+- vertical panning spans the full project height at the same sweep scale
+- zoom starts from the fit-to-project overview and drives into a closer detail scale in one continuous pass
+- a smaller detail zoom pulse still runs near the close scale
+- resize uses a calibrated synthetic drag so the visible `groupSectionDefault` width delta stays comparable across commits
+
+The companion trace summary helper lives at:
+
+- `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
+
+Browser validation:
+
+- The saved replay helper was smoke-run on current `HEAD` at `http://127.0.0.1:3011/settings`.
+- The returned transforms confirmed a real vertical sweep range:
+  - `verticalStart.ty`: `24.001`
+  - `verticalEnd.ty`: `-1611.999`
+- The helper also emitted all expected benchmark marks:
+  - `section-grid-horizontal-pan-*`
+  - `section-grid-vertical-pan-*`
+  - `section-grid-full-zoom-*`
+  - `section-grid-detail-zoom-*`
+  - `section-grid-resize-*`

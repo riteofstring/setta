@@ -28,9 +28,11 @@ Compare the current branch state against `bf6487690`, which is the last commit b
 
 Use the same interaction loop on both commits:
 
-1. Pan diagonally across the settings canvas for a fixed short pass, then pan back.
-2. Zoom in via wheel for a fixed short pass, then zoom back out.
-3. Resize one representative settings section by about `150-200px`, then return it near the original size.
+1. Sweep horizontally across the full visible project width at a zoomed-in pan scale, then reset.
+2. Sweep vertically across the full visible project height at the same pan scale, then reset.
+3. Zoom from a fit-to-project overview into a close detail scale in one continuous pass, then return toward the overview scale.
+4. Run a smaller detail zoom pulse near the close scale.
+5. Resize one representative settings section by a calibrated visible-width delta, then return it near the original size.
 
 ## What To Compare
 
@@ -50,6 +52,10 @@ Use the same interaction loop on both commits:
 - Use Chrome DevTools MCP only.
 - Use the existing Chrome DevTools browser windows, not other browsers.
 - Keep the benchmark log append-only.
+- Reusable replay helper:
+  - `perf/scripts/settingsTopLevelGridBenchmarkReplay.js`
+- Reusable trace summarizer:
+  - `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
 - Treat the authoritative current-branch trace as the post-`ai.sh` rerun captured from `http://127.0.0.1:3011/settings`.
 - The earlier pre-restart current trace on `http://127.0.0.1:3111/settings` stays as a superseded artifact only.
 - If machine-load noise is suspected, rerun the same settings loop with the user idle and record whether the current branch paint totals stay materially above the baseline.
