@@ -9535,6 +9535,82 @@ func TestServerSearchMCPToolsUsesDiscoverableToolsAndServerFilters(t *testing.T)
 	}
 }
 
+func TestServerSearchMCPToolsFindsCreateTopLevelSectionForCreateQueries(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	testCases := []struct {
+		name  string
+		query string
+		limit int
+	}{
+		{name: "singular query", query: "create section", limit: 2},
+		{name: "plural query", query: "create sections", limit: 3},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+				Name: "search_mcp_tools",
+				Arguments: map[string]any{
+					"query": testCase.query,
+					"limit": testCase.limit,
+				},
+			})
+			if err != nil {
+				t.Fatalf("call search_mcp_tools: %v", err)
+			}
+			if result.IsError {
+				t.Fatalf("expected search_mcp_tools success, got %#v", result.StructuredContent)
+			}
+
+			payload := mustStructuredMap(t, result.StructuredContent)
+			results := mustStructuredList(t, payload["results"])
+			if !slices.ContainsFunc(results, func(rawResult any) bool {
+				entry := mustStructuredMap(t, rawResult)
+				return entry["name"] == "create_top_level_section"
+			}) {
+				t.Fatalf("expected create_top_level_section in search results for %q, got %#v", testCase.query, results)
+			}
+		})
+	}
+}
+
+func TestServerToolCatalogIncludesTerminalSectionDescription(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	var terminalTool *sdkmcp.Tool
+	for _, tool := range toolsResult.Tools {
+		if tool != nil && tool.Name == "getTerminalOutput" {
+			terminalTool = tool
+			break
+		}
+	}
+	if terminalTool == nil {
+		t.Fatal("expected getTerminalOutput tool")
+	}
+
+	inputSchema := mustStructuredMap(t, terminalTool.InputSchema)
+	properties := mustStructuredMap(t, inputSchema["properties"])
+	sectionSchema := mustStructuredMap(t, properties["sectionId"])
+	if sectionSchema["description"] != "Top-level terminal section id whose buffered output should be returned." {
+		t.Fatalf("unexpected getTerminalOutput sectionId description %#v", sectionSchema["description"])
+	}
+}
+
 func TestServerSearchMCPToolsRejectsNonIntegerLimit(t *testing.T) {
 	t.Parallel()
 

@@ -37,6 +37,42 @@ func TestTranslateArgumentsToCanonicalRewritesCodeObjIDsFromMetadataPaths(t *tes
 	}
 }
 
+func TestTranslateArgumentsToCanonicalDoesNotPersistCanonicalProjectConfigIDMapping(t *testing.T) {
+	t.Parallel()
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	store, err := NewTemporaryIDStore(temporaryIDMapPath)
+	if err != nil {
+		t.Fatalf("new temporary id store: %v", err)
+	}
+
+	translated, err := translateArgumentsToCanonical("set_section_name", tools.Metadata{
+		Kind:       tools.KindDiscoverable,
+		AccessType: tools.AccessTypeWrite,
+		IDPathsByType: map[tools.IDType][]string{
+			tools.IDTypeSection: {"sectionId"},
+		},
+	}, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sectionId":       "section-a",
+	}, store)
+	if err != nil {
+		t.Fatalf("translate arguments to canonical: %v", err)
+	}
+
+	if translated["projectConfigId"] != "project-alpha" {
+		t.Fatalf("expected canonical projectConfigId to remain unchanged, got %#v", translated["projectConfigId"])
+	}
+
+	snapshot, err := store.Snapshot()
+	if err != nil {
+		t.Fatalf("snapshot temporary id map: %v", err)
+	}
+	if len(snapshot) != 0 {
+		t.Fatalf("expected canonical projectConfigId translation to avoid allocating temporary ids, got %#v", snapshot)
+	}
+}
+
 func TestTranslateToolErrorToTemporaryRewritesUnmappedCodeObjIDs(t *testing.T) {
 	t.Parallel()
 
