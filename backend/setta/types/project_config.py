@@ -3,11 +3,13 @@ from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
+from setta.database.utils import create_new_id
 from setta.types.agentic_edges import AgenticEdge
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
-from setta.types.id import ID, create_new_id
+from setta.types.id import ID
 from setta.types.project_chat_windowing import validate_window_space_window_owner
 from setta.types.section_impls import SectionType
 from setta.types.state_machine_edges import StateMachineEdge
@@ -477,6 +479,28 @@ def get_python_codegen_target(
                 raise TypeError("Expected python codegen target.")
             return target
     return None
+
+
+def get_plugin_codegen_targets(
+    project_config: "ProjectConfig",
+) -> list[ProjectCodegenPluginTarget]:
+    targets: list[ProjectCodegenPluginTarget] = []
+    for target in project_config.codegenTargets:
+        if target.language == ProjectCodegenLanguage.python:
+            continue
+        if not isinstance(target, ProjectCodegenPluginTarget):
+            raise TypeError("Expected plugin codegen target.")
+        targets.append(target)
+    return targets
+
+
+def get_python_codegen_target_with_type_guard(
+    project_config: "ProjectConfig",
+) -> ProjectCodegenPythonTarget:
+    target = get_python_codegen_target(project_config)
+    if target is None:
+        raise KeyError("Project config missing python codegen target.")
+    return target
 
 
 class ProjectConfig(BaseModel, extra="forbid"):
