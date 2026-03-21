@@ -846,6 +846,41 @@ Current execution note:
             - `13271.540ms -> 23072.874ms`
         - do not keep any part of that shared switch/dropdown host-ownership move at `HEAD`
         - the next worthwhile Tier 1 pass should move away from switch/dropdown value-host ownership entirely and target a different always-mounted dense-row/body seam
+      - fresh live seam discovery then moved the next Tier 1 target to the repeated section-card/header/kwargs chrome path:
+        - live `All Settings` inspection counted:
+          - `46` repeated section toolbars
+          - `46` repeated args panels
+          - the same 9-control chrome on each visible dense section
+        - that made repeated section chrome the strongest next seam after the switch/dropdown lane was exhausted
+      - the next motion-time secondary chrome trim experiment was then benchmarked and rejected too:
+        - experimental files:
+          - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+          - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+          - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.tsx`
+          - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+        - mechanism under test:
+          - add a shared policy that trims inactive canvas-owned Tier 1 secondary chrome during viewport motion
+          - withhold secondary header controls plus the kwargs action-button strip while keeping the section title/menu and kwargs filter alive
+        - browser verification:
+          - a fresh subagent confirmed the live steady-state page rendered without an obvious visual regression
+          - the transient motion-state disappearance was not conclusively captured in the snapshot
+        - authoritative worktree deltas versus the retained baseline:
+          - `settings` benchmark `Paint`:
+            - `148.513ms -> 403.833ms`
+          - `settings` benchmark `RunTask`:
+            - `3267.777ms -> 28122.714ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `68.701ms -> 269.027ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `853.807ms -> 706.819ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `13243.181ms -> 14375.232ms`
+        - mechanism read:
+          - reducing repeated secondary chrome can help the synthetic paint path
+          - but mounting and unmounting that chrome at interaction start is far too expensive for the real `settings` route
+        - do not keep this motion-time secondary chrome trim at `HEAD`
+        - the next worthwhile Tier 1 pass should avoid another immediate conditional React subtree toggle on viewport interaction
+        - if the repeated section-card/header/kwargs area is mined again, the next mechanism should be static DOM simplification or a cheaper representation rather than interaction-start mount/unmount churn
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

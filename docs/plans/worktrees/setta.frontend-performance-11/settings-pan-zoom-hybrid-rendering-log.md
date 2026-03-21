@@ -2120,3 +2120,95 @@ Record:
     - the next Tier 1 pass should move away from switch/dropdown value-host ownership entirely and target a different always-mounted dense-row/body seam
 - Next action:
   - Re-open Tier 1 seam discovery outside the switch/dropdown host lane and pick the next repeated row/body seam that does not perturb non-code value-host ownership.
+
+## 2026-03-21 049
+
+- Item: Benchmark a motion-time secondary chrome trim on the repeated Tier 1 section-card/header/kwargs seam, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Why this seam was chosen:
+    - fresh live CDP inspection moved the next hotspot read away from the switch/dropdown host lane and toward repeated section chrome:
+      - `46` repeated section toolbars
+      - `46` repeated args panels
+      - the same 9-control chrome repeated on each visible dense section
+  - Experimental files under test:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.tsx`
+    - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+    - temporary focused tests:
+      - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx`
+  - Structural change under test:
+    - add a shared `shouldTrimSectionSecondaryChromeOnInteraction` policy beside the existing body-mode policy
+    - narrow it to inactive canvas-owned Tier 1 dense-param sections while `viewportInteractionActive` is true
+    - hide the secondary header controls:
+      - section window toggle
+      - lock
+      - minimize
+      - delete
+    - hide the kwargs action-button strip while leaving the filter input live
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx`
+      - `3` files passed
+      - `22` tests passed
+  - Filtered typecheck after the experiment:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false > /tmp/setta-hybrid-rendering-tsc.log 2>&1; rg "SectionContainerCoreResizabe|Tier1DenseParamSectionBody|KwargsControls|sectionBodyModePolicy" /tmp/setta-hybrid-rendering-tsc.log || true`
+    - no new diagnostics in the touched files
+    - the remaining filtered hits were pre-existing baseline diagnostics in:
+      - `frontend/src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts`
+  - Fresh subagent CDP check while the experiment was live:
+    - chrome-devtools MCP was accessible
+    - `http://127.0.0.1:3011/settings` rendered without an obvious steady-state visual regression
+    - the transient motion-state disappearance was not conclusively captured in the steady-state snapshot
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-motion-secondary-chrome-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.513ms -> 403.833ms`
+      - benchmark `RunTask`:
+        - `3267.777ms -> 28122.714ms`
+      - benchmark `UpdateLayoutTree`:
+        - `68.701ms -> 269.027ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.305ms -> 36.613ms`
+      - overview vertical pan slow `Paint`:
+        - `27.086ms -> 57.157ms`
+      - overview-to-detail zoom slow `Paint`:
+        - `8.843ms -> 16.360ms`
+      - detail-to-overview zoom slow `Paint`:
+        - `9.104ms -> 22.815ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `853.807ms -> 706.819ms`
+      - benchmark `RunTask`:
+        - `13243.181ms -> 14375.232ms`
+      - benchmark `UpdateLayoutTree`:
+        - `19.763ms -> 23.420ms`
+      - overview horizontal pan slow `Paint`:
+        - `147.659ms -> 123.046ms`
+      - overview vertical pan slow `Paint`:
+        - `175.256ms -> 133.950ms`
+  - Decision:
+    - reject this motion-time secondary chrome trim as a keep for `HEAD`
+    - `tier1Synthetic` paint improved, but the mandatory real `settings` target regressed far too hard on `Paint`, `RunTask`, and `UpdateLayoutTree`
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Avoid another immediate viewport-interaction subtree toggle on repeated secondary chrome and refine the next Tier 1 seam toward static DOM simplification or a cheaper representation on the same repeated section-card/header/args-body area.
+
+## 2026-03-21 050
+
+- Item: Refine the next Tier 1 target after rejecting the motion-time secondary chrome trim.
+- Status: `in_progress`
+- Details:
+  - Reverted the motion-time secondary chrome trim code after recording the dead-end report.
+  - Current read:
+    - the repeated section-card/header/kwargs seam is still worth mining
+    - but the mechanism is now tighter:
+      - reducing repeated chrome can help the synthetic paint path
+      - conditional React subtree toggling at interaction start is the wrong way to do it for the real `settings` route
+    - the next Tier 1 pass should stay on the repeated section-card/header/args-body area or another always-mounted dense-row/body seam, but it should do so through static DOM simplification or a cheaper steady-state representation instead of motion-time mount/unmount churn
+- Next action:
+  - Restore the retained baseline cleanly, rerun focused reverted-baseline verification, and pick the next static repeated-chrome or args-body seam instead of another interaction-start toggle.
