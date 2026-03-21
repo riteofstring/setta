@@ -20,7 +20,7 @@ const (
 	statusTimeout       = 2 * time.Second
 	diffTimeout         = 4 * time.Second
 	pathCheckTimeout    = 1500 * time.Millisecond
-	repoLookupTimeout   = 3 * time.Second
+	repoLookupTimeout   = 4 * time.Second
 	worktreeListTimeout = 1500 * time.Millisecond
 	maxStatusBytes      = 2_000_000
 	maxDiffBytes        = 2_000_000

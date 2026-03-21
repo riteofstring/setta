@@ -370,15 +370,13 @@ func TestProjectSynchronizerAutoRefetchesResolvedUndefinedCallableSections(t *te
 
 	settaFilesRoot := t.TempDir()
 	runtimeRoot := t.TempDir()
-	pythonBinary := resolveTestPythonBinary(t)
-	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
-	service := NewService(session)
+	syncer := &recordingDocumentSyncer{}
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	var resolvedEvents [][]string
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
 		RuntimeRoot:    runtimeRoot,
-		Service:        service,
+		Service:        syncer,
 		Diagnostics:    diagnostics,
 		OnCallableSymbolsResolved: func(_ context.Context, projectID string, sectionIDs []string) {
 			if projectID != "project-alpha" {
@@ -409,7 +407,11 @@ func TestProjectSynchronizerAutoRefetchesResolvedUndefinedCallableSections(t *te
 	if err != nil {
 		t.Fatalf("read generated code file: %v", err)
 	}
-	callback := service.tracked[generatedPath].Callback
+	tracked, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected tracked generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	callback := tracked.Callback
 	if callback == nil {
 		t.Fatal("expected generated code diagnostics callback")
 	}
@@ -444,15 +446,13 @@ func TestProjectSynchronizerAutoRefetchesNewCallableMismatchesOnce(t *testing.T)
 
 	settaFilesRoot := t.TempDir()
 	runtimeRoot := t.TempDir()
-	pythonBinary := resolveTestPythonBinary(t)
-	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
-	service := NewService(session)
+	syncer := &recordingDocumentSyncer{}
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	var mismatchEvents [][]string
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
 		RuntimeRoot:    runtimeRoot,
-		Service:        service,
+		Service:        syncer,
 		Diagnostics:    diagnostics,
 		OnCallableSignatureMismatch: func(_ context.Context, projectID string, sectionIDs []string) {
 			if projectID != "project-alpha" {
@@ -483,7 +483,11 @@ func TestProjectSynchronizerAutoRefetchesNewCallableMismatchesOnce(t *testing.T)
 	if err != nil {
 		t.Fatalf("read generated code file: %v", err)
 	}
-	callback := service.tracked[generatedPath].Callback
+	tracked, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected tracked generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	callback := tracked.Callback
 	if callback == nil {
 		t.Fatal("expected generated code diagnostics callback")
 	}
