@@ -386,9 +386,10 @@ categorize them.
   generation and into the broader still-missing runtime behavior: OpenCode
   read-only session-config handling, external completion-gate ownership, and
   the remaining missing caller-visible runtime branches
-- The two OpenCode read-only runtime rows are now closed too, and the
-  OpenCode permission-allowlist merge row is now closed as well, so the
-  adjacent external-agent queue should stay on the remaining genuinely
-  missing runtime ownership work: external completion-guard wiring and the
-  other still-missing caller-visible runtime branches rather than more
+- The two OpenCode read-only runtime rows are now closed too, the OpenCode
+  permission-allowlist merge row is now closed as well, and the external
+  completion-guard wiring row is now closed too, so the adjacent
+  external-agent queue should move on to the remaining genuinely missing
+  runtime ownership work: completion-claim rewrite/finalization behavior and
+  the other still-missing caller-visible runtime branches rather than more
   config-file materialization cleanup
