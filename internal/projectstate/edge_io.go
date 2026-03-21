@@ -100,7 +100,12 @@ func (p *Project) SetSectionEdgeInputs(sectionID string, edgeInputParams []strin
 	return p.setCurrentSectionField(trimmedSectionID, "edgeInputParams", append([]string(nil), normalized...))
 }
 
-func (d *Document) SetSectionEdgeOutputs(projectID string, sectionID string, edgeOutputPorts []EdgePort) error {
+func (d *Document) SetSectionEdgeOutputs(
+	projectID string,
+	sectionID string,
+	edgeOutputPorts []EdgePort,
+	builder EdgeExpressionBuilder,
+) error {
 	if d == nil {
 		return ErrProjectNotFound
 	}
@@ -109,7 +114,7 @@ func (d *Document) SetSectionEdgeOutputs(projectID string, sectionID string, edg
 	if err != nil {
 		return err
 	}
-	if err := project.SetSectionEdgeOutputs(sectionID, edgeOutputPorts); err != nil {
+	if err := project.SetSectionEdgeOutputs(sectionID, edgeOutputPorts, builder); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -121,20 +126,21 @@ func (r *Runtime) SetSectionEdgeOutputs(
 	projectID string,
 	sectionID string,
 	edgeOutputPorts []EdgePort,
+	builder EdgeExpressionBuilder,
 ) (Snapshot, error) {
 	if r == nil {
 		return Snapshot{}, ErrRuntimeClosed
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetSectionEdgeOutputs(projectID, sectionID, edgeOutputPorts); err != nil {
+		if err := document.SetSectionEdgeOutputs(projectID, sectionID, edgeOutputPorts, builder); err != nil {
 			return Document{}, err
 		}
 		return document, nil
 	})
 }
 
-func (p *Project) SetSectionEdgeOutputs(sectionID string, edgeOutputPorts []EdgePort) error {
+func (p *Project) SetSectionEdgeOutputs(sectionID string, edgeOutputPorts []EdgePort, builder EdgeExpressionBuilder) error {
 	if p == nil {
 		return ErrProjectNotFound
 	}
@@ -147,6 +153,7 @@ func (p *Project) SetSectionEdgeOutputs(sectionID string, edgeOutputPorts []Edge
 
 	normalized := normalizeSectionEdgeOutputs(edgeOutputPorts)
 	currentEdgeOutputs := payloadEdgeOutputPorts(payload)
+	changedPorts := changedSectionEdgeOutputAccessors(currentEdgeOutputs, normalized)
 	currentEdgeOutputIDs := payloadEdgeOutputPortIDs(payload)
 	nextEdgeOutputIDs := make(map[string]struct{}, len(normalized))
 	for _, port := range normalized {
@@ -164,10 +171,12 @@ func (p *Project) SetSectionEdgeOutputs(sectionID string, edgeOutputPorts []Edge
 		return err
 	}
 
-	if edgePortsEqual(currentEdgeOutputs, normalized) {
-		return nil
+	if !edgePortsEqual(currentEdgeOutputs, normalized) {
+		if err := p.setCurrentSectionField(trimmedSectionID, "edgeOutputPorts", edgeOutputPortsPayloadValue(normalized)); err != nil {
+			return err
+		}
 	}
-	return p.setCurrentSectionField(trimmedSectionID, "edgeOutputPorts", edgeOutputPortsPayloadValue(normalized))
+	return p.reapplyChangedEdgeOutputSources(trimmedSectionID, variant.ID, changedPorts, builder)
 }
 
 func (p Project) resolveSectionEdgeMutationState(sectionID string) (Section, SectionVariant, map[string]any, error) {
@@ -255,6 +264,30 @@ func edgePortsEqual(left []EdgePort, right []EdgePort) bool {
 	return true
 }
 
+func changedSectionEdgeOutputAccessors(current []EdgePort, next []EdgePort) map[string]struct{} {
+	if len(current) == 0 || len(next) == 0 {
+		return nil
+	}
+
+	currentAccessors := make(map[string]string, len(current))
+	for _, port := range current {
+		currentAccessors[port.ID] = port.Accessor
+	}
+
+	changed := make(map[string]struct{})
+	for _, port := range next {
+		accessor, ok := currentAccessors[port.ID]
+		if !ok || accessor == port.Accessor {
+			continue
+		}
+		changed[port.ID] = struct{}{}
+	}
+	if len(changed) == 0 {
+		return nil
+	}
+	return changed
+}
+
 func edgeOutputPortsPayloadValue(edgeOutputPorts []EdgePort) []any {
 	if len(edgeOutputPorts) == 0 {
 		return []any{}
@@ -291,6 +324,38 @@ func (p *Project) removeDeletedEdgeOutputSources(sectionID string, variantID str
 		if err := p.maybeClearEdgeTargetValue(edge); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (p *Project) reapplyChangedEdgeOutputSources(
+	sectionID string,
+	variantID string,
+	changedPorts map[string]struct{},
+	builder EdgeExpressionBuilder,
+) error {
+	if p == nil || len(changedPorts) == 0 || len(p.Edges) == 0 {
+		return nil
+	}
+
+	reappliedAny := false
+	for _, edge := range p.Edges {
+		if edge.SourceSectionID != sectionID || edge.SourceVariantID != variantID {
+			continue
+		}
+		if _, ok := changedPorts[edge.SourcePortID]; !ok {
+			continue
+		}
+		if builder == nil {
+			return ErrEdgeExpressionBuilderRequired
+		}
+		if err := p.applyEdgeExpression(edge, builder); err != nil {
+			return err
+		}
+		reappliedAny = true
+	}
+	if !reappliedAny {
+		return nil
 	}
 	return nil
 }

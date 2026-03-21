@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -113,6 +114,7 @@ func TestRuntimeSetSectionEdgeOutputsTrimsPortsAndRemovesDeletedEdges(t *testing
 			{ID: "new-port", Accessor: "  .result  "},
 			{ID: "new-port", Accessor: ".ignored"},
 		},
+		nil,
 	); err != nil {
 		t.Fatalf("SetSectionEdgeOutputs returned error: %v", err)
 	}
@@ -142,6 +144,63 @@ func TestRuntimeSetSectionEdgeOutputsTrimsPortsAndRemovesDeletedEdges(t *testing
 	}
 	if got := project.Edges[0].TargetPortID; got != "target-param" {
 		t.Fatalf("expected incoming target edge to remain, got %#v", project.Edges)
+	}
+}
+
+// Changing an accessor on a still-exposed output port should rebuild the
+// downstream target value for every surviving edge that uses that port.
+func TestRuntimeSetSectionEdgeOutputsReappliesChangedAccessorValues(t *testing.T) {
+	t.Parallel()
+
+	runtime := openEdgeIOTestRuntime(t)
+
+	initialExpression := edgeIOExpressionForPortAccessor("result", ".old")
+	if _, err := runtime.SetSectionCodeObjectValue(
+		context.Background(),
+		"project-alpha",
+		"sink-section",
+		"sink-param",
+		initialExpression,
+	); err != nil {
+		t.Fatalf("seed sink-param with initial expression: %v", err)
+	}
+
+	if _, err := runtime.SetSectionEdgeOutputs(
+		context.Background(),
+		"project-alpha",
+		"dict-section",
+		[]EdgePort{{ID: "result", Accessor: ".new"}},
+		edgeIOExpressionBuilder(),
+	); err != nil {
+		t.Fatalf("SetSectionEdgeOutputs returned error: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "dict-section", "dict-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload dict-section after accessor change: %v", err)
+	}
+	if got := payloadEdgeOutputPorts(payload); !reflect.DeepEqual(got, []EdgePort{{ID: "result", Accessor: ".new"}}) {
+		t.Fatalf("expected updated edgeOutputPorts [{result .new}], got %#v", got)
+	}
+
+	sinkPayload, _, _, sinkImpl, err := project.ResolveSectionCodeObject("sink-section", "sink-param")
+	if err != nil {
+		t.Fatalf("resolve sink-param after accessor change: %v", err)
+	}
+	if got := effectiveCodeObjType(sinkPayload, sinkImpl); got != codeParamType {
+		t.Fatalf("expected sink-param to remain CodeParam, got %q", got)
+	}
+	updatedExpression := edgeIOExpressionForPortAccessor("result", ".new")
+	if initialExpression == updatedExpression {
+		t.Fatal("expected accessor change to produce a new edge expression")
+	}
+	if got := payloadRawStringField(sinkPayload, "value"); got != updatedExpression {
+		t.Fatalf("expected sink-param value %q after accessor change, got %q", updatedExpression, got)
+	}
+
+	if len(project.Edges) != 2 {
+		t.Fatalf("expected both edges to remain after accessor change, got %#v", project.Edges)
 	}
 }
 
@@ -383,4 +442,27 @@ func edgeIOTestProject() Project {
 			},
 		},
 	}
+}
+
+func edgeIOExpressionBuilder() EdgeExpressionBuilder {
+	return EdgeExpressionBuilderFunc(func(project Project, edge Edge) (string, error) {
+		_, variant, _, err := project.ResolveSectionWithVariant(edge.SourceSectionID, edge.SourceVariantID)
+		if err != nil {
+			return "", err
+		}
+		payload, err := effectiveSectionPayload(project, edge.SourceSectionID, variant.ID)
+		if err != nil {
+			return "", err
+		}
+		for _, port := range payloadEdgeOutputPorts(payload) {
+			if port.ID == edge.SourcePortID {
+				return edgeIOExpressionForPortAccessor(port.ID, port.Accessor), nil
+			}
+		}
+		return "", fmt.Errorf("%w: section=%q port=%q", ErrEdgeSourcePortNotFound, edge.SourceSectionID, edge.SourcePortID)
+	})
+}
+
+func edgeIOExpressionForPortAccessor(portID string, accessor string) string {
+	return fmt.Sprintf("edge:%s%s", portID, accessor)
 }

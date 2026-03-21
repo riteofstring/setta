@@ -5037,6 +5037,7 @@ func setSectionEdgeOutputsHandler(deps ProjectRouteDependencies) http.HandlerFun
 			projectID,
 			sectionID,
 			payload.EdgeOutputPorts,
+			deps.EdgeExpressionBuilder,
 		); err != nil {
 			writeSectionEdgeMutationError(w, r, err)
 			return

@@ -9214,6 +9214,73 @@ func TestRegisterProjectRoutesSectionEdgeMutationsRejectInvalidInputs(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesSetSectionEdgeOutputsReappliesChangedAccessorValues(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	edge := findProjectRouteEdge(t, project, "outgoing-edge")
+	initialExpression, err := codegen.BuildPythonEdgeExpression(project, edge)
+	if err != nil {
+		t.Fatalf("build initial edge expression: %v", err)
+	}
+	if _, err := projectRuntime.SetSectionCodeObjectValue(
+		context.Background(),
+		"project-alpha",
+		"sink-section",
+		"sink-param",
+		initialExpression,
+	); err != nil {
+		t.Fatalf("seed sink-param with initial expression: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetSectionEdgeOutputs,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-section","edgeOutputPorts":[{"id":"result","accessor":".new"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	updatedEdge := findProjectRouteEdge(t, project, "outgoing-edge")
+	updatedExpression, err := codegen.BuildPythonEdgeExpression(project, updatedEdge)
+	if err != nil {
+		t.Fatalf("build updated edge expression: %v", err)
+	}
+	if initialExpression == updatedExpression {
+		t.Fatal("expected accessor change to produce a new edge expression")
+	}
+
+	sinkPayload, _, _, _, err := project.ResolveSectionCodeObject("sink-section", "sink-param")
+	if err != nil {
+		t.Fatalf("resolve sink-param after accessor change: %v", err)
+	}
+	if got := sinkPayload["value"]; got != updatedExpression {
+		t.Fatalf("expected sink-param value %q after accessor change, got %#v", updatedExpression, got)
+	}
+}
+
 func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -11758,6 +11825,18 @@ func derefString(value *string) string {
 	return *value
 }
 
+func findProjectRouteEdge(t *testing.T, project projectstate.Project, edgeID string) projectstate.Edge {
+	t.Helper()
+
+	for _, edge := range project.Edges {
+		if edge.ID == edgeID {
+			return edge
+		}
+	}
+	t.Fatalf("edge %q not found in project edges %#v", edgeID, project.Edges)
+	return projectstate.Edge{}
+}
+
 func decodeProjectRouteRawObject(t *testing.T, payload json.RawMessage) map[string]any {
 	t.Helper()
 	if len(payload) == 0 {
@@ -12458,6 +12537,12 @@ func sectionEdgeRouteTestProject(t *testing.T) projectstate.Project {
 	project, err := projectstate.Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  projectstate.RawJSON(`{"language":"python"}`),
+			},
+		},
 		TopLevelSectionIDs: []string{
 			"dict-section",
 			"source-section",
