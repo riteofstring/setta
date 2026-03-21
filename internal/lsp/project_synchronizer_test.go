@@ -140,13 +140,11 @@ func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutConten
 	t.Parallel()
 
 	settaFilesRoot := t.TempDir()
-	pythonBinary := resolveTestPythonBinary(t)
-	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
-	service := NewService(session)
+	syncer := &recordingDocumentSyncer{}
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
-		Service:        service,
+		Service:        syncer,
 		Diagnostics:    diagnostics,
 	})
 	if err != nil {
@@ -181,7 +179,11 @@ func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutConten
 	version := 1
 	params.Version = &version
 
-	firstCallback := service.tracked[sectionPath].Callback
+	tracked, ok := syncer.synced[sectionPath]
+	if !ok {
+		t.Fatalf("expected tracked code section at %q, got %#v", sectionPath, syncer.synced)
+	}
+	firstCallback := tracked.Callback
 	if firstCallback == nil {
 		t.Fatal("expected code section diagnostics callback")
 	}
@@ -200,7 +202,11 @@ func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutConten
 		t.Fatalf("rematerialize ignored code-section diagnostics document: %v", err)
 	}
 
-	refreshedCallback := service.tracked[sectionPath].Callback
+	refreshedTracked, ok := syncer.synced[sectionPath]
+	if !ok {
+		t.Fatalf("expected refreshed tracked code section at %q, got %#v", sectionPath, syncer.synced)
+	}
+	refreshedCallback := refreshedTracked.Callback
 	if refreshedCallback == nil {
 		t.Fatal("expected refreshed code section diagnostics callback")
 	}
@@ -287,14 +293,12 @@ func TestProjectSynchronizerRefreshesGeneratedDiagnosticsCallbackWithoutContentC
 
 	settaFilesRoot := t.TempDir()
 	runtimeRoot := t.TempDir()
-	pythonBinary := resolveTestPythonBinary(t)
-	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
-	service := NewService(session)
+	syncer := &recordingDocumentSyncer{}
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
 		RuntimeRoot:    runtimeRoot,
-		Service:        service,
+		Service:        syncer,
 		Diagnostics:    diagnostics,
 	})
 	if err != nil {
@@ -321,7 +325,11 @@ func TestProjectSynchronizerRefreshesGeneratedDiagnosticsCallbackWithoutContentC
 	}
 	params := buildGeneratedPublishDiagnostics(t, generatedPath, string(generatedCode), "unknown_symbol", "unknown_symbol is not defined", "reportUndefinedVariable")
 
-	firstCallback := service.tracked[generatedPath].Callback
+	tracked, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected tracked generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	firstCallback := tracked.Callback
 	if firstCallback == nil {
 		t.Fatal("expected generated code diagnostics callback")
 	}
@@ -348,7 +356,11 @@ func TestProjectSynchronizerRefreshesGeneratedDiagnosticsCallbackWithoutContentC
 		t.Fatalf("rematerialize ignored generated diagnostics document: %v", err)
 	}
 
-	refreshedCallback := service.tracked[generatedPath].Callback
+	refreshedTracked, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected refreshed tracked generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	refreshedCallback := refreshedTracked.Callback
 	if refreshedCallback == nil {
 		t.Fatal("expected refreshed generated code diagnostics callback")
 	}
