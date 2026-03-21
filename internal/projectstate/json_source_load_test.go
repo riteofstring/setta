@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -156,6 +157,74 @@ func TestDocumentLoadAllJSONSourceVariantsFromDiskMarksMatchingSharedPairsMissin
 	}
 	if payloadStringField(peerPayload, "topLevelParamId") != "old-root-b" {
 		t.Fatalf("expected peer topLevelParamId old-root-b, got %q", payloadStringField(peerPayload, "topLevelParamId"))
+	}
+}
+
+func TestDocumentLoadAllJSONSourceVariantsFromDiskMarksMissingForAbsentSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"one\":1}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	document := jsonSourceSharedLoadTestDocument(t, false)
+	setJSONSourceKeysForSharedLoadTestDocument(t, &document, "project-alpha", "json-impl-a", []string{"missing"})
+	if err := document.LoadAllJSONSourceVariantsFromDisk(workspaceRoot); err != nil {
+		t.Fatalf("LoadAllJSONSourceVariantsFromDisk returned error: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after missing-path load: %v", err)
+	}
+	peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective peer payload after missing-path load: %v", err)
+	}
+	if !payloadBoolField(targetPayload, "jsonSourceMissing") {
+		t.Fatal("expected target variant to be marked missing for absent selected path")
+	}
+	if payloadBoolField(peerPayload, "jsonSourceMissing") {
+		t.Fatal("expected peer variant to remain loaded for its valid selected path")
+	}
+}
+
+func TestDocumentLoadAllJSONSourceVariantsFromDiskMarksMissingForLeafSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"one\":1}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	document := jsonSourceSharedLoadTestDocument(t, false)
+	setJSONSourceKeysForSharedLoadTestDocument(t, &document, "project-alpha", "json-impl-a", []string{"alpha", "one"})
+	if err := document.LoadAllJSONSourceVariantsFromDisk(workspaceRoot); err != nil {
+		t.Fatalf("LoadAllJSONSourceVariantsFromDisk returned error: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after leaf-path load: %v", err)
+	}
+	peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective peer payload after leaf-path load: %v", err)
+	}
+	if !payloadBoolField(targetPayload, "jsonSourceMissing") {
+		t.Fatal("expected target variant to be marked missing for leaf selected path")
+	}
+	if payloadBoolField(peerPayload, "jsonSourceMissing") {
+		t.Fatal("expected peer variant to remain loaded for its valid selected path")
 	}
 }
 
@@ -385,4 +454,20 @@ func jsonSourceSharedLoadTestDocument(t *testing.T, jsonSourceMissing bool) Docu
 			project.ID: project,
 		},
 	}
+}
+
+func setJSONSourceKeysForSharedLoadTestDocument(t *testing.T, document *Document, projectID string, implID string, jsonSourceKeys []string) {
+	t.Helper()
+
+	project := document.Projects[projectID]
+	impl := project.SectionImpls[implID]
+
+	var payload map[string]any
+	if err := json.Unmarshal(impl.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal shared-load section impl payload: %v", err)
+	}
+	payload["jsonSourceKeys"] = jsonSourceKeys
+	impl.Payload = mustMarshalProjectObject(payload)
+	project.SectionImpls[implID] = impl
+	document.Projects[projectID] = project
 }
