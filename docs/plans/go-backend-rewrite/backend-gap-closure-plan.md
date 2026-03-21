@@ -354,3 +354,8 @@ categorize them.
   should treat the matrix as a `Missing`-behavior queue first and only reopen
   proof-only work when a new harness mismatch or unproved narrow owner
   actually surfaces
+- The Claude create-time settings-file row is now closed too, so the adjacent
+  external-agent queue should move to the remaining genuinely missing config
+  bootstrap/runtime slices such as Codex user-config import/reconciliation,
+  Claude temp MCP config production, or broader OpenCode read-only/runtime
+  behavior rather than revisiting already-proved shared settings materialization
