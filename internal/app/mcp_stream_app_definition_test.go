@@ -22,6 +22,7 @@ import (
 func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -94,6 +95,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -169,6 +171,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 

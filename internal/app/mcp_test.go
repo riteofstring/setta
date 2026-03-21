@@ -3339,6 +3339,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeInputsOverAuthenticat
 func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -3405,6 +3406,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -3473,6 +3475,7 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -3685,6 +3688,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenti
 func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -3747,6 +3751,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticated
 func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -3833,6 +3838,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -9459,6 +9465,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeInputs(t *testing.T) {
 func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -9531,6 +9538,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
@@ -9682,6 +9690,7 @@ func TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
