@@ -136,3 +136,36 @@ func (r *Runtime) WaitForRun(ctx context.Context, runID string) (Run, error) {
 	}
 	return r.service.runs.Load(trimmedRunID)
 }
+
+func (r *Runtime) Shutdown(ctx context.Context) error {
+	if r == nil || r.service == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.mu.RLock()
+	active := make([]activeRunState, 0, len(r.active))
+	for _, state := range r.active {
+		active = append(active, state)
+	}
+	r.mu.RUnlock()
+
+	for _, state := range active {
+		if state.cancel != nil {
+			state.cancel()
+		}
+	}
+	for _, state := range active {
+		if state.done == nil {
+			continue
+		}
+		select {
+		case <-state.done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}

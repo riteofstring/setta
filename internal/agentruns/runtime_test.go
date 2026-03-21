@@ -301,6 +301,59 @@ func TestRuntimeStopRunPersistsPartialExecutionResultOnCancellation(t *testing.T
 	}
 }
 
+func TestRuntimeShutdownCancelsActiveRunsAndWaitsForCompletion(t *testing.T) {
+	t.Parallel()
+
+	executor := &blockingExecutor{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	service, runs := buildRuntimeServiceFixture(t, executor)
+	runtime, err := NewRuntime(RuntimeOptions{Service: service})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	run, err := runtime.StartRun(profile, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("start run: %v", err)
+	}
+	select {
+	case <-executor.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for executor start")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := runtime.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown runtime: %v", err)
+	}
+
+	loaded, err := runs.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load shutdown run: %v", err)
+	}
+	if loaded.Status != RunStatusCancelled {
+		t.Fatalf("expected shutdown to cancel active run, got %q", loaded.Status)
+	}
+
+	waited, err := runtime.WaitForRun(context.Background(), run.ID)
+	if err != nil {
+		t.Fatalf("wait for shutdown run: %v", err)
+	}
+	if waited.Status != RunStatusCancelled {
+		t.Fatalf("expected waited shutdown run to stay cancelled, got %q", waited.Status)
+	}
+}
+
 func TestRuntimeStopRunLeavesCompletedRunUnchanged(t *testing.T) {
 	t.Parallel()
 

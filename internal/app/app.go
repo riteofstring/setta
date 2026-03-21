@@ -1942,6 +1942,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 		a.promptWatcher.Close(),
 		closeArtifactWatchService(a.artifactWatch),
 		closeJSONSourceWatchService(a.jsonSourceWatch),
+		closeManagedAgentRuntime(a.agentRuntime, ctx),
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),
@@ -2001,6 +2002,13 @@ func closeProjectStateServices(
 		closeLSPProjectSynchronizer(syncer, ctx),
 		closeProjectResources(projectStates, deploymentRuntime),
 	)
+}
+
+func closeManagedAgentRuntime(runtime *agentruns.Runtime, ctx context.Context) error {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.Shutdown(ctx)
 }
 
 func closeProjectStates(projectStates *projectstate.Registry) error {
