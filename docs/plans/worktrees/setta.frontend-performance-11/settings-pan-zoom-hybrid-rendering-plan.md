@@ -590,11 +590,16 @@ Current execution note:
   - the first paired rerun improved `tier1Synthetic`
   - but the same-code `settings` confirmation rerun regressed aggregate `Paint` and `RunTask`
   - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
+- the next dense-row radius-removal experiment was also benchmarked and rejected:
+  - removing `rounded-sm` from the shared dense row shell and selected-row background regressed both canonical scenes strongly on the first paired rerun
+  - no same-code confirmation rerun was justified because the first paired matrix was already clearly worse in both `settings` and `tier1Synthetic`
+  - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
   - avoid returning to broader preview-gating experiments unless they clearly help both canonical scenes
   - avoid spending another immediate cycle on isolated DummyCodeMirror wrapper flattening unless a larger shared Tier 1 body change makes that seam materially cheaper again
+  - avoid spending another immediate cycle on isolated row-corner styling tweaks; the next candidate should hide or delete more real structure, ownership, or repeated body work than a single visual token change can reach
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

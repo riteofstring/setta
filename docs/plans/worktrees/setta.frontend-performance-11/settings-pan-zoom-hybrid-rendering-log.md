@@ -983,3 +983,60 @@ Record:
     - preserve this rerun only as an append-only dead-end record because the structural DOM win did not survive the canonical `settings` confirmation rerun
 - Next action:
   - Continue from the retained dense-row baseline and choose the next Tier 1 slice from deeper repeated row/body simplification or shared Tier 1 ownership cleanup instead of isolated DummyCodeMirror wrapper flattening.
+
+## 2026-03-20 020
+
+- Item: Benchmark dense row-radius removal and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - remove `rounded-sm` from the shared dense row shell in `frontend/src/components/Params/paramRowClassNames.ts`
+    - remove `rounded-sm` from the selected-row background path in `frontend/src/components/Params/ParamSwitch.tsx`
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/ParamRowShell.test.tsx src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `8` files passed
+        - `31` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "paramRowClassNames\\.ts|ParamSwitch\\.tsx"`
+      - result:
+        - still reported the existing `ParamSwitch.tsx` exact-optional-property diagnostics already present on this baseline
+        - used Vitest plus the benchmark matrix as the acceptance gate for this experiment
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-row-radius-removal-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-row-radius-removal-rerun`
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `176.823ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3786.465ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1009.940ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `21911.396ms`
+  - CDP structural and visual compare:
+    - compared worktree `http://127.0.0.1:3012/settings` against untouched `main` `http://127.0.0.1:3087/settings`
+    - the sampled dense row on untouched `main` still included `rounded-sm`
+    - the sampled dense row on the worktree experiment dropped `rounded-sm`
+    - both sampled pages still had `316` `[data-param-row="true"]` nodes
+    - no obvious broken layout or collapse showed up in the viewport compare; the visible difference was the expected loss of row corner rounding
+  - Decision:
+    - reject this row-radius removal experiment
+    - keep the retained nested-guide-removal baseline at `HEAD`
+    - do not spend a same-code confirmation rerun on this one because the first paired matrix already regressed both canonical scenes strongly
+- Next action:
+  - Continue from the retained dense-row baseline and pick the next Tier 1 candidate from deeper shared row/body ownership or structural simplification instead of isolated row-corner styling changes.
