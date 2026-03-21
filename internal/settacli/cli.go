@@ -94,6 +94,7 @@ type globalFlags struct {
 
 type statusFlags struct {
 	connectInfo    bool
+	deleteSession  string
 	listSessions   bool
 	jsonOutput     bool
 	workspaceRoot  string
@@ -231,6 +232,7 @@ func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 	flags := flag.NewFlagSet("status", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.BoolVar(&parsed.connectInfo, "connect-info", false, "Print session connection info.")
+	flags.StringVar(&parsed.deleteSession, "delete-session", "", "Stop and remove the selected local session.")
 	flags.BoolVar(&parsed.listSessions, "list-sessions", false, "List sessions.")
 	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON output.")
 	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Workspace root.")
@@ -245,7 +247,50 @@ func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 	if strings.TrimSpace(parsed.sessionID) != "" && parsed.latest {
 		return fmt.Errorf("use either --session or --latest, not both")
 	}
+	if strings.TrimSpace(parsed.deleteSession) != "" {
+		if parsed.connectInfo || parsed.listSessions || strings.TrimSpace(parsed.sessionID) != "" || parsed.latest {
+			return fmt.Errorf("use --delete-session by itself")
+		}
+	}
 	if !parsed.connectInfo && !parsed.listSessions {
+		if strings.TrimSpace(parsed.deleteSession) != "" {
+			commandCfg, err := resolveCommandConfig(global, parsed.workspaceRoot, "status", cwd, envLookup)
+			if err != nil {
+				return err
+			}
+			registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+				SessionsRoot: filepath.Join(commandCfg.Paths.RuntimeRoot, "sessions"),
+			})
+			if err != nil {
+				return err
+			}
+			sessions, err := registry.LoadSessions()
+			if err != nil {
+				return err
+			}
+			sessions = filterSessionsForWorkspace(sessions, commandCfg.Paths.WorkspaceRoot)
+			if parsed.serverMode != "" {
+				if parsed.serverMode != "ide" && parsed.serverMode != "launcher" {
+					return fmt.Errorf("invalid --server-mode %q", parsed.serverMode)
+				}
+				sessions = filterSessionsByDefaultMode(sessions, "status", false, strings.TrimSpace(parsed.serverMode))
+			}
+			selected, err := selectSession(sessions, parsed.deleteSession, false)
+			if err != nil {
+				return err
+			}
+			if localsessions.IsSessionActive(selected) {
+				process, err := os.FindProcess(selected.PID)
+				if err == nil && process != nil {
+					_ = process.Kill()
+				}
+			}
+			if err := registry.DeleteSession(selected.ID); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(stdout, "Deleted session %s.\n", selected.ID)
+			return nil
+		}
 		return fmt.Errorf("use --connect-info to print session details")
 	}
 	if parsed.listSessions && !parsed.jsonOutput {

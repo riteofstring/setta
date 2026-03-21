@@ -483,6 +483,121 @@ func TestRunStatusListSessionsJSONFiltersByServerMode(t *testing.T) {
 	}
 }
 
+func TestRunStatusDeleteSessionStopsOwnedSettaProcessAndRemovesMetadata(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"status",
+		"--delete-session",
+		session.ID,
+	)
+	if err != nil {
+		t.Fatalf("run delete-session: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Deleted session "+session.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- proc.Wait()
+	}()
+	select {
+	case err := <-waitDone:
+		if err == nil {
+			t.Fatal("expected helper process to exit via kill signal")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for Setta session process to exit")
+	}
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", session.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session metadata directory to be removed, stat err=%v", err)
+	}
+}
+
+func TestRunStatusDeleteSessionSkipsKillingNonSettaProcess(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "unit-test")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"status",
+		"--delete-session",
+		session.ID,
+	)
+	if err != nil {
+		t.Fatalf("run delete-session: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Deleted session "+session.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- proc.Wait()
+	}()
+	select {
+	case err := <-waitDone:
+		t.Fatalf("expected non-Setta helper process to keep running, wait returned %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", session.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session metadata directory to be removed, stat err=%v", err)
+	}
+}
+
+func TestRunStatusDeleteSessionReportsMissingSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	_ = fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"status",
+		"--delete-session",
+		"missing-session",
+	)
+	if err == nil {
+		t.Fatal("expected missing-session error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "session missing-session not found" {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
 func TestRunAuthJSONEmitsPayload(t *testing.T) {
 	t.Parallel()
 
