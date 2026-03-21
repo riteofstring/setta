@@ -17,6 +17,7 @@ import (
 	"github.com/coder/websocket"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/artifacts"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
@@ -626,6 +627,89 @@ func TestAppPromptTemplateWatcherBroadcastsFileChangesAndParseFailures(t *testin
 		t.Fatalf("expected prompt parse failure log, got %#v", event)
 	}
 	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypePromptTemplatesUpdated, 250*time.Millisecond)
+}
+
+func TestAppArtifactWatcherBroadcastsImageFileChanges(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 8000
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	watchedID := "artifacts/watched-image.png"
+	watchedPath := filepath.Join(cfg.Paths.SettaFilesRoot, filepath.FromSlash(watchedID))
+	if err := os.MkdirAll(filepath.Dir(watchedPath), 0o755); err != nil {
+		t.Fatalf("mkdir watched artifact parent: %v", err)
+	}
+	if err := os.WriteFile(watchedPath, []byte("seed-image"), 0o644); err != nil {
+		t.Fatalf("write watched artifact: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = artifactWatcherTestProject(t, watchedID)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed artifact watcher project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	if err := os.WriteFile(watchedPath, []byte("updated-image"), 0o644); err != nil {
+		t.Fatalf("rewrite watched artifact: %v", err)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateArtifacts, 2)
+	var content realtime.UpdateArtifactsContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode update artifacts payload: %v", err)
+	}
+	if content.UpdateType != "update" || len(content.Artifacts) != 1 {
+		t.Fatalf("unexpected update artifacts payload %#v", content)
+	}
+
+	artifactJSON, err := json.Marshal(content.Artifacts[0])
+	if err != nil {
+		t.Fatalf("re-encode watched image artifact: %v", err)
+	}
+	var imageArtifact artifacts.ImageArtifact
+	if err := json.Unmarshal(artifactJSON, &imageArtifact); err != nil {
+		t.Fatalf("decode watched image artifact: %v", err)
+	}
+	if imageArtifact.ID != watchedID {
+		t.Fatalf("expected watched image id %q, got %#v", watchedID, imageArtifact)
+	}
+
+	payload, err := app.BinaryStore().ReadBytes(imageArtifact.Value.ContentID)
+	if err != nil {
+		t.Fatalf("read watched image bytes from binary store: %v", err)
+	}
+	if string(payload) != "updated-image" {
+		t.Fatalf("expected updated image bytes, got %q", string(payload))
+	}
 }
 
 func TestAppSaveLLMConfigBroadcastsLLMUpdates(t *testing.T) {
@@ -4057,6 +4141,47 @@ func readAppRouteEnvelope(t *testing.T, conn *websocket.Conn) appRouteEnvelope {
 		t.Fatalf("decode app websocket message: %v", err)
 	}
 	return envelope
+}
+
+func artifactWatcherTestProject(t *testing.T, imagePath string) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"image-section": "image-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"image-section": {
+				ID:               "image-section",
+				Name:             "Image",
+				VariantIDs:       []string{"image-variant"},
+				DefaultVariantID: "image-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"image-variant": {
+				ID:     "image-variant",
+				ImplID: "image-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"image-impl": {
+				ID:   "image-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustMarshalAppWorkflowObject(t, map[string]any{
+					"id":        "image-impl",
+					"type":      "Image",
+					"imagePath": imagePath,
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize artifact watcher test project: %v", err)
+	}
+	return project
 }
 
 func readAppBinaryEnvelope(t *testing.T, conn *websocket.Conn) (appRouteEnvelope, []byte) {

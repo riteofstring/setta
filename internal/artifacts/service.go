@@ -264,6 +264,10 @@ func (s *Service) LoadCachedDrawAreaLayerItemTransforms(_ context.Context, reque
 	return results, nil
 }
 
+func (s *Service) ReadBinaryContent(contentID string) ([]byte, error) {
+	return s.binaryStore.ReadBytes(contentID)
+}
+
 func (s *Service) Update(_ context.Context, request UpdateRequest) ([]ArtifactSaveResult, error) {
 	if len(request.Artifacts) == 0 {
 		return []ArtifactSaveResult{}, nil

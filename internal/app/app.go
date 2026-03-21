@@ -20,6 +20,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/appgenskills"
 	"setta/internal/artifacts"
+	"setta/internal/artifactwatch"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
@@ -94,6 +95,7 @@ type App struct {
 	lspSync         *lsp.ProjectSynchronizer
 	watchCode       *watchcode.Service
 	jsonSourceWatch *jsonsourcewatch.Service
+	artifactWatch   *artifactwatch.Service
 	boundCode       *boundcode.Service
 	promptWatcher   *prompttemplates.Watcher
 	mcpServer       *mcpx.Server
@@ -154,6 +156,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginMaterializer     *codegen.PluginMaterializer
 		watchCodeService       *watchcode.Service
 		jsonSourceWatchService *jsonsourcewatch.Service
+		artifactWatchService   *artifactwatch.Service
 		boundCodeService       *boundcode.Service
 		externalAgentChats     *externalagents.Service
 		externalAgentFollow    *externalagents.FollowService
@@ -448,6 +451,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						}
 					}
 					if err := syncJSONSourceWatchInputs(jsonSourceWatchService, snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
+						return err
+					}
+					if err := syncArtifactWatchInputs(artifactWatchService, snapshot.Document, cfg.Paths.SettaFilesRoot); err != nil {
 						return err
 					}
 					if watchCodeWarnings != nil {
@@ -1759,10 +1765,34 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			)
 			return nil, err
 		}
+		artifactWatchService, err = newArtifactWatchService(artifactWatchServiceOptions{
+			Artifacts:      artifactService,
+			WebsocketHub:   websocketHub,
+			ListenerEvents: listenerProducer,
+			Logger:         logger,
+		})
+		if err != nil {
+			_ = errors.Join(
+				jsonSourceWatchService.Close(),
+				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+				terminalService.Close(context.Background()),
+			)
+			return nil, err
+		}
+		if err := syncArtifactWatchInputs(artifactWatchService, projectRuntime.Snapshot().Document, cfg.Paths.SettaFilesRoot); err != nil {
+			_ = errors.Join(
+				artifactWatchService.Close(),
+				jsonSourceWatchService.Close(),
+				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+				terminalService.Close(context.Background()),
+			)
+			return nil, err
+		}
 	}
 	if err := promptTemplateWatcher.Start(context.Background()); err != nil {
 		_ = errors.Join(
 			promptTemplateWatcher.Close(),
+			closeArtifactWatchService(artifactWatchService),
 			closeJSONSourceWatchService(jsonSourceWatchService),
 			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
 			terminalService.Close(context.Background()),
@@ -1793,6 +1823,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspSync:         projectLSPSyncer,
 		watchCode:       watchCodeService,
 		jsonSourceWatch: jsonSourceWatchService,
+		artifactWatch:   artifactWatchService,
 		boundCode:       boundCodeService,
 		promptWatcher:   promptTemplateWatcher,
 		mcpServer:       mcpServer,
@@ -1885,6 +1916,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 func (a *App) Shutdown(ctx context.Context) error {
 	return errors.Join(
 		a.promptWatcher.Close(),
+		closeArtifactWatchService(a.artifactWatch),
 		closeJSONSourceWatchService(a.jsonSourceWatch),
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
@@ -1983,6 +2015,13 @@ func closeBoundCodeService(service *boundcode.Service) error {
 }
 
 func closeJSONSourceWatchService(service *jsonsourcewatch.Service) error {
+	if service == nil {
+		return nil
+	}
+	return service.Close()
+}
+
+func closeArtifactWatchService(service *artifactwatch.Service) error {
 	if service == nil {
 		return nil
 	}
