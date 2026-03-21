@@ -530,6 +530,45 @@ func TestServiceRuntimeBlocksContextMenuCapabilityByHostPolicyInIDE(t *testing.T
 	}
 }
 
+func TestServiceRuntimeBlocksExternalAgentAdapterCapabilityByHostPolicy(t *testing.T) {
+	// Plugin external-agent adapter capability is intentionally host-blocked on the current Go surface.
+	for _, mode := range []config.Mode{config.ModeIDE, config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				payload["capabilities"] = []string{"registerExternalAgentAdapter"}
+			})
+
+			service := mustNewPluginMutationService(t, roots, nil, mode)
+			runtimeResponse, err := service.Runtime(RuntimeOptions{})
+			if err != nil {
+				t.Fatalf("load runtime payload: %v", err)
+			}
+			if len(runtimeResponse.List.Plugins) != 1 {
+				t.Fatalf("expected one plugin, got %#v", runtimeResponse.List.Plugins)
+			}
+			if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 0 {
+				t.Fatalf("expected no effective external-agent adapter capability, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+			}
+
+			statusEntry := runtimeResponse.Status.Plugins[0]
+			if len(statusEntry.RequestedCapabilities) != 1 || statusEntry.RequestedCapabilities[0] != "registerExternalAgentAdapter" {
+				t.Fatalf("expected requested external-agent adapter capability, got %#v", statusEntry.RequestedCapabilities)
+			}
+			if len(statusEntry.BlockedCapabilities) != 1 {
+				t.Fatalf("expected one blocked capability, got %#v", statusEntry.BlockedCapabilities)
+			}
+			if statusEntry.BlockedCapabilities[0].Capability != "registerExternalAgentAdapter" {
+				t.Fatalf("expected registerExternalAgentAdapter to be blocked, got %#v", statusEntry.BlockedCapabilities[0])
+			}
+			if statusEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonHostPolicy {
+				t.Fatalf("expected host-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
+			}
+		})
+	}
+}
+
 func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	// IDE runtime should expose the routed backend capability set directly from the Go-owned backend contract.
 	roots := newFilesystemResolverTestRoots(t)

@@ -65,3 +65,51 @@ func TestNormalizeBackendProbeResponseRejectsInvalidStaticDirRoutePrefixes(t *te
 		})
 	}
 }
+
+func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand(t *testing.T) {
+	// Plugin language-server commands should resolve ./ paths against the plugin root.
+	pluginRoot := t.TempDir()
+	commandPath := filepath.Join(pluginRoot, "backend", "fixture-language-server.sh")
+	if err := os.MkdirAll(filepath.Dir(commandPath), 0o755); err != nil {
+		t.Fatalf("mkdir language server command dir: %v", err)
+	}
+	if err := os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write language server command: %v", err)
+	}
+
+	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:     "Fixture DSL",
+		Language: "TypeScript",
+		Command:  "./backend/fixture-language-server.sh",
+		Args:     []string{"--stdio"},
+	})
+	if err != nil {
+		t.Fatalf("normalize backend language server registration: %v", err)
+	}
+	if normalized.Command != commandPath {
+		t.Fatalf("expected plugin-relative command to resolve to %q, got %q", commandPath, normalized.Command)
+	}
+}
+
+func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t *testing.T) {
+	// Plugin language-server registrations should keep trimmed custom settings keys.
+	pluginRoot := t.TempDir()
+	settingsKey := " fixtureDslLanguageServer "
+
+	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:        "Fixture DSL",
+		Language:    "FixtureDSL",
+		Command:     "python3",
+		Args:        []string{"--stdio"},
+		SettingsKey: &settingsKey,
+	})
+	if err != nil {
+		t.Fatalf("normalize backend language server registration: %v", err)
+	}
+	if normalized.Language != "fixturedsl" {
+		t.Fatalf("expected normalized language id fixturedsl, got %q", normalized.Language)
+	}
+	if normalized.SettingsKey == nil || *normalized.SettingsKey != "fixtureDslLanguageServer" {
+		t.Fatalf("expected custom settings key to be preserved, got %#v", normalized.SettingsKey)
+	}
+}
