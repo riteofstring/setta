@@ -206,6 +206,90 @@ func TestLSPDiagnosticsRegistrySkipsDuplicateGeneratedDocumentBroadcast(t *testi
 	}
 }
 
+// Updating generated diagnostics with an empty mapped payload should clear the
+// stored generated errors and emit the new empty snapshot.
+func TestLSPDiagnosticsRegistryClearsGeneratedDocumentErrorsWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 2)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors: map[string]SectionTypeErrors{
+				"section-1": {Callable: []string{"callable missing"}},
+			},
+			IsGenCode: true,
+		},
+		nil,
+	)
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors:    map[string]SectionTypeErrors{},
+			IsGenCode: true,
+		},
+		nil,
+	)
+
+	if len(payloads) != 2 {
+		t.Fatalf("expected two generated-doc broadcasts, got %d", len(payloads))
+	}
+	if len(payloads[1].GenCode.Errors) != 0 {
+		t.Fatalf("expected generated errors to clear, got %#v", payloads[1].GenCode.Errors)
+	}
+}
+
+// Updating generated diagnostics with an empty unmapped list should clear the
+// stored unmapped payload and emit the updated snapshot.
+func TestLSPDiagnosticsRegistryClearsGeneratedDocumentUnmappedWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 2)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors:    map[string]SectionTypeErrors{},
+			IsGenCode: true,
+		},
+		[]LSPDiagnostic{testLSPDiagnostic("reportFoo")},
+	)
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors:    map[string]SectionTypeErrors{},
+			IsGenCode: true,
+		},
+		nil,
+	)
+
+	if len(payloads) != 2 {
+		t.Fatalf("expected two generated-doc broadcasts, got %d", len(payloads))
+	}
+	if len(payloads[1].UnmappedGenCode) != 0 {
+		t.Fatalf("expected unmapped generated diagnostics to clear, got %#v", payloads[1].UnmappedGenCode)
+	}
+}
+
 // Generated diagnostics should merge deterministically across code and metadata
 // documents and clear when the Python target disappears.
 func TestLSPDiagnosticsRegistryMergesAndPrunesGeneratedDocumentDiagnostics(t *testing.T) {

@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -131,6 +132,38 @@ func TestPythonGeneratedDiagnosticsMapperCollectsUndefinedCallableSections(t *te
 	}
 }
 
+// Ignoring callable errors should suppress the user-facing diagnostics while
+// still preserving the undefined-callable section set that drives auto-refetch.
+func TestPythonGeneratedDiagnosticsMapperIgnoredCallableUndefinedStillTracksSection(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		ParamValue:          "value",
+		IgnoreCallableError: true,
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "MissingFunc")
+	if start < 0 {
+		t.Fatalf("expected callable name in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("MissingFunc"),
+		"MissingFunc is not defined",
+		"reportUndefinedVariable",
+	)
+
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if len(result.Diagnostics.Errors) != 0 {
+		t.Fatalf("expected ignored callable error to stay out of diagnostics, got %#v", result.Diagnostics.Errors)
+	}
+	if _, ok := result.UndefinedCallableSections["section-1"]; !ok {
+		t.Fatalf("expected undefined callable section to stay tracked, got %#v", result.UndefinedCallableSections)
+	}
+}
+
 // Named-argument call issues should map from the assignment target and identify
 // the specific missing param from the dependency graph.
 func TestPythonGeneratedDiagnosticsMapperMapsCallIssueFromAssignmentTarget(t *testing.T) {
@@ -193,6 +226,40 @@ func TestPythonGeneratedDiagnosticsMapperCollectsCallableMismatchSections(t *tes
 	}
 }
 
+// Undefined symbols inside param expressions should not mark the whole section
+// as an undefined callable.
+func TestPythonGeneratedDiagnosticsMapperParamUndefinedDoesNotMarkCallable(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		ParamValue: "unknown_symbol",
+	}))
+
+	paramKey := PythonCodeObjectDependencyKey("section-1", "param-1")
+	line := mapper.renderer.Lines[paramKey]
+	valueStart, ok := line.ValuePosStart()
+	if !ok {
+		t.Fatalf("expected generated line position for param %#v", line)
+	}
+	valueEnd := valueStart + line.ValueLen
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		valueStart,
+		minInt(valueStart+4, valueEnd),
+		"unknown_symbol is not defined",
+		"reportUndefinedVariable",
+	)
+
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if result.Diagnostics.Errors["section-1"].Params["param-1"][0] != "unknown_symbol is not defined" {
+		t.Fatalf("expected mapped param error, got %#v", result.Diagnostics.Errors)
+	}
+	if _, ok := result.UndefinedCallableSections["section-1"]; ok {
+		t.Fatalf("did not expect param diagnostic to mark callable undefined, got %#v", result.UndefinedCallableSections)
+	}
+}
+
 // Positional-only call issues report from the generated line start instead of
 // the value start, so the mapper must fall back to the rendered range index.
 func TestPythonGeneratedDiagnosticsMapperMapsPositionalCallIssueFromLineStart(t *testing.T) {
@@ -228,12 +295,38 @@ func TestPythonGeneratedDiagnosticsMapperMapsPositionalCallIssueFromLineStart(t 
 	}
 }
 
+// Multiline code-param expressions should stay wrapped in parentheses with the
+// generated continuation indent so downstream range mapping stays stable.
+func TestPythonGeneratedDiagnosticsMapperWrapsMultilineCodeParamExpressions(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		ParamValue: "[\n1,\n2,\n]",
+	}))
+
+	paramKey := PythonCodeObjectDependencyKey("section-1", "param-1")
+	line := mapper.renderer.Lines[paramKey]
+	lines := strings.Split(line.VarString[line.PrefixLen:], "\n")
+	expected := []string{
+		"(",
+		PythonGeneratedCodeMultilineContinuationIndent + "[",
+		PythonGeneratedCodeMultilineContinuationIndent + "1,",
+		PythonGeneratedCodeMultilineContinuationIndent + "2,",
+		PythonGeneratedCodeMultilineContinuationIndent + "]",
+		PythonGeneratedCodeBodyIndent + ")",
+	}
+	if !reflect.DeepEqual(lines, expected) {
+		t.Fatalf("unexpected wrapped multiline expression %#v", lines)
+	}
+}
+
 type pythonGeneratedDiagnosticsProjectOptions struct {
-	CallableName     string
-	ParamName        string
-	ParamValue       string
-	PassingStyle     string
-	IgnoreParamError bool
+	CallableName        string
+	ParamName           string
+	ParamValue          string
+	PassingStyle        string
+	IgnoreParamError    bool
+	IgnoreCallableError bool
 }
 
 func mustPythonGeneratedDiagnosticsMapper(t *testing.T, project projectstate.Project) *PythonGeneratedDiagnosticsMapper {
@@ -273,6 +366,9 @@ func pythonGeneratedDiagnosticsProject(
 	ignoreTypeErrors := `{"callable":false,"params":{}}`
 	if options.IgnoreParamError {
 		ignoreTypeErrors = `{"callable":false,"params":{"param-1":true}}`
+	}
+	if options.IgnoreCallableError {
+		ignoreTypeErrors = `{"callable":true,"params":{}}`
 	}
 
 	return projectstate.Project{
