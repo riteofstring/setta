@@ -7975,10 +7975,25 @@ export function createGitStatusEntry(options: Partial<GitStatusEntry> = {}): Git
 }
 
 
+export type GitWorktreeEntry = {
+  path: string;
+  displayName: string;
+  branchName: string | null;
+  headCommit: string | null;
+  isCurrent: boolean;
+  isPrunable: boolean;
+  prunableReason: string | null;
+};
+export function createGitWorktreeEntry(options: Partial<GitWorktreeEntry> = {}): GitWorktreeEntry {
+  return options as GitWorktreeEntry;
+}
+
+
 export type GetGitStatusResponse = {
   repo: GitRepoInfo;
   entries: Array<GitStatusEntry>;
   isTruncated: boolean;
+  worktrees: Array<GitWorktreeEntry>;
 };
 export function createGetGitStatusResponse(options: Partial<GetGitStatusResponse> = {}): GetGitStatusResponse {
   return options as GetGitStatusResponse;
@@ -9138,10 +9153,11 @@ export type GetLLMResponseRequest = {
   allowUnscoped: boolean;
   branchParentChatId: string | null;
   branchFromMessageId: string | null;
-  appSpecStreamingEnabled: boolean;
+  appSpecStreamingEnabled?: boolean;
   permissionMode: string;
   searchEnabled: boolean;
   appGenerationMode: string | null;
+  appGenerationByMessageId: Record<string, string>;
   appGenerationReferenceImageUrl: string | null;
   appGenerationReferenceImageNotes: string | null;
 };
