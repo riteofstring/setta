@@ -415,11 +415,22 @@ func (s *Service) openCodeConfigPath(configID string) string {
 }
 
 func (s *Service) writeCodexConfig(path string, config Config) error {
-	payload := map[string]any{}
+	basePath := resolveCodexBaseConfigPath(path, config)
+	payload, err := loadCodexTOMLPayload(basePath)
+	if err != nil {
+		return err
+	}
 	if config.SettingsManagedBlock != nil && config.SettingsManagedBlock.Codex != nil {
 		for key, value := range config.SettingsManagedBlock.Codex {
 			payload[key] = cloneJSONValue(value)
 		}
+	}
+	if err := validateCodexMCPServersPayload(payload); err != nil {
+		return fmt.Errorf("decode codex base config: %w", err)
+	}
+	bootstrapCodexMCPServersFromUserConfig(payload, config)
+	if err := validateCodexMCPServersPayload(payload); err != nil {
+		return fmt.Errorf("decode codex base config: %w", err)
 	}
 	if model := derefOptionalString(config.DefaultModel); model != "" {
 		payload["model"] = model

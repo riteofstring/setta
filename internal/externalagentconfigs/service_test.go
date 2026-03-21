@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	toml "github.com/pelletier/go-toml/v2"
@@ -483,6 +484,179 @@ func TestServiceCreateAndUpdateNormalizeEnvVarWhitelist(t *testing.T) {
 	}
 }
 
+func TestServiceCreateBootstrapsCodexUserMCPServersWhenMissing(t *testing.T) {
+	// These tests depend on process env because the Codex user config loader
+	// resolves CODEX_HOME / HOME at runtime.
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+		t.Fatalf("mkdir codex home: %v", err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", t.TempDir())
+	if err := os.WriteFile(filepath.Join(codexHome, codexConfigFileName), []byte(strings.TrimSpace(`
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+
+[mcp_servers."foo.bar"]
+url = "http://localhost:1234"
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write codex home config: %v", err)
+	}
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+	created, err := service.Create(Config{
+		ID:                 "codex-bootstrap",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	payload := readCodexConfigPayload(t, filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName))
+	mcpServers, ok := payload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
+	}
+	if _, ok := mcpServers["figma-desktop"].(map[string]any); !ok {
+		t.Fatalf("expected imported figma-desktop server, got %#v", mcpServers)
+	}
+	fooBar, ok := mcpServers["foo.bar"].(map[string]any)
+	if !ok || fooBar["url"] != "http://localhost:1234" {
+		t.Fatalf("expected imported dotted server id, got %#v", mcpServers["foo.bar"])
+	}
+	if marker := payload[codexMCPImportedAtKey]; reflect.TypeOf(marker).Kind() != reflect.String {
+		t.Fatalf("expected bootstrap marker string, got %#v", marker)
+	}
+}
+
+func TestServiceUpdateRetriesCodexUserMCPBootstrapAfterUserConfigIsFixed(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+		t.Fatalf("mkdir codex home: %v", err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", t.TempDir())
+	configPath := filepath.Join(codexHome, codexConfigFileName)
+	if err := os.WriteFile(configPath, []byte("[mcp_servers.invalid\n"), 0o644); err != nil {
+		t.Fatalf("write invalid codex home config: %v", err)
+	}
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+	created, err := service.Create(Config{
+		ID:                 "codex-bootstrap-retry",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	canonicalPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName)
+	initialPayload := readCodexConfigPayload(t, canonicalPath)
+	if _, ok := initialPayload[codexMCPImportedAtKey]; ok {
+		t.Fatalf("expected no bootstrap marker after invalid user config, got %#v", initialPayload)
+	}
+	initialServers, ok := initialPayload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", initialPayload["mcp_servers"])
+	}
+	if _, ok := initialServers["figma-desktop"]; ok {
+		t.Fatalf("expected invalid user config to fail closed, got %#v", initialServers)
+	}
+
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write repaired codex home config: %v", err)
+	}
+	if _, err := service.Update(created); err != nil {
+		t.Fatalf("update config after repair: %v", err)
+	}
+
+	updatedPayload := readCodexConfigPayload(t, canonicalPath)
+	updatedServers, ok := updatedPayload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected updated mcp_servers map, got %#v", updatedPayload["mcp_servers"])
+	}
+	if _, ok := updatedServers["figma-desktop"].(map[string]any); !ok {
+		t.Fatalf("expected repaired user config to bootstrap on retry, got %#v", updatedServers)
+	}
+	if marker, ok := updatedPayload[codexMCPImportedAtKey].(string); !ok || marker == "" {
+		t.Fatalf("expected bootstrap marker after retry, got %#v", updatedPayload[codexMCPImportedAtKey])
+	}
+}
+
+func TestServiceUpdateKeepsUserRemovedImportedCodexServersRemoved(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+		t.Fatalf("mkdir codex home: %v", err)
+	}
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", t.TempDir())
+	if err := os.WriteFile(filepath.Join(codexHome, codexConfigFileName), []byte(strings.TrimSpace(`
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write codex home config: %v", err)
+	}
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+	created, err := service.Create(Config{
+		ID:                 "codex-removed-server",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	canonicalPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName)
+	initialPayload := readCodexConfigPayload(t, canonicalPath)
+	initialMarker, ok := initialPayload[codexMCPImportedAtKey].(string)
+	if !ok || initialMarker == "" {
+		t.Fatalf("expected initial bootstrap marker, got %#v", initialPayload[codexMCPImportedAtKey])
+	}
+	updatedCanonical := map[string]any{
+		codexMCPImportedAtKey: initialMarker,
+		"mcp_servers": map[string]any{
+			"setta": map[string]any{
+				"url": "http://127.0.0.1:8000/mcp",
+			},
+		},
+	}
+	content, err := toml.Marshal(updatedCanonical)
+	if err != nil {
+		t.Fatalf("encode canonical codex config: %v", err)
+	}
+	if err := os.WriteFile(canonicalPath, content, 0o644); err != nil {
+		t.Fatalf("write canonical codex config: %v", err)
+	}
+
+	if _, err := service.Update(created); err != nil {
+		t.Fatalf("update config after user removal: %v", err)
+	}
+
+	finalPayload := readCodexConfigPayload(t, canonicalPath)
+	finalServers, ok := finalPayload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected final mcp_servers map, got %#v", finalPayload["mcp_servers"])
+	}
+	if _, ok := finalServers["figma-desktop"]; ok {
+		t.Fatalf("expected removed imported server to stay removed, got %#v", finalServers)
+	}
+}
+
 func TestServiceUpdateReturnsNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -522,4 +696,18 @@ func newExternalAgentConfigServiceTestFixture(t *testing.T) (*Store, *Service, s
 		t.Fatalf("new service: %v", err)
 	}
 	return store, service, settaFilesRoot, workspaceRoot
+}
+
+func readCodexConfigPayload(t *testing.T, path string) map[string]any {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read codex config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := toml.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode codex config: %v", err)
+	}
+	return payload
 }
