@@ -692,6 +692,56 @@ func TestServiceRunToolsRejectsBlankFrontendAffinityToken(t *testing.T) {
 	}
 }
 
+func TestServiceRunToolsRequiresChatProjectForSettaTools(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+	fixture.service.tools = &stubToolCaller{
+		descriptors: map[string]mcpx.ToolDescriptor{
+			"setta__list_mcp_tools": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__list_mcp_tools",
+			},
+		},
+	}
+	saveScriptableChatRun(t, fixture.runs, agentruns.Run{
+		ID:         "chat-1",
+		Status:     agentruns.RunStatusCompleted,
+		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		Inputs: map[string]any{
+			"runType": runTypeScriptableChat,
+			"chatId":  "chat-1",
+			"llmConfig": map[string]any{
+				"id":    "primary",
+				"model": "gpt-test",
+			},
+		},
+		Outputs: map[string]any{
+			"messages":    []any{},
+			"lastUpdated": "2026-03-13T10:00:00Z",
+			"name":        "Chat",
+		},
+	})
+
+	_, err := fixture.service.RunTools(context.Background(), RunToolsRequest{
+		ChatID:    "chat-1",
+		SectionID: "chat-section",
+		ToolCalls: []map[string]any{
+			{
+				"id": "tool-call-1",
+				"function": map[string]any{
+					"name":      "mcp__setta__list_mcp_tools",
+					"arguments": map[string]any{},
+				},
+			},
+		},
+	})
+	if !errors.Is(err, ErrChatProjectRequired) {
+		t.Fatalf("expected ErrChatProjectRequired, got %v", err)
+	}
+}
+
 func TestServiceRunToolsReturnsErrorMessageForUnknownTool(t *testing.T) {
 	t.Parallel()
 
