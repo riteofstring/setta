@@ -210,6 +210,42 @@ func TestServiceGetChatSelectsLatestRunByLastUpdatedTimestamp(t *testing.T) {
 	}
 }
 
+func TestSelectLatestRunPrefersLatestEventTimestamp(t *testing.T) {
+	t.Parallel()
+
+	earlier := time.Date(2026, 3, 8, 11, 0, 0, 0, time.UTC)
+	later := time.Date(2026, 3, 8, 11, 5, 0, 0, time.UTC)
+	middle := time.Date(2026, 3, 8, 11, 3, 0, 0, time.UTC)
+	earlierFinish := time.Date(2026, 3, 8, 11, 4, 0, 0, time.UTC)
+
+	runA := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+	}, earlier)
+	runA.ID = "run-a"
+	runA.Status = agentruns.RunStatusCompleted
+	runA.FinishedAt = &later
+	runA.Events = append(runA.Events, agentruns.NewRunEvent("run_completed", nil, later))
+
+	runB := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+	}, middle)
+	runB.ID = "run-b"
+	runB.Status = agentruns.RunStatusCompleted
+	runB.FinishedAt = &earlierFinish
+	runB.Events = append(runB.Events, agentruns.NewRunEvent("run_completed", nil, earlierFinish))
+
+	latest, ok := selectLatestRun([]agentruns.Run{runB, runA})
+	if !ok {
+		t.Fatal("expected latest run")
+	}
+	if latest.ID != "run-a" {
+		t.Fatalf("expected latest run-a, got %#v", latest.ID)
+	}
+	if !runLastUpdated(runA).After(runLastUpdated(runB)) {
+		t.Fatalf("expected run-a sort key to win, got %v <= %v", runLastUpdated(runA), runLastUpdated(runB))
+	}
+}
+
 func TestServiceGetChatResolvesExternalContextUsage(t *testing.T) {
 	t.Parallel()
 
@@ -339,6 +375,47 @@ func TestServiceGetChatOverlaysActiveLiveStateFromRuntime(t *testing.T) {
 	}
 }
 
+func TestBuildChatStateIgnoresStreamEventsWithoutOutputs(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+		"chatId":  "chat-stream-only",
+		"messages": []any{
+			map[string]any{
+				"id":   "user-1",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Hello"},
+				},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusRunning
+	run.Events = append(run.Events, agentruns.NewRunEvent("stream_chunk", map[string]any{
+		"chunk": map[string]any{
+			"message_id": "assistant-1",
+			"content": []any{
+				map[string]any{"index": 0, "text": "Hi"},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 1, 0, time.UTC)))
+
+	state, err := buildChatStateFromRun(run)
+	if err != nil {
+		t.Fatalf("build chat state: %v", err)
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected only persisted input message, got %#v", state.Messages)
+	}
+	if !state.WaitingForResponse {
+		t.Fatalf("expected waiting state for running chat, got %#v", state)
+	}
+	if got, err := messageID(state.Messages[0]); err != nil || got != "user-1" {
+		t.Fatalf("expected user input message to remain, got %#v err=%v", state.Messages[0], err)
+	}
+}
+
 func TestServiceGetChatFiltersResponsePlaceholderMessages(t *testing.T) {
 	t.Parallel()
 
@@ -369,6 +446,97 @@ func TestServiceGetChatFiltersResponsePlaceholderMessages(t *testing.T) {
 	}
 	if len(state.Messages) != 2 {
 		t.Fatalf("expected placeholder response to be filtered, got %d messages", len(state.Messages))
+	}
+}
+
+func TestBuildChatStateUsesOutputMessagesInsteadOfStreamEvents(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":  RunTypeExternalAgent,
+		"chatId":   "chat-output-wins",
+		"messages": []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusCompleted
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{
+				"id":   "assistant-1",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Final"},
+				},
+			},
+		},
+	}
+	run.Events = append(run.Events, agentruns.NewRunEvent("stream_chunk", map[string]any{
+		"chunk": map[string]any{
+			"message_id": "assistant-1",
+			"content": []any{
+				map[string]any{"index": 0, "text": "Ignored"},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 1, 0, time.UTC)))
+
+	state, err := buildChatStateFromRun(run)
+	if err != nil {
+		t.Fatalf("build chat state: %v", err)
+	}
+	if state.WaitingForResponse {
+		t.Fatalf("expected completed run to stop waiting, got %#v", state)
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected one output message, got %#v", state.Messages)
+	}
+	content := state.Messages[0]["content"].([]any)
+	textPayload := content[0].(map[string]any)
+	if textPayload["text"] != "Final" {
+		t.Fatalf("expected output text to win over stream chunk, got %#v", textPayload["text"])
+	}
+}
+
+func TestBuildChatStateMergesInputAndOutputMessagesByIDAndOrder(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+		"chatId":  "chat-merged",
+		"messages": []any{
+			map[string]any{"id": "user-1", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Hello"}}},
+			map[string]any{"id": "assistant-1", "role": "assistant", "content": []any{map[string]any{"type": "text", "text": "Draft"}}},
+			map[string]any{"id": "user-2", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Try again"}}},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusCompleted
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{"id": "user-1", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Hello"}}},
+			map[string]any{"id": "assistant-1", "role": "assistant", "content": []any{map[string]any{"type": "text", "text": "Final"}}},
+			map[string]any{"id": "assistant-2", "role": "assistant", "content": []any{map[string]any{"type": "text", "text": "Follow-up"}}},
+		},
+	}
+
+	state, err := buildChatStateFromRun(run)
+	if err != nil {
+		t.Fatalf("build chat state: %v", err)
+	}
+	if len(state.Messages) != 4 {
+		t.Fatalf("expected four merged messages, got %#v", state.Messages)
+	}
+	expectedIDs := []string{"user-1", "assistant-1", "user-2", "assistant-2"}
+	for index, expectedID := range expectedIDs {
+		gotID, err := messageID(state.Messages[index])
+		if err != nil {
+			t.Fatalf("message %d id: %v", index, err)
+		}
+		if gotID != expectedID {
+			t.Fatalf("expected message ids %#v, got %#v", expectedIDs, state.Messages)
+		}
+	}
+	content := state.Messages[1]["content"].([]any)
+	textPayload := content[0].(map[string]any)
+	if textPayload["text"] != "Final" {
+		t.Fatalf("expected output message to replace input draft, got %#v", textPayload["text"])
 	}
 }
 

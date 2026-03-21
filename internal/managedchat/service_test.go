@@ -380,6 +380,48 @@ func TestServiceGetChatAllowsMissingEngineMetadata(t *testing.T) {
 	}
 }
 
+func TestResolveRunInputStringUsesInputsOnly(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         " llm_chat ",
+		"chatId":          " chat-1 ",
+		"projectConfigId": " project-alpha ",
+		"engineConfigId":  " engine-managed ",
+	}, time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
+	run.Events = append(run.Events, agentruns.NewRunEvent("run_started", map[string]any{
+		"runType":         "scriptable_chat",
+		"chatId":          "chat-from-event",
+		"projectConfigId": "project-from-event",
+		"engineConfigId":  "engine-from-event",
+	}, time.Date(2026, 3, 8, 13, 0, 1, 0, time.UTC)))
+
+	if got := resolveRunInputString(run, "runType"); got != RunTypeManagedChat {
+		t.Fatalf("expected runType from inputs, got %#v", got)
+	}
+	if got := resolveRunInputString(run, "chatId"); got != "chat-1" {
+		t.Fatalf("expected chatId from inputs, got %#v", got)
+	}
+	if got := resolveRunInputString(run, "projectConfigId"); got != "project-alpha" {
+		t.Fatalf("expected projectConfigId from inputs, got %#v", got)
+	}
+	if got := resolveRunInputString(run, "engineConfigId"); got != "engine-managed" {
+		t.Fatalf("expected engineConfigId from inputs, got %#v", got)
+	}
+
+	runWithoutInputs := agentruns.NewRun(nil, map[string]any{}, time.Date(2026, 3, 8, 13, 5, 0, 0, time.UTC))
+	runWithoutInputs.Events = append(runWithoutInputs.Events, agentruns.NewRunEvent("run_started", map[string]any{
+		"chatId":          "chat-from-event",
+		"projectConfigId": "project-from-event",
+		"engineConfigId":  "engine-from-event",
+	}, time.Date(2026, 3, 8, 13, 5, 1, 0, time.UTC)))
+	for _, key := range []string{"chatId", "projectConfigId", "engineConfigId"} {
+		if got := resolveRunInputString(runWithoutInputs, key); got != "" {
+			t.Fatalf("expected missing %s to stay empty without inputs, got %#v", key, got)
+		}
+	}
+}
+
 func TestServiceGetChatAllowsNonSettaLLMEngineMetadata(t *testing.T) {
 	t.Parallel()
 

@@ -251,6 +251,54 @@ func TestServiceCreateChatPersistsProjectConfigID(t *testing.T) {
 	}
 }
 
+func TestIsScriptableChatRunUsesInputsOnly(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.Run{
+		Inputs: map[string]any{
+			"runType": " scriptable_chat ",
+		},
+		Events: []agentruns.RunEvent{
+			agentruns.NewRunEvent("run_started", map[string]any{"runType": "llm_chat"}, time.Date(2026, 3, 13, 10, 6, 0, 0, time.UTC)),
+		},
+	}
+	if !isScriptableChatRun(run) {
+		t.Fatal("expected scriptable run type from inputs")
+	}
+
+	runWithoutInputs := agentruns.Run{
+		Events: []agentruns.RunEvent{
+			agentruns.NewRunEvent("run_started", map[string]any{"runType": "scriptable_chat"}, time.Date(2026, 3, 13, 10, 7, 0, 0, time.UTC)),
+		},
+	}
+	if isScriptableChatRun(runWithoutInputs) {
+		t.Fatal("expected event payload alone not to classify run as scriptable")
+	}
+}
+
+func TestServiceCreateChatDerivesTruncatedNameFromFirstMessage(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+	messageText := strings.Repeat("0123456789", 4)
+
+	created, err := fixture.service.CreateChat(CreateChatRequest{
+		FirstMessage: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": messageText},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create chat: %v", err)
+	}
+	if created.Name != messageText[:30] {
+		t.Fatalf("expected truncated chat name %q, got %q", messageText[:30], created.Name)
+	}
+}
+
 func TestServiceGetAllMetadataUsesCachedNamesAndSortsByLastUpdated(t *testing.T) {
 	t.Parallel()
 
