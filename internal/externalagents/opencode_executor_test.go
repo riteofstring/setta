@@ -247,6 +247,74 @@ func TestOpenCodeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestOpenCodeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
+	// Verify the OpenCode executor registers a pending approval, accepts the Go
+	// runtime response, and persists both the approval tool result and assistant
+	// follow-up on the same run.
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "approval"})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Request approval before using the MCP tool"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode approval run: %v", err)
+	}
+
+	fixture.waitForApproval(t, result.Run.ID, "approval-1")
+	if err := fixture.runtime.RespondToApproval("approval-1", true); err != nil {
+		t.Fatalf("respond to opencode approval: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	if got := resolveRunOutputString(persisted, "sessionId"); got != "session-approval" {
+		t.Fatalf("expected persisted session id, got %q", got)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	toolResultFound := false
+	assistantFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role == "tool" && stringValue(message["tool_name"]) == codexApprovalToolName {
+			resultPayload, ok := mapValue(message["result"])
+			if !ok || !boolValue(resultPayload["approved"]) {
+				t.Fatalf("unexpected approval result payload %#v", message["result"])
+			}
+			toolResultFound = true
+		}
+		if role == "assistant" && extractMessageText(message) == "Approval granted" {
+			assistantFound = true
+		}
+	}
+	if !toolResultFound {
+		t.Fatalf("expected persisted approval tool result, got %#v", messages)
+	}
+	if !assistantFound {
+		t.Fatalf("expected persisted assistant follow-up, got %#v", messages)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 type openCodeFixtureOptions struct {
 	scenario               string
 	runMode                externalagentconfigs.RunMode
@@ -1406,6 +1474,23 @@ func (f openCodeExecutorFixture) waitForQuestion(t *testing.T, runID string, too
 	t.Fatalf("timed out waiting for question %s", toolCallID)
 }
 
+func (f openCodeExecutorFixture) waitForApproval(t *testing.T, runID string, approvalID string) {
+	t.Helper()
+
+	deadline := time.Now().Add(executorFixtureEventTimeout)
+	for time.Now().Before(deadline) {
+		run, err := f.runs.Load(runID)
+		if err != nil {
+			t.Fatalf("load run while waiting for approval: %v", err)
+		}
+		if approvalMessagePresent(run, approvalID) {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for approval %s", approvalID)
+}
+
 func writeOpenCodeFixtureCommand(t *testing.T, scenario string) string {
 	t.Helper()
 
@@ -1504,6 +1589,32 @@ func runOpenCodeFixtureProcess(scenario string) error {
 								},
 							},
 						},
+					},
+				}); err != nil {
+					return err
+				}
+				continue
+			case "approval":
+				if err := emit(map[string]any{
+					"type": "session.updated",
+					"properties": map[string]any{
+						"info": map[string]any{
+							"id": "session-approval",
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				if err := emit(map[string]any{
+					"type":       "approval_request",
+					"approvalId": "approval-1",
+					"toolName":   "setta_list_mcp_tools",
+					"toolType":   "mcp",
+					"tool": map[string]any{
+						"name": "setta_list_mcp_tools",
+					},
+					"input": map[string]any{
+						"server": "setta",
 					},
 				}); err != nil {
 					return err
@@ -1647,6 +1758,18 @@ func runOpenCodeFixtureProcess(scenario string) error {
 				return fmt.Errorf("unexpected question answers %#v", payload["answers"])
 			}
 			if err := emitOpenCodeAssistantTurn(emit, "session-question", "assistant-answer", "part-answer-1", "Chosen: Go"); err != nil {
+				return err
+			}
+			return nil
+		}
+		if scenario == "approval" && stringValue(payload["type"]) == "approval_response" {
+			if got := stringValue(payload["approvalId"]); got != "approval-1" {
+				return fmt.Errorf("unexpected approval id %q", got)
+			}
+			if !boolValue(payload["approved"]) {
+				return fmt.Errorf("unexpected approval decision %#v", payload["approved"])
+			}
+			if err := emitOpenCodeAssistantTurn(emit, "session-approval", "assistant-approval", "part-approval-1", "Approval granted"); err != nil {
 				return err
 			}
 			return nil
