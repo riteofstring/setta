@@ -486,6 +486,38 @@ func TestRevealServiceRejectsIncompatibleRightPaneTab(t *testing.T) {
 	}
 }
 
+func TestRevealServiceRejectsMissingFrontendWithoutShareSession(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:     "project-alpha",
+		ProjectView:         revealTestProjectView(t, "callable-section", "Callable", nil),
+		Registry:            revealTestRegistry(t),
+		SettingID:           "core.project.show_param_display_names",
+		SectionIDToActivate: "callable-section",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "No connected frontend is available for UI setting reveal." {
+		t.Fatalf("unexpected no-frontend message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
 func TestRevealServiceRejectsAmbiguousFrontendSelectionWithoutAffinity(t *testing.T) {
 	t.Parallel()
 
@@ -830,6 +862,164 @@ func TestRevealServiceFailsWhenSelectedFrontendBecomesUndeliverableBeforeDispatc
 	}
 	if result.Statuses[0].Error.Message != "Selected frontend websocket became unavailable before reveal dispatch: frontend-1" {
 		t.Fatalf("unexpected undeliverable-dispatch message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceFailsClosedOnFrontendTimeout(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:     "project-alpha",
+		ProjectView:         revealTestProjectView(t, "callable-section", "Callable", nil),
+		Registry:            revealTestRegistry(t),
+		SettingID:           "core.project.show_param_display_names",
+		SectionIDToActivate: "callable-section",
+		DurationMS:          250,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Timed out waiting for frontend reveal confirmation for core.project.show_param_display_names." {
+		t.Fatalf("unexpected timeout message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceFailsClosedWhenFrontendStatusMissing(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID: "core.watch_code.enabled",
+					Status:    "revealed",
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected mismatch result to be consumed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:     "project-alpha",
+		ProjectView:         revealTestProjectView(t, "callable-section", "Callable", nil),
+		Registry:            revealTestRegistry(t),
+		SettingID:           "core.project.show_param_display_names",
+		SectionIDToActivate: "callable-section",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-1: frontend reveal response setting id mismatch: expected [core.project.show_param_display_names] but received [core.watch_code.enabled]"
+	if result.Statuses[0].Error.Message != expectedMessage {
+		t.Fatalf("unexpected missing-status message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceFailsClosedWhenFrontendReportsFailedStatus(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		errorCode := "mutation_failed"
+		errorMessage := "Quick Info anchor not found."
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID:    "core.project.show_param_display_names",
+					Status:       "failed",
+					ErrorCode:    &errorCode,
+					ErrorMessage: &errorMessage,
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected failed status result to resolve")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:     "project-alpha",
+		ProjectView:         revealTestProjectView(t, "callable-section", "Callable", nil),
+		Registry:            revealTestRegistry(t),
+		SettingID:           "core.project.show_param_display_names",
+		SectionIDToActivate: "callable-section",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Quick Info anchor not found." {
+		t.Fatalf("unexpected frontend-failed-status message: %q", result.Statuses[0].Error.Message)
 	}
 }
 

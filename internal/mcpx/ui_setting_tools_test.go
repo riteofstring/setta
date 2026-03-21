@@ -2078,6 +2078,72 @@ func TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenFrontendDispatch
 	}
 }
 
+func TestServerSetUISettingValueRevealAfterSetNoFrontendDoesNotActivateSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
+		Transport: &stubUISettingRevealTransport{registry: realtime.NewRegistry(realtime.RegistryOptions{})},
+		Results:   realtime.NewUISettingRevealResultHub(),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "", "", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"sectionId": "allowed-callable-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           true,
+			"revealAfterSet":  true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with revealAfterSet and no frontend: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_ui_setting_value with no-frontend reveal failure to keep write result, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", payload["changed"])
+	}
+	revealPayload := mustStructuredMap(t, payload["reveal"])
+	status := mustStructuredMap(t, mustStructuredList(t, revealPayload["statuses"])[0])
+	if status["status"] != "failed" {
+		t.Fatalf("expected nested reveal failure, got %#v", status["status"])
+	}
+	revealError := mustStructuredMap(t, status["error"])
+	if revealError["message"] != "No connected frontend is available for UI setting reveal." {
+		t.Fatalf("unexpected no-frontend reveal message, got %#v", revealError["message"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after no-frontend reveal failure: %v", err)
+	}
+	if !project.ShowParamDisplayNames {
+		t.Fatal("expected write to persist even when no frontend is connected")
+	}
+	if len(project.ActiveIDs) != 0 {
+		t.Fatalf("expected no active section mutation, got %#v", project.ActiveIDs)
+	}
+}
+
 func TestServerSetUISettingValueRejectsWriterOldValueDrift(t *testing.T) {
 	t.Parallel()
 
