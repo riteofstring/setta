@@ -53,6 +53,29 @@ func TestSaveJSONSourceFilesAppliesSharedFileUpdatesByShortestPath(t *testing.T)
 	}
 }
 
+func TestSaveJSONSourceFilesSameKeyPathLastWriteWins(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := jsonSourceSaveSameKeyPathTestDocument(t)
+
+	if err := SaveJSONSourceFiles(document, workspaceRoot); err != nil {
+		t.Fatalf("SaveJSONSourceFiles returned error: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(workspaceRoot, "data", "same-path.json"))
+	if err != nil {
+		t.Fatalf("read same-path json source file: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode same-path json source file: %v", err)
+	}
+	if got := payload["config"].(map[string]any)["value"]; got != float64(2) {
+		t.Fatalf("expected later same-key-path update to win with value 2, got %#v", got)
+	}
+}
+
 func TestApplyJSONSourceFileUpdatesRejectsNonDictConflicts(t *testing.T) {
 	t.Parallel()
 
@@ -389,6 +412,178 @@ func jsonSourceSaveSharedFileTestDocument(t *testing.T) Document {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize shared json source save project: %v", err)
+	}
+
+	return Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			project.ID: project,
+		},
+	}
+}
+
+func jsonSourceSaveSameKeyPathTestDocument(t *testing.T) Document {
+	t.Helper()
+
+	project, err := Project{
+		ID:                      "project-alpha",
+		Name:                    "Project Alpha",
+		AllowJSONSourceKeyEdits: true,
+		ProjectChatWindowing:    &ProjectChatWindowingState{InstancesByID: map[string]ProjectChatWindowInstance{}, Order: []string{}},
+		SectionVariantMap: map[string]string{
+			"json-section-a": "json-variant-a",
+			"json-section-b": "json-variant-b",
+		},
+		Sections: map[string]Section{
+			"json-section-a": {
+				ID:               "json-section-a",
+				Name:             "JSON Section A",
+				VariantIDs:       []string{"json-variant-a"},
+				DefaultVariantID: "json-variant-a",
+			},
+			"json-section-b": {
+				ID:               "json-section-b",
+				Name:             "JSON Section B",
+				VariantIDs:       []string{"json-variant-b"},
+				DefaultVariantID: "json-variant-b",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"json-variant-a": {
+				ID:     "json-variant-a",
+				Name:   "data/same-path.json",
+				ImplID: "json-impl-a",
+			},
+			"json-variant-b": {
+				ID:     "json-variant-b",
+				Name:   "data/same-path.json",
+				ImplID: "json-impl-b",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"json-impl-a": {
+				ID:   "json-impl-a",
+				Kind: SectionKind("dict"),
+				Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+					"id":              "json-impl-a",
+					"type":            "Dict",
+					"isJsonSource":    true,
+					"configLanguage":  "json",
+					"jsonSourceKeys":  []string{"config"},
+					"topLevelParamId": "root-a",
+					"codeObjVariantMap": map[string]any{
+						"root-a":       "root-a-variant",
+						"value-leaf-a": "value-leaf-a-variant",
+					},
+				}),
+			},
+			"json-impl-b": {
+				ID:   "json-impl-b",
+				Kind: SectionKind("dict"),
+				Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+					"id":              "json-impl-b",
+					"type":            "Dict",
+					"isJsonSource":    true,
+					"configLanguage":  "json",
+					"jsonSourceKeys":  []string{"config"},
+					"topLevelParamId": "root-b",
+					"codeObjVariantMap": map[string]any{
+						"root-b":       "root-b-variant",
+						"value-leaf-b": "value-leaf-b-variant",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]CodeObject{
+			"root-a": {
+				ID:               "root-a",
+				Name:             "root",
+				VariantIDs:       []string{"root-a-variant"},
+				DefaultVariantID: "root-a-variant",
+			},
+			"value-leaf-a": {
+				ID:               "value-leaf-a",
+				Name:             "value",
+				VariantIDs:       []string{"value-leaf-a-variant"},
+				DefaultVariantID: "value-leaf-a-variant",
+			},
+			"root-b": {
+				ID:               "root-b",
+				Name:             "root",
+				VariantIDs:       []string{"root-b-variant"},
+				DefaultVariantID: "root-b-variant",
+			},
+			"value-leaf-b": {
+				ID:               "value-leaf-b",
+				Name:             "value",
+				VariantIDs:       []string{"value-leaf-b-variant"},
+				DefaultVariantID: "value-leaf-b-variant",
+			},
+		},
+		CodeObjVariants: map[string]CodeObjectVariant{
+			"root-a-variant": {
+				ID:               "root-a-variant",
+				ImplID:           "root-a-impl",
+				NonPresetImplIDs: []string{"root-a-impl"},
+			},
+			"value-leaf-a-variant": {
+				ID:               "value-leaf-a-variant",
+				ImplID:           "value-leaf-a-impl",
+				NonPresetImplIDs: []string{"value-leaf-a-impl"},
+			},
+			"root-b-variant": {
+				ID:               "root-b-variant",
+				ImplID:           "root-b-impl",
+				NonPresetImplIDs: []string{"root-b-impl"},
+			},
+			"value-leaf-b-variant": {
+				ID:               "value-leaf-b-variant",
+				ImplID:           "value-leaf-b-impl",
+				NonPresetImplIDs: []string{"value-leaf-b-impl"},
+			},
+		},
+		CodeObjImpls: map[string]CodeObjectImpl{
+			"root-a-impl": {
+				ID:   "root-a-impl",
+				Type: "NestedParam",
+				Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+					"id":       "root-a-impl",
+					"type":     "NestedParam",
+					"children": []string{"value-leaf-a"},
+				}),
+			},
+			"value-leaf-a-impl": {
+				ID:   "value-leaf-a-impl",
+				Type: "CodeParam",
+				Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+					"id":    "value-leaf-a-impl",
+					"type":  "CodeParam",
+					"value": "1",
+				}),
+			},
+			"root-b-impl": {
+				ID:   "root-b-impl",
+				Type: "NestedParam",
+				Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+					"id":       "root-b-impl",
+					"type":     "NestedParam",
+					"children": []string{"value-leaf-b"},
+				}),
+			},
+			"value-leaf-b-impl": {
+				ID:   "value-leaf-b-impl",
+				Type: "CodeParam",
+				Payload: mustSectionVariantMutationRawJSON(t, map[string]any{
+					"id":    "value-leaf-b-impl",
+					"type":  "CodeParam",
+					"value": "2",
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize same-key-path json source save project: %v", err)
 	}
 
 	return Document{

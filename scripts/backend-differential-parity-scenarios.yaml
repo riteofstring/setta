@@ -115,6 +115,10 @@ scenarios:
     kind: json_source_save_missing_key_path
     seed: none
     description: Saving a JSON-backed dict section should recreate missing jsonSourceKeys paths in the backing file before writing values.
+  - name: json_source_save_same_key_path_last_write_wins
+    kind: json_source_save_same_key_path_last_write_wins
+    seed: none
+    description: Saving two JSON-backed sections that target the same file and jsonSourceKeys should keep the last section iteration as the winner for the exact-path subtree.
   - name: json_source_key_change_refresh
     kind: json_source_key_change_refresh
     seed: none

@@ -533,6 +533,16 @@ def seed_setta_files(
     target: RefTarget,
 ) -> None:
     setta_files_root.mkdir(parents=True, exist_ok=True)
+    if scenario.kind == "json_source_save_same_key_path_last_write_wins":
+        write_json(
+            setta_files_root / PROJECT_FILE_NAME,
+            build_json_source_save_same_key_path_last_write_wins_store_payload(
+                target,
+                workspace_root=setta_files_root.parent,
+            ),
+        )
+        write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+        return
     if scenario.kind == "json_source_save_missing_key_path":
         write_json(
             setta_files_root / PROJECT_FILE_NAME,
@@ -932,6 +942,318 @@ def build_json_source_save_missing_key_path_store_payload(
     }
 
 
+def build_json_source_save_same_key_path_last_write_wins_store_payload(
+    target: RefTarget,
+    workspace_root: Path,
+) -> dict[str, Any]:
+    source_path = str((workspace_root / "data" / "same-path.json").resolve())
+    if target_uses_go_launcher(target.root):
+        return {
+            "schemaVersion": 1,
+            "defaultProjectId": "project-alpha",
+            "projects": {
+                "project-alpha": {
+                    "allowJsonSourceKeyEdits": True,
+                    "codeObjImpls": {
+                        "root-a-impl": {
+                            "id": "root-a-impl",
+                            "payload": {
+                                "children": ["value-leaf-a"],
+                                "id": "root-a-impl",
+                                "type": "NestedParam",
+                            },
+                            "type": "NestedParam",
+                        },
+                        "value-leaf-a-impl": {
+                            "id": "value-leaf-a-impl",
+                            "payload": {
+                                "id": "value-leaf-a-impl",
+                                "type": "CodeParam",
+                                "value": "1",
+                            },
+                            "type": "CodeParam",
+                        },
+                        "root-b-impl": {
+                            "id": "root-b-impl",
+                            "payload": {
+                                "children": ["value-leaf-b"],
+                                "id": "root-b-impl",
+                                "type": "NestedParam",
+                            },
+                            "type": "NestedParam",
+                        },
+                        "value-leaf-b-impl": {
+                            "id": "value-leaf-b-impl",
+                            "payload": {
+                                "id": "value-leaf-b-impl",
+                                "type": "CodeParam",
+                                "value": "2",
+                            },
+                            "type": "CodeParam",
+                        },
+                    },
+                    "codeObjVariants": {
+                        "root-a-variant": {
+                            "id": "root-a-variant",
+                            "implId": "root-a-impl",
+                            "nonPresetImplIds": ["root-a-impl"],
+                        },
+                        "value-leaf-a-variant": {
+                            "id": "value-leaf-a-variant",
+                            "implId": "value-leaf-a-impl",
+                            "nonPresetImplIds": ["value-leaf-a-impl"],
+                        },
+                        "root-b-variant": {
+                            "id": "root-b-variant",
+                            "implId": "root-b-impl",
+                            "nonPresetImplIds": ["root-b-impl"],
+                        },
+                        "value-leaf-b-variant": {
+                            "id": "value-leaf-b-variant",
+                            "implId": "value-leaf-b-impl",
+                            "nonPresetImplIds": ["value-leaf-b-impl"],
+                        },
+                    },
+                    "codeObjs": {
+                        "root-a": {
+                            "defaultVariantId": "root-a-variant",
+                            "id": "root-a",
+                            "name": "root",
+                            "variantIds": ["root-a-variant"],
+                        },
+                        "value-leaf-a": {
+                            "defaultVariantId": "value-leaf-a-variant",
+                            "id": "value-leaf-a",
+                            "name": "value",
+                            "variantIds": ["value-leaf-a-variant"],
+                        },
+                        "root-b": {
+                            "defaultVariantId": "root-b-variant",
+                            "id": "root-b",
+                            "name": "root",
+                            "variantIds": ["root-b-variant"],
+                        },
+                        "value-leaf-b": {
+                            "defaultVariantId": "value-leaf-b-variant",
+                            "id": "value-leaf-b",
+                            "name": "value",
+                            "variantIds": ["value-leaf-b-variant"],
+                        },
+                    },
+                    "id": "project-alpha",
+                    "name": "Project Alpha",
+                    "projectChatWindowing": {"instancesById": {}, "order": []},
+                    "sectionImpls": {
+                        "json-impl-a": {
+                            "id": "json-impl-a",
+                            "kind": "dict",
+                            "payload": {
+                                "codeObjVariantMap": {
+                                    "root-a": "root-a-variant",
+                                    "value-leaf-a": "value-leaf-a-variant",
+                                },
+                                "configLanguage": "json",
+                                "id": "json-impl-a",
+                                "isJsonSource": True,
+                                "jsonSourceKeys": ["config"],
+                                "topLevelParamId": "root-a",
+                                "type": "Dict",
+                            },
+                        },
+                        "json-impl-b": {
+                            "id": "json-impl-b",
+                            "kind": "dict",
+                            "payload": {
+                                "codeObjVariantMap": {
+                                    "root-b": "root-b-variant",
+                                    "value-leaf-b": "value-leaf-b-variant",
+                                },
+                                "configLanguage": "json",
+                                "id": "json-impl-b",
+                                "isJsonSource": True,
+                                "jsonSourceKeys": ["config"],
+                                "topLevelParamId": "root-b",
+                                "type": "Dict",
+                            },
+                        },
+                    },
+                    "sectionVariantMap": {
+                        "json-section-a": "json-variant-a",
+                        "json-section-b": "json-variant-b",
+                    },
+                    "sectionVariants": {
+                        "json-variant-a": {
+                            "id": "json-variant-a",
+                            "implId": "json-impl-a",
+                            "name": source_path,
+                        },
+                        "json-variant-b": {
+                            "id": "json-variant-b",
+                            "implId": "json-impl-b",
+                            "name": source_path,
+                        },
+                    },
+                    "sections": {
+                        "json-section-a": {
+                            "defaultVariantId": "json-variant-a",
+                            "id": "json-section-a",
+                            "name": "JSON Section A",
+                            "variantIds": ["json-variant-a"],
+                        },
+                        "json-section-b": {
+                            "defaultVariantId": "json-variant-b",
+                            "id": "json-section-b",
+                            "name": "JSON Section B",
+                            "variantIds": ["json-variant-b"],
+                        },
+                    },
+                }
+            },
+        }
+
+    return {
+        "codeObjImpls": {
+            "root-a-impl": {
+                "children": ["value-leaf-a"],
+                "id": "root-a-impl",
+                "type": "NestedParam",
+            },
+            "value-leaf-a-impl": {
+                "id": "value-leaf-a-impl",
+                "type": "CodeParam",
+                "value": "1",
+            },
+            "root-b-impl": {
+                "children": ["value-leaf-b"],
+                "id": "root-b-impl",
+                "type": "NestedParam",
+            },
+            "value-leaf-b-impl": {
+                "id": "value-leaf-b-impl",
+                "type": "CodeParam",
+                "value": "2",
+            },
+        },
+        "codeObjVariants": {
+            "root-a-variant": {
+                "id": "root-a-variant",
+                "impl": "root-a-impl",
+                "nonPresetImpls": ["root-a-impl"],
+            },
+            "value-leaf-a-variant": {
+                "id": "value-leaf-a-variant",
+                "impl": "value-leaf-a-impl",
+                "nonPresetImpls": ["value-leaf-a-impl"],
+            },
+            "root-b-variant": {
+                "id": "root-b-variant",
+                "impl": "root-b-impl",
+                "nonPresetImpls": ["root-b-impl"],
+            },
+            "value-leaf-b-variant": {
+                "id": "value-leaf-b-variant",
+                "impl": "value-leaf-b-impl",
+                "nonPresetImpls": ["value-leaf-b-impl"],
+            },
+        },
+        "codeObjs": {
+            "root-a": {
+                "defaultVariant": "root-a-variant",
+                "id": "root-a",
+                "name": "root",
+                "variants": ["root-a-variant"],
+            },
+            "value-leaf-a": {
+                "defaultVariant": "value-leaf-a-variant",
+                "id": "value-leaf-a",
+                "name": "value",
+                "variants": ["value-leaf-a-variant"],
+            },
+            "root-b": {
+                "defaultVariant": "root-b-variant",
+                "id": "root-b",
+                "name": "root",
+                "variants": ["root-b-variant"],
+            },
+            "value-leaf-b": {
+                "defaultVariant": "value-leaf-b-variant",
+                "id": "value-leaf-b",
+                "name": "value",
+                "variants": ["value-leaf-b-variant"],
+            },
+        },
+        "defaultProjectConfigId": "project-alpha",
+        "projectChatWindowingByProjectConfigId": {
+            "project-alpha": {"instancesById": {}, "order": []}
+        },
+        "projectConfigs": {
+            "project-alpha": {
+                "allowJsonSourceKeyEdits": True,
+                "id": "project-alpha",
+                "name": "Project Alpha",
+                "sectionVariantMap": {
+                    "json-section-a": "json-variant-a",
+                    "json-section-b": "json-variant-b",
+                },
+            }
+        },
+        "sectionImpls": {
+            "json-impl-a": {
+                "codeObjVariantMap": {
+                    "root-a": "root-a-variant",
+                    "value-leaf-a": "value-leaf-a-variant",
+                },
+                "configLanguage": "json",
+                "id": "json-impl-a",
+                "isJsonSource": True,
+                "jsonSourceKeys": ["config"],
+                "topLevelParamId": "root-a",
+                "type": "Dict",
+            },
+            "json-impl-b": {
+                "codeObjVariantMap": {
+                    "root-b": "root-b-variant",
+                    "value-leaf-b": "value-leaf-b-variant",
+                },
+                "configLanguage": "json",
+                "id": "json-impl-b",
+                "isJsonSource": True,
+                "jsonSourceKeys": ["config"],
+                "topLevelParamId": "root-b",
+                "type": "Dict",
+            },
+        },
+        "sectionVariants": {
+            "json-variant-a": {
+                "id": "json-variant-a",
+                "impl": "json-impl-a",
+                "name": source_path,
+                "nonPresetImpls": ["json-impl-a"],
+            },
+            "json-variant-b": {
+                "id": "json-variant-b",
+                "impl": "json-impl-b",
+                "name": source_path,
+                "nonPresetImpls": ["json-impl-b"],
+            },
+        },
+        "sections": {
+            "json-section-a": {
+                "defaultVariant": "json-variant-a",
+                "id": "json-section-a",
+                "name": "JSON Section A",
+                "variants": ["json-variant-a"],
+            },
+            "json-section-b": {
+                "defaultVariant": "json-variant-b",
+                "id": "json-section-b",
+                "name": "JSON Section B",
+                "variants": ["json-variant-b"],
+            },
+        },
+    }
+
+
 def minimal_document() -> dict[str, Any]:
     return {"schemaVersion": 1, "projects": {}}
 
@@ -1244,6 +1566,8 @@ def execute_scenario(
         return execute_workspace_launch_outdated_settings_error(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
+    if scenario.kind == "json_source_save_same_key_path_last_write_wins":
+        return execute_json_source_save_same_key_path_last_write_wins(backend)
     if scenario.kind == "json_source_save_missing_key_path":
         return execute_json_source_save_missing_key_path(backend)
     if scenario.kind == "json_source_key_change_refresh":
@@ -1457,6 +1781,35 @@ def execute_json_source_save_missing_key_path(
         saved_payload = json.loads(source_path.read_text(encoding="utf-8"))
 
     summary = summarize_json_source_save_missing_key_path(
+        http_status=save_response.status_code,
+        saved_payload=saved_payload,
+    )
+    return summary, {
+        "saveProject": {
+            "status": save_response.status_code,
+            "payload": save_payload,
+        },
+        "savedFile": saved_payload,
+    }
+
+
+def execute_json_source_save_same_key_path_last_write_wins(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    save_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SAVE_PROJECT,
+        payload={"projectConfigId": "project-alpha"},
+    )
+    save_payload = normalize_response_json_allow_status(save_response)
+
+    source_path = backend.workspace_root / "data" / "same-path.json"
+    saved_payload: Any = None
+    if source_path.exists():
+        saved_payload = json.loads(source_path.read_text(encoding="utf-8"))
+
+    summary = summarize_json_source_save_same_key_path_last_write_wins(
         http_status=save_response.status_code,
         saved_payload=saved_payload,
     )
@@ -3570,6 +3923,23 @@ def summarize_json_source_save_missing_key_path(
         "saveProjectStatus": http_status,
         "savedFilePresent": isinstance(saved_payload, dict),
         "savedFile": saved_payload if isinstance(saved_payload, dict) else None,
+    }
+
+
+def summarize_json_source_save_same_key_path_last_write_wins(
+    http_status: int,
+    saved_payload: Any,
+) -> dict[str, Any]:
+    winning_value: Any = None
+    if isinstance(saved_payload, dict):
+        config_payload = saved_payload.get("config")
+        if isinstance(config_payload, dict):
+            winning_value = config_payload.get("value")
+    return {
+        "saveProjectStatus": http_status,
+        "savedFilePresent": isinstance(saved_payload, dict),
+        "savedFile": saved_payload if isinstance(saved_payload, dict) else None,
+        "winningValue": winning_value,
     }
 
 
