@@ -638,6 +638,39 @@ Current execution note:
     - `45` shared overlays
     - `274` nested rows
     - sampled nested seam alignment stayed within roughly `1.55px` of the input start, which is close enough to treat the earlier theoretical nested-alignment concern as non-blocking for this checkpoint
+- the next broad leaf-row grid-contract restore experiment was also benchmarked and rejected under the authoritative `All Settings` harness:
+  - experimental files:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - row-contract change under test:
+    - restore the older explicit grid leaf-row shell for every top-level `textLabelLeaf` row
+    - move the text/code value root back toward the untouched `main` contract by making the inactive dummy root and underline direct grid children instead of routing through the newer `.section-value` wrapper path
+  - authoritative paired/confirmation read:
+    - `settings` on `All Settings` improved strongly and consistently:
+      - benchmark `Paint`:
+        - `423.902ms -> 312.551ms`
+        - confirmation:
+          - `423.902ms -> 313.774ms`
+      - benchmark `RunTask`:
+        - `28886.001ms -> 29923.051ms`
+        - confirmation:
+          - `28886.001ms -> 29858.162ms`
+    - `tier1Synthetic` still regressed after the clean sequential confirmation rerun:
+      - benchmark `Paint`:
+        - `710.373ms -> 773.594ms`
+        - confirmation:
+          - `710.373ms -> 729.765ms`
+      - benchmark `RunTask`:
+        - `13974.591ms -> 14553.185ms`
+        - confirmation:
+          - `13974.591ms -> 14155.305ms`
+    - discard the overlapping contaminated `tier1Synthetic` confirmation trace and use the sequential `confirm2-worktree-tier1` rerun as the decision point
+  - keep the structural finding even though the code change is rejected:
+    - untouched `main` still differs materially from the worktree at the top-level leaf-row contract seam
+    - that seam is promising for the real `settings` target, but the broad restore is too coarse to keep for all Tier 1 text-leaf rows
+    - revisit it only through a narrower section-family or value-family-specific follow-up, not as another global `textLabelLeaf` restore
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -648,6 +681,10 @@ Current execution note:
   - avoid another immediate dummy-preview-only syntax tweak unless it clearly reaches the real `settings` hotspot rows; the rejected preview-language pass mainly changed `benchmark-tier1` name rows and missed the heavier `settings` code-param path
   - avoid another immediate text-family inactive-preview simplification pass in `TextInputCodeMirror` / `DummyCodeMirror`; the broader plain-preview pass hit the intended value rows directly and still regressed both canonical scenes badly
   - avoid another immediate expansion of the accepted row-containment boundary; the `contain: layout paint` pass was decisively worse on both canonical scenes
+  - avoid another immediate global leaf-row grid-contract restore:
+    - the `All Settings` target likes more of the untouched `main` row contract
+    - but the broad `textLabelLeaf` restore still regressed the canonical `tier1Synthetic` scene after confirmation
+    - the next pass, if any, should narrow to the section families or value families that actually drive the `settings` win
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
@@ -668,6 +705,9 @@ Current execution note:
       - the accepted shared-overlay handle checkpoint reduces one repeated row affordance already, so the next slice should try to compound that kind of win on other always-mounted dense-row surfaces
       - but it should do so without moving the full row shell responsibility onto `TextInputCodeMirror` itself
       - and it should hit the row families that still dominate `settings`, especially non-preview repeated value/body surfaces instead of another immediate inactive-preview-only tweak or another `contain` retune on the same row shell
+      - the rejected broad leaf-grid restore changes this read slightly:
+        - the untouched `main` row contract is still worth mining
+        - but the next experiment should probably target the row families that dominate `settings` without broadening to every top-level text leaf on `tier1Synthetic`
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

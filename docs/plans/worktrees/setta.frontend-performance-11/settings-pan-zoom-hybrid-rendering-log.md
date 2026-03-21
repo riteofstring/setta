@@ -1545,3 +1545,98 @@ Record:
     - the value-side path is the denser repeated seam and should be the next measured Tier 1 target
 - Next action:
   - Turn the value-side dense-row seam into the next measured experiment, then rerun authoritative `All Settings` plus `tier1Synthetic`.
+
+## 2026-03-20 035
+
+- Item: Benchmark the broad Tier 1 leaf-grid text-value restore under authoritative `All Settings` plus `tier1Synthetic`, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+  - Structural change under test:
+    - restore the explicit top-level `textLabelLeaf` grid-row contract from the older layout model
+    - move the inactive text/code dummy value root plus underline closer to untouched `main` by making them direct grid children again instead of routing through the newer `.section-value` wrapper path
+  - Live worktree `All Settings` structural sanity while the experiment was active:
+    - direct `.section-param-row > .section-value` wrappers:
+      - `682 -> 0`
+    - direct `ParamInput` roots carrying `section-value`:
+      - `0 -> 468`
+    - sampled `aspectRatio` row restored:
+      - explicit inline grid row
+      - direct label host `.section-key`
+      - direct dummy value root `.section-value`
+      - direct underline sibling `.section-value`
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-leaf-grid-text-value-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-leaf-grid-text-value-rerun`
+  - Same-harness retained-baseline control:
+    - temporarily stashed only the in-flight experiment files
+    - reran the worktree `settings` benchmark on the authoritative `All Settings` view
+    - reran `tier1Synthetic`
+    - restored the experiment and then ran the paired reruns
+  - Worktree deltas versus that retained baseline:
+    - `settings` on authoritative `All Settings`
+      - benchmark `Paint`:
+        - `423.902ms -> 312.551ms`
+      - benchmark `RunTask`:
+        - `28886.001ms -> 29923.051ms`
+      - overview horizontal pan slow `Paint`:
+        - `42.257ms -> 28.833ms`
+      - overview vertical pan slow `Paint`:
+        - `59.090ms -> 45.850ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `710.373ms -> 773.594ms`
+      - benchmark `RunTask`:
+        - `13974.591ms -> 14553.185ms`
+      - overview horizontal pan slow `Paint`:
+        - `119.160ms -> 126.479ms`
+      - overview vertical pan slow `Paint`:
+        - `135.277ms -> 144.563ms`
+  - Confirmation reruns:
+    - `settings` confirmed the paint win sequentially:
+      - benchmark `Paint`:
+        - `423.902ms -> 313.774ms`
+      - benchmark `RunTask`:
+        - `28886.001ms -> 29858.162ms`
+    - the first `tier1Synthetic` confirmation attempt overlapped another trace and is not used for the decision
+    - the clean sequential `confirm2-worktree-tier1` rerun still regressed:
+      - benchmark `Paint`:
+        - `710.373ms -> 729.765ms`
+      - benchmark `RunTask`:
+        - `13974.591ms -> 14155.305ms`
+  - Fresh subagent CDP visual sanity after reverting back to the retained baseline:
+    - `http://127.0.0.1:3012/settings`
+    - `http://127.0.0.1:3087/settings`
+    - both switched to `All Settings`
+    - `groupSectionDefault` present on both pages
+    - no obvious worktree-vs-main layout or alignment regression noted in the current retained baseline
+  - Decision:
+    - reject this broad leaf-grid text-value restore as a keep for `HEAD`
+    - revert the code and keep only the report/log record
+    - preserve the finding that untouched `main` still differs materially from the worktree at this row-contract seam
+- Next action:
+  - Narrow the next row-contract follow-up to the specific section families or value families that actually drive the `settings` win instead of applying the old contract across every top-level Tier 1 text leaf row.
+
+## 2026-03-20 036
+
+- Item: Refine the next Tier 1 target after rejecting the broad leaf-grid text-value restore.
+- Status: `in_progress`
+- Details:
+  - Updated read after the authoritative rejection:
+    - the untouched `main` row contract is still promising for the real `settings` target
+    - but the broad restore is too coarse because it helps `settings` while still regressing the required `tier1Synthetic` scene after confirmation
+  - Current likely direction:
+    - stay inside the repeated value-side row/body ownership seam
+    - keep the authoritative `All Settings` harness as the acceptance target for `settings`
+    - if the old row contract is revisited, narrow it to the section families or value families that actually dominate `settings` instead of restoring it for every top-level `textLabelLeaf`
+    - continue to avoid the rejected lanes:
+      - inactive-preview-only dummy simplifications
+      - broader containment retunes
+      - another immediate global `textLabelLeaf` restore
+- Next action:
+  - Turn the next narrower value-side or section-family-specific row-contract seam into a measured experiment, then rerun authoritative `All Settings` plus `tier1Synthetic`.
