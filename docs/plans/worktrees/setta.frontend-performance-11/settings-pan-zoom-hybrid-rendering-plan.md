@@ -703,6 +703,39 @@ Current execution note:
     - a fresh subagent compare still did not show clean full-page `settings` parity between the worktree and untouched `main`
     - keep that broader `All Settings` framing mismatch visible in the log instead of treating `main` comparison alone as the proof that this experiment reverted cleanly
     - for this checkpoint, treat source reversion plus the focused green Vitest suite as the actual revert proof
+- the next non-code switch-root-collapse experiment was also benchmarked and rejected under the authoritative `All Settings` harness:
+  - experimental files:
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - row-contract change under test:
+    - remove the extra outer wrapper from `SwitchInput`
+    - move the `section-value` layout classes directly onto `Switch.Root`
+  - supporting live-read before the benchmark:
+    - a fresh subagent counted `131` switches on the worktree `settings` page
+    - repeated rows like `Is Frozen`, `Is Minimized`, and `Position And Size Locked` each appeared `25` times
+    - this made switches a reasonable first probe inside the non-code lane
+  - authoritative paired read:
+    - `settings` regressed too strongly to justify a same-code confirmation rerun:
+      - benchmark `Paint`:
+        - `148.237ms -> 409.236ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 31002.992ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 480.580ms`
+    - `tier1Synthetic` improved on paint but still regressed enough on other aggregate work that it cannot outweigh the `settings` failure:
+      - benchmark `Paint`:
+        - `825.999ms -> 718.041ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14286.408ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 19.341ms`
+  - keep the structural finding even though the code change is rejected:
+    - the non-code lane is still the right place to keep mining
+    - but collapsing a single widget wrapper straight into `Switch.Root` is too local and makes the real `settings` target much worse
+    - the next worthwhile pass should stay at the Dict/plain-label row contract or shared value-host level instead of another widget-root collapse
+  - post-revert visual note:
+    - a fresh subagent check after the revert confirmed the switch-root collapse was no longer live on the page
+    - no obvious visual regression was visible in the current viewport state
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -721,6 +754,9 @@ Current execution note:
     - the narrower code-leaf subset does the opposite of what the plan needs
     - it helps `tier1Synthetic` while making `settings` dramatically worse
     - the next row-contract follow-up should target the non-code repeated value/body path that still dominates `settings`
+  - avoid another immediate single-widget root collapse inside the non-code lane:
+    - the switch-root collapse proves that even a heavily repeated control can regress `settings` badly when the change is too local
+    - keep the next pass at the shared Dict/plain-label row contract or shared value-host seam instead
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
@@ -748,6 +784,10 @@ Current execution note:
         - the next worthwhile pass should avoid `CodeParam`-specific explicit grid/value restores
         - instead it should target the non-code repeated value/body surfaces that still dominate `settings`
         - likely directions now are the plain text / dict / list-object repeated value-host path or another always-mounted non-preview body seam in those rows
+      - the rejected switch-root collapse sharpens the non-code read further:
+        - stay with Dict-backed plain-label leaf rows
+        - start with switch/dropdown-heavy value bodies because that is what the live `settings` page repeats most
+        - but express the next change through a shared row/value contract in `ParamSwitch` / `ParamContainer` / `ParamUI`, not by collapsing one widget root in isolation
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

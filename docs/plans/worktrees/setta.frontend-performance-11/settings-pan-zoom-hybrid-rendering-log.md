@@ -1787,3 +1787,87 @@ Record:
     - keep using seam-specific DOM/projection checks plus the canonical benchmark scenes while this broader layout mismatch stays unresolved
 - Next action:
   - Continue the next Tier 1 pass on the non-code repeated value/body seam, while keeping the broader `settings` full-page parity mismatch visible in the append-only log instead of treating it as resolved.
+
+## 2026-03-20 041
+
+- Item: Benchmark the narrower switch-root collapse under the canonical `settings` and `tier1Synthetic` scenes, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental files under test:
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - Structural change under test:
+    - remove the outer wrapper from `SwitchInput`
+    - move the `section-value` layout classes directly onto `Switch.Root`
+  - Why this seam was chosen:
+    - fresh subagent inspection of the live worktree `settings` page found `131` switches
+    - repeated rows like `Is Frozen`, `Is Minimized`, and `Position And Size Locked` each appeared `25` times
+    - that made the switch wrapper the most obvious first non-code probe after rejecting the code-only leaf-grid restore
+  - Fixture readiness note:
+    - after the restart, `tier1Synthetic` was reinstalled into both state roots before benchmarking:
+      - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root setta_files_dev`
+      - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root ../setta/setta_files_dev`
+  - Focused automated verification while the experiment was live:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamContainer.test.tsx`
+      - `5` files passed
+      - `7` tests passed
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-switch-root-collapse-rerun.md`
+  - First paired benchmark deltas versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `148.237ms -> 409.236ms`
+      - benchmark `RunTask`:
+        - `3235.187ms -> 31002.992ms`
+      - benchmark `UpdateLayoutTree`:
+        - `66.774ms -> 480.580ms`
+      - overview horizontal pan slow `Paint`:
+        - `28.389ms -> 35.019ms`
+      - overview vertical pan slow `Paint`:
+        - `27.156ms -> 54.958ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `825.999ms -> 718.041ms`
+      - benchmark `RunTask`:
+        - `13271.540ms -> 14286.408ms`
+      - benchmark `UpdateLayoutTree`:
+        - `18.282ms -> 19.341ms`
+      - overview horizontal pan slow `Paint`:
+        - `145.957ms -> 122.132ms`
+      - overview vertical pan slow `Paint`:
+        - `159.445ms -> 143.127ms`
+  - Decision:
+    - reject this switch-root collapse as a keep for `HEAD`
+    - no same-code confirmation rerun was justified because the first paired `settings` matrix already regressed too strongly on the mandatory real-project target
+    - keep the retained nested-guide-removal baseline at `HEAD`
+- Next action:
+  - Stay in the non-code lane, but move the next experiment up to the Dict/plain-label row contract or shared value-host seam instead of collapsing a single widget root.
+
+## 2026-03-20 042
+
+- Item: Refine the next Tier 1 target after rejecting the switch-root collapse.
+- Status: `in_progress`
+- Details:
+  - Reverted the switch-root-collapse code after recording the dead-end report.
+  - Focused reverted-baseline verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamContainer.test.tsx`
+      - `5` files passed
+      - `6` tests passed
+  - Fresh subagent CDP check after the revert:
+    - `All Settings` was already active
+    - repeated switch rows like `Is Frozen`, `Is Minimized`, and `Position And Size Locked` still rendered as `BUTTON[role="switch"] -> DIV.section-value -> ARTICLE...`
+    - no obvious visual regression was visible in the current viewport state
+  - Fresh codebase exploration subagent read:
+    - the best next seam is Dict-heavy `textLabelLeaf` non-code rows, not anything under CodeMirror
+    - start with switch/dropdown-heavy value bodies flowing through:
+      - `frontend/src/components/Params/ParamSwitch.tsx`
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - keep the label side on `ParamTextLabel.tsx`, not `ParamNameInput.tsx`
+  - Current read:
+    - the non-code lane is still the right lane
+    - but a single-widget collapse is too local
+    - the next pass should reintroduce a narrower shared row/value contract for Dict-backed plain-label leaves with switch/dropdown value bodies
+- Next action:
+  - Turn the Dict/plain-label non-code row contract into the next measured experiment, starting with switch/dropdown-heavy value bodies instead of another widget-local collapse.
