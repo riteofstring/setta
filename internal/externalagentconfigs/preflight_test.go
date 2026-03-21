@@ -71,6 +71,228 @@ func TestSystemCheckerMarksClaudeSDKAvailableWhenCLIAndSDKPresent(t *testing.T) 
 	}
 }
 
+func TestSystemCheckerClassifiesNonClaudeToolRunModeSupportAndAvailability(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	nodePath := writeExecutableFixture(t, "node")
+	t.Setenv("PATH", filepath.Dir(nodePath))
+
+	validBaseURL := "http://localhost:18181"
+	invalidBaseURL := "not-a-url"
+	codexPath := writeExecutableFixture(t, "codex")
+
+	testCases := []struct {
+		name            string
+		config          Config
+		wantSupported   bool
+		wantAvailable   bool
+		wantBaseURL     *string
+		wantCommandPath *string
+		wantIssues      []string
+	}{
+		{
+			name: "codex app server stays supported and available",
+			config: Config{
+				ID:                 "codex",
+				Name:               "Codex",
+				ToolType:           ToolTypeCodex,
+				RunMode:            RunModeAppServer,
+				CommandPath:        &codexPath,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantSupported:   true,
+			wantAvailable:   true,
+			wantCommandPath: &codexPath,
+		},
+		{
+			name: "codex rejects unsupported server mode",
+			config: Config{
+				ID:                 "codex-server",
+				Name:               "Codex Server",
+				ToolType:           ToolTypeCodex,
+				RunMode:            RunModeServer,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantSupported: false,
+			wantAvailable: false,
+			wantIssues: []string{
+				"Run mode server not supported for codex",
+				"Server mode requires baseUrl.",
+			},
+		},
+		{
+			name: "opencode server stays supported but blocks on invalid base url",
+			config: Config{
+				ID:                 "opencode-server",
+				Name:               "OpenCode Server",
+				ToolType:           ToolTypeOpenCode,
+				RunMode:            RunModeServer,
+				BaseURL:            &invalidBaseURL,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantSupported:   true,
+			wantAvailable:   false,
+			wantCommandPath: &nodePath,
+			wantIssues: []string{
+				"Server mode baseUrl must be a valid absolute URL.",
+			},
+		},
+		{
+			name: "opencode server stays available with valid base url",
+			config: Config{
+				ID:                 "opencode-server-valid",
+				Name:               "OpenCode Server",
+				ToolType:           ToolTypeOpenCode,
+				RunMode:            RunModeServer,
+				BaseURL:            &validBaseURL,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantSupported:   true,
+			wantAvailable:   true,
+			wantBaseURL:     &validBaseURL,
+			wantCommandPath: &nodePath,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
+			if err != nil {
+				t.Fatalf("new checker: %v", err)
+			}
+
+			// Each row proves one supported/available classification branch on the
+			// live non-Claude preflight surface.
+			status, err := checker.Check(testCase.config)
+			if err != nil {
+				t.Fatalf("check config: %v", err)
+			}
+			if status.Supported != testCase.wantSupported {
+				t.Fatalf("expected supported=%t, got %#v", testCase.wantSupported, status)
+			}
+			if status.Available != testCase.wantAvailable {
+				t.Fatalf("expected available=%t, got %#v", testCase.wantAvailable, status)
+			}
+			if testCase.wantBaseURL == nil {
+				if status.BaseURL != nil {
+					t.Fatalf("expected no base url, got %#v", status.BaseURL)
+				}
+			} else if status.BaseURL == nil || *status.BaseURL != *testCase.wantBaseURL {
+				t.Fatalf("expected base url %q, got %#v", *testCase.wantBaseURL, status.BaseURL)
+			}
+			if testCase.wantCommandPath == nil {
+				if status.CommandPath != nil {
+					t.Fatalf("expected no command path, got %#v", status.CommandPath)
+				}
+			} else if status.CommandPath == nil || *status.CommandPath != *testCase.wantCommandPath {
+				t.Fatalf("expected command path %q, got %#v", *testCase.wantCommandPath, status.CommandPath)
+			}
+			for _, issueFragment := range testCase.wantIssues {
+				if !containsIssue(status.Issues, issueFragment) {
+					t.Fatalf("expected issue %q, got %#v", issueFragment, status.Issues)
+				}
+			}
+		})
+	}
+}
+
+func TestSystemCheckerUsesNodeForNodeBackedModesAndReportsMissingNode(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	resolvedNodePath := writeExecutableFixture(t, "node")
+	nodeDir := filepath.Dir(resolvedNodePath)
+	emptyBinDir := t.TempDir()
+	validBaseURL := "http://localhost:18181"
+
+	testCases := []struct {
+		name            string
+		pathEnv         string
+		config          Config
+		wantAvailable   bool
+		wantCommandPath *string
+		wantIssues      []string
+	}{
+		{
+			name:    "sdk mode resolves node path when node is present",
+			pathEnv: nodeDir,
+			config: Config{
+				ID:                 "opencode-sdk",
+				Name:               "OpenCode SDK",
+				ToolType:           ToolTypeOpenCode,
+				RunMode:            RunModeSDK,
+				BaseURL:            &validBaseURL,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantAvailable:   true,
+			wantCommandPath: &resolvedNodePath,
+		},
+		{
+			name:    "server mode resolves node path when node is present",
+			pathEnv: nodeDir,
+			config: Config{
+				ID:                 "opencode-server",
+				Name:               "OpenCode Server",
+				ToolType:           ToolTypeOpenCode,
+				RunMode:            RunModeServer,
+				BaseURL:            &validBaseURL,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantAvailable:   true,
+			wantCommandPath: &resolvedNodePath,
+		},
+		{
+			name:    "server mode fails closed when node is missing",
+			pathEnv: emptyBinDir,
+			config: Config{
+				ID:                 "opencode-server-missing-node",
+				Name:               "OpenCode Server",
+				ToolType:           ToolTypeOpenCode,
+				RunMode:            RunModeServer,
+				BaseURL:            &validBaseURL,
+				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+			},
+			wantAvailable: false,
+			wantIssues: []string{
+				"Command not found (node)",
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv("PATH", testCase.pathEnv)
+
+			checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
+			if err != nil {
+				t.Fatalf("new checker: %v", err)
+			}
+
+			// Node-backed SDK/server modes should expose the resolved node path
+			// directly and block availability when that prerequisite is missing.
+			status, err := checker.Check(testCase.config)
+			if err != nil {
+				t.Fatalf("check config: %v", err)
+			}
+			if !status.Supported {
+				t.Fatalf("expected node-backed mode to stay supported, got %#v", status)
+			}
+			if status.Available != testCase.wantAvailable {
+				t.Fatalf("expected available=%t, got %#v", testCase.wantAvailable, status)
+			}
+			if testCase.wantCommandPath == nil {
+				if status.CommandPath != nil {
+					t.Fatalf("expected no command path, got %#v", status.CommandPath)
+				}
+			} else if status.CommandPath == nil || *status.CommandPath != *testCase.wantCommandPath {
+				t.Fatalf("expected command path %q, got %#v", *testCase.wantCommandPath, status.CommandPath)
+			}
+			for _, issueFragment := range testCase.wantIssues {
+				if !containsIssue(status.Issues, issueFragment) {
+					t.Fatalf("expected issue %q, got %#v", issueFragment, status.Issues)
+				}
+			}
+		})
+	}
+}
+
 func TestSystemCheckerReadsWhitelistedEnvVarsFromProcessAndManagedStore(t *testing.T) {
 	t.Parallel()
 
