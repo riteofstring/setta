@@ -120,6 +120,61 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteUISettingReadRejectsShareScopeWithoutProjectContext(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"get_ui_setting_value",
+		"arguments":{"settingId":"core.app.spec_path"},
+		"agenticContext":{"shareSessionId":"share-session-1","allowUnscoped":true}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatalf("expected scope violation, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "scope_violation" {
+		t.Fatalf("expected scope_violation code, got %#v", structured["code"])
+	}
+	if structured["reason"] != "missing_context" {
+		t.Fatalf("expected missing_context reason, got %#v", structured["reason"])
+	}
+}
+
 func TestMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
