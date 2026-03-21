@@ -110,6 +110,24 @@ func TestProductionCandidateProviderResolveGitHubCandidateReportsCloneTimeout(t 
 	}
 }
 
+// GitHub clone timeout should default and honor explicit typed overrides on the provider constructor.
+func TestNewProductionCandidateProviderUsesDefaultAndExplicitGitHubCloneTimeout(t *testing.T) {
+	t.Parallel()
+
+	defaultProvider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{})
+	if defaultProvider.gitHubCloneTimeout != defaultGitHubCloneTimeout {
+		t.Fatalf("expected default clone timeout %s, got %s", defaultGitHubCloneTimeout, defaultProvider.gitHubCloneTimeout)
+	}
+
+	override := 45 * time.Second
+	overrideProvider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		GitHubCloneTimeout: override,
+	})
+	if overrideProvider.gitHubCloneTimeout != override {
+		t.Fatalf("expected explicit clone timeout %s, got %s", override, overrideProvider.gitHubCloneTimeout)
+	}
+}
+
 // PyPI candidate resolution should install from a local wheel artifact using pip and return a validated plugin root.
 func TestProductionCandidateProviderResolvePyPICandidateFromLocalWheel(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

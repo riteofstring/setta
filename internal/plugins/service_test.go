@@ -98,6 +98,69 @@ func TestRetargetSourceSpecRewritesGitHubAndPyPITargets(t *testing.T) {
 	}
 }
 
+// The mutation service should install GitHub plugin sources end to end and preserve digests across reinstall.
+func TestServiceInstallGitHubPluginStripsGitMetadataAndPreservesDigestAcrossReinstall(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	baseURL, ref := buildLocalGitHubBareRepoFromFixture(t, t.TempDir(), "frontend", "acme", "setta-fixture-frontend")
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+		ServerMode:     config.ModeIDE,
+		CandidateProvider: NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+			SettaFilesRoot: roots.settaFilesRoot,
+			SettaVersion:   "0.1.0",
+			GitHubBaseURL:  baseURL,
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new plugin service: %v", err)
+	}
+
+	sourceSpec := fmt.Sprintf("github:acme/setta-fixture-frontend#%s", ref)
+	firstInstall, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: sourceSpec,
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install GitHub plugin: %v", err)
+	}
+	if firstInstall.PluginID != "setta-fixture-frontend" || firstInstall.State != PluginRuntimeStateActive {
+		t.Fatalf("unexpected first install result %#v", firstInstall)
+	}
+	if firstInstall.CanonicalSourceKey != "github:acme/setta-fixture-frontend" {
+		t.Fatalf("unexpected canonical source key %q", firstInstall.CanonicalSourceKey)
+	}
+	if firstInstall.SourceDigestSHA256 == nil || strings.TrimSpace(*firstInstall.SourceDigestSHA256) == "" {
+		t.Fatalf("expected first install source digest to be populated")
+	}
+
+	installedRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-frontend")
+	if _, err := os.Stat(filepath.Join(installedRoot, ".git")); !os.IsNotExist(err) {
+		t.Fatalf("expected installed plugin root to exclude git metadata, got err=%v", err)
+	}
+
+	if _, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-frontend",
+		Scope:    scopePointer(PluginScopeWorkspace),
+	}); err != nil {
+		t.Fatalf("uninstall GitHub plugin: %v", err)
+	}
+
+	secondInstall, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: sourceSpec,
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("reinstall GitHub plugin: %v", err)
+	}
+	if secondInstall.SourceDigestSHA256 == nil || *secondInstall.SourceDigestSHA256 != *firstInstall.SourceDigestSHA256 {
+		t.Fatalf("expected stable GitHub source digest across reinstall, got first=%#v second=%#v", firstInstall.SourceDigestSHA256, secondInstall.SourceDigestSHA256)
+	}
+}
+
 // The mutation service should support an install/update/rollback/uninstall lifecycle over real plugin fixtures.
 func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
