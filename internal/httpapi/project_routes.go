@@ -2633,33 +2633,67 @@ func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.Handler
 			return
 		}
 
-		if _, err := runtime.MutateAndSave(
-			projectMutationContext(r.Context(), payload.FrontendOpID),
-			func(document projectstate.Document) (projectstate.Document, error) {
-				validation, err := projectstate.ValidateVariantJSONSourceKeys(
-					document,
-					deps.WorkspaceRoot,
-					projectID,
-					payload.SectionID,
-					payload.VariantID,
-					payload.JSONSourceKeys,
-				)
-				if err != nil {
-					return document, err
-				}
+		ctx := projectMutationContext(r.Context(), payload.FrontendOpID)
+		mutate := func(document projectstate.Document) (projectstate.Document, error) {
+			resolution, err := projectstate.ResolveVariantJSONSourceKeys(
+				document,
+				deps.WorkspaceRoot,
+				projectID,
+				payload.SectionID,
+				payload.VariantID,
+				payload.JSONSourceKeys,
+			)
+			if err != nil {
+				return document, err
+			}
+			if resolution.JSONSourceMissing {
 				if err := document.SetVariantJSONSourceKeysState(
 					projectID,
 					payload.SectionID,
 					payload.VariantID,
-					validation.JSONSourceKeys,
-					validation.JSONSourceMissing,
+					resolution.JSONSourceKeys,
+					true,
 				); err != nil {
 					return document, err
 				}
 				return document, nil
-			},
-		); err != nil {
-			writeVariantJSONSourceMutationError(w, r, err)
+			}
+			if resolution.JSONSourceObject == nil {
+				return document, fmt.Errorf("json source object resolution missing for existing file")
+			}
+			if err := document.RefreshVariantJSONSourceLiveTree(
+				projectID,
+				payload.SectionID,
+				payload.VariantID,
+				resolution.JSONSourceKeys,
+				*resolution.JSONSourceObject,
+			); err != nil {
+				return document, err
+			}
+			return document, nil
+		}
+
+		snapshotErr := func() error {
+			resolution, err := projectstate.ResolveVariantJSONSourceKeys(
+				runtime.Snapshot().Document,
+				deps.WorkspaceRoot,
+				projectID,
+				payload.SectionID,
+				payload.VariantID,
+				payload.JSONSourceKeys,
+			)
+			if err != nil {
+				return err
+			}
+			if resolution.JSONSourceMissing {
+				_, err = runtime.MutateAndSave(ctx, mutate)
+				return err
+			}
+			_, err = runtime.MutateWithContext(ctx, mutate)
+			return err
+		}()
+		if snapshotErr != nil {
+			writeVariantJSONSourceMutationError(w, r, snapshotErr)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

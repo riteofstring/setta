@@ -202,6 +202,31 @@ func (r *Runtime) Mutate(mutate Mutation) (Snapshot, error) {
 	})
 }
 
+func (r *Runtime) MutateWithContext(ctx context.Context, mutate Mutation) (Snapshot, error) {
+	if mutate == nil {
+		return Snapshot{}, ErrMutationMissing
+	}
+
+	return r.submit(operation{
+		frontendOpID: frontendOpIDFromContext(ctx),
+		run: func(state *runtimeState) (Snapshot, error) {
+			nextDocument, err := mutate(state.current.Clone())
+			if err != nil {
+				return snapshotFromState(*state), err
+			}
+
+			normalized, err := nextDocument.Normalized()
+			if err != nil {
+				return snapshotFromState(*state), err
+			}
+
+			applyRuntimeMutationState(state, normalized)
+
+			return snapshotFromState(*state), nil
+		},
+	})
+}
+
 func (r *Runtime) Flush() (Snapshot, error) {
 	return r.submit(operation{
 		run: func(state *runtimeState) (Snapshot, error) {
