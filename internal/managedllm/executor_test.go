@@ -1136,6 +1136,83 @@ func TestExecutorExecuteToolCallsReturnsSearchHintForMissingTool(t *testing.T) {
 	}
 }
 
+func TestExecutorExecuteToolCallsReturnsDisallowedToolErrorResult(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	toolCalls := []map[string]any{
+		{
+			"id": "tool-call-1",
+			"function": map[string]any{
+				"name":      "setta__change_section_impl",
+				"arguments": map[string]any{},
+			},
+		},
+	}
+
+	toolMessages, providerMessages, err := executor.executeToolCalls(
+		context.Background(),
+		preparedExecution{
+			provider: openAIProvider,
+			availableTools: map[string]mcpx.ToolDescriptor{
+				"setta__change_section_impl": {
+					NamespacedName: "setta__change_section_impl",
+				},
+			},
+			toolAllowlist: &toolAllowlist{
+				toolNames:     map[string]struct{}{},
+				toolBasenames: map[string]struct{}{},
+				serverIDs:     map[string]struct{}{},
+			},
+		},
+		agentruns.ExecutionRequest{},
+		toolCalls,
+	)
+	if err != nil {
+		t.Fatalf("execute tool calls: %v", err)
+	}
+	if len(toolMessages) != 1 {
+		t.Fatalf("expected one tool message, got %#v", toolMessages)
+	}
+	if len(providerMessages) != 1 {
+		t.Fatalf("expected one provider message, got %#v", providerMessages)
+	}
+
+	toolMessage := toolMessages[0]
+	if toolMessage["is_error"] != true {
+		t.Fatalf("expected error tool message, got %#v", toolMessage)
+	}
+	content, ok := toolMessage["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected one content block, got %#v", toolMessage["content"])
+	}
+	block, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected object content block, got %#v", content[0])
+	}
+	text, _ := block["text"].(string)
+	if !strings.Contains(text, "not allowed for this chat") {
+		t.Fatalf("expected disallowed-tool message, got %q", text)
+	}
+
+	resultPayload, ok := toolMessage["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured result payload, got %#v", toolMessage["result"])
+	}
+	structuredContent, ok := resultPayload["structuredContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured result content, got %#v", resultPayload["structuredContent"])
+	}
+	if structuredContent["tool_name"] != "setta__change_section_impl" {
+		t.Fatalf("expected disallowed tool name in structured result, got %#v", structuredContent["tool_name"])
+	}
+
+	providerContent, _ := providerMessages[0]["content"].(string)
+	if !strings.Contains(providerContent, "not allowed for this chat") {
+		t.Fatalf("expected provider follow-up message to include disallowed tool text, got %q", providerContent)
+	}
+}
+
 func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	t.Parallel()
 
