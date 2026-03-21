@@ -383,6 +383,82 @@ func TestBuildToolDefinitionsFailsClosedWhenCompletionStatusToolMissing(t *testi
 	}
 }
 
+func TestToolCallAccumulatorAccumulatesByIndexAndMergesDeltas(t *testing.T) {
+	t.Parallel()
+
+	accumulator := newToolCallAccumulator()
+	accumulator.apply(1, "tool-call-2", "", "setta__run_tool", `{"value": `)
+	accumulator.apply(0, "tool-call-1", "", "setta__other_tool", `{}`)
+	accumulator.apply(1, "", "", "", `"ok"}`)
+
+	toolCalls, err := accumulator.finalize()
+	if err != nil {
+		t.Fatalf("finalize tool calls: %v", err)
+	}
+	if len(toolCalls) != 2 {
+		t.Fatalf("expected two tool calls, got %#v", toolCalls)
+	}
+	if got := toolCalls[0]["id"]; got != "tool-call-1" {
+		t.Fatalf("expected index-sorted tool call at slot 0, got %#v", toolCalls)
+	}
+	firstFunction, _ := toolCalls[0]["function"].(map[string]any)
+	if got := firstFunction["name"]; got != "setta__other_tool" {
+		t.Fatalf("expected first tool name setta__other_tool, got %#v", toolCalls)
+	}
+	if got := firstFunction["arguments"]; !reflect.DeepEqual(got, map[string]any{}) {
+		t.Fatalf("expected empty parsed arguments for first tool call, got %#v", got)
+	}
+	if got := toolCalls[1]["id"]; got != "tool-call-2" {
+		t.Fatalf("expected merged tool call at slot 1, got %#v", toolCalls)
+	}
+	secondFunction, _ := toolCalls[1]["function"].(map[string]any)
+	if got := secondFunction["name"]; got != "setta__run_tool" {
+		t.Fatalf("expected second tool name setta__run_tool, got %#v", toolCalls)
+	}
+	if got := secondFunction["arguments"]; !reflect.DeepEqual(got, map[string]any{"value": "ok"}) {
+		t.Fatalf("expected merged parsed arguments, got %#v", got)
+	}
+}
+
+func TestToolCallAccumulatorApplyResolvedUsesFullPayload(t *testing.T) {
+	t.Parallel()
+
+	accumulator := newToolCallAccumulator()
+	accumulator.applyResolved(0, "tool-call-1", "", "setta__run_tool", `{"value":"ok"}`)
+
+	toolCalls, err := accumulator.finalize()
+	if err != nil {
+		t.Fatalf("finalize resolved tool call: %v", err)
+	}
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected one tool call, got %#v", toolCalls)
+	}
+	function, _ := toolCalls[0]["function"].(map[string]any)
+	if got := function["arguments"]; !reflect.DeepEqual(got, map[string]any{"value": "ok"}) {
+		t.Fatalf("expected resolved full payload arguments, got %#v", got)
+	}
+}
+
+func TestFinalizeAssistantToolCallsBestEffortSkipsMalformedArguments(t *testing.T) {
+	t.Parallel()
+
+	accumulator := newToolCallAccumulator()
+	accumulator.apply(0, "tool-call-1", "", "setta__run_tool", `{"value": `)
+
+	message := map[string]any{
+		"id":   "assistant-1",
+		"role": "assistant",
+	}
+	if err := finalizeAssistantToolCalls(message, accumulator); err == nil {
+		t.Fatal("expected strict finalize to reject malformed arguments")
+	}
+
+	finalizeAssistantToolCallsBestEffort(message, accumulator)
+	if _, ok := message["tool_calls"]; ok {
+		t.Fatalf("expected best-effort finalize to skip malformed tool calls, got %#v", message["tool_calls"])
+	}
+}
+
 func toolNamesFromPayload(payload []map[string]any) []string {
 	names := make([]string, 0, len(payload))
 	for _, tool := range payload {
