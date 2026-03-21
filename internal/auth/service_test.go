@@ -82,6 +82,38 @@ func TestLoadCurrentSessionUsesSessionsRootOverride(t *testing.T) {
 	}
 }
 
+func TestLoadCurrentSessionPrefersExplicitEnvSession(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+
+	writeSessionFixture(t, runtimeRoot, "session-a", []byte("first-secret"))
+	selectedMetadata := writeSessionFixture(t, runtimeRoot, "session-b", []byte("second-secret"))
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup: envMap{
+			sessionIDEnv: "session-b",
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session with explicit env session: %v", err)
+	}
+	if currentSession == nil {
+		t.Fatal("expected current session from explicit env selection")
+	}
+
+	// When multiple session directories exist, the explicit SETTA_SESSION_ID must
+	// stay authoritative instead of drifting to another on-disk session.
+	if currentSession.Metadata.ID != selectedMetadata.ID {
+		t.Fatalf("expected selected session id %q, got %q", selectedMetadata.ID, currentSession.Metadata.ID)
+	}
+	if string(currentSession.Secret) != "second-secret" {
+		t.Fatalf("expected selected session secret %q, got %q", "second-secret", string(currentSession.Secret))
+	}
+}
+
 func TestLoadCurrentSessionReturnsNilWithoutSessionID(t *testing.T) {
 	t.Parallel()
 
