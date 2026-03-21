@@ -17,7 +17,17 @@ import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectCha
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type PointerEvent,
+  type SetStateAction,
+} from "react";
 import { useProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,
@@ -74,6 +84,20 @@ const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LAYER_Z_INDEX = 24;
 
+type StandaloneWindowSpaceWindowSurfaceProps = {
+  window: StandaloneWindowSpaceWindow;
+  projectConfigId: string;
+  windowSpaceId: string;
+  setLocalWindowsById: Dispatch<
+    SetStateAction<Record<string, StandaloneWindowSpaceWindow>>
+  >;
+  onFocusWindow: (instanceId: string) => void;
+  onWindowBlockedErrorCodeChange: (
+    instanceId: string,
+    errorCode: string | null,
+  ) => void;
+};
+
 function resolveStandaloneWindowSpaceChatId(
   mode: ChatWindowMode,
   chatId: string | null | undefined,
@@ -89,6 +113,174 @@ function canControlStandaloneWindowChatId(
 ): boolean {
   return window.mode === ChatWindowModeEnum.project_ai_mode;
 }
+
+function resolveStandaloneWindowProjectChatUpdate(
+  next: SetStateAction<string | null | undefined>,
+  currentChatId: string | null | undefined,
+): string | null | undefined {
+  if (typeof next === "function") {
+    return next(currentChatId ?? undefined);
+  }
+  return next;
+}
+
+function areStandaloneWindowSpaceWindowSurfacePropsEqual(
+  previous: StandaloneWindowSpaceWindowSurfaceProps,
+  next: StandaloneWindowSpaceWindowSurfaceProps,
+): boolean {
+  return (
+    previous.window === next.window &&
+    previous.projectConfigId === next.projectConfigId &&
+    previous.windowSpaceId === next.windowSpaceId &&
+    previous.setLocalWindowsById === next.setLocalWindowsById &&
+    previous.onFocusWindow === next.onFocusWindow &&
+    previous.onWindowBlockedErrorCodeChange ===
+      next.onWindowBlockedErrorCodeChange
+  );
+}
+
+const StandaloneWindowSpaceWindowSurface = memo(
+  function StandaloneWindowSpaceWindowSurface({
+    window,
+    projectConfigId,
+    windowSpaceId,
+    setLocalWindowsById,
+    onFocusWindow,
+    onWindowBlockedErrorCodeChange,
+  }: StandaloneWindowSpaceWindowSurfaceProps) {
+    const projectChatSurfaceId = buildStandaloneWindowSpaceProjectChatSurfaceId(
+      projectConfigId,
+      windowSpaceId,
+      window.instanceId,
+    );
+    const handleFocus = () => {
+      onFocusWindow(window.instanceId);
+    };
+    let content;
+
+    if (
+      window.surfaceKind === WindowSpaceSurfaceKindEnum.section &&
+      window.sectionIdOrNull
+    ) {
+      const canControlProjectChatId = canControlStandaloneWindowChatId(window);
+      const controlledProjectChatId = canControlProjectChatId
+        ? window.chatId ?? undefined
+        : undefined;
+      const setControlledProjectChatId = canControlProjectChatId
+        ? (next: SetStateAction<string | null | undefined>) => {
+            const resolvedChatId = resolveStandaloneWindowProjectChatUpdate(
+              next,
+              window.chatId,
+            );
+            setLocalWindowsById((current) =>
+              setStandaloneProjectChatWindowChatId(
+                current,
+                window.instanceId,
+                resolvedChatId,
+              ),
+            );
+          }
+        : undefined;
+      content = (
+        <SectionWindowSurface
+          sectionId={window.sectionIdOrNull}
+          headerActions={null}
+          roundedClassName="rounded-none"
+          chatHost={ChatWindowPlacementEnum.floating}
+          chatModeOverride={window.mode}
+          projectChatSurfaceId={projectChatSurfaceId}
+          projectChatId={controlledProjectChatId}
+          setProjectChatId={setControlledProjectChatId}
+          headerProps={{
+            onPointerDown: handleFocus,
+          }}
+          onProjectChatBlockedErrorCodeChange={(errorCode) => {
+            onWindowBlockedErrorCodeChange(window.instanceId, errorCode);
+          }}
+        />
+      );
+    } else {
+      let projectChatBody;
+      if (window.mode === ChatWindowModeEnum.git_graph_mode) {
+        projectChatBody = (
+          <GitGraphWindowContent
+            instanceId={window.instanceId}
+            showEmbeddedGitPaneToggle
+            embeddedGitPaneVisible={window.embeddedGitPaneVisible}
+            onEmbeddedGitPaneVisibleChange={(visible) => {
+              setLocalWindowsById((current) =>
+                setStandaloneEmbeddedGitPaneVisibility(
+                  current,
+                  window.instanceId,
+                  visible,
+                ),
+              );
+            }}
+          />
+        );
+      } else {
+        projectChatBody = (
+          <UnifiedChatSurface
+            key={`${projectChatSurfaceId}:${window.chatId ?? "global"}`}
+            mode={window.mode}
+            host={ChatWindowPlacementEnum.floating}
+            surfaceId={projectChatSurfaceId}
+            projectChatId={window.chatId}
+            setProjectChatId={(next) => {
+              const resolvedChatId = resolveStandaloneWindowProjectChatUpdate(
+                next,
+                window.chatId,
+              );
+              setLocalWindowsById((current) =>
+                setStandaloneProjectChatWindowChatId(
+                  current,
+                  window.instanceId,
+                  resolvedChatId,
+                ),
+              );
+            }}
+            onProjectChatBlockedErrorCodeChange={(errorCode) => {
+              onWindowBlockedErrorCodeChange(window.instanceId, errorCode);
+            }}
+          />
+        );
+      }
+
+      content = (
+        <ProjectChatWindowSurface
+          title={window.title}
+          mode={window.mode}
+          instanceId={window.instanceId}
+          roundedClassName="rounded-none"
+          actions={[]}
+          onTitleClick={handleFocus}
+        >
+          {projectChatBody}
+        </ProjectChatWindowSurface>
+      );
+    }
+
+    return (
+      <article
+        className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden ${STANDALONE_WINDOW_SPACE_WINDOW_FRAME_CLASS}`}
+        style={{
+          left: window.bounds.x,
+          top: window.bounds.y,
+          width: window.bounds.width,
+          height: window.bounds.height,
+          zIndex: window.zIndex,
+        }}
+        data-testid="standalone-window-space-window"
+        data-chat-window-instance-id={window.instanceId}
+        data-window-space-surface-kind={window.surfaceKind}
+        onPointerDown={handleFocus}
+      >
+        {content}
+      </article>
+    );
+  },
+  areStandaloneWindowSpaceWindowSurfacePropsEqual,
+);
 
 function hydrateWindowSpaceWindows(
   windowSpace: WindowSpaceConfig,
@@ -465,6 +657,7 @@ export function StandaloneWindowSpaceSurface({
   const hydrationKey = `${projectConfigId}:${windowSpace.id}`;
   const previousHydrationKeyRef = useRef(hydrationKey);
   const previousCanUseManagedChatRef = useRef(canUseManagedChat);
+  const hasMountedHydrationKeyRef = useRef(false);
 
   useEffect(() => {
     setLocalWindowsById((current) => {
@@ -486,6 +679,10 @@ export function StandaloneWindowSpaceSurface({
   }, [hydratedWindowsById, hydrationKey]);
 
   useEffect(() => {
+    if (!hasMountedHydrationKeyRef.current) {
+      hasMountedHydrationKeyRef.current = true;
+      return;
+    }
     setBlockedManagedWindowIds((current) => {
       if (Object.keys(current).length === 0) {
         return current;
@@ -561,29 +758,37 @@ export function StandaloneWindowSpaceSurface({
   }, [localWindowsById, managedChatAuthorityState]);
   const shouldShowManagedChatBlockedSurface =
     visibleWindows.length === 0 && hasManagedWindows;
-  const setWindowBlockedErrorCode = (
-    instanceId: string,
-    errorCode: string | null,
-  ) => {
-    setBlockedManagedWindowIds((current) => {
-      const shouldBlock = errorCode === "llm_disallowed";
-      if (shouldBlock) {
-        if (current[instanceId]) {
+  const onFocusWindow = useCallback(
+    (instanceId: string) => {
+      setLocalWindowsById((current) =>
+        focusStandaloneWindow(current, instanceId),
+      );
+    },
+    [setLocalWindowsById],
+  );
+  const setWindowBlockedErrorCode = useCallback(
+    (instanceId: string, errorCode: string | null) => {
+      setBlockedManagedWindowIds((current) => {
+        const shouldBlock = errorCode === "llm_disallowed";
+        if (shouldBlock) {
+          if (current[instanceId]) {
+            return current;
+          }
+          return {
+            ...current,
+            [instanceId]: true,
+          };
+        }
+        if (!current[instanceId]) {
           return current;
         }
-        return {
-          ...current,
-          [instanceId]: true,
-        };
-      }
-      if (!current[instanceId]) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  };
+        const next = { ...current };
+        delete next[instanceId];
+        return next;
+      });
+    },
+    [setBlockedManagedWindowIds],
+  );
   const snappedWindows = useMemo(() => {
     return visibleWindows.flatMap((window) => {
       const snapPreset = resolveFloatingSnapPresetFromBounds(
@@ -766,135 +971,15 @@ export function StandaloneWindowSpaceSurface({
         </div>
       ) : null}
       {visibleWindows.map((window) => (
-        <article
+        <StandaloneWindowSpaceWindowSurface
           key={window.instanceId}
-          className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden ${STANDALONE_WINDOW_SPACE_WINDOW_FRAME_CLASS}`}
-          style={{
-            left: window.bounds.x,
-            top: window.bounds.y,
-            width: window.bounds.width,
-            height: window.bounds.height,
-            zIndex: window.zIndex,
-          }}
-          data-testid="standalone-window-space-window"
-          data-chat-window-instance-id={window.instanceId}
-          data-window-space-surface-kind={window.surfaceKind}
-          onPointerDown={() => {
-            setLocalWindowsById((current) =>
-              focusStandaloneWindow(current, window.instanceId),
-            );
-          }}
-        >
-          {window.surfaceKind === WindowSpaceSurfaceKindEnum.section &&
-          window.sectionIdOrNull ? (
-            <SectionWindowSurface
-              sectionId={window.sectionIdOrNull}
-              headerActions={null}
-              roundedClassName="rounded-none"
-              chatHost={ChatWindowPlacementEnum.floating}
-              chatModeOverride={window.mode}
-              projectChatSurfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
-                projectConfigId,
-                windowSpace.id,
-                window.instanceId,
-              )}
-              projectChatId={
-                canControlStandaloneWindowChatId(window)
-                  ? window.chatId
-                  : undefined
-              }
-              setProjectChatId={
-                canControlStandaloneWindowChatId(window)
-                  ? (next) => {
-                      const resolvedChatId =
-                        typeof next === "function"
-                          ? next(window.chatId ?? undefined)
-                          : next;
-                      setLocalWindowsById((current) =>
-                        setStandaloneProjectChatWindowChatId(
-                          current,
-                          window.instanceId,
-                          resolvedChatId,
-                        ),
-                      );
-                    }
-                  : undefined
-              }
-              headerProps={{
-                onPointerDown: () => {
-                  setLocalWindowsById((current) =>
-                    focusStandaloneWindow(current, window.instanceId),
-                  );
-                },
-              }}
-              onProjectChatBlockedErrorCodeChange={(errorCode) => {
-                setWindowBlockedErrorCode(window.instanceId, errorCode);
-              }}
-            />
-          ) : (
-            <ProjectChatWindowSurface
-              title={window.title}
-              mode={window.mode}
-              instanceId={window.instanceId}
-              roundedClassName="rounded-none"
-              actions={[]}
-              onTitleClick={() => {
-                setLocalWindowsById((current) =>
-                  focusStandaloneWindow(current, window.instanceId),
-                );
-              }}
-            >
-              {window.mode === ChatWindowModeEnum.git_graph_mode ? (
-                <GitGraphWindowContent
-                  instanceId={window.instanceId}
-                  showEmbeddedGitPaneToggle
-                  embeddedGitPaneVisible={window.embeddedGitPaneVisible}
-                  onEmbeddedGitPaneVisibleChange={(visible) => {
-                    setLocalWindowsById((current) =>
-                      setStandaloneEmbeddedGitPaneVisibility(
-                        current,
-                        window.instanceId,
-                        visible,
-                      ),
-                    );
-                  }}
-                />
-              ) : (
-                <UnifiedChatSurface
-                  key={`${buildStandaloneWindowSpaceProjectChatSurfaceId(
-                    projectConfigId,
-                    windowSpace.id,
-                    window.instanceId,
-                  )}:${window.chatId ?? "global"}`}
-                  mode={window.mode}
-                  host={ChatWindowPlacementEnum.floating}
-                  surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
-                    projectConfigId,
-                    windowSpace.id,
-                    window.instanceId,
-                  )}
-                  projectChatId={window.chatId}
-                  setProjectChatId={(next) => {
-                    const resolvedChatId =
-                      typeof next === "function"
-                        ? next(window.chatId ?? undefined)
-                        : next;
-                    setLocalWindowsById((current) =>
-                      setStandaloneProjectChatWindowChatId(
-                        current,
-                        window.instanceId,
-                        resolvedChatId,
-                      ),
-                    );
-                  }}
-                  onProjectChatBlockedErrorCodeChange={(errorCode) => {
-                    setWindowBlockedErrorCode(window.instanceId, errorCode);
-                  }}
-                />
-              )}
-            </ProjectChatWindowSurface>
-          )}
-        </article>
+          window={window}
+          projectConfigId={projectConfigId}
+          windowSpaceId={windowSpace.id}
+          setLocalWindowsById={setLocalWindowsById}
+          onFocusWindow={onFocusWindow}
+          onWindowBlockedErrorCodeChange={setWindowBlockedErrorCode}
+        />
       ))}
       {snapResizeHandles.length > 0 ? (
         <div
