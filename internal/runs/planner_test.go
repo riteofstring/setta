@@ -883,7 +883,7 @@ func newGeneratedEntryParamOverridePlannerTestFixture(t *testing.T) plannerTestF
 		},
 	}
 
-	rendered, ok, err := codegen.RenderPythonProject(document.Projects["project-alpha"], runtimeRoot)
+	rendered, ok, err := codegen.RenderPythonProject(document.Projects["project-alpha"], settaFilesRoot, runtimeRoot)
 	if err != nil {
 		t.Fatalf("render base generated project: %v", err)
 	}

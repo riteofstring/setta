@@ -436,7 +436,7 @@ func (p *Planner) collectGeneratedEntryInputs(
 }
 
 func (p *Planner) renderGeneratedEntryInputs(project projectstate.Project) ([]codeSectionInput, error) {
-	rendered, ok, err := codegen.RenderPythonProject(project, p.runtimeRoot)
+	rendered, ok, err := codegen.RenderPythonProject(project, p.settaFilesRoot, p.runtimeRoot)
 	if err != nil {
 		return nil, err
 	}

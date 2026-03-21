@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 	"setta/internal/statefs"
 )
 
@@ -218,18 +219,22 @@ func (m *PythonMaterializer) materializeProject(project projectstate.Project) er
 }
 
 func (m *PythonMaterializer) renderProject(project projectstate.Project) (RenderedPythonProject, bool, error) {
-	return RenderPythonProject(project, m.runtimeRoot)
+	return RenderPythonProject(project, m.settaFilesRoot, m.runtimeRoot)
 }
 
-func RenderPythonProject(project projectstate.Project, runtimeRoot string) (RenderedPythonProject, bool, error) {
+func RenderPythonProject(project projectstate.Project, settaFilesRoot string, runtimeRoot string) (RenderedPythonProject, bool, error) {
+	resolvedSettaFilesRoot, err := statefs.NormalizePath(settaFilesRoot, "")
+	if err != nil {
+		return RenderedPythonProject{}, false, ErrPythonCodegenSettaFilesRootRequired
+	}
 	resolvedRuntimeRoot, err := statefs.NormalizePath(runtimeRoot, "")
 	if err != nil {
 		return RenderedPythonProject{}, false, ErrPythonCodegenRuntimeRootRequired
 	}
-	return renderPythonProject(project, resolvedRuntimeRoot)
+	return renderPythonProject(project, resolvedSettaFilesRoot, resolvedRuntimeRoot)
 }
 
-func renderPythonProject(project projectstate.Project, runtimeRoot string) (RenderedPythonProject, bool, error) {
+func renderPythonProject(project projectstate.Project, settaFilesRoot string, runtimeRoot string) (RenderedPythonProject, bool, error) {
 	target, ok, err := project.PythonCodegenTarget()
 	if err != nil {
 		return RenderedPythonProject{}, false, err
@@ -249,8 +254,13 @@ func renderPythonProject(project projectstate.Project, runtimeRoot string) (Rend
 	if err != nil {
 		return RenderedPythonProject{}, false, err
 	}
+	promptTemplateStore, err := prompttemplates.NewStore(settaFilesRoot)
+	if err != nil {
+		return RenderedPythonProject{}, false, err
+	}
 	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{
 		PasswordSecrets: passwordSecrets,
+		PromptTemplates: promptTemplateStore,
 	})
 	if err != nil {
 		return RenderedPythonProject{}, false, err

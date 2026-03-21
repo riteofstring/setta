@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 )
 
 var (
@@ -19,6 +20,7 @@ var (
 
 type PythonDependencyGraphOptions struct {
 	PasswordSecrets map[string]string
+	PromptTemplates *prompttemplates.Store
 }
 
 type PythonDependencyKey struct {
@@ -156,6 +158,7 @@ type pythonDependencyGraphBuilder struct {
 	export          projectstate.PythonCodegenExport
 	graph           *PythonDependencyGraph
 	passwordSecrets map[string]string
+	promptTemplates *prompttemplates.Store
 	potentialRefs   map[PythonDependencyKey]map[string][]int
 }
 
@@ -194,6 +197,7 @@ func BuildPythonDependencyGraph(
 			PasswordSecrets:   cloneStringMap(options.PasswordSecrets),
 		},
 		passwordSecrets: cloneStringMap(options.PasswordSecrets),
+		promptTemplates: options.PromptTemplates,
 		potentialRefs:   map[PythonDependencyKey]map[string][]int{},
 	}
 	if _, _, err := builder.exportSections(export.TopLevelSectionIDs, true, nil); err != nil {
@@ -384,13 +388,29 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 		b.addNode(key, node)
 		return key, node, nil
 	case "Prompt":
+		promptText := section.StringField("renderedText")
+		if b.promptTemplates != nil {
+			promptTemplateID := section.StringField("promptTemplateId")
+			if promptTemplateID != "" {
+				template, err := b.promptTemplates.Get(promptTemplateID)
+				if err != nil {
+					return PythonDependencyKey{}, nil, fmt.Errorf(
+						"codegen: resolve prompt template %q for prompt section %q: %w",
+						promptTemplateID,
+						section.ID,
+						err,
+					)
+				}
+				promptText = template.Template
+			}
+		}
 		node := &PythonSectionNode{
 			PythonDependencyNodeBase: PythonDependencyNodeBase{
 				ID:               section.ID,
 				Name:             section.Name,
 				FullPathName:     fullPathName,
 				IsTopLevel:       isTopLevel,
-				Value:            LiteralDependencyValue{Payload: section.StringField("renderedText")},
+				Value:            LiteralDependencyValue{Payload: promptText},
 				Deps:             map[PythonDependencyKey]bool{},
 				IncludeInCodegen: section.Policy.IncludeInCodegen,
 			},

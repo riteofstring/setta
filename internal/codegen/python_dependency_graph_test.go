@@ -2,9 +2,12 @@ package codegen
 
 import (
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 )
 
 // The first Slice 3 graph layer should export callable sections and params with deterministic Python path names.
@@ -1055,6 +1058,158 @@ func TestBuildPythonDependencyGraphSectionValueModesCoverPromptAndFileModeMatrix
 				t.Fatalf("unsupported expected value kind %q", testCase.expectedValueKind)
 			}
 		})
+	}
+}
+
+func TestBuildPythonDependencyGraphPromptSectionUsesLiveLinkedTemplateTextWhenStoreProvided(t *testing.T) {
+	t.Parallel()
+
+	store, err := prompttemplates.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-alpha",
+		Name:     "Greeting",
+		Template: "Hello from the updated saved template.",
+		Format:   prompttemplates.FormatJinja,
+	}); err != nil {
+		t.Fatalf("save prompt template: %v", err)
+	}
+
+	project := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{{
+			Language: string(projectstate.CodeLanguagePython),
+			Payload: mustPythonSectionTypePolicyPayload(
+				t,
+				"Prompt",
+				projectstate.PythonSectionRepresentationExpression,
+			),
+		}},
+		TopLevelSectionIDs: []string{"prompt-section"},
+		SectionVariantMap: map[string]string{
+			"prompt-section": "prompt-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"prompt-section": {
+				ID:               "prompt-section",
+				Name:             "Prompt Section",
+				VariantIDs:       []string{"prompt-variant"},
+				DefaultVariantID: "prompt-variant",
+				SharedModifier: mustRawJSON(
+					t,
+					`{
+						"promptTemplateId":"template-alpha",
+						"template":"stale prompt snapshot",
+						"format":"Jinja",
+						"renderedText":"stale rendered preview"
+					}`,
+				),
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"prompt-variant": {
+				ID:     "prompt-variant",
+				ImplID: "prompt-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"prompt-impl": {
+				ID: "prompt-impl",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"prompt-impl","type":"Prompt","template":"","format":"Jinja","renderedText":""}`,
+				),
+			},
+		},
+	}
+
+	exported := mustPythonCodegenExport(t, project)
+	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{
+		PromptTemplates: store,
+	})
+	if err != nil {
+		t.Fatalf("build python dependency graph: %v", err)
+	}
+
+	node := mustSectionNode(t, graph, PythonSectionDependencyKey("prompt-section"))
+	value, ok := node.Value.(LiteralDependencyValue)
+	if !ok {
+		t.Fatalf("expected prompt node literal dependency value, got %#v", node.Value)
+	}
+	if value.Payload != "Hello from the updated saved template." {
+		t.Fatalf("expected live linked template text, got %q", value.Payload)
+	}
+}
+
+func TestBuildPythonDependencyGraphPromptSectionFailsClosedWhenLinkedTemplateMissingWithStore(t *testing.T) {
+	t.Parallel()
+
+	store, err := prompttemplates.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+
+	project := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{{
+			Language: string(projectstate.CodeLanguagePython),
+			Payload: mustPythonSectionTypePolicyPayload(
+				t,
+				"Prompt",
+				projectstate.PythonSectionRepresentationExpression,
+			),
+		}},
+		TopLevelSectionIDs: []string{"prompt-section"},
+		SectionVariantMap: map[string]string{
+			"prompt-section": "prompt-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"prompt-section": {
+				ID:               "prompt-section",
+				Name:             "Prompt Section",
+				VariantIDs:       []string{"prompt-variant"},
+				DefaultVariantID: "prompt-variant",
+				SharedModifier: mustRawJSON(
+					t,
+					`{
+						"promptTemplateId":"template-missing",
+						"template":"stale prompt snapshot",
+						"format":"Jinja",
+						"renderedText":"stale rendered preview"
+					}`,
+				),
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"prompt-variant": {
+				ID:     "prompt-variant",
+				ImplID: "prompt-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"prompt-impl": {
+				ID: "prompt-impl",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"prompt-impl","type":"Prompt","template":"","format":"Jinja","renderedText":""}`,
+				),
+			},
+		},
+	}
+
+	exported := mustPythonCodegenExport(t, project)
+	_, err = BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{
+		PromptTemplates: store,
+	})
+	if !errors.Is(err, prompttemplates.ErrTemplateNotFound) {
+		t.Fatalf("expected prompt template not found error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "template-missing") {
+		t.Fatalf("expected missing template id in error, got %v", err)
 	}
 }
 
