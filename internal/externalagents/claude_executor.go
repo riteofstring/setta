@@ -1325,8 +1325,11 @@ func (p *claudeEventParser) handleAssistantMessage(messagePayload map[string]any
 					appendAssistantDelta(state, messageID, text)
 				}
 			case "thinking":
-				if thinking := strings.TrimSpace(stringValue(entry["thinking"])); thinking != "" {
-					appendAssistantThinkingDelta(state, messageID, thinking)
+				thinking := strings.TrimSpace(stringValue(entry["thinking"]))
+				summary := optionalStringValue(entry, "summary")
+				signature := optionalStringValue(entry, "signature")
+				if thinking != "" || summary != nil || signature != nil {
+					appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
 				}
 			case "tool_use":
 				toolCallID := strings.TrimSpace(stringValue(entry["id"]))
@@ -1385,8 +1388,11 @@ func (p *claudeEventParser) handleContentBlockStart(eventPayload map[string]any,
 			return true, nil
 		}
 	case "thinking":
-		if thinking := stringValue(contentBlock["thinking"]); thinking != "" {
-			appendAssistantThinkingDelta(state, messageID, thinking)
+		thinking := stringValue(contentBlock["thinking"])
+		summary := optionalStringValue(contentBlock, "summary")
+		signature := optionalStringValue(contentBlock, "signature")
+		if thinking != "" || summary != nil || signature != nil {
+			appendAssistantThinkingUpdate(state, messageID, thinking, summary, signature)
 			return true, nil
 		}
 	case "tool_use":
@@ -1457,10 +1463,25 @@ func (p *claudeEventParser) handleContentBlockDelta(eventPayload map[string]any,
 		return true, nil
 	case blockType == "thinking" && strings.TrimSpace(stringValue(delta["type"])) == "thinking_delta":
 		thinking := stringValue(delta["thinking"])
-		if thinking == "" {
+		summary := optionalStringValue(delta, "summary")
+		if thinking == "" && summary == nil {
 			return false, nil
 		}
-		appendAssistantThinkingDelta(state, messageID, thinking)
+		appendAssistantThinkingUpdate(state, messageID, thinking, summary, nil)
+		return true, nil
+	case blockType == "thinking" && strings.TrimSpace(stringValue(delta["type"])) == "signature_delta":
+		signature := optionalStringValue(delta, "signature")
+		if signature == nil {
+			return false, nil
+		}
+		appendAssistantThinkingUpdate(state, messageID, "", nil, signature)
+		return true, nil
+	case blockType == "thinking" && strings.TrimSpace(stringValue(delta["type"])) == "summary_delta":
+		summary := optionalStringValue(delta, "summary")
+		if summary == nil {
+			return false, nil
+		}
+		appendAssistantThinkingUpdate(state, messageID, "", summary, nil)
 		return true, nil
 	case blockType == "tool_use" && strings.TrimSpace(stringValue(delta["type"])) == "input_json_delta":
 		toolCallID := strings.TrimSpace(p.toolUseIDsByIndex[index])
@@ -1572,4 +1593,16 @@ func decodeJSONObject(raw string) (map[string]any, bool) {
 		return nil, false
 	}
 	return parsed, true
+}
+
+func optionalStringValue(payload map[string]any, key string) *string {
+	if payload == nil {
+		return nil
+	}
+	raw, ok := payload[key]
+	if !ok {
+		return nil
+	}
+	value := stringValue(raw)
+	return &value
 }

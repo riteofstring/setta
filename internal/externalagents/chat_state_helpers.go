@@ -9,37 +9,95 @@ import (
 const askUserQuestionToolName = "AskUserQuestion"
 
 func appendAssistantThinkingDelta(state *ChatState, messageID string, delta string) {
+	appendAssistantThinkingUpdate(state, messageID, delta, nil, nil)
+}
+
+func appendAssistantThinkingUpdate(
+	state *ChatState,
+	messageID string,
+	thinking string,
+	summary *string,
+	signature *string,
+) {
 	index := findMessageIndex(state.Messages, messageID)
 	if index == -1 {
+		entry := map[string]any{
+			"type":     "thinking",
+			"thinking": thinking,
+		}
+		if summary != nil {
+			entry["summary"] = *summary
+		}
+		if signature != nil {
+			entry["signature"] = *signature
+		}
 		state.Messages = append(state.Messages, map[string]any{
 			"id":      messageID,
 			"role":    "assistant",
-			"content": []any{map[string]any{"type": "thinking", "thinking": delta}},
+			"content": []any{entry},
 		})
 		return
 	}
 	message := cloneMessageOrPanic(state.Messages[index])
 	content, _ := message["content"].([]any)
 	if len(content) == 0 {
-		message["content"] = []any{map[string]any{"type": "thinking", "thinking": delta}}
+		entry := map[string]any{
+			"type":     "thinking",
+			"thinking": thinking,
+		}
+		if summary != nil {
+			entry["summary"] = *summary
+		}
+		if signature != nil {
+			entry["signature"] = *signature
+		}
+		message["content"] = []any{entry}
 		state.Messages[index] = message
 		return
 	}
 	lastEntry, ok := content[len(content)-1].(map[string]any)
 	if !ok {
-		content = append(content, map[string]any{"type": "thinking", "thinking": delta})
+		entry := map[string]any{
+			"type":     "thinking",
+			"thinking": thinking,
+		}
+		if summary != nil {
+			entry["summary"] = *summary
+		}
+		if signature != nil {
+			entry["signature"] = *signature
+		}
+		content = append(content, entry)
 		message["content"] = content
 		state.Messages[index] = message
 		return
 	}
 	if strings.TrimSpace(stringValue(lastEntry["type"])) != "thinking" {
-		content = append(content, map[string]any{"type": "thinking", "thinking": delta})
+		entry := map[string]any{
+			"type":     "thinking",
+			"thinking": thinking,
+		}
+		if summary != nil {
+			entry["summary"] = *summary
+		}
+		if signature != nil {
+			entry["signature"] = *signature
+		}
+		content = append(content, entry)
 		message["content"] = content
 		state.Messages[index] = message
 		return
 	}
 	lastEntry = cloneAnyMap(lastEntry)
-	lastEntry["thinking"] = stringValue(lastEntry["thinking"]) + delta
+	if thinking != "" {
+		lastEntry["thinking"] = stringValue(lastEntry["thinking"]) + thinking
+	}
+	if summary != nil {
+		lastEntry["summary"] = *summary
+	}
+	if signature != nil {
+		lastEntry["signature"] = *signature
+	}
 	content[len(content)-1] = lastEntry
 	message["content"] = content
 	state.Messages[index] = message

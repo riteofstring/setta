@@ -499,6 +499,320 @@ func TestClaudeExecutorSeededUnknownMCPStatusDoesNotOverridePayloadStatus(t *tes
 	}
 }
 
+func TestClaudeHandleEventParsesStreamEventEnvelopeAndIgnoresDuplicatePayloads(t *testing.T) {
+	t.Parallel()
+
+	executor, parser, request, state := newClaudeParserTestFixture(t)
+
+	changed, result, err := executor.handleEvent(request, parser, map[string]any{
+		"type": "stream_event",
+		"event": map[string]any{
+			"type":    "message_start",
+			"message": map[string]any{"id": "msg-partial", "content": []any{}},
+		},
+	}, state)
+	if err != nil {
+		t.Fatalf("handle stream_event message_start: %v", err)
+	}
+	if !changed || result != nil {
+		t.Fatalf("expected stream_event message_start to change state without result, got changed=%v result=%#v", changed, result)
+	}
+	if len(state.Messages) != 1 || stringValue(state.Messages[0]["id"]) != "msg-partial" {
+		t.Fatalf("expected partial assistant message, got %#v", state.Messages)
+	}
+
+	changed, result, err = executor.handleEvent(request, parser, map[string]any{
+		"type": "assistant_message",
+		"message": map[string]any{
+			"id": "msg-partial",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Hello"},
+			},
+		},
+	}, state)
+	if err != nil {
+		t.Fatalf("handle duplicate assistant_message: %v", err)
+	}
+	if changed || result != nil {
+		t.Fatalf("expected duplicate assistant payload to be ignored, got changed=%v result=%#v", changed, result)
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected duplicate assistant payload to leave one message, got %#v", state.Messages)
+	}
+	content, _ := state.Messages[0]["content"].([]any)
+	if len(content) != 0 {
+		t.Fatalf("expected duplicate assistant payload to leave partial content untouched, got %#v", content)
+	}
+
+	changed, result, err = executor.handleEvent(request, parser, map[string]any{
+		"type":      "result",
+		"sessionId": "session-partial",
+		"result":    "Hello",
+		"final":     true,
+	}, state)
+	if err != nil {
+		t.Fatalf("handle result payload: %v", err)
+	}
+	if changed {
+		t.Fatalf("expected result payload to avoid mutating partial stream state")
+	}
+	if result == nil || result.SessionID != "session-partial" || result.Result != "Hello" {
+		t.Fatalf("expected result payload metadata, got %#v", result)
+	}
+	if len(state.Messages) != 1 || stringValue(state.Messages[0]["id"]) != "msg-partial" {
+		t.Fatalf("expected partial message to remain intact after result payload, got %#v", state.Messages)
+	}
+}
+
+func TestClaudeEventParserRecordsToolUseAndOverridesSeededArguments(t *testing.T) {
+	t.Parallel()
+
+	_, parser, _, state := newClaudeParserTestFixture(t)
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":    "message_start",
+		"message": map[string]any{"id": "msg-tool", "content": []any{}},
+	}, state); err != nil || !changed {
+		t.Fatalf("message_start changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_start",
+		"index": 0,
+		"content_block": map[string]any{
+			"type": "tool_use",
+			"id":   "toolu-1",
+			"name": "Read",
+			"input": map[string]any{
+				"path": "README.md",
+			},
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("content_block_start changed=%v err=%v", changed, err)
+	}
+	if !parser.toolCallSeededFromInput["toolu-1"] {
+		t.Fatalf("expected tool arguments to start seeded from input")
+	}
+	if got := parser.toolCallArgumentsByID["toolu-1"]; !strings.Contains(got, "README.md") {
+		t.Fatalf("expected seeded arguments to include README.md, got %q", got)
+	}
+
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_delta",
+		"index": 0,
+		"delta": map[string]any{
+			"type":         "input_json_delta",
+			"partial_json": "{\"path\":\"README.md\"}",
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("content_block_delta changed=%v err=%v", changed, err)
+	}
+	if parser.toolCallSeededFromInput["toolu-1"] {
+		t.Fatalf("expected input_json_delta to replace the seeded argument snapshot")
+	}
+	if got := parser.toolCallArgumentsByID["toolu-1"]; got != "{\"path\":\"README.md\"}" {
+		t.Fatalf("expected raw tool arguments to reflect the streamed JSON delta, got %q", got)
+	}
+
+	assistant := assistantMessageForTest(t, state, "msg-tool")
+	toolCalls, _ := assistant["tool_calls"].([]any)
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected one assistant tool call, got %#v", assistant)
+	}
+	toolCall, ok := toolCalls[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected tool call payload, got %#v", toolCalls[0])
+	}
+	if got := stringValue(toolCall["id"]); got != "toolu-1" {
+		t.Fatalf("unexpected tool call id %q", got)
+	}
+	function, _ := mapValue(toolCall["function"])
+	if got := stringValue(function["name"]); got != "Read" {
+		t.Fatalf("unexpected tool name %q", got)
+	}
+	arguments, _ := mapValue(function["arguments"])
+	if got := stringValue(arguments["path"]); got != "README.md" {
+		t.Fatalf("expected streamed path argument, got %#v", arguments)
+	}
+}
+
+func TestClaudeEventParserDocumentedToolsPersistToolCallsAndResults(t *testing.T) {
+	t.Parallel()
+
+	toolNames := []string{
+		"AskUserQuestion",
+		"Bash",
+		"Edit",
+		"Glob",
+		"Grep",
+		"NotebookEdit",
+		"Read",
+		"Task",
+		"TodoWrite",
+		"WebFetch",
+		"WebSearch",
+		"Write",
+		"BashOutput",
+		"KillBash",
+		"ExitPlanMode",
+		"ListMcpResources",
+		"ReadMcpResource",
+	}
+	for idx, toolName := range toolNames {
+		t.Run(toolName, func(t *testing.T) {
+			_, parser, _, state := newClaudeParserTestFixture(t)
+			messageID := fmt.Sprintf("msg-%d", idx)
+			toolCallID := fmt.Sprintf("toolu-%d", idx)
+			if changed, err := parser.handleStreamEvent(map[string]any{
+				"type":    "message_start",
+				"message": map[string]any{"id": messageID, "content": []any{}},
+			}, state); err != nil || !changed {
+				t.Fatalf("message_start changed=%v err=%v", changed, err)
+			}
+			if changed, err := parser.handleStreamEvent(map[string]any{
+				"type":  "content_block_start",
+				"index": 0,
+				"content_block": map[string]any{
+					"type": "tool_use",
+					"id":   toolCallID,
+					"name": toolName,
+					"input": map[string]any{
+						"token": toolName,
+					},
+				},
+			}, state); err != nil || !changed {
+				t.Fatalf("tool_use start changed=%v err=%v", changed, err)
+			}
+
+			assistant := assistantMessageForTest(t, state, messageID)
+			toolCalls, _ := assistant["tool_calls"].([]any)
+			if len(toolCalls) != 1 {
+				t.Fatalf("expected one tool call, got %#v", assistant)
+			}
+			toolCall, ok := toolCalls[0].(map[string]any)
+			if !ok {
+				t.Fatalf("expected tool call payload, got %#v", toolCalls[0])
+			}
+			function, _ := mapValue(toolCall["function"])
+			if got := stringValue(function["name"]); got != toolName {
+				t.Fatalf("expected tool name %q, got %#v", toolName, function["name"])
+			}
+
+			if changed, err := parser.handleStreamEvent(map[string]any{
+				"type":  "content_block_start",
+				"index": 1,
+				"content_block": map[string]any{
+					"type":        "tool_result",
+					"tool_use_id": toolCallID,
+					"content":     []any{map[string]any{"type": "text", "text": "ok"}},
+				},
+			}, state); err != nil || changed {
+				t.Fatalf("tool_result start changed=%v err=%v", changed, err)
+			}
+			if changed, err := parser.handleStreamEvent(map[string]any{
+				"type":  "content_block_stop",
+				"index": 1,
+			}, state); err != nil || !changed {
+				t.Fatalf("tool_result stop changed=%v err=%v", changed, err)
+			}
+			results := parser.takeToolResults()
+			if len(results) != 1 {
+				t.Fatalf("expected one tool result metadata row, got %#v", results)
+			}
+			if results[0].ToolCallID != toolCallID || results[0].ToolName != toolName {
+				t.Fatalf("unexpected tool result metadata %#v", results[0])
+			}
+			if got := stringValue(results[0].Result); got != "ok" {
+				t.Fatalf("expected persisted tool result text, got %#v", results[0].Result)
+			}
+
+			rawMessages := state.Messages
+			lastMessage := rawMessages[len(rawMessages)-1]
+			if role := stringValue(lastMessage["role"]); role != "tool" {
+				t.Fatalf("expected tool result message, got %#v", lastMessage)
+			}
+			if got := stringValue(lastMessage["tool_name"]); got != toolName {
+				t.Fatalf("expected tool result message name %q, got %#v", toolName, lastMessage)
+			}
+		})
+	}
+}
+
+func TestClaudeEventParserPreservesThinkingSummaryAndSignatureDeltas(t *testing.T) {
+	t.Parallel()
+
+	_, parser, _, state := newClaudeParserTestFixture(t)
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":    "message_start",
+		"message": map[string]any{"id": "msg-think", "content": []any{}},
+	}, state); err != nil || !changed {
+		t.Fatalf("message_start changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_start",
+		"index": 0,
+		"content_block": map[string]any{
+			"type":      "thinking",
+			"thinking":  "Plan",
+			"summary":   "Plan summary",
+			"signature": "sig-1",
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("thinking start changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_delta",
+		"index": 0,
+		"delta": map[string]any{
+			"type":     "thinking_delta",
+			"thinking": " next",
+			"summary":  "Next summary",
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("thinking delta changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_delta",
+		"index": 0,
+		"delta": map[string]any{
+			"type":      "signature_delta",
+			"signature": "sig-2",
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("signature delta changed=%v err=%v", changed, err)
+	}
+	if changed, err := parser.handleStreamEvent(map[string]any{
+		"type":  "content_block_delta",
+		"index": 0,
+		"delta": map[string]any{
+			"type":    "summary_delta",
+			"summary": "Final summary",
+		},
+	}, state); err != nil || !changed {
+		t.Fatalf("summary delta changed=%v err=%v", changed, err)
+	}
+
+	assistant := assistantMessageForTest(t, state, "msg-think")
+	content, _ := assistant["content"].([]any)
+	if len(content) != 1 {
+		t.Fatalf("expected one thinking block, got %#v", assistant)
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected thinking content block, got %#v", content[0])
+	}
+	if got := stringValue(thinkingBlock["type"]); got != "thinking" {
+		t.Fatalf("expected thinking block type, got %#v", thinkingBlock)
+	}
+	if got := stringValue(thinkingBlock["thinking"]); got != "Plan next" {
+		t.Fatalf("expected merged thinking text, got %#v", thinkingBlock)
+	}
+	if got := stringValue(thinkingBlock["summary"]); got != "Final summary" {
+		t.Fatalf("expected final thinking summary, got %#v", thinkingBlock)
+	}
+	if got := stringValue(thinkingBlock["signature"]); got != "sig-2" {
+		t.Fatalf("expected final thinking signature, got %#v", thinkingBlock)
+	}
+}
+
 func TestBuildClaudeStartPayloadPassesThroughMCPConfigPath(t *testing.T) {
 	t.Parallel()
 
@@ -1497,5 +1811,36 @@ func emitClaudeAssistantTurn(
 			return err
 		}
 	}
+	return nil
+}
+
+func newClaudeParserTestFixture(t *testing.T) (*ClaudeExecutor, *claudeEventParser, StartRequest, *ChatState) {
+	t.Helper()
+
+	_, runtime := buildRuntimeFixture(t)
+	request := StartRequest{
+		Run: agentruns.NewRun(nil, map[string]any{
+			"messages": []any{},
+		}, time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)),
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+	}
+	return &ClaudeExecutor{}, newClaudeEventParser(runtime, request), request, &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+}
+
+func assistantMessageForTest(t *testing.T, state *ChatState, messageID string) map[string]any {
+	t.Helper()
+
+	for _, message := range state.Messages {
+		if stringValue(message["id"]) != messageID {
+			continue
+		}
+		return cloneAnyMap(message)
+	}
+	t.Fatalf("expected assistant message %q in %#v", messageID, state.Messages)
 	return nil
 }
