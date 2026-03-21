@@ -160,6 +160,29 @@ func TestServiceCreateWritesOpenCodeCanonicalConfig(t *testing.T) {
 	if settaServer["url"] != "http://127.0.0.1:8000/mcp" || settaServer["type"] != "remote" || settaServer["enabled"] != true {
 		t.Fatalf("expected setta opencode mcp entry, got %#v", settaServer)
 	}
+	provider, ok := payload["provider"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected opencode provider payload, got %#v", payload["provider"])
+	}
+	openAI, ok := provider["openai"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected opencode openai provider payload, got %#v", provider["openai"])
+	}
+	models, ok := openAI["models"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected opencode models payload, got %#v", openAI["models"])
+	}
+	modelEntry, ok := models["gpt-5.2-chat-latest"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected gpt-5.2-chat-latest model entry, got %#v", models)
+	}
+	options, ok := modelEntry["options"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected model options payload, got %#v", modelEntry["options"])
+	}
+	if got := options["textVerbosity"]; got != "medium" {
+		t.Fatalf("expected textVerbosity override, got %#v", options)
+	}
 }
 
 func TestServiceCreatePreservesExistingCodexMCPServersWhenAddingSetta(t *testing.T) {

@@ -613,6 +613,7 @@ func applyOpenCodeRuntimeConfig(payload map[string]any, config externalagentconf
 		}
 		payload["mcp"] = existingMCP
 	}
+	externalagentconfigs.ForceOpenCodeOpenAITextVerbosity(payload, "gpt-5.2-chat-latest", "medium")
 }
 
 func parseOpenCodePermission(value string) any {

@@ -478,6 +478,7 @@ func (s *Service) writeOpenCodeConfig(path string, config Config) error {
 	serverEntry["enabled"] = true
 	mcpEntries["setta"] = serverEntry
 	payload["mcp"] = mcpEntries
+	ForceOpenCodeOpenAITextVerbosity(payload, "gpt-5.2-chat-latest", "medium")
 	content, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode opencode canonical config: %w", err)

@@ -302,6 +302,55 @@ func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
 	}
 }
 
+func TestApplyOpenCodeRuntimeConfigForcesOpenAITextVerbosity(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"provider": map[string]any{
+			"openai": map[string]any{
+				"models": map[string]any{
+					"gpt-5.2-chat-latest": map[string]any{
+						"options": map[string]any{
+							"text": map[string]any{
+								"verbosity": "low",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{}, map[string]any{})
+
+	provider, ok := mapValue(payload["provider"])
+	if !ok {
+		t.Fatalf("expected provider payload, got %#v", payload["provider"])
+	}
+	openAI, ok := mapValue(provider["openai"])
+	if !ok {
+		t.Fatalf("expected openai payload, got %#v", provider["openai"])
+	}
+	models, ok := mapValue(openAI["models"])
+	if !ok {
+		t.Fatalf("expected models payload, got %#v", openAI["models"])
+	}
+	modelEntry, ok := mapValue(models["gpt-5.2-chat-latest"])
+	if !ok {
+		t.Fatalf("expected gpt-5.2-chat-latest model entry, got %#v", models)
+	}
+	options, ok := mapValue(modelEntry["options"])
+	if !ok {
+		t.Fatalf("expected model options payload, got %#v", modelEntry["options"])
+	}
+	if stringValue(options["textVerbosity"]) != "medium" {
+		t.Fatalf("expected textVerbosity override, got %#v", options)
+	}
+	if _, ok := mapValue(options["text"]); ok {
+		t.Fatalf("expected legacy text.verbosity payload to be removed, got %#v", options["text"])
+	}
+}
+
 func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
 	// Verify completed tool-part state becomes a persisted tool result plus a
 	// summarized run event through the Go-owned OpenCode executor path.
