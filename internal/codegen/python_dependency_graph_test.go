@@ -195,6 +195,8 @@ func TestSanitizePythonIdentifierMatchesSourceContracts(t *testing.T) {
 		{name: "prefixes digits after replacement", input: "123 abc", want: "_123_abc"},
 		{name: "avoids class keyword", input: "class", want: "_class"},
 		{name: "avoids for keyword", input: "for", want: "_for"},
+		{name: "replaces quotes", input: "quote\"key", want: "quote_key"},
+		{name: "replaces backslashes", input: "back\\slash", want: "back_slash"},
 		{name: "empty falls back to underscore", input: "", want: "_"},
 	}
 

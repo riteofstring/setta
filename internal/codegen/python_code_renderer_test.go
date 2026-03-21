@@ -1,6 +1,9 @@
 package codegen
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestPythonCodeRendererDictSectionRendersMultilineValues(t *testing.T) {
 	t.Parallel()
@@ -149,6 +152,81 @@ func TestPythonCodeRendererCallableSectionRendersMultilineArgs(t *testing.T) {
 	}
 	if generatedLines[targetIndex+1+len(expected)] != "        )" {
 		t.Fatalf("unexpected callable closing line %q", generatedLines[targetIndex+1+len(expected)])
+	}
+}
+
+func TestPythonCodeRendererDictSectionEscapesKeysAndUsesSanitizedVarNames(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		rawName   string
+		sanitized string
+	}{
+		{rawName: "user-id", sanitized: "user_id"},
+		{rawName: "123 abc", sanitized: "_123_abc"},
+		{rawName: "class", sanitized: "_class"},
+		{rawName: "quote\"key", sanitized: "quote_key"},
+		{rawName: "back\\slash", sanitized: "back_slash"},
+	}
+
+	paramKeys := make([]PythonDependencyKey, 0, len(cases))
+	nodes := map[PythonDependencyKey]PythonDependencyNode{}
+	for index, testCase := range cases {
+		key := PythonCodeObjectDependencyKey("section-1", fmt.Sprintf("param-%d", index+1))
+		paramKeys = append(paramKeys, key)
+		nodes[key] = &PythonParamNode{
+			PythonDependencyNodeBase: PythonDependencyNodeBase{
+				ID:               key.CodeObjectID,
+				Name:             testCase.rawName,
+				FullPathName:     "config__" + testCase.sanitized,
+				Deps:             map[PythonDependencyKey]bool{},
+				IncludeInCodegen: true,
+				Value:            LiteralDependencyValue{Payload: "1"},
+			},
+			CodeObjectType: "CodeParam",
+		}
+	}
+	sectionKey := PythonSectionDependencyKey("section-1")
+	nodes[sectionKey] = &PythonSectionNode{
+		PythonDependencyNodeBase: PythonDependencyNodeBase{
+			ID:               "section-1",
+			Name:             "config",
+			FullPathName:     "config",
+			IsTopLevel:       true,
+			Deps:             map[PythonDependencyKey]bool{},
+			DepOrder:         append([]PythonDependencyKey(nil), paramKeys...),
+			IncludeInCodegen: true,
+		},
+		SectionType: "Dict",
+	}
+	for _, key := range paramKeys {
+		nodes[sectionKey].Base().Deps[key] = true
+	}
+	graph := &PythonDependencyGraph{
+		Nodes:     nodes,
+		NodeOrder: append(append([]PythonDependencyKey(nil), paramKeys...), sectionKey),
+	}
+
+	renderer := NewPythonCodeRenderer(graph, "", "", PythonCodeRendererOptions{})
+	renderer.GenerateCode()
+	generatedLines := splitLines(renderer.GeneratedCode)
+
+	for _, testCase := range cases {
+		expected := fmt.Sprintf(
+			"            %s: state.config__%s,",
+			renderPythonStringLiteral(testCase.rawName),
+			testCase.sanitized,
+		)
+		found := false
+		for _, line := range generatedLines {
+			if line == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected rendered dict line %q in generated code:\n%s", expected, renderer.GeneratedCode)
+		}
 	}
 }
 
