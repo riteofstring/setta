@@ -245,6 +245,44 @@ func TestOpenCodeEventParserPersistsToolCallArgumentsAndTerminalResult(t *testin
 	}
 }
 
+func TestNormalizeOpenCodeToolNameHandlesMCPPrefixSingleUnderscoreAndQuestionAlias(t *testing.T) {
+	t.Parallel()
+
+	// OpenCode tool names should normalize onto the canonical Setta namespace
+	// and preserve the retained AskUserQuestion alias for question events.
+	testCases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "mcp prefix",
+			raw:  "mcp__setta__create_section",
+			want: "setta__create_section",
+		},
+		{
+			name: "single underscore alias",
+			raw:  "setta_create_section",
+			want: "setta__create_section",
+		},
+		{
+			name: "question alias",
+			raw:  "question",
+			want: askUserQuestionToolName,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := normalizeOpenCodeToolName(testCase.raw); got != testCase.want {
+				t.Fatalf("normalizeOpenCodeToolName(%q) = %q, want %q", testCase.raw, got, testCase.want)
+			}
+		})
+	}
+}
+
 func TestOpenCodeEventParserGenericPayloadKeepsSamePayloadTextAndNormalizedToolAliases(t *testing.T) {
 	t.Parallel()
 
