@@ -343,3 +343,9 @@ categorize them.
 - That next listener policy branch is now proved too: deployment listener
   emits fail closed when `allowParamChanges=false`, so the remaining websocket
   backlog is narrower and more transport-specific than before
+- The OpenCode `gpt-5.2-chat-latest` `textVerbosity` row is now closed too,
+  so the small external-agent config-shaping queue is narrower again: the
+  remaining obvious proof-only holdout is still the cross-platform
+  `SETTA_HOME` default-path row, and the broader practical backlog is back on
+  missing runtime behavior such as OpenCode read-only handling, process-group
+  cleanup, and other still-missing caller-visible surfaces
