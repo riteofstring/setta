@@ -428,9 +428,15 @@ def build_weak_proof_candidates(rows: list[MatrixRow]) -> list[Candidate]:
         proof_count = count_go_test_references(row.go_tests)
         if proof_count > 1:
             continue
-        score = 86
+        score = 78
+        if proof_count == 0:
+            score += 4
+        if row.source_evidence.startswith("`tests/") or row.source_evidence.startswith(
+            "tests/"
+        ):
+            score += 2
         if has_retained_api_signal(" ".join([row.source_evidence, row.transport_evidence])):
-            score += 8
+            score -= 2
         candidates.append(
             Candidate(
                 key=f"weak-proof:{row.row_id}",
@@ -460,6 +466,7 @@ def build_weak_proof_candidates(rows: list[MatrixRow]) -> list[Candidate]:
 
 def build_unmapped_test_candidates(
     tests: list[SourceTest],
+    rows: list[MatrixRow],
     matrix_text: str,
 ) -> tuple[list[Candidate], list[SourceTest]]:
     candidates: list[Candidate] = []
@@ -468,13 +475,7 @@ def build_unmapped_test_candidates(
         if test_is_narrowly_cited(matrix_text, test_ref):
             continue
         uncited_tests.append(test_ref)
-        score = TEST_AREA_PRIORITIES.get(test_ref.area, 48)
-        if test_ref.area in {"api", "routers", "mcp", "share", "websockets"}:
-            score += 8
-        if "runner" in test_ref.path or "listener" in test_ref.path:
-            score += 6
-        if "realtime" in test_ref.path or "websocket" in test_ref.path:
-            score += 4
+        score = score_uncited_test_candidate(test_ref, rows)
         candidates.append(
             Candidate(
                 key=f"test:{test_ref.path}::{test_ref.name}",
@@ -493,6 +494,64 @@ def build_unmapped_test_candidates(
             )
         )
     return candidates, uncited_tests
+
+
+def score_uncited_test_candidate(test_ref: SourceTest, rows: list[MatrixRow]) -> int:
+    related_rows = rows_for_source_test(rows, test_ref)
+    live_related_rows = [
+        row for row in related_rows if has_go_owned_caller_signal(row.transport_evidence)
+    ]
+    retained_related_rows = [
+        row
+        for row in related_rows
+        if row.status == "Retained Python boundary"
+        or has_retained_api_signal(
+            " ".join([row.source_evidence, row.transport_evidence, row.notes])
+        )
+    ]
+    band = uncited_test_priority_band(
+        test_ref=test_ref,
+        related_rows=related_rows,
+        live_related_rows=live_related_rows,
+        retained_related_rows=retained_related_rows,
+    )
+    # Rank by explicit structural evidence, not by arbitrary per-area weights.
+    # Lower bands are stronger unknown-gap leads, then we break ties by how many
+    # live-backed sibling rows already exist for that test family.
+    return (
+        (9 - band) * 10
+        + min(3, len(live_related_rows)) * 2
+        + min(3, len(related_rows))
+    )
+
+
+def rows_for_source_test(rows: list[MatrixRow], test_ref: SourceTest) -> list[MatrixRow]:
+    return [row for row in rows if test_ref.path in row.source_evidence]
+
+
+def uncited_test_priority_band(
+    test_ref: SourceTest,
+    related_rows: list[MatrixRow],
+    live_related_rows: list[MatrixRow],
+    retained_related_rows: list[MatrixRow],
+) -> int:
+    if retained_related_rows:
+        return 7
+    if test_ref.area in {"websockets", "routers", "share", "mcp"} and live_related_rows:
+        return 0
+    if test_ref.area in {"websockets", "routers", "share", "mcp"}:
+        return 1
+    if test_ref.area == "api" and live_related_rows:
+        return 2
+    if test_ref.area == "api" and related_rows:
+        return 3
+    if test_ref.area == "api":
+        return 4
+    if live_related_rows:
+        return 5
+    if test_ref.area in {"auth", "sessions", "project_state"}:
+        return 6
+    return 7
 
 
 def test_is_narrowly_cited(matrix_text: str, test_ref: SourceTest) -> bool:
@@ -597,9 +656,9 @@ def candidate_family(candidate: Candidate) -> str:
 
 
 def candidate_kind_priority(candidate: Candidate) -> int:
-    if candidate.kind == "weak-proof-row":
-        return 0
     if candidate.kind == "uncited-source-test":
+        return 0
+    if candidate.kind == "weak-proof-row":
         return 1
     if candidate.kind == "matrix-status-revisit":
         return 2
@@ -658,7 +717,7 @@ def generate_report(
     status_candidates = build_status_row_candidates(rows)
     weak_proof_candidates = build_weak_proof_candidates(rows)
     unmapped_test_candidates, uncited_tests = build_unmapped_test_candidates(
-        tests, matrix_text
+        tests, rows, matrix_text
     )
     unmapped_doc_candidates, uncited_docs = build_unmapped_doc_candidates(
         docs, matrix_text
@@ -764,7 +823,7 @@ def render_report(report: CandidateReport) -> str:
 
     for index, candidate in enumerate(report.go_owned_candidates, start=1):
         lines.append(
-            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+            f"{index}. `{candidate.kind}` `{candidate.title}`"
         )
         lines.append(f"   Why: {candidate.why}")
         if candidate.source_evidence:
@@ -790,7 +849,7 @@ def render_report(report: CandidateReport) -> str:
 
     for index, candidate in enumerate(report.known_recheck_candidates, start=1):
         lines.append(
-            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+            f"{index}. `{candidate.kind}` `{candidate.title}`"
         )
         lines.append(f"   Why: {candidate.why}")
         if candidate.source_evidence:
@@ -816,7 +875,7 @@ def render_report(report: CandidateReport) -> str:
 
     for index, candidate in enumerate(report.retained_boundary_candidates, start=1):
         lines.append(
-            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+            f"{index}. `{candidate.kind}` `{candidate.title}`"
         )
         lines.append(f"   Why: {candidate.why}")
         if candidate.source_evidence:
@@ -844,7 +903,7 @@ def render_report(report: CandidateReport) -> str:
         report.low_priority_divergence_candidates, start=1
     ):
         lines.append(
-            f"{index}. `[score {candidate.score}]` `{candidate.kind}` `{candidate.title}`"
+            f"{index}. `{candidate.kind}` `{candidate.title}`"
         )
         lines.append(f"   Why: {candidate.why}")
         if candidate.source_evidence:

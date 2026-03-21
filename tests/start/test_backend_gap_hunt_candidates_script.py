@@ -21,7 +21,9 @@ def test_generate_report_surfaces_status_revisits_and_uncited_sources(
     tmp_path: Path,
 ) -> None:
     # The miner should keep unknown gap leads on top, while pushing retained
-    # and already-justified divergence work into lower-priority sections.
+    # and already-justified divergence work into lower-priority sections. An
+    # uncited test in a retained-only family should not outrank a live caller
+    # weak-proof row.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -104,7 +106,7 @@ def test_uncited_lookup_failure() -> None:
     )
     assert "doc:docs/reference/chat-toolkit.md" in go_owned_candidate_keys
     assert report.go_owned_candidates[0].key == (
-        "test:tests/api/test_runner.py::test_uncited_lookup_failure"
+        "weak-proof:view_mode.toggle"
     )
 
     uncited_tests = {
@@ -248,6 +250,74 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
 
     assert "tests/api/test_runner.py::test_class_cited" not in uncited_tests
     assert "tests/api/test_runner.py::test_class_uncited" in uncited_tests
+
+
+def test_generate_report_prioritizes_uncited_tests_with_live_matrix_family_signal(
+    tmp_path: Path,
+) -> None:
+    # Exact uncited tests should rise to the top when the same test file is
+    # already matrix-backed on a live caller surface. That is a stronger
+    # unknown-gap lead than deepening proof on an already-green row.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+    docs_root = repo_root_path / "docs" / "reference"
+
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "websockets").mkdir(parents=True, exist_ok=True)
+    docs_root.mkdir(parents=True, exist_ok=True)
+
+    matrix_path.write_text(
+        """# Backend Behavior Parity Matrix
+
+## Audit Boundary
+
+- Source baseline: `main@abc123`
+- Target head: `deadbeef`
+
+## Matrix
+
+| Row | Source (`abc123`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `listener.transport.cited` | `tests/websockets/test_listener_transport.py::test_listener_delta_cited` | `internal/realtime/listener.go` | `TestListenerDeltaCited` | `frontend/src/state/actions/websocketReceive.ts` | `Proved` | live websocket family |
+| `ai.send.validation` | `docs/reference/external-agents.md` | `internal/httpapi/ai_routes.go` | `TestAISendValidationEnvelope` | `frontend/src/state/actions/ai.ts` | `Proved` | live route family |
+""",
+        encoding="utf-8",
+    )
+    (tests_root / "websockets" / "test_listener_transport.py").write_text(
+        """def test_listener_delta_cited() -> None:
+    assert True
+
+
+def test_listener_delta_uncited() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+        docs_path=docs_root,
+        limit=5,
+    )
+
+    go_owned_candidate_keys = [
+        candidate.key for candidate in report.go_owned_candidates
+    ]
+
+    assert report.go_owned_candidates[0].key == (
+        "test:tests/websockets/test_listener_transport.py::test_listener_delta_uncited"
+    )
+    assert "weak-proof:ai.send.validation" in go_owned_candidate_keys
 
 
 def _build_gap_hunt_candidate_wrapper_sandbox(
