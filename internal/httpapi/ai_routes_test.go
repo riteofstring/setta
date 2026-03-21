@@ -979,6 +979,21 @@ func TestRegisterAIRoutesGetLLMResponseSchemaFailuresReturnValidationEnvelope(t 
 			expectedDetail: "message: Unable to extract tag using discriminator 'role'",
 		},
 		{
+			name: "message_unknown_role_discriminator_value",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"banana","content":[{"type":"text","text":"Create a managed project."}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":false
+			}`,
+			expectedDetail: "message: Input tag 'banana' found using 'role' does not match any of the expected tags: <ChatRole.system: 'system'>, <ChatRole.assistant: 'assistant'>, <ChatRole.user: 'user'>, <ChatRole.tool: 'tool'>",
+		},
+		{
 			name: "tool_message_missing_tool_call_id",
 			body: `{
 				"chatId":null,
@@ -1754,6 +1769,74 @@ func TestRegisterAIRoutesReturnsManagedAndExternalAIFollowSnapshot(t *testing.T)
 	}
 	if len(payload[1].IDsByType["section"]) != 1 || payload[1].IDsByType["section"][0] != "section-alpha" {
 		t.Fatalf("unexpected external follow ids %#v", payload[1].IDsByType)
+	}
+}
+
+func TestValidateGetLLMResponseMessageMatchesSourceDiscriminatorValidation(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name           string
+		rawMessage     string
+		expectedDetail string
+	}{
+		{
+			name:           "missing_role",
+			rawMessage:     `{"id":"user-managed","content":[{"type":"text","text":"Create a managed project."}]}`,
+			expectedDetail: "message: Unable to extract tag using discriminator 'role'",
+		},
+		{
+			name:           "unknown_role",
+			rawMessage:     `{"id":"user-managed","role":"banana","content":[{"type":"text","text":"Create a managed project."}]}`,
+			expectedDetail: "message: Input tag 'banana' found using 'role' does not match any of the expected tags: <ChatRole.system: 'system'>, <ChatRole.assistant: 'assistant'>, <ChatRole.user: 'user'>, <ChatRole.tool: 'tool'>",
+		},
+		{
+			name:           "null_role",
+			rawMessage:     `{"id":"user-managed","role":null,"content":[{"type":"text","text":"Create a managed project."}]}`,
+			expectedDetail: "message: Input tag 'None' found using 'role' does not match any of the expected tags: <ChatRole.system: 'system'>, <ChatRole.assistant: 'assistant'>, <ChatRole.user: 'user'>, <ChatRole.tool: 'tool'>",
+		},
+		{
+			name:           "tool_message_missing_tool_call_id",
+			rawMessage:     `{"id":"tool-managed","role":"tool","content":[]}`,
+			expectedDetail: "message.tool.tool_call_id: Field required",
+		},
+		{
+			name:           "tool_message_null_tool_call_id",
+			rawMessage:     `{"id":"tool-managed","role":"tool","tool_call_id":null,"content":[]}`,
+			expectedDetail: "message.tool.tool_call_id: Input should be a valid string",
+		},
+		{
+			name:           "tool_message_number_tool_call_id",
+			rawMessage:     `{"id":"tool-managed","role":"tool","tool_call_id":123,"content":[]}`,
+			expectedDetail: "message.tool.tool_call_id: Input should be a valid string",
+		},
+		{
+			name:           "tool_message_blank_tool_call_id_is_allowed",
+			rawMessage:     `{"id":"tool-managed","role":"tool","tool_call_id":"","content":[]}`,
+			expectedDetail: "",
+		},
+		{
+			name:           "tool_message_whitespace_tool_call_id_is_allowed",
+			rawMessage:     `{"id":"tool-managed","role":"tool","tool_call_id":"   ","content":[]}`,
+			expectedDetail: "",
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			err := validateGetLLMResponseMessage(json.RawMessage(testCase.rawMessage))
+			if testCase.expectedDetail == "" {
+				if err != nil {
+					t.Fatalf("expected raw message to pass, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			if got := formatGetLLMResponseValidationMessage(err); got != testCase.expectedDetail {
+				t.Fatalf("expected validation detail %q, got %q", testCase.expectedDetail, got)
+			}
+		})
 	}
 }
 

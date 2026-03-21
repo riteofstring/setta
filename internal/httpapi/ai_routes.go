@@ -653,11 +653,38 @@ type llmResponseValidationError struct {
 	message string
 }
 
+var getLLMResponseMessageRoles = map[string]struct{}{
+	"system":    {},
+	"assistant": {},
+	"user":      {},
+	"tool":      {},
+}
+
+const getLLMResponseMessageRoleExpectedTags = "<ChatRole.system: 'system'>, <ChatRole.assistant: 'assistant'>, <ChatRole.user: 'user'>, <ChatRole.tool: 'tool'>"
+
 func (e *llmResponseValidationError) Error() string {
 	if e == nil {
 		return ""
 	}
 	return e.message
+}
+
+func invalidGetLLMResponseMessageRoleError(value any) error {
+	tag := "None"
+	switch typed := value.(type) {
+	case nil:
+	case bool:
+		if typed {
+			tag = "True"
+		} else {
+			tag = "False"
+		}
+	default:
+		tag = fmt.Sprint(typed)
+	}
+	return &llmResponseValidationError{
+		message: "message: Input tag '" + tag + "' found using 'role' does not match any of the expected tags: " + getLLMResponseMessageRoleExpectedTags,
+	}
 }
 
 func decodeGetLLMResponseRequest(r *http.Request) (GetLLMResponseRequest, error) {
@@ -786,34 +813,46 @@ func validateGetLLMResponseMessage(raw json.RawMessage) error {
 	}
 
 	roleRaw, ok := fields["role"]
-	if !ok || bytes.Equal(bytes.TrimSpace(roleRaw), []byte("null")) {
+	if !ok {
 		return &llmResponseValidationError{
 			message: "message: Unable to extract tag using discriminator 'role'",
 		}
 	}
 
-	var role string
-	if err := json.Unmarshal(roleRaw, &role); err != nil || strings.TrimSpace(role) == "" {
-		return &llmResponseValidationError{
-			message: "message: Unable to extract tag using discriminator 'role'",
-		}
+	var roleValue any
+	if err := json.Unmarshal(roleRaw, &roleValue); err != nil {
+		return &llmResponseValidationError{message: "message: Unable to extract tag using discriminator 'role'"}
 	}
 
-	if strings.TrimSpace(role) != "tool" {
+	role, ok := roleValue.(string)
+	if !ok {
+		return invalidGetLLMResponseMessageRoleError(roleValue)
+	}
+
+	if _, ok := getLLMResponseMessageRoles[role]; !ok {
+		return invalidGetLLMResponseMessageRoleError(role)
+	}
+
+	if role != "tool" {
 		return nil
 	}
 
 	toolCallIDRaw, ok := fields["tool_call_id"]
-	if !ok || bytes.Equal(bytes.TrimSpace(toolCallIDRaw), []byte("null")) {
+	if !ok {
 		return &llmResponseValidationError{
 			message: "message.tool.tool_call_id: Field required",
 		}
 	}
 
-	var toolCallID string
-	if err := json.Unmarshal(toolCallIDRaw, &toolCallID); err != nil || strings.TrimSpace(toolCallID) == "" {
+	var toolCallID any
+	if err := json.Unmarshal(toolCallIDRaw, &toolCallID); err != nil {
 		return &llmResponseValidationError{
-			message: "message.tool.tool_call_id: Field required",
+			message: "message.tool.tool_call_id: Input should be a valid string",
+		}
+	}
+	if _, ok := toolCallID.(string); !ok {
+		return &llmResponseValidationError{
+			message: "message.tool.tool_call_id: Input should be a valid string",
 		}
 	}
 	return nil

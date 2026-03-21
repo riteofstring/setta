@@ -246,6 +246,83 @@ func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
 	}
 }
 
+func TestRegisterDeploymentRoutesReusesExistingAppSessionFromHeader(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:           config.ModeApp,
+		Now:            &now,
+		GeneratedID:    "generated-app",
+		DeploymentName: "demo-app",
+	})
+
+	session, err := deploymentRuntime.CreateSessionWithID("app-a")
+	if err != nil {
+		t.Fatalf("create initial app session: %v", err)
+	}
+	now = now.Add(2 * time.Minute)
+
+	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
+	request.Header.Set(modes.ShareSessionHeaderName, "app-a")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload AppDeploymentSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode app session response: %v", err)
+	}
+	if payload.ShareSessionID != "app-a" {
+		t.Fatalf("expected reused session id app-a, got %q", payload.ShareSessionID)
+	}
+
+	touched, ok := deploymentRuntime.Session("app-a")
+	if !ok {
+		t.Fatal("expected app session to remain in deployment runtime")
+	}
+	if !touched.LastSeenAt.After(session.LastSeenAt) {
+		t.Fatalf("expected reused session last-seen after %v, got %v", session.LastSeenAt, touched.LastSeenAt)
+	}
+}
+
+func TestRegisterDeploymentRoutesReplacesUnknownAppSessionID(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:           config.ModeApp,
+		Now:            &now,
+		GeneratedID:    "generated-app",
+		DeploymentName: "demo-app",
+	})
+
+	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
+	request.Header.Set(modes.ShareSessionHeaderName, "missing-session")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload AppDeploymentSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode app session response: %v", err)
+	}
+	if payload.ShareSessionID != "generated-app" {
+		t.Fatalf("expected unknown session to be replaced with generated-app, got %q", payload.ShareSessionID)
+	}
+	if payload.ShareSessionID == "missing-session" {
+		t.Fatal("did not expect unknown incoming session id to be reused")
+	}
+}
+
 func TestRegisterDeploymentRoutesCurrentSessionStartsDefaultDeploymentListener(t *testing.T) {
 	t.Parallel()
 
