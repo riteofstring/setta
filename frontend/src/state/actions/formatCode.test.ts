@@ -1,5 +1,6 @@
 import { useActiveSectionUI } from "state/activeSectionUI";
 import {
+  useActiveSectionUI,
   useLspDiagnostics,
   useProjectState,
   useShareSession,
