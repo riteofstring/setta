@@ -25,9 +25,8 @@ describe("param row class names", () => {
     expect(className).toContain("min-w-0");
     expect(className).not.toContain("grid");
     expect(className).toContain("ml-[0.72rem]");
-    expect(className).toContain("before:pointer-events-none");
-    expect(className).toContain("before:w-[0.4rem]");
-    expect(className).not.toContain("before:h-[calc(100%_-_0.1rem)]");
+    expect(className).not.toContain("before:pointer-events-none");
+    expect(className).not.toContain("before:w-[0.4rem]");
     expect(className).toContain("group/arg-group");
     expect(className).toContain("justify-between");
     expect(className).toContain("gap-y-1");

@@ -1,5 +1,5 @@
 export const NESTED_CHILD_ROW_CLASS_NAME =
-  "ml-[1.44rem] before:pointer-events-none before:absolute before:left-0 before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+  "ml-[1.44rem]";
 
 const NON_NESTED_PARAM_ROW_BASE_CLASS_NAME =
   "section-key-value section-param-row section-min-rows relative ml-[0.72rem] min-w-0 rounded-sm px-[2px]";

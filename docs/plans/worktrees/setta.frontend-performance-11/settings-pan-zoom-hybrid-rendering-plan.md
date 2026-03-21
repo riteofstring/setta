@@ -575,6 +575,12 @@ Current execution note:
 - this checkpoint is now part of the accepted Tier 1 baseline because:
   - the canonical `tier1Synthetic` scene improved strongly on the paired rerun
   - the worktree-only `settings` confirmation rerun improved enough to treat the first noisier `settings` paired sample as non-blocking variance instead of a true regression
+- the next retained Tier 1 simplification removes nested-row guide chrome while keeping indentation:
+  - `frontend/src/components/Params/paramRowClassNames.ts`
+  - `frontend/index.css`
+  - this intentionally drops the thin nested guide cue for dense param rows
+  - the paired rerun improved `settings`
+  - the confirmation rerun improved both `settings` and `tier1Synthetic`
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack

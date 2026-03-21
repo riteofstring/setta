@@ -733,3 +733,85 @@ Record:
   - Use the retained containment baseline to choose the next Tier 1 slice:
     - deeper shared param-row/body-cost reduction
     - or a more effective preview/warm representation that helps both `settings` and `tier1Synthetic`
+
+## 2026-03-20 017
+
+- Item: Benchmark removal of the nested dense-row guide chrome and decide whether to keep the visual simplification.
+- Status: `done`
+- Details:
+  - Simplified nested dense-row chrome in:
+    - `frontend/src/components/Params/paramRowClassNames.ts`
+    - `frontend/index.css`
+  - Kept nested indentation, but removed:
+    - the nested guide pseudo-element classes
+    - the `.section-param-row[data-param-nested-child=\"true\"]:has(...)::before` continuation rule
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamRowShell.test.tsx src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/sectionBodyModePolicy.test.ts`
+      - result:
+        - `9` files passed
+        - `34` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-nested-guide-removal-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-nested-guide-removal-rerun`
+  - First paired rerun read versus the retained row-containment confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `167.804ms`
+        - after:
+          - `148.513ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3421.807ms`
+        - after:
+          - `3267.777ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `842.503ms`
+        - after:
+          - `853.807ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13582.872ms`
+        - after:
+          - `13243.181ms`
+  - Because the first paired `tier1Synthetic` sample was close to the retained baseline, ran same-code worktree confirmation reruns for both scenes:
+    - `worktree-settings-confirmation.summary.json`
+    - `worktree-tier1-confirmation.summary.json`
+  - Confirmation rerun read versus the same retained row-containment baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `167.804ms`
+        - confirmation:
+          - `148.237ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3421.807ms`
+        - confirmation:
+          - `3235.187ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `842.503ms`
+        - confirmation:
+          - `825.999ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13582.872ms`
+        - confirmation:
+          - `13271.540ms`
+  - CDP visual compare:
+    - compared worktree `http://127.0.0.1:3012/settings` against untouched `main` `http://127.0.0.1:3087/settings`
+    - expected visual difference is limited to the removed nested guide cue while indentation remains
+    - no broken layout or overlap showed up in the viewport screenshots
+  - Decision:
+    - keep this nested-guide removal at `HEAD`
+    - treat it as the next accepted Tier 1 live-body paint simplification after row containment
+    - continue preferring repeated dense-row chrome simplification over broader preview-policy changes while both canonical scenes keep improving
+- Next action:
+  - Use the retained simplified dense-row baseline to choose the next Tier 1 slice:
+    - remove or simplify additional repeated row chrome that is not paying for itself
+    - or deepen the shared param-row/body ownership so the next DOM or paint reduction lands with less seam overhead

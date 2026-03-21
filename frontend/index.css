@@ -479,17 +479,6 @@ html.dark body {
   column-gap: 0.75rem;
 }
 
-.section-param-row[data-param-nested-child="true"]::before {
-  top: -0.25rem;
-  bottom: 0;
-}
-
-.section-param-row[data-param-nested-child="true"]:has(
-    + .section-param-row[data-param-nested-child="true"]
-  )::before {
-  bottom: -0.25rem;
-}
-
 .section-param-row > .section-key.param-row-label {
   contain: layout;
   flex: 0 0 var(--param-column-width, 200px);
