@@ -57,6 +57,7 @@ ROUTE_SET_PROMPT_TEMPLATE_LINK = "/api/setPromptTemplateLink"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_SAVE_PROJECT = "/api/saveProject"
+ROUTE_ADD_KWARG = "/api/addKwarg"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
 ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
 ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT = "/api/createWorkspaceLaunchIntent"
@@ -2129,6 +2130,8 @@ def execute_scenario(
         return execute_workspace_launch_outdated_settings_error(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
+    if scenario.kind == "latest_state_add_kwarg_shown_param_ids":
+        return execute_latest_state_add_kwarg_shown_param_ids(backend)
     if scenario.kind == "json_source_save_same_key_path_last_write_wins":
         return execute_json_source_save_same_key_path_last_write_wins(backend)
     if scenario.kind == "json_source_save_missing_key_path":
@@ -2284,6 +2287,60 @@ def execute_latest_state_empty_callable_shown_param_ids(
         payload=payload,
     )
     return summary, {"latestProjectState": payload}
+
+
+def execute_latest_state_add_kwarg_shown_param_ids(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    before_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": "project-alpha"},
+    )
+    before_payload = normalize_response_json(before_response)
+    if not isinstance(before_payload, dict):
+        raise ParityHarnessError(
+            "getLatestProjectState before addKwarg returned unexpected payload: "
+            f"{before_payload!r}"
+        )
+
+    add_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_ADD_KWARG,
+        payload={"projectConfigId": "project-alpha", "sectionId": "dict-a"},
+    )
+    add_payload = normalize_response_json(add_response)
+
+    latest_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": "project-alpha"},
+    )
+    latest_payload = normalize_response_json(latest_response)
+    if not isinstance(latest_payload, dict):
+        raise ParityHarnessError(
+            "getLatestProjectState after addKwarg returned unexpected payload: "
+            f"{latest_payload!r}"
+        )
+
+    summary = summarize_latest_state_add_kwarg_shown_param_ids(
+        add_http_status=add_response.status_code,
+        latest_http_status=latest_response.status_code,
+        before_payload=before_payload,
+        latest_payload=latest_payload,
+        section_id="dict-a",
+    )
+    return summary, {
+        "addKwarg": {
+            "payload": add_payload,
+            "status": add_response.status_code,
+        },
+        "beforeLatestProjectState": before_payload,
+        "latestProjectState": latest_payload,
+    }
 
 
 def execute_json_source_key_change_refresh(
@@ -4830,6 +4887,197 @@ def summarize_empty_callable_latest_state(
         "pinnedRequiredPathCount": len(pinned_paths),
         "unpinnedRequiredPathCount": len(unpinned_paths),
     }
+
+
+def summarize_latest_state_add_kwarg_shown_param_ids(
+    add_http_status: int,
+    latest_http_status: int,
+    before_payload: dict[str, Any],
+    latest_payload: dict[str, Any],
+    section_id: str,
+) -> dict[str, Any]:
+    before_state = object_field(before_payload, "projectState")
+    latest_state = object_field(latest_payload, "projectState")
+    before_code_objs = object_field(before_state, "codeObjs", allow_missing=True)
+    latest_code_objs = object_field(latest_state, "codeObjs", allow_missing=True)
+    created_code_obj_ids = sorted(
+        set(latest_code_objs).difference(before_code_objs)
+    )
+    created_code_obj_id = (
+        created_code_obj_ids[0] if len(created_code_obj_ids) == 1 else None
+    )
+
+    return {
+        "addKwargHttpStatus": add_http_status,
+        "latestHttpStatus": latest_http_status,
+        "createdCodeObjCount": len(created_code_obj_ids),
+        "beforeShownParamIds": summarize_named_shown_param_ids(
+            project_state=before_state,
+            section_id=section_id,
+            created_code_obj_id=None,
+        ),
+        "afterShownParamIds": summarize_named_shown_param_ids(
+            project_state=latest_state,
+            section_id=section_id,
+            created_code_obj_id=created_code_obj_id,
+        ),
+        "createdParam": summarize_latest_state_code_obj(
+            project_state=latest_state,
+            code_obj_id=created_code_obj_id,
+        )
+        if created_code_obj_id is not None
+        else None,
+    }
+
+
+def summarize_named_shown_param_ids(
+    project_state: dict[str, Any],
+    section_id: str,
+    created_code_obj_id: str | None,
+) -> dict[str, Any]:
+    project_config = object_field(project_state, "projectConfig")
+    section_variant_map = object_field(
+        project_config,
+        "sectionVariantMap",
+        allow_missing=True,
+    )
+    variant_id = expect_non_empty_string(
+        section_variant_map.get(section_id),
+        f"projectState.projectConfig.sectionVariantMap.{section_id}",
+    )
+    shown_param_ids = object_field(project_state, "shownParamIds", allow_missing=True)
+    shown_entry = expect_object(
+        shown_param_ids.get(variant_id),
+        f"projectState.shownParamIds.{variant_id}",
+    )
+    code_objs = object_field(project_state, "codeObjs", allow_missing=True)
+    return {
+        "pinned": summarize_named_shown_param_area(
+            area=object_field(shown_entry, "pinned", allow_missing=True),
+            label=f"projectState.shownParamIds.{variant_id}.pinned",
+            code_objs=code_objs,
+            created_code_obj_id=created_code_obj_id,
+        ),
+        "unpinned": summarize_named_shown_param_area(
+            area=object_field(shown_entry, "unpinned", allow_missing=True),
+            label=f"projectState.shownParamIds.{variant_id}.unpinned",
+            code_objs=code_objs,
+            created_code_obj_id=created_code_obj_id,
+        ),
+    }
+
+
+def summarize_named_shown_param_area(
+    area: dict[str, Any],
+    label: str,
+    code_objs: dict[str, Any],
+    created_code_obj_id: str | None,
+) -> dict[str, Any]:
+    top_level_param_ids = expect_string_list(
+        area.get("topLevelParamIds"),
+        f"{label}.topLevelParamIds",
+    )
+    required_paths = object_field(
+        area,
+        "requiredParamIdsToPaths",
+        allow_missing=True,
+    )
+
+    canonical_required_paths: dict[str, list[str]] = {}
+    for param_id, raw_path in sorted(
+        required_paths.items(),
+        key=lambda entry: canonicalize_code_obj_label(
+            code_objs=code_objs,
+            code_obj_id=entry[0],
+            created_code_obj_id=created_code_obj_id,
+        ),
+    ):
+        canonical_required_paths[
+            canonicalize_code_obj_label(
+                code_objs=code_objs,
+                code_obj_id=param_id,
+                created_code_obj_id=created_code_obj_id,
+            )
+        ] = [
+            canonicalize_code_obj_label(
+                code_objs=code_objs,
+                code_obj_id=path_id,
+                created_code_obj_id=created_code_obj_id,
+            )
+            for path_id in expect_string_list(
+                raw_path,
+                f"{label}.requiredParamIdsToPaths.{param_id}",
+            )
+        ]
+
+    return {
+        "requiredParamIdsToPaths": canonical_required_paths,
+        "topLevelParamIds": [
+            canonicalize_code_obj_label(
+                code_objs=code_objs,
+                code_obj_id=param_id,
+                created_code_obj_id=created_code_obj_id,
+            )
+            for param_id in top_level_param_ids
+        ],
+    }
+
+
+def canonicalize_code_obj_label(
+    code_objs: dict[str, Any],
+    code_obj_id: str,
+    created_code_obj_id: str | None,
+) -> str:
+    if created_code_obj_id is not None and code_obj_id == created_code_obj_id:
+        return "<created>"
+    code_obj = expect_object(code_objs.get(code_obj_id), f"projectState.codeObjs.{code_obj_id}")
+    raw_name = code_obj.get("name")
+    if isinstance(raw_name, str):
+        return raw_name
+    return code_obj_id
+
+
+def summarize_latest_state_code_obj(
+    project_state: dict[str, Any],
+    code_obj_id: str | None,
+) -> dict[str, Any] | None:
+    if code_obj_id is None:
+        return None
+
+    code_objs = object_field(project_state, "codeObjs", allow_missing=True)
+    code_obj_variants = object_field(
+        project_state,
+        "codeObjVariants",
+        allow_missing=True,
+    )
+    code_obj_impls = object_field(project_state, "codeObjImpls", allow_missing=True)
+
+    code_obj = expect_object(code_objs.get(code_obj_id), f"projectState.codeObjs.{code_obj_id}")
+    default_variant_id = expect_non_empty_string(
+        code_obj.get("defaultVariant"),
+        f"projectState.codeObjs.{code_obj_id}.defaultVariant",
+    )
+    code_obj_variant = expect_object(
+        code_obj_variants.get(default_variant_id),
+        f"projectState.codeObjVariants.{default_variant_id}",
+    )
+    impl_id = expect_non_empty_string(
+        code_obj_variant.get("impl"),
+        f"projectState.codeObjVariants.{default_variant_id}.impl",
+    )
+    code_obj_impl = expect_object(
+        code_obj_impls.get(impl_id),
+        f"projectState.codeObjImpls.{impl_id}",
+    )
+
+    summary = {
+        "coreNameEditable": bool(code_obj_impl.get("coreNameEditable", False)),
+        "name": code_obj.get("name") if isinstance(code_obj.get("name"), str) else None,
+        "type": normalized_string(code_obj_impl.get("type")),
+    }
+    if "value" in code_obj_impl:
+        summary["value"] = code_obj_impl.get("value")
+    return summary
 
 
 def summarize_json_source_key_change_refresh(

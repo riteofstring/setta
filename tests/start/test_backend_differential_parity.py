@@ -436,6 +436,140 @@ class Route:
             },
         )
 
+    def test_summarize_latest_state_add_kwarg_shown_param_ids(self) -> None:
+        harness = load_harness_module()
+
+        before_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "sectionVariantMap": {
+                        "dict-a": "dict-a-variant",
+                    }
+                },
+                "shownParamIds": {
+                    "dict-a-variant": {
+                        "pinned": {
+                            "requiredParamIdsToPaths": {
+                                "shared-child": ["shared-child"],
+                            },
+                            "topLevelParamIds": ["shared-child"],
+                        },
+                        "unpinned": {
+                            "requiredParamIdsToPaths": {
+                                "shared-secret": ["shared-secret"],
+                            },
+                            "topLevelParamIds": ["shared-secret"],
+                        },
+                    }
+                },
+                "codeObjs": {
+                    "shared-child": {"name": "child"},
+                    "shared-secret": {"name": "secret"},
+                },
+            }
+        }
+        latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "sectionVariantMap": {
+                        "dict-a": "dict-a-variant",
+                    }
+                },
+                "shownParamIds": {
+                    "dict-a-variant": {
+                        "pinned": {
+                            "requiredParamIdsToPaths": {
+                                "shared-child": ["shared-child"],
+                            },
+                            "topLevelParamIds": ["shared-child"],
+                        },
+                        "unpinned": {
+                            "requiredParamIdsToPaths": {
+                                "shared-secret": ["shared-secret"],
+                                "created-param": ["created-param"],
+                            },
+                            "topLevelParamIds": [
+                                "shared-secret",
+                                "created-param",
+                            ],
+                        },
+                    }
+                },
+                "codeObjs": {
+                    "shared-child": {"name": "child"},
+                    "shared-secret": {"name": "secret"},
+                    "created-param": {
+                        "defaultVariant": "created-param-variant",
+                        "name": "",
+                    },
+                },
+                "codeObjVariants": {
+                    "created-param-variant": {
+                        "impl": "created-param-impl",
+                    }
+                },
+                "codeObjImpls": {
+                    "created-param-impl": {
+                        "coreNameEditable": True,
+                        "type": "CodeParam",
+                        "value": "",
+                    }
+                },
+            }
+        }
+
+        summary = harness.summarize_latest_state_add_kwarg_shown_param_ids(
+            add_http_status=200,
+            latest_http_status=200,
+            before_payload=before_payload,
+            latest_payload=latest_payload,
+            section_id="dict-a",
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "addKwargHttpStatus": 200,
+                "latestHttpStatus": 200,
+                "createdCodeObjCount": 1,
+                "beforeShownParamIds": {
+                    "pinned": {
+                        "requiredParamIdsToPaths": {
+                            "child": ["child"],
+                        },
+                        "topLevelParamIds": ["child"],
+                    },
+                    "unpinned": {
+                        "requiredParamIdsToPaths": {
+                            "secret": ["secret"],
+                        },
+                        "topLevelParamIds": ["secret"],
+                    },
+                },
+                "afterShownParamIds": {
+                    "pinned": {
+                        "requiredParamIdsToPaths": {
+                            "child": ["child"],
+                        },
+                        "topLevelParamIds": ["child"],
+                    },
+                    "unpinned": {
+                        "requiredParamIdsToPaths": {
+                            "<created>": ["<created>"],
+                            "secret": ["secret"],
+                        },
+                        "topLevelParamIds": ["secret", "<created>"],
+                    },
+                },
+                "createdParam": {
+                    "coreNameEditable": True,
+                    "name": "",
+                    "type": "CodeParam",
+                    "value": "",
+                },
+            },
+        )
+
     def test_summarize_latest_state_after_create_project_detects_defaults(self) -> None:
         harness = load_harness_module()
 

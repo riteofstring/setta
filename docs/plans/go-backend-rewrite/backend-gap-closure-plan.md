@@ -79,8 +79,12 @@ following are true:
 - The latest-state corpus manifest is runnable again against `main`: fixture
   seeding now normalizes Go-shaped persisted project documents into the Python
   source-store shape when the baseline target still boots the Python backend,
-  so the empty-callable latest-state corpus scenario reaches comparison
-  instead of failing during startup.
+  so latest-state corpus scenarios reach comparison instead of failing during
+  startup.
+- The latest-state corpus manifest now proves both the empty shown-param-ids
+  branch and a non-empty `addKwarg` refresh branch, where the next
+  latest-state read keeps the pinned/unpinned split and projects the created
+  param into the unpinned `shownParamIds` payload.
 - The explicit current-caller gap queue is now exhausted:
   `backend-behavior-parity-matrix.md` is at `Missing = 0` and
   `Implemented, proof incomplete = 0`.
@@ -112,9 +116,9 @@ following are true:
 - Add new executable harness slices for still-risky surfaces that are mostly
   covered today by source inspection, retained Python boundaries, or dormant
   callers.
-- Expand the latest-state corpus beyond the empty-callable shown-param-ids
-  scenario so more retained-boundary-adjacent surfaces move from inspection to
-  executable proof.
+- Expand the latest-state corpus beyond the existing shown-param-ids slices so
+  more retained-boundary-adjacent surfaces move from inspection to executable
+  proof.
 - Prioritize new slices by current caller risk, not by matrix row counts.
 - Revisit retained-boundary classifications only when a real live caller
   disproves the current scope decision.
