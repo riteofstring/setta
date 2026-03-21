@@ -18,6 +18,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
@@ -70,6 +71,15 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 
 func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "complete")
+	writeCodexCompletionGuardSetting(t, fixture.root, true)
+	profileID := "profile-codex"
+	if err := fixture.profiles.Write([]agentprofiles.Profile{{
+		ID:            profileID,
+		Name:          "Codex",
+		ToolAllowlist: []string{"setta__getProjectState", "runTool"},
+	}}); err != nil {
+		t.Fatalf("write codex profile: %v", err)
+	}
 	baseConfigPath := filepath.Join(
 		fixture.root,
 		codexSettingsRootName,
@@ -109,6 +119,7 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
+		AgentProfileID:  &profileID,
 		PermissionMode:  ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
@@ -158,6 +169,14 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	if !ok || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected runtime setta mcp url, got %#v", mcpServers["setta"])
 	}
+	if got := stringSliceValue(settaServer["enabled_tools"]); !equalStringSlices(got, []string{
+		"getProjectState",
+		"report_completion_status",
+		"runTool",
+		"set_agentic_context",
+	}) {
+		t.Fatalf("expected runtime enabled_tools to reflect profile allowlist and completion guard, got %#v", settaServer["enabled_tools"])
+	}
 	if !containsText(stringValue(runtimeConfig["developer_instructions"]), "## Runtime execution settings") {
 		t.Fatalf("expected runtime developer instructions to include execution settings, got %#v", runtimeConfig["developer_instructions"])
 	}
@@ -168,6 +187,78 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	projectEntry, ok := mapValue(projects[fixture.root])
 	if !ok || stringValue(projectEntry["trust_level"]) != "trusted" {
 		t.Fatalf("expected trusted runtime project entry, got %#v", runtimeConfig["projects"])
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorOmitsCompletionReportToolWhenCompletionGuardDisabled(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "complete")
+	writeCodexCompletionGuardSetting(t, fixture.root, false)
+	profileID := "profile-codex"
+	if err := fixture.profiles.Write([]agentprofiles.Profile{{
+		ID:            profileID,
+		Name:          "Codex",
+		ToolAllowlist: []string{"setta__getProjectState", "runTool"},
+	}}); err != nil {
+		t.Fatalf("write codex profile: %v", err)
+	}
+
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello from Codex"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		AgentProfileID:  &profileID,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+
+	configPath := filepath.Join(
+		fixture.root,
+		codexSettingsRootName,
+		"codex",
+		fixture.configID,
+		"sessions",
+		result.ChatID,
+		codexConfigFileName,
+	)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read runtime codex config: %v", err)
+	}
+	runtimeConfig := map[string]any{}
+	if err := toml.Unmarshal(content, &runtimeConfig); err != nil {
+		t.Fatalf("decode runtime codex config: %v", err)
+	}
+	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
+	if !ok {
+		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
+	}
+	settaServer, ok := mapValue(mcpServers["setta"])
+	if !ok {
+		t.Fatalf("expected runtime setta server entry, got %#v", mcpServers["setta"])
+	}
+	if got := stringSliceValue(settaServer["enabled_tools"]); !equalStringSlices(got, []string{
+		"getProjectState",
+		"runTool",
+		"set_agentic_context",
+	}) {
+		t.Fatalf("expected runtime enabled_tools to omit completion report tool when guard is disabled, got %#v", settaServer["enabled_tools"])
 	}
 
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
@@ -228,7 +319,7 @@ func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInst
 	}
 	applyCodexRuntimeConfig(payload, externalagentconfigs.Config{}, "/tmp/workspace", map[string]any{
 		"systemPrompt": "Runtime system prompt",
-	})
+	}, nil, false)
 
 	if got := stringValue(payload["developer_instructions"]); got != "Runtime system prompt\n\nBase developer instructions" {
 		t.Fatalf("expected system prompt to prepend existing developer instructions, got %q", got)
@@ -283,7 +374,7 @@ func TestCodexExecutorPrepareCodexHomePrefersExplicitBaseConfigPath(t *testing.T
 		ID:               configID,
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{})
+	}, "chat-1", root, map[string]any{}, nil, false)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -331,7 +422,7 @@ func TestCodexExecutorPrepareCodexHomeCopiesAuthFileIntoSessionHome(t *testing.T
 		ID:               "external-config",
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{})
+	}, "chat-1", root, map[string]any{}, nil, false)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -377,7 +468,7 @@ func TestCodexExecutorPrepareCodexHomeLeavesExplicitSourceConfigUnchanged(t *tes
 		SettingsFilePath: stringPtr(explicitConfigPath),
 	}, "chat-1", root, map[string]any{
 		"systemPrompt": "Runtime prompt",
-	})
+	}, nil, false)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -438,7 +529,7 @@ func TestCodexExecutorPrepareCodexHomeLeavesCanonicalConfigBytesUnchanged(t *tes
 		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
 	}, "chat-1", root, map[string]any{
 		"systemPrompt": "Runtime prompt",
-	})
+	}, nil, false)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -466,7 +557,7 @@ func TestCodexExecutorPrepareCodexHomeDoesNotCreateMissingCanonicalConfigInManag
 		ID:                      configID,
 		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
 		SettingsAllowSettaEdits: false,
-	}, "chat-1", root, map[string]any{})
+	}, "chat-1", root, map[string]any{}, nil, false)
 	if err != nil {
 		t.Fatalf("prepare codex home: %v", err)
 	}
@@ -498,7 +589,7 @@ func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersRootKey(t *testi
 		ID:               "external-config",
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{})
+	}, "chat-1", root, map[string]any{}, nil, false)
 	if err == nil {
 		t.Fatal("expected camel-case mcpServers root to be rejected")
 	}
@@ -531,7 +622,7 @@ func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersTables(t *testin
 		ID:               "external-config",
 		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
 		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{})
+	}, "chat-1", root, map[string]any{}, nil, false)
 	if err == nil {
 		t.Fatal("expected camel-case mcpServers tables to be rejected")
 	}
@@ -1072,6 +1163,7 @@ type codexExecutorFixture struct {
 	send     *SendService
 	runtime  *Runtime
 	runs     *agentruns.RunStore
+	profiles *agentprofiles.Store
 	engineID string
 }
 
@@ -1191,6 +1283,7 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 		send:     send,
 		runtime:  runtime,
 		runs:     runs,
+		profiles: profiles,
 		engineID: engineID,
 	}
 }
@@ -1211,6 +1304,54 @@ func (f codexExecutorFixture) waitForTerminalRun(t *testing.T, runID string) age
 	}
 	t.Fatalf("timed out waiting for run %s to reach a terminal state", runID)
 	return agentruns.Run{}
+}
+
+func writeCodexCompletionGuardSetting(t *testing.T, root string, enabled bool) {
+	t.Helper()
+
+	settingsStore, err := settingsstate.NewStore(filepath.Join(root, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open settings store: %v", err)
+	}
+	document, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	document["backend"].(map[string]any)["completionGuardEnabled"] = enabled
+	if err := settingsStore.Save(context.Background(), document); err != nil {
+		t.Fatalf("save settings document: %v", err)
+	}
+}
+
+func stringSliceValue(raw any) []string {
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		values := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			text, ok := entry.(string)
+			if !ok {
+				return nil
+			}
+			values = append(values, text)
+		}
+		return values
+	default:
+		return nil
+	}
+}
+
+func equalStringSlices(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func (f codexExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID string) {

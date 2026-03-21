@@ -9,6 +9,7 @@ import (
 )
 
 const DefaultAutoRefetchCallableParamsOnLSPMismatch = true
+const DefaultCompletionGuardEnabled = false
 
 var sectionDefaultSettingsKeysByType = map[string]string{
 	"Browser":           "browserSectionDefault",
@@ -63,6 +64,29 @@ func AutoRefetchCallableParamsOnLSPMismatchEnabled(document Document) (bool, err
 	}
 	if !ok {
 		return DefaultAutoRefetchCallableParamsOnLSPMismatch, nil
+	}
+	return value, nil
+}
+
+func CompletionGuardEnabled(document Document) (bool, error) {
+	if document == nil {
+		return DefaultCompletionGuardEnabled, nil
+	}
+
+	backend, ok, err := objectField(document, "backend")
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return DefaultCompletionGuardEnabled, nil
+	}
+
+	value, ok, err := boolField(backend, "completionGuardEnabled")
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return DefaultCompletionGuardEnabled, nil
 	}
 	return value, nil
 }

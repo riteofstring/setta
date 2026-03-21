@@ -66,10 +66,18 @@ func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 	if !enabled {
 		t.Fatal("expected default mismatch-refetch setting to be true")
 	}
+	completionGuardEnabled, err := CompletionGuardEnabled(document)
+	if err != nil {
+		t.Fatalf("CompletionGuardEnabled returned error: %v", err)
+	}
+	if completionGuardEnabled {
+		t.Fatal("expected default completion guard setting to be false")
+	}
 
 	backend := document["backend"].(map[string]any)
 	backend["renameRefactorMode"] = "NEVER_RENAME"
 	backend["autoRefetchCallableParamsOnLspMismatch"] = false
+	backend["completionGuardEnabled"] = true
 
 	mode, err = RenameRefactorModeForDocument(document)
 	if err != nil {
@@ -85,6 +93,13 @@ func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 	}
 	if enabled {
 		t.Fatal("expected explicit mismatch-refetch setting to be false")
+	}
+	completionGuardEnabled, err = CompletionGuardEnabled(document)
+	if err != nil {
+		t.Fatalf("CompletionGuardEnabled explicit value: %v", err)
+	}
+	if !completionGuardEnabled {
+		t.Fatal("expected explicit completion guard setting to be true")
 	}
 }
 
@@ -106,6 +121,11 @@ func TestQueriesRejectInvalidValues(t *testing.T) {
 	backend["autoRefetchCallableParamsOnLspMismatch"] = "nope"
 	if _, err := AutoRefetchCallableParamsOnLSPMismatchEnabled(document); !errors.Is(err, ErrSettingsValueInvalid) {
 		t.Fatalf("expected ErrSettingsValueInvalid for mismatch-refetch, got %v", err)
+	}
+	backend["autoRefetchCallableParamsOnLspMismatch"] = true
+	backend["completionGuardEnabled"] = "nope"
+	if _, err := CompletionGuardEnabled(document); !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid for completion guard, got %v", err)
 	}
 }
 

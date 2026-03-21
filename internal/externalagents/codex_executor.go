@@ -10,14 +10,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	toml "github.com/pelletier/go-toml/v2"
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/mcpx"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -165,7 +169,19 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 	}
 
 	envMap := e.buildRuntimeEnv(request.ExternalConfig)
-	codexHome, err := e.prepareCodexHome(request.ExternalConfig, request.ChatID, workingDir, request.Inputs)
+	completionGuardEnabled, err := e.resolveCompletionGuardEnabled(ctx)
+	if err != nil {
+		cleanupStart()
+		return StartResponse{}, err
+	}
+	codexHome, err := e.prepareCodexHome(
+		request.ExternalConfig,
+		request.ChatID,
+		workingDir,
+		request.Inputs,
+		request.Profile,
+		completionGuardEnabled,
+	)
 	if err != nil {
 		cleanupStart()
 		return StartResponse{}, err
@@ -599,6 +615,8 @@ func (e *CodexExecutor) prepareCodexHome(
 	chatID string,
 	workingDir string,
 	inputs map[string]any,
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
 ) (string, error) {
 	baseHome := filepath.Join(e.settaFilesRoot, codexSettingsRootName, "codex", config.ID)
 	runtimeHome := filepath.Join(baseHome, "sessions", chatID)
@@ -615,7 +633,9 @@ func (e *CodexExecutor) prepareCodexHome(
 		}
 		payload = loaded
 	}
-	applyCodexRuntimeConfig(payload, config, workingDir, inputs)
+	if err := applyCodexRuntimeConfig(payload, config, workingDir, inputs, profile, completionGuardEnabled); err != nil {
+		return "", err
+	}
 
 	content, err := toml.Marshal(payload)
 	if err != nil {
@@ -629,6 +649,22 @@ func (e *CodexExecutor) prepareCodexHome(
 		return "", err
 	}
 	return runtimeHome, nil
+}
+
+func (e *CodexExecutor) resolveCompletionGuardEnabled(ctx context.Context) (bool, error) {
+	settingsStore, err := settingsstate.NewStore(filepath.Join(e.settaFilesRoot, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		return false, fmt.Errorf("open settings store: %w", err)
+	}
+	document, err := settingsStore.Load(ctx)
+	if err != nil {
+		return false, fmt.Errorf("load settings document: %w", err)
+	}
+	enabled, err := settingsstate.CompletionGuardEnabled(document)
+	if err != nil {
+		return false, fmt.Errorf("read completion guard setting: %w", err)
+	}
+	return enabled, nil
 }
 
 func (e *CodexExecutor) ensureCodexLogin(
@@ -1110,9 +1146,16 @@ func loadCodexConfigPayload(path string) (map[string]any, error) {
 	return payload, nil
 }
 
-func applyCodexRuntimeConfig(payload map[string]any, config externalagentconfigs.Config, workingDir string, inputs map[string]any) {
+func applyCodexRuntimeConfig(
+	payload map[string]any,
+	config externalagentconfigs.Config,
+	workingDir string,
+	inputs map[string]any,
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
+) error {
 	if payload == nil {
-		return
+		return nil
 	}
 	if model := strings.TrimSpace(stringValue(inputs["model"])); model != "" {
 		payload["model"] = model
@@ -1163,6 +1206,75 @@ func applyCodexRuntimeConfig(payload map[string]any, config externalagentconfigs
 	projectEntry["trust_level"] = "trusted"
 	projects[workingDir] = projectEntry
 	payload["projects"] = projects
+	allowlist, err := buildCodexToolAllowlist(profile, completionGuardEnabled)
+	if err != nil {
+		return err
+	}
+	if allowlist != nil && !allowlist.allowAll {
+		mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
+		serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
+		serverEntry["enabled_tools"] = append([]string(nil), allowlist.toolNames...)
+		mcpServers[mcpx.DefaultServerID] = serverEntry
+		payload["mcp_servers"] = mcpServers
+	}
+	return nil
+}
+
+type codexToolAllowlist struct {
+	allowAll  bool
+	toolNames []string
+}
+
+func buildCodexToolAllowlist(profile *agentprofiles.Profile, completionGuardEnabled bool) (*codexToolAllowlist, error) {
+	if profile == nil || len(profile.ToolAllowlist) == 0 {
+		return nil, nil
+	}
+
+	allowAll := false
+	toolNames := map[string]struct{}{}
+	for _, entry := range profile.ToolAllowlist {
+		normalized := strings.TrimSpace(entry)
+		if normalized == "" {
+			return nil, fmt.Errorf("toolAllowlist entries must be non-empty strings")
+		}
+		if strings.HasPrefix(normalized, "mcp__") {
+			normalized = strings.TrimPrefix(normalized, "mcp__")
+		}
+		if strings.Contains(normalized, mcpx.ToolNameSeparator) {
+			serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
+			if !ok || strings.TrimSpace(serverID) == "" || strings.TrimSpace(toolName) == "" {
+				return nil, fmt.Errorf("invalid tool allowlist entry %q", entry)
+			}
+			if serverID != mcpx.DefaultServerID {
+				return nil, fmt.Errorf("external tool allowlist only supports MCP server %q: %s", mcpx.DefaultServerID, entry)
+			}
+			toolNames[toolName] = struct{}{}
+			continue
+		}
+		if normalized == mcpx.DefaultServerID {
+			allowAll = true
+			continue
+		}
+		toolNames[normalized] = struct{}{}
+	}
+	if allowAll {
+		return &codexToolAllowlist{allowAll: true}, nil
+	}
+	if len(toolNames) == 0 {
+		return nil, nil
+	}
+	toolNames["set_agentic_context"] = struct{}{}
+	if completionGuardEnabled {
+		toolNames["report_completion_status"] = struct{}{}
+	}
+	resolved := make([]string, 0, len(toolNames))
+	for toolName := range toolNames {
+		resolved = append(resolved, toolName)
+	}
+	sort.Strings(resolved)
+	return &codexToolAllowlist{
+		toolNames: resolved,
+	}, nil
 }
 
 func copyCodexAuthFile(baseAuthDir string, runtimeHome string) error {
