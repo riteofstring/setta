@@ -246,7 +246,7 @@ func mutateAndSaveIfChanged[T any](
 			if err != nil {
 				return snapshotFromState(*state), err
 			}
-			if !reflect.DeepEqual(state.current, normalized) {
+			if !documentsEqualForRuntimeState(state.current, normalized) {
 				state.current = normalized.Clone()
 				state.revision++
 				snapshot := snapshotFromState(*state)

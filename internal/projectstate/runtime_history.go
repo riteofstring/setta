@@ -1,7 +1,9 @@
 package projectstate
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"reflect"
 )
 
@@ -9,7 +11,7 @@ func applyRuntimeMutationState(state *runtimeState, normalized Document) bool {
 	if state == nil {
 		return false
 	}
-	if reflect.DeepEqual(state.current, normalized) {
+	if documentsEqualForRuntimeState(state.current, normalized) {
 		return false
 	}
 	state.current = normalized.Clone()
@@ -36,7 +38,7 @@ func recordRuntimeHistoryState(state *runtimeState, document Document) {
 		state.historyIndex = len(state.history) - 1
 	}
 
-	if reflect.DeepEqual(state.history[state.historyIndex], cloned) {
+	if documentsEqualForRuntimeState(state.history[state.historyIndex], cloned) {
 		return
 	}
 
@@ -46,6 +48,15 @@ func recordRuntimeHistoryState(state *runtimeState, document Document) {
 		state.history = state.history[excess:]
 	}
 	state.historyIndex = len(state.history) - 1
+}
+
+func documentsEqualForRuntimeState(left Document, right Document) bool {
+	leftJSON, leftErr := json.Marshal(left)
+	rightJSON, rightErr := json.Marshal(right)
+	if leftErr == nil && rightErr == nil {
+		return bytes.Equal(leftJSON, rightJSON)
+	}
+	return reflect.DeepEqual(left, right)
 }
 
 func undoRuntimeState(state *runtimeState, steps int) bool {
