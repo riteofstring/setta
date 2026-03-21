@@ -49,6 +49,38 @@ func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.
 	if !foundLookupHome {
 		t.Fatalf("expected launch args to include profile lookup home, got %#v", args)
 	}
+	for index := 0; index < len(args)-1; index++ {
+		if args[index] == "--setta-home" {
+			t.Fatalf("expected profile launch args to omit --setta-home, got %#v", args)
+		}
+	}
+}
+
+func TestLocalIDESessionLauncherBuildLaunchArgsKeepsSettaHomeForNonProfileLaunch(t *testing.T) {
+	t.Parallel()
+
+	launcherRuntime, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	args := launcherRuntime.buildLaunchArgs(IDELaunchInput{
+		WorkspaceRoot: "/tmp/workspace",
+		SettaHome:     "/tmp/.setta",
+		ServerMode:    config.ModeIDE,
+	})
+
+	foundSettaHome := false
+	for index := 0; index < len(args)-1; index++ {
+		if args[index] == "--setta-home" && args[index+1] == "/tmp/.setta" {
+			foundSettaHome = true
+		}
+	}
+	if !foundSettaHome {
+		t.Fatalf("expected non-profile launch args to include --setta-home, got %#v", args)
+	}
 }
 
 func TestLocalIDESessionLauncherBuildLaunchArgsUseLauncherModeWhenRequested(t *testing.T) {
@@ -280,6 +312,46 @@ func TestLocalIDESessionLauncherEnsureSessionReusesOnlyMatchingModeAndRuntimeIde
 	}
 	if len(result.Secret) == 0 {
 		t.Fatal("expected reused session secret")
+	}
+}
+
+func TestLoadIDELaunchConfigUsesProfileRuntimeSettaHomeWhenLookupHomeProvided(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	defaultSettaHome := filepath.Join(root, ".setta")
+	profileLookupHome := defaultSettaHome
+	profileRuntimeHome := filepath.Join(root, ".setta-development")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, defaultSettaHome, profileLookupHome, profileRuntimeHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+	writeSessionLauncherProfile(t, profileLookupHome, workspaceRoot, profileRuntimeHome)
+
+	location := "local"
+	cfg, err := loadIDELaunchConfig(IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          defaultSettaHome,
+		ProfileLookupHome:  profileLookupHome,
+		Profile:            "dev",
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+
+	if cfg.Paths.SettaHome != profileRuntimeHome {
+		t.Fatalf("expected profile runtime setta home %q, got %q", profileRuntimeHome, cfg.Paths.SettaHome)
+	}
+	if cfg.Paths.ProfileLookupHome != profileLookupHome {
+		t.Fatalf("expected profile lookup home %q, got %q", profileLookupHome, cfg.Paths.ProfileLookupHome)
+	}
+	if cfg.Paths.ProfileName != "dev" {
+		t.Fatalf("expected profile name %q, got %q", "dev", cfg.Paths.ProfileName)
 	}
 }
 

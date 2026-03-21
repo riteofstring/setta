@@ -339,10 +339,13 @@ func (l *LocalIDESessionLauncher) buildLaunchArgs(input IDELaunchInput) []string
 		"--port", "0",
 		"--mode", string(mode),
 		"--workspace", input.WorkspaceRoot,
-		"--setta-home", input.SettaHome,
 	}
-	if strings.TrimSpace(input.Profile) != "" {
-		args = append(args, "--profile", input.Profile)
+	profile := strings.TrimSpace(input.Profile)
+	if profile == "" && strings.TrimSpace(input.SettaHome) != "" {
+		args = append(args, "--setta-home", input.SettaHome)
+	}
+	if profile != "" {
+		args = append(args, "--profile", profile)
 	}
 	if strings.TrimSpace(input.ProfileLookupHome) != "" {
 		args = append(args, "--profile-lookup-home", input.ProfileLookupHome)
@@ -392,9 +395,13 @@ func (l *LocalIDESessionLauncher) launchEnv() []string {
 
 func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
 	mode := effectiveLaunchMode(input.ServerMode)
+	settaHome := input.SettaHome
+	if strings.TrimSpace(input.Profile) != "" && strings.TrimSpace(input.ProfileLookupHome) != "" {
+		settaHome = ""
+	}
 	cli := config.CLIOptions{
 		WorkspaceRoot:     input.WorkspaceRoot,
-		SettaHome:         input.SettaHome,
+		SettaHome:         settaHome,
 		ProfileLookupHome: input.ProfileLookupHome,
 		Profile:           input.Profile,
 		RuntimeRoot:       input.RuntimeRoot,
