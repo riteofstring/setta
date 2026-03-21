@@ -431,3 +431,7 @@ categorize them.
   context exists, so the next practical queue should stay on the heavier
   external-agent runtime, launcher/process-cleanup, and JSON-source runtime
   rows rather than reopening UI-setting scope plumbing
+- The core UI-setting `project_name` / `python_codegen_enabled` row is now
+  closed too, so the remaining practical queue should stay on the heavier
+  external-agent runtime, launcher/process-cleanup, and JSON-source runtime
+  rows rather than reopening the core UI-setting registry owner
