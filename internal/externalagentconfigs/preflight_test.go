@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/llmconfig"
 )
@@ -303,6 +304,32 @@ func TestSystemCheckerUsesNodeForNodeBackedModesAndReportsMissingNode(t *testing
 	}
 }
 
+func TestSystemCheckerReportsMissingCodexCLI(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	t.Setenv("PATH", t.TempDir())
+
+	checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+	status, err := checker.Check(Config{
+		ID:                 "codex",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("check codex config: %v", err)
+	}
+	if status.Available {
+		t.Fatalf("expected missing codex cli to block availability, got %#v", status)
+	}
+	if !containsIssue(status.Issues, "codex CLI not found (codex)") {
+		t.Fatalf("expected missing codex cli issue, got %#v", status.Issues)
+	}
+}
+
 func TestSystemCheckerReadsWhitelistedEnvVarsFromProcessAndManagedStore(t *testing.T) {
 	t.Parallel()
 
@@ -397,6 +424,140 @@ func TestSystemCheckerKeepsManagedStoreCorruptionNonBlockingWhenProcessEnvSatisf
 	}
 }
 
+func TestSystemCheckerMarksUnavailableWhenManagedStoreCorruptAndEnvVarsMissing(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	commandPath := writeExecutableFixture(t, "codex")
+	envPath := llmconfig.ManagedAPIKeysPath(workspaceRoot)
+	if err := os.WriteFile(envPath, []byte("SETTA_MANAGED_LLM_API_KEY_NAMES=not-json\n"), 0o600); err != nil {
+		t.Fatalf("write corrupt managed api keys store: %v", err)
+	}
+
+	checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+	status, err := checker.Check(Config{
+		ID:              "codex",
+		Name:            "Codex",
+		ToolType:        ToolTypeCodex,
+		RunMode:         RunModeAppServer,
+		CommandPath:     &commandPath,
+		EnvVarWhitelist: []string{"MISSING_KEY"},
+	})
+	if err != nil {
+		t.Fatalf("check codex config: %v", err)
+	}
+	if status.Available {
+		t.Fatalf("expected corrupt managed store with missing env vars to block preflight, got %#v", status)
+	}
+	if len(status.EnvVars.Present) != 0 {
+		t.Fatalf("expected no present env vars, got %#v", status.EnvVars)
+	}
+	if got := strings.Join(status.EnvVars.Missing, ","); got != "MISSING_KEY" {
+		t.Fatalf("expected missing env var, got %#v", status.EnvVars)
+	}
+	if !containsIssue(status.Issues, managedAPIKeysCorruptIssue) {
+		t.Fatalf("expected corrupt managed api key issue, got %#v", status.Issues)
+	}
+	if !containsIssue(status.Issues, "Missing env vars: MISSING_KEY") {
+		t.Fatalf("expected missing env var issue, got %#v", status.Issues)
+	}
+}
+
+func TestSystemCheckerKeepsManagedStoreUnavailableNonBlockingWhenProcessEnvSatisfiesWhitelist(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	commandPath := writeExecutableFixture(t, "codex")
+	envPath := llmconfig.ManagedAPIKeysPath(workspaceRoot)
+	if err := os.MkdirAll(filepath.Dir(envPath), 0o755); err != nil {
+		t.Fatalf("mkdir managed api keys parent: %v", err)
+	}
+	if err := os.Mkdir(envPath, 0o755); err != nil {
+		t.Fatalf("create directory at managed api keys path: %v", err)
+	}
+
+	checker, err := NewSystemChecker(SystemCheckerOptions{
+		WorkspaceRoot: workspaceRoot,
+		ProcessEnv: map[string]string{
+			"PRESENT_KEY": "process-secret",
+		},
+	})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+	status, err := checker.Check(Config{
+		ID:              "codex",
+		Name:            "Codex",
+		ToolType:        ToolTypeCodex,
+		RunMode:         RunModeAppServer,
+		CommandPath:     &commandPath,
+		EnvVarWhitelist: []string{"PRESENT_KEY"},
+	})
+	if err != nil {
+		t.Fatalf("check codex config: %v", err)
+	}
+	if !status.Available {
+		t.Fatalf("expected process env to keep preflight available despite unavailable managed store, got %#v", status)
+	}
+	if got := strings.Join(status.EnvVars.Present, ","); got != "PRESENT_KEY" {
+		t.Fatalf("expected present env var, got %#v", status.EnvVars)
+	}
+	if len(status.EnvVars.Missing) != 0 {
+		t.Fatalf("expected no missing env vars, got %#v", status.EnvVars)
+	}
+	if !containsIssue(status.Issues, managedAPIKeysUnavailableIssue) {
+		t.Fatalf("expected unavailable managed api key issue, got %#v", status.Issues)
+	}
+}
+
+func TestSystemCheckerMarksUnavailableWhenManagedStoreUnavailableAndEnvVarsMissing(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	commandPath := writeExecutableFixture(t, "codex")
+	envPath := llmconfig.ManagedAPIKeysPath(workspaceRoot)
+	if err := os.MkdirAll(filepath.Dir(envPath), 0o755); err != nil {
+		t.Fatalf("mkdir managed api keys parent: %v", err)
+	}
+	if err := os.Mkdir(envPath, 0o755); err != nil {
+		t.Fatalf("create directory at managed api keys path: %v", err)
+	}
+
+	checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+	status, err := checker.Check(Config{
+		ID:              "codex",
+		Name:            "Codex",
+		ToolType:        ToolTypeCodex,
+		RunMode:         RunModeAppServer,
+		CommandPath:     &commandPath,
+		EnvVarWhitelist: []string{"MISSING_KEY"},
+	})
+	if err != nil {
+		t.Fatalf("check codex config: %v", err)
+	}
+	if status.Available {
+		t.Fatalf("expected unavailable managed store with missing env vars to block preflight, got %#v", status)
+	}
+	if len(status.EnvVars.Present) != 0 {
+		t.Fatalf("expected no present env vars, got %#v", status.EnvVars)
+	}
+	if got := strings.Join(status.EnvVars.Missing, ","); got != "MISSING_KEY" {
+		t.Fatalf("expected missing env var, got %#v", status.EnvVars)
+	}
+	if !containsIssue(status.Issues, managedAPIKeysUnavailableIssue) {
+		t.Fatalf("expected unavailable managed api key issue, got %#v", status.Issues)
+	}
+	if !containsIssue(status.Issues, "Missing env vars: MISSING_KEY") {
+		t.Fatalf("expected missing env var issue, got %#v", status.Issues)
+	}
+}
+
 func TestReadOpenCodeSDKVersionFromSidecarRootReadsPackageJSONVersion(t *testing.T) {
 	sidecarRoot := t.TempDir()
 	packageJSONPath := filepath.Join(sidecarRoot, "node_modules", "@opencode-ai", "sdk", "package.json")
@@ -413,6 +574,50 @@ func TestReadOpenCodeSDKVersionFromSidecarRootReadsPackageJSONVersion(t *testing
 	}
 	if version == nil || *version != "1.1.36" {
 		t.Fatalf("expected sdk version 1.1.36, got %#v", version)
+	}
+}
+
+func TestRunCLITimeoutReturnsIssue(t *testing.T) {
+	if os.PathSeparator == '\\' {
+		t.Skip("shell script fixtures are not supported on Windows")
+	}
+
+	commandPath := filepath.Join(t.TempDir(), "slow-command.sh")
+	script := "#!/bin/sh\nsleep 1\n"
+	if err := os.WriteFile(commandPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write slow command fixture: %v", err)
+	}
+
+	result, issue := runCLI([]string{commandPath}, "", 10*time.Millisecond)
+
+	if result != nil {
+		t.Fatalf("expected no cli result on timeout, got %#v", result)
+	}
+	if issue == "" || !strings.Contains(issue, "Timed out running "+commandPath) {
+		t.Fatalf("expected timeout issue, got %q", issue)
+	}
+}
+
+func TestRunCLINonExecutableReturnsIssue(t *testing.T) {
+	if os.PathSeparator == '\\' {
+		t.Skip("permission semantics differ on Windows")
+	}
+
+	commandPath := filepath.Join(t.TempDir(), "non-executable-command")
+	if err := os.WriteFile(commandPath, []byte("#!/bin/sh\necho ok\n"), 0o644); err != nil {
+		t.Fatalf("write non-executable command fixture: %v", err)
+	}
+
+	result, issue := runCLI([]string{commandPath, "--version"}, "", time.Second)
+
+	if result != nil {
+		t.Fatalf("expected no cli result for non-executable command, got %#v", result)
+	}
+	if issue == "" || !strings.Contains(issue, "Failed to run "+commandPath+" --version") {
+		t.Fatalf("expected os error issue prefix, got %q", issue)
+	}
+	if !strings.Contains(strings.ToLower(issue), "permission denied") {
+		t.Fatalf("expected permission denied detail, got %q", issue)
 	}
 }
 

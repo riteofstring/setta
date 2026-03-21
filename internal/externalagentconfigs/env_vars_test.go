@@ -2,6 +2,7 @@ package externalagentconfigs
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -90,6 +91,74 @@ func TestResolveWhitelistedEnvVarsIgnoresDotEnvOnlyKeysWithoutManagedIndex(t *te
 	}
 	if resolution.CorruptionIssue != "" || resolution.UnavailableIssue != "" {
 		t.Fatalf("expected no managed-store issues, got %#v", resolution)
+	}
+}
+
+func TestResolveWhitelistedEnvVarsReportsCorruptManagedStoreForInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.WriteFile(llmconfig.ManagedAPIKeysPath(workspaceRoot), []byte{0xff, 0xfe, 0xfd}, 0o600); err != nil {
+		t.Fatalf("write invalid utf-8 managed env store: %v", err)
+	}
+
+	resolution := ResolveWhitelistedEnvVars(
+		workspaceRoot,
+		"",
+		map[string]string{},
+		[]string{"MISSING_KEY"},
+	)
+
+	if len(resolution.EnvVars) != 0 {
+		t.Fatalf("expected no resolved env vars for corrupt store, got %#v", resolution.EnvVars)
+	}
+	if len(resolution.Status.Present) != 0 {
+		t.Fatalf("expected no present env vars, got %#v", resolution.Status)
+	}
+	if !reflect.DeepEqual(resolution.Status.Missing, []string{"MISSING_KEY"}) {
+		t.Fatalf("expected missing key status, got %#v", resolution.Status)
+	}
+	if resolution.CorruptionIssue != managedAPIKeysCorruptIssue {
+		t.Fatalf("expected corrupt managed-store issue, got %#v", resolution)
+	}
+	if resolution.UnavailableIssue != "" {
+		t.Fatalf("expected no unavailable issue, got %#v", resolution)
+	}
+}
+
+func TestResolveWhitelistedEnvVarsReportsUnavailableManagedStore(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	envPath := llmconfig.ManagedAPIKeysPath(workspaceRoot)
+	if err := os.MkdirAll(filepath.Dir(envPath), 0o755); err != nil {
+		t.Fatalf("mkdir managed env store parent: %v", err)
+	}
+	if err := os.Mkdir(envPath, 0o755); err != nil {
+		t.Fatalf("create directory at managed env store path: %v", err)
+	}
+
+	resolution := ResolveWhitelistedEnvVars(
+		workspaceRoot,
+		"",
+		map[string]string{},
+		[]string{"MISSING_KEY"},
+	)
+
+	if len(resolution.EnvVars) != 0 {
+		t.Fatalf("expected no resolved env vars for unavailable store, got %#v", resolution.EnvVars)
+	}
+	if len(resolution.Status.Present) != 0 {
+		t.Fatalf("expected no present env vars, got %#v", resolution.Status)
+	}
+	if !reflect.DeepEqual(resolution.Status.Missing, []string{"MISSING_KEY"}) {
+		t.Fatalf("expected missing key status, got %#v", resolution.Status)
+	}
+	if resolution.UnavailableIssue != managedAPIKeysUnavailableIssue {
+		t.Fatalf("expected unavailable managed-store issue, got %#v", resolution)
+	}
+	if resolution.CorruptionIssue != "" {
+		t.Fatalf("expected no corruption issue, got %#v", resolution)
 	}
 }
 
