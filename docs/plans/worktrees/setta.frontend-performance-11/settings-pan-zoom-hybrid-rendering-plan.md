@@ -483,6 +483,22 @@ Phase targeting note:
 - only widen into Tier 2 code sections after the Tier 1 path is proven
 - do not force sparse restored sections onto preview mode unless profiling proves they need it
 
+Current execution note:
+
+- the first actual preview-capable path now exists only for top-level canvas Tier 1 bodies through:
+  - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionPreview.tsx`
+- current constraints:
+  - preview is motion-time only
+  - only Tier 1 dense-param families are preview-eligible
+  - windows stay live
+  - Tier 2 code sections stay live for now
+- the first standardized rerun after landing that path produced only marginal and mixed gains, so the next preview iteration must be more aggressive or more accurate:
+  - better projected-size / pane-visibility gating
+  - lighter preview content or wider preview eligibility within Tier 1
+  - possibly a different preview substrate if lightweight DOM is still too paint-heavy
+
 ## Phase 4: Eliminate Click-Wait Through Warm Activation
 
 Use the render-mode system to make the common interaction path effectively immediate.

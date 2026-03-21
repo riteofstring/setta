@@ -5,7 +5,7 @@ export type SectionBodyRequestedMode =
   | "preview"
   | "skip";
 
-export type SectionBodyResolvedMode = "live" | "skip";
+export type SectionBodyResolvedMode = "live" | "preview" | "skip";
 
 export type SectionBodyFamily =
   | "tier1-dense-params"
@@ -25,7 +25,7 @@ export type SectionBodyAutoModeInputs = {
 };
 
 export const SECTION_BODY_AUTO_MODE_THRESHOLDS = {
-  previewEligibleFamilies: ["tier1-dense-params", "tier2-code"] as const,
+  previewEligibleFamilies: ["tier1-dense-params"] as const,
   previewMaxZoom: 0.9,
   previewMaxProjectedWidthPx: 320,
   previewMaxProjectedHeightPx: 220,
@@ -95,6 +95,9 @@ export function resolveRequestedMode(
 ): SectionBodyResolvedMode {
   if (isMinimized || requestedMode === "skip") {
     return "skip";
+  }
+  if (requestedMode === "preview") {
+    return "preview";
   }
   return "live";
 }

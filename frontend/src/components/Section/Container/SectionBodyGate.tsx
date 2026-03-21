@@ -21,6 +21,7 @@ import {
 } from "./sectionBodyModePolicy";
 import { SectionAreaSwitch } from "./SectionAreaSwitch";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
+import { Tier1DenseParamSectionPreview } from "../Layouts/Tier1DenseParamSectionPreview";
 
 export type SectionBodyOwner =
   | {
@@ -86,6 +87,16 @@ export function getSectionBodyFamily(
     default:
       return "generic";
   }
+}
+
+function isTier1DenseParamSectionType(
+  sectionTypeName: SectionType,
+): sectionTypeName is Extract<SectionType, "Callable" | "Dict" | "GlobalVariables"> {
+  return (
+    sectionTypeName === SectionTypeEnum.Callable ||
+    sectionTypeName === SectionTypeEnum.Dict ||
+    sectionTypeName === SectionTypeEnum.GlobalVariables
+  );
 }
 
 export function useResolvedSectionBodyStatus({
@@ -173,6 +184,18 @@ export const SectionBodyGate = React.memo(function SectionBodyGate({
 
   if (status.resolvedMode === "skip") {
     return null;
+  }
+
+  if (
+    status.resolvedMode === "preview" &&
+    isTier1DenseParamSectionType(status.sectionTypeName)
+  ) {
+    return (
+      <Tier1DenseParamSectionPreview
+        sectionId={sectionId}
+        sectionTypeName={status.sectionTypeName}
+      />
+    );
   }
 
   if (owner.kind === "canvas") {

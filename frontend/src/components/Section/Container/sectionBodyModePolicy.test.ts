@@ -66,7 +66,7 @@ describe("sectionBodyModePolicy", () => {
     expect(
       getAutoSectionBodyRequestedMode({
         ownerKind: "canvas",
-        family: "tier2-code",
+        family: "tier1-dense-params",
         isActiveSection: false,
         viewportInteractionActive: true,
         zoom:
@@ -75,6 +75,20 @@ describe("sectionBodyModePolicy", () => {
         projectedHeightPx: null,
       }),
     ).toBe("preview");
+  });
+
+  it("keeps tier 2 code sections live in the first preview rollout", () => {
+    expect(
+      getAutoSectionBodyRequestedMode({
+        ownerKind: "canvas",
+        family: "tier2-code",
+        isActiveSection: false,
+        viewportInteractionActive: true,
+        zoom: 0.6,
+        projectedWidthPx: 140,
+        projectedHeightPx: 90,
+      }),
+    ).toBe("live");
   });
 
   it("projects node size using current zoom", () => {

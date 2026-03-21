@@ -94,6 +94,22 @@ vi.mock("./SectionAreaSwitch", () => ({
   ),
 }));
 
+vi.mock("../Layouts/Tier1DenseParamSectionPreview", () => ({
+  Tier1DenseParamSectionPreview: ({
+    sectionId,
+    sectionTypeName,
+  }: {
+    sectionId: string;
+    sectionTypeName: string;
+  }) => (
+    <div
+      data-testid="mock-tier1-preview"
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+    />
+  ),
+}));
+
 vi.mock("./SectionWindowPlaceholder", () => ({
   SectionWindowPlaceholder: ({
     instanceId,
@@ -244,23 +260,15 @@ describe("SectionBodyGate", () => {
       x: new Map([["section-123", { width: 300, height: 180 }]]),
     };
 
-    let requestedMode = "";
-    let resolvedMode = "";
+    const markup = renderToStaticMarkup(
+      <SectionBodyGate
+        sectionId="section-123"
+        owner={{ kind: "canvas", bgColor: "bg-setta-50", isUserView: false }}
+      />,
+    );
 
-    function StatusProbe() {
-      const status = useResolvedSectionBodyStatus({
-        sectionId: "section-123",
-        owner: { kind: "canvas", bgColor: "bg-setta-50", isUserView: false },
-      });
-      requestedMode = status.requestedMode;
-      resolvedMode = status.resolvedMode;
-      return null;
-    }
-
-    renderToStaticMarkup(<StatusProbe />);
-
-    expect(requestedMode).toBe("preview");
-    expect(resolvedMode).toBe("live");
+    expect(markup).toContain('data-testid="mock-tier1-preview"');
+    expect(markup).not.toContain('data-testid="mock-area-switch"');
   });
 
   it("exposes resolved status for tests and future render-mode work", () => {

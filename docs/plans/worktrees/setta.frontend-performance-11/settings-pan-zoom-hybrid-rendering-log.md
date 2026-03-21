@@ -511,3 +511,73 @@ Record:
         - no matching diagnostics
 - Next action:
   - Use the now-real `requestedMode` policy to land the first actual preview-capable representation for Tier 1 bodies instead of keeping preview as a live-path alias.
+
+## 2026-03-20 013
+
+- Item: Land the first real Tier 1 preview body path and measure it with the standardized CDP matrix.
+- Status: `done`
+- Details:
+  - Added the first real Tier 1 preview surrogate:
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionPreview.tsx`
+  - Updated the shared gate and policy:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.ts`
+  - The first preview rollout is intentionally narrow:
+    - Tier 1 dense-param families only
+    - top-level canvas bodies only
+    - motion-time preview only
+    - windows stay live
+    - Tier 2 code sections stay live
+  - Added or updated focused coverage:
+    - `frontend/src/components/Section/Container/sectionBodyModePolicy.test.ts`
+    - `frontend/src/components/Section/Container/SectionBodyGate.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `9` files passed
+        - `39` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionBodyModePolicy|SectionBodyGate|SectionContainerCoreResizabe|SectionWindowSurface|Tier1DenseParamSectionPreview"`
+      - result:
+        - no matching diagnostics
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-preview-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-preview-rerun`
+  - Key measurement read versus the prior body-host checkpoint:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before:
+          - `191.708ms`
+        - after:
+          - `191.084ms`
+      - slow overview pan paint:
+        - before:
+          - `35.846ms` horizontal
+          - `35.513ms` vertical
+        - after:
+          - `37.061ms` horizontal
+          - `36.854ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before:
+          - `1622.944ms`
+        - after:
+          - `1611.081ms`
+      - slow overview pan paint:
+        - before:
+          - `358.991ms` horizontal
+          - `348.334ms` vertical
+        - after:
+          - `381.501ms` horizontal
+          - `332.993ms` vertical
+  - Read:
+    - the first real preview path is functioning
+    - it is not yet a meaningful performance win
+    - the preview surrogate and current gating are too weak to materially reduce the dominant motion-time paint cost
+- Next action:
+  - Keep the preview path narrow for now, then iterate on the next stronger preview checkpoint:
+    - better pane-aware projection / visibility gating
+    - lighter or more faithful Tier 1 preview content
+    - broader but still controlled Tier 1 preview eligibility only if traces justify it
