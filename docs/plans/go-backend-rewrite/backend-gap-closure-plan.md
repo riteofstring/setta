@@ -45,6 +45,13 @@ categorize them.
 
 ## Current Starting Backlog
 
+- The default differential manifest now has a concrete JSON-source mismatch:
+  `json_source_key_change_refresh`. `main` treats
+  `setVariantJsonSourceKeys` as a live-only file-backed refresh that changes
+  the next loaded subtree without updating the persisted store, while the Go
+  rewrite currently persists the trimmed keys but leaves the loaded and
+  persisted tree stale. Start the next JSON-source pass there before taking a
+  broader save/watch slice.
 - Expand the differential manifest beyond the current bootstrap / websocket /
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
   reserved-name-save / required-view-mode-repair /
