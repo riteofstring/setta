@@ -131,6 +131,10 @@ scenarios:
     kind: json_source_save_canonical_storage_clears_persisted_values
     seed: none
     description: Saving a startup-loaded JSON-backed section should keep the backing file authoritative and reveal whether project state values are cleared after save.
+  - name: json_source_save_restart_round_trip_canonical_storage
+    kind: json_source_save_restart_round_trip_canonical_storage
+    seed: none
+    description: Saving and restarting a JSON-backed section should rehydrate the live tree from the backing file while persisted project state keeps blank JSON-source leaf values.
   - name: json_source_shared_pair_route_refresh_keeps_peer_tree
     kind: json_source_shared_pair_route_refresh_keeps_peer_tree
     seed: none

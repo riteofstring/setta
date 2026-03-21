@@ -2695,6 +2695,196 @@ class Route:
             },
         )
 
+    def test_summarize_json_source_save_restart_round_trip_canonical_storage(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        load_payload = {
+            "projectConfig": {"id": "project-alpha"},
+            "sections": {
+                "json-section-a": {
+                    "defaultVariant": "json-variant-a",
+                }
+            },
+            "sectionVariants": {
+                "json-variant-a": {
+                    "impl": "json-impl-a",
+                    "name": "data/source.json",
+                }
+            },
+            "sectionImpls": {
+                "json-impl-a": {
+                    "type": "Dict",
+                    "isJsonSource": True,
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamId": "old-root-a",
+                    "codeObjVariantMap": {
+                        "old-root-a": "old-root-a-variant",
+                        "fresh-leaf": "fresh-leaf-variant",
+                    },
+                }
+            },
+            "codeObjs": {
+                "old-root-a": {
+                    "name": "alpha",
+                    "defaultVariant": "old-root-a-variant",
+                },
+                "fresh-leaf": {
+                    "name": "fresh",
+                    "defaultVariant": "fresh-leaf-variant",
+                },
+            },
+            "codeObjVariants": {
+                "old-root-a-variant": {"impl": "old-root-a-impl"},
+                "fresh-leaf-variant": {"impl": "fresh-leaf-impl"},
+            },
+            "codeObjImpls": {
+                "old-root-a-impl": {
+                    "type": "NestedParam",
+                    "children": ["fresh-leaf"],
+                },
+                "fresh-leaf-impl": {
+                    "type": "CodeParam",
+                    "value": "2",
+                },
+            },
+        }
+        persisted_project = {
+            "sections": load_payload["sections"],
+            "sectionVariants": load_payload["sectionVariants"],
+            "sectionImpls": {
+                "json-impl-a": {
+                    "type": "Dict",
+                    "isJsonSource": True,
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamId": "old-root-a",
+                    "codeObjVariantMap": {
+                        "old-root-a": "old-root-a-variant",
+                        "fresh-leaf": "fresh-leaf-variant",
+                    },
+                }
+            },
+            "codeObjs": load_payload["codeObjs"],
+            "codeObjVariants": load_payload["codeObjVariants"],
+            "codeObjImpls": {
+                "old-root-a-impl": {
+                    "type": "NestedParam",
+                    "children": ["fresh-leaf"],
+                },
+                "fresh-leaf-impl": {
+                    "type": "CodeParam",
+                    "value": "",
+                },
+            },
+        }
+
+        summary = harness.summarize_json_source_save_restart_round_trip_canonical_storage(
+            save_http_status=200,
+            restart_startup_error=None,
+            restart_load_http_status=200,
+            restart_load_payload=load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload={"projectState": load_payload},
+            persisted_project=persisted_project,
+            saved_payload={"alpha": {"fresh": 2}},
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "saveProjectStatus": 200,
+                "restartStartupStatus": "ready",
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadTarget": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "2",
+                            }
+                        ],
+                    },
+                },
+                "restartLatestTarget": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "2",
+                            }
+                        ],
+                    },
+                },
+                "persistedTarget": {
+                    "jsonSourceKeys": ["alpha"],
+                    "jsonSourceMissing": False,
+                    "topLevelParamChanged": False,
+                    "oldRootPresent": True,
+                    "oldLeafPresent": False,
+                    "codeObjVariantMapSize": 2,
+                    "tree": {
+                        "name": "alpha",
+                        "type": "NestedParam",
+                        "children": [
+                            {
+                                "name": "fresh",
+                                "type": "CodeParam",
+                                "value": "",
+                            }
+                        ],
+                    },
+                },
+                "savedAlpha": {"fresh": 2},
+            },
+        )
+
+    def test_summarize_json_source_save_restart_round_trip_canonical_storage_failure(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        summary = harness.summarize_json_source_save_restart_round_trip_canonical_storage(
+            save_http_status=200,
+            restart_startup_error="backend exited on startup",
+            restart_load_http_status=None,
+            restart_load_payload=None,
+            restart_latest_http_status=None,
+            restart_latest_payload=None,
+            persisted_project=None,
+            saved_payload=None,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "saveProjectStatus": 200,
+                "restartStartupStatus": "failed",
+                "restartStartupErrorSummary": "backend exited on startup",
+            },
+        )
+
     @staticmethod
     def _restore_env(key: str, value: str | None) -> None:
         if value is None:

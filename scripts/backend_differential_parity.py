@@ -586,6 +586,19 @@ def seed_setta_files(
             {"alpha": {"fresh": 2}},
         )
         return
+    if scenario.kind == "json_source_save_restart_round_trip_canonical_storage":
+        write_json(
+            setta_files_root / PROJECT_FILE_NAME,
+            build_json_source_startup_shared_pair_load_store_payload(target),
+        )
+        write_json(setta_files_root / SETTINGS_FILE_NAME, minimal_document())
+        workspace_data_root = setta_files_root.parent / "data"
+        workspace_data_root.mkdir(parents=True, exist_ok=True)
+        write_json_preserving_order(
+            workspace_data_root / "source.json",
+            {"alpha": {"fresh": 2}},
+        )
+        return
     if scenario.kind == "json_source_shared_pair_route_refresh_keeps_peer_tree":
         write_json(
             setta_files_root / PROJECT_FILE_NAME,
@@ -1934,6 +1947,10 @@ def execute_scenario(
         return execute_json_source_save_canonical_storage_clears_persisted_values(
             backend
         )
+    if scenario.kind == "json_source_save_restart_round_trip_canonical_storage":
+        return execute_json_source_save_restart_round_trip_canonical_storage(
+            backend
+        )
     if scenario.kind == "json_source_shared_pair_route_refresh_keeps_peer_tree":
         return execute_json_source_shared_pair_route_refresh_keeps_peer_tree(backend)
     if scenario.kind == "json_source_shared_pair_route_missing_preserves_loaded_tree":
@@ -2216,6 +2233,92 @@ def execute_json_source_save_canonical_storage_clears_persisted_values(
         },
         "persistedProject": persisted_project,
         "savedFile": saved_payload,
+    }
+
+
+def execute_json_source_save_restart_round_trip_canonical_storage(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    save_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SAVE_PROJECT,
+        payload={"projectConfigId": "project-alpha"},
+    )
+    save_payload = normalize_response_json_allow_status(save_response)
+
+    restart_startup_error = restart_backend_allow_startup_failure(backend)
+
+    restart_load_response = None
+    restart_load_payload = None
+    restart_latest_response = None
+    restart_latest_payload = None
+    persisted_project = None
+    saved_payload_after_restart = None
+    if restart_startup_error is None:
+        restart_load_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_LOAD_PROJECT_CONFIG,
+            payload={"projectConfigName": "Project Alpha"},
+        )
+        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        if (
+            restart_load_response.status_code == 200
+            and isinstance(restart_load_payload, dict)
+        ):
+            restarted_project_id = expect_non_empty_string(
+                object_field(restart_load_payload, "projectConfig").get("id"),
+                "projectConfig.id",
+            )
+            restart_latest_response = post_json_allow_status(
+                session=backend.session,
+                base_url=backend.base_url,
+                route=ROUTE_GET_LATEST_PROJECT_STATE,
+                payload={"projectConfigId": restarted_project_id},
+            )
+            restart_latest_payload = normalize_response_json_allow_status(
+                restart_latest_response
+            )
+        persisted_project = project_from_store_payload(
+            read_persisted_project_document(backend),
+            project_id="project-alpha",
+        )
+        saved_payload_after_restart = json.loads(
+            (backend.workspace_root / "data" / "source.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+    summary = summarize_json_source_save_restart_round_trip_canonical_storage(
+        save_http_status=save_response.status_code,
+        restart_startup_error=restart_startup_error,
+        restart_load_http_status=None
+        if restart_load_response is None
+        else restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        restart_latest_payload=restart_latest_payload,
+        persisted_project=persisted_project,
+        saved_payload=saved_payload_after_restart,
+    )
+    return summary, {
+        "saveProject": {"status": save_response.status_code, "payload": save_payload},
+        "restartStartupError": restart_startup_error,
+        "restartLoadProjectConfig": {
+            "status": None if restart_load_response is None else restart_load_response.status_code,
+            "payload": restart_load_payload,
+        },
+        "restartLatestProjectState": {
+            "status": None
+            if restart_latest_response is None
+            else restart_latest_response.status_code,
+            "payload": restart_latest_payload,
+        },
+        "persistedProject": persisted_project,
+        "savedFile": saved_payload_after_restart,
     }
 
 
@@ -4546,6 +4649,70 @@ def summarize_json_source_save_canonical_storage_clears_persisted_values(
         ),
         "savedAlpha": saved_alpha,
     }
+
+
+def summarize_json_source_save_restart_round_trip_canonical_storage(
+    save_http_status: int,
+    restart_startup_error: str | None,
+    restart_load_http_status: int | None,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    persisted_project: dict[str, Any] | None,
+    saved_payload: Any,
+) -> dict[str, Any]:
+    summary = {
+        "saveProjectStatus": save_http_status,
+    }
+    if restart_startup_error is not None:
+        summary["restartStartupStatus"] = "failed"
+        summary["restartStartupErrorSummary"] = normalize_backend_error_summary(
+            restart_startup_error
+        )
+        return summary
+
+    summary["restartStartupStatus"] = "ready"
+    summary["restartLoadHttpStatus"] = restart_load_http_status
+    summary["restartLatestHttpStatus"] = restart_latest_http_status
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        summary["restartLoadTarget"] = summarize_json_source_variant_tree(
+            restart_load_payload,
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        )
+    elif restart_load_http_status is not None:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        summary["restartLatestTarget"] = summarize_json_source_variant_tree(
+            object_field(restart_latest_payload, "projectState"),
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        )
+    elif restart_latest_http_status is not None:
+        summary["restartLatestErrorSummary"] = normalize_error_summary(
+            restart_latest_payload
+        )
+
+    if isinstance(persisted_project, dict):
+        summary["persistedTarget"] = summarize_json_source_variant_tree(
+            persisted_project,
+            section_impl_id="json-impl-a",
+            old_root_id="old-root-a",
+            old_leaf_id="old-leaf-a",
+        )
+
+    saved_alpha = None
+    if isinstance(saved_payload, dict):
+        alpha = saved_payload.get("alpha")
+        if isinstance(alpha, dict):
+            saved_alpha = alpha
+    summary["savedAlpha"] = saved_alpha
+    return summary
 
 
 def summarize_json_source_shared_pair_route_result(
