@@ -3947,10 +3947,7 @@ func TestRegisterRoutesTerminalClosesOnInvalidResizePayload(t *testing.T) {
 		t.Fatalf("write invalid terminal resize message: %v", err)
 	}
 
-	_, _, err := conn.Read(context.Background())
-	if status := websocket.CloseStatus(err); status != CloseCodeBadRequest {
-		t.Fatalf("expected bad-request close code %d, got %d", CloseCodeBadRequest, status)
-	}
+	readUntilCloseStatus(t, conn, CloseCodeBadRequest)
 }
 
 func TestRegisterRoutesTerminalRejectsDeploymentWhenRunPolicyDisabled(t *testing.T) {
@@ -4622,6 +4619,27 @@ func readNextRawFrame(t *testing.T, conn *websocket.Conn) string {
 		t.Fatalf("read websocket frame: %v", err)
 	}
 	return string(payload)
+}
+
+func readUntilCloseStatus(t *testing.T, conn *websocket.Conn, want websocket.StatusCode) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		_, _, err := conn.Read(ctx)
+		cancel()
+		if err == nil {
+			continue
+		}
+		if status := websocket.CloseStatus(err); status == want {
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("expected close code %d before timeout", want)
+		}
+		t.Fatalf("expected close code %d, got %d (err=%v)", want, websocket.CloseStatus(err), err)
+	}
 }
 
 func readUntilRawFrameContains(t *testing.T, conn *websocket.Conn, needle string, maxReads int) string {

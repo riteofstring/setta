@@ -595,7 +595,7 @@ func serveTerminalConnection(
 
 			resize, isControl, err := decodeTerminalControlMessage(message.Payload)
 			if err != nil {
-				return &CloseError{Code: CloseCodeBadRequest, Reason: err.Error()}
+				return closeTerminalRouteConnection(conn, CloseCodeBadRequest, err.Error())
 			}
 			if isControl {
 				if err := deps.Terminals.Resize(terminalID, resize.Cols, resize.Rows); err != nil {
@@ -1258,6 +1258,16 @@ func classifyTerminalWriteError(err error) error {
 		return nil
 	}
 	return err
+}
+
+func closeTerminalRouteConnection(conn *websocket.Conn, code websocket.StatusCode, reason string) error {
+	if err := conn.Close(code, reason); err != nil {
+		if websocket.CloseStatus(err) != -1 || errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func generateFrontendConnectionID() (string, error) {
