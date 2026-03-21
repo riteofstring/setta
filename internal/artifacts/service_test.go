@@ -301,16 +301,110 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 		t.Fatalf("expected saved json artifacts, got %#v", multiResults)
 	}
 
-	unsupportedValue := mustRawJSON(t, map[string]any{"contentId": "x", "byteLength": 1})
+	imageRef, err := paths.binaryStore.StoreBytes([]byte("png-bytes"), "image/png", false)
+	if err != nil {
+		t.Fatalf("store image payload: %v", err)
+	}
+	imageValue := mustRawJSON(t, imageRef)
+	imageResults, err := service.Update(context.Background(), UpdateRequest{
+		Artifacts: []RawArtifact{{
+			Type:  ArtifactTypeImage,
+			ID:    "artifacts/image.png",
+			Value: &imageValue,
+		}},
+		UploadScope: UploadScopeGeneric,
+	})
+	if err != nil {
+		t.Fatalf("update image artifact: %v", err)
+	}
+	if len(imageResults) != 1 || imageResults[0].Status != SaveStatusSaved {
+		t.Fatalf("expected saved image result, got %#v", imageResults)
+	}
+	imagePath := filepath.Join(paths.settaFilesRoot, "artifacts", "image.png")
+	if payload, err := os.ReadFile(imagePath); err != nil || string(payload) != "png-bytes" {
+		t.Fatalf("expected updated image artifact payload, got %q err=%v", string(payload), err)
+	}
+	loadedImages, err := service.LoadCachedImages(context.Background(), LoadCachedPathsRequest{Paths: []string{"artifacts/image.png"}})
+	if err != nil {
+		t.Fatalf("load cached image artifact after update: %v", err)
+	}
+	if len(loadedImages) != 1 || loadedImages[0] == nil {
+		t.Fatalf("expected cached image artifact, got %#v", loadedImages)
+	}
+	imagePayload, err := paths.binaryStore.ReadBytes(loadedImages[0].Value.ContentID)
+	if err != nil {
+		t.Fatalf("read cached image bytes after update: %v", err)
+	}
+	if string(imagePayload) != "png-bytes" {
+		t.Fatalf("expected cached image bytes, got %q", string(imagePayload))
+	}
+
+	chartValue := mustRawJSON(t, map[string][]any{
+		"x": {1.0, 3.0},
+		"y": {"alpha", ""},
+	})
+	chartResults, err := service.Update(context.Background(), UpdateRequest{
+		Artifacts: []RawArtifact{{
+			Type:  ArtifactTypeChartData,
+			ID:    "artifacts/chart.csv",
+			Value: &chartValue,
+		}},
+		UploadScope: UploadScopeGeneric,
+	})
+	if err != nil {
+		t.Fatalf("update chart artifact: %v", err)
+	}
+	if len(chartResults) != 1 || chartResults[0].Status != SaveStatusSaved {
+		t.Fatalf("expected saved chart result, got %#v", chartResults)
+	}
+	loadedCharts, err := service.LoadCachedChartData(context.Background(), LoadCachedPathsRequest{Paths: []string{"artifacts/chart.csv"}})
+	if err != nil {
+		t.Fatalf("load cached chart after update: %v", err)
+	}
+	if len(loadedCharts) != 1 || loadedCharts[0] == nil {
+		t.Fatalf("expected cached chart artifact, got %#v", loadedCharts)
+	}
+	if got := loadedCharts[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
+		t.Fatalf("unexpected cached chart x column: %#v", got)
+	}
+	if got := loadedCharts[0].Value["y"]; len(got) != 2 || got[0].(string) != "alpha" || got[1].(string) != "" {
+		t.Fatalf("unexpected cached chart y column: %#v", got)
+	}
+
+	unsupportedValue := mustRawJSON(t, map[string]any{"payload": true})
 	if _, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts:   []RawArtifact{{Type: ArtifactTypeImage, ID: "artifacts/image.png", Value: &unsupportedValue}},
+		Artifacts:   []RawArtifact{{Type: ArtifactType("Unsupported"), ID: "artifacts/unsupported.bin", Value: &unsupportedValue}},
 		UploadScope: UploadScopeGeneric,
 	}); err == nil {
-		t.Fatalf("expected unsupported image update error")
+		t.Fatalf("expected unsupported artifact update error")
 	} else {
 		var artifactErr *Error
 		if !strings.Contains(err.Error(), "not supported") || !errors.As(err, &artifactErr) || artifactErr.Kind != ErrorArtifactTypeUnsupported {
 			t.Fatalf("expected unsupported artifact error, got %v", err)
+		}
+	}
+}
+
+func TestServiceValidateListenerUpdateRejectsInvalidPath(t *testing.T) {
+	t.Parallel()
+
+	service, paths := newArtifactTestService(t)
+
+	imageRef, err := paths.binaryStore.StoreBytes([]byte("png-bytes"), "image/png", false)
+	if err != nil {
+		t.Fatalf("store image payload: %v", err)
+	}
+	imageValue := mustRawJSON(t, imageRef)
+	if _, err := service.ValidateListenerUpdate(RawArtifact{
+		Type:  ArtifactTypeImage,
+		ID:    "\x00bad",
+		Value: &imageValue,
+	}, UploadScopeGeneric); err == nil {
+		t.Fatalf("expected invalid path rejection")
+	} else {
+		var artifactErr *Error
+		if !errors.As(err, &artifactErr) || artifactErr.Kind != ErrorPathForbidden {
+			t.Fatalf("expected path-forbidden artifact error, got %v", err)
 		}
 	}
 }

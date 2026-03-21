@@ -137,6 +137,83 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 		t.Fatalf("expected updated file artifact payload, got %q err=%v", string(payload), err)
 	}
 
+	imageUpdateRef, err := binaryStore.StoreBytes([]byte("route-image-update"), "image/png", false)
+	if err != nil {
+		t.Fatalf("store image update payload: %v", err)
+	}
+	imageUpdateValue, err := json.Marshal(imageUpdateRef)
+	if err != nil {
+		t.Fatalf("marshal image update payload: %v", err)
+	}
+	imageUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"Image","id":"artifacts/updated-image.png","value":`+string(imageUpdateValue)+`}],"uploadScope":"generic"}`))
+	imageUpdateRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, imageUpdateRequest, authService)
+
+	imageUpdateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(imageUpdateResponse, imageUpdateRequest)
+	if imageUpdateResponse.Code != http.StatusOK {
+		t.Fatalf("expected image update 200, got %d with body %q", imageUpdateResponse.Code, imageUpdateResponse.Body.String())
+	}
+
+	updatedImagePath := filepath.Join(settaFilesRoot, "artifacts", "updated-image.png")
+	if payload, err := os.ReadFile(updatedImagePath); err != nil || string(payload) != "route-image-update" {
+		t.Fatalf("expected updated image artifact payload, got %q err=%v", string(payload), err)
+	}
+
+	updatedImageLoadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedImageArtifacts, strings.NewReader(`{"paths":["artifacts/updated-image.png"]}`))
+	updatedImageLoadRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, updatedImageLoadRequest, authService)
+
+	updatedImageLoadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(updatedImageLoadResponse, updatedImageLoadRequest)
+	if updatedImageLoadResponse.Code != http.StatusOK {
+		t.Fatalf("expected updated image load 200, got %d with body %q", updatedImageLoadResponse.Code, updatedImageLoadResponse.Body.String())
+	}
+	var updatedImagePayload []*artifacts.ImageArtifact
+	if err := json.Unmarshal(updatedImageLoadResponse.Body.Bytes(), &updatedImagePayload); err != nil {
+		t.Fatalf("decode updated image payload: %v", err)
+	}
+	if len(updatedImagePayload) != 1 || updatedImagePayload[0] == nil {
+		t.Fatalf("expected updated image payload, got %#v", updatedImagePayload)
+	}
+	updatedImageBytes, err := binaryStore.ReadBytes(updatedImagePayload[0].Value.ContentID)
+	if err != nil {
+		t.Fatalf("read updated image bytes from binary store: %v", err)
+	}
+	if string(updatedImageBytes) != "route-image-update" {
+		t.Fatalf("expected updated image bytes, got %q", string(updatedImageBytes))
+	}
+
+	chartUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"ChartData","id":"artifacts/updated-chart.csv","value":{"x":[1,3],"label":["alpha",""]}}],"uploadScope":"generic"}`))
+	chartUpdateRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, chartUpdateRequest, authService)
+
+	chartUpdateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(chartUpdateResponse, chartUpdateRequest)
+	if chartUpdateResponse.Code != http.StatusOK {
+		t.Fatalf("expected chart update 200, got %d with body %q", chartUpdateResponse.Code, chartUpdateResponse.Body.String())
+	}
+
+	updatedChartLoadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedChartData, strings.NewReader(`{"paths":["artifacts/updated-chart.csv"]}`))
+	updatedChartLoadRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, updatedChartLoadRequest, authService)
+
+	updatedChartLoadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(updatedChartLoadResponse, updatedChartLoadRequest)
+	if updatedChartLoadResponse.Code != http.StatusOK {
+		t.Fatalf("expected updated chart load 200, got %d with body %q", updatedChartLoadResponse.Code, updatedChartLoadResponse.Body.String())
+	}
+	var updatedChartPayload []*artifacts.ChartDataArtifact
+	if err := json.Unmarshal(updatedChartLoadResponse.Body.Bytes(), &updatedChartPayload); err != nil {
+		t.Fatalf("decode updated chart payload: %v", err)
+	}
+	if len(updatedChartPayload) != 1 || updatedChartPayload[0] == nil {
+		t.Fatalf("expected updated chart payload, got %#v", updatedChartPayload)
+	}
+	if got := updatedChartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
+		t.Fatalf("expected updated chart x values, got %#v", got)
+	}
+
 	brushUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"BrushStroke","id":"artifacts/stroke.json","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":[[1,2],"BREAK"],"globalCompositeOperation":"source-over"}},{"type":"DrawAreaLayerItemTransform","id":"artifacts/transform.json","value":{"transform":[1,0,0,1,3,4],"eraserStrokes":[]}}],"uploadScope":"generic"}`))
 	brushUpdateRequest.Header.Set("Content-Type", "application/json")
 	addHTTPTestAuthCookie(t, brushUpdateRequest, authService)
@@ -194,7 +271,7 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 		t.Fatalf("expected file artifact to be removed, stat err=%v", err)
 	}
 
-	unsupportedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"Image","id":"artifacts/unsupported.png","value":{"contentId":"x","byteLength":1}}],"uploadScope":"generic"}`))
+	unsupportedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"Unsupported","id":"artifacts/unsupported.bin","value":{"payload":true}}],"uploadScope":"generic"}`))
 	unsupportedRequest.Header.Set("Content-Type", "application/json")
 	addHTTPTestAuthCookie(t, unsupportedRequest, authService)
 

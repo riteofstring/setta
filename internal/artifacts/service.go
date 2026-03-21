@@ -13,6 +13,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -96,7 +97,8 @@ type updateAction struct {
 	payload      []byte
 	payloadHash  string
 	jsonValue    json.RawMessage
-	fileRef      *binarypayload.ContentRef
+	binaryRef    *binarypayload.ContentRef
+	chartValue   map[string][]any
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -347,35 +349,13 @@ func (s *Service) buildUpdateAction(artifact RawArtifact, scope UploadScope) (up
 	}
 	switch artifact.Type {
 	case ArtifactTypeFile:
-		if artifact.Value == nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
-			}
-		}
-		var ref binarypayload.ContentRef
-		if err := json.Unmarshal(*artifact.Value, &ref); err != nil {
-			return updateAction{}, &Error{
-				Kind:    ErrorInvalidRequest,
-				Message: fmt.Sprintf("Artifact %s has an invalid file payload.", artifactID),
-			}
-		}
-		content, err := s.binaryStore.ReadBytes(ref.ContentID)
+		ref, err := s.parseBinaryRef(artifactID, artifact, "file")
 		if err != nil {
-			switch {
-			case errors.Is(err, binarypayload.ErrInvalidContentID), errors.Is(err, binarypayload.ErrContentIDRequired):
-				return updateAction{}, &Error{
-					Kind:    ErrorBinaryPayloadInvalid,
-					Message: "Invalid binary content id.",
-				}
-			case errors.Is(err, binarypayload.ErrPayloadNotFound):
-				return updateAction{}, &Error{
-					Kind:    ErrorBinaryPayloadNotFound,
-					Message: "Binary payload not found.",
-				}
-			default:
-				return updateAction{}, err
-			}
+			return updateAction{}, err
+		}
+		content, err := s.readBinaryContent(ref)
+		if err != nil {
+			return updateAction{}, err
 		}
 		mimeType := guessMimeType(targetPath, ref.MimeType)
 		if err := EnforceUploadPolicy(s.uploadPolicies, scope, artifactID, mimeType, len(content)); err != nil {
@@ -388,7 +368,53 @@ func (s *Service) buildUpdateAction(artifact RawArtifact, scope UploadScope) (up
 			mimeType:     mimeType,
 			payload:      content,
 			payloadHash:  hashBytes(content),
-			fileRef:      &ref,
+			binaryRef:    &ref,
+		}, nil
+	case ArtifactTypeImage:
+		ref, err := s.parseBinaryRef(artifactID, artifact, "binary")
+		if err != nil {
+			return updateAction{}, err
+		}
+		content, err := s.readBinaryContent(ref)
+		if err != nil {
+			return updateAction{}, err
+		}
+		return updateAction{
+			artifactType: artifact.Type,
+			artifactID:   artifactID,
+			targetPath:   targetPath,
+			payload:      content,
+			payloadHash:  hashBytes(content),
+			binaryRef:    &ref,
+		}, nil
+	case ArtifactTypeChartData:
+		if artifact.Value == nil {
+			return updateAction{}, &Error{
+				Kind:    ErrorInvalidRequest,
+				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
+			}
+		}
+		var value map[string][]any
+		if err := json.Unmarshal(*artifact.Value, &value); err != nil {
+			return updateAction{}, &Error{
+				Kind:    ErrorInvalidRequest,
+				Message: fmt.Sprintf("Artifact %s has an invalid chart data payload.", artifactID),
+			}
+		}
+		csvContent, err := chartDataToCSV(value)
+		if err != nil {
+			return updateAction{}, &Error{
+				Kind:    ErrorInvalidRequest,
+				Message: fmt.Sprintf("Artifact %s has an invalid chart data payload.", artifactID),
+			}
+		}
+		return updateAction{
+			artifactType: artifact.Type,
+			artifactID:   artifactID,
+			targetPath:   targetPath,
+			payload:      csvContent,
+			payloadHash:  hashBytes(csvContent),
+			chartValue:   cloneChartDataValues(value),
 		}, nil
 	case ArtifactTypeBrushStroke, ArtifactTypeDrawAreaLayerItemTransform:
 		if artifact.Value == nil {
@@ -412,17 +438,50 @@ func (s *Service) buildUpdateAction(artifact RawArtifact, scope UploadScope) (up
 			payloadHash:  hashBytes(canonicalJSON),
 			jsonValue:    canonicalJSON,
 		}, nil
-	case ArtifactTypeImage, ArtifactTypeChartData:
-		return updateAction{}, &Error{
-			Kind:    ErrorArtifactTypeUnsupported,
-			Message: fmt.Sprintf("Artifact type %s is not supported by this route yet.", artifact.Type),
-		}
 	default:
 		return updateAction{}, &Error{
 			Kind:    ErrorArtifactTypeUnsupported,
 			Message: fmt.Sprintf("Artifact type %s is not supported.", artifact.Type),
 		}
 	}
+}
+
+func (s *Service) parseBinaryRef(artifactID string, artifact RawArtifact, payloadLabel string) (binarypayload.ContentRef, error) {
+	if artifact.Value == nil {
+		return binarypayload.ContentRef{}, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
+		}
+	}
+	var ref binarypayload.ContentRef
+	if err := json.Unmarshal(*artifact.Value, &ref); err != nil {
+		return binarypayload.ContentRef{}, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Artifact %s has an invalid %s payload.", artifactID, payloadLabel),
+		}
+	}
+	return ref, nil
+}
+
+func (s *Service) readBinaryContent(ref binarypayload.ContentRef) ([]byte, error) {
+	content, err := s.binaryStore.ReadBytes(ref.ContentID)
+	if err != nil {
+		switch {
+		case errors.Is(err, binarypayload.ErrInvalidContentID), errors.Is(err, binarypayload.ErrContentIDRequired):
+			return nil, &Error{
+				Kind:    ErrorBinaryPayloadInvalid,
+				Message: "Invalid binary content id.",
+			}
+		case errors.Is(err, binarypayload.ErrPayloadNotFound):
+			return nil, &Error{
+				Kind:    ErrorBinaryPayloadNotFound,
+				Message: "Binary payload not found.",
+			}
+		default:
+			return nil, err
+		}
+	}
+	return content, nil
 }
 
 func (s *Service) applyUpdateAction(action updateAction, strategy SaveConflictStrategy) (ArtifactSaveResult, error) {
@@ -492,14 +551,34 @@ func (s *Service) applyUpdateAction(action updateAction, strategy SaveConflictSt
 
 	switch action.artifactType {
 	case ArtifactTypeFile:
-		ref, err := s.binaryStore.StoreBytes(action.payload, action.mimeType, true)
-		if err != nil {
-			return ArtifactSaveResult{}, err
+		if action.binaryRef == nil {
+			return ArtifactSaveResult{}, &Error{
+				Kind:    ErrorInvalidRequest,
+				Message: fmt.Sprintf("Artifact %s is missing a binary payload.", action.artifactID),
+			}
 		}
 		s.storeFileCache(action.targetPath, FileArtifact{
 			Type:  ArtifactTypeFile,
 			ID:    action.artifactID,
-			Value: ref,
+			Value: *action.binaryRef,
+		}, action.payloadHash)
+	case ArtifactTypeImage:
+		if action.binaryRef == nil {
+			return ArtifactSaveResult{}, &Error{
+				Kind:    ErrorInvalidRequest,
+				Message: fmt.Sprintf("Artifact %s is missing a binary payload.", action.artifactID),
+			}
+		}
+		s.storeImageCache(action.targetPath, ImageArtifact{
+			Type:  ArtifactTypeImage,
+			ID:    action.artifactID,
+			Value: *action.binaryRef,
+		}, action.payloadHash)
+	case ArtifactTypeChartData:
+		s.storeChartCache(action.targetPath, ChartDataArtifact{
+			Type:  ArtifactTypeChartData,
+			ID:    action.artifactID,
+			Value: cloneChartDataValues(action.chartValue),
 		}, action.payloadHash)
 	case ArtifactTypeBrushStroke, ArtifactTypeDrawAreaLayerItemTransform:
 		s.storeJSONCache(action.targetPath, JSONArtifact{
@@ -834,6 +913,46 @@ func canonicalizeJSONObject(raw []byte) (json.RawMessage, error) {
 	return json.RawMessage(encoded), nil
 }
 
+func chartDataToCSV(data map[string][]any) ([]byte, error) {
+	if len(data) == 0 {
+		return []byte{}, nil
+	}
+	headers := make([]string, 0, len(data))
+	maxRows := 0
+	for header, values := range data {
+		headers = append(headers, header)
+		if len(values) > maxRows {
+			maxRows = len(values)
+		}
+	}
+	sort.Strings(headers)
+
+	var builder strings.Builder
+	writer := csv.NewWriter(&builder)
+	if err := writer.Write(headers); err != nil {
+		return nil, err
+	}
+	for rowIndex := 0; rowIndex < maxRows; rowIndex++ {
+		row := make([]string, 0, len(headers))
+		for _, header := range headers {
+			values := data[header]
+			if rowIndex >= len(values) || values[rowIndex] == nil {
+				row = append(row, "")
+				continue
+			}
+			row = append(row, fmt.Sprint(values[rowIndex]))
+		}
+		if err := writer.Write(row); err != nil {
+			return nil, err
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return nil, err
+	}
+	return []byte(builder.String()), nil
+}
+
 func parseChartCSV(content []byte) (map[string][]any, error) {
 	reader := csv.NewReader(strings.NewReader(string(content)))
 	records, err := reader.ReadAll()
@@ -906,14 +1025,18 @@ func cloneJSONArtifact(artifact JSONArtifact) JSONArtifact {
 	}
 }
 
-func cloneChartDataArtifact(artifact ChartDataArtifact) ChartDataArtifact {
-	clonedValues := make(map[string][]any, len(artifact.Value))
-	for key, values := range artifact.Value {
-		clonedValues[key] = append([]any(nil), values...)
+func cloneChartDataValues(values map[string][]any) map[string][]any {
+	clonedValues := make(map[string][]any, len(values))
+	for key, items := range values {
+		clonedValues[key] = append([]any(nil), items...)
 	}
+	return clonedValues
+}
+
+func cloneChartDataArtifact(artifact ChartDataArtifact) ChartDataArtifact {
 	return ChartDataArtifact{
 		Type:  artifact.Type,
 		ID:    artifact.ID,
-		Value: clonedValues,
+		Value: cloneChartDataValues(artifact.Value),
 	}
 }
