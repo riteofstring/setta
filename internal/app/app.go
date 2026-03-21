@@ -853,8 +853,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					TemporaryIDs: temporaryIDs,
 				}),
 			}),
-			TemporaryIDs:           temporaryIDs,
-			CompletionGuardEnabled: true,
+			TemporaryIDs: temporaryIDs,
+			CompletionGuardProvider: func() (bool, error) {
+				if settingsStateRuntime == nil {
+					return false, errors.New("settings state runtime is not configured")
+				}
+				return settingsstate.CompletionGuardEnabled(settingsStateRuntime.Snapshot().Document)
+			},
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

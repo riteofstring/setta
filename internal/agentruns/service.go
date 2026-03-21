@@ -38,6 +38,8 @@ type RequestValidator interface {
 	Validate(ExecutionRequest) error
 }
 
+type CompletionGuardProvider func() (bool, error)
+
 type ExecutionRequest struct {
 	Profile                agentprofiles.Profile
 	Run                    Run
@@ -63,27 +65,29 @@ type ExecutionResult struct {
 }
 
 type ServiceOptions struct {
-	ProjectState           *projectstate.Runtime
-	Engines                *EngineStore
-	Runs                   *RunStore
-	LLM                    *llmconfig.Runtime
-	Executor               Executor
-	TemporaryIDs           TemporaryIDs
-	BasePrompt             string
-	CompletionGuardEnabled bool
-	TimeNow                func() time.Time
+	ProjectState            *projectstate.Runtime
+	Engines                 *EngineStore
+	Runs                    *RunStore
+	LLM                     *llmconfig.Runtime
+	Executor                Executor
+	TemporaryIDs            TemporaryIDs
+	BasePrompt              string
+	CompletionGuardEnabled  bool
+	CompletionGuardProvider CompletionGuardProvider
+	TimeNow                 func() time.Time
 }
 
 type Service struct {
-	projectState           *projectstate.Runtime
-	engines                *EngineStore
-	runs                   *RunStore
-	llm                    *llmconfig.Runtime
-	executor               Executor
-	temporaryIDs           TemporaryIDs
-	basePrompt             string
-	completionGuardEnabled bool
-	timeNow                func() time.Time
+	projectState            *projectstate.Runtime
+	engines                 *EngineStore
+	runs                    *RunStore
+	llm                     *llmconfig.Runtime
+	executor                Executor
+	temporaryIDs            TemporaryIDs
+	basePrompt              string
+	completionGuardEnabled  bool
+	completionGuardProvider CompletionGuardProvider
+	timeNow                 func() time.Time
 }
 
 type ResolvedEngine struct {
@@ -92,16 +96,17 @@ type ResolvedEngine struct {
 }
 
 type runContext struct {
-	run             Run
-	profile         agentprofiles.Profile
-	engine          ResolvedEngine
-	projectConfigID string
-	chatID          string
-	sectionID       *string
-	thinking        bool
-	systemPrompt    string
-	inputs          map[string]any
-	request         *ExecutionRequest
+	run                    Run
+	profile                agentprofiles.Profile
+	engine                 ResolvedEngine
+	projectConfigID        string
+	chatID                 string
+	sectionID              *string
+	thinking               bool
+	completionGuardEnabled bool
+	systemPrompt           string
+	inputs                 map[string]any
+	request                *ExecutionRequest
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -124,15 +129,16 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 	}
 	return &Service{
-		projectState:           options.ProjectState,
-		engines:                options.Engines,
-		runs:                   options.Runs,
-		llm:                    options.LLM,
-		executor:               options.Executor,
-		temporaryIDs:           options.TemporaryIDs,
-		basePrompt:             strings.TrimSpace(options.BasePrompt),
-		completionGuardEnabled: options.CompletionGuardEnabled,
-		timeNow:                timeNow,
+		projectState:            options.ProjectState,
+		engines:                 options.Engines,
+		runs:                    options.Runs,
+		llm:                     options.LLM,
+		executor:                options.Executor,
+		temporaryIDs:            options.TemporaryIDs,
+		basePrompt:              strings.TrimSpace(options.BasePrompt),
+		completionGuardEnabled:  options.CompletionGuardEnabled,
+		completionGuardProvider: options.CompletionGuardProvider,
+		timeNow:                 timeNow,
 	}, nil
 }
 
@@ -307,7 +313,7 @@ func (s *Service) buildExecutionRequest(runContext runContext) (ExecutionRequest
 		EngineConfig:           runContext.engine.EngineConfig,
 		LLMConfig:              runContext.engine.LLMConfig,
 		MCPServerIDs:           cloneStringSlice(mcpServerIDs),
-		CompletionGuardEnabled: s.completionGuardEnabled,
+		CompletionGuardEnabled: runContext.completionGuardEnabled,
 		RequestParams:          requestParams,
 		APIKeys:                apiKeys,
 		SystemPrompt:           runContext.systemPrompt,
@@ -519,21 +525,36 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if strings.TrimSpace(chatID) == "" {
 		chatID = run.ID
 	}
-	systemPrompt, err := buildSystemPrompt(s.basePrompt, profile, projectConfigID, s.temporaryIDs, s.completionGuardEnabled)
+	completionGuardEnabled, err := s.resolveCompletionGuardEnabled()
+	if err != nil {
+		return runContext{}, err
+	}
+	systemPrompt, err := buildSystemPrompt(s.basePrompt, profile, projectConfigID, s.temporaryIDs, completionGuardEnabled)
 	if err != nil {
 		return runContext{}, err
 	}
 	return runContext{
-		run:             run,
-		profile:         profile,
-		engine:          engine,
-		projectConfigID: projectConfigID,
-		chatID:          chatID,
-		sectionID:       cloneStringPtr(sectionID),
-		thinking:        thinking,
-		systemPrompt:    systemPrompt,
-		inputs:          payloadInputs,
+		run:                    run,
+		profile:                profile,
+		engine:                 engine,
+		projectConfigID:        projectConfigID,
+		chatID:                 chatID,
+		sectionID:              cloneStringPtr(sectionID),
+		thinking:               thinking,
+		completionGuardEnabled: completionGuardEnabled,
+		systemPrompt:           systemPrompt,
+		inputs:                 payloadInputs,
 	}, nil
+}
+
+func (s *Service) resolveCompletionGuardEnabled() (bool, error) {
+	if s == nil {
+		return false, ErrManagedExecutorUnavailable
+	}
+	if s.completionGuardProvider == nil {
+		return s.completionGuardEnabled, nil
+	}
+	return s.completionGuardProvider()
 }
 
 func (s *Service) recordEvent(run *Run, eventType string, payload map[string]any) error {

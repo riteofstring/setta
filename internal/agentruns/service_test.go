@@ -398,7 +398,61 @@ func TestBuildSystemPromptRemovesCompletionContractWhenDisabledAndKeepsProfileCo
 	}
 }
 
+func TestServiceRunSubAgentUsesCompletionGuardProvider(t *testing.T) {
+	t.Parallel()
+
+	providerCalls := 0
+	service, executor, _, _ := buildServiceFixtureWithOptions(t, buildServiceFixtureOptions{
+		completionGuardProvider: func() (bool, error) {
+			providerCalls++
+			return false, nil
+		},
+	})
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+	executor.result = ExecutionResult{
+		Outputs: map[string]any{
+			"messages": []any{},
+		},
+	}
+
+	_, err := service.RunSubAgent(context.Background(), profile, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("run sub agent: %v", err)
+	}
+	if providerCalls != 1 {
+		t.Fatalf("expected completion guard provider to be called once, got %d", providerCalls)
+	}
+	if executor.last == nil {
+		t.Fatal("expected executor call")
+	}
+	if executor.last.CompletionGuardEnabled {
+		t.Fatalf("expected completion guard to be disabled, got %#v", executor.last)
+	}
+	if strings.Contains(executor.last.SystemPrompt, "Completion Reporting Contract") {
+		t.Fatalf("expected completion contract to be removed from prompt, got %q", executor.last.SystemPrompt)
+	}
+}
+
+type buildServiceFixtureOptions struct {
+	execErr                 error
+	completionGuardEnabled  bool
+	completionGuardProvider CompletionGuardProvider
+}
+
 func buildServiceFixture(t *testing.T, execErr error) (*Service, *stubExecutor, *RunStore, *projectstate.Runtime) {
+	return buildServiceFixtureWithOptions(t, buildServiceFixtureOptions{
+		execErr:                execErr,
+		completionGuardEnabled: true,
+	})
+}
+
+func buildServiceFixtureWithOptions(t *testing.T, options buildServiceFixtureOptions) (*Service, *stubExecutor, *RunStore, *projectstate.Runtime) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -449,16 +503,17 @@ func buildServiceFixture(t *testing.T, execErr error) (*Service, *stubExecutor, 
 		t.Fatalf("open project runtime: %v", err)
 	}
 	now := time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC)
-	executor := &stubExecutor{err: execErr}
+	executor := &stubExecutor{err: options.execErr}
 	service, err := NewService(ServiceOptions{
-		ProjectState:           projectRuntime,
-		Engines:                engines,
-		Runs:                   runs,
-		LLM:                    llmRuntime,
-		Executor:               executor,
-		TemporaryIDs:           &stubTemporaryIDs{},
-		BasePrompt:             "Base prompt",
-		CompletionGuardEnabled: true,
+		ProjectState:            projectRuntime,
+		Engines:                 engines,
+		Runs:                    runs,
+		LLM:                     llmRuntime,
+		Executor:                executor,
+		TemporaryIDs:            &stubTemporaryIDs{},
+		BasePrompt:              "Base prompt",
+		CompletionGuardEnabled:  options.completionGuardEnabled,
+		CompletionGuardProvider: options.completionGuardProvider,
 		TimeNow: func() time.Time {
 			return now
 		},

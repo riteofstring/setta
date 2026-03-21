@@ -281,9 +281,6 @@ func requiredInternalToolNames(completionGuardEnabled bool) []string {
 }
 
 func isSupportedCompletionStatusToolName(toolName string, completionGuardEnabled bool) bool {
-	if !completionGuardEnabled {
-		return true
-	}
 	serverID, baseName, ok := mcpx.SplitNamespacedToolName(mcpx.NormalizeToolName(toolName))
 	if !ok {
 		return true
@@ -291,7 +288,10 @@ func isSupportedCompletionStatusToolName(toolName string, completionGuardEnabled
 	if baseName != "report_completion_status" {
 		return true
 	}
-	return serverID == mcpx.DefaultServerID
+	if completionGuardEnabled {
+		return serverID == mcpx.DefaultServerID
+	}
+	return serverID != mcpx.DefaultServerID
 }
 
 func isToolAllowed(toolName string, allowlist *toolAllowlist, completionGuardEnabled bool) bool {

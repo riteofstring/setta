@@ -35,6 +35,9 @@ func TestIsSupportedCompletionStatusToolNameRequiresDefaultServerWhenEnabled(t *
 	if isSupportedCompletionStatusToolName("remote__report_completion_status", true) {
 		t.Fatal("expected non-default completion status tool to be rejected")
 	}
+	if isSupportedCompletionStatusToolName("setta__report_completion_status", false) {
+		t.Fatal("expected default completion status tool to be omitted when the guard is disabled")
+	}
 	if !isSupportedCompletionStatusToolName("remote__report_completion_status", false) {
 		t.Fatal("expected completion status tool restrictions to relax when disabled")
 	}
