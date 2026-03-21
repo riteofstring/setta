@@ -290,9 +290,12 @@ func TestApplyOpenCodeRuntimeConfigParsesJSONLiteralPermission(t *testing.T) {
 	t.Parallel()
 
 	payload := map[string]any{}
-	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{
+	err := applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{
 		ApprovalPolicy: stringPtr(`{"shell":"ask","edit":"deny"}`),
-	}, map[string]any{}, "", nil, true)
+	}, map[string]any{}, nil, false, "", nil, true)
+	if err != nil {
+		t.Fatalf("apply opencode runtime config: %v", err)
+	}
 
 	permission, ok := mapValue(payload["permission"])
 	if !ok {
@@ -322,7 +325,9 @@ func TestApplyOpenCodeRuntimeConfigForcesOpenAITextVerbosity(t *testing.T) {
 		},
 	}
 
-	applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{}, map[string]any{}, "", nil, true)
+	if err := applyOpenCodeRuntimeConfig(payload, externalagentconfigs.Config{}, map[string]any{}, nil, false, "", nil, true); err != nil {
+		t.Fatalf("apply opencode runtime config: %v", err)
+	}
 
 	provider, ok := mapValue(payload["provider"])
 	if !ok {
@@ -349,6 +354,108 @@ func TestApplyOpenCodeRuntimeConfigForcesOpenAITextVerbosity(t *testing.T) {
 	}
 	if _, ok := mapValue(options["text"]); ok {
 		t.Fatalf("expected legacy text.verbosity payload to be removed, got %#v", options["text"])
+	}
+}
+
+func TestApplyOpenCodeRuntimeConfigMergesToolAllowlistIntoPermission(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{}
+	err := applyOpenCodeRuntimeConfig(
+		payload,
+		externalagentconfigs.Config{
+			ApprovalPolicy: stringPtr("ask"),
+		},
+		map[string]any{},
+		&agentprofiles.Profile{
+			ToolAllowlist: []string{"setta__getProjectState"},
+		},
+		true,
+		"",
+		nil,
+		true,
+	)
+	if err != nil {
+		t.Fatalf("apply opencode runtime config: %v", err)
+	}
+
+	permission, ok := mapValue(payload["permission"])
+	if !ok {
+		t.Fatalf("expected merged permission payload, got %#v", payload["permission"])
+	}
+	if stringValue(permission["setta_*"]) != "deny" {
+		t.Fatalf("expected setta wildcard deny, got %#v", permission)
+	}
+	if stringValue(permission["setta_getProjectState"]) != "ask" {
+		t.Fatalf("expected allowlisted project-state tool to inherit ask, got %#v", permission)
+	}
+	if stringValue(permission["setta_set_agentic_context"]) != "ask" {
+		t.Fatalf("expected required set_agentic_context tool to inherit ask, got %#v", permission)
+	}
+	if stringValue(permission["setta_report_completion_status"]) != "ask" {
+		t.Fatalf("expected completion-report tool to inherit ask when guard is enabled, got %#v", permission)
+	}
+}
+
+func TestApplyOpenCodeRuntimeConfigOmitsCompletionReportWhenGuardDisabled(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{}
+	err := applyOpenCodeRuntimeConfig(
+		payload,
+		externalagentconfigs.Config{
+			ApprovalPolicy: stringPtr("ask"),
+		},
+		map[string]any{},
+		&agentprofiles.Profile{
+			ToolAllowlist: []string{"setta__getProjectState"},
+		},
+		false,
+		"",
+		nil,
+		true,
+	)
+	if err != nil {
+		t.Fatalf("apply opencode runtime config: %v", err)
+	}
+
+	permission, ok := mapValue(payload["permission"])
+	if !ok {
+		t.Fatalf("expected merged permission payload, got %#v", payload["permission"])
+	}
+	if stringValue(permission["setta_*"]) != "deny" {
+		t.Fatalf("expected setta wildcard deny, got %#v", permission)
+	}
+	if stringValue(permission["setta_getProjectState"]) != "ask" {
+		t.Fatalf("expected allowlisted project-state tool to inherit ask, got %#v", permission)
+	}
+	if stringValue(permission["setta_set_agentic_context"]) != "ask" {
+		t.Fatalf("expected required set_agentic_context tool to inherit ask, got %#v", permission)
+	}
+	if _, ok := permission["setta_report_completion_status"]; ok {
+		t.Fatalf("expected completion-report tool to be omitted when guard is disabled, got %#v", permission)
+	}
+}
+
+func TestApplyOpenCodeRuntimeConfigRejectsNonObjectPermissionWhenToolAllowlistIsScoped(t *testing.T) {
+	t.Parallel()
+
+	err := applyOpenCodeRuntimeConfig(
+		map[string]any{},
+		externalagentconfigs.Config{
+			ApprovalPolicy: stringPtr(`[{"scope":"deny"}]`),
+		},
+		map[string]any{},
+		&agentprofiles.Profile{
+			ToolAllowlist: []string{"setta__getProjectState"},
+		},
+		true,
+		"",
+		nil,
+		true,
+	)
+	if err == nil || !strings.Contains(err.Error(), "OpenCode permission must be a JSON object when toolAllowlist is set") {
+		t.Fatalf("expected scoped allowlist to reject non-object permission payload, got %v", err)
 	}
 }
 
@@ -412,7 +519,7 @@ func TestPrepareOpenCodeConfigInjectsAuthAndAgenticHeaders(t *testing.T) {
 		ToolType:     externalagentconfigs.ToolTypeOpenCode,
 		RunMode:      externalagentconfigs.RunModeSDK,
 		SettingsMode: externalagentconfigs.SettingsModeManagedLocal,
-	}, request.ChatID, request.Inputs, headers)
+	}, request.ChatID, request.Inputs, nil, false, headers)
 	if err != nil {
 		t.Fatalf("prepare opencode config: %v", err)
 	}
@@ -511,7 +618,7 @@ func TestPrepareOpenCodeConfigExplicitPathReadOnlyPreservesBasePayloadAndWritesS
 	}, "chat-alpha", map[string]any{
 		"model":          "gpt-5.2-chat-latest",
 		"approvalPolicy": `{"shell":"allow"}`,
-	}, map[string]string{
+	}, nil, false, map[string]string{
 		"Cookie": "setta_auth=value",
 	})
 	if err != nil {
@@ -603,7 +710,7 @@ func TestPrepareOpenCodeConfigReadOnlyModeWritesSessionScopedArtifact(t *testing
 		ToolType:     externalagentconfigs.ToolTypeOpenCode,
 		RunMode:      externalagentconfigs.RunModeSDK,
 		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
-	}, "chat-beta", map[string]any{}, nil)
+	}, "chat-beta", map[string]any{}, nil, false, nil)
 	if err != nil {
 		t.Fatalf("prepare read-only opencode config: %v", err)
 	}

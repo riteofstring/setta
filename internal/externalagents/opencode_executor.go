@@ -18,10 +18,12 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -165,12 +167,24 @@ func (e *OpenCodeExecutor) Start(ctx context.Context, request StartRequest) (Sta
 
 	envMap := e.buildRuntimeEnv(request.ExternalConfig)
 	envMap["SETTA_WORKSPACE_ROOT"] = e.workspaceRoot
+	completionGuardEnabled, err := e.resolveCompletionGuardEnabled(ctx)
+	if err != nil {
+		cleanupStart()
+		return StartResponse{}, err
+	}
 	headers, err := e.buildOpenCodeMCPHeaders(request)
 	if err != nil {
 		cleanupStart()
 		return StartResponse{}, err
 	}
-	configPath, err := e.prepareOpenCodeConfig(request.ExternalConfig, request.ChatID, request.Inputs, headers)
+	configPath, err := e.prepareOpenCodeConfig(
+		request.ExternalConfig,
+		request.ChatID,
+		request.Inputs,
+		request.Profile,
+		completionGuardEnabled,
+		headers,
+	)
 	if err != nil {
 		cleanupStart()
 		return StartResponse{}, err
@@ -536,7 +550,14 @@ func (e *OpenCodeExecutor) seedOpenCodeMCPStatuses(runID string, configPath stri
 	return e.runtime.UpsertMCPStatuses(runID, statuses)
 }
 
-func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Config, chatID string, inputs map[string]any, settaHeaders map[string]string) (string, error) {
+func (e *OpenCodeExecutor) prepareOpenCodeConfig(
+	config externalagentconfigs.Config,
+	chatID string,
+	inputs map[string]any,
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
+	settaHeaders map[string]string,
+) (string, error) {
 	baseRoot := filepath.Join(e.settaFilesRoot, codexSettingsRootName, "opencode", config.ID)
 	baseConfigPath := resolveOpenCodeBaseConfig(config, baseRoot)
 	runtimePath := filepath.Join(baseRoot, "sessions", chatID, openCodeConfigFileName)
@@ -551,14 +572,18 @@ func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Con
 		}
 		payload = loaded
 	}
-	applyOpenCodeRuntimeConfig(
+	if err := applyOpenCodeRuntimeConfig(
 		payload,
 		config,
 		inputs,
+		profile,
+		completionGuardEnabled,
 		e.settaServerURL,
 		settaHeaders,
 		allowOpenCodeManagedSettingsUpdate(config, baseConfigPath),
-	)
+	); err != nil {
+		return "", err
+	}
 	content, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encode opencode runtime config: %w", err)
@@ -616,12 +641,14 @@ func applyOpenCodeRuntimeConfig(
 	payload map[string]any,
 	config externalagentconfigs.Config,
 	inputs map[string]any,
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
 	settaServerURL string,
 	settaHeaders map[string]string,
 	allowManagedSettings bool,
-) {
+) error {
 	if payload == nil {
-		return
+		return nil
 	}
 	if strings.TrimSpace(settaServerURL) != "" || len(settaHeaders) > 0 {
 		existingMCP, _ := mapValue(payload["mcp"])
@@ -651,7 +678,7 @@ func applyOpenCodeRuntimeConfig(
 		payload["mcp"] = existingMCP
 	}
 	if !allowManagedSettings {
-		return
+		return nil
 	}
 	model := strings.TrimSpace(stringValue(inputs["model"]))
 	if model == "" && config.SettingsManagedBlock != nil && config.SettingsManagedBlock.OpenCode != nil {
@@ -671,6 +698,11 @@ func applyOpenCodeRuntimeConfig(
 	} else if configuredPolicy := parseOpenCodePermission(strings.TrimSpace(derefOptionalString(config.ApprovalPolicy))); configuredPolicy != nil {
 		permission = configuredPolicy
 	}
+	mergedPermission, err := mergeOpenCodePermissionAllowlist(permission, profile, completionGuardEnabled)
+	if err != nil {
+		return err
+	}
+	permission = mergedPermission
 	if permission != nil {
 		payload["permission"] = permission
 	}
@@ -685,6 +717,69 @@ func applyOpenCodeRuntimeConfig(
 		payload["mcp"] = existingMCP
 	}
 	externalagentconfigs.ForceOpenCodeOpenAITextVerbosity(payload, "gpt-5.2-chat-latest", "medium")
+	return nil
+}
+
+func mergeOpenCodePermissionAllowlist(
+	permission any,
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
+) (any, error) {
+	allowlist, err := buildCodexToolAllowlist(profile, completionGuardEnabled)
+	if err != nil {
+		return nil, err
+	}
+	if allowlist == nil || allowlist.allowAll {
+		return permission, nil
+	}
+	defaultPolicy := ""
+	if permission == nil {
+		permission = map[string]any{}
+	} else if permissionString, ok := permission.(string); ok {
+		defaultPolicy = strings.TrimSpace(permissionString)
+		permission = map[string]any{}
+	}
+	permissionPayload, ok := mapValue(permission)
+	if !ok {
+		return nil, errors.New("OpenCode permission must be a JSON object when toolAllowlist is set")
+	}
+	merged := map[string]any{}
+	for key, value := range permissionPayload {
+		merged[key] = deepCloneJSONValue(value)
+	}
+	merged[mcpx.DefaultServerID+"_*"] = "deny"
+	for _, toolName := range allowlist.toolNames {
+		key := mcpx.DefaultServerID + "_" + toolName
+		value, exists := merged[key]
+		if exists {
+			delete(merged, key)
+		}
+		if !exists || value == nil || strings.TrimSpace(stringValue(value)) == "" {
+			if defaultPolicy != "" {
+				value = defaultPolicy
+			} else {
+				value = "allow"
+			}
+		}
+		merged[key] = value
+	}
+	return merged, nil
+}
+
+func (e *OpenCodeExecutor) resolveCompletionGuardEnabled(ctx context.Context) (bool, error) {
+	settingsStore, err := settingsstate.NewStore(filepath.Join(e.settaFilesRoot, settingsstate.DefaultFileName), settingsstate.StoreOptions{})
+	if err != nil {
+		return false, fmt.Errorf("open settings store: %w", err)
+	}
+	document, err := settingsStore.Load(ctx)
+	if err != nil {
+		return false, fmt.Errorf("load settings document: %w", err)
+	}
+	enabled, err := settingsstate.CompletionGuardEnabled(document)
+	if err != nil {
+		return false, fmt.Errorf("read completion guard setting: %w", err)
+	}
+	return enabled, nil
 }
 
 func (e *OpenCodeExecutor) buildOpenCodeMCPHeaders(request StartRequest) (map[string]string, error) {
