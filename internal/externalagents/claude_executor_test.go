@@ -727,6 +727,89 @@ func TestClaudeHandleEventParsesStreamEventEnvelopeAndIgnoresDuplicatePayloads(t
 	}
 }
 
+func TestClaudeHandleEventAssistantMessagePersistsThinkingAndToolCalls(t *testing.T) {
+	t.Parallel()
+
+	store, _, executor, parser, request, state := newActiveClaudeParserTestFixture(t)
+	changed, result, err := executor.handleEvent(request, parser, map[string]any{
+		"type": "assistant_message",
+		"message": map[string]any{
+			"id": "msg-full-1",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Hi"},
+				map[string]any{"type": "thinking", "thinking": "Plan", "summary": "Plan summary"},
+				map[string]any{
+					"type":  "tool_use",
+					"id":    "toolu-2",
+					"name":  "Read",
+					"input": map[string]any{"path": "README.md"},
+				},
+			},
+		},
+	}, state)
+	if err != nil {
+		t.Fatalf("handle assistant_message: %v", err)
+	}
+	if !changed || result != nil {
+		t.Fatalf("expected assistant_message to mutate state without result, got changed=%v result=%#v", changed, result)
+	}
+	if err := executor.persistLiveState(request.Run.ID, *state, "", nil); err != nil {
+		t.Fatalf("persist live state after assistant_message: %v", err)
+	}
+
+	assistant := assistantMessageForTest(t, state, "msg-full-1")
+	if got := extractMessageText(assistant); got != "Hi" {
+		t.Fatalf("unexpected assistant text %q", got)
+	}
+	content, _ := assistant["content"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("expected text plus thinking content, got %#v", assistant)
+	}
+	thinking, _ := content[1].(map[string]any)
+	if stringValue(thinking["type"]) != "thinking" || stringValue(thinking["thinking"]) != "Plan" || stringValue(thinking["summary"]) != "Plan summary" {
+		t.Fatalf("unexpected thinking block %#v", content[1])
+	}
+	rawToolCalls, ok := assistant["tool_calls"].([]any)
+	if !ok || len(rawToolCalls) != 1 {
+		t.Fatalf("expected one assistant tool call, got %#v", assistant["tool_calls"])
+	}
+	toolCall, ok := rawToolCalls[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected tool call payload, got %#v", rawToolCalls[0])
+	}
+	if stringValue(toolCall["id"]) != "toolu-2" {
+		t.Fatalf("unexpected tool call %#v", toolCall)
+	}
+	function, _ := mapValue(toolCall["function"])
+	if stringValue(function["name"]) != "Read" {
+		t.Fatalf("unexpected tool call function %#v", function)
+	}
+	arguments, _ := mapValue(function["arguments"])
+	if stringValue(arguments["path"]) != "README.md" {
+		t.Fatalf("unexpected tool call arguments %#v", arguments)
+	}
+
+	persisted, err := store.Load(request.Run.ID)
+	if err != nil {
+		t.Fatalf("load persisted assistant_message run: %v", err)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted live-state messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted assistant message, got %#v", messages[len(messages)-1])
+	}
+	if got := extractMessageText(lastMessage); got != "Hi" {
+		t.Fatalf("unexpected persisted assistant text %q", got)
+	}
+	rawToolCalls, ok = lastMessage["tool_calls"].([]any)
+	if !ok || len(rawToolCalls) != 1 {
+		t.Fatalf("expected persisted tool call, got %#v", lastMessage)
+	}
+}
+
 func TestClaudeEventParserRecordsToolUseAndOverridesSeededArguments(t *testing.T) {
 	t.Parallel()
 
