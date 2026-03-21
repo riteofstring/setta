@@ -656,6 +656,29 @@ func TestHandlerServesBootstrapPageWhenAuthEnabled(t *testing.T) {
 	}
 }
 
+func TestHandlerRedirectsBootstrapPageTrailingSlash(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, bootstrapPagePath+"/", nil))
+	if response.Code != http.StatusTemporaryRedirect {
+		t.Fatalf("expected 307, got %d with body %q", response.Code, response.Body.String())
+	}
+	if location := response.Header().Get("Location"); location != bootstrapPagePath {
+		t.Fatalf("expected redirect location %q, got %q", bootstrapPagePath, location)
+	}
+}
+
 func TestBootstrapConsumeAcceptsBearerTokenWhenBodyOmitsToken(t *testing.T) {
 	t.Parallel()
 
@@ -818,6 +841,32 @@ func TestBootstrapPageUsesDevFrontendRedirectWhenConfigured(t *testing.T) {
 	}
 }
 
+func TestBootstrapPageDefaultsDevFrontendRedirectToHTTPWhenSchemeUnset(t *testing.T) {
+	t.Setenv(devFrontendPortEnv, "3000")
+	t.Setenv(devFrontendSchemeEnv, "")
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "https://backend.example:61234"+bootstrapPagePath, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `http://backend.example:3000/?__setta_backend_origin=https%3A%2F%2Fbackend.example%3A61234`) {
+		t.Fatalf("expected default http dev redirect in bootstrap page, got %q", body)
+	}
+}
+
 func TestBootstrapConsumeReturnsVerifiedLauncherOrigin(t *testing.T) {
 	t.Parallel()
 
@@ -874,6 +923,51 @@ func TestBootstrapConsumeReturnsVerifiedLauncherOrigin(t *testing.T) {
 	}
 	if !trustedOrigins.IsTrustedOrigin(launcherOrigin, currentSession.Metadata.ID) {
 		t.Fatal("expected launcher origin to be trusted for current session")
+	}
+}
+
+func TestBootstrapConsumeIgnoresInvalidLauncherOriginProof(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	requestBody := `{"token":"` + token + `","launcherOrigin":"http://127.0.0.1:9001","launcherOriginProof":"invalid-proof"}`
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, bootstrapConsumePath, bytes.NewBufferString(requestBody))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != `{"status":"ok"}` {
+		t.Fatalf("unexpected bootstrap consume payload %q", response.Body.String())
+	}
+	if trustedOrigins.IsTrustedOrigin("http://127.0.0.1:9001", currentSession.Metadata.ID) {
+		t.Fatal("expected invalid launcher-origin proof to fail closed without trusting the origin")
 	}
 }
 

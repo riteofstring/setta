@@ -116,6 +116,9 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	}
 
 	if deps.Auth != nil && deps.Auth.Enabled() {
+		router.Get(bootstrapPagePath+"/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, bootstrapPagePath, http.StatusTemporaryRedirect)
+		})
 		router.Get(bootstrapPagePath, bootstrapPageHandler())
 		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
 	}
