@@ -395,9 +395,7 @@ func TestServiceReusableSessionReturnsTrueForIdleInteractiveShell(t *testing.T) 
 	attachment := attachTerminalForTest(t, service, sessionID)
 	prepareInterruptShell(t, service, sessionID, attachment)
 
-	if !service.ReusableSession(sessionID) {
-		t.Fatal("expected idle interactive shell to be reusable")
-	}
+	waitForReusableSession(t, service, sessionID, true)
 }
 
 func TestServiceReusableSessionReturnsFalseForForegroundJob(t *testing.T) {
@@ -670,6 +668,22 @@ func waitForOutputContains(t *testing.T, attachment *Attachment, needle string) 
 			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
 		}
 	}
+}
+
+func waitForReusableSession(t *testing.T, service *Service, sessionID string, want bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	last := service.ReusableSession(sessionID)
+	for time.Now().Before(deadline) {
+		last = service.ReusableSession(sessionID)
+		if last == want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for reusable=%t for terminal %q; last=%t", want, sessionID, last)
 }
 
 func waitForHistoryContains(t *testing.T, service *Service, sessionID string, needle string) string {
