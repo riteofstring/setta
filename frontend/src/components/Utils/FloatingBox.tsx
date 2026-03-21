@@ -374,6 +374,24 @@ export function getFloatingBoxHandlers(
   return { onMouseEnter, onMouseLeave };
 }
 
+export function getLazyFloatingBoxHandlers(
+  getContentArray: () => Array<FloatingBoxContent>,
+) {
+  function onMouseEnter() {
+    if (!useFloatingBox.getState().isFrozen) {
+      useFloatingBox.setState({ contentArray: getContentArray() });
+    }
+  }
+
+  function onMouseLeave() {
+    if (!useFloatingBox.getState().isFrozen) {
+      useFloatingBox.setState({ contentArray: [], idx: 0, copied: false });
+    }
+  }
+
+  return { onMouseEnter, onMouseLeave };
+}
+
 export function enableFloatingBox() {
   useFloatingBox.setState({ isEnabled: true });
 }
