@@ -319,6 +319,11 @@ categorize them.
   remaining small launcher queue is mostly the typed invalid-runtime-root
   startup-failure slice before the backlog rises back into broader
   completion-gate, OpenCode read-only, or other runtime-heavy behavior gaps
+- That typed launcher invalid-runtime-root startup-failure row is now closed
+  too, so the next launcher-adjacent queue is the broader missing
+  `setta launch --json` typed config-validation surface or the larger
+  recent-session grace / process-group cleanup rows rather than another tiny
+  pre-spawn startup-classification branch
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
