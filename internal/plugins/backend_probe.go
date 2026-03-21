@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
 
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
@@ -584,6 +586,29 @@ func normalizeBackendRegistrationPath(raw string, label string) (string, error) 
 	}
 	if !strings.HasPrefix(trimmed, "/") {
 		return "", fmt.Errorf("%s must start with /", label)
+	}
+	segments := strings.Split(trimmed, "/")
+	for index := 1; index < len(segments); index++ {
+		segment := segments[index]
+		if segment == "" {
+			if index == len(segments)-1 {
+				continue
+			}
+			return "", fmt.Errorf("%s must not contain empty path segments", label)
+		}
+		decodedSegment, err := url.PathUnescape(segment)
+		if err != nil {
+			return "", fmt.Errorf("%s contains invalid escape sequence", label)
+		}
+		if decodedSegment == "." || decodedSegment == ".." {
+			return "", fmt.Errorf("%s must not contain traversal segments", label)
+		}
+		if strings.ContainsAny(decodedSegment, `/\`) {
+			return "", fmt.Errorf("%s must not contain escaped path separators", label)
+		}
+		if strings.IndexFunc(decodedSegment, unicode.IsSpace) >= 0 {
+			return "", fmt.Errorf("%s must not contain whitespace", label)
+		}
 	}
 	normalized := path.Clean(trimmed)
 	if !strings.HasPrefix(normalized, "/") {

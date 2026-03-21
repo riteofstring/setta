@@ -348,7 +348,10 @@ func findRegisteredBackendRouteMatch(entries []DiscoveredPlugin, method string, 
 	}
 	normalizedPath, err := normalizeBackendRegistrationPath(requestPath, "path")
 	if err != nil {
-		return backendRouteMatch{}, BackendRouteLookup{}, err
+		// Request paths are caller input, not persisted plugin registrations.
+		// Invalid paths should miss route matching so static-dir and 404 handlers
+		// can fail closed without surfacing an internal error from the lookup step.
+		return backendRouteMatch{}, BackendRouteLookup{}, nil
 	}
 
 	methodsToCheck := []string{normalizedMethod}
