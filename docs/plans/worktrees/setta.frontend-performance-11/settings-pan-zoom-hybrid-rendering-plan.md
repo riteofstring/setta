@@ -598,6 +598,10 @@ Current execution note:
   - collapsing the repeated name/value shell into the `TextInputCodeMirror` roots did remove the targeted wrappers on the live worktree pages
   - but the first paired rerun regressed both canonical scenes strongly enough that no same-code confirmation rerun was justified
   - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
+- the next dummy-preview-language simplification experiment was also benchmarked and rejected:
+  - removing inactive syntax highlighting from dense Tier 1 name/text previews did remove the sampled name-preview span wrapper on `benchmark-tier1`
+  - but it barely touched the real `settings` hotspot rows and still regressed both canonical scenes strongly on the first paired rerun
+  - keep the retained nested-guide-removal baseline instead of carrying that change at `HEAD`
 - the next Phase 5 slice should stay in this class of work:
   - deeper row/body DOM or paint reduction
   - simplified ownership around the shared param-row stack
@@ -605,6 +609,7 @@ Current execution note:
   - avoid spending another immediate cycle on isolated DummyCodeMirror wrapper flattening unless a larger shared Tier 1 body change makes that seam materially cheaper again
   - avoid spending another immediate cycle on isolated row-corner styling tweaks; the next candidate should hide or delete more real structure, ownership, or repeated body work than a single visual token change can reach
   - avoid another immediate attempt to push the full label/value shell ownership directly onto the CodeMirror roots; that specific collapse regressed both canonical scenes badly enough to reject as a local seam strategy
+  - avoid another immediate dummy-preview-only syntax tweak unless it clearly reaches the real `settings` hotspot rows; the rejected preview-language pass mainly changed `benchmark-tier1` name rows and missed the heavier `settings` code-param path
   - current active structural target:
     - continue inside the repeated leaf-row/body seam now split across:
       - `frontend/src/components/Params/ParamContainer.tsx`
@@ -616,6 +621,7 @@ Current execution note:
       - every Tier 1 leaf row pays for that split
       - the next worthwhile experiment should remove or hide more of that repeated structure than the rejected isolated style-token passes could reach
       - but it should do so without moving the full row shell responsibility onto `TextInputCodeMirror` itself
+      - and it should hit the row families that still dominate `settings`, especially code-param-heavy or non-CodeMirror repeated surfaces instead of another narrow inactive-preview-only tweak
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

@@ -1140,3 +1140,84 @@ Record:
     - likely candidates are now deeper boundary cleanup in `ParamContainer` / `ParamInput` / `ParamTextLabel` rather than another `TextInputCodeMirror`-centric collapse
 - Next action:
   - Inspect the remaining repeated leaf-row/body ownership inside the retained baseline and turn that into the next concrete Tier 1 experiment.
+
+## 2026-03-20 024
+
+- Item: Benchmark the dummy preview language simplification experiment and decide whether to keep it.
+- Status: `done`
+- Details:
+  - Experimental change under test:
+    - add a preview-only dummy-language override in `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - pass `dummyLanguage={null}` from `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - disable dummy-preview syntax highlighting for `TextParam` and `TextAreaParam` in `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - keep the real activated CodeMirror language path unchanged
+  - Relevant verification before the rerun:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Params/ParamUIs/TextParamInput.test.tsx`
+      - result:
+        - `5` files passed
+        - `19` tests passed
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "TextInputCodeMirror\\.tsx|ParamNameInput\\.tsx|ParamUI\\.tsx"`
+      - result:
+        - still reported the existing baseline diagnostics in these files
+        - used Vitest plus the benchmark matrix as the acceptance gate for this experiment
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-tier1-dummy-preview-language-simplification-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-tier1-dummy-preview-language-simplification-rerun`
+  - CDP structural and visual compare while the experiment was live:
+    - live worktree `benchmark-tier1`:
+      - sampled `ParamNameInput` preview span count dropped from `1` to `0`
+      - sampled text-input preview span count stayed at `1`
+    - live worktree `settings`:
+      - the heaviest sampled row still had `55` descendants and `50` spans
+      - the page still showed `283` spans under `.section-param-row`
+    - read:
+      - the experiment changed `benchmark-tier1` name previews
+      - but it barely touched the real `settings` hotspot rows
+  - First paired rerun read versus the retained nested-guide-removal confirmation baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - before:
+          - `148.237ms`
+        - after:
+          - `177.597ms`
+      - benchmark `RunTask`:
+        - before:
+          - `3235.187ms`
+        - after:
+          - `3646.766ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - before:
+          - `825.999ms`
+        - after:
+          - `1020.548ms`
+      - benchmark `RunTask`:
+        - before:
+          - `13271.540ms`
+        - after:
+          - `22593.447ms`
+  - Decision:
+    - reject this dummy preview language simplification experiment
+    - do not run a same-code confirmation rerun because the first paired matrix already regressed both canonical scenes strongly
+    - revert the code changes and keep the retained nested-guide-removal baseline at `HEAD`
+  - Post-revert live sanity:
+    - live worktree `benchmark-tier1` returned to the retained baseline with sampled `ParamNameInput` preview span count back at `1`
+- Next action:
+  - Continue from the retained dense-row baseline and move away from narrow dummy-preview-only changes that do not materially change the real `settings` hot path.
+
+## 2026-03-20 025
+
+- Item: Choose the next Tier 1 target that actually reaches the remaining `settings` hotspot rows after the rejected preview-language experiment.
+- Status: `in_progress`
+- Details:
+  - Updated read after the rejection:
+    - narrow dummy-preview-only changes are not enough
+    - the remaining `settings` hotspot rows appear to be code-param-heavy or otherwise outside the exact name/text preview slice that was just tested
+    - the next worthwhile Tier 1 pass should target a heavier repeated row family than:
+      - name-preview syntax highlighting
+      - dummy-preview-only text syntax highlighting
+  - Likely next direction:
+    - inspect the code-param preview path and the repeated non-CodeMirror row surfaces that still dominate the live `settings` subtree
+- Next action:
+  - Narrow the next concrete experiment onto the heavier repeated row family that still dominates `settings`, then benchmark it with the same canonical pair.
