@@ -144,6 +144,9 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 		t.Fatalf("write configs: %v", err)
 	}
 	nodePath := "/usr/local/bin/node"
+	nodeVersion := "v18.0.0"
+	sdkVersion := "1.1.36"
+	cliVersion := "codex 0.25.1"
 	workingDir := "/workspace"
 	checker := &externalAgentConfigRouteStubChecker{
 		statusByConfigID: map[string]externalagentconfigs.Status{
@@ -158,6 +161,8 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 				BaseURL:     &baseURL,
 				WorkingDir:  &workingDir,
 				CommandPath: &nodePath,
+				NodeVersion: &nodeVersion,
+				SDKVersion:  &sdkVersion,
 				EnvVars: externalagentconfigs.EnvVarStatus{
 					Present: []string{"OPENAI_API_KEY"},
 					Missing: []string{"ANTHROPIC_API_KEY"},
@@ -172,6 +177,7 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 				Available:  true,
 				Issues:     []string{},
 				WorkingDir: &workingDir,
+				CLIVersion: &cliVersion,
 			},
 		},
 	}
@@ -198,8 +204,17 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if payload[0].NodePath == nil || *payload[0].NodePath != nodePath {
 		t.Fatalf("expected opencode nodePath mapping, got %#v", payload[0])
 	}
+	if payload[0].NodeVersion == nil || *payload[0].NodeVersion != nodeVersion {
+		t.Fatalf("expected opencode nodeVersion mapping, got %#v", payload[0])
+	}
+	if payload[0].SDKVersion == nil || *payload[0].SDKVersion != sdkVersion {
+		t.Fatalf("expected opencode sdkVersion mapping, got %#v", payload[0])
+	}
 	if payload[1].NodePath != nil {
 		t.Fatalf("expected non-opencode nodePath to remain nil, got %#v", payload[1])
+	}
+	if payload[1].CLIVersion == nil || *payload[1].CLIVersion != cliVersion {
+		t.Fatalf("expected codex cliVersion mapping, got %#v", payload[1])
 	}
 	if got := payload[0].EnvVars; len(got.Present) != 1 || got.Present[0] != "OPENAI_API_KEY" || len(got.Missing) != 1 || got.Missing[0] != "ANTHROPIC_API_KEY" {
 		t.Fatalf("expected envVars mapping from checker status, got %#v", got)

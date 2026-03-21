@@ -1,11 +1,17 @@
 package externalagentconfigs
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"setta/internal/llmconfig"
 )
@@ -21,8 +27,13 @@ type Status struct {
 	BaseURL     *string      `json:"baseUrl,omitempty"`
 	WorkingDir  *string      `json:"workingDir,omitempty"`
 	CommandPath *string      `json:"commandPath,omitempty"`
+	NodeVersion *string      `json:"nodeVersion,omitempty"`
+	SDKVersion  *string      `json:"sdkVersion,omitempty"`
+	CLIVersion  *string      `json:"cliVersion,omitempty"`
 	EnvVars     EnvVarStatus `json:"envVars"`
 }
+
+const defaultCLITimeout = 5 * time.Second
 
 type Checker interface {
 	Check(config Config) (Status, error)
@@ -100,17 +111,54 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 	if commandIssue != "" {
 		addIssue(commandIssue, true)
 	}
+	var (
+		nodeVersion *string
+		sdkVersion  *string
+		cliVersion  *string
+	)
 	if normalized.ToolType == ToolTypeClaudeCode && normalized.RunMode == RunModeSDK {
 		pythonCommand, err := ResolveClaudePythonCommand()
 		if err != nil {
 			addIssue(fmt.Sprintf("Claude bridge python unavailable (%v)", err), true)
-		} else if err := CheckClaudeSDKImport(pythonCommand); err != nil {
-			addIssue(fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand), true)
+		} else if version, issue := readClaudeSDKVersion(pythonCommand, c.workspaceRoot); issue != "" {
+			if err := CheckClaudeSDKImport(pythonCommand); err != nil {
+				addIssue(fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand), true)
+			} else {
+				addIssue(issue, true)
+			}
+		} else {
+			sdkVersion = version
+		}
+	}
+	if normalized.ToolType == ToolTypeOpenCode && (normalized.RunMode == RunModeSDK || normalized.RunMode == RunModeServer) {
+		if commandPath != nil {
+			if version, issue := readVersionCommand(*commandPath, c.workspaceRoot, []string{"--version"}, "Failed to read Node version"); issue != "" {
+				addIssue(issue, true)
+			} else {
+				nodeVersion = version
+			}
+		}
+		if version, issue := readOpenCodeSDKVersion(); issue != "" {
+			addIssue(issue, true)
+		} else {
+			sdkVersion = version
 		}
 	}
 	if normalized.ToolType == ToolTypeOpenCode && normalized.RunMode == RunModeSDK && strings.TrimSpace(derefOptionalString(normalized.BaseURL)) == "" {
-		if _, err := exec.LookPath("opencode"); err != nil {
+		opencodePath, err := exec.LookPath("opencode")
+		if err != nil {
 			addIssue("opencode CLI not found (install opencode CLI)", true)
+		} else if version, issue := readVersionCommand(opencodePath, c.workspaceRoot, []string{"--version"}, "Failed to read opencode CLI version"); issue != "" {
+			addIssue(issue, true)
+		} else {
+			cliVersion = version
+		}
+	}
+	if normalized.ToolType == ToolTypeCodex && normalized.RunMode == RunModeAppServer && commandPath != nil {
+		if version, issue := readVersionCommand(*commandPath, c.workspaceRoot, []string{"--version"}, "Failed to read codex CLI version"); issue != "" {
+			addIssue(issue, true)
+		} else {
+			cliVersion = version
 		}
 	}
 
@@ -125,6 +173,9 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 		BaseURL:     baseURL,
 		WorkingDir:  workingDir,
 		CommandPath: commandPath,
+		NodeVersion: cloneStringPtr(nodeVersion),
+		SDKVersion:  cloneStringPtr(sdkVersion),
+		CLIVersion:  cloneStringPtr(cliVersion),
 		EnvVars: EnvVarStatus{
 			Present: append([]string(nil), envVars.Status.Present...),
 			Missing: append([]string(nil), envVars.Status.Missing...),
@@ -210,6 +261,102 @@ func defaultCommand(config Config) string {
 	default:
 		return ""
 	}
+}
+
+type cliCommandResult struct {
+	Output   string
+	ExitCode int
+}
+
+func runCLI(command []string, workingDir string, timeout time.Duration) (*cliCommandResult, string) {
+	if len(command) == 0 {
+		return nil, "command is required"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+	cmd.Dir = workingDir
+	output, err := cmd.CombinedOutput()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return nil, fmt.Sprintf("Timed out running %s", strings.Join(command, " "))
+	}
+	trimmedOutput := strings.TrimSpace(string(output))
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return &cliCommandResult{
+				Output:   trimmedOutput,
+				ExitCode: exitErr.ExitCode(),
+			}, ""
+		}
+		return nil, fmt.Sprintf("Failed to run %s: %v", strings.Join(command, " "), err)
+	}
+	return &cliCommandResult{Output: trimmedOutput, ExitCode: 0}, ""
+}
+
+func readVersionCommand(commandPath string, workingDir string, args []string, failureMessage string) (*string, string) {
+	command := append([]string{commandPath}, args...)
+	result, issue := runCLI(command, workingDir, defaultCLITimeout)
+	if issue != "" {
+		return nil, issue
+	}
+	if result == nil || result.ExitCode != 0 || strings.TrimSpace(result.Output) == "" {
+		return nil, failureMessage
+	}
+	version := strings.TrimSpace(result.Output)
+	return &version, ""
+}
+
+func readOpenCodeSDKVersion() (*string, string) {
+	sidecarRoot, err := defaultExternalAgentSidecarRoot()
+	if err != nil {
+		return nil, fmt.Sprintf("Failed to resolve @opencode-ai/sdk version: %v", err)
+	}
+	return readOpenCodeSDKVersionFromSidecarRoot(sidecarRoot)
+}
+
+func readOpenCodeSDKVersionFromSidecarRoot(sidecarRoot string) (*string, string) {
+	packageJSONPath := filepath.Join(sidecarRoot, "node_modules", "@opencode-ai", "sdk", "package.json")
+	content, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Sprintf("@opencode-ai/sdk is not installed (run pnpm install in %s)", sidecarRoot)
+		}
+		return nil, fmt.Sprintf("Failed to read @opencode-ai/sdk version: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return nil, fmt.Sprintf("Failed to read @opencode-ai/sdk version: %v", err)
+	}
+	rawVersion, ok := payload["version"].(string)
+	version := strings.TrimSpace(rawVersion)
+	if !ok || version == "" {
+		return nil, "@opencode-ai/sdk did not report a version"
+	}
+	return &version, ""
+}
+
+func readClaudeSDKVersion(pythonCommand string, workingDir string) (*string, string) {
+	versionScript := `import importlib.metadata; print(importlib.metadata.version("claude-agent-sdk"))`
+	return readVersionCommand(pythonCommand, workingDir, []string{"-c", versionScript}, "claude-agent-sdk did not report a version")
+}
+
+func defaultExternalAgentSidecarRoot() (string, error) {
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("resolve sidecar root: runtime caller unavailable")
+	}
+	return filepath.Clean(filepath.Join(
+		filepath.Dir(currentFile),
+		"..",
+		"..",
+		"backend",
+		"setta",
+		"agentic",
+		"external_adapters",
+		"sidecars",
+	)), nil
 }
 
 func derefOptionalString(value *string) string {

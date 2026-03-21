@@ -42,10 +42,7 @@ func TestSystemCheckerRequiresClaudeCLIAndSDK(t *testing.T) {
 func TestSystemCheckerMarksClaudeSDKAvailableWhenCLIAndSDKPresent(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	binDir := t.TempDir()
-	claudePath := filepath.Join(binDir, "claude")
-	if err := os.WriteFile(claudePath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write fake claude: %v", err)
-	}
+	writeVersionedExecutableFixture(t, binDir, "claude", "claude-cli 1.2.3")
 	pythonPath := writeClaudePythonFixture(t, true)
 	t.Setenv("SETTA_PYTHON", pythonPath)
 	t.Setenv("PATH", binDir)
@@ -68,6 +65,9 @@ func TestSystemCheckerMarksClaudeSDKAvailableWhenCLIAndSDKPresent(t *testing.T) 
 	}
 	if status.CommandPath == nil || !strings.HasSuffix(*status.CommandPath, "claude") {
 		t.Fatalf("expected resolved claude command path, got %#v", status.CommandPath)
+	}
+	if status.SDKVersion == nil || *status.SDKVersion != "1.2.3" {
+		t.Fatalf("expected claude sdk version 1.2.3, got %#v", status.SDKVersion)
 	}
 }
 
@@ -186,6 +186,11 @@ func TestSystemCheckerClassifiesNonClaudeToolRunModeSupportAndAvailability(t *te
 			} else if status.CommandPath == nil || *status.CommandPath != *testCase.wantCommandPath {
 				t.Fatalf("expected command path %q, got %#v", *testCase.wantCommandPath, status.CommandPath)
 			}
+			if testCase.wantCommandPath != nil && strings.HasSuffix(*testCase.wantCommandPath, "codex") {
+				if status.CLIVersion == nil || *status.CLIVersion != "codex 0.25.1" {
+					t.Fatalf("expected codex cli version, got %#v", status.CLIVersion)
+				}
+			}
 			for _, issueFragment := range testCase.wantIssues {
 				if !containsIssue(status.Issues, issueFragment) {
 					t.Fatalf("expected issue %q, got %#v", issueFragment, status.Issues)
@@ -283,6 +288,11 @@ func TestSystemCheckerUsesNodeForNodeBackedModesAndReportsMissingNode(t *testing
 				}
 			} else if status.CommandPath == nil || *status.CommandPath != *testCase.wantCommandPath {
 				t.Fatalf("expected command path %q, got %#v", *testCase.wantCommandPath, status.CommandPath)
+			}
+			if testCase.wantCommandPath != nil {
+				if status.NodeVersion == nil || *status.NodeVersion != "v18.0.0" {
+					t.Fatalf("expected node version v18.0.0, got %#v", status.NodeVersion)
+				}
 			}
 			for _, issueFragment := range testCase.wantIssues {
 				if !containsIssue(status.Issues, issueFragment) {
@@ -387,6 +397,25 @@ func TestSystemCheckerKeepsManagedStoreCorruptionNonBlockingWhenProcessEnvSatisf
 	}
 }
 
+func TestReadOpenCodeSDKVersionFromSidecarRootReadsPackageJSONVersion(t *testing.T) {
+	sidecarRoot := t.TempDir()
+	packageJSONPath := filepath.Join(sidecarRoot, "node_modules", "@opencode-ai", "sdk", "package.json")
+	if err := os.MkdirAll(filepath.Dir(packageJSONPath), 0o755); err != nil {
+		t.Fatalf("mkdir sdk package path: %v", err)
+	}
+	if err := os.WriteFile(packageJSONPath, []byte(`{"version":"1.1.36"}`), 0o644); err != nil {
+		t.Fatalf("write sdk package json: %v", err)
+	}
+
+	version, issue := readOpenCodeSDKVersionFromSidecarRoot(sidecarRoot)
+	if issue != "" {
+		t.Fatalf("expected sdk version without issue, got %q", issue)
+	}
+	if version == nil || *version != "1.1.36" {
+		t.Fatalf("expected sdk version 1.1.36, got %#v", version)
+	}
+}
+
 func writeClaudePythonFixture(t *testing.T, succeed bool) string {
 	t.Helper()
 
@@ -400,6 +429,14 @@ func writeClaudePythonFixture(t *testing.T, succeed bool) string {
 		script += "  exit 1\n"
 	}
 	script += "fi\n"
+	script += "if [ \"$1\" = \"-c\" ] && [ \"$2\" = \"import importlib.metadata; print(importlib.metadata.version(\\\"claude-agent-sdk\\\"))\" ]; then\n"
+	if succeed {
+		script += "  echo \"1.2.3\"\n"
+		script += "  exit 0\n"
+	} else {
+		script += "  exit 1\n"
+	}
+	script += "fi\n"
 	script += "exit 0\n"
 	if err := os.WriteFile(pythonPath, []byte(script), 0o755); err != nil {
 		t.Fatalf("write fake python: %v", err)
@@ -410,9 +447,39 @@ func writeClaudePythonFixture(t *testing.T, succeed bool) string {
 func writeExecutableFixture(t *testing.T, name string) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), name)
-	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	return writeVersionedExecutableFixture(t, t.TempDir(), name, defaultFixtureVersion(name))
+}
+
+func writeVersionedExecutableFixture(t *testing.T, dir string, name string, version string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	script := "#!/bin/sh\n"
+	script += "if [ \"$1\" = \"--version\" ]; then\n"
+	script += "  echo \"" + version + "\"\n"
+	script += "  exit 0\n"
+	script += "fi\n"
+	script += "if [ \"$1\" = \"app-server\" ] && [ \"$2\" = \"--help\" ]; then\n"
+	script += "  exit 0\n"
+	script += "fi\n"
+	script += "exit 0\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatalf("write executable fixture: %v", err)
 	}
 	return path
+}
+
+func defaultFixtureVersion(name string) string {
+	switch name {
+	case "node":
+		return "v18.0.0"
+	case "codex":
+		return "codex 0.25.1"
+	case "opencode":
+		return "opencode 1.0.0"
+	case "claude":
+		return "claude-cli 1.2.3"
+	default:
+		return "1.0.0"
+	}
 }

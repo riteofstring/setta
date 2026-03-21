@@ -349,15 +349,18 @@ func broadcastExternalAgentConfigsUpdated(
 
 func buildExternalAgentHealthResponse(status externalagentconfigs.Status) externalAgentHealthResponse {
 	response := externalAgentHealthResponse{
-		ConfigID:   status.ConfigID,
-		Name:       status.Name,
-		ToolType:   status.ToolType,
-		RunMode:    status.RunMode,
-		Supported:  status.Supported,
-		Available:  status.Available,
-		Issues:     append([]string(nil), status.Issues...),
-		BaseURL:    cloneOptionalString(status.BaseURL),
-		WorkingDir: cloneOptionalString(status.WorkingDir),
+		ConfigID:    status.ConfigID,
+		Name:        status.Name,
+		ToolType:    status.ToolType,
+		RunMode:     status.RunMode,
+		Supported:   status.Supported,
+		Available:   status.Available,
+		Issues:      append([]string(nil), status.Issues...),
+		BaseURL:     cloneOptionalString(status.BaseURL),
+		WorkingDir:  cloneOptionalString(status.WorkingDir),
+		NodeVersion: cloneOptionalString(status.NodeVersion),
+		SDKVersion:  cloneOptionalString(status.SDKVersion),
+		CLIVersion:  cloneOptionalString(status.CLIVersion),
 		EnvVars: externalAgentEnvVarStatusResponse{
 			Present: append([]string(nil), status.EnvVars.Present...),
 			Missing: append([]string(nil), status.EnvVars.Missing...),
