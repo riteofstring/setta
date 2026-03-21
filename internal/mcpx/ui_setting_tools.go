@@ -182,6 +182,7 @@ func newSetUISettingValueHandler(server *Server, projectState projectStateProvid
 		if err != nil {
 			return nil, err
 		}
+		expectedOldValue, hasExpectedOldValue := arguments["expectedOldValue"]
 		revealAfterSet, err := readOptionalBoolArgument(arguments, "revealAfterSet")
 		if err != nil {
 			return nil, err
@@ -236,7 +237,11 @@ func newSetUISettingValueHandler(server *Server, projectState projectStateProvid
 			}, nil
 		}
 
-		result, err := registry.WriteValue(ctx, projectConfigID, entry.Metadata.SettingID, value, currentValue)
+		writerExpectedOldValue := currentValue
+		if hasExpectedOldValue {
+			writerExpectedOldValue = expectedOldValue
+		}
+		result, err := registry.WriteValue(ctx, projectConfigID, entry.Metadata.SettingID, value, writerExpectedOldValue)
 		if err != nil {
 			return setUISettingValueResult{
 				Setting:         summary,

@@ -190,6 +190,13 @@ func TestServerUISettingToolsExposeScopedSingletonMetadata(t *testing.T) {
 		if meta["defaultTargetSingletonSection"] != "GlobalVariables" {
 			t.Fatalf("expected GlobalVariables singleton target for %s, got %#v", tool.Name, meta["defaultTargetSingletonSection"])
 		}
+		if tool.Name == "set_ui_setting_value" {
+			inputSchema := mustStructuredMap(t, tool.InputSchema)
+			inputProperties := mustStructuredMap(t, inputSchema["properties"])
+			if _, ok := inputProperties["expectedOldValue"]; !ok {
+				t.Fatalf("expected set_ui_setting_value schema to expose expectedOldValue, got %#v", inputProperties)
+			}
+		}
 	}
 }
 
@@ -615,6 +622,59 @@ func TestServerSetUISettingValueWritesAndValidates(t *testing.T) {
 	errorPayload := mustStructuredMap(t, invalidPayload["error"])
 	if errorPayload["code"] != string(uisettings.ErrorCodeInvalidValueType) {
 		t.Fatalf("expected invalid_value_type error code, got %#v", errorPayload["code"])
+	}
+}
+
+func TestServerSetUISettingValueForwardsExpectedOldValue(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	successResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"settingId":        "core.project.show_param_display_names",
+			"value":            true,
+			"expectedOldValue": false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with matching expectedOldValue: %v", err)
+	}
+	if successResult.IsError {
+		t.Fatalf("expected set_ui_setting_value success with matching expectedOldValue, got %#v", successResult.StructuredContent)
+	}
+
+	successPayload := mustStructuredMap(t, successResult.StructuredContent)
+	if successPayload["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", successPayload["changed"])
+	}
+
+	staleResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"settingId":        "core.project.show_param_display_names",
+			"value":            false,
+			"expectedOldValue": false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with stale expectedOldValue: %v", err)
+	}
+	if staleResult.IsError {
+		t.Fatalf("expected structured stale expectedOldValue failure, got %#v", staleResult.StructuredContent)
+	}
+
+	stalePayload := mustStructuredMap(t, staleResult.StructuredContent)
+	errorPayload := mustStructuredMap(t, stalePayload["error"])
+	if errorPayload["code"] != string(uisettings.ErrorCodeMutationFailed) {
+		t.Fatalf("expected mutation_failed error code, got %#v", errorPayload["code"])
 	}
 }
 

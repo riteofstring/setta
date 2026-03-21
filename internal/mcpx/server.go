@@ -3776,7 +3776,7 @@ func defaultToolDefinitions(
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
 				Name:        "set_ui_setting_value",
-				Description: "Set a canonical UI setting value using compare-and-set style write protection.",
+				Description: "Set a canonical UI setting value, optionally guarded by expectedOldValue compare-and-set semantics.",
 				Metadata: tools.Metadata{
 					Kind:                          tools.KindDiscoverable,
 					AccessType:                    tools.AccessTypeWrite,
@@ -3799,6 +3799,9 @@ func defaultToolDefinitions(
 					},
 					"value": map[string]any{
 						"description": "New JSON value to persist for the setting.",
+					},
+					"expectedOldValue": map[string]any{
+						"description": "Optional JSON value that must still match the current persisted setting before the write proceeds.",
 					},
 					"revealAfterSet": map[string]any{
 						"type":        "boolean",
