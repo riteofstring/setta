@@ -2523,3 +2523,68 @@ Record:
     - the kwargs-wrapper collapse currently looks slightly stronger than the lazy-tooltip experiment on the recalibrated numbers
 - Next action:
   - Reapply the strongest recent experiment, rerun the standard CDP matrix against the recalibrated baseline, and decide whether it should be accepted after all.
+
+## 2026-03-21 059
+
+- Item: Close the recalibrated kwargs-wrapper re-evaluation against the current retained baseline.
+- Status: `done`
+- Details:
+  - Reapplied the kwargs-wrapper collapse against the recalibrated retained baseline and reran the standard `settings` plus `tier1Synthetic` CDP matrix.
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-kwargs-wrapper-recalibrated-rerun.md`
+  - Focused live verification passed before benchmarking:
+    - `pnpm -C frontend exec vitest run src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts src/components/Section/SectionParts/kwargsControlsStyles.test.ts`
+    - `2` files passed
+    - `5` tests passed
+  - Fresh subagent CDP check while the experiment was live:
+    - `/settings` and `/benchmark-tier1` loaded normally at ordinary zoom
+    - no obvious kwargs-strip visual regression was visible
+    - the old extra kwargs wrapper markers were absent in the live DOM, matching the intended wrapper collapse
+  - First paired rerun versus the recalibrated retained baseline looked promising:
+    - `settings`
+      - benchmark `Paint`:
+        - `436.851ms -> 419.238ms`
+      - benchmark `RunTask`:
+        - `31132.744ms -> 30429.139ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.197ms -> 473.408ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `749.086ms -> 721.380ms`
+      - benchmark `RunTask`:
+        - `14593.848ms -> 14293.115ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.243ms -> 19.180ms`
+  - Same-code worktree confirmation did not hold the real-scene win:
+    - `settings`
+      - benchmark `Paint`:
+        - `436.851ms -> 461.457ms`
+      - benchmark `RunTask`:
+        - `31132.744ms -> 34330.932ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.197ms -> 657.673ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `749.086ms -> 717.156ms`
+      - benchmark `RunTask`:
+        - `14593.848ms -> 14204.029ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.243ms -> 18.838ms`
+  - Decision:
+    - reject the kwargs-wrapper collapse as a keep for `HEAD`, even on the recalibrated retained baseline
+    - recalibration corrected the stale-anchor interpretation, but the kwargs-shell cut still is not stable enough on the mandatory `settings` target
+- Next action:
+  - Revert the kwargs-wrapper experiment cleanly, rerun focused reverted-baseline verification, and reopen seam discovery on a different dense Tier 1 row/body path.
+
+## 2026-03-21 060
+
+- Item: Reopen Tier 1 seam discovery after the recalibrated kwargs re-evaluation.
+- Status: `in_progress`
+- Details:
+  - The repeated section-card/header/kwargs shell has now been tested, rejected against the stale March 20 anchor, recalibrated, and still rejected as an unstable retained win.
+  - Current read:
+    - do not spend the next immediate Tier 1 cycle on another kwargs-shell trim
+    - do not assume the earlier lazy-tooltip seam is rehabilitated either without a stronger reason
+    - the next viable path should come from fresh seam discovery on a different always-mounted dense row/body ownership path
+- Next action:
+  - Restore the retained baseline, run focused verification, and use fresh seam discovery to choose the next Tier 1 experiment before making another code change.

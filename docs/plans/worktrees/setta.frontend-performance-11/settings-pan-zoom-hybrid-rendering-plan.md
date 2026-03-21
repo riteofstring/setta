@@ -991,6 +991,36 @@ Current execution note:
         - next action:
           - treat the current `2026-03-21` retained rerun as the environment-local reference point
           - re-evaluate the strongest recent experiments against that recalibrated baseline before discarding them permanently
+      - the strongest recent experiment, kwargs-wrapper collapse, was then re-evaluated against the recalibrated retained baseline and still failed to become a reliable keep:
+        - recorded report:
+          - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-kwargs-wrapper-recalibrated-rerun.md`
+        - first paired rerun versus the recalibrated retained baseline:
+          - `settings` benchmark `Paint`:
+            - `436.851ms -> 419.238ms`
+          - `settings` benchmark `RunTask`:
+            - `31132.744ms -> 30429.139ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `493.197ms -> 473.408ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `749.086ms -> 721.380ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `14593.848ms -> 14293.115ms`
+        - same-code worktree confirmation versus the recalibrated retained baseline:
+          - `settings` benchmark `Paint`:
+            - `436.851ms -> 461.457ms`
+          - `settings` benchmark `RunTask`:
+            - `31132.744ms -> 34330.932ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `493.197ms -> 657.673ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `749.086ms -> 717.156ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `14593.848ms -> 14204.029ms`
+        - mechanism read:
+          - recalibration corrected the stale-baseline interpretation, but it did not convert the kwargs-shell cut into a dependable retained win
+          - the kwargs-shell seam now looks unstable rather than categorically bad, but instability on the mandatory real `settings` target is still enough to reject it
+        - do not keep the kwargs wrapper collapse at `HEAD`, even on the recalibrated baseline
+        - the next Tier 1 move should reopen seam discovery on a different dense row/body ownership path instead of spending another immediate cycle on kwargs-shell trimming
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 
