@@ -388,6 +388,45 @@ func TestPlannerPlanAcceptsParamOverridesWithoutMutatingBaseState(t *testing.T) 
 	}
 }
 
+func TestPlannerPlanAppliesVariantAndParamOverridesWithoutMutatingBaseState(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		RunSnapshotMode: RunSnapshotModeNever,
+		SectionVariantOverrides: map[string]string{
+			"code-section": "code-bash-variant",
+		},
+		ParamOverrides: map[string]string{
+			"params-section:param-text": "2",
+		},
+	})
+	if err != nil {
+		t.Fatalf("plan run with combined overrides: %v", err)
+	}
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
+		t.Fatalf("expected combined overrides to promote never to ephemeral, got %q", plan.RunSnapshotMode)
+	}
+	if plan.Language != projectstate.CodeLanguageBash {
+		t.Fatalf("expected bash language, got %q", plan.Language)
+	}
+	if plan.VariantID != "code-bash-variant" {
+		t.Fatalf("expected resolved variant id code-bash-variant, got %q", plan.VariantID)
+	}
+
+	snapshot := fixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap["code-section"]; got != "code-python-variant" {
+		t.Fatalf("expected base state to keep python variant, got %q", got)
+	}
+	if got := payloadValueString(t, project, "params-section", "param-text"); got != "1" {
+		t.Fatalf("expected base param value 1, got %q", got)
+	}
+}
+
 func TestPlannerPlanRejectsCodeParamOverridesWhenDisallowed(t *testing.T) {
 	t.Parallel()
 
