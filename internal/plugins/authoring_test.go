@@ -448,6 +448,25 @@ func TestServiceLinkCreatesSymlinkedInstallMetadata(t *testing.T) {
 	}
 }
 
+// Link should surface malformed persisted global enablement state before mutating global installs.
+func TestServiceLinkRejectsInvalidGlobalStateFile(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	sourceRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "frontend")
+
+	if err := os.WriteFile(service.store.PluginsGlobalStatePath(), []byte("{invalid-json"), 0o644); err != nil {
+		t.Fatalf("seed invalid global state: %v", err)
+	}
+
+	_, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Scope:           scopePointer(PluginScopeGlobal),
+		Enable:          true,
+		Force:           false,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeGlobalStateInvalid)
+}
+
 // Link should preserve restart-required behavior when replacing a backend plugin with a frontend-only source.
 func TestServiceLinkBackendReplacementRequiresRestart(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

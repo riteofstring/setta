@@ -723,6 +723,20 @@ func TestServiceEnableDisableMutationsAreSerialized(t *testing.T) {
 	}
 }
 
+// Disable should surface malformed persisted plugins_state.json payloads as typed service errors.
+func TestServiceDisableRejectsInvalidPluginsStateFile(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	if err := os.WriteFile(service.store.PluginsStatePath(), []byte("{invalid-json"), 0o644); err != nil {
+		t.Fatalf("seed invalid plugins state: %v", err)
+	}
+
+	_, err := service.Disable(context.Background(), EnableDisableOptions{PluginID: "setta-fixture-frontend"})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeStateInvalid)
+}
+
 // Install should resolve external candidates before taking the shared service lock so status reads stay responsive.
 func TestServiceInstallCandidateResolutionKeepsStatusUnlocked(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
