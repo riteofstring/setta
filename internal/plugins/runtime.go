@@ -355,6 +355,17 @@ func runtimeDirectoryHasFiles(pluginRoot string, relativePath string) bool {
 		if walkErr != nil {
 			return walkErr
 		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			targetInfo, err := os.Stat(path)
+			if err != nil {
+				return nil
+			}
+			if targetInfo.IsDir() {
+				return nil
+			}
+			foundFile = true
+			return filepath.SkipAll
+		}
 		if info.IsDir() {
 			return nil
 		}

@@ -90,6 +90,30 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	}
 }
 
+// Content descriptor scans should ignore symlinked directory loops until a real file appears.
+func TestRuntimeDirectoryHasFilesIgnoresSymlinkDirectoryCycles(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := filepath.Join(roots.workspaceRoot, "content-plugin")
+	promptsRoot := filepath.Join(pluginRoot, "content", "prompts")
+	if err := os.MkdirAll(promptsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir prompts root: %v", err)
+	}
+	if err := os.Symlink(promptsRoot, filepath.Join(promptsRoot, "loop")); err != nil {
+		t.Fatalf("create prompts symlink loop: %v", err)
+	}
+
+	if runtimeDirectoryHasFiles(pluginRoot, "content/prompts") {
+		t.Fatal("expected symlink directory loop alone not to count as content")
+	}
+
+	if err := os.WriteFile(filepath.Join(promptsRoot, "prompt.md"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write prompt file: %v", err)
+	}
+	if !runtimeDirectoryHasFiles(pluginRoot, "content/prompts") {
+		t.Fatal("expected real prompt file to count as content")
+	}
+}
+
 func TestServiceRuntimeWaitsForServiceLock(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)

@@ -238,6 +238,88 @@ func TestStoreLoadPersistedPluginFilesReturnTypedValidationErrors(t *testing.T) 
 	}
 }
 
+// Directory digests should follow symlinked file contents so source changes invalidate later fingerprints.
+func TestComputeDirectoryDigestTracksSymlinkedFileTargetChanges(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	digestRoot := filepath.Join(roots.workspaceRoot, "digest-root")
+	if err := os.MkdirAll(digestRoot, 0o755); err != nil {
+		t.Fatalf("mkdir digest root: %v", err)
+	}
+	targetPath := filepath.Join(roots.workspaceRoot, "digest-target.txt")
+	if err := os.WriteFile(targetPath, []byte("v1"), 0o644); err != nil {
+		t.Fatalf("write digest target: %v", err)
+	}
+	if err := os.Symlink(targetPath, filepath.Join(digestRoot, "linked.txt")); err != nil {
+		t.Fatalf("create digest symlink: %v", err)
+	}
+
+	initialDigest, err := computeDirectoryDigest(digestRoot)
+	if err != nil {
+		t.Fatalf("compute initial digest: %v", err)
+	}
+
+	if err := os.WriteFile(targetPath, []byte("v2"), 0o644); err != nil {
+		t.Fatalf("rewrite digest target: %v", err)
+	}
+
+	updatedDigest, err := computeDirectoryDigest(digestRoot)
+	if err != nil {
+		t.Fatalf("compute updated digest: %v", err)
+	}
+	if updatedDigest == initialDigest {
+		t.Fatalf("expected digest to change after symlink target update, got %q", updatedDigest)
+	}
+}
+
+// Public store reads should reflect later on-disk state instead of pinning a private cached snapshot.
+func TestStoreLoadPluginsStateObservesOnDiskChanges(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	if err := store.SavePluginsState(PluginsStateFile{
+		EnabledPluginIDs: []string{"alpha.plugin"},
+	}); err != nil {
+		t.Fatalf("save initial plugins state: %v", err)
+	}
+
+	firstLoad, err := store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load initial plugins state: %v", err)
+	}
+	if len(firstLoad.EnabledPluginIDs) != 1 || firstLoad.EnabledPluginIDs[0] != "alpha.plugin" {
+		t.Fatalf("unexpected initial enabled ids: %#v", firstLoad.EnabledPluginIDs)
+	}
+
+	firstLoad.EnabledPluginIDs = append(firstLoad.EnabledPluginIDs, "mutated")
+
+	secondLoad, err := store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("reload plugins state after local mutation: %v", err)
+	}
+	if len(secondLoad.EnabledPluginIDs) != 1 || secondLoad.EnabledPluginIDs[0] != "alpha.plugin" {
+		t.Fatalf("expected reload to ignore caller-local mutation, got %#v", secondLoad.EnabledPluginIDs)
+	}
+
+	writeJSONFile(t, store.PluginsStatePath(), map[string]any{
+		"enabledPluginIds": []string{"beta.plugin"},
+	})
+
+	updatedLoad, err := store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("reload plugins state after file update: %v", err)
+	}
+	if len(updatedLoad.EnabledPluginIDs) != 1 || updatedLoad.EnabledPluginIDs[0] != "beta.plugin" {
+		t.Fatalf("expected reload to observe updated on-disk state, got %#v", updatedLoad.EnabledPluginIDs)
+	}
+}
+
 // History snapshots should copy the installed plugin tree into the documented plugins_history root.
 func TestStoreCreateHistorySnapshotCopiesInstalledPluginTree(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
