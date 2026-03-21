@@ -396,3 +396,83 @@ Record:
   - Keep the shell rollback, then move into the next planned Tier 1 work:
     - further active-body flattening
     - section-body render-mode / preview infrastructure
+
+## 2026-03-20 011
+
+- Item: Land the first section body-host seam, collapse the shared Tier 1 dense-param body stack, and restore the first sparse local body layouts toward `bf6487690`.
+- Status: `done`
+- Details:
+  - Added the shared body-host seam:
+    - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - Added the shared Tier 1 body seam:
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.tsx`
+  - Rewired the shared canvas/window body mount points through the new seam:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+  - Collapsed the repeated `KwargsControls` plus param-container body stack into the new Tier 1 seam for:
+    - `frontend/src/components/Section/Layouts/CallableArea.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.tsx`
+  - Restored sparse local body layouts toward the `bf6487690` model in:
+    - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+    - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+    - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - Verified rollback scope against `bf6487690` directly:
+    - `frontend/src/components/Section/Layouts/PromptArea.tsx`
+    - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+    - result:
+      - no extra rollback step is currently needed there for the surrounding layout
+  - Kept the new shared body mount points instead of rolling them back structurally toward `bf6487690`, but restored the old canvas placeholder-before-minimize ordering inside:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - The shared mount points still hold the deeper ownership seam needed for Phase 2 and later preview work.
+  - Added direct seam coverage:
+    - `frontend/src/components/Section/Container/SectionBodyGate.test.tsx`
+    - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx`
+  - Revalidated the touched shared consumers:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Layouts/CallableArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/BrowserArea.test.tsx`
+  - Relevant verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionBody.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result:
+        - `32` tests passed
+  - Recorded the rerun report:
+    - `perf/reports/frontend/2026-03-20_section-benchmark-body-host-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-20_section-benchmark-body-host-rerun`
+  - Key measurement read versus the shell-only rollback checkpoint:
+    - `settings`
+      - worktree benchmark `Paint`:
+        - before:
+          - `159.227ms`
+        - after:
+          - `191.708ms`
+      - slow overview pan paint:
+        - before:
+          - `29.623ms` horizontal
+          - `28.612ms` vertical
+        - after:
+          - `35.846ms` horizontal
+          - `35.513ms` vertical
+    - `tier1Synthetic`
+      - worktree benchmark `Paint`:
+        - before:
+          - `1433.618ms`
+        - after:
+          - `1622.944ms`
+      - benchmark window duration:
+        - before:
+          - `17550.145ms`
+        - after:
+          - `22482.263ms`
+  - Read:
+    - this checkpoint is structurally useful
+    - it is not a performance win
+    - the next meaningful gains have to come from actual render-mode behavior or deeper Tier 1 body-cost reduction
+- Next action:
+  - Keep the new body-host seam and the local sparse restores, then move directly into the next planned Tier 1 work:
+    - real live/warm/preview body-mode behavior
+    - deeper Tier 1 body flattening that measurably reduces visible paint

@@ -13,11 +13,10 @@ import {
   SectionTypeEnum,
   type ChatWindowMode,
   type ChatWindowPlacement,
-  type SectionType,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
-import { SectionAreaSwitch } from "./SectionAreaSwitch";
+import { SectionBodyGate } from "./SectionBodyGate";
 import { getWindowSectionChrome } from "./sectionChrome";
 
 type SectionWindowSurfaceProps = {
@@ -25,38 +24,42 @@ type SectionWindowSurfaceProps = {
   headerActions: React.ReactNode;
   roundedClassName: string;
   chatHost: ChatWindowPlacement | "standalone_page";
-  chatModeOverride?: ChatWindowMode;
-  projectChatSurfaceId?: string;
-  projectChatId?: string | null;
-  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
-  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
-  bodyOverride?: React.ReactNode;
+  chatModeOverride?: ChatWindowMode | undefined;
+  projectChatSurfaceId?: string | undefined;
+  projectChatId?: string | null | undefined;
+  setProjectChatId?:
+    | ((next: SetStateAction<string | null | undefined>) => void)
+    | undefined;
+  onProjectChatBlockedErrorCodeChange?:
+    | ((errorCode: string | null) => void)
+    | undefined;
+  bodyOverride?: React.ReactNode | undefined;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
-  >;
+  > | undefined;
 };
 
 type SectionWindowSurfaceBodyProps = {
   bgColor: string;
   bodyOverride: React.ReactNode;
   sectionId: string;
-  sectionTypeName: SectionType;
-  isMinimized: boolean;
   chatHost: ChatWindowPlacement | "standalone_page";
-  chatModeOverride?: ChatWindowMode;
-  projectChatSurfaceId?: string;
-  projectChatId?: string | null;
-  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
-  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+  chatModeOverride?: ChatWindowMode | undefined;
+  projectChatSurfaceId?: string | undefined;
+  projectChatId?: string | null | undefined;
+  setProjectChatId?:
+    | ((next: SetStateAction<string | null | undefined>) => void)
+    | undefined;
+  onProjectChatBlockedErrorCodeChange?:
+    | ((errorCode: string | null) => void)
+    | undefined;
 };
 
 const SectionWindowSurfaceBody = React.memo(function SectionWindowSurfaceBody({
   bgColor,
   bodyOverride,
   sectionId,
-  sectionTypeName,
-  isMinimized,
   chatHost,
   chatModeOverride,
   projectChatSurfaceId,
@@ -69,20 +72,22 @@ const SectionWindowSurfaceBody = React.memo(function SectionWindowSurfaceBody({
       className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
     >
       {bodyOverride ?? (
-        <SectionAreaSwitch
+        <SectionBodyGate
           sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={bgColor}
-          isMinimized={isMinimized}
-          isUserView={false}
-          chatHost={chatHost}
-          chatModeOverride={chatModeOverride}
-          projectChatSurfaceId={projectChatSurfaceId}
-          projectChatId={projectChatId}
-          setProjectChatId={setProjectChatId}
-          onProjectChatBlockedErrorCodeChange={
-            onProjectChatBlockedErrorCodeChange
-          }
+          owner={{
+            kind: "window",
+            bgColor,
+            chatHost,
+            ...(chatModeOverride === undefined ? {} : { chatModeOverride }),
+            ...(projectChatSurfaceId === undefined
+              ? {}
+              : { projectChatSurfaceId }),
+            ...(projectChatId === undefined ? {} : { projectChatId }),
+            ...(setProjectChatId === undefined ? {} : { setProjectChatId }),
+            ...(onProjectChatBlockedErrorCodeChange === undefined
+              ? {}
+              : { onProjectChatBlockedErrorCodeChange }),
+          }}
         />
       )}
     </div>
@@ -106,7 +111,6 @@ export function SectionWindowSurface({
   const {
     sectionTypeName,
     isInOtherProjectConfigs,
-    isMinimized,
     positionAndSizeLocked,
     textBlockMetaControlStyle,
     styleColor,
@@ -115,7 +119,6 @@ export function SectionWindowSurface({
     return {
       sectionTypeName: impl.type,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-      isMinimized: impl.isMinimized,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
@@ -178,14 +181,12 @@ export function SectionWindowSurface({
           showSectionContainerControls={false}
           extraControls={headerActions}
           trackMeasuredHeight={false}
-          headerProps={headerProps}
+          {...(headerProps === undefined ? {} : { headerProps })}
         />
         <SectionWindowSurfaceBody
           bgColor={windowChrome.bgColor}
           bodyOverride={bodyOverride}
           sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isMinimized={isMinimized}
           chatHost={chatHost}
           chatModeOverride={chatModeOverride}
           projectChatSurfaceId={projectChatSurfaceId}

@@ -1,7 +1,6 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import React from "react";
-import { getExternalProjectChatWindowBindingForSectionInState } from "state/actions/projectChatWindowing";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -14,9 +13,8 @@ import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { SectionAreaSwitch } from "./SectionAreaSwitch";
+import { SectionBodyGate } from "./SectionBodyGate";
 import { getCanvasSectionChrome } from "./sectionChrome";
-import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 
 type SectionContainerCoreResizableProps = {
@@ -38,34 +36,23 @@ function _SectionContainerCoreResizable({
   hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
-  const {
-    externalizedWindowId,
-    isMinimized,
-    isYouTube,
-    textBlockMetaControlStyle,
-    hasEmbeddedTerminal,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-      x,
-      sectionId,
-    );
-    return {
-      externalizedWindowId:
-        impl.type === SectionTypeEnum.Chat
-          ? null
-          : getExternalProjectChatWindowBindingForSectionInState(
-              x.projectChatWindowing,
-              sectionId,
-            )?.instanceId ?? null,
-      isMinimized: impl.isMinimized,
-      isYouTube: false,
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      hasEmbeddedTerminal:
-        embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
-    };
-  }, _.isEqual);
+  const { isYouTube, textBlockMetaControlStyle, hasEmbeddedTerminal } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
+      const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+        x,
+        sectionId,
+      );
+      return {
+        isYouTube: false,
+        textBlockMetaControlStyle:
+          impl.type === SectionTypeEnum.TextBlock
+            ? impl.metaControlStyle
+            : false,
+        hasEmbeddedTerminal:
+          embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
+      };
+    }, _.isEqual);
 
   const isRoot = getIsRoot(sectionTypeName);
   const sectionChrome = getCanvasSectionChrome({
@@ -102,21 +89,14 @@ function _SectionContainerCoreResizable({
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      {externalizedWindowId ? (
-        <SectionWindowPlaceholder
-          instanceId={externalizedWindowId}
-          sectionId={sectionId}
-          dataTestId="section-canvas-window-placeholder"
-        />
-      ) : isMinimized ? null : (
-        <SectionAreaSwitch
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={sectionChrome.bgColor}
-          isMinimized={isMinimized}
-          isUserView={isUserView}
-        />
-      )}
+      <SectionBodyGate
+        sectionId={sectionId}
+        owner={{
+          kind: "canvas",
+          bgColor: sectionChrome.bgColor,
+          isUserView,
+        }}
+      />
     </CustomResizable>
   );
 }

@@ -104,7 +104,7 @@ vi.mock("state/definitions", async () => {
       selector: (state: MockProjectState) => unknown,
       equality: (a: unknown, b: unknown) => boolean = Object.is,
     ) => {
-      const lastSelectedRef = React.useRef<unknown>();
+      const lastSelectedRef = React.useRef<unknown>(undefined);
       const hasSelectedRef = React.useRef(false);
       const getSelectedState = () => {
         const nextSelected = selector(mockProjectState);

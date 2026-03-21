@@ -410,6 +410,18 @@ Acceptance criteria:
 - sparse sections regain the desired local layout quality
 - Tier 1 and Tier 2 traces do not regress because of shared-contract fallout
 
+Current execution note:
+
+- the first sparse local-restore checkpoint has landed in:
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+  - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+- those restores are intentionally targeted toward the `bf6487690` local body layout model without reopening shared `subgrid`
+- `frontend/src/components/Section/Layouts/PromptArea.tsx` and `frontend/src/components/Section/Layouts/TextBlock.tsx` do not currently need an extra rollback step because their surrounding layout already matches the older baseline closely enough for this phase
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` and `frontend/src/components/Section/Container/SectionWindowSurface.tsx` should not be rolled back toward `bf6487690` because they now carry the shared body-host seam needed for the later render-mode work
+- while keeping that seam, the canvas caller should still preserve the old placeholder-before-minimize ordering for externally window-bound sections
+- sparse local restores should continue only when they are truly local to the owning section body and can be verified not to reopen Tier 1 or Tier 2 shared hot-path costs
+
 ## Phase 2: Add Section-Body Render-Mode Infrastructure
 
 Build the explicit render-mode system without changing final appearance yet.
@@ -430,6 +442,20 @@ Acceptance criteria:
 
 - render-mode transitions are observable and testable
 - no motion-time preview generation exists
+
+Current execution note:
+
+- the first render-mode infrastructure checkpoint has landed through:
+  - `frontend/src/components/Section/Container/SectionBodyGate.tsx`
+  - `frontend/src/components/Section/Layouts/Tier1DenseParamSectionBody.tsx`
+- the current body-host seam already centralizes:
+  - section-family classification
+  - canvas versus window ownership
+  - minimized and externalized-window skip behavior
+- this checkpoint is intentionally still functionally live:
+  - `preview` and `warm` are not active render paths yet
+  - the current seam resolves only to live or skip behavior
+- the paired rerun after landing the seam and sparse restores regressed versus the shell-only checkpoint, so the next slice must change real body cost or real render-mode behavior instead of adding more scaffolding alone
 
 ## Phase 3: Implement A Faithful Section-Body Preview Path
 

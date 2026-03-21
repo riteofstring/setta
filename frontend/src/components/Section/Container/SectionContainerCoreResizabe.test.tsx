@@ -5,6 +5,7 @@ import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
+  createProjectChatWindowInstance,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,7 +19,11 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
-let mockSectionImpl = {
+let mockSectionImpl: {
+  type: string;
+  isMinimized: boolean;
+  metaControlStyle: boolean;
+} = {
   type: SectionTypeEnum.Code,
   isMinimized: false,
   metaControlStyle: false,
@@ -221,13 +226,75 @@ describe("SectionContainerCoreResizable", () => {
       projectChatWindowing: createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {
-          "project-chat-window-1": {
+          "project-chat-window-1": createProjectChatWindowInstance({
             instanceId: "project-chat-window-1",
             placement: ChatWindowPlacementEnum.floating,
             sectionIdOrNull: "section-123",
             isClosed: true,
             isMinimized: false,
-          },
+            isMaximized: false,
+            bounds: { x: 0, y: 0, width: 320, height: 200 },
+            dockMetrics: {
+              widthFraction: null,
+              preferredWidthPx: null,
+            },
+            zIndex: 1,
+            mode: ChatWindowModeEnum.section_mode,
+            title: "Section window",
+            lastFocusedAt: 0,
+            chatId: null,
+          }),
+        },
+      }),
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
+    expect(markup).toContain('data-instance-id="project-chat-window-1"');
+    expect(markup).not.toContain('data-testid="mock-code-area"');
+  });
+
+  it("keeps the canvas placeholder for minimized external non-chat section bindings", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Code,
+      isMinimized: true,
+      metaControlStyle: false,
+    };
+    mockProjectState = {
+      projectConfig: {
+        id: "project-1",
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstance({
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            isClosed: true,
+            isMinimized: false,
+            isMaximized: false,
+            bounds: { x: 0, y: 0, width: 320, height: 200 },
+            dockMetrics: {
+              widthFraction: null,
+              preferredWidthPx: null,
+            },
+            zIndex: 1,
+            mode: ChatWindowModeEnum.section_mode,
+            title: "Section window",
+            lastFocusedAt: 0,
+            chatId: null,
+          }),
         },
       }),
     };
