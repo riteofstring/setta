@@ -248,8 +248,18 @@ func TestProjectSynchronizerCodeSectionDiagnosticsCallbackUpdatesVersionedPublis
 	callback(params)
 
 	snapshot := diagnostics.Snapshot("project-alpha")
-	if len(snapshot.CodeSections["runner"]) != 1 {
+	stored := snapshot.CodeSections["runner"]
+	if len(stored) != 1 {
 		t.Fatalf("expected versioned publish to update diagnostics, got %#v", snapshot.CodeSections)
+	}
+	if stored[0].Message != "Bad code" {
+		t.Fatalf("expected diagnostic message %q, got %#v", "Bad code", stored[0])
+	}
+	if code, ok := stored[0].Code.(string); !ok || code != "reportFoo" {
+		t.Fatalf("expected diagnostic code %q, got %#v", "reportFoo", stored[0].Code)
+	}
+	if stored[0].URI == nil || *stored[0].URI != "file:///tmp/runner.py" {
+		t.Fatalf("expected diagnostic URI %q, got %#v", "file:///tmp/runner.py", stored[0].URI)
 	}
 }
 
