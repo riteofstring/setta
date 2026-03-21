@@ -7,6 +7,7 @@ from setta.perf.section_benchmark_scenes import (
     get_section_benchmark_scene,
     install_section_benchmark_scene,
     load_section_benchmark_scene_manifest,
+    resolve_section_benchmark_state_root,
     resolve_section_benchmark_scene_fixture_path,
 )
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -31,6 +32,20 @@ def test_tier1_scene_manifest_points_at_checked_in_fixture() -> None:
     )
     assert fixture_path.exists()
     assert fixture_path.name == "tier1-synthetic.project.json"
+
+
+def test_resolve_state_root_uses_call_site_cwd_for_relative_paths(tmp_path: Path) -> None:
+    relative_root = Path("setta_files_dev")
+    resolved = resolve_section_benchmark_state_root(relative_root, cwd=tmp_path)
+
+    assert resolved == tmp_path / "setta_files_dev"
+
+
+def test_resolve_state_root_keeps_absolute_paths_unchanged(tmp_path: Path) -> None:
+    absolute_root = tmp_path / "absolute-state-root"
+    resolved = resolve_section_benchmark_state_root(absolute_root, cwd=tmp_path / "other")
+
+    assert resolved == absolute_root
 
 
 def test_install_settings_scene_writes_settings_project_fixture(tmp_path: Path) -> None:

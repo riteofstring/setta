@@ -42,6 +42,17 @@ def resolve_section_benchmark_scene_fixture_path(scene: dict) -> Path:
     return REPO_ROOT / fixture_path
 
 
+def resolve_section_benchmark_state_root(
+    raw_state_root: Path,
+    *,
+    cwd: Path | None = None,
+) -> Path:
+    if raw_state_root.is_absolute():
+        return raw_state_root
+    base_dir = cwd if cwd is not None else Path.cwd()
+    return (base_dir / raw_state_root).resolve()
+
+
 def install_section_benchmark_scene(scene_id: str, state_root: Path) -> dict[str, str]:
     scene = get_section_benchmark_scene(scene_id)
     availability = scene.get("availability")

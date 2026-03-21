@@ -2,7 +2,10 @@ from argparse import ArgumentParser
 import json
 from pathlib import Path
 
-from setta.perf.section_benchmark_scenes import install_section_benchmark_scene
+from setta.perf.section_benchmark_scenes import (
+    install_section_benchmark_scene,
+    resolve_section_benchmark_state_root,
+)
 
 
 def main() -> None:
@@ -19,7 +22,7 @@ def main() -> None:
 
     result = install_section_benchmark_scene(
         scene_id=args.scene_id,
-        state_root=Path(args.state_root),
+        state_root=resolve_section_benchmark_state_root(Path(args.state_root)),
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 

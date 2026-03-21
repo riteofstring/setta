@@ -144,21 +144,17 @@ Record:
   - Promoted `tier1Synthetic` from planned to ready in:
     - `perf/fixtures/section-benchmarks/scene-manifest.json`
   - Locked its benchmark focal point to:
-    - `tier1_callable_01`
+    - `callable_00`
   - The current Tier 1 fixture composition is:
-    - 8 real `Callable` sections authored through backend manager operations
-    - 8 real `Dict` sections authored through backend manager operations
-    - 1 real `GlobalVariables` section authored through backend manager operations
-    - 5 copied heavy settings donors to cover nested list/object-style param paths:
-      - `sectionSizingPolicy`
-      - `callableSectionDefault`
-      - `globalVariablesSectionDefault`
-      - `dictSectionDefault`
-      - `listRootSectionDefault`
+    - 8 `Callable` sections
+    - 12 top-level `Dict` sections
+    - 1 `GlobalVariables` section
+    - 4 `ListRoot` sections with nested `Dict` children for list/object-style coverage
+    - 25 top-level sections and 45 total sections overall
   - Added benchmark-scene tests covering:
     - ready Tier 1 manifest shape
     - Tier 1 install into `project.json`
-    - resulting section-type counts
+    - resulting installed section counts
     - rejection of the still-planned Tier 2 and combined scenes
   - Updated the plan so the current ready canonical scene set now includes:
     - `settings`
@@ -195,5 +191,23 @@ Record:
       - result: `6` passed
     - `source activate.sh && pytest tests/perf/test_section_benchmark_scenes.py`
       - result: `6` passed
+- Next action:
+  - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
+
+## 2026-03-20 005
+
+- Item: Remove relative state-root ambiguity from the benchmark scene installer CLI.
+- Status: `done`
+- Details:
+  - Added an explicit state-root resolver in:
+    - `backend/setta/perf/section_benchmark_scenes.py`
+  - Updated the installer CLI to resolve relative `--state-root` paths against the caller's working directory before handing them to `DBE`:
+    - `perf/scripts/installSectionBenchmarkScene.py`
+  - Added focused coverage for:
+    - relative-path resolution
+    - absolute-path passthrough
+  - Verified the CLI with a temp-directory smoke run from outside the repo root:
+    - `python perf/scripts/installSectionBenchmarkScene.py settings --state-root setta_files_dev`
+    - result target path now resolves to `<cwd>/setta_files_dev/...` instead of the broader normalized Setta state root
 - Next action:
   - Install `settings` and `tier1Synthetic` into reproducible state roots for untouched `main` and this worktree, then record the first paired CDP benchmark reruns against both ready scenes before touching section rendering again.
