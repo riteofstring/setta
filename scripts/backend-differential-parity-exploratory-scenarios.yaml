@@ -1,4 +1,8 @@
 scenarios:
+  - name: settings_project_live_hydration
+    kind: settings_project_live_hydration
+    seed: none
+    description: Direct live settings saves should rehydrate the dedicated /settings shell before the next load/readback, but the older main baseline still serves a stale immediate load payload on this branch family.
   - name: project_history_undo_redo_route_contract
     kind: project_history_undo_redo_route_contract
     seed: fixture

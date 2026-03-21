@@ -117,6 +117,13 @@ following are true:
   `viewportInitialized=true`, load and latest-state clear those flags back to
   `false` while an explicit non-null control viewport keeps
   `viewportInitialized=true`.
+- The immediate post-`saveSettings` `/settings` live-hydration differential
+  slice moved to
+  `scripts/backend-differential-parity-exploratory-scenarios.yaml`: an older
+  `main` baseline still serves a stale `loadProjectConfig("settings")` payload
+  on that path, while source evidence, current Go tests, and the live frontend
+  caller still require the branch being advanced to rehydrate both load and
+  latest-state from the live settings snapshot.
 - The explicit current-caller gap queue is now exhausted:
   `backend-behavior-parity-matrix.md` is at `Missing = 0` and
   `Implemented, proof incomplete = 0`.

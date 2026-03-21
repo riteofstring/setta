@@ -84,10 +84,6 @@ scenarios:
     kind: settings_project_shell
     seed: none
     description: The dedicated /settings project shell should load and rehydrate with the same section/view-mode contract as the baseline backend.
-  - name: settings_project_live_hydration
-    kind: settings_project_live_hydration
-    seed: none
-    description: Direct live settings saves should rehydrate the dedicated /settings shell before the next load/readback.
   - name: settings_project_reserved_name_save_update
     kind: settings_project_reserved_name_save_update
     seed: none
