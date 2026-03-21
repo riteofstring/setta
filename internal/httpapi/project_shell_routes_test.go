@@ -529,6 +529,85 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectShellRoutesSaveAsWithoutRefsLoadsCloneWithStableProjectScopedWindowIDs(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": projectShellRouteTestProjectWithWindowing(),
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+
+	saveRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":false}`))
+	saveRequest.Header.Set("Content-Type", "application/json")
+	saveResponse := httptest.NewRecorder()
+	handler.ServeHTTP(saveResponse, saveRequest)
+	if saveResponse.Code != http.StatusOK {
+		t.Fatalf("expected save-as 200, got %d with body %q", saveResponse.Code, saveResponse.Body.String())
+	}
+
+	loadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"Cloned Alpha"}`))
+	loadRequest.Header.Set("Content-Type", "application/json")
+	loadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(loadResponse, loadRequest)
+	if loadResponse.Code != http.StatusOK {
+		t.Fatalf("expected load 200, got %d with body %q", loadResponse.Code, loadResponse.Body.String())
+	}
+
+	var payload projectview.SingleConfig
+	if err := json.Unmarshal(loadResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode cloned project payload: %v", err)
+	}
+	if payload.ProjectConfig.ID == "project-alpha" {
+		t.Fatalf("expected cloned project id to differ from source, got %#v", payload.ProjectConfig)
+	}
+	if payload.ProjectConfig.WindowSpaces["space-1"].ID != "space-1" {
+		t.Fatalf("expected copied window-space id to stay project-scoped, got %#v", payload.ProjectConfig.WindowSpaces)
+	}
+
+	savedSectionWindow := payload.ProjectConfig.WindowSpaces["space-1"].WindowsByID["section-window"]
+	if savedSectionWindow.SectionIDOrNull == nil || *savedSectionWindow.SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected saved section binding to stay project-scoped, got %#v", savedSectionWindow.SectionIDOrNull)
+	}
+	if savedSectionWindow.ChatID != nil {
+		t.Fatalf("expected saved section-window chat id cleared, got %#v", savedSectionWindow.ChatID)
+	}
+
+	liveSectionWindow := payload.ProjectChatWindowing.InstancesByID["section-window"]
+	if liveSectionWindow.SectionIDOrNull == nil || *liveSectionWindow.SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected live section binding to stay project-scoped, got %#v", liveSectionWindow.SectionIDOrNull)
+	}
+	if liveSectionWindow.ChatID != nil {
+		t.Fatalf("expected live section-window chat id cleared, got %#v", liveSectionWindow.ChatID)
+	}
+}
+
 func TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail(t *testing.T) {
 	t.Parallel()
 
