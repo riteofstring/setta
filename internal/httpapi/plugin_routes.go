@@ -568,10 +568,17 @@ func writePluginBackendHTTPResponse(w http.ResponseWriter, response plugins.Back
 		}
 	}
 	w.WriteHeader(response.StatusCode)
-	if len(response.Body) == 0 {
+	if len(response.Body) == 0 || pluginBackendHTTPStatusDisallowsBody(response.StatusCode) {
 		return
 	}
 	_, _ = w.Write(response.Body)
+}
+
+func pluginBackendHTTPStatusDisallowsBody(status int) bool {
+	return (status >= 100 && status < 200) ||
+		status == http.StatusNoContent ||
+		status == http.StatusResetContent ||
+		status == http.StatusNotModified
 }
 
 func buildPluginAssetURL(pluginID string, relativePath string, sourceDigestSHA256 *string) string {

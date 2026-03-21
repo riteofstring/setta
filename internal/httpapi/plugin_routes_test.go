@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -1540,6 +1541,315 @@ func TestRegisterPluginRootRoutesLeavesUnknownPathsAsRouteNotFoundWithoutRegiste
 	}
 	if payload.Error.Code != "not_found" {
 		t.Fatalf("expected generic not_found code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRootRoutesPreserveBackendRouteStatusHeadersAndBody(t *testing.T) {
+	t.Parallel()
+
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			switch requestPath {
+			case "/created", "/missing":
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			default:
+				return plugins.BackendRouteLookup{}, nil
+			}
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			switch request.Path {
+			case "/created":
+				return plugins.BackendHTTPResponse{
+					StatusCode: http.StatusCreated,
+					Headers: map[string][]string{
+						"Content-Type": {"application/json"},
+						"X-Fixture":    {"created"},
+					},
+					Body: []byte(`{"ok":true}`),
+				}, true, nil
+			case "/missing":
+				return plugins.BackendHTTPResponse{
+					StatusCode: http.StatusNotFound,
+					Headers: map[string][]string{
+						"Content-Type": {"application/json"},
+					},
+					Body: []byte(`{"detail":"missing"}`),
+				}, true, nil
+			default:
+				return plugins.BackendHTTPResponse{}, false, nil
+			}
+		},
+	}
+
+	server := httptest.NewServer(newPluginRouteTestHandler(t, config.ModeIDE, service))
+	defer server.Close()
+
+	createdResponse, err := http.Get(server.URL + "/created")
+	if err != nil {
+		t.Fatalf("request created backend route: %v", err)
+	}
+	defer createdResponse.Body.Close()
+
+	createdBody, err := io.ReadAll(createdResponse.Body)
+	if err != nil {
+		t.Fatalf("read created backend route body: %v", err)
+	}
+	if createdResponse.StatusCode != http.StatusCreated {
+		t.Fatalf("expected created backend route status 201, got %d", createdResponse.StatusCode)
+	}
+	if got := createdResponse.Header.Get("X-Fixture"); got != "created" {
+		t.Fatalf("expected created backend response header, got %q", got)
+	}
+	if string(createdBody) != `{"ok":true}` {
+		t.Fatalf("expected created backend route body, got %q", createdBody)
+	}
+
+	missingResponse, err := http.Get(server.URL + "/missing")
+	if err != nil {
+		t.Fatalf("request missing backend route: %v", err)
+	}
+	defer missingResponse.Body.Close()
+
+	missingBody, err := io.ReadAll(missingResponse.Body)
+	if err != nil {
+		t.Fatalf("read missing backend route body: %v", err)
+	}
+	if missingResponse.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected missing backend route status 404, got %d", missingResponse.StatusCode)
+	}
+	if string(missingBody) != `{"detail":"missing"}` {
+		t.Fatalf("expected missing backend route body, got %q", missingBody)
+	}
+}
+
+func TestRegisterPluginRootRoutesPreserveRepeatedHeadersFromBackendResponse(t *testing.T) {
+	t.Parallel()
+
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			if requestPath == "/headers" {
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			}
+			return plugins.BackendRouteLookup{}, nil
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			return plugins.BackendHTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers: map[string][]string{
+					"Content-Type": {"application/json"},
+					"Set-Cookie": {
+						"a=1; Path=/; HttpOnly",
+						"b=2; Path=/; Secure",
+					},
+					"Link": {
+						"</a.css>; rel=preload; as=style",
+						"</b.css>; rel=preload; as=style",
+					},
+					"X-Fixture": {"headers"},
+				},
+				Body: []byte(`{"ok":true}`),
+			}, true, nil
+		},
+	}
+
+	server := httptest.NewServer(newPluginRouteTestHandler(t, config.ModeIDE, service))
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/headers")
+	if err != nil {
+		t.Fatalf("request backend route with repeated headers: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected repeated-header backend route status 200, got %d", response.StatusCode)
+	}
+	if got := response.Header.Get("X-Fixture"); got != "headers" {
+		t.Fatalf("expected x-fixture header, got %q", got)
+	}
+	if got := response.Header.Values("Set-Cookie"); len(got) != 2 || got[0] != "a=1; Path=/; HttpOnly" || got[1] != "b=2; Path=/; Secure" {
+		t.Fatalf("expected repeated set-cookie headers, got %#v", got)
+	}
+	if got := response.Header.Values("Link"); len(got) != 2 || got[0] != "</a.css>; rel=preload; as=style" || got[1] != "</b.css>; rel=preload; as=style" {
+		t.Fatalf("expected repeated link headers, got %#v", got)
+	}
+}
+
+func TestRegisterPluginRootRoutesPreserveBackendRequestBodyBytes(t *testing.T) {
+	t.Parallel()
+
+	rawBody := []byte{0xff, 'a', 'b', 'c', 0xfe}
+	capturedRequests := []plugins.BackendHTTPRequest{}
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			if requestPath == "/echo" {
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			}
+			return plugins.BackendRouteLookup{}, nil
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			capturedRequests = append(capturedRequests, request)
+			return plugins.BackendHTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers: map[string][]string{
+					"Content-Type": {"application/json"},
+				},
+				Body: []byte(`{"ok":true}`),
+			}, true, nil
+		},
+	}
+
+	server := httptest.NewServer(newPluginRouteTestHandler(t, config.ModeIDE, service))
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/echo?mode=raw", bytes.NewReader(rawBody))
+	if err != nil {
+		t.Fatalf("new backend route request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/octet-stream")
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post backend route with raw bytes: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected raw-byte backend route status 200, got %d", response.StatusCode)
+	}
+	if len(capturedRequests) != 1 {
+		t.Fatalf("expected one captured backend request, got %#v", capturedRequests)
+	}
+	captured := capturedRequests[0]
+	if captured.Method != http.MethodPost || captured.Path != "/echo" || captured.RawQuery != "mode=raw" {
+		t.Fatalf("unexpected captured backend request metadata %#v", captured)
+	}
+	if got := captured.Headers["Content-Type"]; len(got) != 1 || got[0] != "application/octet-stream" {
+		t.Fatalf("expected content-type to round-trip, got %#v", captured.Headers)
+	}
+	if !bytes.Equal(captured.Body, rawBody) {
+		t.Fatalf("expected raw backend request bytes %#v, got %#v", rawBody, captured.Body)
+	}
+}
+
+func TestRegisterPluginRootRoutesPreserveExplicitJSONNullAndEmptyBodies(t *testing.T) {
+	t.Parallel()
+
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			switch requestPath {
+			case "/null", "/empty":
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			default:
+				return plugins.BackendRouteLookup{}, nil
+			}
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			response := plugins.BackendHTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers: map[string][]string{
+					"Content-Type": {"application/json"},
+				},
+			}
+			if request.Path == "/null" {
+				response.Body = []byte("null")
+			}
+			return response, true, nil
+		},
+	}
+
+	server := httptest.NewServer(newPluginRouteTestHandler(t, config.ModeIDE, service))
+	defer server.Close()
+
+	nullResponse, err := http.Get(server.URL + "/null")
+	if err != nil {
+		t.Fatalf("request backend route with null body: %v", err)
+	}
+	defer nullResponse.Body.Close()
+
+	nullBody, err := io.ReadAll(nullResponse.Body)
+	if err != nil {
+		t.Fatalf("read backend route null body: %v", err)
+	}
+	if got := nullResponse.Header.Get("Content-Type"); !strings.Contains(got, "application/json") {
+		t.Fatalf("expected json content-type for null body, got %q", got)
+	}
+	if string(nullBody) != "null" {
+		t.Fatalf("expected explicit json null body, got %q", nullBody)
+	}
+
+	emptyResponse, err := http.Get(server.URL + "/empty")
+	if err != nil {
+		t.Fatalf("request backend route with empty body: %v", err)
+	}
+	defer emptyResponse.Body.Close()
+
+	emptyBody, err := io.ReadAll(emptyResponse.Body)
+	if err != nil {
+		t.Fatalf("read backend route empty body: %v", err)
+	}
+	if got := emptyResponse.Header.Get("Content-Type"); !strings.Contains(got, "application/json") {
+		t.Fatalf("expected json content-type for empty body, got %q", got)
+	}
+	if len(emptyBody) != 0 {
+		t.Fatalf("expected empty backend route body, got %q", emptyBody)
+	}
+}
+
+func TestRegisterPluginRootRoutesSuppressBackendResponseBodiesForNoContentStatuses(t *testing.T) {
+	t.Parallel()
+
+	statusByPath := map[string]int{
+		"/no-content/204": http.StatusNoContent,
+		"/no-content/205": http.StatusResetContent,
+		"/no-content/304": http.StatusNotModified,
+	}
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			if _, ok := statusByPath[requestPath]; ok {
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			}
+			return plugins.BackendRouteLookup{}, nil
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			status, ok := statusByPath[request.Path]
+			if !ok {
+				return plugins.BackendHTTPResponse{}, false, nil
+			}
+			return plugins.BackendHTTPResponse{
+				StatusCode: status,
+				Headers: map[string][]string{
+					"Content-Type": {"application/json"},
+				},
+				Body: []byte(`{"ignored":true}`),
+			}, true, nil
+		},
+	}
+
+	server := httptest.NewServer(newPluginRouteTestHandler(t, config.ModeIDE, service))
+	defer server.Close()
+
+	for path, expectedStatus := range statusByPath {
+		path := path
+		expectedStatus := expectedStatus
+		t.Run(strings.TrimPrefix(path, "/no-content/"), func(t *testing.T) {
+			response, err := http.Get(server.URL + path)
+			if err != nil {
+				t.Fatalf("request backend route with no-content status: %v", err)
+			}
+			defer response.Body.Close()
+
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				t.Fatalf("read backend no-content response body: %v", err)
+			}
+			if response.StatusCode != expectedStatus {
+				t.Fatalf("expected backend route status %d, got %d", expectedStatus, response.StatusCode)
+			}
+			if len(body) != 0 {
+				t.Fatalf("expected no-content backend response body to be empty, got %q", body)
+			}
+		})
 	}
 }
 
