@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 )
@@ -37,27 +38,31 @@ var (
 )
 
 type ClaudeExecutorOptions struct {
-	Runs           *agentruns.RunStore
-	Runtime        *Runtime
-	WorkspaceRoot  string
-	SettaServerURL string
-	RuntimeRoot    string
-	ProcessEnv     map[string]string
-	PythonCommand  string
-	SidecarPath    string
-	TimeNow        func() time.Time
+	Runs               *agentruns.RunStore
+	Runtime            *Runtime
+	WorkspaceRoot      string
+	SettaServerURL     string
+	CurrentSession     *auth.CurrentSession
+	AuthCookieBaseName string
+	RuntimeRoot        string
+	ProcessEnv         map[string]string
+	PythonCommand      string
+	SidecarPath        string
+	TimeNow            func() time.Time
 }
 
 type ClaudeExecutor struct {
-	runs           *agentruns.RunStore
-	runtime        *Runtime
-	workspaceRoot  string
-	settaServerURL string
-	runtimeRoot    string
-	processEnv     map[string]string
-	pythonCommand  string
-	sidecarPath    string
-	timeNow        func() time.Time
+	runs               *agentruns.RunStore
+	runtime            *Runtime
+	workspaceRoot      string
+	settaServerURL     string
+	currentSession     *auth.CurrentSession
+	authCookieBaseName string
+	runtimeRoot        string
+	processEnv         map[string]string
+	pythonCommand      string
+	sidecarPath        string
+	timeNow            func() time.Time
 }
 
 type claudeResultPayload struct {
@@ -93,15 +98,17 @@ func NewClaudeExecutor(options ClaudeExecutorOptions) (*ClaudeExecutor, error) {
 		}
 	}
 	return &ClaudeExecutor{
-		runs:           options.Runs,
-		runtime:        options.Runtime,
-		workspaceRoot:  workspaceRoot,
-		settaServerURL: settaServerURL,
-		runtimeRoot:    strings.TrimSpace(options.RuntimeRoot),
-		processEnv:     cloneStringAnyMapToStringMap(options.ProcessEnv),
-		pythonCommand:  strings.TrimSpace(options.PythonCommand),
-		sidecarPath:    sidecarPath,
-		timeNow:        timeNow,
+		runs:               options.Runs,
+		runtime:            options.Runtime,
+		workspaceRoot:      workspaceRoot,
+		settaServerURL:     settaServerURL,
+		currentSession:     cloneCurrentSession(options.CurrentSession),
+		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
+		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
+		processEnv:         cloneStringAnyMapToStringMap(options.ProcessEnv),
+		pythonCommand:      strings.TrimSpace(options.PythonCommand),
+		sidecarPath:        sidecarPath,
+		timeNow:            timeNow,
 	}, nil
 }
 
@@ -586,12 +593,21 @@ func (e *ClaudeExecutor) ensureClaudeMCPConfig(request *StartRequest) (string, e
 		return "", fmt.Errorf("create claude mcp config dir: %w", err)
 	}
 	configPath := filepath.Join(configDir, claudeMCPConfigName)
+	serverEntry := map[string]any{
+		"type": "sse",
+		"url":  e.settaServerURL,
+	}
+	headers, err := e.buildClaudeMCPHeaders(*request)
+	if err != nil {
+		_ = os.RemoveAll(configDir)
+		return "", err
+	}
+	if len(headers) > 0 {
+		serverEntry["headers"] = headers
+	}
 	content, err := json.MarshalIndent(map[string]any{
 		"mcpServers": map[string]any{
-			mcpx.DefaultServerID: map[string]any{
-				"type": "sse",
-				"url":  e.settaServerURL,
-			},
+			mcpx.DefaultServerID: serverEntry,
 		},
 	}, "", "  ")
 	if err != nil {
@@ -605,6 +621,54 @@ func (e *ClaudeExecutor) ensureClaudeMCPConfig(request *StartRequest) (string, e
 	}
 	request.Inputs["mcpConfig"] = configPath
 	return configDir, nil
+}
+
+func (e *ClaudeExecutor) buildClaudeMCPHeaders(request StartRequest) (map[string]string, error) {
+	headers := map[string]string{}
+	if e != nil && e.currentSession != nil {
+		cookieName, err := auth.CookieName(e.authCookieBaseName, e.currentSession.Metadata.ID)
+		if err != nil {
+			return nil, err
+		}
+		cookieValue, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(
+			e.currentSession.Metadata.ID,
+			e.currentSession.Secret,
+			e.timeNow(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		headers["Cookie"] = cookieName + "=" + cookieValue
+	}
+	if projectConfigID := strings.TrimSpace(request.ProjectConfigID); projectConfigID != "" {
+		headers[mcpx.AgenticContextProjectConfigIDHeader] = projectConfigID
+	}
+	if chatID := strings.TrimSpace(request.ChatID); chatID != "" {
+		headers[mcpx.AgenticContextChatIDHeader] = chatID
+	}
+	if runID := strings.TrimSpace(request.Run.ID); runID != "" {
+		headers[mcpx.AgenticContextRunIDHeader] = runID
+	}
+	if sectionID := strings.TrimSpace(derefOptionalString(request.SectionID)); sectionID != "" {
+		headers[mcpx.AgenticContextSectionIDHeader] = sectionID
+	}
+	if frontendAffinityToken := strings.TrimSpace(stringValue(request.Inputs["frontendAffinityToken"])); frontendAffinityToken != "" {
+		headers[mcpx.AgenticContextFrontendAffinityHeader] = frontendAffinityToken
+	}
+	if boolValue(request.Inputs["allowUnscoped"]) {
+		headers[mcpx.AgenticContextAllowUnscopedHeader] = "true"
+	}
+	return headers, nil
+}
+
+func cloneCurrentSession(currentSession *auth.CurrentSession) *auth.CurrentSession {
+	if currentSession == nil {
+		return nil
+	}
+	cloned := *currentSession
+	cloned.Metadata = currentSession.Metadata
+	cloned.Secret = append([]byte(nil), currentSession.Secret...)
+	return &cloned
 }
 
 func buildClaudeStartPayload(request StartRequest, workingDir string, envMap map[string]string) map[string]any {

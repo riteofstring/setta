@@ -100,6 +100,17 @@ type App struct {
 	handler       http.Handler
 }
 
+func authServiceCurrentSessionOrNil(authService *auth.Service) *auth.CurrentSession {
+	if authService == nil {
+		return nil
+	}
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		return nil
+	}
+	return currentSession
+}
+
 func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if logger == nil {
 		logger = observability.NewLogger(cfg.Server.LogLevel, os.Stderr)
@@ -1025,12 +1036,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		claudeExecutor, err := externalagents.NewClaudeExecutor(externalagents.ClaudeExecutorOptions{
-			Runs:           agentRunStore,
-			Runtime:        externalAgentRuntime,
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
-			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			ProcessEnv:     llmconfig.CurrentProcessEnv(),
+			Runs:               agentRunStore,
+			Runtime:            externalAgentRuntime,
+			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+			SettaServerURL:     mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+			CurrentSession:     authServiceCurrentSessionOrNil(authService),
+			AuthCookieBaseName: authService.AuthCookieBaseName(),
+			RuntimeRoot:        cfg.Paths.RuntimeRoot,
+			ProcessEnv:         llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

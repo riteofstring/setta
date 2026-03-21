@@ -14,6 +14,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
@@ -464,6 +465,92 @@ func TestBuildClaudeStartPayloadPassesThroughMCPConfigPath(t *testing.T) {
 	}
 }
 
+func TestEnsureClaudeMCPConfigIncludesAuthAndAgenticHeaders(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 19, 18, 0, 0, 0, time.UTC)
+	sectionID := "section-alpha"
+	request := &StartRequest{
+		Run:             agentruns.Run{ID: "run-alpha"},
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       &sectionID,
+		Inputs: map[string]any{
+			"frontendAffinityToken": "frontend-alpha",
+			"allowUnscoped":         true,
+		},
+	}
+	executor := &ClaudeExecutor{
+		settaServerURL:     "http://127.0.0.1:8000/mcp",
+		currentSession:     &auth.CurrentSession{Metadata: auth.SessionMetadata{ID: "session-1"}, Secret: []byte("session-secret")},
+		authCookieBaseName: auth.DefaultAuthCookieName,
+		timeNow: func() time.Time {
+			return now
+		},
+	}
+
+	cleanupDir, err := executor.ensureClaudeMCPConfig(request)
+	if err != nil {
+		t.Fatalf("ensure claude mcp config: %v", err)
+	}
+	defer func() {
+		if strings.TrimSpace(cleanupDir) != "" {
+			_ = os.RemoveAll(cleanupDir)
+		}
+	}()
+
+	configPath := strings.TrimSpace(stringValue(request.Inputs["mcpConfig"]))
+	if filepath.Base(configPath) != claudeMCPConfigName {
+		t.Fatalf("expected generated mcp config path %q, got %q", claudeMCPConfigName, configPath)
+	}
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read generated claude mcp config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode generated claude mcp config: %v", err)
+	}
+	rawServers, ok := payload["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated mcpServers map, got %#v", payload["mcpServers"])
+	}
+	settaServer, ok := rawServers[mcpx.DefaultServerID].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated setta server entry, got %#v", rawServers)
+	}
+	headers, ok := settaServer["headers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated setta headers, got %#v", settaServer["headers"])
+	}
+	cookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "session-1")
+	if err != nil {
+		t.Fatalf("resolve auth cookie name: %v", err)
+	}
+	cookie := strings.TrimSpace(stringValue(headers["Cookie"]))
+	if !strings.HasPrefix(cookie, cookieName+"=") {
+		t.Fatalf("expected generated auth cookie header to start with %q, got %q", cookieName+"=", cookie)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextProjectConfigIDHeader]); got != "project-alpha" {
+		t.Fatalf("expected project-config header, got %#v", headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextChatIDHeader]); got != "chat-alpha" {
+		t.Fatalf("expected chat header, got %#v", headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextRunIDHeader]); got != "run-alpha" {
+		t.Fatalf("expected run header, got %#v", headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextSectionIDHeader]); got != "section-alpha" {
+		t.Fatalf("expected section header, got %#v", headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextFrontendAffinityHeader]); got != "frontend-alpha" {
+		t.Fatalf("expected frontend-affinity header, got %#v", headers)
+	}
+	if got := stringValue(headers[mcpx.AgenticContextAllowUnscopedHeader]); got != "true" {
+		t.Fatalf("expected allow-unscoped header, got %#v", headers)
+	}
+}
+
 func TestBuildClaudeStartPayloadAllowedToolsPrefersExplicitInputThenProfileAllowlist(t *testing.T) {
 	t.Parallel()
 
@@ -725,13 +812,15 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 		t.Fatalf("new runtime: %v", err)
 	}
 	claudeExecutor, err := NewClaudeExecutor(ClaudeExecutorOptions{
-		Runs:           runs,
-		Runtime:        runtime,
-		WorkspaceRoot:  root,
-		SettaServerURL: mcpx.BuildSettaServerURL("127.0.0.1", 8000),
-		ProcessEnv:     llmconfig.CurrentProcessEnv(),
-		PythonCommand:  pythonCommand,
-		SidecarPath:    sidecarPath,
+		Runs:               runs,
+		Runtime:            runtime,
+		WorkspaceRoot:      root,
+		SettaServerURL:     mcpx.BuildSettaServerURL("127.0.0.1", 8000),
+		CurrentSession:     &auth.CurrentSession{Metadata: auth.SessionMetadata{ID: "session-1"}, Secret: []byte("fixture-secret")},
+		AuthCookieBaseName: auth.DefaultAuthCookieName,
+		ProcessEnv:         llmconfig.CurrentProcessEnv(),
+		PythonCommand:      pythonCommand,
+		SidecarPath:        sidecarPath,
 		TimeNow: func() time.Time {
 			return now
 		},
