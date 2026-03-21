@@ -217,6 +217,31 @@ func TestResolveContextUsageAcceptsCodexAliases(t *testing.T) {
 	}
 }
 
+func TestNormalizeUsagePayloadMapsSnakeCaseAliases(t *testing.T) {
+	t.Parallel()
+
+	normalized := normalizeUsagePayload(map[string]any{
+		"prompt_tokens":        11,
+		"completion_tokens":    7,
+		"model_context_window": "200000",
+	})
+	if normalized == nil {
+		t.Fatal("expected normalized usage payload")
+	}
+	if normalized["promptTokens"] != 11 {
+		t.Fatalf("expected promptTokens=11, got %#v", normalized)
+	}
+	if normalized["completionTokens"] != 7 {
+		t.Fatalf("expected completionTokens=7, got %#v", normalized)
+	}
+	if normalized["totalTokens"] != 18 {
+		t.Fatalf("expected totalTokens=18, got %#v", normalized)
+	}
+	if normalized["contextWindowTokens"] != 200000 {
+		t.Fatalf("expected contextWindowTokens=200000, got %#v", normalized)
+	}
+}
+
 func TestResolveContextUsageMarksMissingContextWindowAsEstimated(t *testing.T) {
 	t.Parallel()
 

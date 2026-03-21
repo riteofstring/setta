@@ -301,6 +301,46 @@ func TestRuntimeStopRunPersistsPartialExecutionResultOnCancellation(t *testing.T
 	}
 }
 
+func TestRuntimeStopRunLeavesCompletedRunUnchanged(t *testing.T) {
+	t.Parallel()
+
+	service, _, runs, _ := buildServiceFixture(t, nil)
+	runtime, err := NewRuntime(RuntimeOptions{Service: service})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	now := time.Date(2026, 3, 14, 10, 0, 0, 0, time.UTC)
+	run := NewRun(stringPtr("profile-alpha"), map[string]any{
+		"runType": "llm_chat",
+	}, now)
+	run.Status = RunStatusCompleted
+	run.FinishedAt = &now
+	if err := runs.Save(run); err != nil {
+		t.Fatalf("save completed run: %v", err)
+	}
+
+	stopped, err := runtime.StopRun(run.ID)
+	if err != nil {
+		t.Fatalf("stop completed run: %v", err)
+	}
+	if stopped.Status != RunStatusCompleted {
+		t.Fatalf("expected completed run to stay completed, got %#v", stopped.Status)
+	}
+
+	loaded, err := runs.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load completed run: %v", err)
+	}
+	if loaded.Status != RunStatusCompleted {
+		t.Fatalf("expected persisted completed run, got %#v", loaded.Status)
+	}
+	for _, event := range loaded.Events {
+		if event.Type == "run_cancelled" {
+			t.Fatalf("did not expect run_cancelled event on completed run, got %#v", loaded.Events)
+		}
+	}
+}
+
 func TestRuntimeStartRunRejectsExternalAgentEngine(t *testing.T) {
 	t.Parallel()
 

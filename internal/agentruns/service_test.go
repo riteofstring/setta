@@ -402,6 +402,169 @@ func TestServiceRejectsDisabledExecutorAndMissingProfileEngine(t *testing.T) {
 	}
 }
 
+func TestBuildContextSelectsDefaultProjectAndAllowsOverrides(t *testing.T) {
+	t.Parallel()
+
+	service, _, _, _ := buildServiceFixture(t, nil)
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+			"project-beta":  {ID: "project-beta", Name: "Beta"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	service.projectState = projectRuntime
+
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	defaultContext, err := service.buildContext(profile, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("build default context: %v", err)
+	}
+	if defaultContext.projectConfigID != "project-alpha" {
+		t.Fatalf("expected default project-alpha, got %#v", defaultContext.projectConfigID)
+	}
+	if defaultContext.chatID != defaultContext.run.ID {
+		t.Fatalf("expected chat id to default to run id, got chat=%q run=%q", defaultContext.chatID, defaultContext.run.ID)
+	}
+	if defaultContext.sectionID != nil {
+		t.Fatalf("expected no section id, got %#v", defaultContext.sectionID)
+	}
+	if defaultContext.thinking {
+		t.Fatalf("expected thinking=false by default, got %#v", defaultContext.thinking)
+	}
+
+	overrideContext, err := service.buildContext(profile, map[string]any{
+		"projectConfigId": " project-beta ",
+		"chatId":          " chat-1 ",
+		"thinking":        true,
+		"allowUnscoped":   true,
+		"engineConfigId":  "engine-primary",
+	})
+	if err != nil {
+		t.Fatalf("build override context: %v", err)
+	}
+	if overrideContext.projectConfigID != "project-beta" {
+		t.Fatalf("expected override project-beta, got %#v", overrideContext.projectConfigID)
+	}
+	if overrideContext.chatID != "chat-1" {
+		t.Fatalf("expected override chat id chat-1, got %#v", overrideContext.chatID)
+	}
+	if !overrideContext.thinking {
+		t.Fatalf("expected thinking override, got %#v", overrideContext.thinking)
+	}
+	if overrideContext.inputs["engineConfigId"] != "engine-primary" {
+		t.Fatalf("expected resolved engineConfigId in payload inputs, got %#v", overrideContext.inputs["engineConfigId"])
+	}
+}
+
+func TestBuildContextSnapshotsCompletionGuardSetting(t *testing.T) {
+	t.Parallel()
+
+	currentValue := false
+	service, _, _, _ := buildServiceFixtureWithOptions(t, buildServiceFixtureOptions{
+		completionGuardProvider: func() (bool, error) {
+			return currentValue, nil
+		},
+	})
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	runContext, err := service.buildContext(profile, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("build context: %v", err)
+	}
+	currentValue = true
+
+	if runContext.completionGuardEnabled {
+		t.Fatalf("expected completion guard snapshot to stay false, got %#v", runContext.completionGuardEnabled)
+	}
+}
+
+func TestBuildContextRejectsInvalidInputTypesAndMismatchedEngineConfig(t *testing.T) {
+	t.Parallel()
+
+	service, _, _, _ := buildServiceFixture(t, nil)
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	tests := []struct {
+		name        string
+		inputs      map[string]any
+		wantMessage string
+	}{
+		{
+			name: "project config id type",
+			inputs: map[string]any{
+				"projectConfigId": 123,
+				"allowUnscoped":   true,
+			},
+			wantMessage: "projectConfigId must be a string",
+		},
+		{
+			name: "chat id type",
+			inputs: map[string]any{
+				"chatId":        123,
+				"allowUnscoped": true,
+			},
+			wantMessage: "chatId must be a string",
+		},
+		{
+			name: "section id type",
+			inputs: map[string]any{
+				"sectionId": 123,
+			},
+			wantMessage: "sectionId must be a string",
+		},
+		{
+			name: "thinking type",
+			inputs: map[string]any{
+				"thinking":      "yes",
+				"allowUnscoped": true,
+			},
+			wantMessage: "thinking must be a boolean",
+		},
+		{
+			name: "engine config mismatch",
+			inputs: map[string]any{
+				"engineConfigId": "engine-mismatch",
+				"allowUnscoped":  true,
+			},
+			wantMessage: "engineConfigId does not match resolved engine config",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := service.buildContext(profile, test.inputs)
+			if err == nil || !strings.Contains(err.Error(), test.wantMessage) {
+				t.Fatalf("expected error containing %q, got %v", test.wantMessage, err)
+			}
+		})
+	}
+}
+
 func TestBuildSystemPromptUsesTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 
@@ -458,6 +621,48 @@ func TestBuildSystemPromptRemovesCompletionContractWhenDisabledAndKeepsProfileCo
 	}
 	if !strings.Contains(prompt, "Profile prompt") {
 		t.Fatalf("expected profile system prompt in prompt, got %q", prompt)
+	}
+}
+
+func TestBuildOutputsPreservesMessagesUsageMetadataAndCostWithoutFinalText(t *testing.T) {
+	t.Parallel()
+
+	cost := 0.0123
+	outputs := buildOutputs(
+		map[string]any{
+			"messages": []any{
+				map[string]any{"id": "assistant-1", "role": "assistant"},
+			},
+			"usage": map[string]any{
+				"promptTokens":     2,
+				"completionTokens": 3,
+				"totalTokens":      5,
+			},
+		},
+		map[string]any{
+			"model":          "gpt-4o-mini",
+			"engineConfigId": "engine-primary",
+		},
+		&cost,
+	)
+
+	if _, ok := outputs["finalText"]; ok {
+		t.Fatalf("expected no helper finalText in outputs, got %#v", outputs["finalText"])
+	}
+	messages, ok := outputs["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected preserved messages, got %#v", outputs["messages"])
+	}
+	usage, ok := outputs["usage"].(map[string]any)
+	if !ok || usage["totalTokens"] != float64(5) {
+		t.Fatalf("expected preserved usage, got %#v", outputs["usage"])
+	}
+	metadata, ok := outputs["metadata"].(map[string]any)
+	if !ok || metadata["engineConfigId"] != "engine-primary" || metadata["model"] != "gpt-4o-mini" {
+		t.Fatalf("expected metadata payload, got %#v", outputs["metadata"])
+	}
+	if outputs["cost"] != cost {
+		t.Fatalf("expected cost %.4f, got %#v", cost, outputs["cost"])
 	}
 }
 
