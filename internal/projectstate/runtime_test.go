@@ -369,6 +369,85 @@ func TestRuntimeSaveRunsAfterSaveHookWithLatestSnapshot(t *testing.T) {
 	}
 }
 
+func TestRuntimeSaveReturnsBeforeSaveHookErrorWithoutPersistingState(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		BeforeSave: func(context.Context, Snapshot) error {
+			return errors.New("before-save failed")
+		},
+	})
+
+	if _, err := runtime.Mutate(func(document Document) (Document, error) {
+		document.Projects["project-alpha"] = Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate runtime: %v", err)
+	}
+
+	_, err := runtime.Save(context.Background())
+	if err == nil || err.Error() != "before-save failed" {
+		t.Fatalf("expected before-save failure, got %v", err)
+	}
+
+	loaded, loadErr := store.Load(context.Background())
+	if loadErr != nil {
+		t.Fatalf("load persisted document: %v", loadErr)
+	}
+	if _, ok := loaded.Projects["project-alpha"]; ok {
+		t.Fatal("expected before-save failure to prevent persistence")
+	}
+}
+
+func TestRuntimeSaveAppliesPersistedTransformWithoutChangingLiveSnapshot(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PersistedTransform: func(document Document) (Document, error) {
+			project := document.Projects["project-alpha"]
+			project.Name = "Persisted"
+			document.Projects["project-alpha"] = project
+			return document, nil
+		},
+	})
+
+	if _, err := runtime.Mutate(func(document Document) (Document, error) {
+		document.Projects["project-alpha"] = Project{
+			ID:   "project-alpha",
+			Name: "Live",
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate runtime: %v", err)
+	}
+
+	snapshot, err := runtime.Save(context.Background())
+	if err != nil {
+		t.Fatalf("save runtime: %v", err)
+	}
+	if got := snapshot.Document.Projects["project-alpha"].Name; got != "Live" {
+		t.Fatalf("expected live snapshot name Live, got %q", got)
+	}
+	if got := runtime.Snapshot().Document.Projects["project-alpha"].Name; got != "Live" {
+		t.Fatalf("expected runtime state name Live, got %q", got)
+	}
+
+	loaded, loadErr := store.Load(context.Background())
+	if loadErr != nil {
+		t.Fatalf("load persisted document: %v", loadErr)
+	}
+	if got := loaded.Projects["project-alpha"].Name; got != "Persisted" {
+		t.Fatalf("expected persisted name Persisted, got %q", got)
+	}
+}
+
 func TestRuntimeSaveReturnsAfterSaveHookErrorAfterPersistingState(t *testing.T) {
 	t.Parallel()
 

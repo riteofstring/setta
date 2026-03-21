@@ -93,6 +93,108 @@ func TestAppSaveProjectRouteWritesJSONSourceFilesAndRecreatesMissingKeyPath(t *t
 	}
 }
 
+func TestAppSaveProjectRouteClearsPersistedJSONSourceValuesAfterWrite(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 61237
+	prepareAppCurrentSession(t, cfg)
+
+	if err := os.MkdirAll(filepath.Join(cfg.Paths.WorkspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Paths.WorkspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"fresh\":2}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project-state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new main project store: %v", err)
+	}
+	if err := store.Save(context.Background(), jsonSourceStartupLoadAppTestDocument(t)); err != nil {
+		t.Fatalf("seed main project store: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	saveRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveProject, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	if err != nil {
+		t.Fatalf("new save request: %v", err)
+	}
+	saveRequest.Header.Set("Content-Type", "application/json")
+	saveRequest.AddCookie(authCookie)
+
+	saveResponse, err := http.DefaultClient.Do(saveRequest)
+	if err != nil {
+		t.Fatalf("save project: %v", err)
+	}
+	defer saveResponse.Body.Close()
+	if saveResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(saveResponse.Body)
+		t.Fatalf("expected save 200, got %d with body %q", saveResponse.StatusCode, string(body))
+	}
+
+	content, err := os.ReadFile(filepath.Join(cfg.Paths.WorkspaceRoot, "data", "source.json"))
+	if err != nil {
+		t.Fatalf("read saved json source file: %v", err)
+	}
+	var savedPayload map[string]any
+	if err := json.Unmarshal(content, &savedPayload); err != nil {
+		t.Fatalf("decode saved json source file: %v", err)
+	}
+	if got := savedPayload["alpha"].(map[string]any)["fresh"]; got != float64(2) {
+		t.Fatalf("expected saved json source value 2, got %#v", got)
+	}
+
+	liveProject := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	liveTargetPayload, err := liveProject.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective live target payload after save: %v", err)
+	}
+	assertProjectShellJSONSourceLeafValue(
+		t,
+		liveProject,
+		projectShellPayloadStringMap(liveTargetPayload, "codeObjVariantMap"),
+		projectShellPayloadString(liveTargetPayload, "topLevelParamId"),
+		"fresh",
+		"2",
+	)
+
+	persistedDocument, err := store.LoadRaw(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted project document: %v", err)
+	}
+	persistedProject := persistedDocument.Projects["project-alpha"]
+	persistedTargetPayload, err := persistedProject.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective persisted target payload after save: %v", err)
+	}
+	assertProjectShellJSONSourceLeafValue(
+		t,
+		persistedProject,
+		projectShellPayloadStringMap(persistedTargetPayload, "codeObjVariantMap"),
+		projectShellPayloadString(persistedTargetPayload, "topLevelParamId"),
+		"fresh",
+		"",
+	)
+}
+
 func TestAppStartupLoadsSharedJSONSourceSectionsFromDisk(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -522,6 +624,12 @@ func jsonSourceStartupLoadAppTestDocument(t *testing.T) projectstate.Document {
 func assertProjectShellJSONSourceFreshValue(t *testing.T, project projectstate.Project, codeObjVariantMap map[string]string, topLevelParamID string) {
 	t.Helper()
 
+	assertProjectShellJSONSourceLeafValue(t, project, codeObjVariantMap, topLevelParamID, "fresh", "2")
+}
+
+func assertProjectShellJSONSourceLeafValue(t *testing.T, project projectstate.Project, codeObjVariantMap map[string]string, topLevelParamID string, expectedName string, expectedValue string) {
+	t.Helper()
+
 	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, topLevelParamID)
 	if err != nil {
 		t.Fatalf("effective root payload after app startup load: %v", err)
@@ -534,11 +642,11 @@ func assertProjectShellJSONSourceFreshValue(t *testing.T, project projectstate.P
 	if err != nil {
 		t.Fatalf("effective child payload after app startup load: %v", err)
 	}
-	if childCodeObj.Name != "fresh" {
-		t.Fatalf("expected child name fresh, got %q", childCodeObj.Name)
+	if childCodeObj.Name != expectedName {
+		t.Fatalf("expected child name %s, got %q", expectedName, childCodeObj.Name)
 	}
-	if got := projectShellPayloadString(childPayload, "value"); got != "2" {
-		t.Fatalf("expected child value 2, got %q", got)
+	if got := projectShellPayloadString(childPayload, "value"); got != expectedValue {
+		t.Fatalf("expected child value %s, got %q", expectedValue, got)
 	}
 }
 

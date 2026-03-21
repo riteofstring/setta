@@ -426,10 +426,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					cfg.Paths.SettaFilesRoot,
 					cfg.Paths.RuntimeRoot,
 				},
-				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+				BeforeSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 					if err := projectstate.SaveJSONSourceFiles(snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
 						return err
 					}
+					return nil
+				},
+				PersistedTransform: func(document projectstate.Document) (projectstate.Document, error) {
+					if err := document.ClearJSONSourceValuesForPersistence(); err != nil {
+						return document, err
+					}
+					return document, nil
+				},
+				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 					if watchCodeService != nil {
 						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
 							return err

@@ -30,10 +30,14 @@ type Snapshot struct {
 }
 
 type Mutation func(Document) (Document, error)
+type BeforeSaveHook func(context.Context, Snapshot) error
 type AfterSaveHook func(context.Context, Snapshot) error
+type PersistedDocumentTransform func(Document) (Document, error)
 
 type RuntimeOptions struct {
+	BeforeSave            BeforeSaveHook
 	AfterSave             AfterSaveHook
+	PersistedTransform    PersistedDocumentTransform
 	PasswordSecrets       PasswordSecretStore
 	WatchCodeIgnoredRoots []string
 }
@@ -42,7 +46,9 @@ type Runtime struct {
 	store      *Store
 	savePolicy SavePolicy
 	saveFn     func(context.Context, Document) error
+	beforeSave BeforeSaveHook
 	afterSave  AfterSaveHook
+	transform  PersistedDocumentTransform
 
 	stateMu  sync.RWMutex
 	current  Document
@@ -100,7 +106,9 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 		store:      store,
 		savePolicy: SavePolicyPersist,
 		saveFn:     store.Save,
+		beforeSave: options.BeforeSave,
 		afterSave:  options.AfterSave,
+		transform:  options.PersistedTransform,
 	})
 }
 
@@ -117,7 +125,9 @@ func OpenOverlayRuntimeWithOptions(document Document, options RuntimeOptions) (*
 	document = document.withWatchCodeIgnoredRoots(watchCodeIgnoredRoots)
 	return openRuntime(document, saveController{
 		savePolicy: SavePolicyInMemory,
+		beforeSave: options.BeforeSave,
 		afterSave:  options.AfterSave,
+		transform:  options.PersistedTransform,
 	})
 }
 
@@ -384,7 +394,20 @@ func (r *Runtime) persistSnapshot(ctx context.Context, snapshot Snapshot) error 
 	if r.savePolicy != SavePolicyPersist || r.saveFn == nil {
 		return nil
 	}
-	if err := r.saveFn(ctx, snapshot.Document); err != nil {
+	if r.beforeSave != nil {
+		if err := r.beforeSave(ctx, snapshot); err != nil {
+			return err
+		}
+	}
+	documentToPersist := snapshot.Document.Clone()
+	if r.transform != nil {
+		transformed, err := r.transform(documentToPersist)
+		if err != nil {
+			return err
+		}
+		documentToPersist = transformed
+	}
+	if err := r.saveFn(ctx, documentToPersist); err != nil {
 		return err
 	}
 	if r.afterSave != nil {
@@ -399,7 +422,9 @@ type saveController struct {
 	store      *Store
 	savePolicy SavePolicy
 	saveFn     func(context.Context, Document) error
+	beforeSave BeforeSaveHook
 	afterSave  AfterSaveHook
+	transform  PersistedDocumentTransform
 }
 
 func openRuntime(document Document, controller saveController) (*Runtime, error) {
@@ -412,7 +437,9 @@ func openRuntime(document Document, controller saveController) (*Runtime, error)
 		store:                controller.store,
 		savePolicy:           controller.savePolicy,
 		saveFn:               controller.saveFn,
+		beforeSave:           controller.beforeSave,
 		afterSave:            controller.afterSave,
+		transform:            controller.transform,
 		current:              normalized.Clone(),
 		revision:             1,
 		pendingFrontendOps:   map[string]struct{}{},

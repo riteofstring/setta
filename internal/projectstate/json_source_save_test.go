@@ -76,6 +76,56 @@ func TestSaveJSONSourceFilesSameKeyPathLastWriteWins(t *testing.T) {
 	}
 }
 
+func TestDocumentClearJSONSourceValuesForPersistenceBlanksLeafValues(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir data: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "data", "source.json"), []byte("{\"alpha\":{\"fresh\":2}}\n"), 0o644); err != nil {
+		t.Fatalf("write json source payload: %v", err)
+	}
+
+	document := jsonSourceSharedLoadTestDocument(t, false)
+	if err := document.LoadAllJSONSourceVariantsFromDisk(workspaceRoot); err != nil {
+		t.Fatalf("LoadAllJSONSourceVariantsFromDisk returned error: %v", err)
+	}
+	if err := document.ClearJSONSourceValuesForPersistence(); err != nil {
+		t.Fatalf("ClearJSONSourceValuesForPersistence returned error: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+	if err != nil {
+		t.Fatalf("effective target payload after clearing persisted values: %v", err)
+	}
+	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(
+		payloadStringMapField(targetPayload, "codeObjVariantMap"),
+		payloadStringField(targetPayload, "topLevelParamId"),
+	)
+	if err != nil {
+		t.Fatalf("effective root payload after clearing persisted values: %v", err)
+	}
+	childIDs := payloadStringArrayField(rootPayload, "children")
+	if len(childIDs) != 1 {
+		t.Fatalf("expected one cleared child, got %#v", childIDs)
+	}
+	childPayload, childCodeObj, _, _, err := project.EffectiveCodeObjectPayload(
+		payloadStringMapField(targetPayload, "codeObjVariantMap"),
+		childIDs[0],
+	)
+	if err != nil {
+		t.Fatalf("effective child payload after clearing persisted values: %v", err)
+	}
+	if childCodeObj.Name != "fresh" {
+		t.Fatalf("expected child name fresh, got %q", childCodeObj.Name)
+	}
+	if got := payloadStringField(childPayload, "value"); got != "" {
+		t.Fatalf("expected cleared child value, got %q", got)
+	}
+}
+
 func TestApplyJSONSourceFileUpdatesRejectsNonDictConflicts(t *testing.T) {
 	t.Parallel()
 
