@@ -307,6 +307,247 @@ func TestRegistryWriteValueRoundTripsProjectNameAndPythonCodegenEnabled(t *testi
 	}
 }
 
+func TestScopedRegistryProjectAISettingsExposeReadOnlyCountEntries(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       openCoreRegistryRuntime(t),
+		WorkspaceRoot: t.TempDir(),
+		ProjectAISettings: ProjectAISettingProviders{
+			LLMAPIKeys: func(context.Context) (int, error) {
+				return 2, nil
+			},
+			AgentProfiles: func(context.Context) (int, error) {
+				return 3, nil
+			},
+			PromptTemplates: func(context.Context) (int, error) {
+				return 4, nil
+			},
+			ExternalAgents: func(context.Context) (int, error) {
+				return 1, nil
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
+
+	expected := map[string]struct {
+		query          string
+		count          int
+		accordionValue string
+	}{
+		"core.project_ai_settings.llm_api_keys": {
+			query:          "llm api keys",
+			count:          2,
+			accordionValue: "project-ai-settings-llm-api-keys",
+		},
+		"core.project_ai_settings.agent_profiles": {
+			query:          "agent profiles",
+			count:          3,
+			accordionValue: "project-ai-settings-agent-profiles",
+		},
+		"core.project_ai_settings.prompt_templates": {
+			query:          "prompt templates",
+			count:          4,
+			accordionValue: "project-ai-settings-prompt-templates",
+		},
+		"core.project_ai_settings.external_agents": {
+			query:          "external agents",
+			count:          1,
+			accordionValue: "project-ai-settings-external-agents",
+		},
+	}
+
+	for settingID, expectation := range expected {
+		results, err := registry.Search(expectation.query, 5, SourceFilterCore)
+		if err != nil {
+			t.Fatalf("search %q: %v", expectation.query, err)
+		}
+		found := false
+		for _, result := range results {
+			if result.SettingID == settingID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected search %q to include %s, got %#v", expectation.query, settingID, results)
+		}
+
+		entry, ok, err := registry.Get(settingID)
+		if err != nil {
+			t.Fatalf("get %s: %v", settingID, err)
+		}
+		if !ok {
+			t.Fatalf("expected registry entry for %s", settingID)
+		}
+		if entry.Metadata.Mutability != MutabilityReadOnly {
+			t.Fatalf("expected %s to be read-only, got %q", settingID, entry.Metadata.Mutability)
+		}
+		if entry.Metadata.Location.OverviewTabKey != "ProjectAISettings" {
+			t.Fatalf("expected %s overview tab ProjectAISettings, got %q", settingID, entry.Metadata.Location.OverviewTabKey)
+		}
+		if entry.Metadata.Highlight.AnchorID != settingID {
+			t.Fatalf("expected %s anchor id %s, got %q", settingID, settingID, entry.Metadata.Highlight.AnchorID)
+		}
+		if len(entry.Metadata.RevealActivationSteps) != 1 {
+			t.Fatalf("expected one reveal activation step for %s, got %#v", settingID, entry.Metadata.RevealActivationSteps)
+		}
+		if entry.Metadata.RevealActivationSteps[0].Type != RevealActivationProjectAIAccordion {
+			t.Fatalf("expected project-ai accordion step for %s, got %#v", settingID, entry.Metadata.RevealActivationSteps[0])
+		}
+		if entry.Metadata.RevealActivationSteps[0].ItemValue != expectation.accordionValue {
+			t.Fatalf("expected accordion item %q for %s, got %#v", expectation.accordionValue, settingID, entry.Metadata.RevealActivationSteps[0].ItemValue)
+		}
+
+		value, err := registry.ReadValue(context.Background(), "project-alpha", settingID)
+		if err != nil {
+			t.Fatalf("read %s: %v", settingID, err)
+		}
+		if value != expectation.count {
+			t.Fatalf("expected %s value %d, got %#v", settingID, expectation.count, value)
+		}
+
+		_, err = registry.WriteValue(context.Background(), "project-alpha", settingID, 0, nil)
+		settingErr, ok := err.(*SettingError)
+		if !ok {
+			t.Fatalf("expected SettingError for read-only %s write, got %T (%v)", settingID, err, err)
+		}
+		if settingErr.Code != ErrorCodeSettingReadOnly {
+			t.Fatalf("expected setting_read_only for %s, got %q", settingID, settingErr.Code)
+		}
+	}
+}
+
+func TestRegistryWriteValueProjectNameSameValueIsNoOp(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	result, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.project.name",
+		"  Alpha  ",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("write same-value project name: %v", err)
+	}
+	if result.Changed {
+		t.Fatalf("expected project name no-op, got %#v", result)
+	}
+	if result.OldValue != "Alpha" || result.NewValue != "Alpha" || result.NormalizedValue != "Alpha" {
+		t.Fatalf("expected Alpha old/new/normalized values, got %#v", result)
+	}
+}
+
+func TestRegistryWriteValuePythonCodegenEnabledSameValueIsNoOpAndPreservesTargetOrder(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	if _, err := runtime.SetProjectCodegenTargets(
+		context.Background(),
+		"project-alpha",
+		[]projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+			},
+			{
+				Language: "plugin.codegen.target",
+			},
+		},
+		projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+	); err != nil {
+		t.Fatalf("seed codegen targets: %v", err)
+	}
+
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	result, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.run_instructions.python_codegen_enabled",
+		true,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("write same-value python codegen enabled: %v", err)
+	}
+	if result.Changed {
+		t.Fatalf("expected python codegen no-op, got %#v", result)
+	}
+	if result.OldValue != true || result.NewValue != true || result.NormalizedValue != true {
+		t.Fatalf("expected true old/new/normalized values, got %#v", result)
+	}
+
+	project, err := runtime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after no-op codegen write: %v", err)
+	}
+	if len(project.CodegenTargets) != 2 {
+		t.Fatalf("expected two codegen targets after no-op write, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != string(projectstate.CodeLanguagePython) {
+		t.Fatalf("expected python target to remain first, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[1].Language != "plugin.codegen.target" {
+		t.Fatalf("expected plugin target to remain second, got %#v", project.CodegenTargets)
+	}
+}
+
+func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	const nextSpecPath = "app_specs/ui-settings-test-app.json"
+	result, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.app.spec_path",
+		nextSpecPath,
+		appspec.DefaultPath(),
+	)
+	if err != nil {
+		t.Fatalf("write app spec path: %v", err)
+	}
+	if result.NewValue != nextSpecPath || result.NormalizedValue != nextSpecPath {
+		t.Fatalf("expected new app spec path %q, got %#v", nextSpecPath, result)
+	}
+
+	value, err := registry.ReadValue(context.Background(), "project-alpha", "core.app.spec_path")
+	if err != nil {
+		t.Fatalf("read app spec path after write: %v", err)
+	}
+	if value != nextSpecPath {
+		t.Fatalf("expected app spec path %q after write, got %#v", nextSpecPath, value)
+	}
+	if got := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document); got != nextSpecPath {
+		t.Fatalf("expected effective app spec path %q, got %q", nextSpecPath, got)
+	}
+}
+
 func openCoreRegistryRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 	return openCoreRegistryPersistedRuntime(t, t.TempDir())

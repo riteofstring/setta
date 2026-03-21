@@ -19,9 +19,12 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/externalagentconfigs"
+	"setta/internal/llmconfig"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/prompttemplates"
 	"setta/internal/settadocs"
 	"setta/internal/settingsstate"
 	"setta/internal/statefs"
@@ -49,6 +52,9 @@ type Server struct {
 	searchEntries        []tools.SearchEntry
 	temporaryIDs         *TemporaryIDStore
 	agentProfiles        agentProfileProvider
+	promptTemplates      promptTemplateProvider
+	externalAgentConfigs externalAgentConfigProvider
+	llmAPIKeys           llmAPIKeyProvider
 	agentRuns            agentRunProvider
 	uiSettingReveals     uisettings.RevealService
 	stateMachineRuns     stateMachineRunProvider
@@ -77,6 +83,9 @@ type ServerOptions struct {
 	DocsRoot                       string
 	TemporaryIDMapPath             string
 	AgentProfiles                  agentProfileProvider
+	PromptTemplates                promptTemplateProvider
+	ExternalAgentConfigs           externalAgentConfigProvider
+	LLMAPIKeys                     llmAPIKeyProvider
 	AgentRuns                      agentRunProvider
 	UISettingReveals               uisettings.RevealService
 	StateMachineRuns               stateMachineRunProvider
@@ -181,6 +190,18 @@ type terminalHistoryProvider interface {
 type agentProfileProvider interface {
 	List() ([]agentprofiles.Profile, error)
 	Get(profileID string) (agentprofiles.Profile, error)
+}
+
+type promptTemplateProvider interface {
+	List() ([]prompttemplates.Template, error)
+}
+
+type externalAgentConfigProvider interface {
+	List() ([]externalagentconfigs.Config, error)
+}
+
+type llmAPIKeyProvider interface {
+	ManagedAPIKeysSnapshot() llmconfig.ManagedAPIKeysSnapshot
 }
 
 type agentRunProvider interface {
@@ -299,6 +320,9 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		mcpStatuses:          opts.MCPStatuses,
 		terminals:            opts.Terminals,
 		agentProfiles:        opts.AgentProfiles,
+		promptTemplates:      opts.PromptTemplates,
+		externalAgentConfigs: opts.ExternalAgentConfigs,
+		llmAPIKeys:           opts.LLMAPIKeys,
 		agentRuns:            opts.AgentRuns,
 		uiSettingReveals:     opts.UISettingReveals,
 		stateMachineRuns:     opts.StateMachineRuns,
@@ -3673,7 +3697,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "discover"},
 				},
-				Handler: newSearchUISettingsHandler(projectState, server.pluginMutations, workspaceRoot),
+				Handler: newSearchUISettingsHandler(server, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -3720,7 +3744,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "read"},
 				},
-				Handler: newGetUISettingValueHandler(projectState, server.pluginMutations, workspaceRoot),
+				Handler: newGetUISettingValueHandler(server, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -3799,7 +3823,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "write", "mutate"},
 				},
-				Handler: newSetUISettingValueHandler(server, projectState, server.pluginMutations, workspaceRoot),
+				Handler: newSetUISettingValueHandler(server, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",

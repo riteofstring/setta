@@ -45,23 +45,32 @@ type pluginUISettingParseResult struct {
 	InvalidSettingErrors map[string]SettingError
 }
 
-func NewScopedRegistry(runtime CoreProjectState, workspaceRoot string, pluginService PluginRuntimeService) (*Registry, error) {
-	coreRegistry, err := NewCoreRegistry(runtime, workspaceRoot)
+type ScopedRegistryOptions struct {
+	Runtime           CoreProjectState
+	WorkspaceRoot     string
+	PluginService     PluginRuntimeService
+	ProjectAISettings ProjectAISettingProviders
+}
+
+func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
+	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
 	if err != nil {
 		return nil, err
 	}
+	entries := make([]RuntimeEntry, 0, len(coreRegistry.entriesByID))
+	for _, entry := range coreRegistry.entriesByID {
+		entries = append(entries, entry)
+	}
+	entries = append(entries, buildProjectAISettingEntries(options.ProjectAISettings)...)
+
+	pluginService := options.PluginService
 	if pluginService == nil {
-		return coreRegistry, nil
+		return New(entries)
 	}
 
 	pluginRuntime, err := pluginService.Runtime(plugins.RuntimeOptions{})
 	if err != nil {
 		return nil, err
-	}
-
-	entries := make([]RuntimeEntry, 0, len(coreRegistry.entriesByID))
-	for _, entry := range coreRegistry.entriesByID {
-		entries = append(entries, entry)
 	}
 
 	metadata := buildPluginRegistryMetadata(pluginRuntime)

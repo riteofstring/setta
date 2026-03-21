@@ -63,13 +63,12 @@ type revealUISettingResult struct {
 	Statuses           []revealUISettingStatusResult `json:"statuses"`
 }
 
-func newSearchUISettingsHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
+func newSearchUISettingsHandler(server *Server, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		_, registry, err := resolveScopedUISettingRegistry(
 			ctx,
 			arguments,
-			projectState,
-			pluginMutations,
+			server,
 			workspaceRoot,
 			"Scoped UI-setting search",
 		)
@@ -111,13 +110,12 @@ func newSearchUISettingsHandler(projectState projectStateProvider, pluginMutatio
 	}
 }
 
-func newGetUISettingValueHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
+func newGetUISettingValueHandler(server *Server, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, registry, err := resolveScopedUISettingRegistry(
 			ctx,
 			arguments,
-			projectState,
-			pluginMutations,
+			server,
 			workspaceRoot,
 			"Scoped UI-setting read",
 		)
@@ -159,13 +157,12 @@ func newGetUISettingValueHandler(projectState projectStateProvider, pluginMutati
 	}
 }
 
-func newSetUISettingValueHandler(server *Server, projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
+func newSetUISettingValueHandler(server *Server, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, registry, err := resolveScopedUISettingRegistry(
 			ctx,
 			arguments,
-			projectState,
-			pluginMutations,
+			server,
 			workspaceRoot,
 			"Scoped UI-setting write",
 		)
@@ -297,8 +294,7 @@ func newRevealUISettingHandler(server *Server, workspaceRoot string) tools.Handl
 		projectConfigID, registry, err := resolveScopedUISettingRegistry(
 			ctx,
 			arguments,
-			server.projectState,
-			server.pluginMutations,
+			server,
 			workspaceRoot,
 			"Scoped UI-setting reveal",
 		)
@@ -384,11 +380,14 @@ func runUISettingReveal(
 func resolveScopedUISettingRegistry(
 	ctx context.Context,
 	arguments map[string]any,
-	projectState projectStateProvider,
-	pluginMutations pluginMutationProvider,
+	server *Server,
 	workspaceRoot string,
 	operation string,
 ) (string, *uisettings.Registry, error) {
+	if server == nil {
+		return "", nil, newToolError("internal_error", "UI setting server is unavailable.")
+	}
+	projectState := server.projectState
 	if projectState == nil {
 		return "", nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
 	}
@@ -410,11 +409,64 @@ func resolveScopedUISettingRegistry(
 		)
 	}
 
-	registry, err := uisettings.NewScopedRegistry(projectState, workspaceRoot, pluginMutations)
+	registry, err := uisettings.NewScopedRegistry(uisettings.ScopedRegistryOptions{
+		Runtime:           projectState,
+		WorkspaceRoot:     workspaceRoot,
+		PluginService:     server.pluginMutations,
+		ProjectAISettings: buildProjectAISettingProviders(server),
+	})
 	if err != nil {
 		return "", nil, newToolError("internal_error", "UI setting registry is unavailable: %s", err.Error())
 	}
 	return projectConfigID, registry, nil
+}
+
+func buildProjectAISettingProviders(server *Server) uisettings.ProjectAISettingProviders {
+	if server == nil {
+		return uisettings.ProjectAISettingProviders{}
+	}
+	return uisettings.ProjectAISettingProviders{
+		LLMAPIKeys: func(context.Context) (int, error) {
+			if server.llmAPIKeys == nil {
+				return 0, fmt.Errorf("llm api key runtime is unavailable")
+			}
+			snapshot := server.llmAPIKeys.ManagedAPIKeysSnapshot()
+			if snapshot.ErrorCode != nil {
+				return 0, fmt.Errorf("managed api keys unavailable (%s)", *snapshot.ErrorCode)
+			}
+			return len(snapshot.APIKeys), nil
+		},
+		AgentProfiles: func(context.Context) (int, error) {
+			if server.agentProfiles == nil {
+				return 0, fmt.Errorf("agent profile store is unavailable")
+			}
+			profiles, err := server.agentProfiles.List()
+			if err != nil {
+				return 0, err
+			}
+			return len(profiles), nil
+		},
+		PromptTemplates: func(context.Context) (int, error) {
+			if server.promptTemplates == nil {
+				return 0, fmt.Errorf("prompt template store is unavailable")
+			}
+			templates, err := server.promptTemplates.List()
+			if err != nil {
+				return 0, err
+			}
+			return len(templates), nil
+		},
+		ExternalAgents: func(context.Context) (int, error) {
+			if server.externalAgentConfigs == nil {
+				return 0, fmt.Errorf("external agent config store is unavailable")
+			}
+			configs, err := server.externalAgentConfigs.List()
+			if err != nil {
+				return 0, err
+			}
+			return len(configs), nil
+		},
+	}
 }
 
 func resolveScopedProjectConfigIDArgument(arguments map[string]any, invocation ToolInvocationContext) (string, error) {

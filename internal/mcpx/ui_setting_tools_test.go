@@ -10,9 +10,13 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/agentprofiles"
 	"setta/internal/appspec"
+	"setta/internal/externalagentconfigs"
+	"setta/internal/llmconfig"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 	"setta/internal/realtime"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
@@ -178,6 +182,44 @@ func (s *recordingRevealService) Reveal(_ context.Context, input uisettings.Reve
 	return s.result, s.err
 }
 
+func openProjectAISettingLLMService(t *testing.T, root string, apiKeys map[string]string) *llmconfig.Service {
+	t.Helper()
+
+	runtime, err := llmconfig.NewRuntime(llmconfig.AllConfigs{})
+	if err != nil {
+		t.Fatalf("new llm runtime: %v", err)
+	}
+	service, err := llmconfig.NewService(llmconfig.ServiceOptions{
+		ConfigPath:         llmconfig.Path(root),
+		ManagedAPIKeysPath: llmconfig.ManagedAPIKeysPath(root),
+		Runtime:            runtime,
+		ProcessEnv: func() map[string]string {
+			return map[string]string{}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new llm service: %v", err)
+	}
+	if _, status := service.SaveManagedAPIKeys(apiKeys, 0); status != llmconfig.ManagedAPIKeysWriteStatusSuccess {
+		t.Fatalf("seed managed api keys: %s", status)
+	}
+	return service
+}
+
+func mustStructuredInteger(t *testing.T, value any) int {
+	t.Helper()
+
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case float64:
+		return int(typed)
+	default:
+		t.Fatalf("expected integer value, got %#v", value)
+		return 0
+	}
+}
+
 func TestServerUISettingToolsExposeScopedSingletonMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -214,6 +256,276 @@ func TestServerUISettingToolsExposeScopedSingletonMetadata(t *testing.T) {
 			if _, ok := inputProperties["expectedOldValue"]; !ok {
 				t.Fatalf("expected set_ui_setting_value schema to expose expectedOldValue, got %#v", inputProperties)
 			}
+		}
+	}
+}
+
+func TestServerProjectAIUISettingsAreDiscoverableRevealableAndReadOnly(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	projectRuntime := openScopedTestProjectRuntime(t)
+
+	profileStore, err := agentprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	if err := profileStore.Write([]agentprofiles.Profile{
+		{ID: "profile-alpha", Name: "Alpha"},
+		{ID: "profile-beta", Name: "Beta"},
+		{ID: "profile-gamma", Name: "Gamma"},
+	}); err != nil {
+		t.Fatalf("seed agent profiles: %v", err)
+	}
+
+	templateStore, err := prompttemplates.NewStore(root)
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+	for _, template := range []prompttemplates.Template{
+		{ID: "template-alpha", Name: "Alpha", Template: "alpha"},
+		{ID: "template-beta", Name: "Beta", Template: "beta"},
+		{ID: "template-gamma", Name: "Gamma", Template: "gamma"},
+		{ID: "template-delta", Name: "Delta", Template: "delta"},
+	} {
+		if err := templateStore.Save(template); err != nil {
+			t.Fatalf("seed prompt template %s: %v", template.ID, err)
+		}
+	}
+
+	externalConfigStore, err := externalagentconfigs.NewStore(root)
+	if err != nil {
+		t.Fatalf("new external agent config store: %v", err)
+	}
+	if err := externalConfigStore.Write([]externalagentconfigs.Config{
+		{
+			ID:       "external-codex",
+			Name:     "Codex",
+			ToolType: externalagentconfigs.ToolTypeCodex,
+			RunMode:  externalagentconfigs.RunModeAppServer,
+		},
+	}); err != nil {
+		t.Fatalf("seed external agent configs: %v", err)
+	}
+
+	llmService := openProjectAISettingLLMService(t, root, map[string]string{
+		"OPENAI_API_KEY":    "openai-secret",
+		"ANTHROPIC_API_KEY": "anthropic-secret",
+	})
+
+	expectations := map[string]struct {
+		query           string
+		expectedCount   int
+		accordionItemID string
+	}{
+		"core.project_ai_settings.llm_api_keys": {
+			query:           "llm api keys",
+			expectedCount:   2,
+			accordionItemID: "project-ai-settings-llm-api-keys",
+		},
+		"core.project_ai_settings.agent_profiles": {
+			query:           "agent profiles",
+			expectedCount:   3,
+			accordionItemID: "project-ai-settings-agent-profiles",
+		},
+		"core.project_ai_settings.prompt_templates": {
+			query:           "prompt templates",
+			expectedCount:   4,
+			accordionItemID: "project-ai-settings-prompt-templates",
+		},
+		"core.project_ai_settings.external_agents": {
+			query:           "external agents",
+			expectedCount:   1,
+			accordionItemID: "project-ai-settings-external-agents",
+		},
+	}
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubUISettingRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if revealMessage.Content.ActiveSectionID != nil {
+			t.Fatalf("expected left-pane project-ai reveal without activeSectionId, got %#v", revealMessage.Content.ActiveSectionID)
+		}
+		if len(revealMessage.Content.Reveals) != 1 {
+			t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
+		}
+		target := revealMessage.Content.Reveals[0]
+		expectation, ok := expectations[target.SettingID]
+		if !ok {
+			t.Fatalf("unexpected reveal target setting id %q", target.SettingID)
+		}
+		if target.OverviewTabKey == nil || *target.OverviewTabKey != "ProjectAISettings" {
+			t.Fatalf("expected ProjectAISettings overview tab, got %#v", target.OverviewTabKey)
+		}
+		if len(target.RevealActivationSteps) != 1 {
+			t.Fatalf("expected one reveal activation step, got %#v", target.RevealActivationSteps)
+		}
+		if target.RevealActivationSteps[0].Type != string(uisettings.RevealActivationProjectAIAccordion) {
+			t.Fatalf("expected project-ai accordion activation step, got %#v", target.RevealActivationSteps[0])
+		}
+		if target.RevealActivationSteps[0].ItemValue != expectation.accordionItemID {
+			t.Fatalf("expected accordion item %q, got %#v", expectation.accordionItemID, target.RevealActivationSteps[0].ItemValue)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID: target.SettingID,
+					Status:    "revealed",
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected reveal result resolution to succeed")
+		}
+		return true, nil
+	}
+	revealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
+		Transport: transport,
+		Results:   results,
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, root, projectRuntime, ServerOptions{
+		WorkspaceRoot:        root,
+		ProjectState:         projectRuntime,
+		AgentProfiles:        profileStore,
+		PromptTemplates:      templateStore,
+		ExternalAgentConfigs: externalConfigStore,
+		LLMAPIKeys:           llmService,
+		UISettingReveals:     revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "", "", true)
+
+	for settingID, expectation := range expectations {
+		searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+			Name: "search_ui_settings",
+			Arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"query":           expectation.query,
+				"sourceFilter":    "core",
+			},
+		})
+		if err != nil {
+			t.Fatalf("call search_ui_settings for %s: %v", settingID, err)
+		}
+		if searchResult.IsError {
+			t.Fatalf("expected search_ui_settings success for %s, got %#v", settingID, searchResult.StructuredContent)
+		}
+		searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+		searchEntries := mustStructuredList(t, searchPayload["results"])
+		found := false
+		for _, rawEntry := range searchEntries {
+			entry := mustStructuredMap(t, rawEntry)
+			if entry["settingId"] == settingID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected search results for %s to include %s, got %#v", expectation.query, settingID, searchEntries)
+		}
+
+		getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+			Name: "get_ui_setting_value",
+			Arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"settingId":       settingID,
+			},
+		})
+		if err != nil {
+			t.Fatalf("call get_ui_setting_value for %s: %v", settingID, err)
+		}
+		if getResult.IsError {
+			t.Fatalf("expected get_ui_setting_value success for %s, got %#v", settingID, getResult.StructuredContent)
+		}
+		getPayload := mustStructuredMap(t, getResult.StructuredContent)
+		if got := mustStructuredInteger(t, getPayload["value"]); got != expectation.expectedCount {
+			t.Fatalf("expected %s count %d, got %d", settingID, expectation.expectedCount, got)
+		}
+		settingPayload := mustStructuredMap(t, getPayload["setting"])
+		if settingPayload["mutability"] != string(uisettings.MutabilityReadOnly) {
+			t.Fatalf("expected %s mutability readOnly, got %#v", settingID, settingPayload["mutability"])
+		}
+		locationPayload := mustStructuredMap(t, settingPayload["location"])
+		if locationPayload["overviewTabKey"] != "ProjectAISettings" {
+			t.Fatalf("expected %s overviewTabKey ProjectAISettings, got %#v", settingID, locationPayload["overviewTabKey"])
+		}
+
+		setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+			Name: "set_ui_setting_value",
+			Arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"settingId":       settingID,
+				"value":           0,
+			},
+		})
+		if err != nil {
+			t.Fatalf("call set_ui_setting_value for %s: %v", settingID, err)
+		}
+		if setResult.IsError {
+			t.Fatalf("expected structured set_ui_setting_value failure for %s, got %#v", settingID, setResult.StructuredContent)
+		}
+		setPayload := mustStructuredMap(t, setResult.StructuredContent)
+		errorPayload := mustStructuredMap(t, setPayload["error"])
+		if errorPayload["code"] != string(uisettings.ErrorCodeSettingReadOnly) {
+			t.Fatalf("expected read-only error code for %s, got %#v", settingID, errorPayload["code"])
+		}
+
+		revealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+			Name: "reveal_ui_setting",
+			Arguments: map[string]any{
+				"projectConfigId": "project-alpha",
+				"settingId":       settingID,
+			},
+		})
+		if err != nil {
+			t.Fatalf("call reveal_ui_setting for %s: %v", settingID, err)
+		}
+		if revealResult.IsError {
+			t.Fatalf("expected reveal_ui_setting success for %s, got %#v", settingID, revealResult.StructuredContent)
+		}
+		revealPayload := mustStructuredMap(t, revealResult.StructuredContent)
+		if got := mustStructuredInteger(t, revealPayload["emittedRevealCount"]); got != 1 {
+			t.Fatalf("expected emittedRevealCount=1 for %s, got %d", settingID, got)
+		}
+		statuses := mustStructuredList(t, revealPayload["statuses"])
+		if len(statuses) != 1 {
+			t.Fatalf("expected one reveal status for %s, got %#v", settingID, statuses)
+		}
+		status := mustStructuredMap(t, statuses[0])
+		if status["status"] != "revealed" {
+			t.Fatalf("expected revealed status for %s, got %#v", settingID, status["status"])
+		}
+		target := mustStructuredMap(t, status["target"])
+		if target["overviewTabKey"] != "ProjectAISettings" {
+			t.Fatalf("expected ProjectAISettings reveal target for %s, got %#v", settingID, target["overviewTabKey"])
+		}
+		steps := mustStructuredList(t, target["revealActivationSteps"])
+		if len(steps) != 1 {
+			t.Fatalf("expected one reveal activation step for %s, got %#v", settingID, steps)
+		}
+		step := mustStructuredMap(t, steps[0])
+		if step["type"] != string(uisettings.RevealActivationProjectAIAccordion) {
+			t.Fatalf("expected project-ai activation step for %s, got %#v", settingID, step["type"])
+		}
+		if step["itemValue"] != expectation.accordionItemID {
+			t.Fatalf("expected activation item %q for %s, got %#v", expectation.accordionItemID, settingID, step["itemValue"])
 		}
 	}
 }
