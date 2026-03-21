@@ -10,7 +10,7 @@ exec "${SCRIPT_DIR}/run-codex-loop.sh" \
   --prompt-file "${PROMPT_FILE}" \
   --followup-prompt-file "${FOLLOWUP_PROMPT_FILE}" \
   --workdir "${ROOT_DIR}" \
-  --iterations 1000 \
+  --iterations 100000 \
   --new-session-every 10 \
   --yolo \
   "$@"
