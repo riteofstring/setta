@@ -1054,6 +1054,35 @@ Current execution note:
           - this path did reduce duplicated row subscriptions on paper, but the confirmation rerun shows it can broaden aggregate work instead of trimming it
         - do not keep this row-metadata ownership cut at `HEAD`
         - the next Tier 1 probe should stay inside the existing row geometry but narrow the blast radius, most likely via a specialized top-level non-CodeMirror `textLabelLeaf` fast path for switch/dropdown-heavy rows
+      - the next narrower non-CodeMirror leaf probe then specialized `ParamUI` for `SwitchParam` rows only, and it was rejected on the first paired rerun:
+        - recorded report:
+          - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-switch-param-ui-fast-path-rerun.md`
+        - experimental files:
+          - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+          - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+        - mechanism under test:
+          - add a `SwitchParam` fast path in `ParamUI`
+          - avoid the generic selector bundle and text-field waiting hook for switch rows
+          - keep row geometry unchanged
+        - paired benchmark read:
+          - the first paired matrix already regressed the mandatory real `settings` target badly enough that a confirmation rerun was not justified
+          - `tier1Synthetic` only showed a small paint improvement while still regressing `RunTask`
+        - authoritative worktree first-rerun deltas versus the recalibrated retained baseline:
+          - `settings` benchmark `Paint`:
+            - `436.851ms -> 458.410ms`
+          - `settings` benchmark `RunTask`:
+            - `31132.744ms -> 42324.104ms`
+          - `settings` benchmark `UpdateLayoutTree`:
+            - `493.197ms -> 538.338ms`
+          - `tier1Synthetic` benchmark `Paint`:
+            - `749.086ms -> 740.056ms`
+          - `tier1Synthetic` benchmark `RunTask`:
+            - `14593.848ms -> 15951.716ms`
+        - mechanism read:
+          - a switch-only `ParamUI` split is too narrow to move the real `settings` path in the right direction
+          - the next smaller probe should not assume that “skip generic `ParamUI` work for switches” is the right Tier 1 mechanism
+        - do not keep this switch fast path at `HEAD`
+        - the next Tier 1 probe should remain small, but it should choose a different repeated leaf subtype or a different mechanism than switch-only `ParamUI` splitting
 
 ## Phase 6: Reevaluate Tier 2 Code Sections
 

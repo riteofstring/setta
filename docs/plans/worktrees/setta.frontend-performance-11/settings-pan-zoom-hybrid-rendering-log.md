@@ -2658,3 +2658,57 @@ Record:
     - the most plausible next target is a smaller specialized non-CodeMirror `textLabelLeaf` fast path for top-level switch/dropdown-heavy rows inside the existing geometry
 - Next action:
   - Restore the retained baseline, rerun focused verification, and choose the narrow specialized fast-path experiment before making the next code change.
+
+## 2026-03-21 063
+
+- Item: Benchmark the narrower `SwitchParam` `ParamUI` fast path, then decide whether to keep it.
+- Status: `done`
+- Details:
+  - Live experiment:
+    - added a specialized `SwitchParam` fast path in `ParamUI`
+    - avoided the generic selector bundle and the text-field waiting hook for switch rows
+    - kept the existing row geometry unchanged
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-21_section-benchmark-tier1-switch-param-ui-fast-path-rerun.md`
+  - Focused live verification passed before benchmarking:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - `2` files passed
+    - `3` tests passed
+  - Filtered typecheck while the experiment was live:
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "ParamUI\\.tsx|SwitchInput\\.tsx"`
+    - the only matching diagnostics were the same pre-existing baseline `ParamUI.tsx` errors in the generic text/password branches, not in the new switch fast path
+  - Fresh subagent CDP check while the experiment was live:
+    - `/benchmark-tier1` loaded normally at normal zoom and showed no obvious row, label, or switch layout breakage
+    - `/settings` was reachable, but the subagent only saw the minimal shell rather than a populated settings canvas, so visual validation there was not authoritative
+  - First paired rerun versus the recalibrated retained baseline was already bad enough to reject:
+    - `settings`
+      - benchmark `Paint`:
+        - `436.851ms -> 458.410ms`
+      - benchmark `RunTask`:
+        - `31132.744ms -> 42324.104ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.197ms -> 538.338ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `749.086ms -> 740.056ms`
+      - benchmark `RunTask`:
+        - `14593.848ms -> 15951.716ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.243ms -> 20.355ms`
+  - Decision:
+    - reject the switch-only `ParamUI` fast path as a keep for `HEAD`
+    - the real `settings` target regressed too hard to justify a confirmation rerun
+- Next action:
+  - Revert this experiment cleanly, restore the retained baseline, and choose a different small Tier 1 leaf-path mechanism for the next probe.
+
+## 2026-03-21 064
+
+- Item: Re-narrow the next Tier 1 probe after rejecting the switch-only `ParamUI` fast path.
+- Status: `in_progress`
+- Details:
+  - Current read:
+    - smaller specialized cuts are still the right scale
+    - but the next probe should not be switch-only `ParamUI` splitting
+    - the next candidate needs a different repeated subtype or a different leaf-path mechanism
+- Next action:
+  - Restore the retained baseline, rerun focused verification, and choose the next small Tier 1 leaf-path probe before making another code change.
