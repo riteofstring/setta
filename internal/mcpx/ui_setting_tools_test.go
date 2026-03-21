@@ -54,6 +54,22 @@ func (s *concurrentWritePluginMutationService) WriteConfig(ctx context.Context, 
 	return s.Service.WriteConfig(ctx, options)
 }
 
+type runtimeOverridePluginMutationService struct {
+	*plugins.Service
+	mutateRuntime func(plugins.RuntimeResponse) plugins.RuntimeResponse
+}
+
+func (s *runtimeOverridePluginMutationService) Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+	response, err := s.Service.Runtime(options)
+	if err != nil {
+		return plugins.RuntimeResponse{}, err
+	}
+	if s.mutateRuntime != nil {
+		response = s.mutateRuntime(response)
+	}
+	return response, nil
+}
+
 type recordingRevealService struct {
 	input  uisettings.RevealInput
 	result uisettings.RevealResult
@@ -2902,6 +2918,88 @@ func TestServerUISettingToolsSupportSchemaBackedPluginSettings(t *testing.T) {
 	}
 }
 
+func TestServerUISettingToolsReturnDefaultForMissingPluginConfigLeafFromRuntime(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, baseService := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := baseService.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	if _, err := baseService.WriteConfig(context.Background(), plugins.ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "configured",
+		},
+	}); err != nil {
+		t.Fatalf("seed plugin config before runtime override: %v", err)
+	}
+
+	// The Go runtime keeps currentConfig typed as an object, but a runtime view can still omit a leaf.
+	service := &runtimeOverridePluginMutationService{
+		Service: baseService,
+		mutateRuntime: func(response plugins.RuntimeResponse) plugins.RuntimeResponse {
+			for index := range response.List.Plugins {
+				if response.List.Plugins[index].PluginID != "setta-fixture-full" {
+					continue
+				}
+				response.List.Plugins[index].Config.CurrentConfig = map[string]any{}
+				response.List.Plugins[index].Config.CurrentConfigDigestSHA256 = nil
+				return response
+			}
+			t.Fatalf("expected runtime override plugin entry, got %#v", response.List.Plugins)
+			return response
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call missing-leaf plugin get_ui_setting_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected structured missing-leaf plugin response, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["value"] != false {
+		t.Fatalf("expected schema default false for missing plugin config leaf, got %#v", payload["value"])
+	}
+
+	runtimeResponse, err := baseService.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("plugin runtime after missing-leaf read: %v", err)
+	}
+	pluginEntry := mustFindPluginListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
+	if pluginEntry.Config.CurrentConfig["enabled"] != true {
+		t.Fatalf("expected persisted plugin config to remain enabled=true, got %#v", pluginEntry.Config.CurrentConfig)
+	}
+}
+
 func TestServerUISettingToolsSchemaBackedSameValueWriteIsNoOpWithoutPersistingPluginState(t *testing.T) {
 	t.Parallel()
 
@@ -3503,7 +3601,7 @@ func TestServerUISettingToolsReturnSettingNotFoundForUnknownSettingOnActivePlugi
 	}
 }
 
-func TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin(t *testing.T) {
+func TestServerUISettingToolsDisabledPluginRejectsReadWriteRevealAndHidesSearchResults(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
@@ -3525,18 +3623,46 @@ func TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin(t *testing
 	}); err != nil {
 		t.Fatalf("disable full fixture plugin: %v", err)
 	}
+	revealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
+		Transport: &stubUISettingRevealTransport{registry: realtime.NewRegistry(realtime.RegistryOptions{})},
+		Results:   realtime.NewUISettingRevealResultHub(),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
 
 	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
-		WorkspaceRoot:   roots.workspaceRoot,
-		ProjectState:    projectRuntime,
-		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
-		PluginMutations: service,
+		WorkspaceRoot:    roots.workspaceRoot,
+		ProjectState:     projectRuntime,
+		LSPDiagnostics:   openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations:  service,
+		UISettingReveals: revealService,
 	})
 	defer clientSession.Close()
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "full fixture enabled",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call disabled plugin search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected structured disabled plugin search response, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	if len(searchResults) != 0 {
+		t.Fatalf("expected disabled plugin setting to disappear from plugin search results, got %#v", searchResults)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
@@ -3546,13 +3672,63 @@ func TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin(t *testing
 	if err != nil {
 		t.Fatalf("call disabled plugin get_ui_setting_value: %v", err)
 	}
-	if result.IsError {
-		t.Fatalf("expected structured disabled plugin response, got %#v", result.StructuredContent)
+	if getResult.IsError {
+		t.Fatalf("expected structured disabled plugin get response, got %#v", getResult.StructuredContent)
 	}
-	payload := mustStructuredMap(t, result.StructuredContent)
-	errorPayload := mustStructuredMap(t, payload["error"])
-	if errorPayload["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for disabled plugin setting, got %#v", errorPayload["code"])
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	getError := mustStructuredMap(t, getPayload["error"])
+	if getError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for disabled plugin get, got %#v", getError["code"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call disabled plugin set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured disabled plugin set response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for disabled plugin set, got %#v", setError["code"])
+	}
+
+	revealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call disabled plugin reveal_ui_setting: %v", err)
+	}
+	if revealResult.IsError {
+		t.Fatalf("expected structured disabled plugin reveal response, got %#v", revealResult.StructuredContent)
+	}
+	revealPayload := mustStructuredMap(t, revealResult.StructuredContent)
+	if got := mustStructuredInteger(t, revealPayload["emittedRevealCount"]); got != 0 {
+		t.Fatalf("expected emittedRevealCount=0 for disabled plugin reveal, got %d", got)
+	}
+	statuses := mustStructuredList(t, revealPayload["statuses"])
+	if len(statuses) != 1 {
+		t.Fatalf("expected one disabled plugin reveal status, got %#v", statuses)
+	}
+	status := mustStructuredMap(t, statuses[0])
+	if status["status"] != "failed" {
+		t.Fatalf("expected failed disabled plugin reveal status, got %#v", status["status"])
+	}
+	revealError := mustStructuredMap(t, status["error"])
+	if revealError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for disabled plugin reveal, got %#v", revealError["code"])
 	}
 }
 
