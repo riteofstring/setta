@@ -2,6 +2,7 @@ package settacmd
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -258,6 +259,199 @@ func TestRunLaunchReturnsNilSettaFilesLocationForExplicitRoot(t *testing.T) {
 	}
 	if got := payload["settaFilesRoot"]; got != explicitSettaFilesRoot {
 		t.Fatalf("expected explicit settaFilesRoot %q, got %#v", explicitSettaFilesRoot, got)
+	}
+}
+
+func TestRunLaunchEmitsTypedJSONConfigErrors(t *testing.T) {
+	t.Parallel()
+
+	type launchConfigErrorCase struct {
+		name            string
+		buildArgs       func(root string) []string
+		setup           func(t *testing.T, root string)
+		expectedCode    string
+		expectedMessage string
+	}
+
+	cases := []launchConfigErrorCase{
+		{
+			name: "invalid workspace",
+			buildArgs: func(root string) []string {
+				return []string{
+					"--json",
+					"--workspace", filepath.Join(root, "missing"),
+					"--setta-home", filepath.Join(root, ".setta"),
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, ".setta"), 0o755); err != nil {
+					t.Fatalf("mkdir setta home: %v", err)
+				}
+			},
+			expectedCode:    "InvalidWorkspace",
+			expectedMessage: "workspace root does not exist",
+		},
+		{
+			name: "invalid local setta files root",
+			buildArgs: func(root string) []string {
+				return []string{
+					"--json",
+					"--workspace", filepath.Join(root, "workspace"),
+					"--setta-home", filepath.Join(root, ".setta"),
+					"--setta-files-location", "local",
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, "workspace"), 0o755); err != nil {
+					t.Fatalf("mkdir workspace: %v", err)
+				}
+				if err := os.MkdirAll(filepath.Join(root, ".setta"), 0o755); err != nil {
+					t.Fatalf("mkdir setta home: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(root, "workspace", "setta_files"), []byte("not a directory\n"), 0o644); err != nil {
+					t.Fatalf("write invalid local setta_files root: %v", err)
+				}
+			},
+			expectedCode:    "InvalidSettaFilesRoot",
+			expectedMessage: "local setta_files path is not a directory",
+		},
+		{
+			name: "invalid runtime root",
+			buildArgs: func(root string) []string {
+				return []string{
+					"--json",
+					"--workspace", filepath.Join(root, "workspace"),
+					"--setta-home", filepath.Join(root, ".setta"),
+					"--setta-files-location", "local",
+					"--runtime-root", filepath.Join(root, "runtime-root-file"),
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, "workspace"), 0o755); err != nil {
+					t.Fatalf("mkdir workspace: %v", err)
+				}
+				if err := os.MkdirAll(filepath.Join(root, ".setta"), 0o755); err != nil {
+					t.Fatalf("mkdir setta home: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(root, "runtime-root-file"), []byte("not a directory\n"), 0o644); err != nil {
+					t.Fatalf("write invalid runtime root file: %v", err)
+				}
+			},
+			expectedCode:    "InvalidRuntimeRoot",
+			expectedMessage: "runtime root is not a directory",
+		},
+		{
+			name: "invalid setta home",
+			buildArgs: func(root string) []string {
+				return []string{
+					"--json",
+					"--workspace", filepath.Join(root, "workspace"),
+					"--setta-home", filepath.Join(root, "custom-home"),
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, "workspace"), 0o755); err != nil {
+					t.Fatalf("mkdir workspace: %v", err)
+				}
+			},
+			expectedCode:    "InvalidSettaHome",
+			expectedMessage: "must end with one of",
+		},
+		{
+			name: "invalid user config",
+			buildArgs: func(root string) []string {
+				return []string{
+					"--json",
+					"--workspace", filepath.Join(root, "workspace"),
+					"--setta-home", filepath.Join(root, ".setta"),
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, "workspace"), 0o755); err != nil {
+					t.Fatalf("mkdir workspace: %v", err)
+				}
+				if err := os.MkdirAll(filepath.Join(root, ".setta"), 0o755); err != nil {
+					t.Fatalf("mkdir setta home: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(root, ".setta", "config.json"), []byte("{\n"), 0o644); err != nil {
+					t.Fatalf("write malformed config: %v", err)
+				}
+			},
+			expectedCode:    "InvalidSettaUserConfig",
+			expectedMessage: "invalid json in setta config",
+		},
+		{
+			name: "unknown profile",
+			buildArgs: func(root string) []string {
+				return []string{
+					"--json",
+					"--workspace", filepath.Join(root, "workspace"),
+					"--setta-home", filepath.Join(root, ".setta"),
+					"--profile", "missing",
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, "workspace"), 0o755); err != nil {
+					t.Fatalf("mkdir workspace: %v", err)
+				}
+				if err := os.MkdirAll(filepath.Join(root, ".setta"), 0o755); err != nil {
+					t.Fatalf("mkdir setta home: %v", err)
+				}
+			},
+			expectedCode:    "UnknownSettaProfile",
+			expectedMessage: "unknown setta profile",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			tc.setup(t, root)
+
+			deps := testLaunchDependencies(t, launchTestOptions{
+				newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+					return launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
+						ExecutablePath: "/tmp/setta-server",
+					})
+				},
+			})
+
+			stdout, stderr, err := runLaunchCommandWithDeps(t, tc.buildArgs(root), globalFlags{}, root, deps)
+			if err == nil {
+				t.Fatal("expected launch failure")
+			}
+			if code := ExitCode(err); code != 2 {
+				t.Fatalf("expected exit code 2, got %d", code)
+			}
+			if stderr != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+
+			payload := decodeJSONPayload(t, stdout)
+			errorPayload, ok := payload["error"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected error payload, got %#v", payload)
+			}
+			if got := errorPayload["code"]; got != tc.expectedCode {
+				t.Fatalf("expected %s error, got %#v", tc.expectedCode, got)
+			}
+			message, ok := errorPayload["message"].(string)
+			if !ok {
+				t.Fatalf("expected string error message, got %#v", errorPayload["message"])
+			}
+			if !strings.Contains(message, tc.expectedMessage) {
+				t.Fatalf("expected message containing %q, got %q", tc.expectedMessage, message)
+			}
+		})
 	}
 }
 

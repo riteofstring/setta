@@ -109,6 +109,34 @@ type UserConfig struct {
 	AutoMode             AutoMode
 }
 
+type ConfigError struct {
+	Code    string
+	Message string
+	cause   error
+}
+
+func (e *ConfigError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+func (e *ConfigError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+func newConfigError(code string, message string, cause error) *ConfigError {
+	return &ConfigError{
+		Code:    code,
+		Message: message,
+		cause:   cause,
+	}
+}
+
 func defaultUserConfig(settaHome string) UserConfig {
 	return UserConfig{
 		GlobalSettaFilesBase: filepath.Join(settaHome, "setta_files"),
@@ -501,7 +529,7 @@ func resolveSettaFilesRoot(
 			return "", "", false, err
 		}
 		if err := validateExistingDir(selectedRoot, "setta files root"); err != nil {
-			return "", "", false, err
+			return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
 		}
 		return selectedRoot, ResolvedFilesLocationLocal, true, nil
 	}
@@ -512,7 +540,7 @@ func resolveSettaFilesRoot(
 	}
 
 	if err := validateExistingDir(localRoot, "local setta_files path"); err != nil {
-		return "", "", false, err
+		return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
 	}
 	if isDir(localRoot) {
 		return localRoot, ResolvedFilesLocationLocal, false, nil
@@ -527,7 +555,7 @@ func resolveSettaFilesRoot(
 	}
 	globalRoot := buildFilesRootFromBase(globalBase, workspaceRoot)
 	if err := validateExistingDir(globalRoot, "global setta_files path"); err != nil {
-		return "", "", false, err
+		return "", "", false, newConfigError("InvalidSettaFilesRoot", err.Error(), err)
 	}
 	if selectedLocation == FilesLocationGlobal {
 		return globalRoot, ResolvedFilesLocationGlobal, false, nil
@@ -596,7 +624,7 @@ func loadUserConfig(settaHome string) (UserConfig, error) {
 		if os.IsNotExist(err) {
 			return defaults, nil
 		}
-		return UserConfig{}, fmt.Errorf("read setta config: %w", err)
+		return UserConfig{}, newConfigError("InvalidSettaUserConfig", fmt.Sprintf("read setta config: %v", err), err)
 	}
 
 	var raw struct {
@@ -606,10 +634,14 @@ func loadUserConfig(settaHome string) (UserConfig, error) {
 		DefaultCreateLocation any    `json:"defaultCreateLocation"`
 	}
 	if err := json.Unmarshal(content, &raw); err != nil {
-		return UserConfig{}, fmt.Errorf("invalid json in setta config: %w", err)
+		return UserConfig{}, newConfigError("InvalidSettaUserConfig", fmt.Sprintf("invalid json in setta config: %v", err), err)
 	}
 	if raw.OpenWorkspaceFallback != nil || raw.DefaultCreateLocation != nil {
-		return UserConfig{}, fmt.Errorf("setta config uses removed keys openWorkspaceFallback/defaultCreateLocation; use autoMode instead")
+		return UserConfig{}, newConfigError(
+			"InvalidSettaUserConfig",
+			"setta config uses removed keys openWorkspaceFallback/defaultCreateLocation; use autoMode instead",
+			nil,
+		)
 	}
 
 	result := defaults
@@ -623,15 +655,19 @@ func loadUserConfig(settaHome string) (UserConfig, error) {
 	switch result.AutoMode {
 	case AutoModeCreateLocal, AutoModeUseGlobalIfExists, AutoModeCreateGlobal:
 	default:
-		return UserConfig{}, fmt.Errorf("autoMode must be one of: create_local, use_global_if_present, create_global")
+		return UserConfig{}, newConfigError(
+			"InvalidSettaUserConfig",
+			"autoMode must be one of: create_local, use_global_if_present, create_global",
+			nil,
+		)
 	}
 
 	resolvedBase, err := resolvePath(result.GlobalSettaFilesBase, settaHome)
 	if err != nil {
-		return UserConfig{}, err
+		return UserConfig{}, newConfigError("InvalidSettaUserConfig", err.Error(), err)
 	}
 	if err := validateExistingDir(resolvedBase, "globalSettaFilesBase"); err != nil {
-		return UserConfig{}, err
+		return UserConfig{}, newConfigError("InvalidSettaUserConfig", err.Error(), err)
 	}
 	result.GlobalSettaFilesBase = resolvedBase
 	return result, nil
@@ -640,19 +676,19 @@ func loadUserConfig(settaHome string) (UserConfig, error) {
 func loadProfile(settaHome string, profileName string) (profileConfig, error) {
 	trimmedName := trimmed(profileName)
 	if trimmedName == "" {
-		return profileConfig{}, fmt.Errorf("missing profile name")
+		return profileConfig{}, newConfigError("InvalidSettaProfile", "missing profile name", nil)
 	}
 	if trimmedName == "." || trimmedName == ".." || strings.ContainsAny(trimmedName, "/\\") {
-		return profileConfig{}, fmt.Errorf("invalid profile name %q", profileName)
+		return profileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("invalid profile name %q", profileName), nil)
 	}
 
 	profilePath := filepath.Join(settaHome, "profiles", trimmedName+".json")
 	content, err := os.ReadFile(profilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return profileConfig{}, fmt.Errorf("unknown setta profile %q", trimmedName)
+			return profileConfig{}, newConfigError("UnknownSettaProfile", fmt.Sprintf("unknown setta profile %q", trimmedName), err)
 		}
-		return profileConfig{}, fmt.Errorf("read setta profile: %w", err)
+		return profileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("read setta profile: %v", err), err)
 	}
 
 	var raw struct {
@@ -665,36 +701,44 @@ func loadProfile(settaHome string, profileName string) (profileConfig, error) {
 		AuthCookieName     string `json:"authCookieName"`
 	}
 	if err := json.Unmarshal(content, &raw); err != nil {
-		return profileConfig{}, fmt.Errorf("invalid json in setta profile: %w", err)
+		return profileConfig{}, newConfigError("InvalidSettaProfile", fmt.Sprintf("invalid json in setta profile: %v", err), err)
 	}
 
 	if raw.Name != "" && trimmed(raw.Name) != trimmedName {
-		return profileConfig{}, fmt.Errorf("profile name mismatch: expected %q, got %q", trimmedName, trimmed(raw.Name))
+		return profileConfig{}, newConfigError(
+			"InvalidSettaProfile",
+			fmt.Sprintf("profile name mismatch: expected %q, got %q", trimmedName, trimmed(raw.Name)),
+			nil,
+		)
 	}
 
 	location, err := parseOptionalFilesLocation(raw.SettaFilesLocation)
 	if err != nil {
-		return profileConfig{}, err
+		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
 	}
 	if trimmed(raw.SettaFilesRoot) != "" && location != "" {
-		return profileConfig{}, fmt.Errorf("profile config cannot set both settaFilesRoot and settaFilesLocation")
+		return profileConfig{}, newConfigError(
+			"InvalidSettaProfile",
+			"profile config cannot set both settaFilesRoot and settaFilesLocation",
+			nil,
+		)
 	}
 
 	workspaceRoot, err := resolveOptionalPath(raw.WorkspaceRoot, settaHome)
 	if err != nil {
-		return profileConfig{}, err
+		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
 	}
 	profileSettaHome, err := resolveOptionalPath(raw.SettaHome, settaHome)
 	if err != nil {
-		return profileConfig{}, err
+		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
 	}
 	settaFilesRoot, err := resolveOptionalPath(raw.SettaFilesRoot, settaHome)
 	if err != nil {
-		return profileConfig{}, err
+		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
 	}
 	runtimeRoot, err := resolveOptionalPath(raw.RuntimeRoot, settaHome)
 	if err != nil {
-		return profileConfig{}, err
+		return profileConfig{}, newConfigError("InvalidSettaProfile", err.Error(), err)
 	}
 
 	return profileConfig{
@@ -732,12 +776,12 @@ func validateWorkspaceRoot(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("workspace root does not exist: %s", path)
+			return newConfigError("InvalidWorkspace", fmt.Sprintf("workspace root does not exist: %s", path), err)
 		}
-		return fmt.Errorf("stat workspace root: %w", err)
+		return newConfigError("InvalidWorkspace", fmt.Sprintf("stat workspace root: %v", err), err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("workspace root is not a directory: %s", path)
+		return newConfigError("InvalidWorkspace", fmt.Sprintf("workspace root is not a directory: %s", path), nil)
 	}
 	return nil
 }
@@ -746,7 +790,11 @@ func validateSettaHomeName(path string, label string) error {
 	if _, ok := allowedSettaHomeNames[filepath.Base(path)]; ok {
 		return nil
 	}
-	return fmt.Errorf("%s must end with one of: .setta, .setta-development. received: %s", label, path)
+	return newConfigError(
+		"InvalidSettaHome",
+		fmt.Sprintf("%s must end with one of: .setta, .setta-development. received: %s", label, path),
+		nil,
+	)
 }
 
 func validateSettaFilesRoot(path string) error {
@@ -755,14 +803,25 @@ func validateSettaFilesRoot(path string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("setta files root must include one of these folder names: setta_files, setta_files_dev. received: %s", path)
+	return newConfigError(
+		"InvalidSettaFilesRoot",
+		fmt.Sprintf("setta files root must include one of these folder names: setta_files, setta_files_dev. received: %s", path),
+		nil,
+	)
 }
 
 func validateRuntimeRoot(runtimeRoot string, workspaceRoot string) error {
 	if samePath(runtimeRoot, workspaceRoot) {
-		return fmt.Errorf("runtime root cannot be the workspace root. use a dedicated runtime directory")
+		return newConfigError(
+			"InvalidRuntimeRoot",
+			"runtime root cannot be the workspace root. use a dedicated runtime directory",
+			nil,
+		)
 	}
-	return validateExistingDir(runtimeRoot, "runtime root")
+	if err := validateExistingDir(runtimeRoot, "runtime root"); err != nil {
+		return newConfigError("InvalidRuntimeRoot", err.Error(), err)
+	}
+	return nil
 }
 
 func validateExistingDir(path string, label string) error {

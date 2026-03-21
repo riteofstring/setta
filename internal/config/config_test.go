@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -321,6 +322,13 @@ func TestLoadProfileRejectsUnknownProfile(t *testing.T) {
 	if got := err.Error(); !strings.Contains(got, `unknown setta profile "missing"`) {
 		t.Fatalf("expected unknown profile error, got %q", got)
 	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "UnknownSettaProfile" {
+		t.Fatalf("expected UnknownSettaProfile, got %q", configErr.Code)
+	}
 }
 
 func TestLoadProfileRejectsConflictingSettaFilesFields(t *testing.T) {
@@ -435,6 +443,13 @@ func TestValidateSettaHomeNameRejectsNonstandardLeaf(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, ".setta") || !strings.Contains(got, ".setta-development") {
 		t.Fatalf("expected canonical setta home names in error, got %q", got)
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaHome" {
+		t.Fatalf("expected InvalidSettaHome, got %q", configErr.Code)
 	}
 }
 
@@ -667,6 +682,13 @@ func TestLoadUserConfigRejectsRemovedLegacyKeys(t *testing.T) {
 	if got := err.Error(); !strings.Contains(got, "openWorkspaceFallback/defaultCreateLocation") {
 		t.Fatalf("expected removed legacy-key error, got %q", got)
 	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaUserConfig" {
+		t.Fatalf("expected InvalidSettaUserConfig, got %q", configErr.Code)
+	}
 }
 
 func TestLoadUserConfigRejectsMalformedJSON(t *testing.T) {
@@ -686,6 +708,13 @@ func TestLoadUserConfigRejectsMalformedJSON(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, "invalid json in setta config") {
 		t.Fatalf("expected malformed json error, got %q", got)
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaUserConfig" {
+		t.Fatalf("expected InvalidSettaUserConfig, got %q", configErr.Code)
 	}
 }
 
@@ -733,6 +762,13 @@ func TestLoadUserConfigRejectsFileBackedGlobalSettaFilesBase(t *testing.T) {
 	if got := err.Error(); !strings.Contains(got, "globalSettaFilesBase is not a directory") {
 		t.Fatalf("expected file-backed globalSettaFilesBase error, got %q", got)
 	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaUserConfig" {
+		t.Fatalf("expected InvalidSettaUserConfig, got %q", configErr.Code)
+	}
 }
 
 func TestLoadRejectsMissingWorkspace(t *testing.T) {
@@ -754,6 +790,96 @@ func TestLoadRejectsMissingWorkspace(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected missing workspace error")
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidWorkspace" {
+		t.Fatalf("expected InvalidWorkspace, got %q", configErr.Code)
+	}
+}
+
+func TestLoadRejectsInvalidLocalSettaFilesRootWithTypedCode(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	localRoot := filepath.Join(workspaceRoot, "setta_files")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.WriteFile(localRoot, []byte("not a directory\n"), 0o644); err != nil {
+		t.Fatalf("write invalid local setta_files root: %v", err)
+	}
+
+	_, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot:      workspaceRoot,
+			SettaHome:          settaHome,
+			SettaFilesLocation: "local",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid local setta_files root error")
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaFilesRoot" {
+		t.Fatalf("expected InvalidSettaFilesRoot, got %q", configErr.Code)
+	}
+	if !strings.Contains(configErr.Message, "local setta_files path is not a directory") {
+		t.Fatalf("expected local setta_files path detail, got %q", configErr.Message)
+	}
+}
+
+func TestLoadRejectsInvalidRuntimeRootWithTypedCode(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	runtimeRoot := filepath.Join(tmpDir, "runtime-root-file")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.WriteFile(runtimeRoot, []byte("not a directory\n"), 0o644); err != nil {
+		t.Fatalf("write invalid runtime root file: %v", err)
+	}
+
+	_, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot:      workspaceRoot,
+			SettaHome:          settaHome,
+			SettaFilesLocation: "local",
+			RuntimeRoot:        runtimeRoot,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid runtime root error")
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidRuntimeRoot" {
+		t.Fatalf("expected InvalidRuntimeRoot, got %q", configErr.Code)
+	}
+	if !strings.Contains(configErr.Message, "runtime root is not a directory") {
+		t.Fatalf("expected runtime root directory detail, got %q", configErr.Message)
 	}
 }
 

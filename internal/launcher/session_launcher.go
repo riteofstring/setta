@@ -439,8 +439,13 @@ func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
 		CLI:       cli,
 	})
 	if err != nil {
+		code := "BadRequest"
+		var configErr *config.ConfigError
+		if errors.As(err, &configErr) {
+			code = configErr.Code
+		}
 		return config.Config{}, &SessionLaunchError{
-			Code:    "BadRequest",
+			Code:    code,
 			Message: err.Error(),
 		}
 	}
