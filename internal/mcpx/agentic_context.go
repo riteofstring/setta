@@ -28,6 +28,7 @@ const (
 	agenticEdgeKindChatChat              = "chat_chat"
 	agenticEdgeKindSectionChat           = "section_chat"
 	agenticEdgeKindChatSection           = "chat_section"
+	accessTypePeerChat                   = "peer_chat"
 )
 
 type AgenticContext struct {
@@ -375,25 +376,14 @@ func sessionContextBool(session *AgenticContext, getter func(AgenticContext) boo
 func resolveAgenticScope(projectState projectview.SingleConfig, chatSectionID string, allowUnscoped bool) (AgenticScope, error) {
 	if allowUnscoped {
 		allSectionIDs := make(map[string]struct{}, len(projectState.Sections))
-		peerChatSectionIDs := map[string]struct{}{}
 		for sectionID := range projectState.Sections {
 			allSectionIDs[sectionID] = struct{}{}
-		}
-		for _, edge := range projectState.ProjectConfig.AgenticEdges {
-			if edge.Kind == agenticEdgeKindChatChat {
-				if _, ok := projectState.Sections[edge.SourceSectionID]; ok {
-					peerChatSectionIDs[edge.SourceSectionID] = struct{}{}
-				}
-				if _, ok := projectState.Sections[edge.TargetSectionID]; ok {
-					peerChatSectionIDs[edge.TargetSectionID] = struct{}{}
-				}
-			}
 		}
 		return AgenticScope{
 			ReadSectionIDs:     allSectionIDs,
 			WriteSectionIDs:    cloneStringSet(allSectionIDs),
 			ContextSectionIDs:  cloneStringSet(allSectionIDs),
-			PeerChatSectionIDs: peerChatSectionIDs,
+			PeerChatSectionIDs: map[string]struct{}{},
 			StructuralAllowed:  true,
 		}, nil
 	}
@@ -421,25 +411,16 @@ func resolveAgenticScope(projectState projectview.SingleConfig, chatSectionID st
 	}
 	for _, edge := range projectState.ProjectConfig.AgenticEdges {
 		switch edge.Kind {
-		case agenticEdgeKindSectionChat:
-			if edge.TargetSectionID != chatSectionID {
-				continue
-			}
-			scope.ReadSectionIDs[edge.SourceSectionID] = struct{}{}
-			scope.ContextSectionIDs[edge.SourceSectionID] = struct{}{}
 		case agenticEdgeKindChatSection:
 			if edge.SourceSectionID != chatSectionID {
 				continue
 			}
 			scope.ReadSectionIDs[edge.TargetSectionID] = struct{}{}
 			scope.WriteSectionIDs[edge.TargetSectionID] = struct{}{}
+			scope.ContextSectionIDs[edge.TargetSectionID] = struct{}{}
 		case agenticEdgeKindChatChat:
 			if edge.SourceSectionID == chatSectionID {
 				scope.PeerChatSectionIDs[edge.TargetSectionID] = struct{}{}
-				continue
-			}
-			if edge.TargetSectionID == chatSectionID {
-				scope.PeerChatSectionIDs[edge.SourceSectionID] = struct{}{}
 			}
 		}
 	}
@@ -535,7 +516,7 @@ func checkAgenticScope(
 		}, nil
 	case tools.AccessTypeRead:
 		if len(targetSectionIDs) > 0 {
-			allowedSectionIDs := scope.effectiveReadSectionIDs()
+			allowedSectionIDs := scope.ReadSectionIDs
 			if len(allowedSectionIDs) == 0 {
 				return scopeCheckResult{
 					Allowed:            false,
@@ -554,7 +535,7 @@ func checkAgenticScope(
 				UnmappedCodeObjIDs: unmappedCodeObjIDs,
 			}, nil
 		}
-		if len(scope.effectiveReadSectionIDs()) == 0 {
+		if len(scope.ReadSectionIDs) == 0 {
 			return scopeCheckResult{
 				Allowed:            false,
 				Reason:             "empty_scope",
@@ -571,6 +552,38 @@ func checkAgenticScope(
 		return scopeCheckResult{
 			Allowed:            true,
 			Reason:             "read_without_targets",
+			UnmappedCodeObjIDs: unmappedCodeObjIDs,
+		}, nil
+	case tools.AccessType(accessTypePeerChat):
+		if len(targetSectionIDs) == 0 {
+			if len(unmappedCodeObjIDs) != 0 {
+				return scopeCheckResult{
+					Allowed:            false,
+					Reason:             "unmapped_code_obj",
+					UnmappedCodeObjIDs: unmappedCodeObjIDs,
+				}, nil
+			}
+			return scopeCheckResult{
+				Allowed:            false,
+				Reason:             "peer_chat_without_targets",
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
+		}
+		if len(scope.PeerChatSectionIDs) == 0 {
+			return scopeCheckResult{
+				Allowed:            false,
+				Reason:             "empty_scope",
+				TargetSectionIDs:   targetSectionIDs,
+				BlockedSectionIDs:  targetSectionIDs,
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
+		}
+		blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, scope.PeerChatSectionIDs)
+		return scopeCheckResult{
+			Allowed:            len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0,
+			Reason:             scopeReasonForTargets(blockedSectionIDs, unmappedCodeObjIDs, "allowed"),
+			TargetSectionIDs:   targetSectionIDs,
+			BlockedSectionIDs:  blockedSectionIDs,
 			UnmappedCodeObjIDs: unmappedCodeObjIDs,
 		}, nil
 	default:
@@ -644,7 +657,7 @@ func resolveMissingEdgeKind(projectView *projectview.SingleConfig, sectionID str
 	if strings.TrimSpace(accessType) == string(tools.AccessTypeStructural) {
 		return ""
 	}
-	if strings.TrimSpace(accessType) == "peer_chat" && isChatSection(projectView, sectionID) {
+	if strings.TrimSpace(accessType) == accessTypePeerChat && isChatSection(projectView, sectionID) {
 		return agenticEdgeKindChatChat
 	}
 	return agenticEdgeKindChatSection
