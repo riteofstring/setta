@@ -5,7 +5,7 @@ Last audited: `2026-03-20`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `f9b6187edbc5b9727acdbf7bba1eeac7e6a0e9bf`
+- Target head: `2852433fd497b7faf5c45f33a83a331f6c51955c`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -20,7 +20,12 @@ Last audited: `2026-03-20`
   UI-threshold fallback proof and run-code note-tightening pass, plus the
   targeted shared AI-send validation-envelope and optional app-spec-streaming
   binding slice, plus the retained-listener realtime debounce-scheduler
-  classification split
+  classification split, plus the targeted Pass 3/4 backlog stale-lead
+  re-audit of listener-binary batch payload fan-out, AI send / AI-follow
+  validation envelopes, direct app-definition invalid-write detail,
+  file-browser path guards, backend-log share-session fan-out, binary
+  upload/download, artifact-watcher image reload, and deployment current-
+  session bootstrap/listener-start rows
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -1861,6 +1866,26 @@ Last audited: `2026-03-20`
   `AllProjectMetadata`, and the direct MCP root route still keeps malformed
   JSON / invalid tool names / unknown tools on route-level HTTP errors even
   while scoped tool failures remain HTTP 200 `CallToolResult` errors.
+- A targeted Pass 3/4 backlog re-audit on `2026-03-20` found that several top
+  generated `Unknown Go Gap Leads` were stale against
+  `HEAD=2852433fd497b7faf5c45f33a83a331f6c51955c`: retained-listener binary
+  shared-payload fan-out, `getLLMResponse` and `getAIFollowSnapshot`
+  validation envelopes, direct `setAppDefinition` invalid-write detail,
+  `checkIfFileExists` workspace path guards, backend-log share-session fan-
+  out, binary upload/download, artifact-watcher image reload, and deployment
+  current-session bootstrap/listener startup already have direct Go proof on
+  the audited head.
+- After ruling out those stale leads, the next highest-value deterministic
+  candidates are `external_agent.runtime.env_whitelist_reads_process_and_managed_env_only`
+  (live Project AI settings still depend on it, but proof is still one
+  executor-level test without a run-start transport slice),
+  `deployment.ide.share_publish.snapshots_latest_runtime_project_state`
+  (share publish still snapshots live IDE runtime state, but proof is still
+  one publisher-level test without route or parity coverage), and
+  `terminal.metadata.websocket.family_has_no_proven_live_caller`
+  (the transport family still exists in the frontend enum while the receiver
+  branch remains `TODO`, so caller liveness versus dead-schema status is still
+  unresolved).
 - A later direct-write / view-mode omission pass on `2026-03-18` corrected one
   false-positive gap and surfaced the remaining real load-time/document-shape
   branches. A follow-up fix later that same day then closed those gaps:
@@ -2550,7 +2575,7 @@ Last audited: `2026-03-20`
 | `project_shell.notifications.delete_persists` | `backend/setta/routers/projects.py::route_delete_notification` deletes the notification through the DB | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane removes locally, then posts the delete | `Proved` | The delete side effect itself survives in Go. |
 | `project_shell.notifications.delete_transport_success_bool` | `backend/setta/routers/projects.py::route_delete_notification` returns `{"success": success}` | `internal/httpapi/project_shell_routes.go::deleteNotificationHandler` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | `frontend/src/components/Panes/Overview/NotificationsArea.tsx` ignores the response today | `Proved` | Go now returns the source success object. |
 | `frontend.ws.notification.transport_roundtrip_for_live_save_and_watch_code_callers` | `backend/setta/types/websocket.py::{SettaNotification,WebsocketMsgTypeForFrontend.Notification}` keeps the source notification payload family live, and `docs/reference/logging-and-error-handling.md` still separates websocket `Notification` delivery from backend logs for user-facing events such as `Saved!` and warning toasts | `internal/realtime/messages.go::NewNotificationMessage`; `internal/app/app.go`; `internal/app/watch_code_notifications.go` | `TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes`; `TestWebsocketHubBroadcastJSONFiltersTargetsBySessionAndType` | `frontend/src/state/actions/websocketReceive.ts` still routes `WebsocketMsgTypeForFrontendEnum.Notification` into the notifications store and temporary-notification UI paths | `Proved` | Frontend websocket notifications still round-trip on the live Go surface: project saves emit the persisted `save` notification shape, watch-code warnings still arrive as temporary warning notifications, and delivery still stays on the frontend websocket channel instead of collapsing into backend-log events. |
-| `backend_logs.ws.frontend_only_share_session_scoped_event_delivery` | `docs/reference/logging-and-error-handling.md` records `BackendLogEvent` websocket fan-out to `/ws/frontend`; `backend/setta/types/websocket.py::{SettaBackendLogEvent,WebsocketMsgTypeForFrontend}` keeps the frontend event type and payload shape on the source baseline; `docs/plans/go-backend-rewrite/archive/phase-4-terminal-run-code-migration.md` scopes `Started command` backend-log delivery as part of the live run-code diagnostics surface | `internal/backendlogs/service.go::{LogAndBroadcast,broadcastEvent}` | `TestServiceLogAndBroadcastScopesToMatchingShareSession` | `frontend/src/state/actions/websocketReceive.ts`; `frontend/src/state/actions/backendLogEvents.ts`; `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx`; `frontend/tests/e2e/overview/misc/backend-logs-columns-resize-copy.spec.ts` | `Proved` | Backend log events still fan out only to frontend websocket clients in the matching share session, still exclude listener sockets from that diagnostics channel, and still preserve the source-style stable id/project/severity/timestamp payload shape that the live Overview backend-logs pane consumes. |
+| `backend_logs.ws.frontend_only_share_session_scoped_event_delivery` | `docs/reference/logging-and-error-handling.md` records `BackendLogEvent` websocket fan-out to `/ws/frontend`; `backend/setta/types/websocket.py::{SettaBackendLogEvent,WebsocketMsgTypeForFrontend}` keeps the frontend event type and payload shape on the source baseline; `docs/plans/go-backend-rewrite/archive/phase-4-terminal-run-code-migration.md` scopes `Started command` backend-log delivery as part of the live run-code diagnostics surface | `internal/backendlogs/service.go::{LogAndBroadcast,broadcastEvent}` | `TestServiceLogAndBroadcastScopesToMatchingShareSession`; `TestRegisterRoutesBackendLogsBroadcastOnlyToMatchingSessionFrontend` | `frontend/src/state/actions/websocketReceive.ts`; `frontend/src/state/actions/backendLogEvents.ts`; `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx`; `frontend/tests/e2e/overview/misc/backend-logs-columns-resize-copy.spec.ts` | `Proved` | Backend log events still fan out only to frontend websocket clients in the matching share session, still exclude listener sockets from that diagnostics channel, and now have direct `/ws/frontend` share-session route proof for the stable id/project/severity/timestamp payload shape that the live Overview backend-logs pane consumes. |
 | `backend_logs.ws.ui_log_level_threshold_filters_frontend_events_without_suppressing_server_logs` | `docs/reference/logging-and-error-handling.md` records `SETTA_UI_LOG_LEVEL` as the minimum severity for UI backend-log broadcasts and says the default follows the effective root log level | `internal/backendlogs/service.go::{LogAndBroadcast,resolveUILogLevel}` | `TestServiceLogAndBroadcastHonorsUILogThresholdWhileStillLogging`; `TestServiceLogAndBroadcastDefaultsUILogThresholdToEffectiveLoggerLevel` | the current backend-log websocket consumers still append events through `frontend/src/state/actions/websocketReceive.ts` into `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx`, so suppressed UI delivery remains caller-visible on the live diagnostics surface | `Proved` | `SETTA_UI_LOG_LEVEL` still filters low-severity backend-log websocket delivery without suppressing the underlying server log entry when the UI override is stricter than the logger, and when the environment override is absent the UI threshold still defaults to the effective root log level. |
 | `backend_logs.run_code.start_emits_started_command_event` | `docs/plans/go-backend-rewrite/archive/phase-4-terminal-run-code-migration.md` keeps `Started command` backend-log delivery on the live run-code diagnostics surface, and `docs/reference/logging-and-error-handling.md` still separates that frontend websocket stream from terminal bytes | `internal/runs/service.go`; `internal/backendlogs/service.go::{LogAndBroadcast,broadcastEvent}` | `TestAppRunCodeBroadcastsBackendLogEvent` | `frontend/src/state/actions/backendLogEvents.ts`; `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx`; `frontend/src/state/actions/runOrImportCode.ts` still surface run-start diagnostics from the backend-log websocket channel rather than reconstructing them from terminal output | `Proved` | Starting `runCode` still emits the caller-visible `Started command` backend-log event on the frontend websocket channel, preserving the live Overview diagnostics contract as a stream separate from terminal output. |
 | `config.profile.lookup_home_and_runtime_setta_home_resolution` | `tests/utils/test_profile_config.py::test_load_profile_parses_optional_fields` proves that source profiles can preserve a profile-lookup home while overriding the runtime `settaHome`, and `docs/reference/setta-cli-commands.md` still documents `--profile-lookup-home` on the live packaged CLI surface | `internal/config/config.go::{resolveProfileLookupHome,loadProfile,resolveSettaHome}` | `TestLoadPreservesProfileLookupHomeWhenProfileOverridesRuntimeHome` | packaged `setta launch`, `setta launcher`, and related config-resolving CLI surfaces still accept `--profile-lookup-home` and depend on the shared config loader to separate profile discovery from runtime home selection | `Proved` | Loading a profile still preserves the lookup home used to find `profiles/<name>.json` even when the selected profile overrides the runtime `settaHome`, so later profile-relative resolution does not drift to the runtime home by mistake. |

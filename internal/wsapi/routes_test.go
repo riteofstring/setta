@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/artifacts"
 	"setta/internal/auth"
+	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/codegen"
 	"setta/internal/config"
@@ -1208,6 +1209,95 @@ func TestRegisterRoutesShareListenerCoverageBroadcastsOnlyToMatchingSessionFront
 		nil,
 	)
 	assertNoRouteEnvelopeOfType(t, frontendB, realtime.MessageTypeListenerCoverageSnapshot, 300*time.Millisecond)
+}
+
+func TestRegisterRoutesBackendLogsBroadcastOnlyToMatchingSessionFrontend(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share-a session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share-b session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontendA := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-a", nil)
+	defer frontendA.CloseNow()
+	_ = readUntilMessageType(t, frontendA, realtime.MessageTypeFrontendIdentity, 2)
+
+	frontendB := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-b", nil)
+	defer frontendB.CloseNow()
+	_ = readUntilMessageType(t, frontendB, realtime.MessageTypeFrontendIdentity, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write share listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+
+	logService, err := backendlogs.NewService(backendlogs.ServiceOptions{
+		Logger:       observability.NewLogger(0, io.Discard),
+		WebsocketHub: hub,
+		IDGenerator: func() string {
+			return "backend-log-id"
+		},
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 20, 15, 4, 5, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new backend log service: %v", err)
+	}
+
+	if err := logService.LogAndBroadcast(context.Background(), backendlogs.LogRequest{
+		Message:        "Started command",
+		Severity:       backendlogs.SeverityInfo,
+		ProjectID:      "project-a",
+		ShareSessionID: "share-a",
+	}); err != nil {
+		t.Fatalf("broadcast backend log event: %v", err)
+	}
+
+	envelope := readUntilMessageType(t, frontendA, backendlogs.MessageTypeBackendLogEvent, 2)
+
+	var event backendlogs.Event
+	if err := json.Unmarshal(envelope.Content, &event); err != nil {
+		t.Fatalf("decode backend log event: %v", err)
+	}
+	if event.ID != "backend-log-id" {
+		t.Fatalf("expected backend log id backend-log-id, got %q", event.ID)
+	}
+	if event.ProjectID == nil || *event.ProjectID != "project-a" {
+		t.Fatalf("expected project-a backend log event, got %#v", event.ProjectID)
+	}
+	if event.Severity != backendlogs.SeverityInfo {
+		t.Fatalf("expected info backend log severity, got %q", event.Severity)
+	}
+	if event.Message != "Started command" {
+		t.Fatalf("expected Started command backend log message, got %q", event.Message)
+	}
+	if event.Timestamp != "2026-03-20T15:04:05Z" {
+		t.Fatalf("expected fixed backend log timestamp, got %q", event.Timestamp)
+	}
+
+	assertNoRouteEnvelopeOfType(t, frontendB, backendlogs.MessageTypeBackendLogEvent, 300*time.Millisecond)
+	assertNoRouteEnvelopeOfType(t, listener, backendlogs.MessageTypeBackendLogEvent, 300*time.Millisecond)
 }
 
 func TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh(t *testing.T) {
