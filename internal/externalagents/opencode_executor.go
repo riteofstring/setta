@@ -27,6 +27,7 @@ import (
 
 const (
 	openCodeConfigFileName   = "opencode.json"
+	openCodeMCPStatusTimeout = 100 * time.Millisecond
 	openCodeMaxStderrLines   = 200
 	openCodeStdoutBufferSize = 1024 * 1024
 )
@@ -542,7 +543,7 @@ func (e *OpenCodeExecutor) fetchOpenCodeMCPStatusPayload(ctx context.Context, co
 	if err != nil {
 		return nil
 	}
-	client := &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: openCodeMCPStatusTimeout}
 	response, err := client.Do(request)
 	if err != nil {
 		return nil

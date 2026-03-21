@@ -1053,6 +1053,80 @@ func TestOpenCodeExecutorGuardEnabledRewritesMissingReportOnFinalize(t *testing.
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestOpenCodeSessionReadStderrCapsLastNonBlankLines(t *testing.T) {
+	var builder strings.Builder
+	totalLines := openCodeMaxStderrLines + 5
+	for index := 0; index < totalLines; index++ {
+		builder.WriteString(fmt.Sprintf("line-%d\n", index))
+	}
+	builder.WriteString("\n")
+
+	session := &openCodeSession{}
+	session.readStderr(strings.NewReader(builder.String()))
+
+	lines := session.stderrTail()
+	if len(lines) != openCodeMaxStderrLines {
+		t.Fatalf("expected %d stderr lines, got %#v", openCodeMaxStderrLines, lines)
+	}
+	expectedStart := fmt.Sprintf("line-%d", totalLines-openCodeMaxStderrLines)
+	if lines[0] != expectedStart {
+		t.Fatalf("expected stderr tail to start at %q, got %#v", expectedStart, lines)
+	}
+}
+
+func TestFetchOpenCodeMCPStatusPayloadReturnsPayloadWhenServerIsFast(t *testing.T) {
+	t.Parallel()
+
+	statusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"servers":[{"id":"setta","connected":true,"transport":"sse","endpoint":"http://127.0.0.1:8000/mcp"}]}`))
+	}))
+	defer statusServer.Close()
+
+	payload := (&OpenCodeExecutor{}).fetchOpenCodeMCPStatusPayload(context.Background(), externalagentconfigs.Config{
+		RunMode: externalagentconfigs.RunModeServer,
+		BaseURL: stringPtr(statusServer.URL),
+	})
+
+	decoded, ok := payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload map, got %#v", payload)
+	}
+	servers, ok := decoded["servers"].([]any)
+	if !ok || len(servers) != 1 {
+		t.Fatalf("expected one server status entry, got %#v", decoded["servers"])
+	}
+	server, ok := servers[0].(map[string]any)
+	if !ok || stringValue(server["id"]) != mcpx.DefaultServerID {
+		t.Fatalf("expected setta server entry, got %#v", servers[0])
+	}
+}
+
+func TestFetchOpenCodeMCPStatusPayloadUsesShortTimeout(t *testing.T) {
+	t.Parallel()
+
+	statusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(250 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"servers":[{"id":"setta","connected":true}]}`))
+	}))
+	defer statusServer.Close()
+
+	start := time.Now()
+	payload := (&OpenCodeExecutor{}).fetchOpenCodeMCPStatusPayload(context.Background(), externalagentconfigs.Config{
+		RunMode: externalagentconfigs.RunModeServer,
+		BaseURL: stringPtr(statusServer.URL),
+	})
+	elapsed := time.Since(start)
+
+	if payload != nil {
+		t.Fatalf("expected slow MCP status probe to fail open, got %#v", payload)
+	}
+	if elapsed >= 200*time.Millisecond {
+		t.Fatalf("expected short MCP status timeout, probe took %s", elapsed)
+	}
+}
+
 func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
 	// Verify server-mode runs merge runtime-config seeding with fetched `/mcp`
 	// status payloads, including the generated Setta entry, and persist the
