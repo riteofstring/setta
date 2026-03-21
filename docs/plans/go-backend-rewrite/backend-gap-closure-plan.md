@@ -302,6 +302,10 @@ categorize them.
   next smallest missing slice is likely the terminal websocket share-session
   keepalive touch behavior, with the remaining Codex `enabled_tools` runtime
   config row still looking like the next compact external-agent follow-up
+- That terminal websocket share-session keepalive row is now closed too, so
+  the next smallest missing slice is likely the Codex `enabled_tools` runtime
+  config contract before the backlog steps up into broader launcher, AI-route,
+  JSON-source runtime, or other websocket/listener policy gaps
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
