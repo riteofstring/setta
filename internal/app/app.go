@@ -511,7 +511,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectRuntime = projectStates.Main()
 		settingsStateStore, err := settingsstate.NewStore(
 			filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
-			settingsstate.StoreOptions{},
+			settingsstate.StoreOptions{
+				SettingsProjectPath: projectStates.Paths().Settings,
+			},
 		)
 		if err != nil {
 			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())

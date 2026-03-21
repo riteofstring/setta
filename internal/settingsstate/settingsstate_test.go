@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"setta/internal/projectstate"
 )
 
 func TestNormalizeRawRejectsNonObjectPayload(t *testing.T) {
@@ -368,6 +370,138 @@ func TestStoreLoadWritesMissingDefaultsBackToDisk(t *testing.T) {
 	}
 	if _, ok := persisted["gui"].(map[string]any); !ok {
 		t.Fatalf("expected load writeback to persist default top-level branches, got %#v", persisted)
+	}
+}
+
+func TestStoreLoadResolvesClaimedSlicesFromSettingsProjectAndFallsBackToSharedFile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, DefaultFileName)
+	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
+	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
+
+	defaults, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+
+	sharedDocument := defaults.Clone()
+	sharedDocument["backend"].(map[string]any)["renameRefactorMode"] = "NEVER_RENAME"
+	if err := writeSettingsObject(sharedSettingsPath, sharedDocument); err != nil {
+		t.Fatalf("write shared settings document: %v", err)
+	}
+
+	dedicatedGUIDocument := defaults.Clone()
+	dedicatedGUIDocument["gui"].(map[string]any)["gridColor"] = "#123456"
+	if err := writeSettingsObject(dedicatedGUIPath, dedicatedGUIDocument); err != nil {
+		t.Fatalf("write dedicated gui settings document: %v", err)
+	}
+
+	settingsProjectDocument, err := buildProjectDocumentWithSharedSettingsPath(defaults, sharedSettingsPath)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsProject, err := settingsProjectDocument.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id: %v", err)
+	}
+	guiVariantID := settingsProject.SectionVariantMap[settingsSectionID("gui")]
+	guiVariant := settingsProject.SectionVariants[guiVariantID]
+	guiVariant.Name = dedicatedGUIPath
+	settingsProject.SectionVariants[guiVariantID] = guiVariant
+	settingsProjectDocument.Projects[SettingsProjectID] = settingsProject
+
+	settingsProjectStore, err := projectstate.NewStore(settingsProjectPath, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings project store: %v", err)
+	}
+	if err := settingsProjectStore.Save(context.Background(), settingsProjectDocument); err != nil {
+		t.Fatalf("save settings project document: %v", err)
+	}
+
+	store, err := NewStore(sharedSettingsPath, StoreOptions{SettingsProjectPath: settingsProjectPath})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if got := document["gui"].(map[string]any)["gridColor"]; got != "#123456" {
+		t.Fatalf("expected gui slice to load from dedicated file, got %#v", got)
+	}
+	if got := document["backend"].(map[string]any)["renameRefactorMode"]; got != "NEVER_RENAME" {
+		t.Fatalf("expected unclaimed backend slice to fall back to shared file, got %#v", got)
+	}
+}
+
+func TestStoreLoadCreatesMissingClaimedTargetWithFullDefaultsBeforeRead(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, DefaultFileName)
+	missingGUIPath := filepath.Join(root, "gui-settings.json")
+	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
+
+	defaults, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	sharedDocument := defaults.Clone()
+	sharedDocument["backend"].(map[string]any)["renameRefactorMode"] = "ALWAYS_RENAME"
+	if err := writeSettingsObject(sharedSettingsPath, sharedDocument); err != nil {
+		t.Fatalf("write shared settings document: %v", err)
+	}
+
+	settingsProjectDocument, err := buildProjectDocumentWithSharedSettingsPath(defaults, sharedSettingsPath)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsProject, err := settingsProjectDocument.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id: %v", err)
+	}
+	guiVariantID := settingsProject.SectionVariantMap[settingsSectionID("gui")]
+	guiVariant := settingsProject.SectionVariants[guiVariantID]
+	guiVariant.Name = missingGUIPath
+	settingsProject.SectionVariants[guiVariantID] = guiVariant
+	settingsProjectDocument.Projects[SettingsProjectID] = settingsProject
+
+	settingsProjectStore, err := projectstate.NewStore(settingsProjectPath, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings project store: %v", err)
+	}
+	if err := settingsProjectStore.Save(context.Background(), settingsProjectDocument); err != nil {
+		t.Fatalf("save settings project document: %v", err)
+	}
+
+	store, err := NewStore(sharedSettingsPath, StoreOptions{SettingsProjectPath: settingsProjectPath})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if got := document["gui"].(map[string]any)["gridColor"]; got != defaults["gui"].(map[string]any)["gridColor"] {
+		t.Fatalf("expected missing dedicated gui file to bootstrap defaults before read, got %#v", got)
+	}
+
+	content, err := os.ReadFile(missingGUIPath)
+	if err != nil {
+		t.Fatalf("read bootstrapped dedicated settings file: %v", err)
+	}
+	var persisted Document
+	if err := json.Unmarshal(content, &persisted); err != nil {
+		t.Fatalf("decode bootstrapped dedicated settings file: %v", err)
+	}
+	if got := persisted["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_ASK" {
+		t.Fatalf("expected dedicated target bootstrap to write full defaults document, got %#v", got)
+	}
+	if _, ok := persisted["gui"].(map[string]any); !ok {
+		t.Fatalf("expected dedicated target bootstrap to include gui defaults, got %#v", persisted)
 	}
 }
 

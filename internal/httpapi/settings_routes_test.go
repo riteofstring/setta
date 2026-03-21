@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 )
@@ -217,6 +218,119 @@ func TestRegisterSettingsRoutesSaveAndLoadPreserveMetaControlSizingOverrides(t *
 	}
 	if got := persistedDropzone["sizeModeWidth"]; got != "any" {
 		t.Fatalf("expected persisted sizeModeWidth any, got %#v", got)
+	}
+}
+
+func TestRegisterSettingsRoutesLoadReadsClaimedSlicesFromDedicatedSettingsFiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, settingsstate.DefaultFileName)
+	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
+	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
+
+	defaults, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+
+	sharedDocument := defaults.Clone()
+	sharedDocument["backend"].(map[string]any)["renameRefactorMode"] = "ALWAYS_RENAME"
+	if err := writeSettingsRouteDocument(sharedSettingsPath, sharedDocument); err != nil {
+		t.Fatalf("write shared settings document: %v", err)
+	}
+
+	dedicatedGUIDocument := defaults.Clone()
+	dedicatedGUIDocument["gui"].(map[string]any)["gridColor"] = "#654321"
+	if err := writeSettingsRouteDocument(dedicatedGUIPath, dedicatedGUIDocument); err != nil {
+		t.Fatalf("write dedicated gui settings document: %v", err)
+	}
+
+	writeSettingsRouteProjectClaim(t, settingsProjectPath, "gui", dedicatedGUIPath)
+
+	runtime, _ := newSettingsRouteTestRuntimeWithPaths(t, sharedSettingsPath, settingsProjectPath)
+	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadSettings, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected load settings 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload settingsstate.Document
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode load settings payload: %v", err)
+	}
+	if got := payload["gui"].(map[string]any)["gridColor"]; got != "#654321" {
+		t.Fatalf("expected claimed gui slice from dedicated file, got %#v", got)
+	}
+	if got := payload["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected unclaimed backend slice from shared settings file, got %#v", got)
+	}
+}
+
+func TestRegisterSettingsRoutesSaveSplitsClaimedSlicesBySettingsProjectPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, settingsstate.DefaultFileName)
+	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
+	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
+
+	writeSettingsRouteProjectClaim(t, settingsProjectPath, "gui", dedicatedGUIPath)
+
+	runtime, _ := newSettingsRouteTestRuntimeWithPaths(t, sharedSettingsPath, settingsProjectPath)
+	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
+
+	document := runtime.Snapshot().Document
+	document["backend"].(map[string]any)["renameRefactorMode"] = "NEVER_RENAME"
+	document["gui"].(map[string]any)["gridColor"] = "#abcdef"
+
+	requestBody, err := json.Marshal(SaveSettingsRequest{Settings: document})
+	if err != nil {
+		t.Fatalf("marshal save settings payload: %v", err)
+	}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSaveSettings,
+		strings.NewReader(string(requestBody)),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected save settings 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	sharedContent, err := os.ReadFile(sharedSettingsPath)
+	if err != nil {
+		t.Fatalf("read shared settings file: %v", err)
+	}
+	var sharedPayload settingsstate.Document
+	if err := json.Unmarshal(sharedContent, &sharedPayload); err != nil {
+		t.Fatalf("decode shared settings file: %v", err)
+	}
+	if got := sharedPayload["backend"].(map[string]any)["renameRefactorMode"]; got != "NEVER_RENAME" {
+		t.Fatalf("expected shared settings file to keep backend slice, got %#v", got)
+	}
+	if _, ok := sharedPayload["gui"]; ok {
+		t.Fatalf("expected claimed gui slice to be written to dedicated file instead of shared file, got %#v", sharedPayload)
+	}
+
+	dedicatedContent, err := os.ReadFile(dedicatedGUIPath)
+	if err != nil {
+		t.Fatalf("read dedicated gui settings file: %v", err)
+	}
+	var dedicatedPayload settingsstate.Document
+	if err := json.Unmarshal(dedicatedContent, &dedicatedPayload); err != nil {
+		t.Fatalf("decode dedicated gui settings file: %v", err)
+	}
+	if got := dedicatedPayload["gui"].(map[string]any)["gridColor"]; got != "#abcdef" {
+		t.Fatalf("expected dedicated gui settings file to keep claimed gui slice, got %#v", got)
+	}
+	if _, ok := dedicatedPayload["backend"]; ok {
+		t.Fatalf("expected dedicated gui settings file to contain only its claimed slice, got %#v", dedicatedPayload)
 	}
 }
 
@@ -485,7 +599,15 @@ func newSettingsRouteTestRuntime(t *testing.T) (*settingsstate.Runtime, string) 
 	t.Helper()
 
 	settingsPath := filepath.Join(t.TempDir(), settingsstate.DefaultFileName)
-	store, err := settingsstate.NewStore(settingsPath, settingsstate.StoreOptions{})
+	return newSettingsRouteTestRuntimeWithPaths(t, settingsPath, "")
+}
+
+func newSettingsRouteTestRuntimeWithPaths(t *testing.T, settingsPath string, settingsProjectPath string) (*settingsstate.Runtime, string) {
+	t.Helper()
+
+	store, err := settingsstate.NewStore(settingsPath, settingsstate.StoreOptions{
+		SettingsProjectPath: settingsProjectPath,
+	})
 	if err != nil {
 		t.Fatalf("new settings store: %v", err)
 	}
@@ -499,6 +621,59 @@ func newSettingsRouteTestRuntime(t *testing.T) (*settingsstate.Runtime, string) 
 		}
 	})
 	return runtime, settingsPath
+}
+
+func writeSettingsRouteProjectClaim(
+	t *testing.T,
+	settingsProjectPath string,
+	claimedSlice string,
+	claimedPath string,
+) {
+	t.Helper()
+
+	defaults, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsProjectDocument, err := settingsstate.BuildProjectDocument(defaults)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	project, err := settingsProjectDocument.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id: %v", err)
+	}
+	variantID := ""
+	for sectionID, section := range project.Sections {
+		if section.Name != claimedSlice {
+			continue
+		}
+		variantID = project.SectionVariantMap[sectionID]
+		break
+	}
+	if variantID == "" {
+		t.Fatalf("missing settings section for claimed slice %q", claimedSlice)
+	}
+	variant := project.SectionVariants[variantID]
+	variant.Name = claimedPath
+	project.SectionVariants[variantID] = variant
+	settingsProjectDocument.Projects[settingsstate.SettingsProjectID] = project
+
+	store, err := projectstate.NewStore(settingsProjectPath, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings project store: %v", err)
+	}
+	if err := store.Save(context.Background(), settingsProjectDocument); err != nil {
+		t.Fatalf("save settings project document: %v", err)
+	}
+}
+
+func writeSettingsRouteDocument(path string, payload map[string]any) error {
+	content, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(content, '\n'), 0o644)
 }
 
 func newSettingsRouteTestHandler(
