@@ -171,6 +171,24 @@ Last audited: `2026-03-23`
   `stateful_store.file_lock.setup_failure_and_body_error_domains_survive_on_store_specific_go_helpers`
   row remained the correct terminal `Proved` disposition for those stale
   backlog clues.
+- Follow-up in this pass on `acabbce018`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/start/test_startup_message.py::{test_startup_message_auto_open,test_startup_message_manual_tunnel}`
+  against `cmd/setta-server/startup.go::renderLocalStartupMessage`, the live
+  root-command bridge in `internal/settacmd/start.go`, and the focused Go
+  proof in `TestRenderLocalStartupMessageRemoteSession`,
+  `TestRenderLocalStartupMessageAutoOpenSuppressesManualTunnelText`,
+  `TestEmitLocalStartupOutputFallsBackWhenBrowserOpenFails`,
+  `TestShouldAutoOpenLocalStartRejectsSSHSession`, and
+  `TestRunWithoutCommandUsesDefaultLocalStart`; no new implementation gap was
+  found, and the existing
+  `ide_cli.start.startup_output_remote_connect_hints_and_browser_fallback`,
+  `ide_cli.start.auto_open.respects_no_open_and_skips_ssh_sessions`, and
+  `ide_cli.start.auto_open_message_suppresses_manual_tunnel_text` rows
+  remained the correct terminal `Proved` dispositions for those stale
+  backlog clues.
 - Follow-up in this pass on `271f05e8c`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
   `internal/projectstate`
