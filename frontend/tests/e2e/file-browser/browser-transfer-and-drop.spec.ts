@@ -7,6 +7,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -594,6 +595,10 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       if (!sectionId) {
         throw new Error("Missing sectionId when creating browser section.");
       }
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
 
       const sectionNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,
@@ -755,10 +760,12 @@ test.describe.serial("file browser transfer and drag/drop", () => {
           operation: "copy",
         },
       );
-      await expect.poll(async () => await pathExists(dotCopyTwoPath)).toBe(true);
-      expect(normalizePathForComparison(secondCopy?.destinationPath ?? "")).toBe(
-        normalizePathForComparison(dotCopyTwoPath),
-      );
+      await expect
+        .poll(async () => await pathExists(dotCopyTwoPath))
+        .toBe(true);
+      expect(
+        normalizePathForComparison(secondCopy?.destinationPath ?? ""),
+      ).toBe(normalizePathForComparison(dotCopyTwoPath));
 
       await expect(fs.readFile(dotCopyPath, "utf-8")).resolves.toBe(
         "API_KEY=alpha\n",

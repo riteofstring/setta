@@ -40,6 +40,7 @@ import {
   ChartDataMapping,
   createProjectChatWindowingState,
   createProjectConfig,
+  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
@@ -758,7 +759,9 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
+export const useSettings = createWithEqualityFn<SettingsState>(() =>
+  createSettingsState(),
+);
 
 type ZustandTypeErrors = {
   userRequested: boolean;

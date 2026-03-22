@@ -179,8 +179,14 @@ func (p *Project) SetTaskBoardSectionState(
 	if err != nil {
 		return err
 	}
-	normalizedColumns, knownColumnIDs := normalizeTaskBoardColumns(columns)
-	normalizedTasks := normalizeTaskBoardTasks(tasks, knownColumnIDs)
+	normalizedColumns, knownColumnIDs, err := normalizeTaskBoardColumns(columns)
+	if err != nil {
+		return err
+	}
+	normalizedTasks, err := normalizeTaskBoardTasks(tasks, knownColumnIDs)
+	if err != nil {
+		return err
+	}
 	if err := p.setCurrentSectionField(section.ID, "viewMode", string(normalizedViewMode)); err != nil {
 		return err
 	}
@@ -338,31 +344,56 @@ func normalizeTaskBoardViewMode(viewMode TaskBoardViewMode) (TaskBoardViewMode, 
 	}
 }
 
-func normalizeTaskBoardColumns(columns []TaskBoardColumn) ([]TaskBoardColumn, map[string]struct{}) {
+func normalizeTaskBoardColumns(columns []TaskBoardColumn) ([]TaskBoardColumn, map[string]struct{}, error) {
 	if len(columns) == 0 {
-		return []TaskBoardColumn{}, map[string]struct{}{}
+		return []TaskBoardColumn{}, map[string]struct{}{}, nil
 	}
 
 	normalized := make([]TaskBoardColumn, 0, len(columns))
 	knownIDs := make(map[string]struct{}, len(columns))
 	for _, column := range columns {
-		if _, exists := knownIDs[column.ID]; exists {
+		cloned := column
+		cloned.ID = strings.TrimSpace(cloned.ID)
+		if cloned.ID == "" {
+			nextID, err := newProjectStateID()
+			if err != nil {
+				return nil, nil, err
+			}
+			cloned.ID = nextID
+		}
+		if _, exists := knownIDs[cloned.ID]; exists {
 			continue
 		}
-		knownIDs[column.ID] = struct{}{}
-		normalized = append(normalized, column)
+		knownIDs[cloned.ID] = struct{}{}
+		normalized = append(normalized, cloned)
 	}
-	return normalized, knownIDs
+	return normalized, knownIDs, nil
 }
 
-func normalizeTaskBoardTasks(tasks []TaskBoardTask, knownColumnIDs map[string]struct{}) []TaskBoardTask {
+func normalizeTaskBoardTasks(tasks []TaskBoardTask, knownColumnIDs map[string]struct{}) ([]TaskBoardTask, error) {
 	if len(tasks) == 0 {
-		return []TaskBoardTask{}
+		return []TaskBoardTask{}, nil
 	}
 
 	normalized := make([]TaskBoardTask, 0, len(tasks))
+	knownTaskIDs := make(map[string]struct{}, len(tasks))
 	for _, task := range tasks {
 		cloned := task
+		cloned.ID = strings.TrimSpace(cloned.ID)
+		if cloned.ID == "" {
+			nextID, err := newProjectStateID()
+			if err != nil {
+				return nil, err
+			}
+			cloned.ID = nextID
+		} else if _, exists := knownTaskIDs[cloned.ID]; exists {
+			nextID, err := newProjectStateID()
+			if err != nil {
+				return nil, err
+			}
+			cloned.ID = nextID
+		}
+		knownTaskIDs[cloned.ID] = struct{}{}
 		if cloned.ColumnID != nil {
 			if _, ok := knownColumnIDs[*cloned.ColumnID]; !ok {
 				cloned.ColumnID = nil
@@ -370,5 +401,5 @@ func normalizeTaskBoardTasks(tasks []TaskBoardTask, knownColumnIDs map[string]st
 		}
 		normalized = append(normalized, cloned)
 	}
-	return normalized
+	return normalized, nil
 }

@@ -6,6 +6,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -188,6 +189,7 @@ test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-filter-recursive-"),

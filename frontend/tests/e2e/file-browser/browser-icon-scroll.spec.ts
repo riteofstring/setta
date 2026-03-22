@@ -6,6 +6,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -24,7 +25,9 @@ test("icon view scrolls with trackpad wheel (does not get eaten by canvas pan)",
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -44,6 +47,7 @@ test("icon view scrolls with trackpad wheel (does not get eaten by canvas pan)",
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-browser-icon-scroll-"),

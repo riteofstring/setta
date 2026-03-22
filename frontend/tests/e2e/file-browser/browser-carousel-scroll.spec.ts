@@ -6,6 +6,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -111,6 +112,7 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-carousel-scroll-"),

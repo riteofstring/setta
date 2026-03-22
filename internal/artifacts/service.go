@@ -603,7 +603,7 @@ func (s *Service) applyUpdateAction(action updateAction, strategy SaveConflictSt
 }
 
 func (s *Service) loadCachedImage(rawPath string) (*ImageArtifact, error) {
-	artifactID, resolvedPath, err := s.resolveArtifactPath(rawPath)
+	artifactID, resolvedPath, err := s.resolveCachedPath(rawPath)
 	if err != nil {
 		return nil, err
 	}
@@ -642,7 +642,7 @@ func (s *Service) loadCachedImage(rawPath string) (*ImageArtifact, error) {
 }
 
 func (s *Service) loadCachedChart(rawPath string) (*ChartDataArtifact, error) {
-	artifactID, resolvedPath, err := s.resolveArtifactPath(rawPath)
+	artifactID, resolvedPath, err := s.resolveCachedPath(rawPath)
 	if err != nil {
 		return nil, err
 	}
@@ -683,7 +683,7 @@ func (s *Service) loadCachedChart(rawPath string) (*ChartDataArtifact, error) {
 }
 
 func (s *Service) loadCachedJSON(rawPath string, artifactType ArtifactType) (*JSONArtifact, error) {
-	artifactID, resolvedPath, err := s.resolveArtifactPath(rawPath)
+	artifactID, resolvedPath, err := s.resolveCachedPath(rawPath)
 	if err != nil {
 		return nil, err
 	}
@@ -732,6 +732,31 @@ func (s *Service) resolveWorkspaceFile(raw string) (string, error) {
 		}
 	}
 	return resolved, nil
+}
+
+func (s *Service) resolveCachedPath(raw string) (string, string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", "", &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: "artifact path must be a non-empty string",
+		}
+	}
+
+	if _, resolvedPath, err := s.resolveArtifactPath(trimmed); err == nil {
+		return trimmed, resolvedPath, nil
+	} else {
+		var artifactErr *Error
+		if !errors.As(err, &artifactErr) || artifactErr.Kind != ErrorPathForbidden {
+			return "", "", err
+		}
+	}
+
+	resolvedPath, err := s.resolveWorkspaceFile(trimmed)
+	if err != nil {
+		return "", "", err
+	}
+	return trimmed, resolvedPath, nil
 }
 
 func (s *Service) resolveArtifactPath(raw string) (string, string, error) {

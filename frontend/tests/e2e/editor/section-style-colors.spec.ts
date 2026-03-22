@@ -1,12 +1,13 @@
 import { expect, test, type Locator, type Request } from "@playwright/test";
 import {
-  clearProjectChatWindows,
   cleanupIsolatedProject,
+  clearProjectChatWindows,
   createCallableSection,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -33,8 +34,8 @@ async function ensureAppearanceAccordionExpanded(
   if (
     (await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true"
   ) {
-    await appearanceAccordionTrigger.evaluate(
-      (element: HTMLButtonElement) => element.click(),
+    await appearanceAccordionTrigger.evaluate((element: HTMLButtonElement) =>
+      element.click(),
     );
   }
   await expect(appearanceAccordionTrigger).toHaveAttribute(
@@ -323,6 +324,10 @@ test.describe.serial("section style colors", () => {
         callableName: "sorted",
         refetchParams: true,
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
 
       const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
@@ -429,9 +434,9 @@ test.describe.serial("section style colors", () => {
       expect(baselineSectionChromeAndArgsStyles.argsBackgroundColor).not.toBe(
         "rgba(0, 0, 0, 0)",
       );
-      expect(
-        baselineSectionChromeAndArgsStyles.argsBackgroundColor,
-      ).not.toBe(baselineSectionChromeAndArgsStyles.sectionBackgroundColor);
+      expect(baselineSectionChromeAndArgsStyles.argsBackgroundColor).not.toBe(
+        baselineSectionChromeAndArgsStyles.sectionBackgroundColor,
+      );
       expect(await getCallableInputBorderColor()).not.toBeNull();
 
       const colorInput = styleBlock.locator('input[type="color"]').first();
@@ -512,6 +517,10 @@ test.describe.serial("section style colors", () => {
         sectionId,
         pinnedParams: [pinnedParamId],
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
       await expect(sectionChrome.getByText("Pinned Params")).toBeVisible({
         timeout: 20000,
       });
@@ -539,6 +548,10 @@ test.describe.serial("section style colors", () => {
         sectionId,
         edgeInputParams: [edgeParamId],
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
 
       const pinnedHeading = sectionChrome.getByText("Pinned Params").first();
       await expect(pinnedHeading).toBeVisible();

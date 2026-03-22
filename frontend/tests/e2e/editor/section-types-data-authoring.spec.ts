@@ -8,12 +8,13 @@ import {
 import fs from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {
-  clearProjectChatWindows,
   cleanupIsolatedProject,
+  clearProjectChatWindows,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -107,6 +108,7 @@ async function createTopLevelSection(
   if (!sectionId) {
     throw new Error(`Failed to create ${implType} section.`);
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -324,6 +326,34 @@ function getChildSectionIds(
     .map(([childId]) => childId);
 }
 
+type SortableSectionDistances = {
+  xDelta: number;
+  yDelta: number;
+};
+
+async function getSortableSectionDistances(
+  page: Page,
+  childIds: string[],
+): Promise<SortableSectionDistances | null> {
+  return await page.evaluate((ids) => {
+    const first = document.querySelector(
+      `[data-sortable-section-id="${ids[0]}"]`,
+    ) as HTMLElement | null;
+    const second = document.querySelector(
+      `[data-sortable-section-id="${ids[1]}"]`,
+    ) as HTMLElement | null;
+    if (!first || !second) {
+      return null;
+    }
+    const firstRect = first.getBoundingClientRect();
+    const secondRect = second.getBoundingClientRect();
+    return {
+      xDelta: Math.abs(firstRect.x - secondRect.x),
+      yDelta: Math.abs(firstRect.y - secondRect.y),
+    };
+  }, childIds);
+}
+
 test.describe.serial("section types data authoring", () => {
   test("text block master font slider scales markdown typography", async ({
     page,
@@ -371,6 +401,10 @@ test.describe.serial("section types data authoring", () => {
         sectionId,
         textDisplayMode: "Render",
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
 
       const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
@@ -415,9 +449,7 @@ test.describe.serial("section types data authoring", () => {
         input.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
       });
       await expect.poll(async () => await slider.inputValue()).toBe("24");
-      await expect
-        .poll(() => setMasterFontSizeCallCount)
-        .toBe(1);
+      await expect.poll(() => setMasterFontSizeCallCount).toBe(1);
 
       await expect
         .poll(async () => {
@@ -576,6 +608,10 @@ test.describe.serial("section types data authoring", () => {
           return getChildSectionIds(latest, sectionId).length;
         })
         .toBeGreaterThanOrEqual(2);
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
       const latestWithChildren = await getLatestProjectState(
         page,
         projectContext.projectConfigId,
@@ -591,24 +627,10 @@ test.describe.serial("section types data authoring", () => {
 
       await viewModeSelect.selectOption("kanban");
       await expect(viewModeSelect).toHaveValue("kanban");
-
-      const kanbanDistances = await page.evaluate((ids) => {
-        const first = document.querySelector(
-          `[data-sortable-section-id="${ids[0]}"]`,
-        ) as HTMLElement | null;
-        const second = document.querySelector(
-          `[data-sortable-section-id="${ids[1]}"]`,
-        ) as HTMLElement | null;
-        if (!first || !second) {
-          return null;
-        }
-        const firstRect = first.getBoundingClientRect();
-        const secondRect = second.getBoundingClientRect();
-        return {
-          xDelta: Math.abs(firstRect.x - secondRect.x),
-          yDelta: Math.abs(firstRect.y - secondRect.y),
-        };
-      }, childIds);
+      await expect
+        .poll(async () => await getSortableSectionDistances(page, childIds))
+        .not.toBeNull();
+      const kanbanDistances = await getSortableSectionDistances(page, childIds);
       expect(kanbanDistances).not.toBeNull();
       expect(
         (kanbanDistances?.xDelta ?? 0) > (kanbanDistances?.yDelta ?? 0),
@@ -632,24 +654,13 @@ test.describe.serial("section types data authoring", () => {
 
       await viewModeSelect.selectOption("task_list");
       await expect(viewModeSelect).toHaveValue("task_list");
-
-      const taskListDistances = await page.evaluate((ids) => {
-        const first = document.querySelector(
-          `[data-sortable-section-id="${ids[0]}"]`,
-        ) as HTMLElement | null;
-        const second = document.querySelector(
-          `[data-sortable-section-id="${ids[1]}"]`,
-        ) as HTMLElement | null;
-        if (!first || !second) {
-          return null;
-        }
-        const firstRect = first.getBoundingClientRect();
-        const secondRect = second.getBoundingClientRect();
-        return {
-          xDelta: Math.abs(firstRect.x - secondRect.x),
-          yDelta: Math.abs(firstRect.y - secondRect.y),
-        };
-      }, childIds);
+      await expect
+        .poll(async () => await getSortableSectionDistances(page, childIds))
+        .not.toBeNull();
+      const taskListDistances = await getSortableSectionDistances(
+        page,
+        childIds,
+      );
       expect(taskListDistances).not.toBeNull();
       expect(
         (taskListDistances?.yDelta ?? 0) >= (taskListDistances?.xDelta ?? 0),
@@ -773,14 +784,20 @@ test.describe.serial("section types data authoring", () => {
       const firstListRowDoneCheckbox = firstListRow.getByTestId(
         "task-board-task-list-done-checkbox",
       );
-      const firstListRowTaskInput = firstListRow.locator('input[type="text"]').first();
-      const [firstListRowBounds, dragHandleBounds, doneCheckboxBounds, taskInputBounds] =
-        await Promise.all([
-          firstListRow.boundingBox(),
-          firstListRowDragHandle.boundingBox(),
-          firstListRowDoneCheckbox.boundingBox(),
-          firstListRowTaskInput.boundingBox(),
-        ]);
+      const firstListRowTaskInput = firstListRow
+        .locator('input[type="text"]')
+        .first();
+      const [
+        firstListRowBounds,
+        dragHandleBounds,
+        doneCheckboxBounds,
+        taskInputBounds,
+      ] = await Promise.all([
+        firstListRow.boundingBox(),
+        firstListRowDragHandle.boundingBox(),
+        firstListRowDoneCheckbox.boundingBox(),
+        firstListRowTaskInput.boundingBox(),
+      ]);
       if (!firstListRowBounds) {
         throw new Error("Expected first task list row bounds.");
       }
@@ -828,7 +845,9 @@ test.describe.serial("section types data authoring", () => {
       await firstTaskDescriptionInput.blur();
       await firstTaskDescriptionToggle.click();
       await expect(
-        firstTaskRow.locator('[data-testid^="task-board-task-description-input-"]'),
+        firstTaskRow.locator(
+          '[data-testid^="task-board-task-description-input-"]',
+        ),
       ).toHaveCount(0);
 
       const firstRowDragSurface = taskListRows.nth(0);
@@ -858,7 +877,9 @@ test.describe.serial("section types data authoring", () => {
       await expect(
         taskBoardNode.locator("[data-task-board-column-id]"),
       ).toHaveCount(3);
-      await expect(taskBoardNode.getByTestId("task-board-add-task")).toHaveCount(0);
+      await expect(
+        taskBoardNode.getByTestId("task-board-add-task"),
+      ).toHaveCount(0);
       const kanbanAddTaskButtons = taskBoardNode.locator(
         '[data-testid^="task-board-kanban-add-task-"]',
       );
@@ -910,9 +931,17 @@ test.describe.serial("section types data authoring", () => {
       const secondKanbanDragHandle = secondKanbanDragSurface.getByTestId(
         "task-board-task-drag-handle",
       );
-      const [secondKanbanCardBounds, secondKanbanHandleBounds] = await Promise.all([
+      const secondKanbanTitleInput = secondKanbanDragSurface
+        .locator('input[type="text"]')
+        .first();
+      const [
+        secondKanbanCardBounds,
+        secondKanbanHandleBounds,
+        secondKanbanTitleBounds,
+      ] = await Promise.all([
         secondKanbanDragSurface.boundingBox(),
         secondKanbanDragHandle.boundingBox(),
+        secondKanbanTitleInput.boundingBox(),
       ]);
       if (!secondKanbanCardBounds) {
         throw new Error("Second kanban task bounds unavailable.");
@@ -920,14 +949,20 @@ test.describe.serial("section types data authoring", () => {
       if (!secondKanbanHandleBounds) {
         throw new Error("Second kanban drag handle bounds unavailable.");
       }
+      if (!secondKanbanTitleBounds) {
+        throw new Error("Second kanban title input bounds unavailable.");
+      }
       expect(secondKanbanHandleBounds.width).toBeGreaterThanOrEqual(26);
-      expect(secondKanbanHandleBounds.x - secondKanbanCardBounds.x).toBeLessThan(12);
-      const kanbanTopInset = secondKanbanHandleBounds.y - secondKanbanCardBounds.y;
-      const kanbanBottomInset =
-        secondKanbanCardBounds.y +
-        secondKanbanCardBounds.height -
-        (secondKanbanHandleBounds.y + secondKanbanHandleBounds.height);
-      expect(Math.abs(kanbanTopInset - kanbanBottomInset)).toBeLessThan(5);
+      expect(
+        secondKanbanHandleBounds.x - secondKanbanCardBounds.x,
+      ).toBeLessThan(12);
+      const kanbanHandleCenterY =
+        secondKanbanHandleBounds.y + secondKanbanHandleBounds.height / 2;
+      const kanbanTitleCenterY =
+        secondKanbanTitleBounds.y + secondKanbanTitleBounds.height / 2;
+      expect(Math.abs(kanbanHandleCenterY - kanbanTitleCenterY)).toBeLessThan(
+        5,
+      );
       const setTopLevelLayoutCallsBeforeKanbanDrag = setTopLevelLayoutCalls;
       const kanbanSourceBounds = await firstKanbanDragHandle.boundingBox();
       if (!kanbanSourceBounds) {
@@ -957,7 +992,10 @@ test.describe.serial("section types data authoring", () => {
             .map((element) => (element as HTMLInputElement).value)
             .sort((left, right) => left.localeCompare(right)),
         );
-      expect(firstLaneTaskTitles).toEqual(["schedule followup", "ship task board"]);
+      expect(firstLaneTaskTitles).toEqual([
+        "schedule followup",
+        "ship task board",
+      ]);
       expect(setTopLevelLayoutCalls).toBe(
         setTopLevelLayoutCallsBeforeKanbanDrag,
       );
@@ -989,7 +1027,9 @@ test.describe.serial("section types data authoring", () => {
         doneLaneTasks.first().locator('input[type="checkbox"]'),
       ).toHaveCount(0);
       await taskBoardNode.getByTestId("task-board-view-task-list").click();
-      const taskRowsBeforeDelete = taskBoardNode.locator("[data-task-board-task-id]");
+      const taskRowsBeforeDelete = taskBoardNode.locator(
+        "[data-task-board-task-id]",
+      );
       await expect(taskRowsBeforeDelete).toHaveCount(2);
       await taskRowsBeforeDelete
         .nth(1)
@@ -1022,6 +1062,10 @@ test.describe.serial("section types data authoring", () => {
         filePath: csvPath,
         activeSheet: null,
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
       const spreadsheetGlideGrid = spreadsheetNode.getByTestId(
         "spreadsheet-glide-grid",
       );
@@ -1118,7 +1162,9 @@ test.describe.serial("section types data authoring", () => {
 
       await spreadsheetAddRow.click();
       await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
-      await expect(spreadsheetNode.getByTestId("spreadsheet-save")).toBeEnabled();
+      await expect(
+        spreadsheetNode.getByTestId("spreadsheet-save"),
+      ).toBeEnabled();
     } finally {
       page.off("request", handleSetTopLevelLayoutRequest);
       await cleanupIsolatedProject(page, projectContext);
@@ -1424,7 +1470,6 @@ test.describe.serial("section types data authoring", () => {
         sortedByZoom[3]?.effectiveFontPx ?? 0,
         `effectiveFontPxByZoom=${effectiveFontDebug}`,
       ).toBeLessThan(sortedByZoom[4]?.effectiveFontPx ?? 0);
-
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

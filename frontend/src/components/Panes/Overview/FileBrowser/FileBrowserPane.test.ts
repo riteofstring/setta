@@ -2,17 +2,17 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import "testUtils/reactRefreshPreamble";
 import { useFileBrowserState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  createFileBrowserRootResponse,
-  createFolderContentItem,
-} from "utils/generatedTypes";
+import "testUtils/reactRefreshPreamble";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
+import {
+  createFileBrowserRootResponse,
+  createFolderContentItem,
+} from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildFileBrowserLoadingPathOwner,
@@ -95,6 +95,30 @@ vi.mock("state/hooks/useColumnWidthDrag", () => ({
     widthRef: { current: { currentWidth: 0 } },
   }),
 }));
+
+vi.mock("components/Utils/CodeMirror/InlineCodeMirrorInput", async () => {
+  const React = await import("react");
+  return {
+    InlineCodeMirrorInput: ({
+      id,
+      value,
+      placeholder,
+      className,
+      dummyClassName,
+    }: {
+      id: string;
+      value: string;
+      placeholder?: string;
+      className?: string;
+      dummyClassName?: string;
+    }) =>
+      React.createElement(
+        "span",
+        { id, className: dummyClassName ?? className },
+        value || placeholder || "",
+      ),
+  };
+});
 
 type RenderedFileBrowserPane = {
   host: HTMLDivElement;

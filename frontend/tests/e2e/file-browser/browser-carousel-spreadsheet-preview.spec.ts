@@ -7,6 +7,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -79,7 +80,9 @@ async function setBrowserPath({
 }
 
 async function ensureCarouselView(sectionNode: Locator): Promise<void> {
-  const carouselButton = sectionNode.locator('button[aria-label="Carousel view"]');
+  const carouselButton = sectionNode.locator(
+    'button[aria-label="Carousel view"]',
+  );
   await expect(carouselButton).toBeVisible();
   await carouselButton.click();
   await expect(
@@ -121,6 +124,7 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-carousel-spreadsheet-"),
@@ -240,7 +244,9 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       const xlsxCell = sectionNode.locator('[data-spreadsheet-cell="1:0"]');
       await expect(xlsxCell).toBeVisible();
       await expect(xlsxCell).toHaveValue("Beta");
-      const xlsxOwnerCell = sectionNode.locator('[data-spreadsheet-cell="1:1"]');
+      const xlsxOwnerCell = sectionNode.locator(
+        '[data-spreadsheet-cell="1:1"]',
+      );
       await expect(xlsxOwnerCell).toBeVisible();
       await xlsxOwnerCell.fill("QA");
       await expect(saveButton).toBeEnabled();
@@ -253,11 +259,14 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
         raw: false,
       });
       expect(savedWorkbook.SheetNames).toEqual(["Sheet1", "Archive"]);
-      const archiveRows = XLSX.utils.sheet_to_json(savedWorkbook.Sheets.Archive, {
-        header: 1,
-        raw: false,
-        defval: "",
-      }) as string[][];
+      const archiveRows = XLSX.utils.sheet_to_json(
+        savedWorkbook.Sheets.Archive,
+        {
+          header: 1,
+          raw: false,
+          defval: "",
+        },
+      ) as string[][];
       expect(archiveRows[1]).toEqual(["Gamma", "Ops"]);
     } finally {
       await fs.rm(parentDir, { recursive: true, force: true });

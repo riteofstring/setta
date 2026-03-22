@@ -6,6 +6,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -155,6 +156,7 @@ test("browser can save a search and re-apply it from the Filters column", async 
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-browser-saved-search-"),

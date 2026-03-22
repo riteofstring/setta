@@ -6,6 +6,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -176,6 +177,7 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-browser-scope-"),
@@ -322,6 +324,7 @@ test("browser type filters hide files by category", async ({ page }) => {
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-browser-types-"),
@@ -406,6 +409,7 @@ test("browser search scope menu stays anchored while panning the canvas", async 
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     try {
       const sectionNode = page.locator(
@@ -600,6 +604,7 @@ test("browser opens image files in image sections on double click", async ({
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-browser-image-open-"),
@@ -632,6 +637,13 @@ test("browser opens image files in image sections on double click", async ({
         projectConfigName,
         expectedImageBrowserPath,
       );
+      const imageSectionNode = page.locator(
+        `.react-flow__node[data-id="${imageSectionId}"]`,
+      );
+      await expect(imageSectionNode).toBeVisible();
+      await expect(imageSectionNode.locator("img").first()).toBeVisible({
+        timeout: 15000,
+      });
     } finally {
       await fs.rm(parentDir, { recursive: true, force: true });
       const sectionIds = [sectionId];

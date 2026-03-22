@@ -129,6 +129,56 @@ func TestServiceImportLoadAndDeleteFlow(t *testing.T) {
 	}
 }
 
+func TestServiceLoadCachedArtifactsAcceptWorkspacePaths(t *testing.T) {
+	t.Parallel()
+
+	service, paths := newArtifactTestService(t)
+
+	imagePath := filepath.Join(paths.workspaceRoot, "workspace-image.png")
+	if err := os.WriteFile(imagePath, []byte("workspace-image"), 0o644); err != nil {
+		t.Fatalf("write workspace image: %v", err)
+	}
+	images, err := service.LoadCachedImages(context.Background(), LoadCachedPathsRequest{
+		Paths: []string{imagePath},
+	})
+	if err != nil {
+		t.Fatalf("load cached workspace image: %v", err)
+	}
+	if len(images) != 1 || images[0] == nil {
+		t.Fatalf("expected one cached workspace image, got %#v", images)
+	}
+	if images[0].ID != imagePath {
+		t.Fatalf("expected workspace image id %q, got %q", imagePath, images[0].ID)
+	}
+	imagePayload, err := paths.binaryStore.ReadBytes(images[0].Value.ContentID)
+	if err != nil {
+		t.Fatalf("read workspace image payload from binary store: %v", err)
+	}
+	if string(imagePayload) != "workspace-image" {
+		t.Fatalf("expected workspace image payload round-trip, got %q", string(imagePayload))
+	}
+
+	chartPath := filepath.Join(paths.workspaceRoot, "workspace-chart.csv")
+	if err := os.WriteFile(chartPath, []byte("x,y\n1,2\n3,4\n"), 0o644); err != nil {
+		t.Fatalf("write workspace chart: %v", err)
+	}
+	charts, err := service.LoadCachedChartData(context.Background(), LoadCachedPathsRequest{
+		Paths: []string{chartPath},
+	})
+	if err != nil {
+		t.Fatalf("load cached workspace chart: %v", err)
+	}
+	if len(charts) != 1 || charts[0] == nil {
+		t.Fatalf("expected one cached workspace chart, got %#v", charts)
+	}
+	if charts[0].ID != chartPath {
+		t.Fatalf("expected workspace chart id %q, got %q", chartPath, charts[0].ID)
+	}
+	if got := charts[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
+		t.Fatalf("unexpected workspace chart column x: %#v", got)
+	}
+}
+
 func TestServiceImportFilesAllowsEmptyFilesAndCachesBinaryRef(t *testing.T) {
 	t.Parallel()
 

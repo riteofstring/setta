@@ -285,6 +285,132 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetTaskBoardSectionStateNormalizesGeneratedAndDuplicateIDs(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": sectionDataMutationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	doneColumnID := "done"
+	duplicateTaskID := "dup-task"
+	if _, err := runtime.SetTaskBoardSectionState(
+		context.Background(),
+		"project-alpha",
+		"task-board-section",
+		TaskBoardViewModeTaskList,
+		[]TaskBoardColumn{
+			{ID: "", Name: "Inbox", Color: "#3b82f6", SortIndex: 0},
+			{ID: doneColumnID, Name: "Done", Color: "#10b981", SortIndex: 1},
+		},
+		[]TaskBoardTask{
+			{
+				ID:               "",
+				Title:            "Generated ID task",
+				Description:      "",
+				Completed:        false,
+				ColumnID:         &doneColumnID,
+				DueDateISO:       "",
+				Recurrence:       "none",
+				RecurrenceDays:   []string{},
+				RecurrenceMonths: []string{},
+				RecurrenceYears:  []int{},
+				SortIndex:        0,
+			},
+			{
+				ID:               duplicateTaskID,
+				Title:            "Original duplicate",
+				Description:      "",
+				Completed:        false,
+				ColumnID:         &doneColumnID,
+				DueDateISO:       "",
+				Recurrence:       "none",
+				RecurrenceDays:   []string{},
+				RecurrenceMonths: []string{},
+				RecurrenceYears:  []int{},
+				SortIndex:        1,
+			},
+			{
+				ID:               duplicateTaskID,
+				Title:            "Normalized duplicate",
+				Description:      "",
+				Completed:        false,
+				ColumnID:         &doneColumnID,
+				DueDateISO:       "",
+				Recurrence:       "none",
+				RecurrenceDays:   []string{},
+				RecurrenceMonths: []string{},
+				RecurrenceYears:  []int{},
+				SortIndex:        2,
+			},
+		},
+	); err != nil {
+		t.Fatalf("SetTaskBoardSectionState returned error: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	taskBoardPayload, err := effectiveSectionPayload(
+		project,
+		"task-board-section",
+		"task-board-variant",
+	)
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload task-board-section: %v", err)
+	}
+
+	rawColumns, ok := taskBoardPayload["columns"].([]any)
+	if !ok || len(rawColumns) != 2 {
+		t.Fatalf("expected two task board columns, got %#v", taskBoardPayload["columns"])
+	}
+	firstColumn, ok := rawColumns[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first task board column object, got %#v", rawColumns[0])
+	}
+	firstColumnID, _ := firstColumn["id"].(string)
+	if firstColumnID == "" {
+		t.Fatalf("expected generated id for first task board column, got %#v", firstColumn["id"])
+	}
+
+	rawTasks, ok := taskBoardPayload["tasks"].([]any)
+	if !ok || len(rawTasks) != 3 {
+		t.Fatalf("expected three task board tasks, got %#v", taskBoardPayload["tasks"])
+	}
+	seenTaskIDs := map[string]struct{}{}
+	duplicateOriginalCount := 0
+	for index, rawTask := range rawTasks {
+		taskObject, ok := rawTask.(map[string]any)
+		if !ok {
+			t.Fatalf("expected task board task object at index %d, got %#v", index, rawTask)
+		}
+		taskID, _ := taskObject["id"].(string)
+		if taskID == "" {
+			t.Fatalf("expected non-empty task id at index %d, got %#v", index, taskObject["id"])
+		}
+		if _, exists := seenTaskIDs[taskID]; exists {
+			t.Fatalf("expected unique task ids, saw duplicate %q in %#v", taskID, rawTasks)
+		}
+		seenTaskIDs[taskID] = struct{}{}
+		if taskID == duplicateTaskID {
+			duplicateOriginalCount += 1
+		}
+	}
+	if duplicateOriginalCount != 1 {
+		t.Fatalf("expected exactly one task to retain duplicate seed id %q, got %d", duplicateTaskID, duplicateOriginalCount)
+	}
+}
+
 func TestRuntimeSectionDataMutationsRejectInvalidTargetsAndValues(t *testing.T) {
 	t.Parallel()
 
