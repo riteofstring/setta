@@ -536,17 +536,17 @@ func TestRefreshProjectRuntimeFromSettingsRepairsMissingRequiredViewMode(t *test
 	if _, ok := project.ViewModes["settings-all"]; !ok {
 		t.Fatal("expected missing required settings-all view mode to be restored")
 	}
-	if project.ActiveViewModeID != "settings-param-defaults" {
-		t.Fatalf("expected active view mode settings-param-defaults, got %q", project.ActiveViewModeID)
+	if project.ActiveViewModeID != "settings-core" {
+		t.Fatalf("expected invalid view state to reset active view mode to settings-core, got %q", project.ActiveViewModeID)
 	}
 	if project.IsEditingViewMode {
-		t.Fatal("expected view-edit mode to reset to false after repair")
+		t.Fatal("expected invalid view state to clear view-edit mode")
 	}
 	if project.Viewport != nil {
-		t.Fatalf("expected repaired project viewport to be reset from rebuilt active tab, got %#v", project.Viewport)
+		t.Fatalf("expected invalid view state to reset viewport, got %#v", project.Viewport)
 	}
 	if project.ViewportInitialized {
-		t.Fatal("expected repaired project viewportInitialized to be false")
+		t.Fatal("expected invalid view state to reset viewportInitialized")
 	}
 	activeViewMode := project.ViewModes[project.ActiveViewModeID]
 	if !reflect.DeepEqual(project.TopLevelSections, activeViewMode.TopLevelSections) {
@@ -727,7 +727,7 @@ func TestRefreshProjectRuntimeFromSettingsLeavesValidViewModesUnchanged(t *testi
 	}
 }
 
-func TestEnsureProjectRuntimeBootstrappedFailsClosedOnMissingRequiredSection(t *testing.T) {
+func TestEnsureProjectRuntimeBootstrappedRebuildsMissingRequiredSection(t *testing.T) {
 	t.Parallel()
 
 	settingsDocument, err := NewDocument()
@@ -767,17 +767,20 @@ func TestEnsureProjectRuntimeBootstrappedFailsClosedOnMissingRequiredSection(t *
 		t.Fatalf("remove required settings section: %v", err)
 	}
 
-	err = EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime)
-	var missingSectionErr MissingSettingsSectionError
-	if !errors.As(err, &missingSectionErr) {
-		t.Fatalf("expected MissingSettingsSectionError, got %v", err)
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("expected missing required settings section to trigger a canonical rebuild, got %v", err)
 	}
-	if missingSectionErr.SectionName != "spreadsheetSectionDefault" {
-		t.Fatalf("expected missing section spreadsheetSectionDefault, got %q", missingSectionErr.SectionName)
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after rebuild: %v", err)
+	}
+	if _, ok := project.Sections[settingsSectionID("spreadsheetSectionDefault")]; !ok {
+		t.Fatal("expected missing spreadsheetSectionDefault to be restored by rebuild")
 	}
 }
 
-func TestRefreshProjectRuntimeFromSettingsFailsClosedOnMissingRequiredSection(t *testing.T) {
+func TestRefreshProjectRuntimeFromSettingsRebuildsMissingRequiredSection(t *testing.T) {
 	t.Parallel()
 
 	settingsDocument, err := NewDocument()
@@ -817,13 +820,16 @@ func TestRefreshProjectRuntimeFromSettingsFailsClosedOnMissingRequiredSection(t 
 		t.Fatalf("remove required settings section: %v", err)
 	}
 
-	err = RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime)
-	var missingSectionErr MissingSettingsSectionError
-	if !errors.As(err, &missingSectionErr) {
-		t.Fatalf("expected MissingSettingsSectionError, got %v", err)
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("expected refresh to rebuild missing required settings section, got %v", err)
 	}
-	if missingSectionErr.SectionName != "spreadsheetSectionDefault" {
-		t.Fatalf("expected missing section spreadsheetSectionDefault, got %q", missingSectionErr.SectionName)
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after rebuild: %v", err)
+	}
+	if _, ok := project.Sections[settingsSectionID("spreadsheetSectionDefault")]; !ok {
+		t.Fatal("expected missing spreadsheetSectionDefault to be restored by rebuild")
 	}
 }
 

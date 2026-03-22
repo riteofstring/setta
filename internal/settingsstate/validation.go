@@ -22,19 +22,28 @@ func newValidationError(format string, args ...any) error {
 }
 
 func ValidateDirectSaveDocument(document Document) error {
-	return validateLiveSettingsContract(document)
+	return validateLiveSettingsContract(document, true)
 }
 
-func validateLiveSettingsContract(document Document) error {
+func validateLiveSettingsContract(document Document, requireAllFields bool) error {
 	defaults, err := DefaultDocument()
 	if err != nil {
 		return err
 	}
 
-	for branch, currentValue := range document {
-		defaultValue, ok := defaults[branch]
+	for branch := range document {
+		if _, ok := defaults[branch]; ok {
+			continue
+		}
+		return newValidationError("settings.%s: Extra inputs are not permitted", branch)
+	}
+	for branch, defaultValue := range defaults {
+		currentValue, ok := document[branch]
 		if !ok {
-			return newValidationError("settings.%s: Extra inputs are not permitted", branch)
+			if requireAllFields {
+				return newValidationError("settings.%s: Field required", branch)
+			}
+			continue
 		}
 		if branch == "languageServer" {
 			if _, ok := asObject(currentValue); !ok {
@@ -42,26 +51,35 @@ func validateLiveSettingsContract(document Document) error {
 			}
 			continue
 		}
-		if err := validateValueAgainstDefault(currentValue, defaultValue, "settings."+branch); err != nil {
+		if err := validateValueAgainstDefault(currentValue, defaultValue, "settings."+branch, requireAllFields); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateValueAgainstDefault(current any, expected any, path string) error {
+func validateValueAgainstDefault(current any, expected any, path string, requireAllFields bool) error {
 	switch typed := expected.(type) {
 	case map[string]any:
 		currentObject, ok := asObject(current)
 		if !ok {
 			return newValidationError("%s: Input should be an object", path)
 		}
+		for key := range currentObject {
+			if _, ok := typed[key]; ok {
+				continue
+			}
+			return newValidationError("%s.%s: Extra inputs are not permitted", path, key)
+		}
 		for key, defaultValue := range typed {
 			currentValue, ok := currentObject[key]
 			if !ok {
+				if requireAllFields {
+					return newValidationError("%s.%s: Field required", path, key)
+				}
 				continue
 			}
-			if err := validateValueAgainstDefault(currentValue, defaultValue, path+"."+key); err != nil {
+			if err := validateValueAgainstDefault(currentValue, defaultValue, path+"."+key, requireAllFields); err != nil {
 				return err
 			}
 		}
@@ -79,7 +97,7 @@ func validateValueAgainstDefault(current any, expected any, path string) error {
 		}
 		template := typed[0]
 		for i, entry := range currentArray {
-			if err := validateValueAgainstDefault(entry, template, fmt.Sprintf("%s.%d", path, i)); err != nil {
+			if err := validateValueAgainstDefault(entry, template, fmt.Sprintf("%s.%d", path, i), requireAllFields); err != nil {
 				return err
 			}
 		}

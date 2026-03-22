@@ -22,27 +22,20 @@ func TestNormalizeRawRejectsNonObjectPayload(t *testing.T) {
 	}
 }
 
-func TestNormalizeRawMergesMissingDefaults(t *testing.T) {
+func TestNormalizeRawRejectsMissingRequiredFields(t *testing.T) {
 	t.Parallel()
 
-	document, err := NormalizeRaw(map[string]any{
+	_, err := NormalizeRaw(map[string]any{
 		"backend": map[string]any{
 			"renameRefactorMode": "ALWAYS_RENAME",
 		},
 	})
-	if err != nil {
-		t.Fatalf("NormalizeRaw returned error: %v", err)
+	var validationErr *ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected ValidationError, got %v", err)
 	}
-
-	backend, ok := document["backend"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected backend object, got %#v", document["backend"])
-	}
-	if got := backend["renameRefactorMode"]; got != "ALWAYS_RENAME" {
-		t.Fatalf("expected explicit renameRefactorMode to survive normalization, got %#v", got)
-	}
-	if got := backend["autosave"]; got != true {
-		t.Fatalf("expected missing backend defaults to be seeded, got %#v", got)
+	if !strings.Contains(validationErr.Error(), "Field required") {
+		t.Fatalf("expected missing-field validation error, got %v", validationErr)
 	}
 }
 
@@ -428,7 +421,7 @@ func TestStoreLoadBootstrapsDefaultsAndPersistsMutations(t *testing.T) {
 	}
 }
 
-func TestStoreLoadWritesMissingDefaultsBackToDisk(t *testing.T) {
+func TestStoreLoadFailsClosedOnMissingDefaults(t *testing.T) {
 	t.Parallel()
 
 	store, err := NewStore(filepath.Join(t.TempDir(), DefaultFileName), StoreOptions{})
@@ -439,23 +432,19 @@ func TestStoreLoadWritesMissingDefaultsBackToDisk(t *testing.T) {
 		t.Fatalf("seed partial settings file: %v", err)
 	}
 
-	// Loading an existing partial settings file should normalize the returned
-	// document and persist the missing default keys back to disk immediately.
-	document, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("Load partial settings returned error: %v", err)
-	}
-	if got := document["backend"].(map[string]any)["autosave"]; got != true {
-		t.Fatalf("expected load to seed missing backend defaults in memory, got %#v", got)
+	_, err = store.Load(context.Background())
+	var validationErr *ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected ValidationError for partial settings file, got %v", err)
 	}
 
 	content, err := os.ReadFile(store.Path())
 	if err != nil {
-		t.Fatalf("read normalized settings file: %v", err)
+		t.Fatalf("read partial settings file: %v", err)
 	}
 	var persisted map[string]any
 	if err := json.Unmarshal(content, &persisted); err != nil {
-		t.Fatalf("decode normalized settings file: %v", err)
+		t.Fatalf("decode partial settings file: %v", err)
 	}
 	backend, ok := persisted["backend"].(map[string]any)
 	if !ok {
@@ -464,11 +453,11 @@ func TestStoreLoadWritesMissingDefaultsBackToDisk(t *testing.T) {
 	if got := backend["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected persisted renameRefactorMode ALWAYS_RENAME, got %#v", got)
 	}
-	if got := backend["autosave"]; got != true {
-		t.Fatalf("expected persisted missing backend default autosave=true, got %#v", got)
+	if _, ok := backend["autosave"]; ok {
+		t.Fatalf("did not expect load to write back missing defaults, got %#v", backend["autosave"])
 	}
-	if _, ok := persisted["gui"].(map[string]any); !ok {
-		t.Fatalf("expected load writeback to persist default top-level branches, got %#v", persisted)
+	if _, ok := persisted["gui"].(map[string]any); ok {
+		t.Fatalf("did not expect load to write back missing top-level branches, got %#v", persisted["gui"])
 	}
 }
 

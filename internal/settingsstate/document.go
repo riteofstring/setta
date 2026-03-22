@@ -40,31 +40,14 @@ func (d Document) Normalized() (Document, error) {
 }
 
 func normalizeDocument(raw Document) (Document, error) {
-	defaults, err := DefaultDocument()
-	if err != nil {
-		return nil, err
-	}
 	current := raw.Clone()
 	if current == nil {
-		current = Document{}
+		return DefaultDocument()
 	}
-	mergeMissingDefaults(current, defaults)
+	if err := validateLiveSettingsContract(current, true); err != nil {
+		return nil, err
+	}
 	return current, nil
-}
-
-func mergeMissingDefaults(current map[string]any, defaults map[string]any) {
-	for key, defaultValue := range defaults {
-		existing, ok := current[key]
-		if !ok {
-			current[key] = cloneValue(defaultValue)
-			continue
-		}
-		existingMap, existingOK := existing.(map[string]any)
-		defaultMap, defaultOK := defaultValue.(map[string]any)
-		if existingOK && defaultOK {
-			mergeMissingDefaults(existingMap, defaultMap)
-		}
-	}
 }
 
 func cloneMap(source map[string]any) map[string]any {

@@ -1209,7 +1209,7 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 	assertSettingsProjectPersistedSectionAutoHeight(t, repairedProject, "gui")
 }
 
-func TestAppSettingsProjectLoadRoutesRepairMissingVisibleSectionLayoutWithoutPersistingDocument(
+func TestAppSettingsProjectStartupRebuildsMissingVisibleSectionLayoutAndPersistsDocument(
 	t *testing.T,
 ) {
 	cfg := testConfig(t)
@@ -1261,8 +1261,8 @@ func TestAppSettingsProjectLoadRoutesRepairMissingVisibleSectionLayoutWithoutPer
 	if err != nil {
 		t.Fatalf("settings project by id before load: %v", err)
 	}
-	if settingsProjectPersistedViewModeLayoutContainsSection(projectBeforeLoad, "settings-param-defaults", "settings-section__buttonParamCodeObjDefault") {
-		t.Fatal("expected persisted settings project to remain missing the Param Defaults layout before load")
+	if !settingsProjectPersistedViewModeLayoutContainsSection(projectBeforeLoad, "settings-param-defaults", "settings-section__buttonParamCodeObjDefault") {
+		t.Fatal("expected startup to rebuild and persist the missing Param Defaults layout before any route load")
 	}
 
 	server := httptest.NewServer(restartedApp.Handler())
@@ -1334,8 +1334,8 @@ func TestAppSettingsProjectLoadRoutesRepairMissingVisibleSectionLayoutWithoutPer
 	if err != nil {
 		t.Fatalf("settings project by id after load: %v", err)
 	}
-	if settingsProjectPersistedViewModeLayoutContainsSection(projectAfterLoad, "settings-param-defaults", "settings-section__buttonParamCodeObjDefault") {
-		t.Fatal("expected persisted settings project to keep the missing Param Defaults layout after load repair")
+	if !settingsProjectPersistedViewModeLayoutContainsSection(projectAfterLoad, "settings-param-defaults", "settings-section__buttonParamCodeObjDefault") {
+		t.Fatal("expected persisted settings project to keep the rebuilt Param Defaults layout after route load")
 	}
 }
 
@@ -1806,7 +1806,7 @@ func TestAppSettingsProjectLoadRoutesRepairDeletedActiveViewModeAndReprojectLayo
 	}
 }
 
-func TestAppStartupFailsClosedOnMissingRequiredSettingsSection(t *testing.T) {
+func TestAppStartupRebuildsMissingRequiredSettingsSection(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -1834,12 +1834,30 @@ func TestAppStartupFailsClosedOnMissingRequiredSettingsSection(t *testing.T) {
 		t.Fatalf("save corrupted settings project document: %v", err)
 	}
 
-	_, err = New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err == nil {
-		t.Fatal("expected app startup to fail when a required settings section is missing")
+	restartedApp, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("expected app startup to rebuild missing required settings section, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "Missing settings section spreadsheetSectionDefault.") {
-		t.Fatalf("expected missing settings section error, got %v", err)
+	t.Cleanup(func() {
+		if err := restartedApp.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown restarted app: %v", err)
+		}
+	})
+
+	repairedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open rebuilt settings project store: %v", err)
+	}
+	repairedDocument, err := repairedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load rebuilt settings project document: %v", err)
+	}
+	repairedProject, err := repairedDocument.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("rebuilt settings project by id: %v", err)
+	}
+	if _, ok := repairedProject.Sections["settings-section__spreadsheetSectionDefault"]; !ok {
+		t.Fatal("expected startup rebuild to restore spreadsheetSectionDefault")
 	}
 }
 

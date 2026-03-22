@@ -90,7 +90,7 @@ func applySettingsProjectCodeObjectValue(
 
 	nextPath := append(append([]string(nil), namePath...), strings.TrimSpace(codeObj.Name))
 	if settingsProjectCodeObjectIsParent(payload, impl) {
-		setNestedValue(output, nextPath, map[string]any{})
+		ensureNestedObject(output, nextPath)
 		children, err := stringArrayField(payload, "children")
 		if err != nil {
 			return err
@@ -177,6 +177,30 @@ func setNestedValue(root map[string]any, path []string, value any) {
 		current = next
 	}
 	current[path[len(path)-1]] = cloneValue(value)
+}
+
+func ensureNestedObject(root map[string]any, path []string) map[string]any {
+	if len(path) == 0 {
+		return root
+	}
+
+	current := root
+	for _, key := range path[:len(path)-1] {
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			next = map[string]any{}
+			current[key] = next
+		}
+		current = next
+	}
+
+	lastKey := path[len(path)-1]
+	next, ok := current[lastKey].(map[string]any)
+	if !ok {
+		next = map[string]any{}
+		current[lastKey] = next
+	}
+	return next
 }
 
 func settingsProjectForDocument(document projectstate.Document) (projectstate.Project, bool, error) {

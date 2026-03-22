@@ -22,18 +22,6 @@ const (
 
 var hexColorPattern = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
-type MissingSettingsSectionError struct {
-	SectionName string
-}
-
-func (e MissingSettingsSectionError) Error() string {
-	sectionName := strings.TrimSpace(e.SectionName)
-	if sectionName == "" {
-		return "Missing settings section."
-	}
-	return fmt.Sprintf("Missing settings section %s.", sectionName)
-}
-
 type settingsViewModeSpec struct {
 	ID           string
 	Name         string
@@ -280,87 +268,26 @@ func RefreshProjectRuntimeFromSettings(
 		return err
 	}
 
-	persistRefresh := true
 	currentProject, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
 	if err == nil && currentProject.Name == SettingsProjectName {
-		if err := validateSettingsProjectShellSections(settingsDocument, currentProject); err != nil {
-			return err
-		}
 		builtProject, buildErr := builtDocument.ProjectByID(SettingsProjectID)
 		if buildErr != nil {
 			return buildErr
 		}
 		preserveSettingsCodeObjectDisplayNames(&builtProject, currentProject)
-		shellStateSourceProject := currentProject
-		repairSourceProject := currentProject
-		persistedDocument, persistedErr := projectRuntime.LoadPersistedDocument(ctx)
-		if persistedErr == nil {
-			persistedProject, persistedProjectErr := persistedDocument.ProjectByID(SettingsProjectID)
-			if persistedProjectErr == nil && persistedProject.Name == SettingsProjectName {
-				shellStateSourceProject = persistedProject
-				repairSourceProject = persistedProject
-			}
+		if settingsProjectShellStateIsValid(currentProject, builtProject) {
+			builtProject = overlayProjectShellState(
+				builtProject,
+				currentProject,
+			)
 		}
-		mergedProject := overlayProjectShellState(
-			builtProject,
-			shellStateSourceProject,
-		)
-		repairedProject, persistRepair, repairErr := repairSettingsProjectShellViewModes(
-			mergedProject,
-			builtProject,
-			repairSourceProject,
-		)
-		if repairErr != nil {
-			return repairErr
-		}
-		persistRefresh = persistRepair
-		builtDocument.Projects[SettingsProjectID] = repairedProject
+		builtDocument.Projects[SettingsProjectID] = builtProject
 	}
 
-	if persistRefresh {
-		_, err = projectRuntime.MutateAndSave(
-			ctx,
-			func(projectDocument projectstate.Document) (projectstate.Document, error) {
-				return builtDocument, nil
-			},
-		)
-		return err
-	}
-
-	_, err = projectRuntime.Mutate(func(projectDocument projectstate.Document) (projectstate.Document, error) {
+	_, err = projectRuntime.MutateAndSave(ctx, func(projectDocument projectstate.Document) (projectstate.Document, error) {
 		return builtDocument, nil
 	})
 	return err
-}
-
-func validateSettingsProjectShellSections(
-	settingsDocument Document,
-	project projectstate.Project,
-) error {
-	requiredSectionNames := orderedSettingsSectionNames(settingsDocument)
-	sectionIDByName := settingsSectionIDsByName(project)
-	for _, sectionName := range requiredSectionNames {
-		if _, ok := sectionIDByName[sectionName]; ok {
-			continue
-		}
-		return MissingSettingsSectionError{SectionName: sectionName}
-	}
-	return nil
-}
-
-func ValidatePersistedSettingsProjectDocument(document projectstate.Document) error {
-	project, err := document.ProjectByID(SettingsProjectID)
-	if err != nil {
-		return nil
-	}
-	if project.Name != SettingsProjectName {
-		return nil
-	}
-	settingsDocument, err := DefaultDocument()
-	if err != nil {
-		return err
-	}
-	return validateSettingsProjectShellSections(settingsDocument, project)
 }
 
 func overlayProjectShellState(
@@ -425,103 +352,65 @@ func preserveSettingsCodeObjectDisplayNames(
 	}
 }
 
-func repairSettingsProjectShellViewModes(
+func settingsProjectShellStateIsValid(
 	current projectstate.Project,
 	canonical projectstate.Project,
-	repairSource projectstate.Project,
-) (projectstate.Project, bool, error) {
-	sectionIDByName := settingsSectionIDsByName(current)
+) bool {
+	sectionIDByName := settingsSectionIDsByName(canonical)
 	sectionNames := orderedSettingsSectionNamesForProject(sectionIDByName)
 	allSectionIDs := resolveOrderedSettingsSectionIDs(sectionNames, sectionIDByName)
 	if len(allSectionIDs) == 0 {
-		return current, true, nil
+		return false
+	}
+	if len(current.TopLevelSections) == 0 {
+		return false
+	}
+	for _, sectionID := range allSectionIDs {
+		if _, ok := current.TopLevelSections[sectionID]; ok {
+			continue
+		}
+		return false
+	}
+	if current.ActiveViewModeID == "" {
+		return false
+	}
+	if _, ok := current.ViewModes[current.ActiveViewModeID]; !ok {
+		return false
 	}
 
-	requiredViewModeNames := map[string]struct{}{}
-	for _, spec := range settingsViewModeSpecs {
-		requiredViewModeNames[spec.Name] = struct{}{}
-	}
-
-	viewModesByName := make(map[string]projectstate.ViewMode, len(repairSource.ViewModes))
-	for _, viewMode := range repairSource.ViewModes {
+	viewModesByName := make(map[string]projectstate.ViewMode, len(current.ViewModes))
+	for _, viewMode := range current.ViewModes {
 		viewModesByName[viewMode.Name] = viewMode
 	}
 
-	requiresPersistentRepair := len(repairSource.TopLevelSections) == 0
-	if !requiresPersistentRepair {
+	for _, spec := range settingsViewModeSpecs {
+		viewMode, ok := viewModesByName[spec.Name]
+		if !ok {
+			return false
+		}
+		if len(viewMode.VisibilityBySectionID) == 0 || len(viewMode.TopLevelSections) == 0 {
+			return false
+		}
+		visibleCount := 0
 		for _, sectionID := range allSectionIDs {
-			if _, ok := repairSource.TopLevelSections[sectionID]; ok {
+			visible, ok := viewMode.VisibilityBySectionID[sectionID]
+			if !ok {
+				return false
+			}
+			if !visible {
 				continue
 			}
-			requiresPersistentRepair = true
-			break
-		}
-	}
-	missingVisibleLayoutRepair := false
-	for requiredName := range requiredViewModeNames {
-		viewMode, ok := viewModesByName[requiredName]
-		if !ok {
-			requiresPersistentRepair = true
-			continue
-		}
-		if len(viewMode.VisibilityBySectionID) == 0 {
-			requiresPersistentRepair = true
-			continue
-		}
-		visibleIDs := map[string]struct{}{}
-		for sectionID, visible := range viewMode.VisibilityBySectionID {
-			if visible {
-				visibleIDs[sectionID] = struct{}{}
-			}
-		}
-		if len(visibleIDs) == 0 || len(viewMode.TopLevelSections) == 0 {
-			requiresPersistentRepair = true
-			continue
-		}
-		for sectionID := range visibleIDs {
+			visibleCount++
 			if _, ok := viewMode.TopLevelSections[sectionID]; ok {
 				continue
 			}
-			missingVisibleLayoutRepair = true
+			return false
+		}
+		if visibleCount == 0 {
+			return false
 		}
 	}
-	needsReset := requiresPersistentRepair || missingVisibleLayoutRepair
-	if !needsReset {
-		return current, true, nil
-	}
-
-	activeName := ""
-	if activeViewMode, ok := current.ViewModes[current.ActiveViewModeID]; ok {
-		activeName = activeViewMode.Name
-	}
-
-	baseLayouts := cloneTopLevelLayouts(current.TopLevelSections)
-	if len(baseLayouts) == 0 {
-		baseLayouts = cloneTopLevelLayouts(canonical.TopLevelSections)
-	}
-	rebuiltViewModes, defaultActiveViewModeID := rebuildSettingsViewModesFromBase(
-		sectionNames,
-		sectionIDByName,
-		baseLayouts,
-	)
-
-	repaired := current.Clone()
-	repaired.ViewModes = rebuiltViewModes
-	repaired.IsEditingViewMode = false
-	repaired.ActiveViewModeID = defaultActiveViewModeID
-	if activeName != "" {
-		for _, viewMode := range rebuiltViewModes {
-			if viewMode.Name == activeName {
-				repaired.ActiveViewModeID = viewMode.ID
-				break
-			}
-		}
-	}
-	activeViewMode := rebuiltViewModes[repaired.ActiveViewModeID]
-	repaired.TopLevelSections = cloneTopLevelLayouts(activeViewMode.TopLevelSections)
-	repaired.Viewport = cloneSettingsViewport(activeViewMode.Viewport)
-	repaired.ViewportInitialized = activeViewMode.ViewportInitialized
-	return repaired, requiresPersistentRepair || !missingVisibleLayoutRepair, nil
+	return true
 }
 
 func addSettingsSection(
@@ -949,14 +838,6 @@ func cloneTopLevelLayouts(
 		cloned[sectionID] = layout.Clone()
 	}
 	return cloned
-}
-
-func cloneSettingsViewport(viewport *projectstate.Viewport) *projectstate.Viewport {
-	if viewport == nil {
-		return nil
-	}
-	cloned := *viewport
-	return &cloned
 }
 
 func humanizeSettingsIdentifier(identifier string) string {

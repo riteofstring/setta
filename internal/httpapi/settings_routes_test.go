@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -520,37 +521,51 @@ func TestRegisterSettingsRoutesSaveRejectsTypedInvalidNestedSettings(t *testing.
 	// The live save route should reject typed-invalid settings on the current Go-owned save surface.
 	for _, testCase := range []struct {
 		name           string
-		body           string
+		mutate         func(settingsstate.Document)
 		expectedDetail string
 	}{
 		{
-			name:           "backend rename enum",
-			body:           `{"settings":{"backend":{"renameRefactorMode":"MAYBE"}}}`,
+			name: "backend rename enum",
+			mutate: func(document settingsstate.Document) {
+				document["backend"].(map[string]any)["renameRefactorMode"] = "MAYBE"
+			},
 			expectedDetail: "backend.renameRefactorMode",
 		},
 		{
-			name:           "shortcuts string field",
-			body:           `{"settings":{"shortcuts":{"searchShortcut":false}}}`,
+			name: "shortcuts string field",
+			mutate: func(document settingsstate.Document) {
+				document["shortcuts"].(map[string]any)["searchShortcut"] = false
+			},
 			expectedDetail: "shortcuts.searchShortcut",
 		},
 		{
-			name:           "gui snap grid length",
-			body:           `{"settings":{"gui":{"snapGrid":[15]}}}`,
+			name: "gui snap grid length",
+			mutate: func(document settingsstate.Document) {
+				document["gui"].(map[string]any)["snapGrid"] = []any{15}
+			},
 			expectedDetail: "gui.snapGrid",
 		},
 		{
-			name:           "gui color choices element",
-			body:           `{"settings":{"gui":{"sectionTagColorChoices":[{"color":7,"description":"Broken"}]}}}`,
+			name: "gui color choices element",
+			mutate: func(document settingsstate.Document) {
+				document["gui"].(map[string]any)["sectionTagColorChoices"] = []any{
+					map[string]any{"color": 7, "description": "Broken"},
+				}
+			},
 			expectedDetail: "gui.sectionTagColorChoices.0.color",
 		},
 		{
-			name:           "section sizing meta control enum",
-			body:           `{"settings":{"sectionSizingPolicy":{"metaControlByType":{"DropdownParam":{"sizeModeHeight":"sometimes"}}}}}`,
+			name: "section sizing meta control enum",
+			mutate: func(document settingsstate.Document) {
+				document["sectionSizingPolicy"].(map[string]any)["metaControlByType"].(map[string]any)["DropdownParam"].(map[string]any)["sizeModeHeight"] = "sometimes"
+			},
 			expectedDetail: "sectionSizingPolicy.metaControlByType.DropdownParam.sizeModeHeight",
 		},
 		{
-			name:           "language server root object",
-			body:           `{"settings":{"languageServer":false}}`,
+			name: "language server root object",
+			mutate: func(document settingsstate.Document) {
+				document["languageServer"] = false
+			},
 			expectedDetail: "languageServer",
 		},
 	} {
@@ -561,11 +576,20 @@ func TestRegisterSettingsRoutesSaveRejectsTypedInvalidNestedSettings(t *testing.
 			runtime, _ := newSettingsRouteTestRuntime(t)
 			handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
 			before := runtime.Snapshot()
+			document, err := settingsstate.NewDocument()
+			if err != nil {
+				t.Fatalf("new settings document: %v", err)
+			}
+			testCase.mutate(document)
+			body, err := json.Marshal(map[string]any{"settings": document})
+			if err != nil {
+				t.Fatalf("marshal settings request: %v", err)
+			}
 			response := httptest.NewRecorder()
 			request := httptest.NewRequest(
 				http.MethodPost,
 				"/api"+RouteSaveSettings,
-				strings.NewReader(testCase.body),
+				bytes.NewReader(body),
 			)
 			request.Header.Set("Content-Type", "application/json")
 			handler.ServeHTTP(response, request)

@@ -19,7 +19,6 @@ import (
 	"setta/internal/config"
 	"setta/internal/localsessions"
 	"setta/internal/projectstate"
-	"setta/internal/settingsstate"
 )
 
 const (
@@ -311,18 +310,7 @@ func ensureSettingsProjectLaunchPreflight(paths config.Paths) error {
 	if err != nil {
 		return nil
 	}
-	if err := settingsstate.ValidatePersistedSettingsProjectDocument(document); err != nil {
-		var missingSectionErr settingsstate.MissingSettingsSectionError
-		if errors.As(err, &missingSectionErr) {
-			return &SessionLaunchError{
-				Code: "OutdatedProjectSettings",
-				Message: fmt.Sprintf(
-					"This workspace uses an older Setta settings/project format (missing settings section %s). Please migrate the project metadata and try again.",
-					missingSectionErr.SectionName,
-				),
-			}
-		}
-	}
+	_ = document
 	return nil
 }
 

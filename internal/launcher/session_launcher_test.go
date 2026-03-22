@@ -675,7 +675,7 @@ func TestLocalIDESessionLauncherEnsureSessionReturnsInvalidRuntimeRootWhenRuntim
 	}
 }
 
-func TestLocalIDESessionLauncherEnsureSessionReturnsTypedOutdatedSettingsError(t *testing.T) {
+func TestLocalIDESessionLauncherEnsureSessionIgnoresCorruptedSettingsProjectPreflight(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -715,23 +715,17 @@ func TestLocalIDESessionLauncherEnsureSessionReturnsTypedOutdatedSettingsError(t
 
 	_, err = launcher.EnsureSession(input)
 	if err == nil {
-		t.Fatal("expected outdated settings launch failure")
+		t.Fatal("expected process starter failure")
 	}
 	var launchErr *SessionLaunchError
 	if !errors.As(err, &launchErr) {
 		t.Fatalf("expected SessionLaunchError, got %T: %v", err, err)
 	}
-	if launchErr.Code != "OutdatedProjectSettings" {
-		t.Fatalf("expected OutdatedProjectSettings, got %q (%v)", launchErr.Code, err)
+	if launchErr.Code != "LaunchFailed" {
+		t.Fatalf("expected LaunchFailed, got %q (%v)", launchErr.Code, err)
 	}
-	if !strings.Contains(launchErr.Message, "older Setta settings/project format") {
-		t.Fatalf("expected migration guidance, got %q", launchErr.Message)
-	}
-	if !strings.Contains(launchErr.Message, "spreadsheetSectionDefault") {
-		t.Fatalf("expected missing section name in message, got %q", launchErr.Message)
-	}
-	if processStarterCalled {
-		t.Fatal("expected outdated settings preflight to stop before process start")
+	if !processStarterCalled {
+		t.Fatal("expected corrupted settings project preflight to be ignored")
 	}
 }
 

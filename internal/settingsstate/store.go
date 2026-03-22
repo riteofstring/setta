@@ -1,7 +1,6 @@
 package settingsstate
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -84,14 +83,9 @@ func (s *Store) Load(ctx context.Context) (Document, error) {
 
 	output := make(Document, len(defaultDocument))
 	for path, slices := range pathToSlices {
-		documentRoot, changed, err := loadSettingsObjectForPath(path, defaultDocument, slices)
+		documentRoot, err := loadSettingsObjectForPath(path, defaultDocument, slices)
 		if err != nil {
 			return nil, err
-		}
-		if changed {
-			if err := writeSettingsObject(path, documentRoot); err != nil {
-				return nil, err
-			}
 		}
 		for _, settingsSlice := range slices {
 			output[settingsSlice] = cloneValue(documentRoot[settingsSlice])
@@ -287,48 +281,36 @@ func loadSettingsObjectForPath(
 	path string,
 	defaults Document,
 	slices []string,
-) (map[string]any, bool, error) {
+) (map[string]any, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, false, fmt.Errorf("read settings document: %w", err)
+		return nil, fmt.Errorf("read settings document: %w", err)
 	}
 
 	var raw any
 	if err := json.Unmarshal(content, &raw); err != nil {
-		return nil, false, fmt.Errorf("decode settings document: %w", err)
+		return nil, fmt.Errorf("decode settings document: %w", err)
 	}
 
 	documentRoot, ok := raw.(map[string]any)
 	if !ok {
-		return nil, false, ErrSettingsPayloadNotObject
+		return nil, ErrSettingsPayloadNotObject
 	}
-	changed := false
 	for _, settingsSlice := range slices {
 		existingSlice, hasExisting := documentRoot[settingsSlice]
 		if !hasExisting {
-			documentRoot[settingsSlice] = cloneValue(defaults[settingsSlice])
-			changed = true
-			continue
+			return nil, newValidationError("settings.%s: Field required", settingsSlice)
 		}
-		existingMap, existingOK := asObject(existingSlice)
-		defaultMap, defaultsOK := asObject(defaults[settingsSlice])
-		if !existingOK || !defaultsOK {
-			continue
-		}
-		before, err := json.Marshal(existingMap)
-		if err != nil {
-			return nil, false, fmt.Errorf("encode existing settings slice: %w", err)
-		}
-		mergeMissingDefaults(existingMap, defaultMap)
-		after, err := json.Marshal(existingMap)
-		if err != nil {
-			return nil, false, fmt.Errorf("encode normalized settings slice: %w", err)
-		}
-		if !bytes.Equal(before, after) {
-			changed = true
+		if err := validateValueAgainstDefault(
+			existingSlice,
+			defaults[settingsSlice],
+			"settings."+settingsSlice,
+			true,
+		); err != nil {
+			return nil, err
 		}
 	}
-	return documentRoot, changed, nil
+	return documentRoot, nil
 }
 
 func writeSettingsObject(path string, payload map[string]any) error {
