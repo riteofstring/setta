@@ -802,23 +802,28 @@ func TestRegisterWorkspaceLaunchRoutesLaunchMapsTypedOutdatedSettingsError(t *te
 	}
 }
 
-func TestRegisterWorkspaceLaunchRoutesSkipsDeploymentMode(t *testing.T) {
+func TestRegisterWorkspaceLaunchRoutesSkipsDeploymentModes(t *testing.T) {
 	t.Parallel()
 
-	router := chi.NewRouter()
-	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeShare),
-		Auth:       newTestAuthService(t),
-		Intents:    &workspacelaunch.IntentService{},
-		Launch:     &workspacelaunch.LocalLaunchService{},
-	}); err != nil {
-		t.Fatalf("register workspace launch routes: %v", err)
-	}
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		mode := mode
+		t.Run(string(mode), func(t *testing.T) {
+			router := chi.NewRouter()
+			if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
+				ModePolicy: modes.NewPolicy(mode),
+				Auth:       newTestAuthService(t),
+				Intents:    &workspacelaunch.IntentService{},
+				Launch:     &workspacelaunch.LocalLaunchService{},
+			}); err != nil {
+				t.Fatalf("register workspace launch routes: %v", err)
+			}
 
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, RouteCreateWorkspaceLaunchIntent, nil))
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("expected route to be absent in deployment mode, got %d", response.Code)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, RouteCreateWorkspaceLaunchIntent, nil))
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("expected route to be absent in deployment mode %q, got %d", mode, response.Code)
+			}
+		})
 	}
 }
 
