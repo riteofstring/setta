@@ -15,6 +15,7 @@ import (
 	filebrowser "setta/internal/filebrowser"
 	gitread "setta/internal/gitread"
 	httpapi "setta/internal/httpapi"
+	launcher "setta/internal/launcher"
 	llmconfig "setta/internal/llmconfig"
 	lspcompletion "setta/internal/lspcompletion"
 	mcpx "setta/internal/mcpx"
@@ -197,11 +198,11 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(LauncherListDirectoryResponse{}),
 		reflect.TypeOf(LauncherOpenWorkspaceRequestInput{}),
 		reflect.TypeOf(LauncherOpenWorkspaceResponse{}),
-		reflect.TypeOf(LauncherOpenMode("")),
-		reflect.TypeOf(LauncherWorkspaceBehavior("")),
+		reflect.TypeOf((*LauncherOpenMode)(nil)).Elem(),
+		reflect.TypeOf((*LauncherWorkspaceBehavior)(nil)).Elem(),
 		reflect.TypeOf(SetupLauncherWorkspaceBehavior("")),
 		reflect.TypeOf(LauncherInstallSource("")),
-		reflect.TypeOf(LauncherUpdateCapability("")),
+		reflect.TypeOf((*LauncherUpdateCapability)(nil)).Elem(),
 		reflect.TypeOf(LauncherOperationErrorPayload{}),
 		reflect.TypeOf(GetLauncherStatusRequestInput{}),
 		reflect.TypeOf(LauncherStatusResponse{}),
@@ -785,6 +786,9 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*config.Mode)(nil)).Elem(): reflect.TypeOf((*ServerMode)(nil)).Elem(),
 		reflect.TypeOf((*config.FilesLocation)(nil)).Elem(): reflect.TypeOf((*LaunchSettaFilesLocation)(nil)).Elem(),
 		reflect.TypeOf((*config.ResolvedFilesLocation)(nil)).Elem(): reflect.TypeOf((*LaunchResolvedSettaFilesLocation)(nil)).Elem(),
+		reflect.TypeOf((*launcher.LauncherOpenMode)(nil)).Elem(): reflect.TypeOf((*LauncherOpenMode)(nil)).Elem(),
+		reflect.TypeOf((*launcher.LauncherWorkspaceBehavior)(nil)).Elem(): reflect.TypeOf((*LauncherWorkspaceBehavior)(nil)).Elem(),
+		reflect.TypeOf((*launcher.LauncherUpdateCapability)(nil)).Elem(): reflect.TypeOf((*LauncherUpdateCapability)(nil)).Elem(),
 		reflect.TypeOf((*mcpx.Transport)(nil)).Elem(): reflect.TypeOf((*MCPTransport)(nil)).Elem(),
 		reflect.TypeOf((*mcpx.RuntimeState)(nil)).Elem(): reflect.TypeOf((*MCPRuntimeState)(nil)).Elem(),
 		reflect.TypeOf((*mcpx.ServerRuntimeStatus)(nil)).Elem(): reflect.TypeOf((*MCPServerRuntimeStatus)(nil)).Elem(),

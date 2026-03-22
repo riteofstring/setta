@@ -285,6 +285,10 @@ That means:
     - `PluginUpdateResponse -> plugins.PluginUpdateResult`
     - `PluginRollbackResponse -> plugins.PluginRollbackResult`
     - `PluginRestartResponse -> plugins.PluginRestartResult`
+  - the remaining launcher enums that already had exact backend owners are now also wrapped instead of repeated:
+    - `LauncherOpenMode -> launcher.LauncherOpenMode`
+    - `LauncherWorkspaceBehavior -> launcher.LauncherWorkspaceBehavior`
+    - `LauncherUpdateCapability -> launcher.LauncherUpdateCapability`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

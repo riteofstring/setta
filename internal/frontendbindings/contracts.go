@@ -6,6 +6,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/httpapi"
+	"setta/internal/launcher"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/realtime"
@@ -207,18 +208,18 @@ type LauncherOpenWorkspaceResponse struct {
 	Error                *LauncherHomeErrorPayload         `json:"error"`
 }
 
-type LauncherOpenMode string
+type LauncherOpenMode launcher.LauncherOpenMode
 
 const (
-	LauncherOpenModeBrowser   LauncherOpenMode = "browser"
-	LauncherOpenModeChromeApp LauncherOpenMode = "chrome-app"
+	LauncherOpenModeBrowser   LauncherOpenMode = LauncherOpenMode(launcher.LauncherOpenModeBrowser)
+	LauncherOpenModeChromeApp LauncherOpenMode = LauncherOpenMode(launcher.LauncherOpenModeChromeApp)
 )
 
-type LauncherWorkspaceBehavior string
+type LauncherWorkspaceBehavior launcher.LauncherWorkspaceBehavior
 
 const (
-	LauncherWorkspaceBehaviorLastUsedOrPrompt LauncherWorkspaceBehavior = "last_used_or_prompt"
-	LauncherWorkspaceBehaviorAlwaysPrompt     LauncherWorkspaceBehavior = "always_prompt"
+	LauncherWorkspaceBehaviorLastUsedOrPrompt LauncherWorkspaceBehavior = LauncherWorkspaceBehavior(launcher.LauncherWorkspaceBehaviorLastUsedOrPrompt)
+	LauncherWorkspaceBehaviorAlwaysPrompt     LauncherWorkspaceBehavior = LauncherWorkspaceBehavior(launcher.LauncherWorkspaceBehaviorAlwaysPrompt)
 )
 
 type SetupLauncherWorkspaceBehavior string
@@ -236,12 +237,12 @@ const (
 	LauncherInstallSourceUnsupported      LauncherInstallSource = "unsupported"
 )
 
-type LauncherUpdateCapability string
+type LauncherUpdateCapability launcher.LauncherUpdateCapability
 
 const (
-	LauncherUpdateCapabilityInApp            LauncherUpdateCapability = "in_app"
-	LauncherUpdateCapabilityInstallerManaged LauncherUpdateCapability = "installer_managed"
-	LauncherUpdateCapabilityUnsupported      LauncherUpdateCapability = "unsupported"
+	LauncherUpdateCapabilityInApp            LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityInApp)
+	LauncherUpdateCapabilityInstallerManaged LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityInstallerManaged)
+	LauncherUpdateCapabilityUnsupported      LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityUnsupported)
 )
 
 type LauncherOperationErrorPayload struct {
