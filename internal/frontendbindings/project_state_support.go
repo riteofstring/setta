@@ -527,7 +527,7 @@ type Position struct {
 
 type RunSnapshotMode deployments.RunSnapshotMode
 
-type RenameRefactorMode string
+type RenameRefactorMode projectstate.RenameRefactorMode
 
 type BackgroundVariant string
 
@@ -951,7 +951,7 @@ type AgenticEdgeKind string
 
 type AgenticEdgeContextMode string
 
-type StateMachineGateUIState struct{}
+type StateMachineGateUIState projectstate.StateMachineGateUIState
 
 type StateMachineSourceFilter = projectstate.StateMachineSourceFilter
 
@@ -961,58 +961,24 @@ type StateMachineTargetAction = projectstate.StateMachineTargetAction
 
 type EdgePort = projectstate.EdgePort
 
-type TypeErrorIgnoreState struct {
-	Callable bool            `json:"callable"`
-	Params   map[string]bool `json:"params"`
-}
+type TypeErrorIgnoreState projectstate.TypeErrorIgnoreState
 
 type ChartData struct{}
 
 type ChartDataType struct{}
 
-type BrowserSavedSearchTypeFilters struct {
-	Image bool `json:"image"`
-	Video bool `json:"video"`
-	Audio bool `json:"audio"`
-	Text  bool `json:"text"`
-	Data  bool `json:"data"`
-}
+type BrowserSavedSearchTypeFilters projectstate.BrowserSavedSearchTypeFilters
 
-type BrowserSavedSearch struct {
-	ID          string                        `json:"id"`
-	Name        string                        `json:"name"`
-	Query       string                        `json:"query"`
-	SearchScope BrowserSearchScope            `json:"searchScope"`
-	TypeFilters BrowserSavedSearchTypeFilters `json:"typeFilters"`
-	Color       string                        `json:"color"`
-	QuickInfo   string                        `json:"quickInfo"`
-}
+type BrowserSavedSearch projectstate.BrowserSavedSearch
 
 type CodeFileBindingUpdate struct {
 	CanonicalPath string             `json:"canonical_path"`
 	AccessMode    CodeFileAccessMode `json:"access_mode"`
 }
 
-type TaskBoardColumn struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Color     string `json:"color"`
-	SortIndex int    `json:"sortIndex"`
-}
+type TaskBoardColumn projectstate.TaskBoardColumn
 
-type TaskBoardTask struct {
-	ID               string                      `json:"id"`
-	Title            string                      `json:"title"`
-	Description      string                      `json:"description"`
-	Completed        bool                        `json:"completed"`
-	ColumnID         *string                     `json:"columnId,omitempty"`
-	DueDateISO       string                      `json:"dueDateIso"`
-	Recurrence       TaskBoardTaskRecurrence     `json:"recurrence"`
-	RecurrenceDays   []TaskBoardRecurringWeekday `json:"recurrenceDays"`
-	RecurrenceMonths []TaskBoardRecurringMonth   `json:"recurrenceMonths"`
-	RecurrenceYears  []int                       `json:"recurrenceYears"`
-	SortIndex        int                         `json:"sortIndex"`
-}
+type TaskBoardTask projectstate.TaskBoardTask
 
 type Edge = projectstate.Edge
 
@@ -1120,15 +1086,15 @@ type UserDefaultPromptSectionImpl struct{}
 
 type PromptSectionImpl struct{}
 
-type CodeSectionDiagnosticsIgnoreState struct{}
+type CodeSectionDiagnosticsIgnoreState projectstate.CodeSectionDiagnosticsIgnoreState
 
 type UserDefaultCodeSectionImpl struct{}
 
-type CodeSectionImpl struct{}
+type CodeSectionImpl projectstate.CodeSectionImpl
 
 type UserDefaultTerminalSectionImpl struct{}
 
-type TerminalSectionImpl struct{}
+type TerminalSectionImpl projectstate.TerminalSectionImpl
 
 type BaseSectionImplUnion struct{}
 
