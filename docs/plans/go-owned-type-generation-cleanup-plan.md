@@ -265,6 +265,26 @@ That means:
     - `PluginRegisteredListenerEndpoint`
     - `PluginConfigValidationResult`
     - `PluginConfigWriteResponse -> plugins.PluginConfigWriteResult`
+  - `internal/frontendbindings/contracts.go` now also wraps the larger plugin/runtime/config owner types instead of mirroring those response bodies locally:
+    - `ServerMode -> config.Mode`
+    - `LaunchSettaFilesLocation -> config.FilesLocation`
+    - `LaunchResolvedSettaFilesLocation -> config.ResolvedFilesLocation`
+    - `PluginRestartCapabilityMode -> plugins.RestartCapabilityMode`
+    - `PluginFrontendDescriptor -> plugins.FrontendDescriptor`
+    - `PluginContentDescriptor -> plugins.ContentDescriptor`
+    - `PluginConfigDescriptor -> plugins.ConfigDescriptor`
+    - `PluginRestartCapability -> plugins.RestartCapability`
+    - `PluginListEntry -> plugins.ListEntry`
+    - `PluginListResponse -> plugins.ListResponse`
+    - `PluginStatusEntry -> plugins.StatusEntry`
+    - `PluginStatusResponse -> plugins.StatusResponse`
+    - `PluginRuntimeResponse -> plugins.RuntimeResponse`
+    - `PluginInstallResponse -> plugins.PluginInstallResult`
+    - `PluginEnableDisableResponse -> plugins.PluginEnableDisableResult`
+    - `PluginUninstallResponse -> plugins.PluginUninstallResult`
+    - `PluginUpdateResponse -> plugins.PluginUpdateResult`
+    - `PluginRollbackResponse -> plugins.PluginRollbackResult`
+    - `PluginRestartResponse -> plugins.PluginRestartResult`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

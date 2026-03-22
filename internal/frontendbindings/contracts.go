@@ -4,6 +4,7 @@ import (
 	"time"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
@@ -27,13 +28,13 @@ type AuthRefreshStatusResponse struct {
 	AuthCookieRefreshWindowSeconds int `json:"authCookieRefreshWindowSeconds"`
 }
 
-type ServerMode string
+type ServerMode config.Mode
 
 const (
-	ServerModeIDE      ServerMode = "ide"
-	ServerModeShare    ServerMode = "share"
-	ServerModeApp      ServerMode = "app"
-	ServerModeLauncher ServerMode = "launcher"
+	ServerModeIDE      ServerMode = ServerMode(config.ModeIDE)
+	ServerModeShare    ServerMode = ServerMode(config.ModeShare)
+	ServerModeApp      ServerMode = ServerMode(config.ModeApp)
+	ServerModeLauncher ServerMode = ServerMode(config.ModeLauncher)
 )
 
 type ServerModeResponse struct {
@@ -47,19 +48,19 @@ type SettaHomeInfoResponse struct {
 	LLMConfigPath            string  `json:"llmConfigPath"`
 }
 
-type LaunchSettaFilesLocation string
+type LaunchSettaFilesLocation config.FilesLocation
 
 const (
-	LaunchSettaFilesLocationAuto   LaunchSettaFilesLocation = "auto"
-	LaunchSettaFilesLocationLocal  LaunchSettaFilesLocation = "local"
-	LaunchSettaFilesLocationGlobal LaunchSettaFilesLocation = "global"
+	LaunchSettaFilesLocationAuto   LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationAuto)
+	LaunchSettaFilesLocationLocal  LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationLocal)
+	LaunchSettaFilesLocationGlobal LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationGlobal)
 )
 
-type LaunchResolvedSettaFilesLocation string
+type LaunchResolvedSettaFilesLocation config.ResolvedFilesLocation
 
 const (
-	LaunchResolvedSettaFilesLocationLocal  LaunchResolvedSettaFilesLocation = "local"
-	LaunchResolvedSettaFilesLocationGlobal LaunchResolvedSettaFilesLocation = "global"
+	LaunchResolvedSettaFilesLocationLocal  LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(config.ResolvedFilesLocationLocal)
+	LaunchResolvedSettaFilesLocationGlobal LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(config.ResolvedFilesLocationGlobal)
 )
 
 type LaunchRequestInput struct {
@@ -679,35 +680,22 @@ const (
 	PluginBlockedCapabilityReasonManifestInvalid PluginBlockedCapabilityReason = PluginBlockedCapabilityReason(plugins.PluginBlockedCapabilityReasonManifestInvalid)
 )
 
-type PluginRestartCapabilityMode string
+type PluginRestartCapabilityMode plugins.RestartCapabilityMode
 
 const (
-	PluginRestartCapabilityModeManual       PluginRestartCapabilityMode = "manual"
-	PluginRestartCapabilityModeProgrammatic PluginRestartCapabilityMode = "programmatic"
+	PluginRestartCapabilityModeManual       PluginRestartCapabilityMode = PluginRestartCapabilityMode(plugins.RestartCapabilityModeManual)
+	PluginRestartCapabilityModeProgrammatic PluginRestartCapabilityMode = PluginRestartCapabilityMode(plugins.RestartCapabilityModeProgrammatic)
 )
 
 type PluginErrorInfo plugins.PluginErrorInfo
 
 type PluginBlockedCapability plugins.PluginBlockedCapability
 
-type PluginFrontendDescriptor struct {
-	EntrypointURL *string `json:"entrypointUrl"`
-	StyleURL      *string `json:"styleUrl"`
-}
+type PluginFrontendDescriptor plugins.FrontendDescriptor
 
-type PluginContentDescriptor struct {
-	HasBlueprints       bool `json:"hasBlueprints"`
-	HasProjectTemplates bool `json:"hasProjectTemplates"`
-	HasPrompts          bool `json:"hasPrompts"`
-}
+type PluginContentDescriptor plugins.ContentDescriptor
 
-type PluginConfigDescriptor struct {
-	HasSchema                 bool           `json:"hasSchema"`
-	SchemaJSON                map[string]any `json:"schemaJson"`
-	SchemaJSONDigestSHA256    *string        `json:"schemaJsonDigestSha256"`
-	CurrentConfig             map[string]any `json:"currentConfig"`
-	CurrentConfigDigestSHA256 *string        `json:"currentConfigDigestSha256"`
-}
+type PluginConfigDescriptor plugins.ConfigDescriptor
 
 type PluginRegisteredCodegenTarget plugins.PluginRegisteredCodegenTarget
 
@@ -717,77 +705,17 @@ type PluginRegisteredStaticDir plugins.PluginRegisteredStaticDir
 
 type PluginRegisteredListenerEndpoint plugins.PluginRegisteredListenerEndpoint
 
-type PluginRestartCapability struct {
-	Mode    PluginRestartCapabilityMode `json:"mode"`
-	Command *string                     `json:"command"`
-	Reason  *string                     `json:"reason"`
-}
+type PluginRestartCapability plugins.RestartCapability
 
-type PluginListEntry struct {
-	PluginID              string                   `json:"pluginId"`
-	Name                  string                   `json:"name"`
-	Version               string                   `json:"version"`
-	SourceScope           PluginScope              `json:"sourceScope"`
-	SourceScopeLabel      string                   `json:"sourceScopeLabel"`
-	SourceManager         PluginSourceManager      `json:"sourceManager"`
-	SourceManagerHint     *string                  `json:"sourceManagerHint"`
-	CanonicalSourceKey    string                   `json:"canonicalSourceKey"`
-	SourceDigestSHA256    *string                  `json:"sourceDigestSha256"`
-	Frontend              PluginFrontendDescriptor `json:"frontend"`
-	Content               PluginContentDescriptor  `json:"content"`
-	Config                PluginConfigDescriptor   `json:"config"`
-	Components            []string                 `json:"components"`
-	EffectiveCapabilities []string                 `json:"effectiveCapabilities"`
-	EnablementSource      *PluginEnablementSource  `json:"enablementSource"`
-	RestartRequired       bool                     `json:"restartRequired"`
-}
+type PluginListEntry plugins.ListEntry
 
-type PluginListResponse struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	ServerMode        ServerMode              `json:"serverMode"`
-	RestartCapability PluginRestartCapability `json:"restartCapability"`
-	Plugins           []PluginListEntry       `json:"plugins"`
-}
+type PluginListResponse plugins.ListResponse
 
-type PluginStatusEntry struct {
-	PluginID                    string                             `json:"pluginId"`
-	Name                        string                             `json:"name"`
-	Version                     string                             `json:"version"`
-	State                       PluginRuntimeState                 `json:"state"`
-	SourceScope                 PluginScope                        `json:"sourceScope"`
-	SourceScopeLabel            string                             `json:"sourceScopeLabel"`
-	SourceManager               PluginSourceManager                `json:"sourceManager"`
-	SourceManagerHint           *string                            `json:"sourceManagerHint"`
-	SourcePath                  string                             `json:"sourcePath"`
-	CanonicalSourceKey          string                             `json:"canonicalSourceKey"`
-	SourceDigestSHA256          *string                            `json:"sourceDigestSha256"`
-	ShadowedBySourcePath        *string                            `json:"shadowedBySourcePath"`
-	RequestedCapabilities       []string                           `json:"requestedCapabilities"`
-	EffectiveCapabilities       []string                           `json:"effectiveCapabilities"`
-	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
-	Components                  []string                           `json:"components"`
-	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
-	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
-	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
-	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
-	EnablementSource            *PluginEnablementSource            `json:"enablementSource"`
-	RestartRequired             bool                               `json:"restartRequired"`
-	RuntimePayloadDigestSHA256  string                             `json:"runtimePayloadDigestSha256"`
-	Errors                      []PluginErrorInfo                  `json:"errors"`
-}
+type PluginStatusEntry plugins.StatusEntry
 
-type PluginStatusResponse struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	ServerMode        ServerMode              `json:"serverMode"`
-	RestartCapability PluginRestartCapability `json:"restartCapability"`
-	Plugins           []PluginStatusEntry     `json:"plugins"`
-}
+type PluginStatusResponse plugins.StatusResponse
 
-type PluginRuntimeResponse struct {
-	SchemaVersion int                  `json:"schemaVersion"`
-	List          PluginListResponse   `json:"list"`
-	Status        PluginStatusResponse `json:"status"`
-}
+type PluginRuntimeResponse plugins.RuntimeResponse
 
 type PluginRescanResponse struct {
 	SchemaVersion    int        `json:"schemaVersion"`
@@ -815,38 +743,16 @@ type PluginLinkRequestInput struct {
 	Force           *bool        `json:"force"`
 }
 
-type PluginInstallResponse struct {
-	PluginID              string                  `json:"pluginId"`
-	Version               string                  `json:"version"`
-	SourceScope           PluginScope             `json:"sourceScope"`
-	SourceScopeLabel      string                  `json:"sourceScopeLabel"`
-	SourcePath            string                  `json:"sourcePath"`
-	CanonicalSourceKey    string                  `json:"canonicalSourceKey"`
-	SourceDigestSHA256    *string                 `json:"sourceDigestSha256"`
-	RequestedCapabilities []string                `json:"requestedCapabilities"`
-	TrustStatus           PluginSourceTrustStatus `json:"trustStatus"`
-	TrustWarning          string                  `json:"trustWarning"`
-	Components            []string                `json:"components"`
-	State                 PluginRuntimeState      `json:"state"`
-	RestartRequired       bool                    `json:"restartRequired"`
-}
+type PluginInstallResponse plugins.PluginInstallResult
 
-type PluginEnableDisableResponse struct {
-	PluginID        string             `json:"pluginId"`
-	State           PluginRuntimeState `json:"state"`
-	RestartRequired bool               `json:"restartRequired"`
-}
+type PluginEnableDisableResponse plugins.PluginEnableDisableResult
 
 type PluginUninstallRequestInput struct {
 	PluginID string       `json:"pluginId"`
 	Scope    *PluginScope `json:"scope"`
 }
 
-type PluginUninstallResponse struct {
-	PluginID         string      `json:"pluginId"`
-	RemovedFromScope PluginScope `json:"removedFromScope"`
-	RestartRequired  bool        `json:"restartRequired"`
-}
+type PluginUninstallResponse plugins.PluginUninstallResult
 
 type PluginUpdateRequestInput struct {
 	PluginID string       `json:"pluginId"`
@@ -854,25 +760,14 @@ type PluginUpdateRequestInput struct {
 	To       *string      `json:"to"`
 }
 
-type PluginUpdateResponse struct {
-	PluginID           string  `json:"pluginId"`
-	FromVersion        string  `json:"fromVersion"`
-	ToVersion          string  `json:"toVersion"`
-	SourceDigestSHA256 *string `json:"sourceDigestSha256"`
-	RestartRequired    bool    `json:"restartRequired"`
-}
+type PluginUpdateResponse plugins.PluginUpdateResult
 
 type PluginRollbackRequestInput struct {
 	PluginID string       `json:"pluginId"`
 	Scope    *PluginScope `json:"scope"`
 }
 
-type PluginRollbackResponse struct {
-	PluginID           string  `json:"pluginId"`
-	RestoredVersion    string  `json:"restoredVersion"`
-	SourceDigestSHA256 *string `json:"sourceDigestSha256"`
-	RestartRequired    bool    `json:"restartRequired"`
-}
+type PluginRollbackResponse plugins.PluginRollbackResult
 
 type PluginConfigValidationResult plugins.PluginConfigValidationResult
 
@@ -898,9 +793,4 @@ type PluginLockApplyResponse struct {
 	Applied        bool     `json:"applied"`
 }
 
-type PluginRestartResponse struct {
-	Accepted bool                        `json:"accepted"`
-	Mode     PluginRestartCapabilityMode `json:"mode"`
-	Command  *string                     `json:"command"`
-	Reason   *string                     `json:"reason"`
-}
+type PluginRestartResponse plugins.PluginRestartResult
