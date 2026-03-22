@@ -966,6 +966,26 @@ func TestBootstrapPageDefaultsDevFrontendRedirectToHTTPWhenSchemeUnset(t *testin
 	}
 }
 
+func TestFormatHostForURLNormalizesWildcardAndIPv6Hosts(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		host string
+		want string
+	}{
+		{host: "0.0.0.0", want: "127.0.0.1"},
+		{host: "::", want: "[::1]"},
+		{host: "2001:db8::1", want: "[2001:db8::1]"},
+		{host: "[2001:db8::2]", want: "[2001:db8::2]"},
+	}
+
+	for _, testCase := range testCases {
+		if got := formatHostForURL(testCase.host); got != testCase.want {
+			t.Fatalf("formatHostForURL(%q) = %q, want %q", testCase.host, got, testCase.want)
+		}
+	}
+}
+
 func TestBootstrapConsumeReturnsVerifiedLauncherOrigin(t *testing.T) {
 	t.Parallel()
 

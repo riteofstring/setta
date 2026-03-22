@@ -655,12 +655,14 @@ func urlHostForBaseURL(host string) string {
 	trimmed := strings.TrimSpace(host)
 	switch trimmed {
 	case "0.0.0.0":
-		return "127.0.0.1"
+		trimmed = "127.0.0.1"
 	case "::":
-		return "::1"
-	default:
-		return trimmed
+		trimmed = "::1"
 	}
+	if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+		trimmed = strings.TrimPrefix(strings.TrimSuffix(trimmed, "]"), "[")
+	}
+	return trimmed
 }
 
 func sshTunnelHost(host string) string {
@@ -709,7 +711,7 @@ func renderConnectInfoMessage(session auth.SessionMetadata, bootstrapURLFragment
 }
 
 func formatBindHint(host string, port int) string {
-	bindHost := strings.TrimSpace(host)
+	bindHost := urlHostForBaseURL(host)
 	if bindHost == "" {
 		bindHost = "127.0.0.1"
 	}

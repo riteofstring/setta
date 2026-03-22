@@ -684,6 +684,43 @@ func TestRunAuthRejectsConflictingSessionAndLatestSelectors(t *testing.T) {
 	}
 }
 
+func TestBuildSSHTunnelCommandNormalizesWildcardAndIPv6Hosts(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		host string
+		port int
+		want string
+	}{
+		{
+			host: "0.0.0.0",
+			port: 61234,
+			want: "ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 <user@host> -o ExitOnForwardFailure=yes",
+		},
+		{
+			host: "::",
+			port: 61234,
+			want: "ssh -N -L ${LOCAL_PORT}:[::1]:61234 <user@host> -o ExitOnForwardFailure=yes",
+		},
+		{
+			host: "2001:db8::1",
+			port: 61235,
+			want: "ssh -N -L ${LOCAL_PORT}:[2001:db8::1]:61235 <user@host> -o ExitOnForwardFailure=yes",
+		},
+		{
+			host: "[2001:db8::2]",
+			port: 61235,
+			want: "ssh -N -L ${LOCAL_PORT}:[2001:db8::2]:61235 <user@host> -o ExitOnForwardFailure=yes",
+		},
+	}
+
+	for _, testCase := range testCases {
+		if got := buildSSHTunnelCommand(testCase.host, testCase.port); got != testCase.want {
+			t.Fatalf("buildSSHTunnelCommand(%q, %d) = %q, want %q", testCase.host, testCase.port, got, testCase.want)
+		}
+	}
+}
+
 func TestRunAuthLatestDefaultsToIDESessionAndNormalizesBaseURL(t *testing.T) {
 	t.Parallel()
 
