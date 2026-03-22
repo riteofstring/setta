@@ -6,7 +6,7 @@ import (
 )
 
 const GeneratedPythonModulePath = "backend/setta/sdk_contracts/generated.py"
-const SDKContractVersion = 1
+const SDKContractVersion = 2
 
 type RunnerSummaryVariant struct {
 	ID   string `json:"id"`
@@ -38,8 +38,10 @@ type ListenerDependencyCatalogEntry struct {
 	Name                       string   `json:"name"`
 	FullPathName               string   `json:"fullPathName"`
 	Dependencies               []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnionWithDiscriminator]" py_import:"from setta.types.generated.dependency_keys import BaseDependencyKeyUnionWithDiscriminator" py_default:"factory:list"`
+	IncludeInCodegen           bool     `json:"includeInCodegen" py_default:"True"`
 	SectionType                *string  `json:"sectionType,omitempty"`
 	CodeObjType                *string  `json:"codeObjType,omitempty"`
+	PassingStyle               *string  `json:"passingStyle,omitempty"`
 	ControlCodeObjID           *string  `json:"controlCodeObjId,omitempty"`
 	ControlCodeObjType         *string  `json:"controlCodeObjType,omitempty"`
 	SectionRepresentation      *string  `json:"sectionRepresentation,omitempty"`
@@ -164,9 +166,10 @@ type RunningBackendVersionHandshake struct {
 }
 
 type LocalCoreVersionHandshake struct {
-	ProtocolVersion int     `json:"protocolVersion"`
-	SDKVersion      *string `json:"sdkVersion,omitempty"`
-	CoreVersion     *string `json:"coreVersion,omitempty"`
+	ProtocolVersion    int     `json:"protocolVersion"`
+	SDKVersion         *string `json:"sdkVersion,omitempty"`
+	CoreVersion        *string `json:"coreVersion,omitempty"`
+	SDKContractVersion int     `json:"sdkContractVersion"`
 }
 
 type LocalCoreCommandEnvelope struct {
@@ -181,6 +184,22 @@ type LocalCoreResultEnvelope struct {
 	Result  any            `json:"result,omitempty" py_type:"Any | None" py_default:"None"`
 	Error   *string        `json:"error,omitempty"`
 	Details map[string]any `json:"details,omitempty" py_type:"dict[str, Any]" py_default:"factory:dict"`
+}
+
+type LocalCoreListenerRealtimeDelta struct {
+	Dependency          string          `json:"dependency" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.generated.dependency_keys import BaseDependencyKeyUnionWithDiscriminator"`
+	Value               json.RawMessage `json:"value" py_type:"BaseDependencyValueUnionWithDiscriminator" py_import:"from setta.types.generated.dependency_values import BaseDependencyValueUnionWithDiscriminator"`
+	BinaryPayloadBase64 *string         `json:"binaryPayloadBase64,omitempty"`
+}
+
+type LocalCoreRenderRealtimeDependencyValuesRequest struct {
+	DependencyCatalog       ListenerDependencyCatalog        `json:"dependencyCatalog"`
+	CurrentDependencyValues ListenerRenderedDependencyValues `json:"currentDependencyValues"`
+	Deltas                  []LocalCoreListenerRealtimeDelta `json:"deltas" py_default:"factory:list"`
+}
+
+type LocalCoreRenderRealtimeDependencyValuesResult struct {
+	DependencyValues ListenerRenderedDependencyValues `json:"dependencyValues"`
 }
 
 func currentContractTypes() []reflect.Type {
@@ -212,5 +231,8 @@ func currentContractTypes() []reflect.Type {
 		reflect.TypeOf(LocalCoreVersionHandshake{}),
 		reflect.TypeOf(LocalCoreCommandEnvelope{}),
 		reflect.TypeOf(LocalCoreResultEnvelope{}),
+		reflect.TypeOf(LocalCoreListenerRealtimeDelta{}),
+		reflect.TypeOf(LocalCoreRenderRealtimeDependencyValuesRequest{}),
+		reflect.TypeOf(LocalCoreRenderRealtimeDependencyValuesResult{}),
 	}
 }

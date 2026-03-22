@@ -13,7 +13,7 @@ from setta.types.generated.dependency_values import (
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
 
-SETTA_SDK_CONTRACT_VERSION = 1
+SETTA_SDK_CONTRACT_VERSION = 2
 
 
 class SettaSDKContractBaseModel(BaseModel):
@@ -52,8 +52,10 @@ class ListenerDependencyCatalogEntry(SettaSDKContractBaseModel):
     dependencies: list[BaseDependencyKeyUnionWithDiscriminator] = Field(
         default_factory=list
     )
+    includeInCodegen: bool = True
     sectionType: str | None = None
     codeObjType: str | None = None
+    passingStyle: str | None = None
     controlCodeObjId: str | None = None
     controlCodeObjType: str | None = None
     sectionRepresentation: str | None = None
@@ -185,6 +187,7 @@ class LocalCoreVersionHandshake(SettaSDKContractBaseModel):
     protocolVersion: int
     sdkVersion: str | None = None
     coreVersion: str | None = None
+    sdkContractVersion: int
 
 
 class LocalCoreCommandEnvelope(SettaSDKContractBaseModel):
@@ -199,6 +202,22 @@ class LocalCoreResultEnvelope(SettaSDKContractBaseModel):
     result: Any | None = None
     error: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
+
+
+class LocalCoreListenerRealtimeDelta(SettaSDKContractBaseModel):
+    dependency: BaseDependencyKeyUnionWithDiscriminator
+    value: BaseDependencyValueUnionWithDiscriminator
+    binaryPayloadBase64: str | None = None
+
+
+class LocalCoreRenderRealtimeDependencyValuesRequest(SettaSDKContractBaseModel):
+    dependencyCatalog: ListenerDependencyCatalog
+    currentDependencyValues: ListenerRenderedDependencyValues
+    deltas: list[LocalCoreListenerRealtimeDelta] = Field(default_factory=list)
+
+
+class LocalCoreRenderRealtimeDependencyValuesResult(SettaSDKContractBaseModel):
+    dependencyValues: ListenerRenderedDependencyValues
 
 
 __all__ = [
@@ -230,4 +249,7 @@ __all__ = [
     "LocalCoreVersionHandshake",
     "LocalCoreCommandEnvelope",
     "LocalCoreResultEnvelope",
+    "LocalCoreListenerRealtimeDelta",
+    "LocalCoreRenderRealtimeDependencyValuesRequest",
+    "LocalCoreRenderRealtimeDependencyValuesResult",
 ]

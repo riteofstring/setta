@@ -15,12 +15,13 @@ func TestBuild(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 	for _, snippet := range []string{
-		"SETTA_SDK_CONTRACT_VERSION = 1",
+		"SETTA_SDK_CONTRACT_VERSION = 2",
 		"class RunnerSummarySnapshot(SettaSDKContractBaseModel):",
 		"class RunningBackendVersionHandshake(SettaSDKContractBaseModel):",
 		"class ListenerSnapshot(SettaSDKContractBaseModel):",
 		"class ListenerRealtimeEvent(SettaSDKContractBaseModel):",
 		"class LocalCoreCommandEnvelope(SettaSDKContractBaseModel):",
+		"class LocalCoreRenderRealtimeDependencyValuesRequest(SettaSDKContractBaseModel):",
 		"from setta.types.generated.dependency_keys import (",
 	} {
 		if !strings.Contains(contracts.PythonModule, snippet) {
