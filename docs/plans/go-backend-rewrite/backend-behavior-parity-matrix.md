@@ -575,6 +575,19 @@ Last audited: `2026-03-23`
   `TestResolveDeploymentStructuredDataPathRejectsAbsoluteAndEscapeAndAllowsNested`,
   and
   `TestResolveDeploymentPathPolicyConstrainsRoots`.
+- Follow-up in this pass on `1fc03edea`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/plugins/test_plugin_manager.py::{test_install_plugin_auto_installer_falls_back_to_pip_when_uv_unavailable,test_install_plugin_auto_installer_falls_back_to_pip_when_uv_install_fails,test_install_plugin_explicit_uv_backend_requires_uv_binary,test_build_uv_install_env_maps_pip_env_vars}`,
+  confirming those clues were already terminal explicit `Proved` rows
+  backed directly by
+  `TestProductionCandidateProviderResolvePyPICandidateFallsBackToPipWhenUVUnavailable`,
+  `TestProductionCandidateProviderResolvePyPICandidateFallsBackToPipAfterUVFailure`,
+  `TestProductionCandidateProviderResolvePyPICandidateRequiresExplicitUVBinary`,
+  and
+  `TestBuildUVInstallEnvMapsPIPEnvVars`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
