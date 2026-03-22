@@ -834,6 +834,73 @@ func TestSendServiceSeedsContinuationMessagesFromPriorExternalChat(t *testing.T)
 	}
 }
 
+func TestSendServiceEnsureExternalChatIDCompatibleRejectsMissingEngineMetadata(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         RunTypeExternalAgent,
+		"chatId":          "chat-external-legacy",
+		"projectConfigId": "project-alpha",
+		"messages":        []any{},
+	}, fixture.now.Add(-time.Hour))
+	run.Status = agentruns.RunStatusCompleted
+	finishedAt := fixture.now.Add(-30 * time.Minute)
+	run.FinishedAt = &finishedAt
+	if err := fixture.runs.Save(run); err != nil {
+		t.Fatalf("save external run without engine metadata: %v", err)
+	}
+
+	_, err := fixture.service.ensureExternalChatIDCompatible("chat-external-legacy", fixture.engineID, "project-alpha")
+	if !errors.Is(err, ErrChatEngineMismatch) {
+		t.Fatalf("expected chat engine mismatch, got %v", err)
+	}
+}
+
+func TestSendServiceEnsureExternalChatIDCompatibleAllowsMatchingEngineMetadata(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	fixture.seedExternalRun(t, "chat-external-metadata-ok", agentruns.RunStatusCompleted, []map[string]any{}, []map[string]any{})
+
+	runs, err := fixture.service.ensureExternalChatIDCompatible("chat-external-metadata-ok", fixture.engineID, "project-alpha")
+	if err != nil {
+		t.Fatalf("ensure compatible chat id: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one compatible run, got %#v", runs)
+	}
+	inputs := runs[0].Inputs
+	got, ok := inputs["chatId"].(string)
+	if !ok || got != "chat-external-metadata-ok" {
+		t.Fatalf("expected returned run for matching external chat, got %#v", inputs["chatId"])
+	}
+}
+
+func TestSendServiceEnsureExternalChatIDCompatibleRejectsExternalEngineMismatch(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         RunTypeExternalAgent,
+		"chatId":          "chat-external-engine-mismatch",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-other",
+		"messages":        []any{},
+	}, fixture.now.Add(-time.Hour))
+	run.Status = agentruns.RunStatusCompleted
+	finishedAt := fixture.now.Add(-30 * time.Minute)
+	run.FinishedAt = &finishedAt
+	if err := fixture.runs.Save(run); err != nil {
+		t.Fatalf("save external run with mismatched engine metadata: %v", err)
+	}
+
+	_, err := fixture.service.ensureExternalChatIDCompatible("chat-external-engine-mismatch", fixture.engineID, "project-alpha")
+	if !errors.Is(err, ErrChatEngineMismatch) {
+		t.Fatalf("expected chat engine mismatch, got %v", err)
+	}
+}
+
 func TestSendServiceSeedsCodexThreadIDFromLatestExternalRun(t *testing.T) {
 	t.Parallel()
 
