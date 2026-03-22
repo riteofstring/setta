@@ -380,6 +380,9 @@ func TestAppFrontendWebsocketBroadcastsCompletedWorkflowRunUpdate(t *testing.T) 
 	if got := appTestStringList(updated.Outputs["reachedEndSectionIds"]); len(got) != 1 || got[0] != "end-section" {
 		t.Fatalf("expected completed workflow run payload to reach end-section, got %#v", updated.Outputs["reachedEndSectionIds"])
 	}
+	if !appTestHasRunEventType(updated, "child_run_completed") || !appTestHasRunEventType(updated, "run_completed") {
+		t.Fatalf("expected child completion and run completion events in websocket update, got %#v", updated.Events)
+	}
 }
 
 func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {

@@ -3,6 +3,7 @@ package statemachineruns
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -181,6 +182,15 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 	if chatID == nil || *chatID != "chat-managed-1" {
 		t.Fatalf("expected chat-section chat id chat-managed-1, got %#v", chatID)
 	}
+	if got := eventTypes(run); !slices.Equal(got, []string{
+		"run_started",
+		"graph_resolved",
+		"start_edges_activated",
+		"start_edge_action_dispatched",
+		"start_edge_actions_dispatched",
+	}) {
+		t.Fatalf("expected start dispatch event sequence, got %#v", got)
+	}
 }
 
 func TestRuntimeStartRunFansOutStartChatEdgeGroupsInParallel(t *testing.T) {
@@ -255,6 +265,78 @@ func TestRuntimeHandleTerminalChildRunUpdateCompletesParentRun(t *testing.T) {
 	}
 	if updated.ID != parentRun.ID {
 		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpChat(t *testing.T) {
+	t.Parallel()
+
+	fixture := newFollowUpChatRuntimeFixture(t)
+	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-follow-up", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	childRun, err := fixture.runs.Load("child-run-1")
+	if err != nil {
+		t.Fatalf("load initial child run: %v", err)
+	}
+	childRun.Status = agentruns.RunStatusCompleted
+	if err := fixture.runs.Save(childRun); err != nil {
+		t.Fatalf("save completed child run: %v", err)
+	}
+
+	updated, err := fixture.runtime.HandleTerminalChildRunUpdate(childRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if updated == nil {
+		t.Fatal("expected updated parent run")
+	}
+	if updated.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running parent run after follow-up dispatch, got %#v", updated)
+	}
+	if updated.ID != parentRun.ID {
+		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	}
+	if got := outputStringList(*updated, outputKeyProcessedChildTerminalIDs); len(got) != 1 || got[0] != "child-run-1" {
+		t.Fatalf("expected processed child-run-1 tracking, got %#v", got)
+	}
+	if got := outputStringList(*updated, outputKeyChildRunIDs); !sameStringMembers(got, []string{"child-run-1", "child-run-2"}) {
+		t.Fatalf("expected both child runs to be tracked, got %#v", got)
+	}
+	if got := outputStringList(*updated, outputKeyActiveChildRunIDs); len(got) != 1 || got[0] != "child-run-2" {
+		t.Fatalf("expected follow-up child run to stay active, got %#v", got)
+	}
+	if len(fixture.managedStarter.requests) != 2 {
+		t.Fatalf("expected second managed chat dispatch for follow-up chat, got %#v", fixture.managedStarter.requests)
+	}
+	secondChildRun, err := fixture.runs.Load("child-run-2")
+	if err != nil {
+		t.Fatalf("load follow-up child run: %v", err)
+	}
+	if runInputString(secondChildRun, inputKeyStateMachineTargetSection) != "chat-b" {
+		t.Fatalf("expected follow-up child run to target chat-b, got %#v", secondChildRun.Inputs)
+	}
+	if got := outputListOfMaps(*updated, outputKeyDispatchedEdgeActions); len(got) != 1 {
+		t.Fatalf("expected one follow-up dispatched edge action, got %#v", got)
+	} else {
+		if got[0]["edgeId"] != "edge-chat-a-chat-b" {
+			t.Fatalf("expected follow-up edge id edge-chat-a-chat-b, got %#v", got[0])
+		}
+		if got[0]["targetSectionId"] != "chat-b" {
+			t.Fatalf("expected follow-up target chat-b, got %#v", got[0])
+		}
+		if got[0]["runId"] != "child-run-2" {
+			t.Fatalf("expected follow-up child run id child-run-2, got %#v", got[0])
+		}
+	}
+	if got := eventTypes(*updated); !slices.Equal(got[len(got)-3:], []string{
+		"child_run_completed",
+		"child_run_edges_activated",
+		"edge_action_dispatched",
+	}) {
+		t.Fatalf("expected follow-up child completion event tail, got %#v", got)
 	}
 }
 
@@ -765,6 +847,18 @@ func newParallelStartRuntimeFixture(t *testing.T) runtimeFixture {
 	}
 }
 
+func newFollowUpChatRuntimeFixture(t *testing.T) runtimeFixture {
+	t.Helper()
+
+	return newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		followUpChatRuntimeTestProject(t),
+		nil,
+		[]string{"chat-managed-1", "chat-managed-2"},
+		[]string{"child-run-1", "child-run-2"},
+	)
+}
+
 func newSignalRuntimeFixture(t *testing.T) runtimeFixture {
 	return newSignalRuntimeFixtureWithProfiles(t, nil)
 }
@@ -1032,6 +1126,89 @@ func parallelStartRuntimeTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize parallel workflow project: %v", err)
+	}
+	return project
+}
+
+func followUpChatRuntimeTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-a":        "chat-a-variant",
+			"chat-b":        "chat-b-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-a":        {ID: "chat-a", Name: "Chat A", VariantIDs: []string{"chat-a-variant"}, DefaultVariantID: "chat-a-variant"},
+			"chat-b":        {ID: "chat-b", Name: "Chat B", VariantIDs: []string{"chat-b-variant"}, DefaultVariantID: "chat-b-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
+			"chat-a-variant": {ID: "chat-a-variant", ImplID: "chat-a-impl"},
+			"chat-b-variant": {ID: "chat-b-variant", ImplID: "chat-b-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-follow-up",
+				"label":          "Kickoff",
+			})},
+			"chat-a-impl": {ID: "chat-a-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-a-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+			"chat-b-impl": {ID: "chat-b-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-b-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat-a",
+				MachineGroupID:  "workflow-follow-up",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-a",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review the draft."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-chat-a-chat-b",
+				MachineGroupID:  "workflow-follow-up",
+				SourceSectionID: "chat-a",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-b",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Take the follow-up pass."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize follow-up workflow project: %v", err)
 	}
 	return project
 }
@@ -1429,6 +1606,14 @@ func hasEventType(run agentruns.Run, eventType string) bool {
 		}
 	}
 	return false
+}
+
+func eventTypes(run agentruns.Run) []string {
+	result := make([]string, 0, len(run.Events))
+	for _, event := range run.Events {
+		result = append(result, event.Type)
+	}
+	return result
 }
 
 func sameStringMembers(got []string, want []string) bool {

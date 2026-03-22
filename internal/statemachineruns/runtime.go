@@ -289,6 +289,7 @@ func (r *Runtime) StartRun(
 	r.incrementSourceActivationCount(&run, graph.StartSectionID)
 	r.refreshOutputs(&run, graph)
 	if len(actionResults) > 0 {
+		r.appendActionEvents(&run, graph, actionResults)
 		r.appendEvent(&run, "start_edge_actions_dispatched", map[string]any{
 			"actions": actionResults,
 		})
@@ -493,6 +494,7 @@ func (r *Runtime) ReportSignal(
 		if len(actionResults) > 0 {
 			existing := outputListOfMaps(resolved.parentRun, outputKeyDispatchedEdgeActions)
 			resolved.parentRun.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
+			r.appendActionEvents(&resolved.parentRun, resolved.graph, actionResults)
 		}
 	}
 	markSignalEventProcessed(&resolved.parentRun, signalEvent)
@@ -563,6 +565,7 @@ func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentru
 	}
 
 	sourceActivationCount := r.sourceActivationCount(parentRun, sourceSectionID)
+	r.appendChildRunTerminalEvent(&parentRun, childRun, sourceSectionID, sourceActivationCount)
 	matchingEdges := make([]projectstate.StateMachineEdge, 0)
 	for _, edge := range r.outgoingEdges(graph, sourceSectionID) {
 		if !edgeMatchesChildTerminalRun(edge, childRun) {
@@ -588,6 +591,7 @@ func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentru
 		} else if len(actionResults) > 0 {
 			existing := outputListOfMaps(parentRun, outputKeyDispatchedEdgeActions)
 			parentRun.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
+			r.appendActionEvents(&parentRun, graph, actionResults)
 		}
 	} else if childRun.Status == agentruns.RunStatusFailed {
 		label := sourceSectionID
@@ -1728,6 +1732,29 @@ func (r *Runtime) appendEvent(run *agentruns.Run, eventType string, payload map[
 	run.Events = append(run.Events, agentruns.NewRunEvent(eventType, payload, r.timeNow()))
 }
 
+func (r *Runtime) appendChildRunTerminalEvent(
+	run *agentruns.Run,
+	childRun agentruns.Run,
+	sourceSectionID string,
+	sourceActivationCount int,
+) {
+	status := strings.TrimSpace(string(childRun.Status))
+	if status == "" {
+		return
+	}
+	r.appendEvent(run, "child_run_"+status, map[string]any{
+		"childRunId":            childRun.ID,
+		"sourceSectionId":       sourceSectionID,
+		"sourceActivationCount": sourceActivationCount,
+	})
+}
+
+func (r *Runtime) appendActionEvents(run *agentruns.Run, graph graph, actions []map[string]any) {
+	for _, action := range actions {
+		r.appendEvent(run, edgeActionEventType(graph, action), cloneAnyMap(action))
+	}
+}
+
 func (r *Runtime) failRun(run *agentruns.Run, reason string, message string, extraDetails map[string]any) {
 	run.Outputs[outputKeyFailureSummary] = map[string]any{
 		"reason":  reason,
@@ -1967,6 +1994,30 @@ func edgeIDs(edges []projectstate.StateMachineEdge) []any {
 		result = append(result, edge.ID)
 	}
 	return result
+}
+
+func edgeActionEventType(graph graph, action map[string]any) string {
+	actionType := payloadString(action, "actionType")
+	edgeID := payloadString(action, "edgeId")
+	if edgeID != "" {
+		for _, edge := range graph.Edges {
+			if edge.ID != edgeID {
+				continue
+			}
+			sourceSection, ok := graph.Sections[edge.SourceSectionID]
+			if ok && sourceSection.Kind == graphSectionKindStart {
+				if actionType == string(projectstate.StateMachineTargetActionTypeResetThread) {
+					return "start_edge_action_reset"
+				}
+				return "start_edge_action_dispatched"
+			}
+			break
+		}
+	}
+	if actionType == string(projectstate.StateMachineTargetActionTypeResetThread) {
+		return "edge_action_reset"
+	}
+	return "edge_action_dispatched"
 }
 
 func targetSectionIDs(edges []projectstate.StateMachineEdge) []any {
