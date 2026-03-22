@@ -343,7 +343,7 @@ func (r *Runtime) StopRun(
 	if run == nil || run.Status != agentruns.RunStatusRunning {
 		return nil, nil
 	}
-	stoppedChildRunIDs, err := r.stopRunningChildRuns(run.Clone(), strings.TrimSpace(projectConfigID))
+	stoppedChildRunIDs, err := r.stopRunningChildRuns(run.Clone())
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +385,7 @@ func (r *Runtime) ResetMachine(
 		return nil, nil
 	}
 	if run.Status == agentruns.RunStatusRunning {
-		stoppedChildRunIDs, err := r.stopRunningChildRuns(run.Clone(), normalizedProjectID)
+		stoppedChildRunIDs, err := r.stopRunningChildRuns(run.Clone())
 		if err != nil {
 			return nil, err
 		}
@@ -514,7 +514,7 @@ func (r *Runtime) ReportSignal(
 	progress := r.computeProgressState(resolved.parentRun, resolved.graph)
 	r.refreshOutputsWithProgress(&resolved.parentRun, resolved.graph, progress)
 	if resolved.parentRun.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
-		if err := r.blockRun(&resolved.parentRun, resolved.graph, progress, normalizedProjectID); err != nil {
+		if err := r.blockRun(&resolved.parentRun, resolved.graph, progress); err != nil {
 			return nil, err
 		}
 		r.refreshOutputs(&resolved.parentRun, resolved.graph)
@@ -620,7 +620,7 @@ func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentru
 	progress := r.computeProgressState(parentRun, graph)
 	r.refreshOutputsWithProgress(&parentRun, graph, progress)
 	if parentRun.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
-		if err := r.blockRun(&parentRun, graph, progress, projectConfigID); err != nil {
+		if err := r.blockRun(&parentRun, graph, progress); err != nil {
 			return nil, err
 		}
 		r.refreshOutputs(&parentRun, graph)
@@ -1547,30 +1547,36 @@ func workflowSignalToolAllowed(profile agentprofiles.Profile) bool {
 	return false
 }
 
-func (r *Runtime) stopRunningChildRuns(parentRun agentruns.Run, projectConfigID string) ([]string, error) {
-	childRuns, err := r.listChildRuns(parentRun, projectConfigID)
-	if err != nil {
-		return nil, err
-	}
-	stoppedRunIDs := make([]string, 0)
-	for _, childRun := range childRuns {
-		if childRun.Status != agentruns.RunStatusRunning {
-			continue
+func (r *Runtime) stopRunningChildRuns(parentRun agentruns.Run) ([]string, error) {
+	activeChildRunIDs := outputStringList(parentRun, outputKeyActiveChildRunIDs)
+	stoppedRunIDs := make([]string, 0, len(activeChildRunIDs))
+	for _, childRunID := range activeChildRunIDs {
+		childRun, err := r.runs.Load(childRunID)
+		if err != nil {
+			if errors.Is(err, agentruns.ErrRunNotFound) {
+				stoppedRunIDs = append(stoppedRunIDs, childRunID)
+				continue
+			}
+			return nil, err
 		}
-		switch runInputString(childRun, "runType") {
-		case externalagents.RunTypeExternalAgent:
-			if r.externalRuns == nil {
-				continue
-			}
-			if _, err := r.externalRuns.StopRun(childRun.ID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-				return nil, err
-			}
-		default:
-			if r.managedRuns == nil {
-				continue
-			}
-			if _, err := r.managedRuns.StopRun(childRun.ID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-				return nil, err
+		if childRun.Status == agentruns.RunStatusRunning {
+			switch runInputString(childRun, "runType") {
+			case externalagents.RunTypeExternalAgent:
+				if r.externalRuns == nil {
+					stoppedRunIDs = append(stoppedRunIDs, childRunID)
+					continue
+				}
+				if _, err := r.externalRuns.StopRun(childRun.ID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+					return nil, err
+				}
+			default:
+				if r.managedRuns == nil {
+					stoppedRunIDs = append(stoppedRunIDs, childRunID)
+					continue
+				}
+				if _, err := r.managedRuns.StopRun(childRun.ID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+					return nil, err
+				}
 			}
 		}
 		stoppedRunIDs = append(stoppedRunIDs, childRun.ID)
@@ -2044,24 +2050,35 @@ func setGateStatus(run *agentruns.Run, sectionID string, status string) {
 	run.Outputs[outputKeyGateStatuses] = statuses
 }
 
-func (r *Runtime) blockRun(run *agentruns.Run, graph graph, progress progressState, projectConfigID string) error {
+func (r *Runtime) blockRun(run *agentruns.Run, graph graph, progress progressState) error {
 	blockedGateSectionIDs := orderedSetIntersection(gateSectionIDs(graph), progress.blockedGateSectionIDs)
 	for _, gateSectionID := range blockedGateSectionIDs {
 		r.appendEvent(run, "gate_blocked", cloneAnyMap(progress.blockedGateDetailsBySectionID[gateSectionID]))
 	}
-	stoppedChildRunIDs, err := r.stopRunningChildRuns(run.Clone(), projectConfigID)
-	if err != nil {
-		return err
-	}
-	if len(stoppedChildRunIDs) > 0 {
+	activeChildRunIDs := outputStringList(*run, outputKeyActiveChildRunIDs)
+	if len(activeChildRunIDs) > 0 {
+		if _, err := r.stopRunningChildRuns(run.Clone()); err != nil {
+			return err
+		}
 		r.appendEvent(run, "child_runs_cancelled", map[string]any{
-			"childRunIds": stoppedChildRunIDs,
+			"childRunIds": stringSliceToAny(activeChildRunIDs),
 		})
-		for _, stoppedChildRunID := range stoppedChildRunIDs {
-			r.removeActiveChildRunID(run, stoppedChildRunID)
+		for _, activeChildRunID := range activeChildRunIDs {
+			r.removeActiveChildRunID(run, activeChildRunID)
 		}
 	}
-	gateDetailsBySectionID := mapOfMapsToAny(progress.blockedGateDetailsBySectionID)
+	finalBlockedGateDetailsBySectionID := cloneAnyMapMapValues(progress.blockedGateDetailsBySectionID)
+	if len(activeChildRunIDs) > 0 {
+		postCancellationProgress := r.computeProgressState(*run, graph)
+		for _, gateSectionID := range blockedGateSectionIDs {
+			detail, ok := postCancellationProgress.blockedGateDetailsBySectionID[gateSectionID]
+			if !ok {
+				continue
+			}
+			finalBlockedGateDetailsBySectionID[gateSectionID] = cloneAnyMap(detail)
+		}
+	}
+	gateDetailsBySectionID := mapOfMapsToAny(finalBlockedGateDetailsBySectionID)
 	blockedGateLabels := make([]string, 0, len(blockedGateSectionIDs))
 	for _, gateSectionID := range blockedGateSectionIDs {
 		blockedGateLabels = append(blockedGateLabels, sectionDisplayLabel(graph, gateSectionID))

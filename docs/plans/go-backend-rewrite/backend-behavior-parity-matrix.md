@@ -94,6 +94,32 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `45d434b53`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
+  `internal/statemachineruns`
+  `TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionBecomesImpossible`:
+  blocked workflow teardown was still deriving sibling cancellation from a
+  child-run lookup path that could drift from the parent run's persisted
+  `activeChildRunIds`, so the blocked AND-gate branch could leave a sibling
+  child marked active and keep the pre-cancellation one-edge
+  `impossibleEdgeIds` detail in the persisted failure state. Go now fixes
+  that by cancelling from the parent run's tracked active-child ids and
+  recomputing the final blocked-gate detail after that list is cleared;
+  `TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionBecomesImpossible`
+  now also proves the persisted `run_blocked` failure detail captures both
+  impossible edges after sibling cancellation. The targeted stress rerun,
+  package rerun, and final exact full-suite rerun all passed, so
+  `critical_backend_suite::go_test_all` closed as a real fixed Go gap in
+  this pass rather than another stale/non-reproducible suite failure. This
+  pass also re-audited the stale `tests/utils/test_git.py` and
+  `tests/utils/test_init_status.py` backlog slice and confirmed those source
+  clues were already terminal `Proved` rows backed directly by
+  `TestServiceRunGitTruncatesStdoutAtRequestedCap`,
+  `TestServiceRunGitTruncatesStderrAtRequestedCap`,
+  `TestRegisterStatusRoutesReturnsBackendInitStatus`,
+  `TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName`,
+  `TestRegisterStatusRoutesReturnsAuthRefreshStatus`, and
+  `TestAppServesStatusMetaRoutes`.
 - Follow-up in this pass on `c1f38d8901b0274f2f052c36dddaa2a015f5876f`:
   rerunning `./scripts/go.sh test ./... -count=1` passed cleanly again, so the
   saved `tmp/backend-gap-hunt-backend-suite.log` remote-shell failures in

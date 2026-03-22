@@ -682,6 +682,18 @@ func TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionB
 	}
 	if details, ok := failureSummary["details"].(map[string]any); !ok || !slices.Equal(anySliceToStrings(details["gateSectionIds"].([]any)), []string{"gate-section"}) {
 		t.Fatalf("expected gateSectionIds in failure details, got %#v", failureSummary)
+	} else {
+		gateDetails, ok := details["gateDetailsBySectionId"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected gateDetailsBySectionId in failure details, got %#v", failureSummary)
+		}
+		gateDetail, ok := gateDetails["gate-section"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected gate-section detail in failure details, got %#v", failureSummary)
+		}
+		if got := len(anySliceToStrings(gateDetail["impossibleEdgeIds"].([]any))); got != 2 {
+			t.Fatalf("expected failure details to capture both impossible edge ids after cancellation, got %#v", gateDetail)
+		}
 	}
 	if got := fixture.managedStopper.stopped; !slices.Equal(got, []string{"child-run-2"}) {
 		t.Fatalf("expected running sibling child to be cancelled, got %#v", got)
