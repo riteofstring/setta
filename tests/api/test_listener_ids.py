@@ -7,13 +7,9 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     ListenerDependencyValues,
 )
-from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.code_obj_impls import (
     CodeObjType,
-    CodeParamCodeObjImpl,
-    NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Variant
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -30,114 +26,44 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import DictSectionImpl
 from setta.types.websocket import WebsocketMsgListenerRegister
 from tests.helpers.listener_runtime_state import (
     ListenerTestRuntimeState,
-    build_listener_runtime_state,
+    build_listener_runtime_state_from_catalog,
 )
-from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
-def build_project_state(param_value: str) -> tuple[ProjectStateSingleConfig, ID, ID]:
+def build_listener_catalog() -> tuple[ListenerDependencyCatalog, ID, ID, ID]:
     section_id = ID("25")
-    section_impl_id = ID("section-impl-1")
-    section_variant_id = ID("section-variant-1")
-
-    root_param_id = ID("root-param-1")
-    root_param_impl_id = ID("root-param-impl-1")
-    root_param_variant_id = ID("root-param-variant-1")
-
     param_id = ID("31")
-    param_impl_id = ID("param-impl-1")
-    param_variant_id = ID("param-variant-1")
-
-    root_param_impl = NestedParamCodeObjImpl(
-        id=root_param_impl_id,
-        children=[param_id],
+    project_config_id = ID("21")
+    section_key = create_dep_key(sectionId=section_id)
+    param_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+    catalog = ListenerDependencyCatalog(
+        entries=[
+            ListenerDependencyCatalogEntry(
+                dependencyKey=section_key,
+                name="Controls",
+                fullPathName="Controls",
+                dependencies=[param_key],
+                sectionType="Dict",
+            ),
+            ListenerDependencyCatalogEntry(
+                dependencyKey=param_key,
+                name="count",
+                fullPathName="Controls.count",
+                codeObjType="CodeParam",
+                valueRepresentation="expression",
+            ),
+        ]
     )
-    root_param_variant = Variant(
-        id=root_param_variant_id,
-        impl=root_param_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(root_param_impl),
-    )
-    root_param_core = Core(
-        id=root_param_id,
-        name="root",
-        variants=[root_param_variant.id],
-        defaultVariant=root_param_variant.id,
-    )
-
-    param_impl = CodeParamCodeObjImpl(
-        id=param_impl_id,
-        value=param_value,
-    )
-    param_variant = Variant(
-        id=param_variant_id,
-        impl=param_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
-    )
-    param_core = Core(
-        id=param_id,
-        name="count",
-        variants=[param_variant.id],
-        defaultVariant=param_variant.id,
-    )
-
-    section_impl = DictSectionImpl(
-        id=section_impl_id,
-        topLevelParamId=root_param_id,
-        codeObjVariantMap={
-            root_param_id: root_param_variant.id,
-            param_id: param_variant.id,
-        },
-    )
-    section_variant = Variant(
-        id=section_variant_id,
-        impl=section_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-    )
-    section_core = Core(
-        id=section_id,
-        name="Controls",
-        variants=[section_variant.id],
-        defaultVariant=section_variant.id,
-    )
-
-    project_config = ProjectConfig(
-        id=ID("21"),
-        name="ListenerIdsProject",
-        sectionVariantMap={section_id: section_variant.id},
-        topLevelSections={section_id: TopLevelSectionLayout()},
-    )
-
-    project_state = ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={section_id: section_core},
-        sectionImpls={section_impl.id: section_impl},
-        sectionVariants={section_variant.id: section_variant},
-        codeObjs={
-            root_param_id: root_param_core,
-            param_id: param_core,
-        },
-        codeObjImpls={
-            root_param_impl.id: root_param_impl,
-            param_impl.id: param_impl,
-        },
-        codeObjVariants={
-            root_param_variant.id: root_param_variant,
-            param_variant.id: param_variant,
-        },
-    )
-    return project_state, section_id, param_id
+    return catalog, section_id, param_id, project_config_id
 
 
 @pytest.mark.asyncio
 async def test_listener_register_accepts_dep_ids() -> None:
-    project_state, section_id, param_id = build_project_state("1")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
     sent_payloads: list[str] = []
 
     section_dep = dep_id(section_id)
@@ -155,9 +81,9 @@ async def test_listener_register_accepts_dep_ids() -> None:
         sent_payloads.append(payload)
 
     listener._send_websocket_payload = capture
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
 
     # Register payloads should preserve the exact dependency keys declared via
     # dep_id(...) through the real websocket registration path.
@@ -172,7 +98,7 @@ async def test_listener_register_accepts_dep_ids() -> None:
         callback = content.callbacks[spec.callback_id]
         assert len(callback.dependencies) == 1
         dep_key = callback.dependencies[0]
-        dep_name = runtime_state.dependency_graph.graph[dep_key].full_path_name
+        dep_name = runtime_state.dependency_metadata.dependency_name(dep_key)
         assert spec.dependency_names == (dep_name,)
 
         if spec.declared_dependencies == (section_dep,):
@@ -187,8 +113,8 @@ async def test_listener_register_accepts_dep_ids() -> None:
 
 
 def test_listener_context_exposes_id_helpers() -> None:
-    project_state, section_id, param_id = build_project_state("3")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
 
     param_dep = dep_id(section_id, param_id)
 
@@ -196,9 +122,9 @@ def test_listener_context_exposes_id_helpers() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
 
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
@@ -219,8 +145,8 @@ def test_listener_context_exposes_id_helpers() -> None:
 
 
 def test_callback_state_uses_cached_value() -> None:
-    project_state, section_id, param_id = build_project_state("12")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
 
     param_dep = dep_id(section_id, param_id)
 
@@ -228,9 +154,9 @@ def test_callback_state_uses_cached_value() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
     spec = next(iter(listener._callbacks.values()))
@@ -244,8 +170,8 @@ def test_callback_state_uses_cached_value() -> None:
 
 
 def test_callback_state_fails_closed_when_cache_misses() -> None:
-    project_state, section_id, param_id = build_project_state("13")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
 
     param_dep = dep_id(section_id, param_id)
 
@@ -253,9 +179,9 @@ def test_callback_state_fails_closed_when_cache_misses() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
     spec = next(iter(listener._callbacks.values()))
@@ -270,8 +196,8 @@ def test_callback_state_fails_closed_when_cache_misses() -> None:
 def test_listener_context_values_by_id_uses_cached_values_without_runtime_instance() -> (
     None
 ):
-    project_state, section_id, param_id = build_project_state("7")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
 
     param_dep = dep_id(section_id, param_id)
 
@@ -279,9 +205,9 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
 
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
@@ -293,8 +219,8 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
 
 
 def test_listener_context_values_by_id_fails_closed_without_cached_value() -> None:
-    project_state, section_id, param_id = build_project_state("8")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
 
     param_dep = dep_id(section_id, param_id)
 
@@ -302,9 +228,9 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
 
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
@@ -317,8 +243,8 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
 def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency() -> (
     None
 ):
-    project_state, section_id, param_id = build_project_state("9")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    catalog, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
 
     param_dep = dep_id(section_id, param_id)
 
@@ -326,9 +252,9 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = build_listener_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state_from_catalog(catalog)
     listener._runtime_state = runtime_state
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
     dependency_name = spec.dependency_names[0]
@@ -338,22 +264,10 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
     with pytest.raises(RuntimeError, match="metadata-backed callback state"):
         _ = getattr(state, dependency_name)
 
-
-def test_dependency_graph_exposes_section_and_param() -> None:
-    project_state, section_id, param_id = build_project_state("5")
-    dep_graph = DependencyGraph(project_state)
-
-    section_key = create_dep_key(sectionId=section_id)
-    param_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-
-    assert section_key in dep_graph.graph
-    assert param_key in dep_graph.graph
-
-
 @pytest.mark.asyncio
 async def test_listener_context_prefers_catalog_dependency_names() -> None:
-    project_state, section_id, param_id = build_project_state("11")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    _, section_id, param_id, project_config_id = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
     callback_changes: list[dict[str, object]] = []
     dependency_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
     catalog_name = "Catalog__count"
@@ -362,7 +276,7 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
     def on_param(_state, ctx) -> None:
         callback_changes.append(dict(ctx.changed))
 
-    listener._project_config_id = project_state.projectConfig.id
+    listener._project_config_id = project_config_id
     catalog = ListenerDependencyCatalog(
         entries=[
             ListenerDependencyCatalogEntry(
@@ -378,7 +292,7 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
 
     await listener._process_snapshot(
         ListenerSnapshot(
-            projectConfigId=project_state.projectConfig.id,
+            projectConfigId=project_config_id,
             dependencyCatalog=catalog,
             dependencyValues=ListenerRenderedDependencyValues(
                 entries=[
@@ -409,8 +323,8 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
 
 
 def test_metadata_backed_callback_state_uses_go_password_snapshot_values() -> None:
-    project_state, section_id, param_id = build_project_state("14")
-    listener = SettaListener(project_name=project_state.projectConfig.name)
+    _, section_id, param_id, _ = build_listener_catalog()
+    listener = SettaListener(project_name="ListenerIdsProject")
     dependency_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
     dependency_name = "section__secret"
 
@@ -439,7 +353,7 @@ def test_metadata_backed_callback_state_uses_go_password_snapshot_values() -> No
 
     runtime_state = ListenerTestRuntimeState(
         dependency_metadata=dependency_metadata,
-        dependency_graph=DependencyGraph(project_state),
+        dependency_catalog=catalog,
     )
     listener._runtime_state = runtime_state
     listener._dependency_cache = dependency_cache

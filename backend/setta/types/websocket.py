@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
-from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.chat import APIKeys
 from setta.types.generated.dependency_keys import (
@@ -27,6 +26,7 @@ from setta.types.listener import (
     ListenerRouterEndpointCallContent,
     ListenerRouterEndpointResultContent,
 )
+from setta.types.rename_refactor import RenameReferenceChangedValue
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str

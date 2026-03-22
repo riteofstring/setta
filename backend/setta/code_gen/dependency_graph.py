@@ -54,6 +54,7 @@ from setta.types.project_config import (
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.rename_refactor import RenameReferenceChangedValue
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
@@ -260,12 +261,6 @@ class ParamNode(Node):
         if self.value is None:
             return False
         return self.value.payload != ""
-
-
-@dataclass
-class RenameReferenceChangedValue:
-    depKey: BaseDependencyKeyUnion
-    newValue: str
 
 
 @dataclass(frozen=True)
