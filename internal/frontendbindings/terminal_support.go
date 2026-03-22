@@ -1,5 +1,7 @@
 package frontendbindings
 
+import "setta/internal/httpapi"
+
 type DeleteTerminalsRequestInput struct {
 	SectionIDs []string `json:"sectionIds"`
 }
@@ -8,9 +10,7 @@ type InterruptTerminalProcessesRequestInput struct {
 	ProjectID string `json:"projectId"`
 }
 
-type InterruptTerminalProcessesResponse struct {
-	InterruptedSessionCount int `json:"interruptedSessionCount"`
-}
+type InterruptTerminalProcessesResponse httpapi.InterruptTerminalProcessesResponse
 
 type RunCodeRequestInput struct {
 	ProjectConfigID          string                       `json:"projectConfigId"`

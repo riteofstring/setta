@@ -1,6 +1,7 @@
 package frontendbindings
 
 import (
+	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/notifications"
 )
@@ -129,11 +130,7 @@ type StopLLMChatResponse struct {
 	StoppedMessageID *string `json:"stoppedMessageId,omitempty"`
 }
 
-type TranscriptionSessionDeltaResponse struct {
-	AppendText string `json:"appendText"`
-	FullText   string `json:"fullText"`
-	IsFinal    bool   `json:"isFinal"`
-}
+type TranscriptionSessionDeltaResponse httpapi.TranscriptionSessionDeltaResponse
 
 type GetAgentRunRequestInput struct {
 	RunID string `json:"runId"`
@@ -169,10 +166,7 @@ type GetStateMachineRunRequestInput struct {
 	MachineGroupID  string `json:"machineGroupId"`
 }
 
-type StateMachineRunControlResponse struct {
-	AlreadyStopped bool    `json:"alreadyStopped"`
-	StoppedRunID   *string `json:"stoppedRunId,omitempty"`
-}
+type StateMachineRunControlResponse httpapi.StateMachineRunControlResponse
 
 type RunDetachedRequestInput struct {
 	ProjectID               string            `json:"projectConfigId"`
@@ -183,10 +177,7 @@ type RunDetachedRequestInput struct {
 	Tags                    map[string]string `json:"tags"`
 }
 
-type RunDetachedResponse struct {
-	RunID  string            `json:"runId"`
-	Status DetachedRunStatus `json:"status"`
-}
+type RunDetachedResponse httpapi.RunDetachedResponse
 
 type GetRunStatusRequestInput struct {
 	RunID string `json:"runId"`

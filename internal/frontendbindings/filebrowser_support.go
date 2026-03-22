@@ -1,5 +1,7 @@
 package frontendbindings
 
+import "setta/internal/filebrowser"
+
 type CreateFileRequestInput struct {
 	Filepath string `json:"filepath"`
 }
@@ -17,11 +19,7 @@ type CheckWorkspaceInitializedRequestInput struct {
 
 type CheckWorkspaceInitializedResponse bool
 
-type FileBrowserRootResponse struct {
-	RootPath       string   `json:"rootPath"`
-	PathSeparator  string   `json:"pathSeparator"`
-	IgnorePatterns []string `json:"ignorePatterns"`
-}
+type FileBrowserRootResponse filebrowser.RootResponse
 
 type MissingFolderBehavior string
 
@@ -42,21 +40,14 @@ type GetFolderContentsRequestInput struct {
 	MissingFolderBehavior     *MissingFolderBehavior `json:"missingFolderBehavior,omitempty"`
 }
 
-type FolderContentItemType string
+type FolderContentItemType filebrowser.FolderContentItemType
 
 const (
-	FolderContentItemTypeFolder FolderContentItemType = "folder"
-	FolderContentItemTypeFile   FolderContentItemType = "file"
+	FolderContentItemTypeFolder FolderContentItemType = FolderContentItemType(filebrowser.FolderContentItemTypeFolder)
+	FolderContentItemTypeFile   FolderContentItemType = FolderContentItemType(filebrowser.FolderContentItemTypeFile)
 )
 
-type FolderContentItem struct {
-	Name               string                `json:"name"`
-	Type               FolderContentItemType `json:"type"`
-	FullPath           string                `json:"fullPath"`
-	Mtime              *float64              `json:"mtime,omitempty"`
-	Size               *int64                `json:"size,omitempty"`
-	IsSettaInitialized *bool                 `json:"isSettaInitialized,omitempty"`
-}
+type FolderContentItem filebrowser.FolderContentItem
 
 type GetFolderContentsResponse []FolderContentItem
 
@@ -68,11 +59,7 @@ type FileBrowserDownloadRouteParams struct {
 	Token string `json:"token"`
 }
 
-type FileBrowserDownloadURLEntry struct {
-	Path      string `json:"path"`
-	URL       string `json:"url"`
-	ExpiresAt int64  `json:"expiresAt"`
-}
+type FileBrowserDownloadURLEntry filebrowser.FileBrowserDownloadURLEntry
 
 type GetFileBrowserDownloadURLsResponse []FileBrowserDownloadURLEntry
 
@@ -81,23 +68,13 @@ type GetFileBrowserFileContentRequestInput struct {
 	MaxBytes *int64 `json:"maxBytes,omitempty"`
 }
 
-type FileBrowserFileContentResponse struct {
-	Path      string `json:"path"`
-	MimeType  string `json:"mimeType"`
-	ContentID string `json:"contentId"`
-	MtimeNs   int64  `json:"mtimeNs"`
-	Size      int64  `json:"size"`
-}
+type FileBrowserFileContentResponse filebrowser.FileContentResponse
 
 type GetFileBrowserFileStatRequestInput struct {
 	Path string `json:"path"`
 }
 
-type FileBrowserFileStatResponse struct {
-	Path    string `json:"path"`
-	MtimeNs int64  `json:"mtimeNs"`
-	Size    int64  `json:"size"`
-}
+type FileBrowserFileStatResponse filebrowser.FileStatResponse
 
 type WriteFileBrowserFileContentRequestInput struct {
 	Path            string `json:"path"`
@@ -105,18 +82,13 @@ type WriteFileBrowserFileContentRequestInput struct {
 	ExpectedMtimeNs *int64 `json:"expectedMtimeNs,omitempty"`
 }
 
-type WriteFileBrowserFileContentResponse struct {
-	Path     string `json:"path"`
-	MimeType string `json:"mimeType"`
-	MtimeNs  int64  `json:"mtimeNs"`
-	Size     int64  `json:"size"`
-}
+type WriteFileBrowserFileContentResponse filebrowser.WriteFileContentResponse
 
-type TransferOperation string
+type TransferOperation filebrowser.TransferOperation
 
 const (
-	TransferOperationCopy TransferOperation = "copy"
-	TransferOperationMove TransferOperation = "move"
+	TransferOperationCopy TransferOperation = TransferOperation(filebrowser.TransferOperationCopy)
+	TransferOperationMove TransferOperation = TransferOperation(filebrowser.TransferOperationMove)
 )
 
 type TransferFileBrowserEntryRequestInput struct {
@@ -125,8 +97,4 @@ type TransferFileBrowserEntryRequestInput struct {
 	Operation             TransferOperation `json:"operation"`
 }
 
-type TransferFileBrowserEntryResponse struct {
-	SourcePath      string            `json:"sourcePath"`
-	DestinationPath string            `json:"destinationPath"`
-	Operation       TransferOperation `json:"operation"`
-}
+type TransferFileBrowserEntryResponse filebrowser.TransferResponse

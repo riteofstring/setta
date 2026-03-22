@@ -115,13 +115,20 @@ type ListFolderRequest struct {
 	MissingFolderBehavior     string
 }
 
+type FolderContentItemType string
+
+const (
+	FolderContentItemTypeFolder FolderContentItemType = "folder"
+	FolderContentItemTypeFile   FolderContentItemType = "file"
+)
+
 type FolderContentItem struct {
-	Name               string   `json:"name"`
-	Type               string   `json:"type"`
-	FullPath           string   `json:"fullPath"`
-	Mtime              *float64 `json:"mtime,omitempty"`
-	Size               *int64   `json:"size,omitempty"`
-	IsSettaInitialized *bool    `json:"isSettaInitialized,omitempty"`
+	Name               string                `json:"name"`
+	Type               FolderContentItemType `json:"type"`
+	FullPath           string                `json:"fullPath"`
+	Mtime              *float64              `json:"mtime,omitempty"`
+	Size               *int64                `json:"size,omitempty"`
+	IsSettaInitialized *bool                 `json:"isSettaInitialized,omitempty"`
 }
 
 type FileBrowserDownloadURLRequest struct {
@@ -394,11 +401,11 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 
 		item := FolderContentItem{
 			Name:     entry.Name(),
-			Type:     "file",
+			Type:     FolderContentItemTypeFile,
 			FullPath: s.formatBrowserPath(entryPath),
 		}
 		if info.IsDir() {
-			item.Type = "folder"
+			item.Type = FolderContentItemTypeFolder
 		}
 		if request.IncludeMtime {
 			value := float64(info.ModTime().UnixNano()) / float64(time.Second)
@@ -419,7 +426,7 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 		left := items[i]
 		right := items[j]
 		if left.Type != right.Type {
-			return left.Type == "folder"
+			return left.Type == FolderContentItemTypeFolder
 		}
 		return strings.ToLower(left.Name) < strings.ToLower(right.Name)
 	})

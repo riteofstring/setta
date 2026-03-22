@@ -243,6 +243,11 @@ That means:
 - small route/callable contract shims have been reduced further:
   - `projectstate.SetCallableResponse` now carries the correct optional `callableId` owner tag
   - `frontendbindings` no longer needs a local `SetCallableResponse` shape just to preserve optionality
+- more non-project-state `frontendbindings` support files now wrap real backend owners instead of repeating response/runtime shapes:
+  - `internal/frontendbindings/ai_endpoint_contracts.go` now wraps `httpapi.TranscriptionSessionDeltaResponse`, `httpapi.StateMachineRunControlResponse`, and `httpapi.RunDetachedResponse`
+  - `internal/frontendbindings/terminal_support.go` now wraps `httpapi.InterruptTerminalProcessesResponse`
+  - `internal/frontendbindings/filebrowser_support.go` now wraps `filebrowser.RootResponse`, `filebrowser.FileBrowserDownloadURLEntry`, `filebrowser.FileContentResponse`, `filebrowser.FileStatResponse`, `filebrowser.WriteFileContentResponse`, `filebrowser.TransferOperation`, and `filebrowser.TransferResponse`
+  - `internal/frontendbindings/git_support.go` now wraps `gitread.DiffMode`, `gitread.RepoInfo`, `gitread.StatusEntry`, `gitread.GitWorktreeEntry`, `gitread.StatusResponse`, `gitread.DiffRequest`, `gitread.DiffResponse`, `gitread.Commit`, `gitread.LogRequest`, `gitread.LogResponse`, `gitread.CommitChangedFile`, `gitread.CommitDetailsRequest`, `gitread.CommitDetailsResponse`, `gitread.CommitFileDiffRequest`, and `gitread.CommitFileDiffResponse`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -274,6 +279,8 @@ The remaining problem is that too much of the shared type surface still flows th
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
 This has improved for the project-state/view/windowing family, the project/deployment metadata family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the follow-update / completion family, the detailed chat-message schema family, the external-agent config/settings family, and the runtime agent / engine / transcription / detached-run family.
+
+It has also improved for the `git`, `filebrowser`, terminal-runtime, and detached/transcription/state-machine route-response families that previously still carried small mirror structs in separate support files.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
