@@ -431,6 +431,133 @@ func TestProjectSynchronizerRefreshesGeneratedDiagnosticsCallbackWithoutContentC
 	}
 }
 
+// Generated diagnostics should remain visible after prefix/suffix-only
+// materialization changes until the next LSP publish replaces them.
+func TestProjectSynchronizerMaterializeDocumentKeepsGeneratedDiagnosticsAcrossPrefixAndSuffixChangesUntilNextPublish(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        syncer,
+		Diagnostics:    diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	assertSnapshot := func(snapshot projectstate.LSPDiagnosticsPayload) {
+		errors := snapshot.GenCode.Errors["section-1"].Params["param-1"]
+		if len(errors) != 1 || errors[0] != "unknown_symbol is not defined" {
+			t.Fatalf("expected mapped generated diagnostics to survive, got %#v", snapshot.GenCode.Errors)
+		}
+		if len(snapshot.UnmappedGenCode) != 1 || snapshot.UnmappedGenCode[0].Message != "SettaState is not defined" {
+			t.Fatalf("expected unmapped generated diagnostics to survive, got %#v", snapshot.UnmappedGenCode)
+		}
+	}
+
+	document, generatedPath, _ := lspGeneratedDiagnosticsDocument(t, settaFilesRoot, false, false)
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize generated diagnostics document: %v", err)
+	}
+
+	generatedCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read generated code file: %v", err)
+	}
+	params := buildGeneratedPublishDiagnostics(
+		t,
+		generatedPath,
+		string(generatedCode),
+		"unknown_symbol",
+		"unknown_symbol is not defined",
+		"reportUndefinedVariable",
+	)
+	unmapped := buildGeneratedPublishDiagnostics(
+		t,
+		generatedPath,
+		string(generatedCode),
+		"SettaState",
+		"SettaState is not defined",
+		"reportUndefinedVariable",
+	)
+	params.Diagnostics = append(params.Diagnostics, unmapped.Diagnostics[0])
+
+	tracked, ok := syncer.synced[generatedPath]
+	if !ok {
+		t.Fatalf("expected tracked generated document at %q, got %#v", generatedPath, syncer.synced)
+	}
+	if tracked.Callback == nil {
+		t.Fatal("expected generated code diagnostics callback")
+	}
+	tracked.Callback(params)
+	assertSnapshot(diagnostics.Snapshot("project-alpha"))
+
+	previousGeneratedCode := string(generatedCode)
+	updates := []struct {
+		name  string
+		apply func(*projectstate.Document) error
+	}{
+		{
+			name: "prefix edit 1",
+			apply: func(document *projectstate.Document) error {
+				return document.SetGenCodePrefix("project-alpha", "import m\n")
+			},
+		},
+		{
+			name: "prefix edit 2",
+			apply: func(document *projectstate.Document) error {
+				return document.SetGenCodePrefix("project-alpha", "import ma\n")
+			},
+		},
+		{
+			name: "prefix edit 3",
+			apply: func(document *projectstate.Document) error {
+				return document.SetGenCodePrefix("project-alpha", "import math\n")
+			},
+		},
+		{
+			name: "suffix edit",
+			apply: func(document *projectstate.Document) error {
+				return document.SetGenCodeSuffix("project-alpha", projectstate.DefaultPythonCodegenSuffix+"\n# end")
+			},
+		},
+	}
+
+	for _, update := range updates {
+		document = document.Clone()
+		if err := update.apply(&document); err != nil {
+			t.Fatalf("%s: %v", update.name, err)
+		}
+		materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+		updatedGeneratedCode, err := os.ReadFile(generatedPath)
+		if err != nil {
+			t.Fatalf("%s read generated code file: %v", update.name, err)
+		}
+		if string(updatedGeneratedCode) == previousGeneratedCode {
+			t.Fatalf("%s should change generated code content", update.name)
+		}
+		if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+			t.Fatalf("%s rematerialize generated diagnostics document: %v", update.name, err)
+		}
+		assertSnapshot(diagnostics.Snapshot("project-alpha"))
+		previousGeneratedCode = string(updatedGeneratedCode)
+	}
+}
+
 // A callable section should auto-refetch only after its generated undefined
 // symbol diagnostic clears without another callable-level error replacing it.
 func TestProjectSynchronizerAutoRefetchesResolvedUndefinedCallableSections(t *testing.T) {
@@ -765,6 +892,59 @@ func TestProjectSynchronizerTypeCheckProjectRefreshesProjectDocuments(t *testing
 	}
 }
 
+// Manual type-check should still refresh Python documents when no Python
+// codegen target exists, while skipping unsupported non-LSP sections such as
+// Bash on the live router-backed service path.
+func TestProjectSynchronizerTypeCheckProjectRefreshesPythonSectionsWithoutCodegen(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	router := newFixturePythonRouter(t, settaFilesRoot, nil, nil)
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        router,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	document, pythonPath, bashPath := lspTypeCheckWithoutCodegenDocument(t, settaFilesRoot)
+	if err := synchronizer.TypeCheckProject(ctx, document, "project-alpha"); err != nil {
+		t.Fatalf("type check project without codegen: %v", err)
+	}
+
+	pythonService, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python service to be configured")
+	}
+	if _, ok := pythonService.tracked[pythonPath]; !ok {
+		t.Fatalf("expected python document %q in tracked set %#v", pythonPath, pythonService.tracked)
+	}
+	if len(pythonService.tracked) != 1 {
+		t.Fatalf("expected only one tracked python document, got %#v", pythonService.tracked)
+	}
+	if _, ok := pythonService.tracked[bashPath]; ok {
+		t.Fatalf("did not expect bash document %q in tracked python service %#v", bashPath, pythonService.tracked)
+	}
+
+	if _, ok, err := router.serviceForLanguage("bash"); err != nil {
+		t.Fatalf("resolve bash service: %v", err)
+	} else if ok {
+		t.Fatal("did not expect bash language service to be configured")
+	}
+}
+
 // Manual type-check should preserve the source no-op contract for unknown
 // project ids instead of surfacing a typed not-found error.
 func TestProjectSynchronizerTypeCheckProjectIgnoresUnknownProject(t *testing.T) {
@@ -1076,6 +1256,88 @@ func lspDiskBackedTestDocument(t *testing.T, settaFilesRoot string) (projectstat
 
 	sectionPath := filepath.Join(settaFilesRoot, "code", "run.py")
 	return document, sectionPath
+}
+
+func lspTypeCheckWithoutCodegenDocument(t *testing.T, settaFilesRoot string) (projectstate.Document, string, string) {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Type Check Project",
+				SectionVariantMap: map[string]string{
+					"python-runner": "python-runner-variant",
+					"bash-runner":   "bash-runner-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"python-runner": {
+						ID:               "python-runner",
+						Name:             "Python Runner",
+						VariantIDs:       []string{"python-runner-variant"},
+						DefaultVariantID: "python-runner-variant",
+					},
+					"bash-runner": {
+						ID:               "bash-runner",
+						Name:             "Bash Runner",
+						VariantIDs:       []string{"bash-runner-variant"},
+						DefaultVariantID: "bash-runner-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"python-runner-variant": {ID: "python-runner-variant", ImplID: "python-runner-impl"},
+					"bash-runner-variant":   {ID: "bash-runner-variant", ImplID: "bash-runner-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"python-runner-impl": {
+						ID:   "python-runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/type-check.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"python-runner-impl",
+							"type":"Code",
+							"code":"print('python')\n",
+							"codeLanguage":"python",
+							"children":[]
+						}`),
+					},
+					"bash-runner-impl": {
+						ID:   "bash-runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguageBash,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/type-check.sh",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"bash-runner-impl",
+							"type":"Code",
+							"code":"echo bash\n",
+							"codeLanguage":"bash",
+							"children":[]
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize type-check without codegen document: %v", err)
+	}
+
+	return document,
+		filepath.Join(settaFilesRoot, "code", "type-check.py"),
+		filepath.Join(settaFilesRoot, "code", "type-check.sh")
 }
 
 func lspPluginLanguageDiagnosticsDocument(t *testing.T, settaFilesRoot string) (projectstate.Document, string) {
