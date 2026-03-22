@@ -378,7 +378,7 @@ export function createClaudeSettingsPermissions(
 export type ClaudeSettingsManaged = {
   permissions?: ClaudeSettingsPermissions | null;
   defaultMode?: string | null;
-  mcp?: Record<string, unknown> | null;
+  mcp?: Record<string, unknown>;
 };
 export function createClaudeSettingsManaged(
   options: Partial<ClaudeSettingsManaged> = {},
@@ -386,22 +386,10 @@ export function createClaudeSettingsManaged(
   return options as ClaudeSettingsManaged;
 }
 
-export type CodexSettingsManaged = {
-  approvalPolicy?: string | null;
-  sandboxMode?: string | null;
-  enabledTools?: Array<string> | null;
-  model?: string | null;
-};
-export function createCodexSettingsManaged(
-  options: Partial<CodexSettingsManaged> = {},
-): CodexSettingsManaged {
-  return options as CodexSettingsManaged;
-}
-
 export type OpenCodeSettingsManaged = {
-  permission?: unknown;
-  mcp?: Record<string, unknown> | null;
+  mcp?: Record<string, unknown>;
   model?: string | null;
+  permission?: unknown;
 };
 export function createOpenCodeSettingsManaged(
   options: Partial<OpenCodeSettingsManaged> = {},
@@ -411,7 +399,7 @@ export function createOpenCodeSettingsManaged(
 
 export type ExternalAgentSettingsManagedBlock = {
   claude?: ClaudeSettingsManaged | null;
-  codex?: CodexSettingsManaged | null;
+  codex?: Record<string, unknown>;
   opencode?: OpenCodeSettingsManaged | null;
 };
 export function createExternalAgentSettingsManagedBlock(
@@ -441,7 +429,7 @@ export type ExternalAgentConfig = {
   sandboxPolicy?: string | null;
   approvalPolicy?: string | null;
   settingsMode: ExternalAgentSettingsMode;
-  settingsSources?: Array<ClaudeSettingsSource> | null;
+  settingsSources?: Array<ClaudeSettingsSource>;
   settingsFilePath?: string | null;
   settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
   settingsAllowSettaEdits: boolean;

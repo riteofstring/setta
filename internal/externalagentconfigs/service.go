@@ -215,7 +215,6 @@ func normalizeMutationConfig(config Config) (Config, error) {
 	trimOptionalStringPointer(&normalized.ApprovalPolicy)
 	trimOptionalStringPointer(&normalized.SettingsFilePath)
 	trimOptionalStringPointer(&normalized.WorkingDir)
-	normalized.SettingsSources = normalizeStringList(normalized.SettingsSources)
 	normalized.EnvVarWhitelist = normalizeStringList(normalized.EnvVarWhitelist)
 
 	normalizedConfig, err := normalizeConfig(normalized, 0)
@@ -273,11 +272,11 @@ func envWhitelistContains(whitelist []string, target string) bool {
 
 func buildDefaultClaudeSettingsBlock() *SettingsManagedBlock {
 	return &SettingsManagedBlock{
-		Claude: map[string]any{
-			"permissions": map[string]any{
-				"allow": append([]any(nil), defaultClaudeAllowRulesAsAny()...),
-				"ask":   append([]any(nil), defaultClaudeAskRulesAsAny()...),
-				"deny":  []any{},
+		Claude: &ClaudeSettingsManaged{
+			Permissions: &ClaudeSettingsPermissions{
+				Allow: append([]string(nil), defaultClaudeAllowRules...),
+				Ask:   append([]string(nil), defaultClaudeAskRules...),
+				Deny:  []string{},
 			},
 		},
 	}
@@ -285,26 +284,10 @@ func buildDefaultClaudeSettingsBlock() *SettingsManagedBlock {
 
 func buildDefaultOpenCodeSettingsBlock() *SettingsManagedBlock {
 	return &SettingsManagedBlock{
-		OpenCode: &OpenCodeSettingsBlock{
+		OpenCode: &OpenCodeSettingsManaged{
 			Permission: cloneJSONValue(defaultOpenCodePermission()),
 		},
 	}
-}
-
-func defaultClaudeAllowRulesAsAny() []any {
-	values := make([]any, 0, len(defaultClaudeAllowRules))
-	for _, value := range defaultClaudeAllowRules {
-		values = append(values, value)
-	}
-	return values
-}
-
-func defaultClaudeAskRulesAsAny() []any {
-	values := make([]any, 0, len(defaultClaudeAskRules))
-	for _, value := range defaultClaudeAskRules {
-		values = append(values, value)
-	}
-	return values
 }
 
 func defaultOpenCodePermission() map[string]any {

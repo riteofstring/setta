@@ -1395,7 +1395,7 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 			WorkingDirStrategy:      externalagentconfigs.WorkingDirStrategyProjectRoot,
 			SettingsAllowSettaEdits: true,
 			SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
-				OpenCode: &externalagentconfigs.OpenCodeSettingsBlock{
+				OpenCode: &externalagentconfigs.OpenCodeSettingsManaged{
 					Model:      &managedModel,
 					Permission: map[string]any{"shell": "ask"},
 					MCP:        cloneAnyMap(options.managedMCP),

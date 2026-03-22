@@ -49,6 +49,14 @@ That means:
 - `internal/frontendbindings/project_state_support.go` now points a large part of the project-state surface at real owner structs instead of empty placeholder structs.
 - `internal/frontendbindings/artifact_support.go` and `contracts.go` now use backend-owned wrapper types for the artifact/binary leaf contract family instead of repeating field layouts locally.
 - parts of `internal/frontendbindings/ai_settings_support.go` now use backend-owned wrapper types for enum/env-status families instead of repeating local string enums and structs.
+- the external-agent config/settings family now has a real backend owner in `internal/externalagentconfigs` instead of large mirrored structs in `frontendbindings`:
+  - `ClaudeSettingsSource`
+  - `ClaudeSettingsPermissions`
+  - `ClaudeSettingsManaged`
+  - `OpenCodeSettingsManaged`
+  - `SettingsManagedBlock`
+  - `Config`
+- `internal/frontendbindings/ai_settings_support.go` now aliases that owner-backed external-agent config/settings family instead of repeating the field layouts locally.
 - the Go -> Python generator now treats `omitempty` fields as absent-capable unless an explicit Python default override is provided, so generated Python models stay aligned with Go JSON omission behavior.
 - duplicated prompt-format ownership inside Go has been collapsed:
   - `internal/projectstate.PromptFormat` is gone
@@ -137,6 +145,14 @@ That means:
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 - the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
 - the Go -> Python generator now also preserves named Go string-enum field types inside generated models instead of flattening them to plain `str`, which makes the generated Python surface much closer to the real backend schema.
+- `internal/stringenumvalues` now resolves named string wrappers transitively across imported owner types, so the TS generator no longer needs hardcoded enum cases for:
+  - `MCPServerTransport`
+  - `PromptFormat`
+  - `ExternalAgentToolType`
+  - `ExternalAgentRunMode`
+  - `ExternalAgentSettingsMode`
+  - `ExternalAgentWorkingDirStrategy`
+  - `ClaudeSettingsSource`
 - `backend/setta/types/dependency_value.py` no longer hand-owns the dependency-value field layouts:
   - the Python file is now only a discriminated-union adapter over Go-generated models so the listener SDK can keep using `Field(discriminator="type")`.
 - the frontend-facing project codegen policy family now has a real Go owner in `internal/projectview` instead of empty `frontendbindings` placeholders:
@@ -206,7 +222,11 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, and the detailed chat-message schema family, but not yet for the larger external-agent settings families.
+This has improved for the project-state/view/windowing family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the detailed chat-message schema family, and the external-agent config/settings family.
+
+The remaining gap in this area is much narrower now:
+- `internal/frontendbindings/ai_settings_support.go` still owns `ExternalAgentPreflightStatus`
+- that status shape still intentionally differs from the backend checker owner (`nodePath` vs `commandPath`), so it has not been collapsed yet
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -229,7 +249,7 @@ It now also discovers directly from several real owner packages, which is better
 
 It also now applies discovered wrapper overrides to nested fields, not just top-level discovered roots, which removes one class of manual `py_type` patching.
 
-But it still leans on the `frontendbindings` surface, plus enum fallback logic, for a significant part of the exported Python-facing names, which means the real owner packages are still not cleanly expressed for many type families.
+But it still leans on the `frontendbindings` surface, plus some enum fallback logic, for a significant part of the exported Python-facing names, which means the real owner packages are still not cleanly expressed for many type families.
 
 ### 4. There may still be some duplicated type ownership inside Go
 The frontend/Python cleanup is surfacing a few remaining “two Go packages define the same concept” cases.

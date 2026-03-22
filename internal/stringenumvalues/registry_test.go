@@ -49,6 +49,27 @@ func TestRegistryValuesForImportedConstBackedEnum(t *testing.T) {
 	}
 }
 
+func TestRegistryValuesForImportedWrapperEnum(t *testing.T) {
+	t.Helper()
+
+	values, ok, err := stringenumvalues.New().Values(
+		reflect.TypeOf(frontendbindings.ClaudeSettingsSource("")),
+	)
+	if err != nil {
+		t.Fatalf("Values() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("Values() did not resolve ClaudeSettingsSource")
+	}
+	if got, want := values, []stringenumvalues.EnumValue{
+		{Name: "user", Value: "user"},
+		{Name: "project", Value: "project"},
+		{Name: "local", Value: "local"},
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("ClaudeSettingsSource values = %#v, want %#v", got, want)
+	}
+}
+
 func TestRegistryUsesValueNameWhenItIsIdentifierAndSuffixWhenItIsNot(t *testing.T) {
 	t.Helper()
 

@@ -30,8 +30,16 @@ type Registry struct {
 type packageData struct {
 	constEntries     map[string]*constEntry
 	constDeclaration []*constEntry
-	namedStringTypes map[string]struct{}
+	namedTypes       map[string]*typeEntry
 	enumValuesByType map[string][]EnumValue
+}
+
+type typeEntry struct {
+	expr      ast.Expr
+	imports   map[string]string
+	resolved  bool
+	resolving bool
+	isString  bool
 }
 
 type constEntry struct {
@@ -141,7 +149,7 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 	data := &packageData{
 		constEntries:     make(map[string]*constEntry),
 		constDeclaration: make([]*constEntry, 0),
-		namedStringTypes: make(map[string]struct{}),
+		namedTypes:       make(map[string]*typeEntry),
 		enumValuesByType: make(map[string][]EnumValue),
 	}
 	fileSet := token.NewFileSet()
@@ -163,7 +171,7 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 			}
 			switch genDecl.Tok {
 			case token.TYPE:
-				collectNamedStringTypes(data.namedStringTypes, genDecl)
+				collectNamedTypes(data.namedTypes, genDecl, imports)
 			case token.CONST:
 				collectConstEntries(data, genDecl, imports)
 			}
@@ -171,7 +179,11 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 	}
 
 	for _, entry := range data.constDeclaration {
-		if _, ok := data.namedStringTypes[entry.typeName]; !ok {
+		isStringType, err := r.isNamedStringType(pkgPath, data, entry.typeName)
+		if err != nil {
+			return nil, err
+		}
+		if !isStringType {
 			continue
 		}
 		value, ok, err := r.resolveConstValue(pkgPath, data, entry)
@@ -193,17 +205,23 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 	return data, nil
 }
 
-func collectNamedStringTypes(target map[string]struct{}, decl *ast.GenDecl) {
+func collectNamedTypes(
+	target map[string]*typeEntry,
+	decl *ast.GenDecl,
+	imports map[string]string,
+) {
 	for _, spec := range decl.Specs {
 		typeSpec, ok := spec.(*ast.TypeSpec)
-		if !ok || typeSpec.Assign != 0 {
+		if !ok || typeSpec.Assign != 0 || typeSpec.TypeParams != nil {
 			continue
 		}
-		ident, ok := typeSpec.Type.(*ast.Ident)
-		if !ok || ident.Name != "string" {
+		if _, exists := target[typeSpec.Name.Name]; exists {
 			continue
 		}
-		target[typeSpec.Name.Name] = struct{}{}
+		target[typeSpec.Name.Name] = &typeEntry{
+			expr:    typeSpec.Type,
+			imports: imports,
+		}
 	}
 }
 
@@ -257,6 +275,71 @@ func localTypeName(expr ast.Expr) string {
 		return ""
 	}
 	return ident.Name
+}
+
+func (r *Registry) isNamedStringType(
+	pkgPath string,
+	data *packageData,
+	typeName string,
+) (bool, error) {
+	if typeName == "" {
+		return false, nil
+	}
+	entry, ok := data.namedTypes[typeName]
+	if !ok {
+		return false, nil
+	}
+	if entry.resolved {
+		return entry.isString, nil
+	}
+	if entry.resolving {
+		return false, fmt.Errorf("cyclic type evaluation for %s.%s", pkgPath, typeName)
+	}
+	entry.resolving = true
+	defer func() {
+		entry.resolving = false
+		entry.resolved = true
+	}()
+
+	isString, err := r.exprIsStringType(pkgPath, data, entry.imports, entry.expr)
+	if err != nil {
+		return false, err
+	}
+	entry.isString = isString
+	return isString, nil
+}
+
+func (r *Registry) exprIsStringType(
+	pkgPath string,
+	data *packageData,
+	imports map[string]string,
+	expr ast.Expr,
+) (bool, error) {
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		if typed.Name == "string" {
+			return true, nil
+		}
+		return r.isNamedStringType(pkgPath, data, typed.Name)
+	case *ast.SelectorExpr:
+		packageIdent, ok := typed.X.(*ast.Ident)
+		if !ok {
+			return false, nil
+		}
+		importPath, ok := imports[packageIdent.Name]
+		if !ok {
+			return false, nil
+		}
+		importedPackage, err := r.loadPackage(importPath)
+		if err != nil {
+			return false, err
+		}
+		return r.isNamedStringType(importPath, importedPackage, typed.Sel.Name)
+	case *ast.ParenExpr:
+		return r.exprIsStringType(pkgPath, data, imports, typed.X)
+	default:
+		return false, nil
+	}
 }
 
 func pickValueExpr(values []ast.Expr, index int) ast.Expr {

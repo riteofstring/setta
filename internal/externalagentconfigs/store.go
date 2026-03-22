@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"setta/internal/statefs"
@@ -59,37 +60,31 @@ const (
 )
 
 type SettingsManagedBlock struct {
-	Claude   map[string]any         `json:"claude,omitempty"`
-	Codex    map[string]any         `json:"codex,omitempty"`
-	OpenCode *OpenCodeSettingsBlock `json:"opencode,omitempty"`
-}
-
-type OpenCodeSettingsBlock struct {
-	MCP        map[string]any `json:"mcp,omitempty"`
-	Model      *string        `json:"model,omitempty"`
-	Permission any            `json:"permission,omitempty"`
+	Claude   *ClaudeSettingsManaged   `json:"claude,omitempty"`
+	Codex    map[string]any           `json:"codex,omitempty"`
+	OpenCode *OpenCodeSettingsManaged `json:"opencode,omitempty"`
 }
 
 type Config struct {
-	ID                      string                `json:"id"`
-	Name                    string                `json:"name"`
-	Description             string                `json:"description,omitempty"`
-	ToolType                ToolType              `json:"toolType"`
-	RunMode                 RunMode               `json:"runMode"`
-	CommandPath             *string               `json:"commandPath,omitempty"`
-	BaseURL                 *string               `json:"baseUrl,omitempty"`
-	DefaultModel            *string               `json:"defaultModel,omitempty"`
-	SandboxPolicy           *string               `json:"sandboxPolicy,omitempty"`
-	ApprovalPolicy          *string               `json:"approvalPolicy,omitempty"`
-	SettingsMode            SettingsMode          `json:"settingsMode,omitempty"`
-	SettingsSources         []string              `json:"settingsSources,omitempty"`
-	SettingsFilePath        *string               `json:"settingsFilePath,omitempty"`
-	SettingsManagedBlock    *SettingsManagedBlock `json:"settingsManagedBlock,omitempty"`
-	SettingsAllowSettaEdits bool                  `json:"settingsAllowSettaEdits"`
-	EnvVarWhitelist         []string              `json:"envVarWhitelist,omitempty"`
-	WorkingDirStrategy      WorkingDirStrategy    `json:"workingDirStrategy,omitempty"`
-	WorkingDir              *string               `json:"workingDir,omitempty"`
-	CodexSkipGitRepoCheck   *bool                 `json:"codexSkipGitRepoCheck,omitempty"`
+	ID                      string                 `json:"id"`
+	Name                    string                 `json:"name"`
+	Description             string                 `json:"description"`
+	ToolType                ToolType               `json:"toolType"`
+	RunMode                 RunMode                `json:"runMode"`
+	CommandPath             *string                `json:"commandPath,omitempty"`
+	BaseURL                 *string                `json:"baseUrl,omitempty"`
+	DefaultModel            *string                `json:"defaultModel,omitempty"`
+	SandboxPolicy           *string                `json:"sandboxPolicy,omitempty"`
+	ApprovalPolicy          *string                `json:"approvalPolicy,omitempty"`
+	SettingsMode            SettingsMode           `json:"settingsMode"`
+	SettingsSources         []ClaudeSettingsSource `json:"settingsSources,omitempty"`
+	SettingsFilePath        *string                `json:"settingsFilePath,omitempty"`
+	SettingsManagedBlock    *SettingsManagedBlock  `json:"settingsManagedBlock,omitempty"`
+	SettingsAllowSettaEdits bool                   `json:"settingsAllowSettaEdits"`
+	EnvVarWhitelist         []string               `json:"envVarWhitelist"`
+	WorkingDirStrategy      WorkingDirStrategy     `json:"workingDirStrategy"`
+	WorkingDir              *string                `json:"workingDir,omitempty"`
+	CodexSkipGitRepoCheck   *bool                  `json:"codexSkipGitRepoCheck,omitempty"`
 }
 
 type Store struct {
@@ -246,11 +241,13 @@ func normalizeConfig(config Config, index int) (Config, error) {
 	if normalized.WorkingDirStrategy == "" {
 		normalized.WorkingDirStrategy = WorkingDirStrategyProjectRoot
 	}
+	normalizedSettingsSources, err := normalizeClaudeSettingsSources(normalized.SettingsSources)
+	if err != nil {
+		return Config{}, fmt.Errorf("external agent config %q settingsSources is invalid: %w", normalized.ID, err)
+	}
+	normalized.SettingsSources = normalizedSettingsSources
 	if normalized.EnvVarWhitelist == nil {
 		normalized.EnvVarWhitelist = []string{}
-	}
-	if normalized.SettingsSources == nil {
-		normalized.SettingsSources = []string{}
 	}
 	if !config.SettingsAllowSettaEdits {
 		normalized.SettingsAllowSettaEdits = false
@@ -272,7 +269,7 @@ func cloneConfig(config Config) Config {
 	cloned.WorkingDir = cloneStringPtr(config.WorkingDir)
 	cloned.CodexSkipGitRepoCheck = cloneBoolPtr(config.CodexSkipGitRepoCheck)
 	if config.SettingsSources != nil {
-		cloned.SettingsSources = append([]string(nil), config.SettingsSources...)
+		cloned.SettingsSources = append([]ClaudeSettingsSource(nil), config.SettingsSources...)
 	}
 	if config.EnvVarWhitelist != nil {
 		cloned.EnvVarWhitelist = append([]string(nil), config.EnvVarWhitelist...)
@@ -302,13 +299,23 @@ func cloneSettingsManagedBlock(value *SettingsManagedBlock) *SettingsManagedBloc
 	}
 	cloned := &SettingsManagedBlock{}
 	if value.Claude != nil {
-		cloned.Claude = cloneJSONMap(value.Claude)
+		cloned.Claude = &ClaudeSettingsManaged{
+			DefaultMode: cloneStringPtr(value.Claude.DefaultMode),
+			MCP:         cloneJSONMap(value.Claude.MCP),
+		}
+		if value.Claude.Permissions != nil {
+			cloned.Claude.Permissions = &ClaudeSettingsPermissions{
+				Allow: append([]string(nil), value.Claude.Permissions.Allow...),
+				Ask:   append([]string(nil), value.Claude.Permissions.Ask...),
+				Deny:  append([]string(nil), value.Claude.Permissions.Deny...),
+			}
+		}
 	}
 	if value.Codex != nil {
 		cloned.Codex = cloneJSONMap(value.Codex)
 	}
 	if value.OpenCode != nil {
-		cloned.OpenCode = &OpenCodeSettingsBlock{
+		cloned.OpenCode = &OpenCodeSettingsManaged{
 			MCP:        cloneJSONMap(value.OpenCode.MCP),
 			Model:      cloneStringPtr(value.OpenCode.Model),
 			Permission: cloneJSONValue(value.OpenCode.Permission),
@@ -343,6 +350,36 @@ func cloneJSONValue(value any) any {
 	default:
 		return typed
 	}
+}
+
+func normalizeClaudeSettingsSources(
+	values []ClaudeSettingsSource,
+) ([]ClaudeSettingsSource, error) {
+	if values == nil {
+		return []ClaudeSettingsSource{}, nil
+	}
+	seen := map[ClaudeSettingsSource]struct{}{}
+	normalized := make([]ClaudeSettingsSource, 0, len(values))
+	for _, value := range values {
+		trimmed := ClaudeSettingsSource(strings.TrimSpace(string(value)))
+		if trimmed == "" {
+			continue
+		}
+		switch trimmed {
+		case ClaudeSettingsSourceUser, ClaudeSettingsSourceProject, ClaudeSettingsSourceLocal:
+		default:
+			return nil, fmt.Errorf("unsupported source %q", trimmed)
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	slices.SortFunc(normalized, func(a ClaudeSettingsSource, b ClaudeSettingsSource) int {
+		return strings.Compare(string(a), string(b))
+	})
+	return normalized, nil
 }
 
 func isEmptyJSONValue(value any) bool {

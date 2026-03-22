@@ -781,7 +781,11 @@ func resolveClaudeModel(request StartRequest) string {
 
 func resolveClaudeSettingSources(config externalagentconfigs.Config) []string {
 	if len(config.SettingsSources) > 0 {
-		return append([]string(nil), config.SettingsSources...)
+		sources := make([]string, 0, len(config.SettingsSources))
+		for _, value := range config.SettingsSources {
+			sources = append(sources, string(value))
+		}
+		return sources
 	}
 	return []string{"project", "local"}
 }

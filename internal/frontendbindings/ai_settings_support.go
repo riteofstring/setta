@@ -64,68 +64,23 @@ const (
 	ExternalAgentWorkingDirStrategyCustom      ExternalAgentWorkingDirStrategy = ExternalAgentWorkingDirStrategy(externalagentconfigs.WorkingDirStrategyCustom)
 )
 
-// Claude settings sources stay as an explicit frontend contract enum even
-// though the Go runtime currently stores the values as raw strings.
-type ClaudeSettingsSource string
+type ClaudeSettingsSource externalagentconfigs.ClaudeSettingsSource
 
 const (
-	ClaudeSettingsSourceUser    ClaudeSettingsSource = "user"
-	ClaudeSettingsSourceProject ClaudeSettingsSource = "project"
-	ClaudeSettingsSourceLocal   ClaudeSettingsSource = "local"
+	ClaudeSettingsSourceUser    ClaudeSettingsSource = ClaudeSettingsSource(externalagentconfigs.ClaudeSettingsSourceUser)
+	ClaudeSettingsSourceProject ClaudeSettingsSource = ClaudeSettingsSource(externalagentconfigs.ClaudeSettingsSourceProject)
+	ClaudeSettingsSourceLocal   ClaudeSettingsSource = ClaudeSettingsSource(externalagentconfigs.ClaudeSettingsSourceLocal)
 )
 
-type ClaudeSettingsPermissions struct {
-	Allow []string `json:"allow"`
-	Ask   []string `json:"ask"`
-	Deny  []string `json:"deny"`
-}
+type ClaudeSettingsPermissions externalagentconfigs.ClaudeSettingsPermissions
 
-type ClaudeSettingsManaged struct {
-	Permissions *ClaudeSettingsPermissions `json:"permissions,omitempty"`
-	DefaultMode *string                    `json:"defaultMode,omitempty"`
-	MCP         *map[string]any            `json:"mcp,omitempty"`
-}
+type ClaudeSettingsManaged externalagentconfigs.ClaudeSettingsManaged
 
-type CodexSettingsManaged struct {
-	ApprovalPolicy *string   `json:"approvalPolicy,omitempty"`
-	SandboxMode    *string   `json:"sandboxMode,omitempty"`
-	EnabledTools   *[]string `json:"enabledTools,omitempty"`
-	Model          *string   `json:"model,omitempty"`
-}
+type OpenCodeSettingsManaged externalagentconfigs.OpenCodeSettingsManaged
 
-type OpenCodeSettingsManaged struct {
-	Permission any             `json:"permission,omitempty"`
-	MCP        *map[string]any `json:"mcp,omitempty"`
-	Model      *string         `json:"model,omitempty"`
-}
+type ExternalAgentSettingsManagedBlock externalagentconfigs.SettingsManagedBlock
 
-type ExternalAgentSettingsManagedBlock struct {
-	Claude   *ClaudeSettingsManaged   `json:"claude,omitempty"`
-	Codex    *CodexSettingsManaged    `json:"codex,omitempty"`
-	OpenCode *OpenCodeSettingsManaged `json:"opencode,omitempty"`
-}
-
-type ExternalAgentConfig struct {
-	ID                      string                             `json:"id"`
-	Name                    string                             `json:"name"`
-	Description             string                             `json:"description"`
-	ToolType                ExternalAgentToolType              `json:"toolType"`
-	RunMode                 ExternalAgentRunMode               `json:"runMode"`
-	CommandPath             *string                            `json:"commandPath,omitempty"`
-	BaseURL                 *string                            `json:"baseUrl,omitempty"`
-	DefaultModel            *string                            `json:"defaultModel,omitempty"`
-	SandboxPolicy           *string                            `json:"sandboxPolicy,omitempty"`
-	ApprovalPolicy          *string                            `json:"approvalPolicy,omitempty"`
-	SettingsMode            ExternalAgentSettingsMode          `json:"settingsMode"`
-	SettingsSources         *[]ClaudeSettingsSource            `json:"settingsSources,omitempty"`
-	SettingsFilePath        *string                            `json:"settingsFilePath,omitempty"`
-	SettingsManagedBlock    *ExternalAgentSettingsManagedBlock `json:"settingsManagedBlock,omitempty"`
-	SettingsAllowSettaEdits bool                               `json:"settingsAllowSettaEdits"`
-	EnvVarWhitelist         []string                           `json:"envVarWhitelist"`
-	WorkingDirStrategy      ExternalAgentWorkingDirStrategy    `json:"workingDirStrategy"`
-	WorkingDir              *string                            `json:"workingDir,omitempty"`
-	CodexSkipGitRepoCheck   *bool                              `json:"codexSkipGitRepoCheck,omitempty"`
-}
+type ExternalAgentConfig externalagentconfigs.Config
 
 type ExternalAgentEnvVarStatus externalagentconfigs.EnvVarStatus
 

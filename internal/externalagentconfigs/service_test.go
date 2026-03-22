@@ -246,7 +246,7 @@ func TestServiceCreatePreservesExistingOpenCodeMCPServersWhenAddingSetta(t *test
 		RunMode:            RunModeSDK,
 		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
 		SettingsManagedBlock: &SettingsManagedBlock{
-			OpenCode: &OpenCodeSettingsBlock{
+			OpenCode: &OpenCodeSettingsManaged{
 				MCP: map[string]any{
 					"filesystem": map[string]any{
 						"type":    "stdio",

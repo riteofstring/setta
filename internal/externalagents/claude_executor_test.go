@@ -1703,11 +1703,11 @@ func TestPrepareClaudeSettingsPreservesUserKeysForManagedProject(t *testing.T) {
 		SettingsMode:            externalagentconfigs.SettingsModeManagedProject,
 		SettingsAllowSettaEdits: true,
 		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
-			Claude: map[string]any{
-				"permissions": map[string]any{
-					"allow": []string{"New"},
-					"ask":   []string{},
-					"deny":  []string{},
+			Claude: &externalagentconfigs.ClaudeSettingsManaged{
+				Permissions: &externalagentconfigs.ClaudeSettingsPermissions{
+					Allow: []string{"New"},
+					Ask:   []string{},
+					Deny:  []string{},
 				},
 			},
 		},
@@ -1746,9 +1746,9 @@ func TestPrepareClaudeSettingsWritesManagedLocalPermissions(t *testing.T) {
 		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
 		SettingsAllowSettaEdits: true,
 		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
-			Claude: map[string]any{
-				"permissions": map[string]any{
-					"ask": []string{"Bash(rm:*)"},
+			Claude: &externalagentconfigs.ClaudeSettingsManaged{
+				Permissions: &externalagentconfigs.ClaudeSettingsPermissions{
+					Ask: []string{"Bash(rm:*)"},
 				},
 			},
 		},
@@ -1784,10 +1784,10 @@ func TestPrepareClaudeSettingsWritesDefaultAllowRules(t *testing.T) {
 		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
 		SettingsAllowSettaEdits: true,
 		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
-			Claude: map[string]any{
-				"permissions": map[string]any{
-					"allow": []string{"mcp__setta__*"},
-					"ask": []string{
+			Claude: &externalagentconfigs.ClaudeSettingsManaged{
+				Permissions: &externalagentconfigs.ClaudeSettingsPermissions{
+					Allow: []string{"mcp__setta__*"},
+					Ask: []string{
 						"Bash(rm:*)",
 						"Bash(sudo:*)",
 						"Bash(chmod:*)",
@@ -1799,7 +1799,7 @@ func TestPrepareClaudeSettingsWritesDefaultAllowRules(t *testing.T) {
 						"Bash(mkfs:*)",
 						"Bash(diskutil:*)",
 					},
-					"deny": []string{},
+					Deny: []string{},
 				},
 			},
 		},
@@ -1900,11 +1900,11 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 		SettingsAllowSettaEdits: true,
 		WorkingDirStrategy:      externalagentconfigs.WorkingDirStrategyProjectRoot,
 		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
-			Claude: map[string]any{
-				"permissions": map[string]any{
-					"allow": []any{"Read"},
-					"ask":   []any{"Bash"},
-					"deny":  []any{},
+			Claude: &externalagentconfigs.ClaudeSettingsManaged{
+				Permissions: &externalagentconfigs.ClaudeSettingsPermissions{
+					Allow: []string{"Read"},
+					Ask:   []string{"Bash"},
+					Deny:  []string{},
 				},
 			},
 		},

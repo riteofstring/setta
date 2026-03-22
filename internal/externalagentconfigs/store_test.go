@@ -28,8 +28,12 @@ func TestStoreRoundTripAndGet(t *testing.T) {
 			CommandPath:        &commandPath,
 			WorkingDirStrategy: WorkingDirStrategyCustom,
 			WorkingDir:         &workingDir,
+			SettingsSources: []ClaudeSettingsSource{
+				ClaudeSettingsSourceProject,
+				ClaudeSettingsSourceLocal,
+			},
 			SettingsManagedBlock: &SettingsManagedBlock{
-				OpenCode: &OpenCodeSettingsBlock{
+				OpenCode: &OpenCodeSettingsManaged{
 					Model: &model,
 					Permission: map[string]any{
 						"*": "ask",
@@ -64,6 +68,9 @@ func TestStoreRoundTripAndGet(t *testing.T) {
 	}
 	if config.SettingsManagedBlock.OpenCode.Model == nil || *config.SettingsManagedBlock.OpenCode.Model != model {
 		t.Fatalf("unexpected openCode model %#v", config.SettingsManagedBlock.OpenCode)
+	}
+	if len(config.SettingsSources) != 2 {
+		t.Fatalf("expected normalized settings sources, got %#v", config.SettingsSources)
 	}
 }
 

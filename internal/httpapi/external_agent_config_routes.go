@@ -32,24 +32,24 @@ type ExternalAgentConfigRouteDependencies struct {
 }
 
 type createExternalAgentConfigRequest struct {
-	Name                    *string                                    `json:"name"`
-	Description             *string                                    `json:"description"`
-	ToolType                *externalagentconfigs.ToolType             `json:"toolType"`
-	RunMode                 *externalagentconfigs.RunMode              `json:"runMode"`
-	CommandPath             *string                                    `json:"commandPath"`
-	BaseURL                 *string                                    `json:"baseUrl"`
-	DefaultModel            *string                                    `json:"defaultModel"`
-	SandboxPolicy           *string                                    `json:"sandboxPolicy"`
-	ApprovalPolicy          *string                                    `json:"approvalPolicy"`
-	SettingsMode            *externalagentconfigs.SettingsMode         `json:"settingsMode"`
-	SettingsSources         []string                                   `json:"settingsSources"`
-	SettingsFilePath        *string                                    `json:"settingsFilePath"`
-	SettingsManagedBlock    *externalagentconfigs.SettingsManagedBlock `json:"settingsManagedBlock"`
-	SettingsAllowSettaEdits *bool                                      `json:"settingsAllowSettaEdits"`
-	EnvVarWhitelist         []string                                   `json:"envVarWhitelist"`
-	WorkingDirStrategy      *externalagentconfigs.WorkingDirStrategy   `json:"workingDirStrategy"`
-	WorkingDir              *string                                    `json:"workingDir"`
-	CodexSkipGitRepoCheck   *bool                                      `json:"codexSkipGitRepoCheck"`
+	Name                    *string                                     `json:"name"`
+	Description             *string                                     `json:"description"`
+	ToolType                *externalagentconfigs.ToolType              `json:"toolType"`
+	RunMode                 *externalagentconfigs.RunMode               `json:"runMode"`
+	CommandPath             *string                                     `json:"commandPath"`
+	BaseURL                 *string                                     `json:"baseUrl"`
+	DefaultModel            *string                                     `json:"defaultModel"`
+	SandboxPolicy           *string                                     `json:"sandboxPolicy"`
+	ApprovalPolicy          *string                                     `json:"approvalPolicy"`
+	SettingsMode            *externalagentconfigs.SettingsMode          `json:"settingsMode"`
+	SettingsSources         []externalagentconfigs.ClaudeSettingsSource `json:"settingsSources"`
+	SettingsFilePath        *string                                     `json:"settingsFilePath"`
+	SettingsManagedBlock    *externalagentconfigs.SettingsManagedBlock  `json:"settingsManagedBlock"`
+	SettingsAllowSettaEdits *bool                                       `json:"settingsAllowSettaEdits"`
+	EnvVarWhitelist         []string                                    `json:"envVarWhitelist"`
+	WorkingDirStrategy      *externalagentconfigs.WorkingDirStrategy    `json:"workingDirStrategy"`
+	WorkingDir              *string                                     `json:"workingDir"`
+	CodexSkipGitRepoCheck   *bool                                       `json:"codexSkipGitRepoCheck"`
 }
 
 type getExternalAgentConfigRequest struct {
@@ -397,7 +397,7 @@ func buildCreatedExternalAgentConfig(payload createExternalAgentConfigRequest) e
 		config.SettingsMode = *payload.SettingsMode
 	}
 	if payload.SettingsSources != nil {
-		config.SettingsSources = append([]string(nil), payload.SettingsSources...)
+		config.SettingsSources = append([]externalagentconfigs.ClaudeSettingsSource(nil), payload.SettingsSources...)
 	}
 	config.SettingsFilePath = cloneOptionalString(payload.SettingsFilePath)
 	config.SettingsManagedBlock = cloneExternalAgentSettingsManagedBlock(payload.SettingsManagedBlock)
@@ -453,13 +453,23 @@ func cloneExternalAgentSettingsManagedBlock(
 	}
 	cloned := &externalagentconfigs.SettingsManagedBlock{}
 	if value.Claude != nil {
-		cloned.Claude = cloneJSONMap(value.Claude)
+		cloned.Claude = &externalagentconfigs.ClaudeSettingsManaged{
+			DefaultMode: cloneOptionalString(value.Claude.DefaultMode),
+			MCP:         cloneJSONMap(value.Claude.MCP),
+		}
+		if value.Claude.Permissions != nil {
+			cloned.Claude.Permissions = &externalagentconfigs.ClaudeSettingsPermissions{
+				Allow: append([]string(nil), value.Claude.Permissions.Allow...),
+				Ask:   append([]string(nil), value.Claude.Permissions.Ask...),
+				Deny:  append([]string(nil), value.Claude.Permissions.Deny...),
+			}
+		}
 	}
 	if value.Codex != nil {
 		cloned.Codex = cloneJSONMap(value.Codex)
 	}
 	if value.OpenCode != nil {
-		cloned.OpenCode = &externalagentconfigs.OpenCodeSettingsBlock{
+		cloned.OpenCode = &externalagentconfigs.OpenCodeSettingsManaged{
 			MCP:        cloneJSONMap(value.OpenCode.MCP),
 			Model:      cloneOptionalString(value.OpenCode.Model),
 			Permission: cloneJSONValue(value.OpenCode.Permission),

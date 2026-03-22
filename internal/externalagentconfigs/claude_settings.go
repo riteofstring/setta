@@ -45,7 +45,7 @@ func PrepareClaudeSettings(workspaceRoot string, config Config) error {
 		}
 	}
 	if config.SettingsManagedBlock != nil && config.SettingsManagedBlock.Claude != nil {
-		for key, value := range config.SettingsManagedBlock.Claude {
+		for key, value := range claudeSettingsManagedPayload(config.SettingsManagedBlock.Claude) {
 			payload[key] = cloneJSONValue(value)
 		}
 	}
@@ -61,4 +61,25 @@ func PrepareClaudeSettings(workspaceRoot string, config Config) error {
 		return fmt.Errorf("write claude settings: %w", err)
 	}
 	return nil
+}
+
+func claudeSettingsManagedPayload(value *ClaudeSettingsManaged) map[string]any {
+	if value == nil {
+		return nil
+	}
+	payload := map[string]any{}
+	if value.Permissions != nil {
+		payload["permissions"] = map[string]any{
+			"allow": append([]string(nil), value.Permissions.Allow...),
+			"ask":   append([]string(nil), value.Permissions.Ask...),
+			"deny":  append([]string(nil), value.Permissions.Deny...),
+		}
+	}
+	if value.DefaultMode != nil {
+		payload["defaultMode"] = *value.DefaultMode
+	}
+	if len(value.MCP) > 0 {
+		payload["mcp"] = cloneJSONMap(value.MCP)
+	}
+	return payload
 }
