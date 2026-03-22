@@ -547,9 +547,9 @@ type SectionRepresentationMode = projectview.SectionRepresentationMode
 
 type CodeObjValueRepresentationMode = projectview.CodeObjValueRepresentationMode
 
-type SectionSizeValue struct{}
+type SectionSizeValue projectstate.SectionSizeValue
 
-type SectionSize struct{}
+type SectionSize projectstate.SectionSize
 
 type SectionSizingPolicyTypeEntry struct{}
 
@@ -875,7 +875,7 @@ type SectionType string
 
 type CodeObjType string
 
-type CodeLanguage string
+type CodeLanguage projectstate.CodeLanguage
 
 type BuiltinCodeLanguage struct{}
 
@@ -907,13 +907,13 @@ type DateSelectionMode string
 
 type DateCalendarWeekStart string
 
-type ListRootViewMode string
+type ListRootViewMode projectstate.ListRootViewMode
 
-type BrowserAreaViewMode string
+type BrowserAreaViewMode projectstate.BrowserAreaViewMode
 
-type BrowserSearchScope string
+type BrowserSearchScope projectstate.BrowserSearchScope
 
-type SpreadsheetGridDensity string
+type SpreadsheetGridDensity projectstate.SpreadsheetGridDensity
 
 type ChartType = projectstate.ChartType
 
@@ -923,13 +923,13 @@ type ScatterChartSettings = projectstate.ScatterChartSettings
 
 type BaseChartSettingsUnion struct{}
 
-type TextBlockDisplayMode string
+type TextBlockDisplayMode projectstate.TextBlockDisplayMode
 
-type TextBlockFormat string
+type TextBlockFormat projectstate.TextBlockFormat
 
-type CodeFileAccessMode string
+type CodeFileAccessMode projectstate.CodeFileAccessMode
 
-type TaskBoardViewMode string
+type TaskBoardViewMode projectstate.TaskBoardViewMode
 
 type TaskBoardTaskRecurrence string
 
