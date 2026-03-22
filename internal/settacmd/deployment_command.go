@@ -187,7 +187,7 @@ func isValidDeploymentVersion(raw string) bool {
 		return false
 	}
 	versionNumber, err := strconv.Atoi(strings.TrimPrefix(trimmedVersion, "v"))
-	return err == nil && versionNumber > 0
+	return err == nil && versionNumber >= 0
 }
 
 func buildDeploymentStartArgs(global globalFlags, deploymentRoot string, spec deploymentCommandSpec) []string {

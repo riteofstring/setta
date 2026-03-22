@@ -295,7 +295,7 @@ func parseDeploymentVersion(value string) (int, bool) {
 		return 0, false
 	}
 	number, err := strconv.Atoi(value[1:])
-	if err != nil || number <= 0 {
+	if err != nil || number < 0 {
 		return 0, false
 	}
 	return number, true

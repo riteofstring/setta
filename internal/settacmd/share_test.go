@@ -129,6 +129,96 @@ func TestRunShareRejectsMixedDeploymentSelectionFlags(t *testing.T) {
 	}
 }
 
+func TestResolveShareDeploymentRootUsesExplicitRoot(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	deploymentRoot := writeShareDeploymentFixture(
+		t,
+		filepath.Join(tempDir, "deployments", "demo-share", "v1"),
+		"demo-share",
+		"v1",
+		deployments.TypeShare,
+	)
+
+	resolvedRoot, err := resolveShareDeploymentRoot(
+		shareFlags{deploymentRoot: deploymentRoot},
+		globalFlags{},
+		func(string) (string, bool) {
+			return "", false
+		},
+		tempDir,
+	)
+	if err != nil {
+		t.Fatalf("resolve share deployment root: %v", err)
+	}
+	if resolvedRoot != deploymentRoot {
+		t.Fatalf("expected deployment root %q, got %q", deploymentRoot, resolvedRoot)
+	}
+}
+
+func TestResolveShareDeploymentRootRejectsMissingSelectionInputs(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	deploymentRoot := writeShareDeploymentFixture(
+		t,
+		filepath.Join(tempDir, "deployments", "demo-share", "v1"),
+		"demo-share",
+		"v1",
+		deployments.TypeShare,
+	)
+
+	testCases := []struct {
+		name    string
+		parsed  shareFlags
+		wantErr string
+	}{
+		{
+			name: "mixed explicit root and named selectors",
+			parsed: shareFlags{
+				deploymentRoot: deploymentRoot,
+				deploymentName: "demo-share",
+			},
+			wantErr: "Use either --deployment-root or --deployment-name/--version/--latest.",
+		},
+		{
+			name:    "missing deployment name",
+			parsed:  shareFlags{},
+			wantErr: "Missing --deployment-name (or use --deployment-root).",
+		},
+		{
+			name: "missing version or latest",
+			parsed: shareFlags{
+				deploymentName: "demo-share",
+			},
+			wantErr: "Missing --version or --latest.",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := resolveShareDeploymentRoot(
+				testCase.parsed,
+				globalFlags{},
+				func(string) (string, bool) {
+					return "", false
+				},
+				tempDir,
+			)
+			if err == nil {
+				t.Fatal("expected resolveShareDeploymentRoot error")
+			}
+			if err.Error() != testCase.wantErr {
+				t.Fatalf("resolveShareDeploymentRoot error = %q, want %q", err.Error(), testCase.wantErr)
+			}
+		})
+	}
+}
+
 func TestRunShareRejectsInvalidVersionFormat(t *testing.T) {
 	t.Parallel()
 
@@ -231,6 +321,98 @@ func TestResolveShareDeploymentRootSelectsRequestedVersionFromCatalog(t *testing
 	)
 	if err != nil {
 		t.Fatalf("resolve share deployment root: %v", err)
+	}
+	if resolvedRoot != expectedRoot {
+		t.Fatalf("expected deployment root %q, got %q", expectedRoot, resolvedRoot)
+	}
+}
+
+func TestResolveShareDeploymentRootSelectsLatestVersionFromCatalog(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	workspaceRoot := filepath.Join(tempDir, "workspace")
+	settaFilesRoot := filepath.Join(tempDir, "state", "setta_files")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	writeShareDeploymentFixture(
+		t,
+		filepath.Join(settaFilesRoot, "deployments", "demo-share", "v0"),
+		"demo-share",
+		"v0",
+		deployments.TypeShare,
+	)
+	writeShareDeploymentFixture(
+		t,
+		filepath.Join(settaFilesRoot, "deployments", "demo-share", "v2"),
+		"demo-share",
+		"v2",
+		deployments.TypeShare,
+	)
+	expectedRoot := writeShareDeploymentFixture(
+		t,
+		filepath.Join(settaFilesRoot, "deployments", "demo-share", "v3"),
+		"demo-share",
+		"v3",
+		deployments.TypeShare,
+	)
+
+	resolvedRoot, err := resolveShareDeploymentRoot(
+		shareFlags{
+			deploymentName: "demo-share",
+			latest:         true,
+		},
+		globalFlags{
+			workspaceRoot:  workspaceRoot,
+			settaFilesRoot: settaFilesRoot,
+		},
+		func(string) (string, bool) {
+			return "", false
+		},
+		tempDir,
+	)
+	if err != nil {
+		t.Fatalf("resolve latest share deployment root: %v", err)
+	}
+	if resolvedRoot != expectedRoot {
+		t.Fatalf("expected latest deployment root %q, got %q", expectedRoot, resolvedRoot)
+	}
+}
+
+func TestResolveShareDeploymentRootAcceptsVersionZeroFromCatalog(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	workspaceRoot := filepath.Join(tempDir, "workspace")
+	settaFilesRoot := filepath.Join(tempDir, "state", "setta_files")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	expectedRoot := writeShareDeploymentFixture(
+		t,
+		filepath.Join(settaFilesRoot, "deployments", "demo-share", "v0"),
+		"demo-share",
+		"v0",
+		deployments.TypeShare,
+	)
+
+	resolvedRoot, err := resolveShareDeploymentRoot(
+		shareFlags{
+			deploymentName:    "demo-share",
+			deploymentVersion: "v0",
+		},
+		globalFlags{
+			workspaceRoot:  workspaceRoot,
+			settaFilesRoot: settaFilesRoot,
+		},
+		func(string) (string, bool) {
+			return "", false
+		},
+		tempDir,
+	)
+	if err != nil {
+		t.Fatalf("resolve share deployment root for v0: %v", err)
 	}
 	if resolvedRoot != expectedRoot {
 		t.Fatalf("expected deployment root %q, got %q", expectedRoot, resolvedRoot)

@@ -216,6 +216,38 @@ func TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries(t *testin
 	}
 }
 
+func TestParseDeploymentVersionAcceptsZeroAndRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		value string
+		want  int
+		ok    bool
+	}{
+		{value: "v0", want: 0, ok: true},
+		{value: "v3", want: 3, ok: true},
+		{value: "3", want: 0, ok: false},
+		{value: "v", want: 0, ok: false},
+		{value: "v3x", want: 0, ok: false},
+		{value: "v-1", want: 0, ok: false},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.value, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := parseDeploymentVersion(testCase.value)
+			if ok != testCase.ok {
+				t.Fatalf("parseDeploymentVersion(%q) ok = %t, want %t", testCase.value, ok, testCase.ok)
+			}
+			if got != testCase.want {
+				t.Fatalf("parseDeploymentVersion(%q) = %d, want %d", testCase.value, got, testCase.want)
+			}
+		})
+	}
+}
+
 func TestLoadManifestOptionalReturnsFalseForInvalidManifest(t *testing.T) {
 	t.Parallel()
 

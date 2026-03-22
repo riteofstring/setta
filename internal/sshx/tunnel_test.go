@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net"
@@ -8,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -197,6 +199,7 @@ func TestServiceEnsureSSHTunnelReportsMissingBinary(t *testing.T) {
 }
 
 const tunnelHelperEnvVar = "GO_WANT_SSHX_TUNNEL_HELPER"
+const tunnelExitHelperEnvVar = "GO_WANT_SSHX_TUNNEL_EXIT_HELPER"
 
 func TestSSHTunnelHelperProcess(t *testing.T) {
 	if os.Getenv(tunnelHelperEnvVar) != "1" {
@@ -204,6 +207,49 @@ func TestSSHTunnelHelperProcess(t *testing.T) {
 	}
 	for {
 		time.Sleep(time.Hour)
+	}
+}
+
+func TestSSHTunnelExitHelperProcess(t *testing.T) {
+	exitCodeRaw := os.Getenv(tunnelExitHelperEnvVar)
+	if exitCodeRaw == "" {
+		return
+	}
+	exitCode, err := strconv.Atoi(exitCodeRaw)
+	if err != nil {
+		os.Exit(97)
+	}
+	os.Exit(exitCode)
+}
+
+func TestServiceEnsureBackgroundTunnelStartedRejectsExitedProcess(t *testing.T) {
+	t.Parallel()
+
+	service := newTunnelTestService(t)
+	service.sleep = func(time.Duration) {}
+	processHandle := startExitedTunnelHelperProcess(t, 2)
+
+	err := service.ensureBackgroundTunnelStarted(processHandle)
+	requireSSHErrorCode(t, err, "TunnelStartFailed")
+	if err == nil || err.Error() != "SSH tunnel failed to start (exit 2)." {
+		t.Fatalf("unexpected startup error %v", err)
+	}
+}
+
+func TestServiceEnsureBackgroundTunnelStartedAcceptsRunningProcess(t *testing.T) {
+	t.Parallel()
+
+	service := newTunnelTestService(t)
+	service.sleep = func(time.Duration) {}
+	command := startTunnelHelperProcess(t)
+	processHandle := &startedTunnelProcess{
+		cmd:    command,
+		stderr: &bytes.Buffer{},
+		done:   make(chan struct{}),
+	}
+
+	if err := service.ensureBackgroundTunnelStarted(processHandle); err != nil {
+		t.Fatalf("ensure background tunnel started: %v", err)
 	}
 }
 
@@ -238,6 +284,27 @@ func startTunnelHelperProcess(t *testing.T) *exec.Cmd {
 		_, _ = command.Process.Wait()
 	})
 	return command
+}
+
+func startExitedTunnelHelperProcess(t *testing.T, exitCode int) *startedTunnelProcess {
+	t.Helper()
+
+	command := exec.Command(os.Args[0], "-test.run=TestSSHTunnelExitHelperProcess")
+	command.Env = append(os.Environ(), tunnelExitHelperEnvVar+"="+strconv.Itoa(exitCode))
+	command.Stdout = io.Discard
+	command.Stderr = io.Discard
+	if err := command.Start(); err != nil {
+		t.Fatalf("start exit tunnel helper process: %v", err)
+	}
+	waitErr := command.Wait()
+	processHandle := &startedTunnelProcess{
+		cmd:     command,
+		stderr:  &bytes.Buffer{},
+		done:    make(chan struct{}),
+		waitErr: waitErr,
+	}
+	close(processHandle.done)
+	return processHandle
 }
 
 func tunnelHelperRunning(pid int) bool {
