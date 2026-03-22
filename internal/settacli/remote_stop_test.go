@@ -141,6 +141,76 @@ func TestRunStopLocalLatestDefaultsToIDEWithinWorkspace(t *testing.T) {
 	}
 }
 
+func TestRunStopLocalWorkspaceFlagSelectsWorkspaceOutsideCurrentDirectory(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61235, time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC), "ide")
+	outsideCWD := t.TempDir()
+
+	// A single matching session should still be found by --workspace even when cwd is elsewhere.
+	stdout, stderr, err := fixture.runFromCWD(
+		outsideCWD,
+		"stop",
+		"--workspace",
+		fixture.workspaceRoot,
+	)
+	if err != nil {
+		t.Fatalf("run local stop from outside cwd: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Stopped session "+session.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitForSettacliHelperExit(t, proc, 2*time.Second)
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", session.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected session %q metadata to be removed, stat err=%v", session.ID, err)
+	}
+}
+
+func TestRunStopLocalSupportsLauncherServerModeSelection(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	ideProc := fixture.startProcess(t, "setta.server:app")
+	ideSession := fixture.createSession(t, ideProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	launcherProc := fixture.startProcess(t, "setta.server:app")
+	launcherSession := fixture.createSession(t, launcherProc, 61235, time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC), "launcher")
+
+	// --server-mode launcher must narrow the latest-selection pool before stop chooses a target.
+	stdout, stderr, err := fixture.run(
+		"stop",
+		"--workspace",
+		fixture.workspaceRoot,
+		"--latest",
+		"--server-mode",
+		"launcher",
+	)
+	if err != nil {
+		t.Fatalf("run local stop --latest --server-mode launcher: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "Stopped session "+launcherSession.ID+"." {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+
+	waitForSettacliHelperExit(t, launcherProc, 2*time.Second)
+
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", launcherSession.ID)); !os.IsNotExist(err) {
+		t.Fatalf("expected launcher session %q metadata to be removed, stat err=%v", launcherSession.ID, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.runtimeRoot, "sessions", ideSession.ID)); err != nil {
+		t.Fatalf("expected ide session %q to remain, stat err=%v", ideSession.ID, err)
+	}
+}
+
 func TestRunStopLocalSessionSelectorStopsRequestedSession(t *testing.T) {
 	t.Parallel()
 

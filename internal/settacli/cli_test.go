@@ -177,6 +177,42 @@ func TestRunStatusConnectInfoReportsMissingSession(t *testing.T) {
 	}
 }
 
+func TestRunStatusConnectInfoLatestSelectsNewest(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	olderProc := fixture.startProcess(t, "setta.server:app")
+	_ = fixture.createSession(t, olderProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	newerProc := fixture.startProcess(t, "setta.server:app")
+	newerSession := fixture.createSession(t, newerProc, 61235, time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC), "ide")
+
+	// --latest must pick the newest matching session, not the first one written.
+	stdout, _, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"status",
+		"--connect-info",
+		"--json",
+		"--latest",
+	)
+	if err != nil {
+		t.Fatalf("run latest status: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+	sessionPayload := payload["session"].(map[string]any)
+	if sessionPayload["id"] != newerSession.ID {
+		t.Fatalf("expected newest session %q, got %#v", newerSession.ID, sessionPayload["id"])
+	}
+	if sessionPayload["port"] != float64(61235) {
+		t.Fatalf("expected newest session port 61235, got %#v", sessionPayload["port"])
+	}
+	if sessionPayload["startedAt"] != newerSession.StartedAt.Format(time.RFC3339) {
+		t.Fatalf("expected startedAt %q, got %#v", newerSession.StartedAt.Format(time.RFC3339), sessionPayload["startedAt"])
+	}
+}
+
 func TestRunStatusValidationRejectsInvalidCommandShapes(t *testing.T) {
 	t.Parallel()
 
@@ -595,6 +631,32 @@ func TestRunStatusDeleteSessionReportsMissingSession(t *testing.T) {
 	}
 	if err.Error() != "session missing-session not found" {
 		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
+func TestSettaCLIDocsDescribeStatusAndStopServerModeSemantics(t *testing.T) {
+	t.Parallel()
+
+	docsPath := filepath.Join(testRepoRootForSettacli(t), "docs", "reference", "setta-cli-commands.md")
+	content, err := os.ReadFile(docsPath)
+	if err != nil {
+		t.Fatalf("read CLI docs: %v", err)
+	}
+	docsContent := string(content)
+
+	// Status docs must keep the default IDE-mode connect-info behavior explicit.
+	if !strings.Contains(
+		docsContent,
+		"--server-mode ide|launcher` filters by mode. For `--connect-info`, default mode is `ide` unless explicitly overridden.",
+	) {
+		t.Fatalf("expected status server-mode docs in %q", docsPath)
+	}
+	// Stop docs must keep the default IDE-mode cleanup scope explicit too.
+	if !strings.Contains(
+		docsContent,
+		"--server-mode ide|launcher` selects stop targets by mode (default: `ide`).",
+	) {
+		t.Fatalf("expected stop server-mode docs in %q", docsPath)
 	}
 }
 
