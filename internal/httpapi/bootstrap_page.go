@@ -519,6 +519,7 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
         const consumeUrl = __SETTA_CONSUME_URL__;
         const bootstrapPagePath = __SETTA_BOOTSTRAP_PAGE_PATH__;
         const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
+        const workspaceHistoryHandoffQueryParam = "__setta_workspace_history";
         const launcherOriginKey = "setta.launcherOrigin";
         const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";
         const launcherOriginStorage = sessionStorage;
@@ -558,6 +559,24 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
             }
             localStorage.setItem(workspaceHistoryHandoffKey, trimmed);
           } catch {
+          }
+        }
+
+        function appendWorkspaceHistoryHandoffToRedirectUrl(rawRedirectUrl) {
+          try {
+            const encoded = hashParams.get("wh");
+            if (!encoded) {
+              return rawRedirectUrl;
+            }
+            const trimmed = encoded.trim();
+            if (!trimmed || trimmed.length > maxHandoffLength) {
+              return rawRedirectUrl;
+            }
+            const redirect = new URL(rawRedirectUrl, window.location.href);
+            redirect.searchParams.set(workspaceHistoryHandoffQueryParam, trimmed);
+            return redirect.toString();
+          } catch {
+            return rawRedirectUrl;
           }
         }
 
@@ -664,6 +683,8 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
             } catch {
             }
           }
+          nextRedirectUrl =
+            appendWorkspaceHistoryHandoffToRedirectUrl(nextRedirectUrl);
           try {
             history.replaceState({}, "", bootstrapPagePath);
           } catch {

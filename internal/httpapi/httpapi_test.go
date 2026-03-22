@@ -1163,7 +1163,9 @@ func TestBootstrapPageIncludesLauncherHandoffAndWorkspaceHistoryStorage(t *testi
 	html := response.Body.String()
 	for _, needle := range []string{
 		`const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";`,
+		`const workspaceHistoryHandoffQueryParam = "__setta_workspace_history";`,
 		`localStorage.setItem(workspaceHistoryHandoffKey, trimmed);`,
+		`redirect.searchParams.set(workspaceHistoryHandoffQueryParam, trimmed);`,
 		`const launcherOriginKey = "setta.launcherOrigin";`,
 		`const launcherOriginStorage = sessionStorage;`,
 		`hashParams.get("lo")`,

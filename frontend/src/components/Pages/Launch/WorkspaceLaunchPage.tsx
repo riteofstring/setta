@@ -46,12 +46,40 @@ type LaunchPhase =
     };
 
 type RouteLaunchResult = ResponseDataAndStatus<LaunchResponse>;
+type WorkspaceRootResolutionSource = {
+  workspaceRoot?: string | null;
+  session?: {
+    workspacePathCanonical?: string | null;
+  } | null;
+};
 
 const inFlightLaunchesByKey = new Map<string, Promise<RouteLaunchResult>>();
 const OUTDATED_PROJECT_SETTINGS_ERROR_CODE = "OutdatedProjectSettings";
 const OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE =
   "This workspace uses an older Setta settings/project format. " +
   "Please migrate the project metadata and try again.";
+
+function normalizeWorkspaceRootCandidate(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function resolveLaunchedWorkspaceRoot(
+  response: WorkspaceRootResolutionSource,
+  pendingWorkspaceRoot: string | null | undefined,
+): string {
+  return (
+    normalizeWorkspaceRootCandidate(response.session?.workspacePathCanonical) ??
+    normalizeWorkspaceRootCandidate(response.workspaceRoot) ??
+    normalizeWorkspaceRootCandidate(pendingWorkspaceRoot) ??
+    ""
+  );
+}
 
 function formatElapsedMs(ms: number): string {
   const seconds = ms / 1000;
@@ -189,8 +217,10 @@ export function WorkspaceLaunchPage() {
         return;
       }
 
-      const resolvedWorkspaceRoot =
-        res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
+      const resolvedWorkspaceRoot = resolveLaunchedWorkspaceRoot(
+        res.data,
+        pending.request.workspaceRoot,
+      );
       let resolvedLocalPort = pending.request.localPort ?? null;
       if (pendingSshTarget) {
         try {

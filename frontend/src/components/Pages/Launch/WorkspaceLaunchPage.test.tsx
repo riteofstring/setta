@@ -6,7 +6,10 @@ import {
   resolveWorkspaceLaunchReturnUrl,
 } from "utils/workspaceLaunchNavigation";
 
-import { resolveWorkspaceLaunchErrorMessage } from "./WorkspaceLaunchPage";
+import {
+  resolveLaunchedWorkspaceRoot,
+  resolveWorkspaceLaunchErrorMessage,
+} from "./WorkspaceLaunchPage";
 
 describe("WorkspaceLaunchPage return URL helpers", () => {
   it("falls back to /home when the value is missing", () => {
@@ -120,5 +123,47 @@ describe("WorkspaceLaunchPage launch error helpers", () => {
     expect(
       resolveWorkspaceLaunchErrorMessage({ code: null, message: "   " }),
     ).toBe("Launch failed.");
+  });
+});
+
+describe("WorkspaceLaunchPage workspace root helpers", () => {
+  it("prefers the canonical launched session workspace root", () => {
+    const resolved = resolveLaunchedWorkspaceRoot(
+      {
+        workspaceRoot: "/tmp/requested-workspace",
+        session: {
+          workspacePathCanonical: "/private/tmp/canonical-workspace",
+        },
+      },
+      "/tmp/pending-workspace",
+    );
+
+    expect(resolved).toBe("/private/tmp/canonical-workspace");
+  });
+
+  it("falls back to the launch response workspace root when needed", () => {
+    const resolved = resolveLaunchedWorkspaceRoot(
+      {
+        workspaceRoot: "/tmp/response-workspace",
+        session: {
+          workspacePathCanonical: "   ",
+        },
+      },
+      "/tmp/pending-workspace",
+    );
+
+    expect(resolved).toBe("/tmp/response-workspace");
+  });
+
+  it("falls back to the pending request workspace root when the response omits both", () => {
+    const resolved = resolveLaunchedWorkspaceRoot(
+      {
+        workspaceRoot: null,
+        session: null,
+      },
+      "/tmp/pending-workspace",
+    );
+
+    expect(resolved).toBe("/tmp/pending-workspace");
   });
 });
