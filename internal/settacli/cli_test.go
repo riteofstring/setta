@@ -1226,6 +1226,28 @@ func TestRunAPIRequestErrorJSONContract(t *testing.T) {
 	}
 }
 
+func TestRunAPIAutoAuthMissingSessionsReturnsInputError(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+
+	stdout, stderr, err := fixture.run("api", "getProjectConfigNamesAndIds", "--json-output")
+	if err == nil {
+		t.Fatal("expected missing-session auto-auth error")
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if payload["error"] != "InputError" {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+	message, ok := payload["message"].(string)
+	if !ok || !strings.Contains(message, "no matching Setta sessions found") {
+		t.Fatalf("unexpected message %#v", payload["message"])
+	}
+}
+
 func TestRunAPIValidationRejectsInvalidInputShapesAndIncompleteExplicitAuth(t *testing.T) {
 	t.Parallel()
 
@@ -1252,14 +1274,55 @@ func TestRunAPIValidationRejectsInvalidInputShapesAndIncompleteExplicitAuth(t *t
 			wantMessageSubstring: "use only one of --json, --stdin, or --file",
 		},
 		{
+			name:                 "malformed_inline_payload",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--json", `invalid`, "--json-output"},
+			wantMessageSubstring: "invalid payload JSON",
+		},
+		{
+			name:                 "malformed_stdin_payload",
+			input:                `invalid`,
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--stdin", "--json-output"},
+			wantMessageSubstring: "invalid payload JSON",
+		},
+		{
+			name:                 "malformed_file_payload",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--file", "__PAYLOAD__", "--json-output"},
+			writePayloadFile:     `invalid`,
+			wantMessageSubstring: "invalid payload JSON",
+		},
+		{
 			name:                 "non_object_payload",
 			args:                 []string{"api", "getProjectConfigNamesAndIds", "--json", `[]`, "--json-output"},
 			wantMessageSubstring: "tool arguments must be a JSON object",
 		},
 		{
+			name:                 "malformed_auth_json_file",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-json", "__AUTH__", "--json-output"},
+			writeAuthFile:        `invalid`,
+			wantMessageSubstring: "invalid auth JSON",
+		},
+		{
+			name:                 "non_object_auth_json_file",
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-json", "__AUTH__", "--json-output"},
+			writeAuthFile:        `[]`,
+			wantMessageSubstring: "auth JSON must be an object",
+		},
+		{
 			name:                 "non_object_auth_json",
 			input:                `[]`,
 			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-stdin", "--json-output"},
+			wantMessageSubstring: "auth JSON must be an object",
+		},
+		{
+			name:                 "malformed_auth_json_stdin",
+			input:                `invalid`,
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-stdin", "--json", `{}`, "--json-output"},
+			wantMessageSubstring: "invalid auth JSON",
+		},
+		{
+			name:                 "non_object_auth_json_stdin_with_payload",
+			input:                `[]`,
+			args:                 []string{"api", "getProjectConfigNamesAndIds", "--auth-stdin", "--json", `{}`, "--json-output"},
 			wantMessageSubstring: "auth JSON must be an object",
 		},
 		{
