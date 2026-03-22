@@ -26,6 +26,79 @@ func TestListenerBroadcasterEmitRealtimeDeltasRejectsEmptyDeltas(t *testing.T) {
 	}
 }
 
+func TestListenerBroadcasterEmitDependencyEventsRejectsEmptyEvents(t *testing.T) {
+	t.Parallel()
+
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{})
+
+	sequence, delivered, err := broadcaster.EmitDependencyEvents(context.Background(), EmitDependencyEventsParams{
+		ProjectID: "project-a",
+	})
+	if !errors.Is(err, ErrEmptyDependencyEvents) {
+		t.Fatalf("expected empty dependency events error, got %v", err)
+	}
+	if sequence != 0 || delivered != 0 {
+		t.Fatalf("expected no sequence or deliveries on empty dependency event rejection, got sequence=%d delivered=%d", sequence, delivered)
+	}
+}
+
+func TestListenerBroadcasterEmitDependencyEventsIncrementsSequence(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-a", "")
+	defer listener.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-a", "project-a", "", map[string]ListenerCallback{
+		"cb-action": {
+			Dependencies:   []string{"section-action"},
+			DependencyMode: ListenerDependencyModeRealtimeOnly,
+		},
+	})
+
+	firstSequence, delivered, err := broadcaster.EmitDependencyEvents(context.Background(), EmitDependencyEventsParams{
+		ProjectID: "project-a",
+		DependencyEvents: []ListenerDependencyEvent{
+			{
+				DependencyKey: "section-action",
+				Payload:       json.RawMessage(`{"clicked":true}`),
+				TimestampMS:   123,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit first dependency event: %v", err)
+	}
+	if firstSequence != 1 || delivered != 1 {
+		t.Fatalf("expected first dependency event sequence 1 with 1 delivery, got sequence=%d delivered=%d", firstSequence, delivered)
+	}
+
+	secondSequence, delivered, err := broadcaster.EmitDependencyEvents(context.Background(), EmitDependencyEventsParams{
+		ProjectID: "project-a",
+		DependencyEvents: []ListenerDependencyEvent{
+			{
+				DependencyKey: "section-action",
+				Payload:       json.RawMessage(`{"clicked":false}`),
+				TimestampMS:   456,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit second dependency event: %v", err)
+	}
+	if secondSequence != 2 || delivered != 1 {
+		t.Fatalf("expected second dependency event sequence 2 with 1 delivery, got sequence=%d delivered=%d", secondSequence, delivered)
+	}
+
+	assertListenerDependencyEventMessage(t, readEnvelope(t, listener), "project-a", "", 1, `{"clicked":true}`)
+	assertListenerDependencyEventMessage(t, readEnvelope(t, listener), "project-a", "", 2, `{"clicked":false}`)
+}
+
 func TestListenerBroadcasterEmitRealtimeDeltasFiltersByDependencyAndShareSession(t *testing.T) {
 	t.Parallel()
 
