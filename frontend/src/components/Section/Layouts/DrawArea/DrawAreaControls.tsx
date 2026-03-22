@@ -175,8 +175,8 @@ function DrawAreaColorPicker({
       colorChoices={colorChoices}
       value={localValue}
       onChange={onChange}
-      colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 w-full min-w-0 max-w-24 items-center text-white"
-      wrapperClassName="single-cell-container justify-self-start self-center min-w-8 max-w-48 h-full"
+      colorPickerChoicesClasses="colorpicker relative flex h-8 min-h-0 w-full min-w-0 max-w-24 cursor-pointer items-center overflow-hidden rounded-lg text-white"
+      wrapperClassName="relative flex h-full min-h-0 min-w-8 max-w-48 justify-self-start self-center items-stretch"
     />
   );
 }

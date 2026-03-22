@@ -78,9 +78,9 @@ and hash are not preserved during the replace (current behavior).
 ## Backend API Routes
 
 Frontend routes above are **not** the same as backend API routes. Backend routes
-are defined in `internal/httpapi/*.go` and exposed to the frontend through the
-generated endpoint helpers in `frontend/src/utils/generatedEndpoints.ts`
-(generated from `internal/frontendbindings/specs.go`).
+use the `Route` enum (`backend/setta/types/routes.py`) and are called via
+`/api/<route>` using the generated endpoint helpers in
+`frontend/src/utils/generatedEndpoints.ts`.
 
 ### Chat dictation session routes
 
@@ -220,12 +220,8 @@ The app-generation/skills viewer flow adds these backend routes:
     - `skillId`, `created`, `rootPath`, `skillDocPath`
     - refreshed `skill` metadata
     - refreshed `skillContent`
-- Legacy `/api/streamAppSpec`
-  - This older standalone streaming helper is not part of the current
-    caller-backed flow on this branch.
-  - The current app-config pane generation path uses `/api/getLLMResponse` plus
-    `/ws/frontend` tool-preview updates and Go-owned `stream_app_definition`
-    persistence.
+- `/api/streamAppSpec`
+  - Streams JSONL patch ops for tool-driven or API-driven app-spec generation.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
     app-generation turns.
