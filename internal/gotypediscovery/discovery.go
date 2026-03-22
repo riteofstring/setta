@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -36,6 +37,14 @@ type DiscoveredType struct {
 	Kind TypeKind
 }
 
+type DiscoverOptions struct {
+	RequireJSONTaggedStructs bool
+	IncludeZeroFieldStructs  bool
+	IncludeInterfaces        bool
+	IncludeCollectionAliases bool
+	IncludeNonStringScalars  bool
+}
+
 func DiscoverPackageTypes(pkgPath string) ([]DiscoveredType, error) {
 	dir, err := packageDir(pkgPath)
 	if err != nil {
@@ -44,7 +53,33 @@ func DiscoverPackageTypes(pkgPath string) ([]DiscoveredType, error) {
 	return DiscoverPackageTypesInDir(dir)
 }
 
+func DiscoverPackageTypesWithOptions(
+	pkgPath string,
+	options DiscoverOptions,
+) ([]DiscoveredType, error) {
+	dir, err := packageDir(pkgPath)
+	if err != nil {
+		return nil, err
+	}
+	return DiscoverPackageTypesInDirWithOptions(dir, options)
+}
+
 func DiscoverPackageTypesInDir(dir string) ([]DiscoveredType, error) {
+	return DiscoverPackageTypesInDirWithOptions(
+		dir,
+		DiscoverOptions{
+			IncludeZeroFieldStructs:  true,
+			IncludeInterfaces:        true,
+			IncludeCollectionAliases: true,
+			IncludeNonStringScalars:  true,
+		},
+	)
+}
+
+func DiscoverPackageTypesInDirWithOptions(
+	dir string,
+	options DiscoverOptions,
+) ([]DiscoveredType, error) {
 	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
 	if err != nil {
 		return nil, fmt.Errorf("glob %s: %w", dir, err)
@@ -68,13 +103,16 @@ func DiscoverPackageTypesInDir(dir string) ([]DiscoveredType, error) {
 			}
 			for _, spec := range genDecl.Specs {
 				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || typeSpec.Assign != 0 || !typeSpec.Name.IsExported() {
+				if !ok ||
+					typeSpec.Assign != 0 ||
+					!typeSpec.Name.IsExported() ||
+					typeSpec.TypeParams != nil {
 					continue
 				}
 				if shouldSkipType(genDecl, typeSpec) {
 					continue
 				}
-				kind, ok := classifyType(typeSpec.Type)
+				kind, ok := classifyType(typeSpec.Type, options)
 				if !ok {
 					continue
 				}
@@ -101,36 +139,106 @@ func hasSkipDirective(commentGroup *ast.CommentGroup) bool {
 	return strings.Contains(commentGroup.Text(), skipDirective)
 }
 
-func classifyType(expr ast.Expr) (TypeKind, bool) {
+func classifyType(expr ast.Expr, options DiscoverOptions) (TypeKind, bool) {
 	switch typed := expr.(type) {
 	case *ast.StructType:
+		if !structMatchesOptions(typed, options) {
+			return "", false
+		}
 		return TypeKindStruct, true
 	case *ast.InterfaceType:
+		if !options.IncludeInterfaces {
+			return "", false
+		}
 		return TypeKindInterface, true
 	case *ast.ArrayType:
+		if !options.IncludeCollectionAliases {
+			return "", false
+		}
 		if typed.Len == nil {
 			return TypeKindSlice, true
 		}
 		return TypeKindArray, true
 	case *ast.MapType:
+		if !options.IncludeCollectionAliases {
+			return "", false
+		}
 		return TypeKindMap, true
 	case *ast.Ident:
 		switch typed.Name {
 		case "string":
 			return TypeKindString, true
 		case "bool":
+			if !options.IncludeNonStringScalars {
+				return "", false
+			}
 			return TypeKindBool, true
 		case "int", "int8", "int16", "int32", "int64":
+			if !options.IncludeNonStringScalars {
+				return "", false
+			}
 			return TypeKindInt, true
 		case "uint", "uint8", "uint16", "uint32", "uint64":
+			if !options.IncludeNonStringScalars {
+				return "", false
+			}
 			return TypeKindUint, true
 		case "float32", "float64":
+			if !options.IncludeNonStringScalars {
+				return "", false
+			}
 			return TypeKindFloat, true
 		}
 		return "", false
 	default:
 		return "", false
 	}
+}
+
+func structMatchesOptions(typed *ast.StructType, options DiscoverOptions) bool {
+	if typed == nil || typed.Fields == nil || len(typed.Fields.List) == 0 {
+		return options.IncludeZeroFieldStructs
+	}
+	if !options.RequireJSONTaggedStructs {
+		return true
+	}
+	for _, field := range typed.Fields.List {
+		if !fieldHasExportedName(field) {
+			continue
+		}
+		if hasSupportedJSONTag(field) {
+			return true
+		}
+	}
+	return false
+}
+
+func fieldHasExportedName(field *ast.Field) bool {
+	if field == nil || len(field.Names) == 0 {
+		return false
+	}
+	for _, name := range field.Names {
+		if name != nil && name.IsExported() {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSupportedJSONTag(field *ast.Field) bool {
+	if field == nil || field.Tag == nil {
+		return false
+	}
+	tagValue := strings.Trim(field.Tag.Value, "`")
+	if tagValue == "" {
+		return false
+	}
+	jsonTag := reflect.StructTag(tagValue).Get("json")
+	if jsonTag == "" || jsonTag == "-" {
+		return false
+	}
+	name := strings.TrimSpace(strings.Split(jsonTag, ",")[0])
+	return name != ""
 }
 
 func packageDir(pkgPath string) (string, error) {

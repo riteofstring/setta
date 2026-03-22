@@ -15,6 +15,7 @@ from setta.types.generated.go_shared_types import (
     ChatDictationMode,
     ChatPermissionMode,
     CodeLanguage,
+    EdgePort,
     DateCalendarWeekStart,
     DateControlMode,
     DateDisplayFormat,
@@ -41,7 +42,6 @@ from setta.types.generated.go_shared_types import (
     CodeFileAccessMode,
 )
 from setta.types.chat_messages import BaseChatMessageUnion
-from setta.types.edges import EdgePort
 from setta.types.id import ID, create_new_id
 from tests.helpers.settings_models import ColorPickerChoice
 

@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
-from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.go_shared_types import DependencyValueType
+from setta.types.generated.go_shared_types import BinaryContentRef
 
 
 @dataclass(frozen=True, slots=True)

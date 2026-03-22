@@ -4,9 +4,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
-from setta.types.edges import Edge
 from setta.types.generated.go_shared_types import (
     CodeObjType,
+    Edge,
     SectionType,
     StateMachineCountOperator,
     StateMachineSourceFilterType,

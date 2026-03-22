@@ -49,21 +49,56 @@ func currentContractSpecs() ([]contractSpec, error) {
 		return nil, err
 	}
 	specs := []contractSpec{routeSpec}
-	for _, discoveredType := range frontendbindings.DiscoveredConvertibleTypes() {
+	seenNames := map[string]struct{}{
+		routeSpec.Name: {},
+	}
+
+	specs, err = appendDiscoveredContractSpecs(
+		specs,
+		seenNames,
+		discoveredSharedTypes(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	specs, err = appendDiscoveredContractSpecs(
+		specs,
+		seenNames,
+		frontendbindings.DiscoveredConvertibleTypes(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return specs, nil
+}
+
+func appendDiscoveredContractSpecs(
+	specs []contractSpec,
+	seenNames map[string]struct{},
+	discoveredTypes []reflect.Type,
+) ([]contractSpec, error) {
+	for _, discoveredType := range discoveredTypes {
+		if _, alreadySeen := seenNames[discoveredType.Name()]; alreadySeen {
+			continue
+		}
 		switch discoveredType.Kind() {
 		case reflect.String:
 			spec, ok, err := enumContractSpecIfConvertible(discoveredType)
 			if err != nil {
 				return nil, err
 			}
-			if ok {
-				specs = append(specs, spec)
+			if !ok {
+				continue
 			}
+			specs = append(specs, spec)
+			seenNames[spec.Name] = struct{}{}
 		case reflect.Struct:
 			spec, ok := modelContractSpecIfConvertible(discoveredType)
-			if ok {
-				specs = append(specs, spec)
+			if !ok {
+				continue
 			}
+			specs = append(specs, spec)
+			seenNames[spec.Name] = struct{}{}
 		}
 	}
 	return specs, nil
@@ -141,17 +176,17 @@ func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 }
 
 func pythonSharedFieldDefaultsForType(t reflect.Type) map[string]string {
-	switch t {
-	case reflect.TypeOf(frontendbindings.LLMConfig{}):
+	switch t.Name() {
+	case reflect.TypeOf(frontendbindings.LLMConfig{}).Name():
 		return map[string]string{
 			"temporary": "False",
 		}
-	case reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}):
+	case reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}).Name():
 		return map[string]string{
 			"callable": "False",
 			"params":   "Field(default_factory=dict)",
 		}
-	case reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}):
+	case reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}).Name():
 		return map[string]string{
 			"image": "True",
 			"video": "True",

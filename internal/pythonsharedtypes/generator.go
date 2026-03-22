@@ -1,6 +1,7 @@
 package pythonsharedtypes
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -26,6 +27,7 @@ type fieldSpec struct {
 }
 
 var timeType = reflect.TypeOf(time.Time{})
+var rawJSONType = reflect.TypeOf(json.RawMessage{})
 var pythonKeywords = map[string]struct{}{
 	"False": {}, "None": {}, "True": {}, "and": {}, "as": {}, "assert": {},
 	"async": {}, "await": {}, "break": {}, "class": {}, "continue": {}, "def": {},
@@ -247,6 +249,9 @@ func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
 	}
 	if fieldType == timeType {
 		return "datetime", nil
+	}
+	if fieldType == rawJSONType {
+		return "Any", nil
 	}
 	switch fieldType.Kind() {
 	case reflect.String:

@@ -23,6 +23,110 @@ class Route(str, Enum):
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
 
 
+class BrowserAreaViewMode(str, Enum):
+    list = "list"
+    thumbnail = "thumbnail"
+    carousel = "carousel"
+
+
+class BrowserSearchScope(str, Enum):
+    recursive = "recursive"
+    local = "local"
+
+
+class ChartType(str, Enum):
+    line = "line"
+    scatter = "scatter"
+
+
+class ChatPermissionMode(str, Enum):
+    minimal = "minimal"
+    yolo = "yolo"
+    config_toml_custom = "config_toml_custom"
+
+
+class ChatDictationMode(str, Enum):
+    auto = "auto"
+    browser = "browser"
+    provider = "provider"
+
+
+class ListRootViewMode(str, Enum):
+    default = "default"
+    task_list = "task_list"
+    kanban = "kanban"
+
+
+class WindowSpaceSurfaceKind(str, Enum):
+    project_chat = "project_chat"
+    section = "section"
+
+
+class CodeLanguage(str, Enum):
+    python = "python"
+    bash = "bash"
+
+
+class CodeFileAccessMode(str, Enum):
+    read_write = "read_write"
+    read_only = "read_only"
+    write_only = "write_only"
+
+
+class PromptFormat(str, Enum):
+    Jinja = "Jinja"
+
+
+class SpreadsheetGridDensity(str, Enum):
+    compact = "compact"
+    comfortable = "comfortable"
+
+
+class TaskBoardViewMode(str, Enum):
+    task_list = "task_list"
+    kanban = "kanban"
+
+
+class StateMachineGateType(str, Enum):
+    AND = "AND"
+    OR = "OR"
+    XOR = "XOR"
+
+
+class StateMachineTargetActionType(str, Enum):
+    send_prompt = "send_prompt"
+    reset_thread = "reset_thread"
+
+
+class StateMachineThreadStrategy(str, Enum):
+    continue_current_thread = "continue_current_thread"
+    new_thread_before_send = "new_thread_before_send"
+
+
+class StateMachineSourceFilterType(str, Enum):
+    run_completed = "run_completed"
+    run_failed = "run_failed"
+    signal = "signal"
+
+
+class StateMachineCountOperator(str, Enum):
+    lt = "lt"
+    lte = "lte"
+    eq = "eq"
+    gte = "gte"
+    gt = "gt"
+
+
+class TextBlockDisplayMode(str, Enum):
+    Render = "Render"
+    Edit = "Edit"
+
+
+class TextBlockFormat(str, Enum):
+    Plaintext = "Plaintext"
+    Markdown = "Markdown"
+
+
 class StreamingEventType(str, Enum):
     message_start = "message_start"
     delta = "delta"
@@ -31,10 +135,6 @@ class StreamingEventType(str, Enum):
     tool_result = "tool_result"
     message_stop = "message_stop"
     message_finalized = "message_finalized"
-
-
-class PromptFormat(str, Enum):
-    Jinja = "Jinja"
 
 
 class ArtifactType(str, Enum):
@@ -66,11 +166,6 @@ class DependencyValueType(str, Enum):
     Literal = "Literal"
     Binary = "Binary"
     FileRead = "FileRead"
-
-
-class WindowSpaceSurfaceKind(str, Enum):
-    project_chat = "project_chat"
-    section = "section"
 
 
 class RunSnapshotMode(str, Enum):
@@ -123,11 +218,6 @@ class CodeObjType(str, Enum):
     TextAreaParam = "TextAreaParam"
     DropzoneParam = "DropzoneParam"
     NestedParam = "NestedParam"
-
-
-class CodeLanguage(str, Enum):
-    python = "python"
-    bash = "bash"
 
 
 class ParameterPassingStyle(str, Enum):
@@ -208,84 +298,6 @@ class DateCalendarWeekStart(str, Enum):
     monday = "monday"
 
 
-class ListRootViewMode(str, Enum):
-    default = "default"
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class BrowserAreaViewMode(str, Enum):
-    list = "list"
-    thumbnail = "thumbnail"
-    carousel = "carousel"
-
-
-class BrowserSearchScope(str, Enum):
-    recursive = "recursive"
-    local = "local"
-
-
-class SpreadsheetGridDensity(str, Enum):
-    compact = "compact"
-    comfortable = "comfortable"
-
-
-class ChartType(str, Enum):
-    line = "line"
-    scatter = "scatter"
-
-
-class TextBlockDisplayMode(str, Enum):
-    Render = "Render"
-    Edit = "Edit"
-
-
-class TextBlockFormat(str, Enum):
-    Plaintext = "Plaintext"
-    Markdown = "Markdown"
-
-
-class CodeFileAccessMode(str, Enum):
-    read_write = "read_write"
-    read_only = "read_only"
-    write_only = "write_only"
-
-
-class TaskBoardViewMode(str, Enum):
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class StateMachineGateType(str, Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
-
-
-class StateMachineTargetActionType(str, Enum):
-    send_prompt = "send_prompt"
-    reset_thread = "reset_thread"
-
-
-class StateMachineThreadStrategy(str, Enum):
-    continue_current_thread = "continue_current_thread"
-    new_thread_before_send = "new_thread_before_send"
-
-
-class StateMachineSourceFilterType(str, Enum):
-    run_completed = "run_completed"
-    run_failed = "run_failed"
-    signal = "signal"
-
-
-class StateMachineCountOperator(str, Enum):
-    lt = "lt"
-    lte = "lte"
-    eq = "eq"
-    gte = "gte"
-    gt = "gt"
-
-
 class ChatRole(str, Enum):
     system = "system"
     user = "user"
@@ -293,16 +305,35 @@ class ChatRole(str, Enum):
     tool = "tool"
 
 
-class ChatPermissionMode(str, Enum):
-    minimal = "minimal"
-    yolo = "yolo"
-    config_toml_custom = "config_toml_custom"
+class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
+    image: bool = True
+    video: bool = True
+    audio: bool = True
+    text: bool = True
+    data: bool = True
 
 
-class ChatDictationMode(str, Enum):
-    auto = "auto"
-    browser = "browser"
-    provider = "provider"
+class EdgePort(SettaSharedTypeModel):
+    id: str
+    accessor: str
+
+
+class Edge(SettaSharedTypeModel):
+    id: str
+    sourceSectionId: str
+    sourceVariantId: str
+    sourcePortId: str
+    targetSectionId: str
+    targetVariantId: str
+    targetPortId: str
+    type: str
+    label: str | None = None
+    style: Any
+    animated: bool
+    hidden: bool
+    zIndex: int
+    data: Any
+    selected: bool
 
 
 class LLMConfig(SettaSharedTypeModel):
@@ -316,9 +347,8 @@ class LLMConfig(SettaSharedTypeModel):
     temporary: bool = False
 
 
-class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
-    image: bool = True
-    video: bool = True
-    audio: bool = True
-    text: bool = True
-    data: bool = True
+class BinaryContentRef(SettaSharedTypeModel):
+    contentId: str
+    byteLength: int
+    mimeType: str | None = None
+    sha256: str | None = None

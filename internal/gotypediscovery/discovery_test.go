@@ -30,3 +30,29 @@ func TestDiscoverPackageTypesInDir(t *testing.T) {
 		t.Fatalf("DiscoverPackageTypesInDir(...) = %#v, want %#v", discovered, want)
 	}
 }
+
+func TestDiscoverPackageTypesInDirWithOptionsRequireJSONTags(t *testing.T) {
+	t.Helper()
+
+	discovered, err := DiscoverPackageTypesInDirWithOptions(
+		filepath.Join("testdata", "samplejsonpkg"),
+		DiscoverOptions{
+			RequireJSONTaggedStructs: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("DiscoverPackageTypesInDirWithOptions(...) error = %v", err)
+	}
+
+	want := []DiscoveredType{
+		{Name: "TaggedStruct", Kind: TypeKindStruct},
+		{Name: "TaggedString", Kind: TypeKindString},
+	}
+	if !reflect.DeepEqual(discovered, want) {
+		t.Fatalf(
+			"DiscoverPackageTypesInDirWithOptions(...) = %#v, want %#v",
+			discovered,
+			want,
+		)
+	}
+}

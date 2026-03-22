@@ -1,9 +1,9 @@
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
-from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.go_shared_types import (
     ArtifactType,
+    BinaryContentRef,
     ChartType,
     DrawAreaBrushShape,
 )

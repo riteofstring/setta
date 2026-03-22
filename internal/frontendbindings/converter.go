@@ -1,6 +1,7 @@
 package frontendbindings
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,6 +12,7 @@ import (
 )
 
 var timeType = reflect.TypeOf(time.Time{})
+var rawJSONType = reflect.TypeOf(json.RawMessage{})
 
 // setta-go-type-discovery: skip
 type TypeDeclaration struct {
@@ -5579,6 +5581,9 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 	}
 	if t == timeType {
 		return "string", nil
+	}
+	if t == rawJSONType {
+		return "JSONValue", nil
 	}
 	if t.Name() != "" && t.PkgPath() != "" {
 		if err := c.ensureDeclaration(t); err != nil {

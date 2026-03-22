@@ -14,11 +14,11 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     SettaListener,
 )
-from setta.types.binary_content import BinaryContentRef
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
 from setta.types.dependency_key import BaseDependencyKeyUnion
 from setta.types.generated.go_shared_types import (
+    BinaryContentRef,
     CodeObjType,
     ParameterPassingStyle,
     SectionType,
