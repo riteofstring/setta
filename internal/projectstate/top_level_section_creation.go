@@ -637,6 +637,9 @@ func buildCreatedSectionObject(
 	if len(overrides) != 0 {
 		payload = mergeProjectObjects(payload, overrides)
 	}
+	if rawBinding, ok := payload["codeFileBinding"]; ok && rawBinding == nil {
+		delete(payload, "codeFileBinding")
+	}
 	payload["id"] = implID
 	payload["type"] = implType
 	return payload, nil
@@ -709,7 +712,6 @@ func createdBaseParentSectionDefaults(implType string) map[string]any {
 func createdBaseCodeSectionLikeDefaults(implType string) map[string]any {
 	defaults := createdBaseParentSectionDefaults(implType)
 	defaults["code"] = ""
-	defaults["codeFileBinding"] = nil
 	defaults["attachedTerminalSectionId"] = nil
 	return defaults
 }

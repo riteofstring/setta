@@ -246,6 +246,15 @@ func TestRegisterProjectRoutesStateMachineMutationsRejectInvalidPayloads(t *test
 	}, http.StatusUnprocessableEntity, "")
 	stateMachineRouteErrorCode(t, gateTypeResponse, "state_machine_gate_type_invalid")
 
+	nonGateTypeResponse := stateMachineRouteRequest(t, handler, RouteSetStateMachineSectionSettings, SetStateMachineSectionSettingsRequest{
+		ProjectID:      "project-alpha",
+		SectionID:      "start-section",
+		MachineGroupID: "workflow-a",
+		Label:          "Start",
+		GateType:       stateMachineRouteGateTypePointer(projectstate.StateMachineGateTypeAND),
+	}, http.StatusUnprocessableEntity, "")
+	stateMachineRouteErrorCode(t, nonGateTypeResponse, "state_machine_gate_type_invalid")
+
 	stateMachineRouteRequest(t, handler, RouteCreateStateMachineEdge, CreateStateMachineEdgeRequest{
 		ProjectID:       "project-alpha",
 		ID:              stringPointer("edge-start-gate"),

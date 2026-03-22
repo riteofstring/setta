@@ -254,6 +254,15 @@ func TestRuntimeStateMachineMutationsRejectInvalidTargetsAndSettings(t *testing.
 		t.Fatalf("expected ErrStateMachineGateTypeInvalid, got %v", err)
 	}
 
+	gateType := StateMachineGateTypeAND
+	if _, err := runtime.SetStateMachineSectionSettings(context.Background(), "project-alpha", "start-section", StateMachineSectionSettings{
+		MachineGroupID: "workflow-a",
+		Label:          "Start",
+		GateType:       &gateType,
+	}); !errors.Is(err, ErrStateMachineGateTypeInvalid) {
+		t.Fatalf("expected ErrStateMachineGateTypeInvalid for non-gate section gateType, got %v", err)
+	}
+
 	if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
 		ID:              "edge-start-chat",
 		MachineGroupID:  "workflow-a",

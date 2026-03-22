@@ -1058,25 +1058,39 @@ func TestRegisterPluginRoutesRejectsInvalidInstallScope(t *testing.T) {
 	service, _ := newPluginRouteTestService(t, config.ModeIDE)
 	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
 
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"environment","installer":"pip"}`))
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected invalid install scope 422, got %d with body %q", response.Code, response.Body.String())
-	}
+	for _, testCase := range []struct {
+		name       string
+		scopeValue string
+	}{
+		{name: "environment alias", scopeValue: "environment"},
+		{name: "legacy setta files scope", scopeValue: "setta_files"},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"`+testCase.scopeValue+`","installer":"pip"}`))
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected invalid install scope 422, got %d with body %q", response.Code, response.Body.String())
+			}
 
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode invalid install scope response: %v", err)
-	}
-	if payload.Error.Code != "invalid_request" {
-		t.Fatalf("expected invalid_request error code, got %q", payload.Error.Code)
-	}
-	if !strings.Contains(payload.Error.Message, "environment") {
-		t.Fatalf("expected invalid scope message to mention environment, got %#v", payload)
-	}
-	if !strings.Contains(payload.Error.Message, "setta_files") {
-		t.Fatalf("expected invalid scope message to mention setta_files, got %#v", payload)
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode invalid install scope response: %v", err)
+			}
+			if payload.Error.Code != "invalid_request" {
+				t.Fatalf("expected invalid_request error code, got %q", payload.Error.Code)
+			}
+			if !strings.Contains(payload.Error.Message, testCase.scopeValue) {
+				t.Fatalf("expected invalid scope message to mention %q, got %#v", testCase.scopeValue, payload)
+			}
+			if !strings.Contains(payload.Error.Message, "workspace") {
+				t.Fatalf("expected invalid scope message to mention workspace, got %#v", payload)
+			}
+			if !strings.Contains(payload.Error.Message, "global") {
+				t.Fatalf("expected invalid scope message to mention global, got %#v", payload)
+			}
+		})
 	}
 }
 

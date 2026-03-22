@@ -621,7 +621,7 @@ func (p *Project) SetStateMachineSectionSettings(
 	if p == nil {
 		return ErrProjectNotFound
 	}
-	section, _, payload, sectionType, err := p.resolveStateMachineSectionMutationState(sectionID)
+	section, _, _, sectionType, err := p.resolveStateMachineSectionMutationState(sectionID)
 	if err != nil {
 		return err
 	}
@@ -654,8 +654,8 @@ func (p *Project) SetStateMachineSectionSettings(
 		}
 		return nil
 	}
-	if payloadStringField(payload, "gateType") != "" && settings.GateType != nil {
-		// Non-gate sections ignore the extra field to preserve the existing caller contract.
+	if settings.GateType != nil {
+		return fmt.Errorf("%w: only gate sections accept a gate type", ErrStateMachineGateTypeInvalid)
 	}
 	return nil
 }

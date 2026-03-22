@@ -298,6 +298,39 @@ Review whether to drop:
 - `internal/projectstate/state_machine.go` extra-field tolerance
 - `internal/httpapi/plugin_routes.go` legacy `setta_files` wording / behavior
 
+Status: completed on 2026-03-24.
+
+Execution result:
+
+- `internal/projectstate/state_machine.go` no longer ignores `GateType` on
+  non-gate state-machine sections. Non-gate sections now fail with
+  `ErrStateMachineGateTypeInvalid` instead of preserving the old caller
+  contract.
+- `internal/httpapi/plugin_routes.go` install-scope parsing no longer accepts
+  `setta_files` for plugin installs and no longer advertises it in the invalid
+  scope error text. The internal plugin runtime still retains its real
+  `setta_files` scope model; this change is limited to the install request
+  compatibility surface.
+- During verification, strict runtime normalization exposed an adjacent
+  canonical-shape bug in structural section creation: settings-backed defaults
+  were still injecting `codeFileBinding: null` into newly created code-like
+  sections, which strict normalization rejects. `internal/projectstate/top_level_section_creation.go`
+  now drops nil `codeFileBinding` values during payload construction instead of
+  serializing them as `null`.
+
+Verification run:
+
+- `./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeStateMachineMutationsRejectInvalidTargetsAndSettings' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection|TestRegisterProjectRoutesCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes|TestRegisterProjectRoutesCreateChildSectionsViaIncrementerSupportsSourceDirectOnlyTypes|TestRegisterProjectRoutesStateMachineMutationsRejectInvalidPayloads|TestRegisterPluginRoutesRejectsInvalidInstallScope' -count=1`
+- `./scripts/go.sh test ./internal/projectstate -count=1`
+
+Broader verification note:
+
+- `./scripts/go.sh test ./internal/httpapi -count=1` now fails only on the
+  unrelated cleanup issue in
+  `TestRegisterAgentRunRoutesStopsManagedRunChain` (`TempDir RemoveAll cleanup:
+  directory not empty`).
+
 ### Phase 4. Clean up retained Python compatibility paths if repo-wide strictness is desired
 
 If the policy applies to the retained Python boundary too, remove the analogous

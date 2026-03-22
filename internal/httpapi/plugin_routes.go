@@ -223,10 +223,10 @@ func normalizePluginInstallScope(raw *string) (*plugins.PluginScope, error) {
 	trimmed := strings.TrimSpace(*raw)
 	scope := plugins.PluginScope(trimmed)
 	switch scope {
-	case plugins.PluginScopeWorkspace, plugins.PluginScopeSettaFiles, plugins.PluginScopeGlobal:
+	case plugins.PluginScopeWorkspace, plugins.PluginScopeGlobal:
 		return &scope, nil
 	default:
-		return nil, fmt.Errorf("Invalid install scope: %q. Use \"setta_files\" for the legacy environment scope.", trimmed)
+		return nil, fmt.Errorf("Invalid install scope: %q. Use \"workspace\" or \"global\".", trimmed)
 	}
 }
 
