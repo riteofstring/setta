@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `1ee1a920df`
+- Target head: `7d759b6dd2`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -94,6 +94,40 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `7d759b6dd2`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/routers/test_share_policy_routes.py::{test_view_mode_routes_blocked_when_variant_changes_allowed,test_layout_routes_blocked_when_layout_changes_allowed,test_window_space_routes_reject_invalid_window_owners,test_terminal_routes_require_share_session_id}`
+  against `internal/httpapi/project_routes.go::RegisterProjectRoutes`,
+  `internal/projectstate/project_chat_windowing_writes.go`,
+  `internal/httpapi/terminal_routes.go::{RegisterTerminalRoutes,runCodeHandler,writeRunCodeShareSessionError}`,
+  the live callers in
+  `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx`,
+  `frontend/src/components/Utils/ContextMenus/SelectionContextMenu.tsx`,
+  `frontend/src/state/actions/windowSpaces.ts`, and
+  `frontend/src/state/actions/runOrImportCode.ts`, and the focused Go proof
+  in `TestRegisterProjectRoutesViewModeMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesSectionStructureMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads`,
+  `TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner`,
+  `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies`,
+  and `TestHandlerShareSessionMiddlewareRejectsMissingAndUnknownSessions`;
+  no new implementation gap was found, and the existing
+  `view_mode.create.default_name`,
+  `view_mode.rename.route_remains_ide_only_in_deployment`,
+  `view_mode.editing_mode_toggle.persists_project_flag_and_remains_ide_only`,
+  `view_mode.user_facing_toggle.persists_flag_and_drives_user_view_surfaces`,
+  `view_mode.tab_toggle.persists_flag_and_drives_tab_bar_surfaces`,
+  `view_mode.delete.uses_sorted_fallback_compacts_indices_and_preserves_active_layout_viewport`,
+  `view_mode.visibility.toggle_persists_latest_state_and_missing_section_404`,
+  `section.grouping.group_sections_creates_group_reparents_selection_and_preserves_order`,
+  `section.grouping.ungroup_groups_deletes_group_promotes_children_and_restores_parent_scope`,
+  `section_data.group_orientation_image_and_social.remain_ide_only_in_deployment`,
+  `project_state.windowing.project_chat_writes.reject_invalid_owner_mode_combos`,
+  `project_state.windowing.window_space_writes.reject_invalid_owner_mode_combos`,
+  and `run_code.share_session_transport_detail_bodies` rows remained the
+  correct terminal `Proved` dispositions for those stale backlog clues.
 - Follow-up in this pass on `1ee1a920df`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` again passed cleanly, so
   `critical_backend_suite::go_test_all` remained stale saved-suite output on
