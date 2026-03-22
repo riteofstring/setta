@@ -118,8 +118,8 @@ That means:
 - `scriptablechat.Chat` and `scriptablechat.ChatMetadata` now export their `llmConfig` field through the generated `LLMConfig` name, so the generated Python chat models stay aligned with the rest of the Go-owned AI settings surface.
 - `backend/setta/types/chat.py` no longer hand-owns the chat metadata / section-state field layouts:
   - `Chat`, `ChatMetadata`, `ChatSectionBranch`, and `ChatSectionState` now subclass Go-generated base models and only keep the Python-side typed message fields / defaults.
-- `backend/setta/types/chat_stream_events.py` no longer hand-owns the streaming event field layouts:
-  - the event classes now subclass Go-generated realtime event models and only keep the Python-side typed chat-message / preview-id wrappers.
+- the chat streaming event adapters now live in `backend/setta/types/chat.py`:
+  - the event classes subclass Go-generated realtime event models and only keep the Python-side typed chat-message / preview-id wrappers.
 - `internal/scriptablechat` now owns the concrete chat-message schema family that used to live only in frontendbindings/Python:
   - `ChatRole`
   - `ChatFileAttachment`
@@ -225,7 +225,6 @@ Current handwritten files in `backend/setta/types/`:
 - `artifact.py`
 - `chat.py`
 - `chat_messages.py`
-- `chat_stream_events.py`
 - `id.py`
 - `listener.py`
 - `protocol.py`
@@ -235,7 +234,7 @@ Working assumption for the next passes:
 - `id.py` is likely truly Python-only.
 - most of `listener.py` is now clearly Python-only wrapper logic over generated SDK / Go-owned enums.
 - `protocol.py` is now clearly Python-only listener/dependency adapter glue, not a shared-schema owner.
-- `chat.py` and `chat_stream_events.py` are now typed Python adapters over Go-owned generated models, not primary schema owners.
+- `chat.py` now owns the remaining chat metadata, section-state, and stream-event adapter glue over Go-owned generated models; it is not a primary schema owner.
 - `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
 - the remaining handwritten part of `project_config.py` is now narrower Python-only defaulting and validation glue over Go-generated project codegen and project-state models, not another large shared-model family.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is now tuple aliases, artifact-id factories, discriminator literals, and draw-area convenience defaults.
@@ -298,7 +297,6 @@ The main candidates are now:
 Already narrowed to Python adapter layers:
 - `chat.py`
 - `chat_messages.py`
-- `chat_stream_events.py`
 - `artifact.py`
 - `listener.py`
 - `protocol.py`
@@ -388,7 +386,6 @@ Guardrail:
 Primary targets:
 - `chat.py`
 - `chat_messages.py`
-- `chat_stream_events.py`
 - `listener.py`
 - `protocol.py`
 - any remaining reducible wrapper content in `project_config.py`
