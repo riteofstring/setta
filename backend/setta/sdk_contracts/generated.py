@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
@@ -14,7 +14,7 @@ from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
 
 class SettaSDKContractBaseModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    pass
 
 
 class RunnerSummaryVariant(SettaSDKContractBaseModel):

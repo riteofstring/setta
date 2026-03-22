@@ -25,6 +25,9 @@ func TestBuild(t *testing.T) {
 			t.Fatalf("generated python sdk contracts missing %q:\n%s", snippet, contracts.PythonModule)
 		}
 	}
+	if strings.Contains(contracts.PythonModule, "ConfigDict(extra=\"forbid\")") {
+		t.Fatalf("generated python sdk contracts must not set extra=forbid on the shared base model")
+	}
 }
 
 func TestBuildMatchesCheckedInPythonSDKContracts(t *testing.T) {

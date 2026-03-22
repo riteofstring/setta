@@ -61,7 +61,7 @@ func Build() (GeneratedContracts, error) {
 		builder.WriteString("\n")
 		builder.WriteString("\n")
 	}
-	pydanticImports := []string{"BaseModel", "ConfigDict"}
+	pydanticImports := []string{"BaseModel"}
 	if needsField {
 		pydanticImports = append(pydanticImports, "Field")
 	}
@@ -77,7 +77,7 @@ func Build() (GeneratedContracts, error) {
 	}
 	builder.WriteString("\n\n")
 	builder.WriteString("class SettaSDKContractBaseModel(BaseModel):\n")
-	builder.WriteString("    model_config = ConfigDict(extra=\"forbid\")\n")
+	builder.WriteString("    pass\n")
 	for _, model := range models {
 		builder.WriteString("\n\n")
 		builder.WriteString("class ")

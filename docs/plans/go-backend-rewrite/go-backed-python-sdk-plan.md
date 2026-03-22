@@ -574,6 +574,19 @@ Success condition:
 - the packaged Python SDK is reliable across supported platforms and cannot
   silently drift from the Go core
 
+Phase 7 progress:
+
+- the generated retained-Python SDK contract base model no longer sets
+  `extra="forbid"`, because that Pydantic config breaks nested discriminated
+  dependency-key unions and prevents the generated listener contract models
+  from round-tripping their own JSON
+- Go generator coverage now fails if the shared generated base model regains
+  that strict-extra setting
+- retained Python test coverage now directly proves that generated
+  `ListenerRegisterRequest` and `ListenerForceRefreshEvent` models round-trip
+  dependency-key unions, which is required before more listener DTOs can be
+  deleted in Phase 6
+
 ## Recommended First Implementation Sequence
 
 Use this order for actual implementation work:
