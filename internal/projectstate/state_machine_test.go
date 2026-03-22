@@ -3,7 +3,10 @@ package projectstate
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+
+	"setta/internal/prompttemplates"
 )
 
 func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T) {
@@ -298,6 +301,312 @@ func TestRuntimeStateMachineMutationsRejectInvalidTargetsAndSettings(t *testing.
 	}
 }
 
+func TestRuntimeStateMachineMutationsRejectWorkflowEdgeValidationBranches(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		setupRuntime func(t *testing.T, runtime *Runtime)
+		invoke       func(t *testing.T, runtime *Runtime) error
+		wantIs       error
+		wantContains string
+	}{
+		{
+			name: "missing source section",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-missing-source",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "missing-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "end-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+				}, nil)
+				return err
+			},
+			wantIs: ErrSectionNotFound,
+		},
+		{
+			name: "machine group mismatch",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-mismatched-group",
+					MachineGroupID:  "workflow-b",
+					SourceSectionID: "start-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "end-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "machine group does not match the source section",
+		},
+		{
+			name: "chat target requires target action",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-missing-chat-action",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "start-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "chat-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "requires a target action for Chat targets",
+		},
+		{
+			name: "send prompt requires exactly one source",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				promptTemplateID := "prompt-template-1"
+				inlinePrompt := "Both sources set"
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-invalid-send-prompt",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "start-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "chat-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+					TargetAction: &StateMachineTargetAction{
+						Type:             StateMachineTargetActionTypeSendPrompt,
+						PromptTemplateID: &promptTemplateID,
+						InlinePrompt:     &inlinePrompt,
+					},
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "exactly one of promptTemplateId, promptSectionId, or inlinePrompt",
+		},
+		{
+			name: "reset thread rejects prompt content",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				inlinePrompt := "not allowed"
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-invalid-reset-thread",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "start-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "chat-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+					TargetAction: &StateMachineTargetAction{
+						Type:         StateMachineTargetActionTypeResetThread,
+						InlinePrompt: &inlinePrompt,
+					},
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "cannot include prompt content or prompt inputs",
+		},
+		{
+			name: "prompt section missing bindings fails render",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				promptSectionID := "prompt-section"
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-missing-prompt-bindings",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "start-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "chat-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+					TargetAction: &StateMachineTargetAction{
+						Type:            StateMachineTargetActionTypeSendPrompt,
+						PromptSectionID: &promptSectionID,
+					},
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "Missing variables: name",
+		},
+		{
+			name: "source filters require chat source",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-invalid-source-filter",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "start-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "end-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+					SourceFilter: &StateMachineSourceFilter{
+						Type: StateMachineSourceFilterTypeRunCompleted,
+					},
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "only allows source filters on Chat sources",
+		},
+		{
+			name: "signal filters require payload pair",
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				signalName := "merge_decision"
+				payloadField := "decision"
+				_, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-invalid-signal-filter",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "chat-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "end-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+					SourceFilter: &StateMachineSourceFilter{
+						Type:         StateMachineSourceFilterTypeSignal,
+						SignalName:   &signalName,
+						PayloadField: &payloadField,
+					},
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "require payloadField and equals together",
+		},
+		{
+			name: "negative activation count rejected",
+			setupRuntime: func(t *testing.T, runtime *Runtime) {
+				t.Helper()
+				if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-gate-end",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "gate-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "end-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+				}, nil); err != nil {
+					t.Fatalf("create gate->end edge: %v", err)
+				}
+			},
+			invoke: func(t *testing.T, runtime *Runtime) error {
+				t.Helper()
+				_, err := runtime.UpdateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+					ID:              "edge-gate-end",
+					MachineGroupID:  "workflow-a",
+					SourceSectionID: "gate-section",
+					SourcePortID:    StateMachineEdgeSourcePortID,
+					TargetSectionID: "end-section",
+					TargetPortID:    StateMachineEdgeTargetPortID,
+					SourceActivationCountCondition: &StateMachineSourceActivationCountCondition{
+						Operator: StateMachineCountOperatorEQ,
+						Value:    -1,
+					},
+				}, nil)
+				return err
+			},
+			wantIs:       ErrStateMachineEdgeInvalid,
+			wantContains: "require a non-negative value",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			runtime := openStateMachineMutationRuntime(t, stateMachineMutationTestProject(t))
+			if tc.setupRuntime != nil {
+				tc.setupRuntime(t, runtime)
+			}
+			err := tc.invoke(t, runtime)
+			if !errors.Is(err, tc.wantIs) {
+				t.Fatalf("expected %v, got %v", tc.wantIs, err)
+			}
+			if tc.wantContains != "" && (err == nil || !strings.Contains(err.Error(), tc.wantContains)) {
+				t.Fatalf("expected error containing %q, got %v", tc.wantContains, err)
+			}
+		})
+	}
+}
+
+func TestRuntimeStateMachineMutationsAcceptLivePromptTemplateLookupAndSignalFilters(t *testing.T) {
+	t.Parallel()
+
+	project := stateMachineMutationTestProject(t)
+	if err := project.SetPromptTemplateLink(
+		"prompt-section",
+		stringPointer("template-live"),
+		"Hello {{ name }}",
+		PromptFormatJinja,
+	); err != nil {
+		t.Fatalf("set prompt template link: %v", err)
+	}
+	runtime := openStateMachineMutationRuntime(t, project)
+
+	promptSectionID := "prompt-section"
+	lookup := stateMachineTestPromptTemplateLookup{
+		"template-live": {
+			ID:       "template-live",
+			Name:     "Greeting",
+			Template: "Hello there.",
+			Format:   prompttemplates.FormatJinja,
+		},
+	}
+	if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+		ID:              "edge-gate-chat",
+		MachineGroupID:  "workflow-a",
+		SourceSectionID: "gate-section",
+		SourcePortID:    StateMachineEdgeSourcePortID,
+		TargetSectionID: "chat-section",
+		TargetPortID:    StateMachineEdgeTargetPortID,
+		TargetAction: &StateMachineTargetAction{
+			Type:            StateMachineTargetActionTypeSendPrompt,
+			PromptSectionID: &promptSectionID,
+		},
+	}, lookup); err != nil {
+		t.Fatalf("create live-linked prompt edge: %v", err)
+	}
+
+	signalName := "merge_decision"
+	payloadField := "decision"
+	equals := "retry"
+	if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+		ID:              "edge-chat-end",
+		MachineGroupID:  "workflow-a",
+		SourceSectionID: "chat-section",
+		SourcePortID:    StateMachineEdgeSourcePortID,
+		TargetSectionID: "end-section",
+		TargetPortID:    StateMachineEdgeTargetPortID,
+		SourceFilter: &StateMachineSourceFilter{
+			Type:         StateMachineSourceFilterTypeSignal,
+			SignalName:   &signalName,
+			PayloadField: &payloadField,
+			Equals:       &equals,
+		},
+	}, lookup); err != nil {
+		t.Fatalf("create chat->end signal edge: %v", err)
+	}
+
+	projectSnapshot := runtime.Snapshot().Document.Projects["project-alpha"]
+	liveLinkedEdge := stateMachineTestEdgeByID(t, projectSnapshot.StateMachineEdges, "edge-gate-chat")
+	if liveLinkedEdge.TargetAction == nil || liveLinkedEdge.TargetAction.PromptSectionID == nil || *liveLinkedEdge.TargetAction.PromptSectionID != "prompt-section" {
+		t.Fatalf("expected live-linked prompt section action, got %#v", liveLinkedEdge.TargetAction)
+	}
+	filterEdge := stateMachineTestEdgeByID(t, projectSnapshot.StateMachineEdges, "edge-chat-end")
+	if filterEdge.SourceFilter == nil {
+		t.Fatal("expected chat->end source filter to persist")
+	}
+	if filterEdge.SourceFilter.Type != StateMachineSourceFilterTypeSignal {
+		t.Fatalf("expected signal source filter, got %#v", filterEdge.SourceFilter)
+	}
+	if filterEdge.SourceFilter.SignalName == nil || *filterEdge.SourceFilter.SignalName != signalName {
+		t.Fatalf("expected signalName %q, got %#v", signalName, filterEdge.SourceFilter.SignalName)
+	}
+	if filterEdge.SourceFilter.PayloadField == nil || *filterEdge.SourceFilter.PayloadField != payloadField {
+		t.Fatalf("expected payloadField %q, got %#v", payloadField, filterEdge.SourceFilter.PayloadField)
+	}
+	if filterEdge.SourceFilter.Equals == nil || *filterEdge.SourceFilter.Equals != equals {
+		t.Fatalf("expected equals %q, got %#v", equals, filterEdge.SourceFilter.Equals)
+	}
+}
+
 func stateMachineMutationTestProject(t *testing.T) Project {
 	t.Helper()
 	return stateMachineMutationTestProjectWithGroups(t, "workflow-a", "workflow-a", "workflow-a")
@@ -458,6 +767,37 @@ func stateMachineMutationTestProjectWithGroups(
 		t.Fatalf("normalize state machine mutation project: %v", err)
 	}
 	return project
+}
+
+func openStateMachineMutationRuntime(t *testing.T, project Project) *Runtime {
+	t.Helper()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+	return runtime
+}
+
+type stateMachineTestPromptTemplateLookup map[string]prompttemplates.Template
+
+func (l stateMachineTestPromptTemplateLookup) Get(templateID string) (prompttemplates.Template, error) {
+	template, ok := l[templateID]
+	if !ok {
+		return prompttemplates.Template{}, prompttemplates.ErrTemplateNotFound
+	}
+	return template, nil
 }
 
 func stateMachineTestEdgeByID(t *testing.T, edges []StateMachineEdge, edgeID string) StateMachineEdge {
