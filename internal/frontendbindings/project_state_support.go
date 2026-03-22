@@ -47,7 +47,7 @@ type WindowSpaceState = projectstate.WindowSpaceState
 
 type WindowSpaceConfig = projectstate.WindowSpaceConfig
 
-type SectionsClipboardData struct{}
+type SectionsClipboardData = projectstate.SectionsClipboardData
 
 type BaseClipboardDataUnionWithDiscriminator struct{}
 
@@ -661,7 +661,7 @@ type ProjectCodegenTarget struct{}
 
 type ProjectConfig = projectview.ProjectConfig
 
-type ClipboardProjectStateCoreWithSectionVariantMap struct{}
+type ClipboardProjectStateCoreWithSectionVariantMap = projectstate.ClipboardProjectStateCoreWithSectionVariantMap
 
 type CreateTopLevelSectionRequestInput struct {
 	FrontendOpID       *string                               `json:"frontendOpId,omitempty"`
@@ -1021,10 +1021,7 @@ type StateMachineSourceActivationCountCondition = projectstate.StateMachineSourc
 
 type StateMachineTargetAction = projectstate.StateMachineTargetAction
 
-type EdgePort struct {
-	ID       string `json:"id"`
-	Accessor string `json:"accessor"`
-}
+type EdgePort = projectstate.EdgePort
 
 type TypeErrorIgnoreState struct {
 	Callable bool            `json:"callable"`
@@ -1097,7 +1094,7 @@ type WatchCodeFolder = projectstate.WatchCodeFolder
 
 type WatchCodeRegistryEntry = projectstate.WatchCodeRegistryEntry
 
-type CodeFileBinding struct{}
+type CodeFileBinding = projectview.CodeFileBinding
 
 type ChatRole string
 
