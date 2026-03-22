@@ -345,6 +345,32 @@ func TestRegisterArtifactRoutesBlocksLauncherMode(t *testing.T) {
 	}
 }
 
+func TestRegisterArtifactRoutesShareModeBlocksImportFiles(t *testing.T) {
+	t.Parallel()
+
+	service, deploymentRuntime, _, _ := newShareArtifactRouteService(t, true)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler := newShareArtifactRouteHandler(t, service, deploymentRuntime)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["/tmp/ignored.txt"],"uploadScope":"generic"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+		t.Fatalf("expected deployment-mode message, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 	t.Parallel()
 
