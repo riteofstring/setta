@@ -136,6 +136,25 @@ Last audited: `2026-03-23`
   and `status_meta.auth_refresh.read_exposes_cookie_window_for_websocket_recovery`
   rows remained the correct terminal `Proved` dispositions for those stale
   backlog clues.
+- Follow-up in this pass on `3bc3333b91`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/utils/test_launcher_origin_handoff.py::{test_normalize_launcher_origin_accepts_http_https_origins,test_normalize_launcher_origin_rejects_invalid_values,test_launcher_origin_handoff_proof_roundtrip,test_append_launcher_origin_handoff_to_bootstrap_url}`
+  against `internal/frontendorigins/service.go`, the live helper consumers in
+  `internal/workspacelaunch/{local_launch.go,remote_launch.go}` and
+  `internal/settacli/cli.go`, and the focused Go proof in
+  `TestNormalizeOriginAcceptsHTTPAndHTTPSOrigins`,
+  `TestNormalizeOriginRejectsInvalidValues`,
+  `TestLauncherOriginProofRoundTrip`,
+  `TestAppendLauncherOriginHandoffToBootstrapURLPreservesTokenAndAppendsSignedParams`,
+  `TestLocalLaunchServiceLaunchesLocalWorkspaceAndTrustsLaunchedOrigin`,
+  `TestLocalLaunchServiceLaunchesRemoteWorkspaceAndTrustsLaunchedOrigin`, and
+  `TestRunStatusConnectInfoJSONLauncherOriginIncludesNormalizedOriginAndProof`;
+  no new implementation gap was found, and the existing
+  `launcher_handoff.helpers.normalize_origin_proof_and_bootstrap_fragment_contract`
+  row remained the correct terminal `Proved` disposition for those stale
+  backlog clues.
 - Follow-up in this pass on `271f05e8c`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
   `internal/projectstate`
