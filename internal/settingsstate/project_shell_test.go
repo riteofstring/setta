@@ -35,7 +35,7 @@ var expectedSettingsParamImplContractSamples = []settingsParamImplContractSample
 		sectionName:     "backend",
 		paramPath:       []string{"renameRefactorMode"},
 		expectedType:    "DropdownParam",
-		expectedChoices: []string{`"ALWAYS_ASK"`, `"ALWAYS_RENAME"`, `"NEVER_RENAME"`},
+		expectedChoices: []string{"ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"},
 	},
 	{
 		sectionName:  "gui",
@@ -233,6 +233,87 @@ func TestRefreshProjectRuntimeFromSettingsHydratesLiveValuesAndPreservesActiveVi
 	}
 	if got := settingsProjectCodeObjValue(t, project, "settings-codeobj-impl__backend__backend__renameRefactorMode"); got != "NEVER_RENAME" {
 		t.Fatalf("expected renameRefactorMode NEVER_RENAME, got %q", got)
+	}
+}
+
+func TestRefreshProjectRuntimeFromSettingsRepairsLegacyQuotedDropdownChoices(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		implID := settingsCodeObjImplID("gui", []string{"gui", "gridPattern"})
+		impl := project.CodeObjImpls[implID]
+		impl.Payload = projectstate.RawJSON(`{
+			"id":"` + implID + `",
+			"type":"DropdownParam",
+			"value":"dots",
+			"settingsValueEncoding":"raw_string",
+			"choices":["\"lines\"","\"dots\"","\"cross\""]
+		}`)
+		project.CodeObjImpls[implID] = impl
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed legacy quoted dropdown choices: %v", err)
+	}
+
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("refresh settings project runtime: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+
+	implID := settingsCodeObjImplID("gui", []string{"gui", "gridPattern"})
+	impl := project.CodeObjImpls[implID]
+	payload := settingsProjectCodeObjImplPayload(t, impl)
+	rawChoices, ok := payload["choices"].([]any)
+	if !ok {
+		t.Fatalf("expected repaired gridPattern choices, got %#v", payload["choices"])
+	}
+	choices := make([]string, 0, len(rawChoices))
+	for _, rawChoice := range rawChoices {
+		choice, ok := rawChoice.(string)
+		if !ok {
+			t.Fatalf("expected repaired gridPattern choice string, got %#v", rawChoice)
+		}
+		choices = append(choices, choice)
+	}
+	if !reflect.DeepEqual(choices, []string{"lines", "dots", "cross"}) {
+		t.Fatalf("expected repaired gridPattern choices %#v, got %#v", []string{"lines", "dots", "cross"}, choices)
+	}
+	if got := settingsProjectCodeObjValue(t, project, implID); got != "dots" {
+		t.Fatalf("expected repaired gridPattern value dots, got %q", got)
 	}
 }
 

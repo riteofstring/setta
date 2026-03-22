@@ -1023,6 +1023,9 @@ func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testin
 	if got := settingsProjectViewCodeObjValue(t, loadSettingsPayload, "settings-codeobj-impl__backend__backend__renameRefactorMode"); got != "NEVER_RENAME" {
 		t.Fatalf("expected load renameRefactorMode NEVER_RENAME, got %q", got)
 	}
+	if got := settingsProjectViewCodeObjChoices(t, loadSettingsPayload, "settings-codeobj-impl__backend__backend__renameRefactorMode"); !reflect.DeepEqual(got, []string{"ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"}) {
+		t.Fatalf("expected load renameRefactorMode choices %#v, got %#v", []string{"ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"}, got)
+	}
 
 	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
 	if err != nil {
@@ -1047,6 +1050,9 @@ func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testin
 	}
 	if got := settingsProjectViewCodeObjValue(t, latestStatePayload.ProjectState, "settings-codeobj-impl__backend__backend__renameRefactorMode"); got != "NEVER_RENAME" {
 		t.Fatalf("expected latest-state renameRefactorMode NEVER_RENAME, got %q", got)
+	}
+	if got := settingsProjectViewCodeObjChoices(t, latestStatePayload.ProjectState, "settings-codeobj-impl__backend__backend__renameRefactorMode"); !reflect.DeepEqual(got, []string{"ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"}) {
+		t.Fatalf("expected latest-state renameRefactorMode choices %#v, got %#v", []string{"ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"}, got)
 	}
 }
 
@@ -1869,9 +1875,9 @@ func TestAppStartupBackfillsMissingCodeObjsWithinExistingSettingsSections(t *tes
 			parentImplID:   "settings-codeobj-impl__backend__backend",
 			expectedType:   "DropdownParam",
 			expectedChoices: []string{
-				`"ALWAYS_ASK"`,
-				`"ALWAYS_RENAME"`,
-				`"NEVER_RENAME"`,
+				"ALWAYS_ASK",
+				"ALWAYS_RENAME",
+				"NEVER_RENAME",
 			},
 		},
 		{
@@ -2112,6 +2118,22 @@ func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleCon
 		t.Fatalf("decode code object impl %q: %v", implID, err)
 	}
 	return decoded.Value
+}
+
+func settingsProjectViewCodeObjChoices(t *testing.T, payload projectview.SingleConfig, implID string) []string {
+	t.Helper()
+
+	rawPayload, ok := payload.CodeObjImpls[implID]
+	if !ok {
+		t.Fatalf("expected code object impl %q", implID)
+	}
+	var decoded struct {
+		Choices []string `json:"choices"`
+	}
+	if err := json.Unmarshal(rawPayload, &decoded); err != nil {
+		t.Fatalf("decode code object impl %q choices: %v", implID, err)
+	}
+	return decoded.Choices
 }
 
 func assertSettingsProjectViewModeRouteContract(
