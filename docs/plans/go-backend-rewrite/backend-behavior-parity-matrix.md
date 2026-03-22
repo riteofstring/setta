@@ -326,6 +326,37 @@ Last audited: `2026-03-23`
   `TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRoot`,
   `TestRunLaunchReturnsNilSettaFilesLocationForExplicitRoot`, and
   `TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation`.
+- Follow-up in this pass on `516c8520d`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remained stale/non-reproducible saved
+  suite output rather than a live Go implementation gap; this pass also
+  re-audited the stale share-runtime/path/policy queue slice and confirmed
+  those source clues were already terminal `Intentional divergence`/`Proved`
+  rows backed directly by `TestAppOpensDeploymentRuntimeForShareMode`,
+  `TestAppShareModeDoesNotSeedIDEFilesOrStartIDEOnlyClients`,
+  `TestAppShareModePluginRuntimeIgnoresHostGlobalPluginHome`,
+  `TestOpenLoadsDeploymentRuntimeAndAppliesManifestDefaultProject`,
+  `TestOpenUsesManifestMetadataFromRelocatedRoot`,
+  `TestOpenFailsClosedWhenManifestDefaultProjectMissingFromDocument`,
+  `TestOpenFailsClosedWhenProjectDocumentMissing`,
+  `TestLoadDerivesDeploymentRuntimeRootInShareMode`,
+  `TestDefaultRuntimeRootUsesDeploymentParentForArbitraryRoots`,
+  `TestNormalizeDeploymentNameRejectsInvalidValues`,
+  `TestResolveDeploymentStructuredDataPathRejectsAbsoluteAndEscapeAndAllowsNested`,
+  `TestRegisterProjectRoutesParamValueRejectsDeploymentPolicyWhenParamChangesDisallowed`,
+  `TestRegisterProjectRoutesSectionVariantMutationsRejectDeploymentPolicyWhenVariantChangesDisallowed`,
+  `TestRegisterProjectRoutesLayoutChromeRejectsDeploymentPolicyWhenLayoutChangesDisallowed`,
+  `TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsDeploymentStructuralChanges`,
+  `TestRegisterLSPRoutesRejectsShareModeRequests`,
+  `TestRegisterBinaryRoutesRejectsDeploymentDownloadWhenPolicyDisabled`,
+  `TestRegisterTerminalRoutesRejectsSecondDeploymentRunWhenMultipleRunsDisabled`,
+  `TestRuntimeSessionRunReservationLifecycle`,
+  `TestRuntimeTryReserveSessionRunAllowsOnlyOneConcurrentWinner`,
+  `TestHandlerShareSessionMiddlewareRejectsMissingAndUnknownSessions`,
+  `TestMCPRuntimeStatusRouteBlockedOutsideFullIDE`,
+  `TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE`,
+  `TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows`, and
+  `TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay`.
 - Follow-up in this pass on `d78af87d3`: the regenerated backlog still
   exposed no live `## Critical Backend Suite Failures` section, so this pass
   stayed on bounded UI-setting helper parity by adding direct realtime-hub
