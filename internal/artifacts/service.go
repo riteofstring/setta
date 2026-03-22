@@ -636,8 +636,8 @@ func (s *Service) loadCachedImage(rawPath string) (*ImageArtifact, error) {
 		ID:    artifactID,
 		Value: ref,
 	}
-	s.storeImageCache(resolvedPath, artifact, hash)
-	cloned := artifact
+	cached := s.commitImageCache(resolvedPath, artifact, hash)
+	cloned := cached
 	return &cloned, nil
 }
 
@@ -858,14 +858,35 @@ func (s *Service) createConflictBackup(path string) (string, error) {
 	return backupPath, nil
 }
 
-func (s *Service) storeImageCache(path string, artifact ImageArtifact, hash string) {
+func (s *Service) commitImageCache(path string, artifact ImageArtifact, hash string) ImageArtifact {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if existing, ok := s.images[path]; ok && existing.Value.ContentID != artifact.Value.ContentID {
-		_ = s.binaryStore.Delete(existing.Value.ContentID)
+
+	if existing, ok := s.images[path]; ok {
+		metadata, hasMetadata := s.metadata[path]
+		if hasMetadata && metadata.LastKnownHash == hash {
+			if existing.Value.ContentID != artifact.Value.ContentID {
+				if _, err := s.binaryStore.ResolvePath(existing.Value.ContentID); err == nil {
+					_ = s.binaryStore.Delete(artifact.Value.ContentID)
+					return existing
+				}
+				_ = s.binaryStore.Delete(existing.Value.ContentID)
+			}
+			s.images[path] = artifact
+			s.metadata[path] = artifactMetadata{LastKnownHash: hash}
+			return artifact
+		}
+		if existing.Value.ContentID != artifact.Value.ContentID {
+			_ = s.binaryStore.Delete(existing.Value.ContentID)
+		}
 	}
 	s.images[path] = artifact
 	s.metadata[path] = artifactMetadata{LastKnownHash: hash}
+	return artifact
+}
+
+func (s *Service) storeImageCache(path string, artifact ImageArtifact, hash string) {
+	_ = s.commitImageCache(path, artifact, hash)
 }
 
 func (s *Service) storeChartCache(path string, artifact ChartDataArtifact, hash string) {

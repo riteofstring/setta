@@ -179,6 +179,50 @@ func TestServiceLoadCachedArtifactsAcceptWorkspacePaths(t *testing.T) {
 	}
 }
 
+func TestServiceCommitImageCacheReusesExistingContentForMatchingHash(t *testing.T) {
+	t.Parallel()
+
+	service, paths := newArtifactTestService(t)
+
+	imagePath := filepath.Join(paths.workspaceRoot, "workspace-image.png")
+	payload := []byte("workspace-image")
+	hash := hashBytes(payload)
+
+	firstRef, err := paths.binaryStore.StoreBytes(payload, "image/png", true)
+	if err != nil {
+		t.Fatalf("store first image payload: %v", err)
+	}
+	firstArtifact := ImageArtifact{
+		Type:  ArtifactTypeImage,
+		ID:    imagePath,
+		Value: firstRef,
+	}
+	committedFirst := service.commitImageCache(imagePath, firstArtifact, hash)
+	if committedFirst.Value.ContentID != firstRef.ContentID {
+		t.Fatalf("expected first cached content id %q, got %q", firstRef.ContentID, committedFirst.Value.ContentID)
+	}
+
+	secondRef, err := paths.binaryStore.StoreBytes(payload, "image/png", true)
+	if err != nil {
+		t.Fatalf("store second image payload: %v", err)
+	}
+	secondArtifact := ImageArtifact{
+		Type:  ArtifactTypeImage,
+		ID:    imagePath,
+		Value: secondRef,
+	}
+	committedSecond := service.commitImageCache(imagePath, secondArtifact, hash)
+	if committedSecond.Value.ContentID != firstRef.ContentID {
+		t.Fatalf("expected matching-hash commit to reuse original content id %q, got %q", firstRef.ContentID, committedSecond.Value.ContentID)
+	}
+	if _, err := paths.binaryStore.ReadBytes(firstRef.ContentID); err != nil {
+		t.Fatalf("read original cached image payload: %v", err)
+	}
+	if _, err := paths.binaryStore.ReadBytes(secondRef.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
+		t.Fatalf("expected redundant payload %q to be deleted, got %v", secondRef.ContentID, err)
+	}
+}
+
 func TestServiceImportFilesAllowsEmptyFilesAndCachesBinaryRef(t *testing.T) {
 	t.Parallel()
 
