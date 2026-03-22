@@ -272,6 +272,19 @@ Deliverable:
 - a repo-local matrix listing each public SDK behavior, current owner, desired
   owner, and whether a running-backend path already exists
 
+Execution artifact:
+
+- `go-backed-python-sdk-surface-inventory.md` (completed 2026-03-24)
+
+Phase 0 verdict:
+
+- the running-backend path already exists for nearly all retained Python SDK
+  surfaces
+- the immediate blocker is duplicated post-response canonical processing in
+  Python, not missing transport
+- local Go-core work should remain gated until runner/listener contract cleanup
+  proves a residual serverless canonical gap
+
 Exit criteria:
 
 - there is no ambiguity about which Python behaviors are being retained for

@@ -33,6 +33,8 @@ Use this file only as the folder map.
 - `go-backed-python-sdk-plan.md`
   - retained Python SDK architecture, local-core boundaries, and
     Go-backed local execution plan
+- `go-backed-python-sdk-surface-inventory.md`
+  - phase-0 retained Python SDK surface matrix and immediate blocker verdict
 - `go-frontend-binding-generation-plan.md`
   - Go-owned frontend route/type/endpoint generation
 - `go-dependency-inventory-and-rationale.md`

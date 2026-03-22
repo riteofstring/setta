@@ -84,6 +84,9 @@ plugin model, not product-level removal of backend plugin features.
    - retained Python SDK architecture, local-core boundaries, or
      Go-backed local execution design:
      `go-backed-python-sdk-plan.md`
+   - current retained Python SDK surface classification and immediate blocker
+     inventory:
+     `go-backed-python-sdk-surface-inventory.md`
    - Go-to-TypeScript frontend contract generation:
      `go-frontend-binding-generation-plan.md`
 3. Use `README.md` only as the folder map and Go toolchain quick reference.
@@ -150,6 +153,9 @@ plugin model, not product-level removal of backend plugin features.
 - "How should the retained Python SDK stay Pythonic while canonical logic moves
   behind Go-owned contracts or a local Go core?":
   `go-backed-python-sdk-plan.md`
+- "What is the current retained Python SDK surface inventory and where is the
+  remaining canonical Python ownership concentrated?":
+  `go-backed-python-sdk-surface-inventory.md`
 - "How should Go own the frontend contract surface?":
   `go-frontend-binding-generation-plan.md`
 
