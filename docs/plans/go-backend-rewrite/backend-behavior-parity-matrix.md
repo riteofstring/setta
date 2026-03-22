@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `c37903eefa`
+- Target head: `d73f55aa86`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -686,6 +686,50 @@ Last audited: `2026-03-23`
   `TestServiceInitTemplateGeneratesContentOnlyScaffold`,
   `TestRunPluginsInitSupportsBackendTemplate`, and
   `TestServiceDispatchRegisteredBackendRoutePreservesRepeatedQueryParamsInRawQuery`.
+- Follow-up in this pass on `d73f55aa86`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  re-read
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/start/test_start_plugins.py::{test_plugins_restart_required_text_includes_restart_capability,test_plugins_restart_required_json_includes_capability_payload,test_plugins_restart_required_reports_pending_ids_without_status,test_plugins_install_cli_rejects_scope_and_shortcut_conflicts,test_plugins_uninstall_cli_rejects_multiple_scope_shortcuts,test_plugins_install_cli_rejects_removed_environment_flag,test_plugins_install_cli_rejects_removed_environment_scope_value,test_plugins_list_cli_text_reports_no_plugins,test_plugins_list_cli_text_includes_restart_shadowed_and_errors,test_plugins_lock_write_and_apply_cli_json_roundtrip,test_plugins_link_enable_disable_rescan_uninstall_and_restart_cli_json,test_plugins_restart_cli_surfaces_plugin_manager_errors,test_plugins_commands_wrap_manager_initialization_errors,test_plugins_init_and_validate_cli_flow,test_plugins_validate_cli_reports_plugin_manager_errors,test_plugins_install_update_pin_rollback_and_uninstall_cli_json,test_plugins_rescan_cli_builds_manager_without_auto_rescan,test_plugins_install_cli_builds_manager_without_auto_rescan,test_plugins_mutation_commands_build_manager_without_auto_rescan,test_plugins_mutation_commands_use_fresh_lookup_state_before_mutation,test_plugins_lookup_rescan_selectively_skips_package_manager_discovery,test_plugins_disable_cli_does_single_lookup_rescan,test_plugins_lookup_rescan_errors_are_wrapped_as_click_errors}`
+  against `internal/settacmd/plugins.go`,
+  `docs/reference/setta-cli-commands.md`, and the existing
+  `plugins_cli.*` rows, then reran the focused Go proof slice backed
+  directly by
+  `TestRunPluginsListJSONIncludesStatusPayload`,
+  `TestRunPluginsListTextReportsNoPlugins`,
+  `TestRunPluginsListTextIncludesRestartShadowedAndErrors`,
+  `TestRunPluginsRescanJSONReportsCounts`,
+  `TestRunPluginsRestartRequiredTextAndJSON`,
+  `TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus`,
+  `TestServiceRestartRequiredSummaryUsesProgrammaticCapabilityWithoutFallbackFields`,
+  `TestRunPluginsInitAndValidateText`,
+  `TestRunPluginsInitSupportsBackendTemplate`,
+  `TestRunPluginsValidateReportsManifestError`,
+  `TestRunPluginsValidateRejectsInvalidGoBackend`,
+  `TestRunPluginsLinkJSONIncludesInstallPayload`,
+  `TestRunPluginsInstallTextAndJSON`,
+  `TestRunPluginsUpdateAndPinTextAndJSON`,
+  `TestRunPluginsLockApplyCheckTextAndApplyJSON`,
+  `TestRunPluginsLockWriteTextAndJSON`,
+  `TestRunPluginsEnableDisableJSON`,
+  `TestRunPluginsUninstallTextReportsRestartRequirement`,
+  `TestRunPluginsRollbackJSONRestoresSnapshot`,
+  `TestRunPluginsScopedLifecycleCommandsRejectConflictingScopeFlags`,
+  `TestRunPluginsInstallRejectsLegacyEnvironmentFlags`,
+  `TestRunPluginsCommandsSurfaceInvalidPluginsStateErrors`,
+  `TestServiceRestartAcceptsProgrammaticCallback`, and
+  `TestServiceRestartProgrammaticFailureReturnsServiceError`; no new Go gap
+  was found, so those source clues remain correctly discharged by the
+  existing terminal `plugins_cli.status_list_and_rescan_text_json_contract`,
+  `plugins_cli.restart_required.text_json_and_pending_ids_without_status_contract`,
+  `plugins_cli.authoring.init_and_validate_command_flow_contract`,
+  `plugins_cli.restart_command_remains_manual_on_packaged_go_boundary`,
+  `plugins_cli.lifecycle_commands.roundtrip_install_link_update_pin_enable_disable_uninstall_and_rollback_payloads`,
+  `plugins_cli.install.legacy_environment_flag_and_scope_value_fail_closed_with_go_parser_wording`,
+  `plugins_cli.lock_write_and_apply_check_contract`, and
+  `plugins_cli.private_manager_builder_and_lookup_rescan_hook_contracts_not_preserved`
+  rows.
 - Follow-up in this pass on `d268d52ac`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` passed cleanly again, so
   `critical_backend_suite::go_test_all` remains stale saved-suite output on
