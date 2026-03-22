@@ -8,6 +8,7 @@ import {
   ensureManagedChatEngine,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   seedLocalStorage,
   setChatSectionState,
   setOverviewTab,
@@ -6004,6 +6005,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         chatId: workflowChatId,
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
 
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -6206,6 +6211,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         chatId: workflowChatId,
       });
+      await refreshProjectStateFromBackend(
+        page,
+        projectContext.projectConfigId,
+      );
 
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
