@@ -184,6 +184,8 @@ func renderReflectExpr(entry registryEntry) string {
 		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
 	case gotypediscovery.TypeKindMap:
 		return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
+	case gotypediscovery.TypeKindNamed:
+		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", qualifiedName)
 	case gotypediscovery.TypeKindSlice:
 		return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
 	case gotypediscovery.TypeKindString:

@@ -1,46 +1,51 @@
 package frontendbindings
 
-import "time"
+import (
+	"time"
 
-type ProjectStateSingleConfig struct{}
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
+)
+
+type ProjectStateSingleConfig projectview.SingleConfig
 
 type ProjectStateSingleConfigWithCompletedOpIds struct{}
 
-type ClipboardDataType string
+type ClipboardDataType = projectstate.ClipboardDataType
 
-type ClipboardProjectStateCore struct{}
+type ClipboardProjectStateCore = projectstate.ClipboardProjectStateCore
 
-type Core struct{}
+type Core = projectview.Core
 
-type Variant struct{}
+type Variant = projectview.Variant
 
-type SingletonSections struct{}
+type SingletonSections = projectview.SingletonSections
 
-type ShownParamIdDetails struct{}
+type ShownParamIdDetails projectview.ShownParamIDDetails
 
-type ShownParamIds struct{}
+type ShownParamIds projectview.ShownParamIDs
 
-type ChatWindowPlacement string
+type ChatWindowPlacement = projectstate.ChatWindowPlacement
 
-type ChatWindowMode string
+type ChatWindowMode = projectstate.ChatWindowMode
 
-type ChatWindowBounds struct{}
+type ChatWindowBounds = projectstate.ChatWindowBounds
 
-type ChatWindowDockMetrics struct{}
+type ChatWindowDockMetrics = projectstate.ChatWindowDockMetrics
 
-type ProjectChatWindowInstance struct{}
+type ProjectChatWindowInstance = projectstate.ProjectChatWindowInstance
 
-type ProjectChatWindowingState struct{}
+type ProjectChatWindowingState = projectstate.ProjectChatWindowingState
 
-type WindowSpaceSurfaceKind string
+type WindowSpaceSurfaceKind = projectstate.WindowSpaceSurfaceKind
 
-type NormalizedFloatingWindowBounds struct{}
+type NormalizedFloatingWindowBounds = projectstate.NormalizedFloatingWindowBounds
 
-type WindowSpaceWindow struct{}
+type WindowSpaceWindow = projectstate.WindowSpaceWindow
 
-type WindowSpaceState struct{}
+type WindowSpaceState = projectstate.WindowSpaceState
 
-type WindowSpaceConfig struct{}
+type WindowSpaceConfig = projectstate.WindowSpaceConfig
 
 type SectionsClipboardData struct{}
 
@@ -654,7 +659,7 @@ type ProjectCodegenPluginTarget struct{}
 
 type ProjectCodegenTarget struct{}
 
-type ProjectConfig struct{}
+type ProjectConfig = projectview.ProjectConfig
 
 type ClipboardProjectStateCoreWithSectionVariantMap struct{}
 
@@ -994,15 +999,15 @@ type TaskBoardRecurringWeekday string
 
 type TaskBoardRecurringMonth string
 
-type StateMachineGateType string
+type StateMachineGateType = projectstate.StateMachineGateType
 
-type StateMachineTargetActionType string
+type StateMachineTargetActionType = projectstate.StateMachineTargetActionType
 
-type StateMachineThreadStrategy string
+type StateMachineThreadStrategy = projectstate.StateMachineThreadStrategy
 
-type StateMachineSourceFilterType string
+type StateMachineSourceFilterType = projectstate.StateMachineSourceFilterType
 
-type StateMachineCountOperator string
+type StateMachineCountOperator = projectstate.StateMachineCountOperator
 
 type AgenticEdgeKind string
 
@@ -1010,11 +1015,11 @@ type AgenticEdgeContextMode string
 
 type StateMachineGateUIState struct{}
 
-type StateMachineSourceFilter struct{}
+type StateMachineSourceFilter = projectstate.StateMachineSourceFilter
 
-type StateMachineSourceActivationCountCondition struct{}
+type StateMachineSourceActivationCountCondition = projectstate.StateMachineSourceActivationCountCondition
 
-type StateMachineTargetAction struct{}
+type StateMachineTargetAction = projectstate.StateMachineTargetAction
 
 type EdgePort struct {
 	ID       string `json:"id"`
@@ -1074,23 +1079,23 @@ type TaskBoardTask struct {
 	SortIndex        int                         `json:"sortIndex"`
 }
 
-type Edge struct{}
+type Edge = projectstate.Edge
 
-type StateMachineEdge struct{}
+type StateMachineEdge = projectstate.StateMachineEdge
 
-type AgenticEdge struct{}
+type AgenticEdge = projectstate.AgenticEdge
 
-type Viewport struct{}
+type Viewport = projectstate.Viewport
 
-type TopLevelSectionLayout struct{}
+type TopLevelSectionLayout = projectstate.TopLevelSectionLayout
 
-type ViewMode struct{}
+type ViewMode = projectstate.ViewMode
 
-type ViewModeConfig struct{}
+type ViewModeConfig projectstate.ViewMode
 
-type WatchCodeFolder struct{}
+type WatchCodeFolder = projectstate.WatchCodeFolder
 
-type WatchCodeRegistryEntry struct{}
+type WatchCodeRegistryEntry = projectstate.WatchCodeRegistryEntry
 
 type CodeFileBinding struct{}
 

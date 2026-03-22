@@ -56,3 +56,24 @@ func TestDiscoverPackageTypesInDirWithOptionsRequireJSONTags(t *testing.T) {
 		)
 	}
 }
+
+func TestDiscoverPackageTypesInDirIncludesSelectorBackedNamedTypes(t *testing.T) {
+	t.Helper()
+
+	discovered, err := DiscoverPackageTypesInDir(
+		filepath.Join("testdata", "selectoraliaspkg"),
+	)
+	if err != nil {
+		t.Fatalf("DiscoverPackageTypesInDir(...) error = %v", err)
+	}
+
+	want := []DiscoveredType{
+		{Name: "HeaderAlias", Kind: TypeKindNamed},
+		{Name: "HeaderNamed", Kind: TypeKindNamed},
+		{Name: "TimeAlias", Kind: TypeKindNamed},
+		{Name: "TimeNamed", Kind: TypeKindNamed},
+	}
+	if !reflect.DeepEqual(discovered, want) {
+		t.Fatalf("DiscoverPackageTypesInDir(...) = %#v, want %#v", discovered, want)
+	}
+}

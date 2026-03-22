@@ -48,6 +48,7 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.Project{}),
 		reflect.TypeOf(projectstate.DrawAreaLayerItemType("")),
 		reflect.TypeOf(projectstate.DrawAreaLayerItem{}),
+		reflect.TypeOf((*projectstate.RawJSON)(nil)).Elem(),
 		reflect.TypeOf(projectstate.Viewport{}),
 		reflect.TypeOf(projectstate.ViewportBounds{}),
 		reflect.TypeOf(projectstate.TopLevelSectionLayout{}),

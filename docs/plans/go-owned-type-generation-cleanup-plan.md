@@ -44,6 +44,8 @@ That means:
 - `project_config.py` has been reduced substantially:
   - most nested project-state data models now come from `go_shared_types.py`
   - the handwritten remainder is mainly Python-side defaults and codegen-policy resolution logic
+- Go type discovery now handles selector-backed named wrappers generically, so generated registries can keep frontend-facing names while still pointing at real backend owner types.
+- `internal/frontendbindings/project_state_support.go` now points a large part of the project-state surface at real owner structs instead of empty placeholder structs.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -76,6 +78,8 @@ The remaining problem is that too much of the shared type surface still flows th
 - related support files under `internal/frontendbindings/`
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
+
+This has improved for the project-state/view/windowing family, but not for the chat, artifact, dependency, and assorted settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

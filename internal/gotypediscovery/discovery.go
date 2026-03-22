@@ -26,6 +26,7 @@ const (
 	TypeKindInterface TypeKind = "interface"
 	TypeKindInt       TypeKind = "int"
 	TypeKindMap       TypeKind = "map"
+	TypeKindNamed     TypeKind = "named"
 	TypeKindSlice     TypeKind = "slice"
 	TypeKindString    TypeKind = "string"
 	TypeKindStruct    TypeKind = "struct"
@@ -104,7 +105,6 @@ func DiscoverPackageTypesInDirWithOptions(
 			for _, spec := range genDecl.Specs {
 				typeSpec, ok := spec.(*ast.TypeSpec)
 				if !ok ||
-					typeSpec.Assign != 0 ||
 					!typeSpec.Name.IsExported() ||
 					typeSpec.TypeParams != nil {
 					continue
@@ -164,6 +164,8 @@ func classifyType(expr ast.Expr, options DiscoverOptions) (TypeKind, bool) {
 			return "", false
 		}
 		return TypeKindMap, true
+	case *ast.SelectorExpr:
+		return TypeKindNamed, true
 	case *ast.Ident:
 		switch typed.Name {
 		case "string":
