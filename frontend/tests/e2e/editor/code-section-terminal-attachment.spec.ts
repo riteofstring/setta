@@ -1000,14 +1000,20 @@ test("detaching a narrow attached terminal does not append extra output", async 
       stableMs: 750,
     });
 
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `DETACH_WRAP_READY_${Date.now()}`,
+    );
     const marker = `WRAP_MARKER_${Date.now()}`;
-    const longLine = `${marker}_${"x".repeat(160)}`;
+    const xCount = 160;
+    const longLine = `${marker}_${"x".repeat(xCount)}`;
     await focusTerminalAndType(
       page,
       terminalId,
-      `printf '%s\\n%s\\n' '${marker}' '${longLine}'`,
+      `python -c "m='${marker}'; print(m, flush=True); print(m + '_' + 'x'*${xCount}, flush=True)"`,
     );
-    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
+    await waitForTerminalOutputMarker(page, terminalId, `${marker}_`, 20000);
 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
 
@@ -1409,8 +1415,10 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     // long wrapped command line. Otherwise the run output/prompt redraw can
     // race with our keystrokes and corrupt the echo.
     const readyMarker = `CMDREFLOW_READY_${Date.now()}`;
-    await focusTerminalAndType(page, terminalId, `echo ${readyMarker}`);
-    await waitForTerminalOutputMarker(page, terminalId, readyMarker, 20000);
+    await ensureTerminalAcceptsInput(page, terminalId, readyMarker, {
+      timeoutMs: 20000,
+      attemptTimeoutMs: 5000,
+    });
     await waitForTerminalOutputToStabilize(page, terminalId, {
       timeoutMs: 20000,
       stableMs: 750,
@@ -1431,11 +1439,16 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
       terminalId,
       `echo ${sttyMarker} $(stty size)`,
     );
-    await waitForTerminalOutputMarker(page, terminalId, sttyMarker, 20000);
-    const sttyOutput = await getTerminalOutputBuffer(page, terminalId);
-    const sttyMatch = sttyOutput.match(
-      new RegExp(`${sttyMarker}\\s+(\\d+)\\s+(\\d+)`),
-    );
+    let sttyMatch: RegExpMatchArray | null = null;
+    await expect
+      .poll(async () => {
+        const sttyOutput = await getTerminalOutputBuffer(page, terminalId);
+        sttyMatch = sttyOutput.match(
+          new RegExp(`${sttyMarker}\\s+(\\d+)\\s+(\\d+)`),
+        );
+        return sttyMatch !== null;
+      }, { timeout: 20000 })
+      .toBe(true);
     if (!sttyMatch) {
       throw new Error(`Failed to parse stty output for ${sttyMarker}.`);
     }
@@ -1534,10 +1547,12 @@ test("attached terminal text reflows when width increases", async ({
     const codeSectionId = await createCodeSection(page);
     const terminalId = await createTerminalSection(page);
 
-    await postBackend(page, "/setCodeSectionAttachedTerminal", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
-      sectionId: codeSectionId,
-      terminalSectionId: terminalId,
+      sectionIds: [terminalId],
+      newParentId: codeSectionId,
+      newIndex: 0,
+      positionsById: null,
     });
     const attachedId = await waitForAttachedTerminalId(
       page,
@@ -1597,6 +1612,20 @@ test("attached terminal text reflows when width increases", async ({
         `Invalid narrow terminal cols observed for ${terminalId}: ${String(narrowCols)}`,
       );
     }
+
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `ATTACHED_REFLOW_READY_${Date.now()}`,
+      {
+        timeoutMs: process.env.CI ? 60000 : 30000,
+      },
+    );
+    await focusTerminalAndType(page, terminalId, "clear");
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
 
     // Write a long line that should unwrap into fewer rows after widening.
     const marker = `ATTACHED_REFLOW_${Date.now()}`;
