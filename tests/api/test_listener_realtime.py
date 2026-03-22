@@ -14,17 +14,11 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     SettaListener,
 )
-from setta.types.dependency_key import create_dep_key
-from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
-from setta.types.dependency_key import BaseDependencyKeyUnion
 from setta.types.generated.go_shared_types import (
     BinaryContentRef,
     CodeObjType,
     ParameterPassingStyle,
     SectionType,
-)
-from setta.types.websocket import (
-    PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID
 from setta.types.listener import (
@@ -40,16 +34,21 @@ from setta.types.listener import (
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
-)
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
-)
-from setta.types.websocket import (
+    PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
+)
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+)
+from setta.types.protocol import (
+    BaseDependencyKeyUnion,
+    BinaryDependencyValue,
+    LiteralDependencyValue,
+    create_dep_key,
 )
 
 from tests.helpers.binary_frames import encode_binary_frame

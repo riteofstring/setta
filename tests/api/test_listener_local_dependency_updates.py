@@ -10,11 +10,6 @@ from setta.types.chat_messages import (
     MessageTextContent,
     UserChatMessage,
 )
-from setta.types.dependency_key import SectionDependencyKey
-from setta.types.dependency_value import LiteralDependencyValue
-from setta.types.websocket import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
@@ -27,13 +22,13 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerRouterEndpointResultContent,
     ListenerSnapshot,
-)
-from setta.types.generated.go_shared_types import SectionType
-from setta.types.project_config import SectionRepresentationMode
-from setta.types.websocket import (
+    PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
+from setta.types.generated.go_shared_types import SectionType
+from setta.types.project_config import SectionRepresentationMode
+from setta.types.protocol import LiteralDependencyValue, SectionDependencyKey
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
 )

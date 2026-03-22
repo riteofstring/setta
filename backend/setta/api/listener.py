@@ -45,12 +45,6 @@ from setta.types.artifact import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnionWithDiscriminator,
 )
-from setta.types.dependency_key import (
-    BaseDependencyKeyUnion,
-    SectionDependencyKey,
-    SectionParamDependencyKey,
-    create_dep_key,
-)
 from setta.types.generated.go_shared_types import CodeObjType, Route, SectionType
 from setta.types.listener import (
     DependencyEvent,
@@ -69,12 +63,6 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerRouterEndpointCallContent,
     ListenerSnapshot,
-)
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
-    SectionRepresentationMode,
-)
-from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -86,6 +74,16 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
+)
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+    SectionRepresentationMode,
+)
+from setta.types.protocol import (
+    BaseDependencyKeyUnion,
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+    create_dep_key,
 )
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths

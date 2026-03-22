@@ -7,11 +7,6 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     ListenerDependencyValues,
 )
-from setta.types.dependency_key import (
-    SectionDependencyKey,
-    SectionParamDependencyKey,
-    create_dep_key,
-)
 from setta.types.generated.go_shared_types import CodeObjType
 from setta.types.id import ID
 from setta.types.listener import (
@@ -20,10 +15,13 @@ from setta.types.listener import (
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
-)
-from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerRegister,
+)
+from setta.types.protocol import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+    create_dep_key,
 )
 from tests.helpers.listener_runtime_state import (
     ListenerTestRuntimeState,

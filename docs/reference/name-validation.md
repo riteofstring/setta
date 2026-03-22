@@ -13,7 +13,7 @@ frontend.
 - Window-space names: `internal/projectstate/project_chat_windowing_writes.go`
 - Aggregated validation payloads: `internal/projectstate/name_validation.go`
 - Websocket envelope + Python type mirror: `internal/realtime/messages.go`,
-  `backend/setta/types/websocket.py`
+  `backend/setta/types/listener.py`
 - Frontend input validation: `frontend/src/utils/nameValidation.ts`
 - Frontend view mode editor: `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx`
 - Frontend window-space editor: `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`
@@ -205,7 +205,7 @@ that param hierarchy. The check is exact-match after trimming.
 - Section + param validation: `internal/projectstate/section_names.go`,
   `internal/projectstate/code_object_names.go`
 - Aggregated validation payloads: `internal/projectstate/name_validation.go`
-- Websocket payload + message type mirror: `backend/setta/types/websocket.py`,
+- Websocket payload + message type mirror: `backend/setta/types/listener.py`,
   `internal/realtime/messages.go`
 - Frontend validators: `frontend/src/utils/nameValidation.ts`
 - Window-space UI: `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`

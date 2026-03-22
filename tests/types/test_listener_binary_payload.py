@@ -1,7 +1,6 @@
-from setta.types.dependency_key import create_dep_key
-from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import DependencyEvent, ListenerRealtimeDelta
+from setta.types.protocol import LiteralDependencyValue, create_dep_key
 
 
 def test_dependency_event_binary_payload_is_private() -> None:

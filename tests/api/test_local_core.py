@@ -8,9 +8,8 @@ from setta.sdk_contracts.generated import (
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
-from setta.types.dependency_key import create_dep_key
-from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
+from setta.types.protocol import LiteralDependencyValue, create_dep_key
 
 
 @pytest.mark.asyncio

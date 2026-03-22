@@ -145,7 +145,6 @@ That means:
   - `internal/artifacts.ChartDataValue`
 - `backend/setta/types/artifact.py` no longer hand-owns chart-settings field layouts:
   - the Python chart-settings classes now subclass Go-generated models and only keep discriminator literals
-- `backend/setta/types/websocket.py` no longer owns the listener websocket message-type enum; it now reuses the Go-owned generated `ListenerMessageType`.
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 - the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
 - the Go -> Python generator now also preserves named Go string-enum field types inside generated models instead of flattening them to plain `str`, which makes the generated Python surface much closer to the real backend schema.
@@ -157,8 +156,9 @@ That means:
   - `ExternalAgentSettingsMode`
   - `ExternalAgentWorkingDirStrategy`
   - `ClaudeSettingsSource`
-- `backend/setta/types/dependency_value.py` no longer hand-owns the dependency-value field layouts:
-  - the Python file is now only a discriminated-union adapter over Go-generated models so the listener SDK can keep using `Field(discriminator="type")`.
+- `backend/setta/types/protocol.py` now owns the narrow Python-only dependency protocol glue:
+  - frozen/hashable dependency-key wrappers for listener-runtime dictionary/set usage
+  - discriminated-union adapters over Go-generated dependency-value models
 - the frontend-facing project codegen policy family now has a real Go owner in `internal/projectview` instead of empty `frontendbindings` placeholders:
   - `ProjectCodegenLanguage`
   - `SectionCodegenMode`
@@ -195,8 +195,8 @@ That means:
 - the dead Python-only project-config policy helper layer has been removed:
   - deleted unused `resolve_*codegen_policy` / `get_*codegen_target` helpers
   - deleted the test that existed only to exercise that dead helper layer
-- `backend/setta/types/websocket.py` no longer hand-owns the listener websocket envelope field layouts:
-  - the Python message classes now subclass Go-generated listener message models and only keep the Python-side typed content wrappers and discriminator literals.
+- `backend/setta/types/listener.py` now also owns the handwritten websocket envelope adapters:
+  - the Python message classes subclass Go-generated listener message models and only keep the Python-side typed content wrappers, discriminator literals, and `TypeAdapter`
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line
@@ -226,24 +226,18 @@ Current handwritten files in `backend/setta/types/`:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
-- `dependency_key.py`
-- `dependency_value.py`
 - `id.py`
 - `listener.py`
+- `protocol.py`
 - `project_config.py`
-- `websocket.py`
 
 Working assumption for the next passes:
 - `id.py` is likely truly Python-only.
 - most of `listener.py` is now clearly Python-only wrapper logic over generated SDK / Go-owned enums.
+- `protocol.py` is now clearly Python-only listener/dependency adapter glue, not a shared-schema owner.
 - `chat.py` and `chat_stream_events.py` are now typed Python adapters over Go-owned generated models, not primary schema owners.
 - `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
-- `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
-- `websocket.py` is now a very thin typed Python adapter over Go-owned listener message models plus Python-specific `TypeAdapter` glue.
 - the remaining handwritten part of `project_config.py` is now narrower Python-only defaulting and validation glue over Go-generated project codegen and project-state models, not another large shared-model family.
-- `dependency_key.py` no longer hand-owns the dependency-key field layouts:
-  - the Python file now subclasses Go-generated dependency-key models and only keeps the Python-side frozen/hashable behavior the listener SDK needs.
-- `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is now tuple aliases, artifact-id factories, discriminator literals, and draw-area convenience defaults.
 - there is no longer an obvious large shared-schema owner left in `backend/setta/types/`; the surviving `project_config.py` and `artifact.py` code is much closer to adapter/default glue than to schema ownership.
 
@@ -299,19 +293,18 @@ They are also much closer to adapter/default glue than to true schema ownership 
 The main candidates are now:
 - any reducible remainder in `project_config.py`, if more of the defaulting/validation surface can be deleted or expressed without another handwritten adapter layer
 - any remaining thin adapter logic in `artifact.py`, if the Python package no longer needs the tuple aliases, id factories, or convenience defaults
-- any adapter-only file under `chat*.py`, `listener.py`, `dependency_key.py`, or `websocket.py` that can be collapsed further without reintroducing duplicate backend definitions
+- any adapter-only file under `chat*.py`, `listener.py`, or `protocol.py` that can be collapsed further without reintroducing duplicate backend definitions
 
 Already narrowed to Python adapter layers:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
-- `dependency_value.py`
 - `artifact.py`
 - `listener.py`
-- `websocket.py`
+- `protocol.py`
 
 Likely Python-only:
-- the remaining frozen/hashable behavior in `dependency_key.py`, because the listener SDK currently uses dependency keys as dictionary keys
+- the remaining frozen/hashable dependency-key behavior in `protocol.py`, because the listener SDK currently uses dependency keys as dictionary keys
 
 Those files should either:
 - disappear because the Python package no longer needs them, or
@@ -396,9 +389,8 @@ Primary targets:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
-- `dependency_key.py`
-- `dependency_value.py`
-- `websocket.py`
+- `listener.py`
+- `protocol.py`
 - any remaining reducible wrapper content in `project_config.py`
 - any remaining reducible wrapper content in `artifact.py`
 

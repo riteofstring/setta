@@ -1,13 +1,13 @@
 import pytest
 
 from setta.api.listener import SettaListener
-from setta.types.dependency_key import create_dep_key
-from setta.types.websocket import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 from setta.types.id import ID
-from setta.types.listener import ListenerDependencyCatalogEntry
-from setta.types.websocket import WebsocketMsgListenerRegister
+from setta.types.listener import (
+    ListenerDependencyCatalogEntry,
+    PythonScriptWebsocketMsgTypeAdapter,
+    WebsocketMsgListenerRegister,
+)
+from setta.types.protocol import create_dep_key
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_entries,
 )

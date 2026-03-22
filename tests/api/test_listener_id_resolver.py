@@ -1,10 +1,10 @@
 import pytest
 
 from setta.api.listener import ListenerDependencyIds
-from setta.types.dependency_key import create_dep_key
 from setta.types.generated.go_shared_types import CodeObjType, SectionType
 from setta.types.id import ID
 from setta.types.listener import ListenerDependencyCatalogEntry
+from setta.types.protocol import create_dep_key
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_entries,
 )

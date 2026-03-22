@@ -3,9 +3,6 @@ import asyncio
 import pytest
 
 from setta.api.listener import SettaListener
-from setta.types.websocket import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
@@ -14,8 +11,7 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerRouterEndpointResultContent,
     ListenerSnapshot,
-)
-from setta.types.websocket import (
+    PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerError,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,

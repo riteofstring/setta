@@ -34,10 +34,10 @@ type RunnerSummarySnapshot struct {
 }
 
 type ListenerDependencyCatalogEntry struct {
-	DependencyKey              string   `json:"dependencyKey" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator"`
+	DependencyKey              string   `json:"dependencyKey" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator"`
 	Name                       string   `json:"name"`
 	FullPathName               string   `json:"fullPathName"`
-	Dependencies               []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnionWithDiscriminator]" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator" py_default:"factory:list"`
+	Dependencies               []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnionWithDiscriminator]" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator" py_default:"factory:list"`
 	IncludeInCodegen           bool     `json:"includeInCodegen" py_default:"True"`
 	SectionType                *string  `json:"sectionType,omitempty"`
 	CodeObjType                *string  `json:"codeObjType,omitempty"`
@@ -54,7 +54,7 @@ type ListenerDependencyCatalog struct {
 }
 
 type ListenerRenderedDependencyValue struct {
-	DependencyKey string `json:"dependencyKey" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator"`
+	DependencyKey string `json:"dependencyKey" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator"`
 	RenderedValue string `json:"renderedValue"`
 }
 
@@ -83,7 +83,7 @@ type ListenerInitRequest struct {
 }
 
 type ListenerRegisterCallbackSpec struct {
-	Dependencies   []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnionWithDiscriminator]" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator" py_default:"factory:list"`
+	Dependencies   []string `json:"dependencies" py_type:"list[BaseDependencyKeyUnionWithDiscriminator]" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator" py_default:"factory:list"`
 	DependencyMode string   `json:"dependencyMode" py_type:"Literal[\"refresh_only\", \"realtime_only\", \"always\"]"`
 	DebounceMS     *int     `json:"debounceMs,omitempty"`
 	ThrottleMS     *int     `json:"throttleMs,omitempty"`
@@ -134,8 +134,8 @@ type ListenerRouterEndpointResult struct {
 }
 
 type ListenerRealtimeDelta struct {
-	Dependency string          `json:"dependency" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator"`
-	Value      json.RawMessage `json:"value" py_type:"BaseDependencyValueUnionWithDiscriminator" py_import:"from setta.types.dependency_value import BaseDependencyValueUnionWithDiscriminator"`
+	Dependency string          `json:"dependency" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator"`
+	Value      json.RawMessage `json:"value" py_type:"BaseDependencyValueUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyValueUnionWithDiscriminator"`
 }
 
 type ListenerRealtimeEvent struct {
@@ -147,8 +147,8 @@ type ListenerRealtimeEvent struct {
 }
 
 type ListenerDependencyEventEntry struct {
-	DependencyKey string          `json:"dependencyKey" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator"`
-	Payload       json.RawMessage `json:"payload,omitempty" py_type:"BaseDependencyValueUnionWithDiscriminator | None" py_import:"from setta.types.dependency_value import BaseDependencyValueUnionWithDiscriminator" py_default:"None"`
+	DependencyKey string          `json:"dependencyKey" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator"`
+	Payload       json.RawMessage `json:"payload,omitempty" py_type:"BaseDependencyValueUnionWithDiscriminator | None" py_import:"from setta.types.protocol import BaseDependencyValueUnionWithDiscriminator" py_default:"None"`
 	TimestampMS   int64           `json:"timestampMs"`
 }
 
@@ -187,8 +187,8 @@ type LocalCoreResultEnvelope struct {
 }
 
 type LocalCoreListenerRealtimeDelta struct {
-	Dependency          string          `json:"dependency" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator"`
-	Value               json.RawMessage `json:"value" py_type:"BaseDependencyValueUnionWithDiscriminator" py_import:"from setta.types.dependency_value import BaseDependencyValueUnionWithDiscriminator"`
+	Dependency          string          `json:"dependency" py_type:"BaseDependencyKeyUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator"`
+	Value               json.RawMessage `json:"value" py_type:"BaseDependencyValueUnionWithDiscriminator" py_import:"from setta.types.protocol import BaseDependencyValueUnionWithDiscriminator"`
 	BinaryPayloadBase64 *string         `json:"binaryPayloadBase64,omitempty"`
 }
 

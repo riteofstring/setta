@@ -46,8 +46,8 @@ from setta.types.generated.go_shared_types import (
     ChatSendEvent,
     ChatStopEvent,
 )
-from setta.types.dependency_key import SectionDependencyKey
 from setta.types.id import ID
+from setta.types.protocol import SectionDependencyKey
 
 if TYPE_CHECKING:
     from setta.api.listener import ListenerCallbackContext
