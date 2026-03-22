@@ -11,7 +11,7 @@ and a Python package surface for CLI dispatch, source SDKs, and packaging.
 - `backend/setta/` is the Python package surface:
   - `python -m setta` / installed `setta` dispatch through
     `backend/setta/entrypoint.py`
-  - `backend/setta/api/*` contains the source/sdist Python SDK
+  - `backend/setta/api/*` contains the Python SDK
     (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
   - packaged assets, sidecars, and bundled binaries still ship from here
 - `frontend/` contains the Vite/React UI and generated TS bindings.
