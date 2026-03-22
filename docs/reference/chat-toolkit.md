@@ -132,7 +132,7 @@ from setta.api.chat_toolkit import (
     message_text,
     on_chat_send_event,
 )
-from setta.types.chat_messages import UserChatMessage
+from setta.types.chat import UserChatMessage
 
 history = ChatHistoryClient(ctx.project_manager)
 stream = ChatStreamEmitterClient(ctx.project_manager, section_id=section_id)
@@ -205,7 +205,7 @@ from setta.api.chat_toolkit import (
     message_text,
     on_chat_send_event,
 )
-from setta.types.chat_messages import UserChatMessage
+from setta.types.chat import UserChatMessage
 
 history = ChatHistoryClient(ctx.project_manager)
 sync = ChatSectionSyncClient(ctx.project_manager)

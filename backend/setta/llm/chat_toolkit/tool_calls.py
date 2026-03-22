@@ -1,6 +1,6 @@
 import json
 
-from setta.types.chat_messages import ToolCall, ToolCallFunction
+from setta.types.chat import ToolCall, ToolCallFunction
 
 
 class ToolCallBuilder:

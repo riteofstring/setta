@@ -1,6 +1,6 @@
 import json
 
-from setta.types.chat_messages import (
+from setta.types.chat import (
     AssistantChatMessage,
     ChatFileAttachment,
     MessageTextContent,

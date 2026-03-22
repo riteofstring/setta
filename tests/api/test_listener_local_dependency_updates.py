@@ -4,9 +4,9 @@ import pytest
 
 from setta.api import SettaListener, dep_id
 from setta.api.listener import ListenerCallbackContext
-from setta.types.chat import ChatSectionState
-from setta.types.chat_messages import (
+from setta.types.chat import (
     AssistantChatMessage,
+    ChatSectionState,
     MessageTextContent,
     UserChatMessage,
 )

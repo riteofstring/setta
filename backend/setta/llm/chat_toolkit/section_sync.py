@@ -1,4 +1,6 @@
 from setta.types.chat import (
+    AssistantChatMessage,
+    BaseChatMessageUnion,
     ChatSectionBranch,
     ChatSectionState,
     LLMStreamingResponseChunk,
@@ -6,17 +8,13 @@ from setta.types.chat import (
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
-    ToolArgumentPreviewDeltaEvent,
-    ToolCallDeltaEvent,
-    ToolResultEvent,
-)
-from setta.types.chat_messages import (
-    AssistantChatMessage,
-    BaseChatMessageUnion,
     MessageTextContent,
     MessageThinkingContent,
     ToolCall,
     ToolCallFunction,
+    ToolArgumentPreviewDeltaEvent,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
 )
 from setta.types.id import ID
 

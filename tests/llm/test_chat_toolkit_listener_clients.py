@@ -3,8 +3,7 @@ import pytest
 from setta.llm.chat_toolkit import assistant_message, message_text, user_message
 from setta.llm.chat_toolkit.tool_calls import ToolCallBuilder
 from setta.types.generated.go_shared_types import LLMConfig
-from setta.types.chat import Chat, ChatMetadata
-from setta.types.chat_messages import ToolChatMessage
+from setta.types.chat import Chat, ChatMetadata, ToolChatMessage
 from setta.types.id import ID
 from setta.api.chat_toolkit import ChatHistoryClient, ChatToolRunnerClient
 from setta.api.listener_endpoint_client import RouterEndpointAPI

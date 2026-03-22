@@ -1,6 +1,8 @@
 from typing import Awaitable, Callable, NotRequired, TypedDict
 
 from setta.types.chat import (
+    AssistantChatMessage,
+    BaseChatMessageUnion,
     Chat,
     ChatMetadata,
     ChatSectionState,
@@ -8,16 +10,12 @@ from setta.types.chat import (
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
-    ToolArgumentPreviewDeltaEvent,
-    ToolCallDeltaEvent,
-    ToolResultEvent,
-)
-from setta.types.chat_messages import (
-    AssistantChatMessage,
-    BaseChatMessageUnion,
     SystemChatMessage,
     ToolCall,
     ToolChatMessage,
+    ToolArgumentPreviewDeltaEvent,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
     UserChatMessage,
 )
 from setta.types.id import ID

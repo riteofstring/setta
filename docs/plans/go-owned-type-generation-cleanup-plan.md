@@ -135,8 +135,8 @@ That means:
   - `UserChatMessage`
   - `ToolChatMessage`
 - `internal/frontendbindings/project_state_support.go` now points the detailed chat-message schema family at `internal/scriptablechat` instead of keeping local placeholder owners.
-- `backend/setta/types/chat_messages.py` no longer hand-owns the concrete chat-message field layouts:
-  - the Python classes now subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
+- the chat message adapters now live in `backend/setta/types/chat.py`:
+  - the Python classes subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
 - `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
 - the chart artifact family now has real Go owners for the remaining shared schema pieces:
@@ -224,7 +224,6 @@ That means:
 Current handwritten files in `backend/setta/types/`:
 - `artifact.py`
 - `chat.py`
-- `chat_messages.py`
 - `id.py`
 - `listener.py`
 - `protocol.py`
@@ -235,7 +234,6 @@ Working assumption for the next passes:
 - most of `listener.py` is now clearly Python-only wrapper logic over generated SDK / Go-owned enums.
 - `protocol.py` is now clearly Python-only listener/dependency adapter glue, not a shared-schema owner.
 - `chat.py` now owns the remaining chat metadata, section-state, and stream-event adapter glue over Go-owned generated models; it is not a primary schema owner.
-- `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
 - the remaining handwritten part of `project_config.py` is now narrower Python-only defaulting and validation glue over Go-generated project codegen and project-state models, not another large shared-model family.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is now tuple aliases, artifact-id factories, discriminator literals, and draw-area convenience defaults.
 - there is no longer an obvious large shared-schema owner left in `backend/setta/types/`; the surviving `project_config.py` and `artifact.py` code is much closer to adapter/default glue than to schema ownership.
@@ -296,7 +294,6 @@ The main candidates are now:
 
 Already narrowed to Python adapter layers:
 - `chat.py`
-- `chat_messages.py`
 - `artifact.py`
 - `listener.py`
 - `protocol.py`
@@ -385,7 +382,6 @@ Guardrail:
 ### Phase 3: Move the remaining shared Python families to Go ownership
 Primary targets:
 - `chat.py`
-- `chat_messages.py`
 - `listener.py`
 - `protocol.py`
 - any remaining reducible wrapper content in `project_config.py`

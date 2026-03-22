@@ -1,18 +1,16 @@
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.mcp.tool_metadata import ToolArgumentPreviewKind
 from setta.types.chat import (
+    AssistantChatMessage,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
+    MessageTextContent,
     MessageTextDelta,
+    ToolChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
-)
-from setta.types.chat_messages import (
-    AssistantChatMessage,
-    MessageTextContent,
-    ToolChatMessage,
 )
 
 

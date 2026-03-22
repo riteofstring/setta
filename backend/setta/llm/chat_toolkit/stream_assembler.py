@@ -1,4 +1,4 @@
-from setta.types.chat_messages import (
+from setta.types.chat import (
     AssistantChatMessage,
     MessageTextContent,
     MessageThinkingContent,
