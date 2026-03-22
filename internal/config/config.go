@@ -296,17 +296,17 @@ func Load(opts LoadOptions) (Config, error) {
 
 func EnsureUserConfigExists(settaHome string) error {
 	configPath := filepath.Join(settaHome, "config.json")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		return fmt.Errorf("Failed to create Setta home directory: %s (%w)", settaHome, err)
+	}
+
 	if info, err := os.Stat(configPath); err == nil {
 		if info.IsDir() {
-			return fmt.Errorf("setta config path exists but is a directory: %s", configPath)
+			return fmt.Errorf("Setta config path exists but is not a file: %s", configPath)
 		}
 		return nil
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("stat setta config: %w", err)
-	}
-
-	if err := os.MkdirAll(settaHome, 0o755); err != nil {
-		return fmt.Errorf("create setta home: %w", err)
+		return fmt.Errorf("Failed to inspect Setta config path: %s (%w)", configPath, err)
 	}
 
 	payload, err := json.MarshalIndent(struct {
@@ -326,12 +326,12 @@ func EnsureUserConfigExists(settaHome string) error {
 		if os.IsExist(err) {
 			return nil
 		}
-		return fmt.Errorf("create setta config: %w", err)
+		return fmt.Errorf("Failed to write Setta config: %s (%w)", configPath, err)
 	}
 	defer file.Close()
 
 	if _, err := file.Write(payload); err != nil {
-		return fmt.Errorf("write setta config: %w", err)
+		return fmt.Errorf("Failed to write Setta config: %s (%w)", configPath, err)
 	}
 	return nil
 }

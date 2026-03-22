@@ -12,6 +12,7 @@ func TestDeriveNameMatchesSettaWorktreeConvention(t *testing.T) {
 		expected string
 	}{
 		{name: "main worktree", repoRoot: "/tmp/setta", expected: "main"},
+		{name: "feature worktree", repoRoot: "/tmp/setta.feature-x", expected: "feature-x"},
 		{name: "named worktree", repoRoot: "/tmp/setta.go-rewrite", expected: "go-rewrite"},
 		{name: "other repo name", repoRoot: "/tmp/custom-app", expected: "custom-app"},
 		{name: "empty path", repoRoot: "   ", expected: ""},
@@ -26,6 +27,17 @@ func TestDeriveNameMatchesSettaWorktreeConvention(t *testing.T) {
 				t.Fatalf("expected derived worktree name %q, got %q", testCase.expected, got)
 			}
 		})
+	}
+}
+
+func TestResolveActiveNameReturnsEmptyWhenNoCandidateResolves(t *testing.T) {
+	t.Parallel()
+
+	got := resolveActiveName([]string{"/missing", "   ", "/later"}, func(string) (string, bool) {
+		return "", false
+	})
+	if got != "" {
+		t.Fatalf("expected empty active worktree name, got %q", got)
 	}
 }
 

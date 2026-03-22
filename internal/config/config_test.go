@@ -31,6 +31,86 @@ func TestEnsureUserConfigExistsWritesConfigJSONUnderSettaHome(t *testing.T) {
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatalf("stat config path %q: %v", configPath, err)
 	}
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config path %q: %v", configPath, err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("unmarshal config payload: %v", err)
+	}
+
+	if got := payload["autoMode"]; got != string(AutoModeCreateLocal) {
+		t.Fatalf("expected autoMode %q, got %#v", AutoModeCreateLocal, got)
+	}
+	expectedBase := filepath.Join(settaHome, "setta_files")
+	if got := payload["globalSettaFilesBase"]; got != expectedBase {
+		t.Fatalf("expected globalSettaFilesBase %q, got %#v", expectedBase, got)
+	}
+}
+
+func TestEnsureUserConfigExistsPreservesExistingConfigFile(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	configPath := filepath.Join(settaHome, "config.json")
+	expected := "{\"ok\":true}\n"
+	if err := os.WriteFile(configPath, []byte(expected), 0o644); err != nil {
+		t.Fatalf("write config path %q: %v", configPath, err)
+	}
+
+	if err := EnsureUserConfigExists(settaHome); err != nil {
+		t.Fatalf("ensure user config exists: %v", err)
+	}
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config path %q: %v", configPath, err)
+	}
+	if string(content) != expected {
+		t.Fatalf("expected existing config file to stay unchanged, got %q", string(content))
+	}
+}
+
+func TestEnsureUserConfigExistsRejectsDirectoryBackedConfigPath(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	configPath := filepath.Join(settaHome, "config.json")
+	if err := os.MkdirAll(configPath, 0o755); err != nil {
+		t.Fatalf("mkdir config path %q: %v", configPath, err)
+	}
+
+	err := EnsureUserConfigExists(settaHome)
+	if err == nil {
+		t.Fatal("expected directory-backed config path error")
+	}
+	if got := err.Error(); !strings.Contains(got, "Setta config path exists but is not a file") {
+		t.Fatalf("expected non-file config path error, got %q", got)
+	}
+}
+
+func TestEnsureUserConfigExistsReportsSettaHomeCreationFailure(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), "not_a_dir")
+	if err := os.WriteFile(settaHome, []byte("nope\n"), 0o644); err != nil {
+		t.Fatalf("write file-backed setta home %q: %v", settaHome, err)
+	}
+
+	err := EnsureUserConfigExists(settaHome)
+	if err == nil {
+		t.Fatal("expected setta home creation failure")
+	}
+	if got := err.Error(); !strings.Contains(got, "Failed to create Setta home directory") {
+		t.Fatalf("expected setta home creation failure, got %q", got)
+	}
 }
 
 func TestLoadUserConfigUsesDefaultsWithoutCreatingFile(t *testing.T) {
