@@ -25,8 +25,7 @@ from setta.utils.timestamps import get_now_timestamp
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 
-class ChatFileAttachment(GoChatFileAttachment):
-    pass
+ChatFileAttachment = GoChatFileAttachment
 
 
 class MessageTextContent(GoMessageTextContent):
