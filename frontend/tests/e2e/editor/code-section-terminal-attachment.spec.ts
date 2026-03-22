@@ -1756,6 +1756,20 @@ test("detached terminal text reflows when width increases", async ({
       );
     }
 
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `DETACHED_REFLOW_READY_${Date.now()}`,
+      {
+        timeoutMs: process.env.CI ? 60000 : 30000,
+      },
+    );
+    await focusTerminalAndType(page, terminalId, "clear");
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
     const marker = `DETACHED_REFLOW_${Date.now()}`;
     const xCount = Math.max(120, 3 * narrowCols);
     await focusTerminalAndType(
