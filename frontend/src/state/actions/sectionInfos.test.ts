@@ -35,6 +35,7 @@ import {
   createListRootSectionImpl,
   createMessageTextContent,
   createProjectConfig,
+  createProjectStateSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
   createUserDefaultDictSectionImpl,
@@ -1293,7 +1294,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig,
         sections: { [sectionId]: sectionCore },
         sectionImpls: { [implId]: incomingImpl },
@@ -1307,7 +1308,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1376,7 +1377,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: nextConfig,
         sections: {},
         sectionImpls: {},
@@ -1390,7 +1391,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1462,7 +1463,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: {
           ...projectConfig,
           viewport: null,
@@ -1480,7 +1481,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1574,7 +1575,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: {
           ...projectConfig,
           activeViewModeId: viewModeBId,
@@ -1593,7 +1594,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1692,7 +1693,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: {
           ...projectConfig,
           activeViewModeId: viewModeBId,
@@ -1711,7 +1712,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1761,7 +1762,7 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     // Only artifactGroups changes here; the backend update must still publish.
     processProjectStateUpdateFromBackend({
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig,
         sections: {},
         sectionImpls: {},
@@ -1775,7 +1776,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     });
@@ -1838,7 +1839,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       // This guards the optimized branch after widening the comparator to the
       // full backend-owned project-state shape.
       processProjectStateUpdateFromBackend({
-        projectState: {
+        projectState: createProjectStateSingleConfig({
           projectConfig,
           sections: {},
           sectionImpls: {},
@@ -1852,7 +1853,7 @@ describe("processProjectStateUpdateFromBackend", () => {
           shownParamIds: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-        },
+        }),
         completedOpIds: [],
         pendingOpIds: [],
       });
