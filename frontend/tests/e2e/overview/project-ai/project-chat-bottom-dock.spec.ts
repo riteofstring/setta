@@ -544,13 +544,15 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
     const minimizedPillBounds = await minimizedPill.boundingBox();
     const createButtonBoundsAfterMinimize = await createButton.boundingBox();
     const remainingDockPanelBounds = await dockPanels.first().boundingBox();
+    const stripBoundsAfterMinimize = await strip.boundingBox();
     if (
       !minimizedPillBounds ||
       !createButtonBoundsAfterMinimize ||
-      !remainingDockPanelBounds
+      !remainingDockPanelBounds ||
+      !stripBoundsAfterMinimize
     ) {
       throw new Error(
-        "Expected minimized pill, create button, and dock panel bounds.",
+        "Expected minimized pill, create button, strip, and dock panel bounds.",
       );
     }
     expect(
@@ -577,7 +579,7 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
       Math.abs(
         createButtonBoundsAfterMinimize.y +
           createButtonBoundsAfterMinimize.height -
-          (stripBounds.y + stripBounds.height),
+          (stripBoundsAfterMinimize.y + stripBoundsAfterMinimize.height),
       ),
     ).toBeLessThanOrEqual(3);
     expect(
