@@ -144,6 +144,128 @@ func TestManagementServiceRemoveRejectsMissingOwnershipMarkersForManagedArtifact
 	}
 }
 
+func TestSharedManagedArtifactRemovalDropsOwnedDesktopShortcutsFromMetadataAndDisk(t *testing.T) {
+	// The source Python test monkeypatches platform-specific artifact planning.
+	// Go keeps the drop-and-remove logic shared, so this test proves the same
+	// contract directly for both desktop shortcut artifact keys.
+	for _, tc := range []struct {
+		name        string
+		artifactKey string
+		fileName    string
+	}{
+		{
+			name:        "linux",
+			artifactKey: "linuxDesktopShortcut",
+			fileName:    "setta.desktop",
+		},
+		{
+			name:        "windows",
+			artifactKey: "windowsDesktopShortcut",
+			fileName:    "Setta Test.lnk",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			homeDir := prepareLauncherArtifactTestHome(t)
+			settaHome := filepath.Join(homeDir, ".setta")
+			artifactPath := filepath.Join(homeDir, "Desktop", tc.fileName)
+			if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
+				t.Fatalf("mkdir desktop shortcut dir: %v", err)
+			}
+			if err := os.WriteFile(artifactPath, []byte("shortcut"), 0o644); err != nil {
+				t.Fatalf("write desktop shortcut: %v", err)
+			}
+
+			ownershipToken := "owned-shortcut-token"
+			if err := writeArtifactOwnershipMarkers(map[string]string{tc.artifactKey: artifactPath}, ownershipToken); err != nil {
+				t.Fatalf("write ownership marker: %v", err)
+			}
+
+			executable := writeTestExecutable(t, t.TempDir(), "setta")
+			existingMetadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+				TargetCommand:          []string{executable},
+				Channel:                "manual",
+				InstallSource:          LauncherInstallSourceUnsupported,
+				ArtifactOwnershipToken: ownershipToken,
+				SettaVersion:           "1.2.3",
+				SettaHome:              settaHome,
+				OpenMode:               LauncherOpenModeBrowser,
+				WorkspaceBehavior:      LauncherWorkspaceBehaviorDefault,
+				ArtifactOptions:        map[string]string{},
+				ManagedArtifacts:       map[string]string{tc.artifactKey: artifactPath},
+			})
+			if err != nil {
+				t.Fatalf("build existing metadata: %v", err)
+			}
+			if _, err := WriteLauncherInstallMetadata(settaHome, existingMetadata); err != nil {
+				t.Fatalf("write existing metadata: %v", err)
+			}
+
+			removalCandidates := computeReplacedOrRemovedArtifacts(existingMetadata.ManagedArtifacts, map[string]string{})
+			resolvedArtifactPath, err := resolvePathLoose(artifactPath)
+			if err != nil {
+				t.Fatalf("resolve shortcut path: %v", err)
+			}
+			if !reflect.DeepEqual(removalCandidates, map[string]string{tc.artifactKey: resolvedArtifactPath}) {
+				t.Fatalf("expected removal candidate for dropped shortcut, got %#v", removalCandidates)
+			}
+			if markerErrors := validateOwnedArtifactsBeforeRemoval(removalCandidates, ownershipToken); len(markerErrors) > 0 {
+				t.Fatalf("expected owned shortcut to validate for removal, got %#v", markerErrors)
+			}
+
+			clearedMetadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+				TargetCommand:          []string{executable},
+				Channel:                "manual",
+				InstallSource:          LauncherInstallSourceUnsupported,
+				ArtifactOwnershipToken: ownershipToken,
+				SettaVersion:           "1.2.3",
+				SettaHome:              settaHome,
+				OpenMode:               LauncherOpenModeBrowser,
+				WorkspaceBehavior:      LauncherWorkspaceBehaviorDefault,
+				ArtifactOptions:        map[string]string{},
+				ManagedArtifacts:       map[string]string{},
+			})
+			if err != nil {
+				t.Fatalf("build cleared metadata: %v", err)
+			}
+			if _, err := WriteLauncherInstallMetadata(settaHome, clearedMetadata); err != nil {
+				t.Fatalf("write cleared metadata: %v", err)
+			}
+
+			removalResult := removeOwnedArtifacts(removalCandidates, ownershipToken)
+			if len(removalResult.Errors) > 0 {
+				t.Fatalf("remove owned shortcut: %#v", removalResult.Errors)
+			}
+			if !reflect.DeepEqual(removalResult.RemovedPaths, []string{resolvedArtifactPath}) {
+				t.Fatalf("expected removed shortcut path %#v, got %#v", []string{resolvedArtifactPath}, removalResult.RemovedPaths)
+			}
+			if len(removalResult.MissingPaths) != 0 {
+				t.Fatalf("expected no missing paths, got %#v", removalResult.MissingPaths)
+			}
+			if _, err := os.Lstat(resolvedArtifactPath); !os.IsNotExist(err) {
+				t.Fatalf("expected shortcut %q to be removed, stat err=%v", resolvedArtifactPath, err)
+			}
+			markerPath, err := artifactOwnershipMarkerPath(resolvedArtifactPath)
+			if err != nil {
+				t.Fatalf("resolve ownership marker path: %v", err)
+			}
+			if _, err := os.Lstat(markerPath); !os.IsNotExist(err) {
+				t.Fatalf("expected ownership marker %q to be removed, stat err=%v", markerPath, err)
+			}
+
+			loadedMetadata, err := LoadLauncherInstallMetadata(settaHome)
+			if err != nil {
+				t.Fatalf("load cleared metadata: %v", err)
+			}
+			if loadedMetadata == nil {
+				t.Fatal("expected launcher metadata to remain after shortcut cleanup")
+			}
+			if len(loadedMetadata.ManagedArtifacts) != 0 {
+				t.Fatalf("expected cleared managed artifacts after shortcut cleanup, got %#v", loadedMetadata.ManagedArtifacts)
+			}
+		})
+	}
+}
+
 func TestManagementServiceRepairPreservesPreferencesAndRewritesManagedArtifacts(t *testing.T) {
 	homeDir := prepareLauncherArtifactTestHome(t)
 	previousExecutable := writeTestExecutable(t, t.TempDir(), "previous-setta")
