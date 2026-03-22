@@ -8,9 +8,6 @@ import {
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
-  setCallableFromFrontend,
-  setSectionEdgeInputsFromFrontend,
-  setSectionPinnedParamsFromFrontend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -111,6 +108,28 @@ test.describe.serial("section style colors", () => {
 
       const colorInput = styleBlock.locator('input[type="color"]').first();
       await expect(colorInput).toBeVisible();
+
+      const colorClassRead = await styleBlock.evaluate((block) => {
+        const input = block.querySelector('input[type="color"]');
+        const wrapper =
+          input instanceof HTMLElement
+            ? input.parentElement?.parentElement
+            : null;
+        return {
+          wrapperClassName:
+            wrapper instanceof HTMLElement ? wrapper.className : null,
+          inputClassName: input instanceof HTMLElement ? input.className : null,
+          blockMarkup: block.innerHTML,
+        };
+      });
+
+      expect(colorClassRead.blockMarkup).not.toContain("single-cell-container");
+      expect(colorClassRead.blockMarkup).not.toContain("single-cell-child");
+      expect(colorClassRead.wrapperClassName).not.toContain(
+        "single-cell-container",
+      );
+      expect(colorClassRead.inputClassName).not.toContain("single-cell-child");
+
       await colorInput.evaluate((el: HTMLInputElement, value: string) => {
         // React tracks input values using the native setter; use it so onChange fires reliably.
         const proto = window.HTMLInputElement.prototype;
@@ -320,7 +339,7 @@ test.describe.serial("section style colors", () => {
         page,
         projectContext.projectConfigId,
       );
-      await setCallableFromFrontend(page, {
+      await postBackend(page, "/setCallable", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         callableName: "sorted",
@@ -510,7 +529,7 @@ test.describe.serial("section style colors", () => {
         throw new Error("Unable to parse first selected param id.");
       }
 
-      await setSectionPinnedParamsFromFrontend(page, {
+      await postBackend(page, "/setSectionPinnedParams", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         pinnedParams: [pinnedParamId],
@@ -537,7 +556,7 @@ test.describe.serial("section style colors", () => {
         );
       }
 
-      await setSectionEdgeInputsFromFrontend(page, {
+      await postBackend(page, "/setSectionEdgeInputs", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         edgeInputParams: [edgeParamId],
