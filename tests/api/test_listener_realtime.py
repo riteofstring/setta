@@ -62,11 +62,13 @@ from setta.types.websocket import (
 from tests.helpers.binary_frames import encode_binary_frame
 from tests.helpers.listener_runtime_state import (
     ListenerTestRuntimeState,
+    build_listener_runtime_state_from_catalog,
+)
+from tests.helpers.listener_runtime_state_graph import (
     build_listener_dependency_cache,
     build_listener_dependency_catalog_from_graph,
     build_listener_dependency_metadata_from_graph,
     build_listener_runtime_state,
-    build_listener_runtime_state_from_catalog,
 )
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
@@ -120,13 +122,13 @@ class _TextListenerFixture:
             text=text,
         )
 
-    def model_copy(self, *, _deep: bool = False) -> "_TextListenerFixture":
+    def model_copy(self, *, deep: bool = False) -> "_TextListenerFixture":
         return _TextListenerFixture(
             projectConfig=SimpleNamespace(
                 id=self.projectConfig.id,
                 name=self.projectConfig.name,
             ),
-            sections=dict(self.sections),
+            sections=dict(self.sections) if deep else self.sections.copy(),
             text=self.text,
         )
 
