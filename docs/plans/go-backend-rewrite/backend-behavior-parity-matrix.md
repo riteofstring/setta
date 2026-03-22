@@ -601,6 +601,27 @@ Last audited: `2026-03-23`
   `TestServiceInitTemplateGeneratesContentOnlyScaffold`,
   `TestRunPluginsInitSupportsBackendTemplate`, and
   `TestServiceDispatchRegisteredBackendRoutePreservesRepeatedQueryParamsInRawQuery`.
+- Follow-up in this pass on `d268d52ac`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/routers/test_launch_routes.py::{test_launch_returns_structured_error_for_value_error,test_launch_returns_structured_error_for_invalid_runtime_root,test_launch_returns_structured_error_for_invalid_setta_home,test_launch_returns_structured_error_for_runtime_root_matching_workspace,test_launch_local_does_not_inherit_server_files_location_env,test_launch_profile_does_not_inherit_server_files_root_env,test_launch_profile_uses_profile_setta_home_for_runtime_roots,test_launch_does_not_inherit_server_runtime_root_env,test_launch_does_not_inherit_server_profile_env,test_launch_local_always_wins_even_when_global_requested,test_launch_local_with_explicit_setta_files_root}`
+  and `tests/routers/test_launch_share_mode_block.py::test_launch_route_blocked_in_share_mode`,
+  confirming those clues were already terminal explicit `Proved` /
+  `Intentional divergence` rows backed directly by
+  `TestRunLaunchEmitsTypedJSONConfigErrors`,
+  `TestLoadIDELaunchConfigUsesProfileRuntimeSettaHomeWhenLookupHomeProvided`,
+  `TestLoadIDELaunchConfigIgnoresAmbientSettaEnvOverrides`,
+  `TestNormalizeSettaFilesLocationForLaunchMatchesSharedLaunchCases`,
+  `TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches`,
+  `TestLocalLaunchServiceNonProfileLaunchIgnoresAmbientProfileEnv`,
+  `TestLocalLaunchServiceWhitespaceProfileIsTreatedAsOmitted`,
+  `TestLocalLaunchServiceTrimsWhitespaceOptionalPathInputs`,
+  `TestLocalLaunchServiceKeepsExplicitGlobalSettaFilesLocation`,
+  `TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation`,
+  `TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRoot`,
+  and `TestRegisterWorkspaceLaunchRoutesSkipsDeploymentModes`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
