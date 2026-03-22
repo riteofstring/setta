@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"context"
+	"sort"
 	"strings"
 )
 
@@ -79,7 +80,10 @@ func (d *Document) CloneProject(projectID string, newName string) (string, strin
 		return "", "", err
 	}
 
-	cloned := project.Clone()
+	cloned, err := cloneProjectWithFreshPasswordImplIDs(project)
+	if err != nil {
+		return "", "", err
+	}
 	cloned.ID = clonedProjectID
 	cloned.Name = normalizedName
 
@@ -114,7 +118,10 @@ func (d *Document) SaveAsNewProjectConfig(
 		return "", "", err
 	}
 
-	cloned := cloneProjectForSaveAs(project, withRefs)
+	cloned, err := cloneProjectForSaveAs(project, withRefs)
+	if err != nil {
+		return "", "", err
+	}
 	cloned.ID = clonedProjectID
 	cloned.Name = normalizedName
 
@@ -126,17 +133,150 @@ func (d *Document) SaveAsNewProjectConfig(
 	return clonedProjectID, normalizedName, nil
 }
 
-func cloneProjectForSaveAs(project Project, withRefs bool) Project {
-	cloned := project.Clone()
+func cloneProjectForSaveAs(project Project, withRefs bool) (Project, error) {
+	cloned, err := cloneProjectWithFreshPasswordImplIDs(project)
+	if err != nil {
+		return Project{}, err
+	}
 	cloned.WindowSpaces = clearWindowSpaceChatIDs(cloned.WindowSpaces)
 	if withRefs {
 		emptyWindowing := DefaultProjectChatWindowingState()
 		cloned.ProjectChatWindowing = &emptyWindowing
-		return cloned
+		return cloned, nil
 	}
 	clearedWindowing := clearProjectChatWindowingChatIDs(cloned.ProjectChatWindowing)
 	cloned.ProjectChatWindowing = &clearedWindowing
-	return cloned
+	return cloned, nil
+}
+
+func cloneProjectWithFreshPasswordImplIDs(project Project) (Project, error) {
+	cloned := project.Clone()
+	if err := rewriteCopiedPasswordImpls(&cloned); err != nil {
+		return Project{}, err
+	}
+	return cloned, nil
+}
+
+func rewriteCopiedPasswordImpls(project *Project) error {
+	if project == nil || len(project.CodeObjImpls) == 0 {
+		return nil
+	}
+
+	passwordImplIDs := make([]string, 0, len(project.CodeObjImpls))
+	for implID, impl := range project.CodeObjImpls {
+		if strings.TrimSpace(impl.Type) != "PasswordParam" {
+			continue
+		}
+		passwordImplIDs = append(passwordImplIDs, implID)
+	}
+	sort.Strings(passwordImplIDs)
+	if len(passwordImplIDs) == 0 {
+		return nil
+	}
+
+	remappedImplIDs := make(map[string]string, len(passwordImplIDs))
+	for _, oldImplID := range passwordImplIDs {
+		impl := project.CodeObjImpls[oldImplID]
+		newImplID, err := newProjectStateID()
+		if err != nil {
+			return err
+		}
+
+		payload, err := rawObjectFromProjectPayload(impl.Payload)
+		if err != nil {
+			return err
+		}
+		payload["id"] = newImplID
+		payload["value"] = ""
+		payload["defaultVal"] = ""
+		payload["hasSecret"] = false
+
+		rawPayload, err := marshalProjectObject(payload)
+		if err != nil {
+			return err
+		}
+		impl.ID = newImplID
+		impl.Payload = rawPayload
+		delete(project.CodeObjImpls, oldImplID)
+		project.CodeObjImpls[newImplID] = impl
+		remappedImplIDs[oldImplID] = newImplID
+	}
+
+	for variantID, variant := range project.CodeObjVariants {
+		if newImplID, ok := remappedImplIDs[strings.TrimSpace(variant.ImplID)]; ok {
+			variant.ImplID = newImplID
+		}
+		for index, implID := range variant.NonPresetImplIDs {
+			if newImplID, ok := remappedImplIDs[strings.TrimSpace(implID)]; ok {
+				variant.NonPresetImplIDs[index] = newImplID
+			}
+		}
+		project.CodeObjVariants[variantID] = variant
+	}
+
+	return clearCopiedPasswordSecretMetadata(project)
+}
+
+func clearCopiedPasswordSecretMetadata(project *Project) error {
+	if project == nil || len(project.CodeObjs) == 0 {
+		return nil
+	}
+
+	passwordVariantIDs := make(map[string]struct{})
+	for variantID, variant := range project.CodeObjVariants {
+		impl, ok := project.CodeObjImpls[strings.TrimSpace(variant.ImplID)]
+		if !ok || strings.TrimSpace(impl.Type) != "PasswordParam" {
+			continue
+		}
+		passwordVariantIDs[variantID] = struct{}{}
+	}
+	if len(passwordVariantIDs) == 0 {
+		return nil
+	}
+
+	for codeObjID, codeObj := range project.CodeObjs {
+		hasPasswordVariant := false
+		for _, variantID := range codeObj.VariantIDs {
+			if _, ok := passwordVariantIDs[strings.TrimSpace(variantID)]; ok {
+				hasPasswordVariant = true
+				break
+			}
+		}
+		if !hasPasswordVariant {
+			continue
+		}
+
+		modifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
+		if err != nil {
+			return err
+		}
+		if _, ok := modifier["hasSecret"]; ok {
+			modifier["hasSecret"] = false
+			codeObj.SharedModifier, err = marshalOptionalProjectObject(modifier)
+			if err != nil {
+				return err
+			}
+			project.CodeObjs[codeObjID] = codeObj
+		}
+	}
+
+	for variantID := range passwordVariantIDs {
+		variant := project.CodeObjVariants[variantID]
+		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+		if err != nil {
+			return err
+		}
+		if _, ok := modifier["hasSecret"]; ok {
+			modifier["hasSecret"] = false
+			variant.Modifier, err = marshalOptionalProjectObject(modifier)
+			if err != nil {
+				return err
+			}
+			project.CodeObjVariants[variantID] = variant
+		}
+	}
+
+	return nil
 }
 
 func (d *Document) DeleteProjects(projectIDs []string) ([]string, error) {

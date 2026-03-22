@@ -384,6 +384,74 @@ func TestDocumentCloneProjectKeepsCopiedGraphReferencesProjectScoped(t *testing.
 	}
 }
 
+// Whole-project clone should give copied password params fresh impl ids so the
+// clone cannot resolve the source project's stored secret through the shared
+// runtime secret store.
+func TestDocumentCloneProjectClearsCopiedPasswordSecrets(t *testing.T) {
+	t.Parallel()
+
+	secrets := NewMemoryPasswordSecretStore()
+	sourceProject := passwordParamNameAndValueTestProject(t)
+	sourceProject.passwordSecrets = secrets
+	if err := sourceProject.SetSectionCodeObjectValue("dict-a", "shared-secret", "hunter2"); err != nil {
+		t.Fatalf("seed source password secret: %v", err)
+	}
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = sourceProject
+
+	clonedProjectID, _, err := document.CloneProject("project-alpha", "Cloned Alpha")
+	if err != nil {
+		t.Fatalf("CloneProject returned error: %v", err)
+	}
+
+	sourceProject, err = document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("ProjectByID source returned error: %v", err)
+	}
+	_, _, _, sourceImpl, err := sourceProject.ResolveSectionCodeObject("dict-a", "shared-secret")
+	if err != nil {
+		t.Fatalf("resolve source password param: %v", err)
+	}
+
+	clonedProject, err := document.ProjectByID(clonedProjectID)
+	if err != nil {
+		t.Fatalf("ProjectByID clone returned error: %v", err)
+	}
+	clonedPayload, _, _, clonedImpl, err := clonedProject.ResolveSectionCodeObject("dict-a", "shared-secret")
+	if err != nil {
+		t.Fatalf("resolve cloned password param: %v", err)
+	}
+	if clonedImpl.ID == sourceImpl.ID {
+		t.Fatalf("expected cloned password impl id to differ from source, got %q", clonedImpl.ID)
+	}
+	if got, ok := clonedPayload["hasSecret"].(bool); !ok || got {
+		t.Fatalf("expected cloned password hasSecret false, got %#v", clonedPayload["hasSecret"])
+	}
+	if got := payloadRawStringField(clonedPayload, "value"); got != "" {
+		t.Fatalf("expected cloned password value blank, got %q", got)
+	}
+	assertCodeObjectSharedHasSecret(t, sourceProject, "shared-secret", true)
+	assertCodeObjectSharedHasSecret(t, clonedProject, "shared-secret", false)
+
+	secret, err := secrets.Get(clonedImpl.ID)
+	if err != nil {
+		t.Fatalf("read cloned password secret: %v", err)
+	}
+	if secret != "" {
+		t.Fatalf("expected cloned password secret cleared, got %q", secret)
+	}
+
+	secret, err = secrets.Get(sourceImpl.ID)
+	if err != nil {
+		t.Fatalf("read source password secret: %v", err)
+	}
+	if secret != "hunter2" {
+		t.Fatalf("expected source password secret hunter2, got %q", secret)
+	}
+}
+
 func TestDocumentSaveAsNewProjectConfigWithRefsClearsSavedChatIDsAndResetsLiveWindowing(t *testing.T) {
 	t.Parallel()
 
@@ -496,6 +564,73 @@ func TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsCh
 	}
 }
 
+// Save As should clear copied password secret state even though the cloned
+// project intentionally keeps project-scoped section and window ids stable.
+func TestDocumentSaveAsNewProjectConfigClearsCopiedPasswordSecrets(t *testing.T) {
+	t.Parallel()
+
+	secrets := NewMemoryPasswordSecretStore()
+	sourceProject := passwordParamNameAndValueTestProject(t)
+	sourceProject.passwordSecrets = secrets
+	if err := sourceProject.SetSectionCodeObjectValue("dict-a", "shared-secret", "hunter2"); err != nil {
+		t.Fatalf("seed source password secret: %v", err)
+	}
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = sourceProject
+
+	clonedProjectID, _, err := document.SaveAsNewProjectConfig("project-alpha", "Copied Alpha", false)
+	if err != nil {
+		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
+	}
+
+	sourceProject, err = document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("ProjectByID source returned error: %v", err)
+	}
+	_, _, _, sourceImpl, err := sourceProject.ResolveSectionCodeObject("dict-a", "shared-secret")
+	if err != nil {
+		t.Fatalf("resolve source password param: %v", err)
+	}
+
+	clonedProject, err := document.ProjectByID(clonedProjectID)
+	if err != nil {
+		t.Fatalf("ProjectByID clone returned error: %v", err)
+	}
+	clonedPayload, _, _, clonedImpl, err := clonedProject.ResolveSectionCodeObject("dict-a", "shared-secret")
+	if err != nil {
+		t.Fatalf("resolve cloned password param: %v", err)
+	}
+	if clonedImpl.ID == sourceImpl.ID {
+		t.Fatalf("expected copied password impl id to differ from source, got %q", clonedImpl.ID)
+	}
+	if got, ok := clonedPayload["hasSecret"].(bool); !ok || got {
+		t.Fatalf("expected copied password hasSecret false, got %#v", clonedPayload["hasSecret"])
+	}
+	if got := payloadRawStringField(clonedPayload, "value"); got != "" {
+		t.Fatalf("expected copied password value blank, got %q", got)
+	}
+	assertCodeObjectSharedHasSecret(t, sourceProject, "shared-secret", true)
+	assertCodeObjectSharedHasSecret(t, clonedProject, "shared-secret", false)
+
+	secret, err := secrets.Get(clonedImpl.ID)
+	if err != nil {
+		t.Fatalf("read copied password secret: %v", err)
+	}
+	if secret != "" {
+		t.Fatalf("expected copied password secret cleared, got %q", secret)
+	}
+
+	secret, err = secrets.Get(sourceImpl.ID)
+	if err != nil {
+		t.Fatalf("read source password secret: %v", err)
+	}
+	if secret != "hunter2" {
+		t.Fatalf("expected source password secret hunter2, got %q", secret)
+	}
+}
+
 func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
 	t.Parallel()
 
@@ -527,6 +662,23 @@ func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
 	}
 	if document.DefaultProjectID != "" {
 		t.Fatalf("expected default project id to clear, got %q", document.DefaultProjectID)
+	}
+}
+
+func assertCodeObjectSharedHasSecret(t *testing.T, project Project, codeObjID string, expected bool) {
+	t.Helper()
+
+	codeObj, ok := project.CodeObjs[codeObjID]
+	if !ok {
+		t.Fatalf("expected code object %q, got %#v", codeObjID, project.CodeObjs)
+	}
+	modifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
+	if err != nil {
+		t.Fatalf("decode shared modifier for %q: %v", codeObjID, err)
+	}
+	got, ok := modifier["hasSecret"].(bool)
+	if !ok || got != expected {
+		t.Fatalf("expected shared modifier hasSecret %t for %q, got %#v", expected, codeObjID, modifier["hasSecret"])
 	}
 }
 
