@@ -89,6 +89,14 @@ async function maximizeProjectChatWindow(page: Page): Promise<void> {
   await expect(maximizedWindow).toBeVisible();
 }
 
+async function getOverviewProjectChatSurface(page: Page): Promise<Locator> {
+  const overviewSurface = page.locator("#OverviewPane");
+  await expect(
+    overviewSurface.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+  return overviewSurface;
+}
+
 async function clickDom(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
   await locator.evaluate((element: HTMLElement) => {
@@ -764,15 +772,15 @@ test("project ai threads remember explicit large-width close after narrow resize
 
   await ensureAppReady(page);
 
-  let overviewPane = await getVisibleProjectChatSurface(page);
+  let overviewPane = await getOverviewProjectChatSurface(page);
   await expect(overviewPane.getByTestId("chat-input-textarea")).toBeVisible();
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
 
   const fullscreenButton = page.getByTestId("overview-pane-fullscreen-button");
   await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
+  overviewPane = await getOverviewProjectChatSurface(page);
   const inlineThreadsPanel = overviewPane.getByTestId(
     "project-chat-threads-panel",
   );
@@ -795,12 +803,12 @@ test("project ai threads remember explicit large-width close after narrow resize
   expect(explicitClosePersisted).toBe(true);
 
   await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
+  overviewPane = await getOverviewProjectChatSurface(page);
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
   await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
+  overviewPane = await getOverviewProjectChatSurface(page);
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
@@ -822,23 +830,28 @@ test("project ai preserves draft text when resize reveals inline threads", async
   });
 
   await ensureAppReady(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
-  let overviewPane = await getVisibleProjectChatSurface(page);
-  let composerInput = overviewPane.getByTestId("chat-input-textarea");
-  await expect(composerInput).toBeVisible();
-  const draftText = "keep this draft while resizing";
-  await composerInput.fill(draftText);
-  await expect(composerInput).toHaveValue(draftText);
+  try {
+    let overviewPane = await getOverviewProjectChatSurface(page);
+    let composerInput = overviewPane.getByTestId("chat-input-textarea");
+    await expect(composerInput).toBeVisible();
+    const draftText = "keep this draft while resizing";
+    await composerInput.fill(draftText);
+    await expect(composerInput).toHaveValue(draftText);
 
-  await page.getByTestId("overview-pane-fullscreen-button").click();
-  overviewPane = await getVisibleProjectChatSurface(page);
-  const inlineThreadsPanel = overviewPane.getByTestId(
-    "project-chat-threads-panel",
-  );
-  await expect(inlineThreadsPanel).toBeVisible();
-  await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-  composerInput = overviewPane.getByTestId("chat-input-textarea");
-  await expect(composerInput).toHaveValue(draftText);
+    await page.getByTestId("overview-pane-fullscreen-button").click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    const inlineThreadsPanel = overviewPane.getByTestId(
+      "project-chat-threads-panel",
+    );
+    await expect(inlineThreadsPanel).toBeVisible();
+    await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
+    composerInput = overviewPane.getByTestId("chat-input-textarea");
+    await expect(composerInput).toHaveValue(draftText);
+  } finally {
+    await engineCleanup();
+  }
 });
 
 test("project ai preserves unsent draft text across reloads", async ({
@@ -850,22 +863,27 @@ test("project ai preserves unsent draft text across reloads", async ({
   });
 
   await ensureAppReady(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
-  const composerInput = overviewPane.getByTestId("chat-input-textarea");
-  const draftText = "  keep this unsent draft after reload  \n";
-  await composerInput.fill(draftText);
-  await expect(composerInput).toHaveValue(draftText);
+  try {
+    const overviewPane = await getOverviewProjectChatSurface(page);
+    const composerInput = overviewPane.getByTestId("chat-input-textarea");
+    const draftText = "  keep this unsent draft after reload  \n";
+    await composerInput.fill(draftText);
+    await expect(composerInput).toHaveValue(draftText);
 
-  // Reload should keep the in-progress composer text instead of resetting the
-  // controlled input back to an empty project chat draft.
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+    // Reload should keep the in-progress composer text instead of resetting the
+    // controlled input back to an empty project chat draft.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
-  const reloadedOverviewPane = await getVisibleProjectChatSurface(page);
-  await expect(reloadedOverviewPane.getByTestId("chat-input-textarea")).toHaveValue(
-    draftText,
-  );
+    const reloadedOverviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      reloadedOverviewPane.getByTestId("chat-input-textarea"),
+    ).toHaveValue(draftText);
+  } finally {
+    await engineCleanup();
+  }
 });
 
 test("project ai conversation search dedupes duplicate terms and ignores code-only matches", async ({
@@ -1171,7 +1189,7 @@ test("project ai ignores legacy viewHistory in persisted ai store", async ({
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = await getOverviewProjectChatSurface(page);
 
   await expect
     .poll(async () => {
@@ -1676,7 +1694,7 @@ test("project ai chat keeps conversation search on the top row at medium width",
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = await getOverviewProjectChatSurface(page);
   await expect(
     overviewPane.getByRole("button", { name: "New Chat" }),
   ).toBeVisible();
@@ -1735,7 +1753,7 @@ test("project ai chat keeps settings and conversation search visible when very n
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = await getOverviewProjectChatSurface(page);
   await expect(
     overviewPane.getByRole("button", { name: "New Chat" }),
   ).toBeVisible();
