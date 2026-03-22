@@ -666,7 +666,7 @@ func (r *Runtime) resolveSignalReportContext(
 ) (resolvedSignalReportContext, error) {
 	normalizedChildRunID := derefOptionalString(childRunID)
 	if normalizedChildRunID == "" {
-		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run")
+		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run.")
 	}
 	childRun, err := r.runs.Load(normalizedChildRunID)
 	if err != nil {
@@ -675,7 +675,7 @@ func (r *Runtime) resolveSignalReportContext(
 
 	parentRunID := runInputString(childRun, inputKeyStateMachineRunID)
 	if parentRunID == "" {
-		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run")
+		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run.")
 	}
 	if expectedParentRunID := derefOptionalString(machineRunID); expectedParentRunID != "" && expectedParentRunID != parentRunID {
 		return resolvedSignalReportContext{}, fmt.Errorf(

@@ -340,6 +340,62 @@ func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpCha
 	}
 }
 
+func TestRuntimeHandleTerminalChildRunUpdateRoutesFailedChildRunToEnd(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		failedChildToEndRuntimeTestProject(t),
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-failed-end", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	childRun, err := fixture.runs.Load("child-run-1")
+	if err != nil {
+		t.Fatalf("load initial child run: %v", err)
+	}
+	childRun.Status = agentruns.RunStatusFailed
+	if err := fixture.runs.Save(childRun); err != nil {
+		t.Fatalf("save failed child run: %v", err)
+	}
+
+	updated, err := fixture.runtime.HandleTerminalChildRunUpdate(childRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if updated == nil {
+		t.Fatal("expected updated parent run")
+	}
+	if updated.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed parent run after failed-child end route, got %#v", updated)
+	}
+	if updated.ID != parentRun.ID {
+		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	}
+	if got := outputStringList(*updated, outputKeyProcessedChildTerminalIDs); len(got) != 1 || got[0] != "child-run-1" {
+		t.Fatalf("expected processed child-run-1 tracking, got %#v", got)
+	}
+	if got := outputStringList(*updated, outputKeyReachedEndSectionIDs); len(got) != 1 || got[0] != "end-section" {
+		t.Fatalf("expected reached end tracking, got %#v", got)
+	}
+	if got := outputStringList(*updated, outputKeyActiveChildRunIDs); len(got) != 0 {
+		t.Fatalf("expected no active child runs after routing failed child to end, got %#v", got)
+	}
+	if got := eventTypes(*updated); !slices.Equal(got[len(got)-4:], []string{
+		"child_run_failed",
+		"child_run_edges_activated",
+		"end_reached",
+		"run_completed",
+	}) {
+		t.Fatalf("expected failed-child end route event tail, got %#v", got)
+	}
+}
+
 func TestRuntimeHandleTerminalChildRunUpdateFailsStalledWhenFailedChildHasNoMatchingTransition(t *testing.T) {
 	t.Parallel()
 
@@ -649,6 +705,33 @@ func TestRuntimeReportSignalActivatesMatchingSignalEdgesAndPersistsSignalState(t
 	}
 	if latest.ID != started.ID {
 		t.Fatalf("expected signal report to update parent run %q, got %q", started.ID, latest.ID)
+	}
+}
+
+func TestRuntimeReportSignalRequiresActiveChildRunEvenWhenMachineRunAndSectionProvided(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixture(t)
+
+	started, err := fixture.runtime.StartRun("project-alpha", "workflow-signal", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	_, err = fixture.runtime.ReportSignal(
+		"project-alpha",
+		nil,
+		stringPointer(started.ID),
+		stringPointer("chat-source"),
+		"merge_decision",
+		map[string]any{"decision": "retry"},
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected ReportSignal to reject missing active child run")
+	}
+	if err.Error() != "report_state_machine_signal requires an active child run." {
+		t.Fatalf("unexpected ReportSignal error: %v", err)
 	}
 }
 
@@ -1319,6 +1402,82 @@ func followUpChatRuntimeTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize follow-up workflow project: %v", err)
+	}
+	return project
+}
+
+func failedChildToEndRuntimeTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-a":        "chat-a-variant",
+			"end-section":   "end-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-a":        {ID: "chat-a", Name: "Chat A", VariantIDs: []string{"chat-a-variant"}, DefaultVariantID: "chat-a-variant"},
+			"end-section":   {ID: "end-section", Name: "Done", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
+			"chat-a-variant": {ID: "chat-a-variant", ImplID: "chat-a-impl"},
+			"end-variant":    {ID: "end-variant", ImplID: "end-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-failed-end",
+				"label":          "Kickoff",
+			})},
+			"chat-a-impl": {ID: "chat-a-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-a-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": "workflow-failed-end",
+				"label":          "Done",
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat-a",
+				MachineGroupID:  "workflow-failed-end",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-a",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review the draft."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-chat-a-end-on-failure",
+				MachineGroupID:  "workflow-failed-end",
+				SourceSectionID: "chat-a",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunFailed,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize failed-child end workflow project: %v", err)
 	}
 	return project
 }
