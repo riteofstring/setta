@@ -30,6 +30,9 @@ Use this file only as the folder map.
 
 - `setta-listener-protocol-redesign-plan.md`
   - Python listener SDK boundary and listener websocket ownership
+- `go-backed-python-sdk-plan.md`
+  - retained Python SDK architecture, local-core boundaries, and
+    Go-backed local execution plan
 - `go-frontend-binding-generation-plan.md`
   - Go-owned frontend route/type/endpoint generation
 - `go-dependency-inventory-and-rationale.md`

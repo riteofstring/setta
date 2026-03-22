@@ -81,6 +81,9 @@ plugin model, not product-level removal of backend plugin features.
      `docs/reference/dependencies/`
    - Python listener SDK or listener websocket work:
      `setta-listener-protocol-redesign-plan.md`
+   - retained Python SDK architecture, local-core boundaries, or
+     Go-backed local execution design:
+     `go-backed-python-sdk-plan.md`
    - Go-to-TypeScript frontend contract generation:
      `go-frontend-binding-generation-plan.md`
 3. Use `README.md` only as the folder map and Go toolchain quick reference.
@@ -144,6 +147,9 @@ plugin model, not product-level removal of backend plugin features.
   `docs/reference/dependencies/`
 - "How should the Python listener SDK boundary move?":
   `setta-listener-protocol-redesign-plan.md`
+- "How should the retained Python SDK stay Pythonic while canonical logic moves
+  behind Go-owned contracts or a local Go core?":
+  `go-backed-python-sdk-plan.md`
 - "How should Go own the frontend contract surface?":
   `go-frontend-binding-generation-plan.md`
 
