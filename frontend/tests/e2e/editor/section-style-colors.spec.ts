@@ -7,9 +7,10 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
   setCallableFromFrontend,
+  setSectionEdgeInputsFromFrontend,
+  setSectionPinnedParamsFromFrontend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -509,15 +510,11 @@ test.describe.serial("section style colors", () => {
         throw new Error("Unable to parse first selected param id.");
       }
 
-      await postBackend(page, "/setSectionPinnedParams", {
+      await setSectionPinnedParamsFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         pinnedParams: [pinnedParamId],
       });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
       await expect(sectionChrome.getByText("Pinned Params")).toBeVisible({
         timeout: 20000,
       });
@@ -540,15 +537,11 @@ test.describe.serial("section style colors", () => {
         );
       }
 
-      await postBackend(page, "/setSectionEdgeInputs", {
+      await setSectionEdgeInputsFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         edgeInputParams: [edgeParamId],
       });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       const pinnedHeading = sectionChrome.getByText("Pinned Params").first();
       await expect(pinnedHeading).toBeVisible();

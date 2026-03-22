@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   createTopLevelSectionFromFrontend,
   ensureAppReady,
@@ -7,8 +8,8 @@ import {
   loadProjectConfig,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
   setCallableFromFrontend,
+  setSectionSizesFromFrontend,
   type ProjectStateSingleConfigResponse,
 } from "../helpers";
 
@@ -65,11 +66,10 @@ async function setSectionSizes(
       ];
     }),
   );
-  await postBackend(page, "/setSectionSizes", {
+  await setSectionSizesFromFrontend(page, {
     projectConfigId,
     sectionSizes: normalizedSectionSizes,
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function setCallable(
@@ -92,13 +92,15 @@ async function addKwargs(
   sectionId: string,
   count: number,
 ) {
-  for (let i = 0; i < count; i += 1) {
-    await postBackend(page, "/addKwarg", {
-      projectConfigId,
-      sectionId,
-    });
-  }
-  await refreshProjectStateFromBackend(page, projectConfigId);
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId,
+    operations: Array.from({ length: count }, () => ({
+      routeName: "route_add_kwarg" as const,
+      payload: {
+        sectionId,
+      },
+    })),
+  });
 }
 
 function getSectionSizeFromState(

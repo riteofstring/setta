@@ -6,6 +6,7 @@ import {
   openIsolatedProject,
   postBackend,
   setCallableFromFrontend,
+  setSectionPinnedParamsFromFrontend,
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
@@ -101,12 +102,11 @@ test("unpinned area keeps its minimum height when pinned params are present", as
       if (unpinnedParamIds.length === 0) {
         throw new Error("Missing unpinned params to pin.");
       }
-      await postBackend(page, "/setSectionPinnedParams", {
+      await setSectionPinnedParamsFromFrontend(page, {
         projectConfigId,
         sectionId,
         pinnedParams: unpinnedParamIds,
       });
-      await refreshProjectStateFromBackend(page, projectConfigId);
       await expect(pinnedHeader).toBeVisible();
     }
 

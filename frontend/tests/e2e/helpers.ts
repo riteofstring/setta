@@ -107,6 +107,7 @@ type FrontendHydratableRouteName =
   | "route_set_section_edge_inputs"
   | "route_set_section_edge_outputs"
   | "route_set_section_pinned_params"
+  | "route_set_section_sizes"
   | "route_toggle_minimized"
   | "route_update_param_impl_config";
 type FrontendHydratableRouteOperation = {
@@ -1145,6 +1146,30 @@ export async function setSectionEdgeOutputsFromFrontend(
         payload: {
           sectionId: payload.sectionId,
           edgeOutputPorts: payload.edgeOutputPorts,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionSizesFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionSizes: Record<
+      string,
+      { height?: number | "auto"; width?: number | "auto" }
+    >;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_section_sizes",
+        payload: {
+          sectionSizes: payload.sectionSizes,
           frontendOpId: null,
         },
       },

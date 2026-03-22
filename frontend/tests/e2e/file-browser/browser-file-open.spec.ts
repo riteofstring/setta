@@ -3,12 +3,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type ProjectStateResponse = {
@@ -211,24 +211,19 @@ test("browser opens markdown and text files in text sections", async ({
       );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const markdownName = "browser_test.md";
     const textName = "browser_test.txt";
@@ -307,24 +302,19 @@ test("browser history buttons navigate folders", async ({ page }) => {
       );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const folderName = "browser_history_folder";
     const folderPath = path.join(workspaceRoot, folderName);
@@ -413,24 +403,19 @@ test("browser list view opens folders on double click", async ({ page }) => {
       );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const folderName = "browser_list_folder";
     const folderPath = path.join(workspaceRoot, folderName);
@@ -522,20 +507,15 @@ test("browser path commits latest value on blur after fast typing", async ({
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
 
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    },
-  );
+  const browserSection = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Browser",
+    viewportBounds,
+  });
   const sectionId = browserSection?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating browser section.");
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
 
   const folderName = `browser_blur_commit_${Date.now()}`;
   const folderPath = path.join(workspaceRoot, folderName);
