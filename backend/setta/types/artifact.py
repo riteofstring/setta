@@ -1,11 +1,13 @@
-from enum import Enum
-from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
 from setta.types.binary_content import BinaryContentRef
+from setta.types.generated.go_shared_types import (
+    ArtifactType,
+    ChartType,
+    DrawAreaBrushShape,
+)
+from setta.types.id import create_new_id
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -36,19 +38,6 @@ CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
 
 
-class ArtifactType(str, Enum):
-    Image = "Image"
-    BrushStroke = "BrushStroke"
-    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
-    ChartData = "ChartData"
-    File = "File"
-
-
-class ChartType(str, Enum):
-    line = "line"
-    scatter = "scatter"
-
-
 class BaseChartSettings(BaseModel):
     type: Any
 
@@ -68,12 +57,6 @@ class ScatterChartSettings(BaseChartSettings):
     categoryColumn: str | None = None
     xAxisLog: bool = False
     yAxisLog: bool = False
-
-
-class DrawAreaBrushShape(str, Enum):
-    butt = "butt"
-    round = "round"
-    square = "square"
 
 
 class BrushStroke(BaseModel):
@@ -135,12 +118,6 @@ class DrawAreaLayer(BaseModel):
     layerOpacity: float = 1
 
 
-class DrawAreaMode(str, Enum):
-    draw = "draw"
-    erase = "erase"
-    edit = "edit"
-
-
 class BaseArtifact(BaseModel):
     type: Any
     id: str = Field(default_factory=create_json_artifact_id)
@@ -177,10 +154,3 @@ class FileArtifact(BaseArtifact):
     type: Literal[ArtifactType.File] = ArtifactType.File
     id: str = Field(default_factory=create_file_artifact_id)
     value: BinaryContentRef
-
-
-ImageMapping = dict[Path, ImageArtifact]
-BrushStrokeMapping = dict[Path, BrushStrokeArtifact]
-DrawAreaLayerItemTransformMapping = dict[Path, DrawAreaLayerItemTransformArtifact]
-ChartDataMapping = dict[Path, ChartDataArtifact]
-FileMapping = dict[Path, FileArtifact]

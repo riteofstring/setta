@@ -8,11 +8,17 @@ import {
 } from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { isRunnableCodeLanguage } from "utils/codeLanguage";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_kill_subprocesses,
+  route_get_latest_project_state,
+  route_interrupt_terminal_processes,
   route_run_code,
 } from "utils/generatedEndpoints";
-import { BinaryContentRef, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  BinaryContentRef,
+  type ProjectStateSingleConfigWithCompletedOpIds,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
@@ -20,7 +26,12 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   isBaseCodeSectionType,
+  processProjectStateUpdateFromBackend,
 } from "./sectionInfos";
+
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+type RunCodeRouteResponse = ResponseDataAndStatus<null>;
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
@@ -85,8 +96,14 @@ export async function runCodeBlock(sectionId: string | null) {
     sectionId,
     projectConfig,
   });
+  const shouldRefreshProjectState =
+    terminalSectionId === null &&
+    shouldRefreshProjectStateAfterRun({
+      sectionId,
+      projectConfig,
+    });
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
-  await route_run_code({
+  const runResponse: RunCodeRouteResponse = await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
     terminalSectionId,
@@ -94,6 +111,18 @@ export async function runCodeBlock(sectionId: string | null) {
     runSnapshotMode,
     drawSnapshotsBySectionId,
   });
+  if (!shouldRefreshProjectState || !res200(runResponse)) {
+    return;
+  }
+
+  const latestProjectStateResponse: LatestProjectStateRouteResponse =
+    await route_get_latest_project_state({
+      projectConfigId: projectConfig.id,
+    });
+  if (!res200(latestProjectStateResponse)) {
+    return;
+  }
+  processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
 }
 
 export async function runEntryCodeBlock() {
@@ -128,8 +157,8 @@ export async function runFromMainRunButton(): Promise<void> {
 
 export async function stopCode() {
   addTemporaryNotification("Stopping subprocesses");
-  route_kill_subprocesses({
-    projectConfigId: getCurrProjectConfigId(),
+  route_interrupt_terminal_processes({
+    projectId: getCurrProjectConfigId(),
   });
 }
 
@@ -177,6 +206,25 @@ async function ensureAttachedTerminalForRun({
     return existingTerminalId;
   }
   return null;
+}
+
+function shouldRefreshProjectStateAfterRun({
+  sectionId,
+  projectConfig,
+}: {
+  sectionId: string | null;
+  projectConfig: ZustandProjectState["projectConfig"];
+}): boolean {
+  const resolvedSectionId = resolveAttachmentSectionId(
+    sectionId,
+    projectConfig,
+  );
+  if (!resolvedSectionId) {
+    return false;
+  }
+  const state = useProjectState.getState();
+  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
+  return isBaseCodeSectionType(impl.type);
 }
 
 function resolveAttachmentSectionId(

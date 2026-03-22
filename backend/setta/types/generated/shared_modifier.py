@@ -3,13 +3,7 @@
 
 from typing import Any, NotRequired, TypedDict
 
-from setta.types.artifact import (
-    DrawAreaBrushShape,
-    DrawAreaLayer,
-    DrawAreaMode,
-    LineChartSettings,
-    ScatterChartSettings,
-)
+from setta.types.artifact import DrawAreaLayer, LineChartSettings, ScatterChartSettings
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -33,30 +27,34 @@ from setta.types.code_obj_impls import (
     TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
-from setta.types.id import ID
-from setta.types.prompt import PromptFormat
-from setta.types.section_impls import (
+from setta.types.generated.go_shared_types import (
     BrowserAreaViewMode,
-    BrowserSavedSearch,
     ChatDictationMode,
     ChatPermissionMode,
+    DrawAreaBrushShape,
+    DrawAreaMode,
+    ListRootViewMode,
+    PromptFormat,
+    SpreadsheetGridDensity,
+    StateMachineGateType,
+    TaskBoardViewMode,
+    TextBlockDisplayMode,
+    TextBlockFormat,
+    TypeErrorIgnoreState,
+)
+from setta.types.id import ID
+from setta.types.section_impls import (
+    BrowserSavedSearch,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
-    ListRootViewMode,
     SectionSize,
     SectionType,
-    SpreadsheetGridDensity,
-    StateMachineGateType,
     StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
-    TaskBoardViewMode,
-    TextBlockDisplayMode,
-    TextBlockFormat,
-    TypeErrorIgnoreState,
 )
 
 
