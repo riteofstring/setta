@@ -309,6 +309,23 @@ That means:
     - `SettaSectionTypeErrors -> projectstate.SectionTypeErrors`
     - `SettaProjectConfigDiagnostics -> projectstate.ProjectConfigDiagnostics`
     - `SettaLspDiagnosticsPayload -> projectstate.LSPDiagnosticsPayload`
+  - the app-definition and app-catalog frontend contracts now also point at real backend owners instead of mirrored `frontendbindings` structs:
+    - `AppCatalogPropType -> appspec.PropType`
+    - `AppCatalogProp -> httpapi.AppCatalogPropResponse`
+    - `AppCatalogComponent -> httpapi.AppCatalogComponentResponse`
+    - `AppCatalogAction -> httpapi.AppCatalogActionResponse`
+    - `AppCatalogResponse -> httpapi.AppCatalogResponse`
+    - `AppRoute -> projectstate.AppRoute`
+    - `AppDefinition -> projectstate.AppDefinition`
+    - `GetAppDefinitionRequestInput -> httpapi.GetAppDefinitionRequest`
+    - `SetAppDefinitionRequestInput -> httpapi.SetAppDefinitionRequest`
+    - `ValidateAppDefinitionRequestInput -> httpapi.ValidateAppDefinitionRequest`
+    - `AppDefinitionReadResponse -> projectstate.AppDefinitionReadResult`
+    - `AppDefinitionMutationResponse -> projectstate.AppDefinitionMutationResult`
+    - `AppValidationIssue -> appspec.AppValidationIssue`
+    - `AppCapabilities -> appspec.AppCapabilities`
+    - `AppDefinitionValidationResponse -> projectstate.AppDefinitionValidationResult`
+  - `internal/httpapi` now marks the optional app-definition route fields with `omitempty`, so the owner-backed generated TypeScript surface preserves the optional request semantics instead of forcing nullable placeholders for absent fields
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

@@ -25,42 +25,42 @@ type AppDefinitionRouteDependencies struct {
 }
 
 type GetAppDefinitionRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 }
 
 type SetAppDefinitionRequest struct {
-	FrontendOpID   *string                  `json:"frontendOpId"`
+	FrontendOpID   *string                  `json:"frontendOpId,omitempty"`
 	AppSpec        any                      `json:"appSpec"`
-	AppSpecPath    *string                  `json:"appSpecPath"`
-	AppSpecVersion *string                  `json:"appSpecVersion"`
-	CatalogID      *string                  `json:"catalogId"`
-	Routes         *[]projectstate.AppRoute `json:"routes"`
-	DataBindings   *map[string]any          `json:"dataBindings"`
-	Actions        *map[string]any          `json:"actions"`
-	Theme          *map[string]any          `json:"theme"`
-	Assets         *[]any                   `json:"assets"`
+	AppSpecPath    *string                  `json:"appSpecPath,omitempty"`
+	AppSpecVersion *string                  `json:"appSpecVersion,omitempty"`
+	CatalogID      *string                  `json:"catalogId,omitempty"`
+	Routes         *[]projectstate.AppRoute `json:"routes,omitempty"`
+	DataBindings   *map[string]any          `json:"dataBindings,omitempty"`
+	Actions        *map[string]any          `json:"actions,omitempty"`
+	Theme          *map[string]any          `json:"theme,omitempty"`
+	Assets         *[]any                   `json:"assets,omitempty"`
 }
 
 type ValidateAppDefinitionRequest struct {
-	FrontendOpID   *string                  `json:"frontendOpId"`
+	FrontendOpID   *string                  `json:"frontendOpId,omitempty"`
 	AppSpec        any                      `json:"appSpec"`
-	AppSpecVersion *string                  `json:"appSpecVersion"`
-	CatalogID      *string                  `json:"catalogId"`
-	Routes         *[]projectstate.AppRoute `json:"routes"`
-	DataBindings   *map[string]any          `json:"dataBindings"`
-	Actions        *map[string]any          `json:"actions"`
-	Theme          *map[string]any          `json:"theme"`
-	Assets         *[]any                   `json:"assets"`
+	AppSpecVersion *string                  `json:"appSpecVersion,omitempty"`
+	CatalogID      *string                  `json:"catalogId,omitempty"`
+	Routes         *[]projectstate.AppRoute `json:"routes,omitempty"`
+	DataBindings   *map[string]any          `json:"dataBindings,omitempty"`
+	Actions        *map[string]any          `json:"actions,omitempty"`
+	Theme          *map[string]any          `json:"theme,omitempty"`
+	Assets         *[]any                   `json:"assets,omitempty"`
 }
 
 type AppCatalogPropResponse struct {
-	Type       string   `json:"type"`
-	Responsive bool     `json:"responsive,omitempty"`
-	Required   bool     `json:"required,omitempty"`
-	Min        *float64 `json:"min,omitempty"`
-	Max        *float64 `json:"max,omitempty"`
-	Enum       []any    `json:"enum,omitempty"`
-	Default    any      `json:"default,omitempty"`
+	Type       appspec.PropType `json:"type"`
+	Responsive bool             `json:"responsive,omitempty"`
+	Required   bool             `json:"required,omitempty"`
+	Min        *float64         `json:"min,omitempty"`
+	Max        *float64         `json:"max,omitempty"`
+	Enum       []any            `json:"enum,omitempty"`
+	Default    any              `json:"default,omitempty"`
 }
 
 type AppCatalogComponentResponse struct {
@@ -112,7 +112,7 @@ func buildAppCatalogResponse(catalog appspec.Catalog) AppCatalogResponse {
 		props := make(map[string]AppCatalogPropResponse, len(component.Props))
 		for propName, prop := range component.Props {
 			props[propName] = AppCatalogPropResponse{
-				Type:       string(prop.Type),
+				Type:       prop.Type,
 				Responsive: prop.Responsive,
 				Required:   prop.Required,
 				Min:        prop.Min,

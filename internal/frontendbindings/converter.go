@@ -1669,12 +1669,6 @@ func newTypeConverter() *typeConverter {
 				{Name: "InstallerManaged", Value: "installer_managed"},
 				{Name: "Unsupported", Value: "unsupported"},
 			},
-			reflect.TypeOf(AppCatalogPropType("")): {
-				{Name: "String", Value: "string"},
-				{Name: "Number", Value: "number"},
-				{Name: "Dimension", Value: "dimension"},
-				{Name: "Boolean", Value: "boolean"},
-			},
 			reflect.TypeOf(PluginScope("")): {
 				{Name: "Workspace", Value: "workspace"},
 				{Name: "SettaFiles", Value: "setta_files"},

@@ -2101,10 +2101,10 @@ export function createUpdateLauncherRequestInput(
 }
 
 export const AppCatalogPropTypeEnum = {
-  String: "string",
-  Number: "number",
-  Dimension: "dimension",
-  Boolean: "boolean",
+  string: "string",
+  number: "number",
+  dimension: "dimension",
+  boolean: "boolean",
 } as const;
 export type AppCatalogPropType = ObjectValues<typeof AppCatalogPropTypeEnum>;
 
@@ -2157,8 +2157,8 @@ export function createAppCatalogResponse(
 
 export type AppRoute = {
   path: string;
-  name?: string | null;
-  rootKey?: string | null;
+  name?: string;
+  rootKey?: string;
 };
 export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
   return options as AppRoute;
@@ -2167,12 +2167,12 @@ export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
 export type AppDefinition = {
   appSpecVersion?: string;
   catalogId?: string;
-  appSpecPath?: string | null;
+  appSpecPath?: string;
   routes?: Array<AppRoute>;
-  dataBindings?: Record<string, unknown>;
-  actions?: Record<string, unknown>;
-  theme?: Record<string, unknown>;
-  assets?: Array<unknown>;
+  dataBindings?: JSONValue;
+  actions?: JSONValue;
+  theme?: JSONValue;
+  assets?: JSONValue;
 };
 export function createAppDefinition(
   options: Partial<AppDefinition> = {},
@@ -2236,8 +2236,8 @@ export function createValidateAppDefinitionRequestInput(
 
 export type AppValidationIssue = {
   message: string;
-  elementKey?: string | null;
-  elementType?: string | null;
+  elementKey?: string;
+  elementType?: string;
 };
 export function createAppValidationIssue(
   options: Partial<AppValidationIssue> = {},
