@@ -4,6 +4,7 @@ import {
   createChatSection,
   ensureAppReady,
   openIsolatedProject,
+  refreshProjectStateFromBackend,
   setChatSectionState,
 } from "../helpers";
 
@@ -467,6 +468,7 @@ test.describe.serial("chat tool calls", () => {
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForSelector(".react-flow__pane");
+      await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
       section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       const refreshedActivityTrigger = section.locator(

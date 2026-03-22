@@ -124,6 +124,9 @@ export type ProjectStateSingleConfigResponse = {
   sectionImpls: Record<string, ProjectStateSectionImpl>;
   sections: Record<string, ProjectStateSectionCore>;
 };
+type LatestProjectStateResponse = {
+  projectState: ProjectStateSingleConfigResponse;
+};
 
 export async function ensureAppReady(page: Page): Promise<void> {
   installUnexpectedApiErrorGuard(page);
@@ -721,8 +724,52 @@ export async function setChatSectionState(
     state: Record<string, unknown>;
   },
 ): Promise<void> {
-  await postBackend(page, "/setChatSectionState", payload);
+  await waitForChatSectionBranchInitialization(
+    page,
+    payload.projectConfigId,
+    payload.sectionId,
+  );
+  const normalizedState = normalizeChatSectionStateForBranching(payload.state);
+  await postBackend(page, "/setChatSectionState", {
+    ...payload,
+    state: normalizedState,
+  });
   await refreshProjectStateFromBackend(page, payload.projectConfigId);
+  if (
+    await chatSectionStateMatchesExpectedMessages(
+      page,
+      payload.projectConfigId,
+      payload.sectionId,
+      normalizedState,
+    )
+  ) {
+    return;
+  }
+
+  await waitForChatSectionBranchInitialization(
+    page,
+    payload.projectConfigId,
+    payload.sectionId,
+  );
+  await postBackend(page, "/setChatSectionState", {
+    ...payload,
+    state: normalizedState,
+  });
+  await refreshProjectStateFromBackend(page, payload.projectConfigId);
+  if (
+    await chatSectionStateMatchesExpectedMessages(
+      page,
+      payload.projectConfigId,
+      payload.sectionId,
+      normalizedState,
+    )
+  ) {
+    return;
+  }
+
+  throw new Error(
+    `Chat section state did not persist for ${payload.sectionId} in ${payload.projectConfigId}.`,
+  );
 }
 
 export async function stopLatestProjectChat(
@@ -757,6 +804,155 @@ export async function getCurrentProjectConfigId(page: Page): Promise<string> {
   }
 
   throw new Error("Unable to resolve projectConfigId for test.");
+}
+
+async function loadLatestProjectState(
+  page: Page,
+  projectConfigId: string,
+): Promise<ProjectStateSingleConfigResponse> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  if (!response) {
+    throw new Error(
+      `Missing latest project state response for ${projectConfigId}.`,
+    );
+  }
+  return response.projectState;
+}
+
+function getEffectiveChatSectionState(
+  projectState: ProjectStateSingleConfigResponse,
+  sectionId: string,
+): Record<string, unknown> | null {
+  const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = projectState.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = projectState.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = projectState.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  const effectiveState = {
+    ...(impl as Record<string, unknown>),
+    ...((core.sharedModifier ?? {}) as Record<string, unknown>),
+    ...((variant.modifier ?? {}) as Record<string, unknown>),
+  };
+  if (effectiveState.type !== "Chat") {
+    return null;
+  }
+  return effectiveState;
+}
+
+function hasInitializedChatBranchState(
+  chatState: Record<string, unknown> | null,
+): boolean {
+  if (!chatState) {
+    return false;
+  }
+  const activeBranchId =
+    typeof chatState.activeBranchId === "string"
+      ? chatState.activeBranchId
+      : null;
+  const branches =
+    chatState.branches &&
+    typeof chatState.branches === "object" &&
+    !Array.isArray(chatState.branches)
+      ? (chatState.branches as Record<string, unknown>)
+      : null;
+  if (!activeBranchId || !branches) {
+    return false;
+  }
+  return branches[activeBranchId] !== undefined;
+}
+
+async function waitForChatSectionBranchInitialization(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const projectState = await loadLatestProjectState(page, projectConfigId);
+    const chatState = getEffectiveChatSectionState(projectState, sectionId);
+    if (hasInitializedChatBranchState(chatState)) {
+      return;
+    }
+    await page.waitForTimeout(50);
+  }
+}
+
+function normalizeChatSectionStateForBranching(
+  state: Record<string, unknown>,
+): Record<string, unknown> {
+  if (hasInitializedChatBranchState(state)) {
+    return state;
+  }
+  const messages = Array.isArray(state.messages)
+    ? [...state.messages]
+    : [];
+  const branchId =
+    "e2e-root-branch-" +
+    Date.now().toString(36) +
+    "-" +
+    Math.random().toString(36).slice(2, 8);
+  return {
+    ...state,
+    activeBranchId: branchId,
+    branches: {
+      [branchId]: {
+        messages,
+        createdAt: Date.now(),
+        parentBranchId: null,
+        branchFromMessageId: null,
+      },
+    },
+  };
+}
+
+function getMessageIds(messages: unknown): string[] {
+  if (!Array.isArray(messages)) {
+    return [];
+  }
+  return messages
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const id = (entry as { id?: unknown }).id;
+      return typeof id === "string" ? id : null;
+    })
+    .filter((id): id is string => id !== null);
+}
+
+async function chatSectionStateMatchesExpectedMessages(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  expectedState: Record<string, unknown>,
+): Promise<boolean> {
+  const projectState = await loadLatestProjectState(page, projectConfigId);
+  const chatState = getEffectiveChatSectionState(projectState, sectionId);
+  if (!chatState) {
+    return false;
+  }
+  const actualMessageIds = getMessageIds(chatState.messages);
+  const expectedMessageIds = getMessageIds(expectedState.messages);
+  if (actualMessageIds.length !== expectedMessageIds.length) {
+    return false;
+  }
+  return actualMessageIds.every((messageId, index) => {
+    return expectedMessageIds[index] === messageId;
+  });
 }
 
 async function getCurrentProjectConfigName(page: Page): Promise<string> {
