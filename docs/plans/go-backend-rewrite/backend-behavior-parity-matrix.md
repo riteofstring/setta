@@ -266,6 +266,22 @@ Last audited: `2026-03-23`
   launches were still echoing `settaFilesLocation` instead of omitting the
   selector, and it added direct route proof for the exact source explicit-root
   branch.
+- Follow-up in this pass on `47f1593e4`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again after the
+  saved-log SSH failures stayed non-reproducible and an intermediate
+  `internal/app` `TestAppServesRunCodeRoute` suite-only failure also cleared
+  under targeted rerun plus the final exact full-suite rerun, so
+  `critical_backend_suite::go_test_all` remained stale/non-reproducible saved
+  suite output rather than a live Go implementation gap; this pass also
+  re-audited the stale queue slice for share-mode workspace-launch absence and
+  multipart-limit routes, confirming those source clues were already terminal
+  `Proved` rows backed directly by
+  `TestRegisterWorkspaceLaunchRoutesSkipsDeploymentModes`,
+  `TestRegisterBinaryRoutesAcceptPayloadAboveLegacyMultipartPartSize`,
+  `TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload`,
+  `TestCurrentEndpointsKeepAppendTranscriptionAudioJSONRequestContract`,
+  `TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled`,
+  and `TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode`.
 - Follow-up in this pass on `d78af87d3`: the regenerated backlog still
   exposed no live `## Critical Backend Suite Failures` section, so this pass
   stayed on bounded UI-setting helper parity by adding direct realtime-hub
