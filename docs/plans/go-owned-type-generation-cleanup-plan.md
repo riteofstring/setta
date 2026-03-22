@@ -127,6 +127,12 @@ That means:
   - the Python classes now subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
 - `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
+- the chart artifact family now has real Go owners for the remaining shared schema pieces:
+  - `internal/projectstate.LineChartSettings`
+  - `internal/projectstate.ScatterChartSettings`
+  - `internal/artifacts.ChartDataValue`
+- `backend/setta/types/artifact.py` no longer hand-owns chart-settings field layouts:
+  - the Python chart-settings classes now subclass Go-generated models and only keep discriminator literals
 - `backend/setta/types/websocket.py` no longer owns the listener websocket message-type enum; it now reuses the Go-owned generated `ListenerMessageType`.
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 - the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
@@ -180,8 +186,8 @@ Working assumption for the next passes:
 - `dependency_key.py` no longer hand-owns the dependency-key field layouts:
   - the Python file now subclasses Go-generated dependency-key models and only keeps the Python-side frozen/hashable behavior the listener SDK needs.
 - `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.
-- `artifact.py` is no longer a shared-schema owner; the handwritten remainder is mostly Python-side chart settings, tuple aliases, default ids, and draw-area convenience defaults.
-- the main remaining shared-contract candidate is now any reducible remainder in `artifact.py`; the surviving `project_config.py` code is mostly policy/default logic rather than schema ownership.
+- `artifact.py` is no longer a shared-schema owner; the handwritten remainder is now tuple aliases, artifact-id factories, discriminator literals, and draw-area convenience defaults.
+- the main remaining large handwritten file is now `project_config.py`; the surviving `artifact.py` code is much closer to a thin Python adapter layer than a schema owner.
 
 ## What Is Still Wrong
 
@@ -232,13 +238,15 @@ The prompt-format duplication has already been removed. The remaining work here 
 The remaining handwritten Python files are much smaller and clearer than before.
 
 The main candidates are now:
-- the remainder of `artifact.py`, if chart settings and draw-area defaults can be moved or deleted cleanly without reintroducing duplicate Go definitions
+- any reducible remainder in `project_config.py`, if more of the defaulting/policy surface can move onto real Go owners without creating duplicate backend definitions
+- any remaining thin adapter logic in `artifact.py`, if the Python package no longer needs the tuple aliases, id factories, or convenience defaults
 
 Already narrowed to Python adapter layers:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
 - `dependency_value.py`
+- `artifact.py`
 - `listener.py`
 - `websocket.py`
 
@@ -326,7 +334,6 @@ Guardrail:
 
 ### Phase 3: Move the remaining shared Python families to Go ownership
 Primary targets:
-- `artifact.py`
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
@@ -334,6 +341,7 @@ Primary targets:
 - `dependency_value.py`
 - `websocket.py`
 - any remaining reducible wrapper content in `project_config.py`
+- any remaining reducible wrapper content in `artifact.py`
 
 Work:
 - find the real Go owner package for each family

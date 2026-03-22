@@ -978,11 +978,11 @@ type BrowserSearchScope string
 
 type SpreadsheetGridDensity string
 
-type ChartType string
+type ChartType = projectstate.ChartType
 
-type LineChartSettings struct{}
+type LineChartSettings = projectstate.LineChartSettings
 
-type ScatterChartSettings struct{}
+type ScatterChartSettings = projectstate.ScatterChartSettings
 
 type BaseChartSettingsUnion struct{}
 

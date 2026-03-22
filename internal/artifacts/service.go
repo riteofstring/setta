@@ -98,7 +98,7 @@ type updateAction struct {
 	payloadHash  string
 	jsonValue    json.RawMessage
 	binaryRef    *binarypayload.ContentRef
-	chartValue   map[string][]any
+	chartValue   ChartDataValue
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -394,7 +394,7 @@ func (s *Service) buildUpdateAction(artifact RawArtifact, scope UploadScope) (up
 				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
 			}
 		}
-		var value map[string][]any
+		var value ChartDataValue
 		if err := json.Unmarshal(*artifact.Value, &value); err != nil {
 			return updateAction{}, &Error{
 				Kind:    ErrorInvalidRequest,
@@ -959,7 +959,7 @@ func canonicalizeJSONObject(raw []byte) (json.RawMessage, error) {
 	return json.RawMessage(encoded), nil
 }
 
-func chartDataToCSV(data map[string][]any) ([]byte, error) {
+func chartDataToCSV(data ChartDataValue) ([]byte, error) {
 	if len(data) == 0 {
 		return []byte{}, nil
 	}
@@ -999,17 +999,17 @@ func chartDataToCSV(data map[string][]any) ([]byte, error) {
 	return []byte(builder.String()), nil
 }
 
-func parseChartCSV(content []byte) (map[string][]any, error) {
+func parseChartCSV(content []byte) (ChartDataValue, error) {
 	reader := csv.NewReader(strings.NewReader(string(content)))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, err
 	}
 	if len(records) == 0 {
-		return map[string][]any{}, nil
+		return ChartDataValue{}, nil
 	}
 	headers := records[0]
-	result := make(map[string][]any, len(headers))
+	result := make(ChartDataValue, len(headers))
 	for _, header := range headers {
 		result[header] = []any{}
 	}
@@ -1071,8 +1071,8 @@ func cloneJSONArtifact(artifact JSONArtifact) JSONArtifact {
 	}
 }
 
-func cloneChartDataValues(values map[string][]any) map[string][]any {
-	clonedValues := make(map[string][]any, len(values))
+func cloneChartDataValues(values ChartDataValue) ChartDataValue {
+	clonedValues := make(ChartDataValue, len(values))
 	for key, items := range values {
 		clonedValues[key] = append([]any(nil), items...)
 	}

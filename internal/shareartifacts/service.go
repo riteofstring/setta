@@ -440,7 +440,7 @@ func (s *Service) buildOverlayEntry(artifactID string, resolvedPath string, arti
 				Message: fmt.Sprintf("Artifact %s is missing a value.", artifactID),
 			}
 		}
-		var value map[string][]any
+		var value artifacts.ChartDataValue
 		if err := json.Unmarshal(*artifact.Value, &value); err != nil {
 			return overlayEntry{}, nil, &artifacts.Error{
 				Kind:    artifacts.ErrorInvalidRequest,
@@ -708,17 +708,17 @@ func canonicalizeJSONObject(raw []byte) (json.RawMessage, error) {
 	return json.RawMessage(encoded), nil
 }
 
-func parseChartCSV(content []byte) (map[string][]any, error) {
+func parseChartCSV(content []byte) (artifacts.ChartDataValue, error) {
 	reader := csv.NewReader(strings.NewReader(string(content)))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, err
 	}
 	if len(records) == 0 {
-		return map[string][]any{}, nil
+		return artifacts.ChartDataValue{}, nil
 	}
 	headers := records[0]
-	result := make(map[string][]any, len(headers))
+	result := make(artifacts.ChartDataValue, len(headers))
 	for _, header := range headers {
 		result[header] = []any{}
 	}
@@ -772,7 +772,7 @@ func cloneJSONArtifact(artifact artifacts.JSONArtifact) artifacts.JSONArtifact {
 }
 
 func cloneChartDataArtifact(artifact artifacts.ChartDataArtifact) artifacts.ChartDataArtifact {
-	clonedValues := make(map[string][]any, len(artifact.Value))
+	clonedValues := make(artifacts.ChartDataValue, len(artifact.Value))
 	for key, values := range artifact.Value {
 		clonedValues[key] = append([]any(nil), values...)
 	}

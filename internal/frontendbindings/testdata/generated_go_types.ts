@@ -1444,13 +1444,6 @@ export function createDrawAreaLayerItemTransformArtifact(options: Partial<DrawAr
 }
 
 
-export type ChartDataScalar = {
-};
-export function createChartDataScalar(options: Partial<ChartDataScalar> = {}): ChartDataScalar {
-  return options as ChartDataScalar;
-}
-
-
 export type ChartDataValue = Record<string, Array<string | number>>;
 
 

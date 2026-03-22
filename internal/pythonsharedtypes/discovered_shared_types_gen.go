@@ -25,6 +25,8 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.SignatureHelpStatus("")),
 		reflect.TypeOf(projectstate.SetCallableChildCodeObj{}),
 		reflect.TypeOf(projectstate.SetCallableResponse{}),
+		reflect.TypeOf(projectstate.LineChartSettings{}),
+		reflect.TypeOf(projectstate.ScatterChartSettings{}),
 		reflect.TypeOf(projectstate.ChartType("")),
 		reflect.TypeOf(projectstate.ChartSettingsUpdate{}),
 		reflect.TypeOf(projectstate.ChatPermissionMode("")),

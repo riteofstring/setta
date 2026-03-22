@@ -1,6 +1,6 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import Field, TypeAdapter
 from setta.types.generated.go_shared_types import (
     ArtifactType,
     BrushStroke as GoBrushStroke,
@@ -16,6 +16,8 @@ from setta.types.generated.go_shared_types import (
     FileArtifact as GoFileArtifact,
     ImageArtifact as GoImageArtifact,
     ChartDataArtifact as GoChartDataArtifact,
+    LineChartSettings as GoLineChartSettings,
+    ScatterChartSettings as GoScatterChartSettings,
 )
 from setta.types.id import create_new_id
 from setta.utils.constants import C
@@ -48,25 +50,12 @@ CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
 
 
-class BaseChartSettings(BaseModel):
-    type: Any
-
-
-class LineChartSettings(BaseChartSettings):
+class LineChartSettings(GoLineChartSettings):
     type: Literal[ChartType.line] = ChartType.line
-    xAxisColumn: str | None = None
-    secondYAxisColumns: list[str] = Field(default_factory=list)
-    xAxisLog: bool = False
-    y1AxisLog: bool = False
-    y2AxisLog: bool = False
 
 
-class ScatterChartSettings(BaseChartSettings):
+class ScatterChartSettings(GoScatterChartSettings):
     type: Literal[ChartType.scatter] = ChartType.scatter
-    xAxisColumn: str | None = None
-    categoryColumn: str | None = None
-    xAxisLog: bool = False
-    yAxisLog: bool = False
 
 
 class BrushStroke(GoBrushStroke):

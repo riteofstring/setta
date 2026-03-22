@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -264,24 +265,44 @@ func carryForwardChartSettings(current chartSettingsState, nextType ChartType) c
 }
 
 func chartSettingsObject(settings chartSettingsState) map[string]any {
-	object := map[string]any{
-		"type":        string(settings.Type),
-		"xAxisColumn": optionalStringValue(settings.XAxisColumn),
-		"xAxisLog":    settings.XAxisLog,
+	var payload any
+	switch settings.Type {
+	case ChartTypeLine:
+		payload = LineChartSettings{
+			Type:               ChartTypeLine,
+			XAxisColumn:        cloneOptionalString(settings.XAxisColumn),
+			SecondYAxisColumns: append([]string(nil), settings.SecondYAxisColumns...),
+			XAxisLog:           settings.XAxisLog,
+			Y1AxisLog:          settings.Y1AxisLog,
+			Y2AxisLog:          settings.Y2AxisLog,
+		}
+	case ChartTypeScatter:
+		payload = ScatterChartSettings{
+			Type:           ChartTypeScatter,
+			XAxisColumn:    cloneOptionalString(settings.XAxisColumn),
+			CategoryColumn: cloneOptionalString(settings.CategoryColumn),
+			XAxisLog:       settings.XAxisLog,
+			YAxisLog:       settings.YAxisLog,
+		}
+	default:
+		panic(fmt.Sprintf("unsupported chart type %q", settings.Type))
+	}
+	content, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	object := map[string]any{}
+	if err := json.Unmarshal(content, &object); err != nil {
+		panic(err)
 	}
 	switch settings.Type {
 	case ChartTypeLine:
-		object["secondYAxisColumns"] = append([]string(nil), settings.SecondYAxisColumns...)
-		object["y1AxisLog"] = settings.Y1AxisLog
-		object["y2AxisLog"] = settings.Y2AxisLog
 		object["categoryColumn"] = nil
 		object["yAxisLog"] = nil
 	case ChartTypeScatter:
 		object["secondYAxisColumns"] = nil
 		object["y1AxisLog"] = nil
 		object["y2AxisLog"] = nil
-		object["categoryColumn"] = optionalStringValue(settings.CategoryColumn)
-		object["yAxisLog"] = settings.YAxisLog
 	}
 	return object
 }

@@ -49,9 +49,7 @@ type BrushStrokeArtifact = artifacts.BrushStrokeArtifact
 
 type DrawAreaLayerItemTransformArtifact = artifacts.DrawAreaLayerItemTransformArtifact
 
-type ChartDataScalar struct{}
-
-type ChartDataValue map[string][]ChartDataScalar
+type ChartDataValue = artifacts.ChartDataValue
 
 type ChartDataArtifact = artifacts.ChartDataArtifact
 

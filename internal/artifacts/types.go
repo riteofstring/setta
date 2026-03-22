@@ -92,10 +92,12 @@ type ImageArtifact struct {
 	Value binarypayload.ContentRef `json:"value"`
 }
 
+type ChartDataValue map[string][]any
+
 type ChartDataArtifact struct {
-	Type  ArtifactType     `json:"type"`
-	ID    string           `json:"id"`
-	Value map[string][]any `json:"value"`
+	Type  ArtifactType   `json:"type"`
+	ID    string         `json:"id"`
+	Value ChartDataValue `json:"value"`
 }
 
 type JSONArtifact struct {

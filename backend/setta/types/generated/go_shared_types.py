@@ -4,7 +4,7 @@ from enum import Enum
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SettaSharedTypeModel(BaseModel):
@@ -372,6 +372,23 @@ class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
     audio: bool = True
     text: bool = True
     data: bool = True
+
+
+class LineChartSettings(SettaSharedTypeModel):
+    type: ChartType = ChartType.line
+    xAxisColumn: str | None = None
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
+
+
+class ScatterChartSettings(SettaSharedTypeModel):
+    type: ChartType = ChartType.scatter
+    xAxisColumn: str | None = None
+    categoryColumn: str | None = None
+    xAxisLog: bool = False
+    yAxisLog: bool = False
 
 
 class ChatSectionBranch(SettaSharedTypeModel):
