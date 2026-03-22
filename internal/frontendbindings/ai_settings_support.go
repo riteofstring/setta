@@ -2,6 +2,7 @@ package frontendbindings
 
 import (
 	"setta/internal/externalagentconfigs"
+	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/prompttemplates"
 )
@@ -84,19 +85,4 @@ type ExternalAgentConfig externalagentconfigs.Config
 
 type ExternalAgentEnvVarStatus externalagentconfigs.EnvVarStatus
 
-type ExternalAgentPreflightStatus struct {
-	ConfigID    string                    `json:"configId"`
-	Name        string                    `json:"name"`
-	ToolType    ExternalAgentToolType     `json:"toolType"`
-	RunMode     ExternalAgentRunMode      `json:"runMode"`
-	Supported   bool                      `json:"supported"`
-	Available   bool                      `json:"available"`
-	Issues      []string                  `json:"issues"`
-	NodePath    *string                   `json:"nodePath,omitempty"`
-	NodeVersion *string                   `json:"nodeVersion,omitempty"`
-	SDKVersion  *string                   `json:"sdkVersion,omitempty"`
-	CLIVersion  *string                   `json:"cliVersion,omitempty"`
-	BaseURL     *string                   `json:"baseUrl,omitempty"`
-	WorkingDir  *string                   `json:"workingDir,omitempty"`
-	EnvVars     ExternalAgentEnvVarStatus `json:"envVars"`
-}
+type ExternalAgentPreflightStatus httpapi.ExternalAgentPreflightStatus

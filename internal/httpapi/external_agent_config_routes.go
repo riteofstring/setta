@@ -64,12 +64,7 @@ type deleteExternalAgentConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
-type externalAgentEnvVarStatusResponse struct {
-	Present []string `json:"present"`
-	Missing []string `json:"missing"`
-}
-
-type externalAgentHealthResponse struct {
+type ExternalAgentPreflightStatus struct {
 	ConfigID    string                            `json:"configId"`
 	Name        string                            `json:"name"`
 	ToolType    externalagentconfigs.ToolType     `json:"toolType"`
@@ -83,7 +78,7 @@ type externalAgentHealthResponse struct {
 	CLIVersion  *string                           `json:"cliVersion"`
 	BaseURL     *string                           `json:"baseUrl"`
 	WorkingDir  *string                           `json:"workingDir"`
-	EnvVars     externalAgentEnvVarStatusResponse `json:"envVars"`
+	EnvVars     externalagentconfigs.EnvVarStatus `json:"envVars"`
 }
 
 func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConfigRouteDependencies) error {
@@ -218,7 +213,7 @@ func getExternalAgentHealthHandler(deps ExternalAgentConfigRouteDependencies) ht
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		statuses := make([]externalAgentHealthResponse, 0, len(configs))
+		statuses := make([]ExternalAgentPreflightStatus, 0, len(configs))
 		for _, config := range configs {
 			status, err := checker.Check(config)
 			if err != nil {
@@ -347,8 +342,8 @@ func broadcastExternalAgentConfigsUpdated(
 	return err
 }
 
-func buildExternalAgentHealthResponse(status externalagentconfigs.Status) externalAgentHealthResponse {
-	response := externalAgentHealthResponse{
+func buildExternalAgentHealthResponse(status externalagentconfigs.Status) ExternalAgentPreflightStatus {
+	response := ExternalAgentPreflightStatus{
 		ConfigID:    status.ConfigID,
 		Name:        status.Name,
 		ToolType:    status.ToolType,
@@ -361,7 +356,7 @@ func buildExternalAgentHealthResponse(status externalagentconfigs.Status) extern
 		NodeVersion: cloneOptionalString(status.NodeVersion),
 		SDKVersion:  cloneOptionalString(status.SDKVersion),
 		CLIVersion:  cloneOptionalString(status.CLIVersion),
-		EnvVars: externalAgentEnvVarStatusResponse{
+		EnvVars: externalagentconfigs.EnvVarStatus{
 			Present: append([]string(nil), status.EnvVars.Present...),
 			Missing: append([]string(nil), status.EnvVars.Missing...),
 		},

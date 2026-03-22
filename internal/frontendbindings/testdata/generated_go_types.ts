@@ -442,12 +442,12 @@ export type ExternalAgentPreflightStatus = {
   supported: boolean;
   available: boolean;
   issues: Array<string>;
-  nodePath?: string | null;
-  nodeVersion?: string | null;
-  sdkVersion?: string | null;
-  cliVersion?: string | null;
-  baseUrl?: string | null;
-  workingDir?: string | null;
+  nodePath: string | null;
+  nodeVersion: string | null;
+  sdkVersion: string | null;
+  cliVersion: string | null;
+  baseUrl: string | null;
+  workingDir: string | null;
   envVars: ExternalAgentEnvVarStatus;
 };
 export function createExternalAgentPreflightStatus(options: Partial<ExternalAgentPreflightStatus> = {}): ExternalAgentPreflightStatus {

@@ -7,6 +7,7 @@ import (
 	artifacts "setta/internal/artifacts"
 	binary "setta/internal/binary"
 	externalagentconfigs "setta/internal/externalagentconfigs"
+	httpapi "setta/internal/httpapi"
 	llmconfig "setta/internal/llmconfig"
 	projectview "setta/internal/projectview"
 	prompttemplates "setta/internal/prompttemplates"
@@ -117,7 +118,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf((*ExternalAgentSettingsManagedBlock)(nil)).Elem(),
 		reflect.TypeOf((*ExternalAgentConfig)(nil)).Elem(),
 		reflect.TypeOf((*ExternalAgentEnvVarStatus)(nil)).Elem(),
-		reflect.TypeOf(ExternalAgentPreflightStatus{}),
+		reflect.TypeOf((*ExternalAgentPreflightStatus)(nil)).Elem(),
 		reflect.TypeOf(BinaryUploadRequestInput{}),
 		reflect.TypeOf(BinaryDownloadRequestInput{}),
 		reflect.TypeOf(BinaryDownloadResponse{}),
@@ -746,6 +747,7 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*externalagentconfigs.SettingsManagedBlock)(nil)).Elem(): reflect.TypeOf((*ExternalAgentSettingsManagedBlock)(nil)).Elem(),
 		reflect.TypeOf((*externalagentconfigs.Config)(nil)).Elem(): reflect.TypeOf((*ExternalAgentConfig)(nil)).Elem(),
 		reflect.TypeOf((*externalagentconfigs.EnvVarStatus)(nil)).Elem(): reflect.TypeOf((*ExternalAgentEnvVarStatus)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.ExternalAgentPreflightStatus)(nil)).Elem(): reflect.TypeOf((*ExternalAgentPreflightStatus)(nil)).Elem(),
 		reflect.TypeOf((*artifacts.ImportFilesRequest)(nil)).Elem(): reflect.TypeOf((*ImportFilesToArtifactsRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*artifacts.ImportFilesResponseItem)(nil)).Elem(): reflect.TypeOf((*ImportFilesToArtifactsResponseItem)(nil)).Elem(),
 		reflect.TypeOf((*artifacts.LoadCachedPathsRequest)(nil)).Elem(): reflect.TypeOf((*LoadCachedArtifactsRequestInput)(nil)).Elem(),

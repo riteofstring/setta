@@ -57,6 +57,9 @@ That means:
   - `SettingsManagedBlock`
   - `Config`
 - `internal/frontendbindings/ai_settings_support.go` now aliases that owner-backed external-agent config/settings family instead of repeating the field layouts locally.
+- the external-agent preflight response now has an explicit Go route-contract owner in `internal/httpapi`:
+  - `httpapi.ExternalAgentPreflightStatus`
+- `internal/frontendbindings/ai_settings_support.go` now aliases that exported HTTP response type instead of owning the preflight field layout locally.
 - the Go -> Python generator now treats `omitempty` fields as absent-capable unless an explicit Python default override is provided, so generated Python models stay aligned with Go JSON omission behavior.
 - duplicated prompt-format ownership inside Go has been collapsed:
   - `internal/projectstate.PromptFormat` is gone
@@ -223,10 +226,6 @@ The remaining problem is that too much of the shared type surface still flows th
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
 This has improved for the project-state/view/windowing family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the detailed chat-message schema family, and the external-agent config/settings family.
-
-The remaining gap in this area is much narrower now:
-- `internal/frontendbindings/ai_settings_support.go` still owns `ExternalAgentPreflightStatus`
-- that status shape still intentionally differs from the backend checker owner (`nodePath` vs `commandPath`), so it has not been collapsed yet
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

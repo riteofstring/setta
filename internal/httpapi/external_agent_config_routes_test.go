@@ -213,7 +213,7 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload []externalAgentHealthResponse
+	var payload []ExternalAgentPreflightStatus
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode health payload: %v", err)
 	}
