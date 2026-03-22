@@ -99,6 +99,46 @@ func TestHandlerServesFoundationRoutes(t *testing.T) {
 	}
 }
 
+func TestHandlerServesReportedServerModes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		mode string
+	}{
+		{name: "ide", mode: "ide"},
+		{name: "share", mode: "share"},
+		{name: "app", mode: "app"},
+		{name: "launcher", mode: "launcher"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			handler, err := NewHandler(Dependencies{
+				Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+				Info: stubInfoService{
+					mode: tc.mode,
+					info: RuntimeInfo{Mode: tc.mode},
+				},
+			})
+			if err != nil {
+				t.Fatalf("new handler: %v", err)
+			}
+
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/serverMode", nil))
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", response.Code)
+			}
+			if strings.TrimSpace(response.Body.String()) != `{"mode":"`+tc.mode+`"}` {
+				t.Fatalf("unexpected server mode payload %q", response.Body.String())
+			}
+		})
+	}
+}
+
 func TestHandlerAddsCORSHeadersToUnauthorizedDevFrontendRequests(t *testing.T) {
 	t.Setenv(devFrontendPortEnv, "3000")
 	t.Setenv(devFrontendSchemeEnv, "http")
