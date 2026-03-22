@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `ddb8e5331b`
+- Target head: `50323bd230`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -94,6 +94,24 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `50323bd230`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/utils/test_init_status.py::{test_snapshot_includes_auth_refresh_window,test_snapshot_reads_active_worktree_name,test_auth_refresh_status_includes_refresh_window}`
+  against `internal/httpapi/status_routes.go`,
+  `frontend/src/components/Pages/GlobalWrapper.tsx`,
+  `frontend/src/components/AppHeader/WorktreeHint.tsx`, and
+  `frontend/src/state/actions/websocketReceive.ts`, plus the focused Go
+  proof in `TestRegisterStatusRoutesReturnsBackendInitStatus`,
+  `TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName`,
+  `TestRegisterStatusRoutesReturnsAuthRefreshStatus`, and
+  `TestAppServesStatusMetaRoutes`; no new implementation gap was found, and
+  the existing
+  `status_meta.backend_init.read_optionally_exposes_worktree_name_when_available`
+  and `status_meta.auth_refresh.read_exposes_cookie_window_for_websocket_recovery`
+  rows remained the correct terminal `Proved` dispositions for those stale
+  backlog clues.
 - Follow-up in this pass on `ddb8e5331b`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` again passed cleanly, so
   `critical_backend_suite::go_test_all` remained stale saved-suite output on
