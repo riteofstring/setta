@@ -320,6 +320,22 @@ Deliverables:
 - code generation for Go and Python
 - CI contract-drift/codegen gate
 
+Execution artifact:
+
+- `internal/pythonsdkcontracts/contracts.go`
+- `cmd/setta-gen-python-sdk-contracts/main.go`
+- `backend/setta/sdk_contracts/generated.py`
+- `internal/pythonsdkcontracts/generator_test.go`
+
+Phase 1 verdict:
+
+- the repo now has a Go-owned retained-Python-SDK contract source of truth and a
+  checked-in generated Python contract module
+- the landed contract layer covers the first narrow runner/listener/local-core
+  envelope set needed for the next implementation slices
+- active listener/runner runtime consumers have not been switched yet; that
+  remains Phase 2 and Phase 3 work
+
 Exit criteria:
 
 - new DTOs for the retained Python boundary are not being hand-maintained in two

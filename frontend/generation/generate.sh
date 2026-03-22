@@ -19,6 +19,7 @@ python -m generation.generate_unions unions
 python -m generation.generate_effective_impls
 python -m generation.generate_unions websocket_unions
 bash ./generation/generate_go_frontend_bindings.sh
+bash ./generation/generate_go_python_sdk_contracts.sh
 
 cd "${ROOT_DIR}"
 ./format_code.sh
