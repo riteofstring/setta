@@ -8,13 +8,28 @@ import "testUtils/reactRefreshPreamble";
 import {
   createCodeSectionImpl,
   createProjectConfig,
+  createProjectStateSingleConfigWithCompletedOpIds,
   createUserDefaultCodeSectionImpl,
   SectionTypeEnum,
   type Core,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AttachedTerminalControls } from "./AttachedTerminalControls";
+
+const { processProjectStateUpdateFromBackendMock } = vi.hoisted(() => ({
+  processProjectStateUpdateFromBackendMock: vi.fn(),
+}));
+
+vi.mock("state/actions/sectionInfos", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/sectionInfos")
+  >("state/actions/sectionInfos");
+  return {
+    ...actual,
+    processProjectStateUpdateFromBackend:
+      processProjectStateUpdateFromBackendMock,
+  };
+});
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await import("utils/generatedEndpoints");
@@ -27,12 +42,36 @@ vi.mock("utils/generatedEndpoints", async () => {
       }),
       status: 200,
     })),
+    route_get_latest_project_state: vi.fn(async () => ({
+      data: createProjectStateSingleConfigWithCompletedOpIds(),
+      response: new Response("{}", {
+        status: 200,
+      }),
+      status: 200,
+    })),
   };
 });
 
-import { route_create_child_sections } from "utils/generatedEndpoints";
+import { AttachedTerminalControls } from "./AttachedTerminalControls";
+import {
+  route_create_child_sections,
+  route_get_latest_project_state,
+} from "utils/generatedEndpoints";
 
 const mockedRouteCreateChildSections = vi.mocked(route_create_child_sections);
+const mockedRouteGetLatestProjectState = vi.mocked(
+  route_get_latest_project_state,
+);
+
+function latestProjectStateFixture() {
+  return createProjectStateSingleConfigWithCompletedOpIds({
+    projectState: {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+      }),
+    },
+  });
+}
 
 type RenderedAttachedTerminalControls = {
   host: HTMLDivElement;
@@ -80,6 +119,8 @@ describe("AttachedTerminalControls", () => {
   beforeEach(() => {
     resetProjectStores();
     mockedRouteCreateChildSections.mockClear();
+    mockedRouteGetLatestProjectState.mockClear();
+    processProjectStateUpdateFromBackendMock.mockClear();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
         id: "project-1",
@@ -102,11 +143,21 @@ describe("AttachedTerminalControls", () => {
   afterEach(() => {
     resetProjectStores();
     mockedRouteCreateChildSections.mockClear();
+    mockedRouteGetLatestProjectState.mockClear();
+    processProjectStateUpdateFromBackendMock.mockClear();
     document.body.innerHTML = "";
   });
 
-  it("posts terminal child creation through the canonical endpoint", async () => {
+  it("posts terminal child creation through the canonical endpoint and refreshes project state", async () => {
     const { host, root } = await renderAttachedTerminalControls(sectionId);
+    const latestProjectState = latestProjectStateFixture();
+    mockedRouteGetLatestProjectState.mockResolvedValue({
+      data: latestProjectState,
+      response: new Response("{}", {
+        status: 200,
+      }),
+      status: 200,
+    });
 
     try {
       const button = host.querySelector<HTMLButtonElement>(
@@ -127,6 +178,12 @@ describe("AttachedTerminalControls", () => {
         numChildren: 1,
         startIdx: 0,
       });
+      expect(mockedRouteGetLatestProjectState).toHaveBeenCalledWith({
+        projectConfigId: "project-1",
+      });
+      expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
+        latestProjectState,
+      );
     } finally {
       await act(async () => {
         root.unmount();
