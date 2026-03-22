@@ -357,6 +357,22 @@ Last audited: `2026-03-23`
   `TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE`,
   `TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows`, and
   `TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay`.
+- Follow-up in this pass on `dbaca218a`: rerunning
+  `./scripts/go.sh test ./... -count=1` failed once on
+  `internal/boundcode` `TestServiceDoesNotEmitTransientEmptyContentWhenTrackedFileAppears`,
+  but the targeted rerun plus a package rerun both passed and the final exact
+  full-suite rerun passed cleanly, so `critical_backend_suite::go_test_all`
+  remained stale/non-reproducible rather than exposing a durable Go
+  implementation gap; this pass also re-audited the stale launcher-origin and
+  file-lock utility queue slice and confirmed those source clues were already
+  terminal `Proved` rows backed directly by
+  `TestNormalizeOriginAcceptsHTTPAndHTTPSOrigins`,
+  `TestNormalizeOriginRejectsInvalidValues`,
+  `TestLauncherOriginProofRoundTrip`,
+  `TestAppendLauncherOriginHandoffToBootstrapURLPreservesTokenAndAppendsSignedParams`,
+  `TestServiceTrustOriginReturnsUnavailableWhenLockParentCannotBeCreated`,
+  `TestIntentStoreMapsUnavailableReadAndLockParentFailures`, and
+  `TestIntentStoreUpdatePreservesCallbackError`.
 - Follow-up in this pass on `d78af87d3`: the regenerated backlog still
   exposed no live `## Critical Backend Suite Failures` section, so this pass
   stayed on bounded UI-setting helper parity by adding direct realtime-hub
