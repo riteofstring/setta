@@ -11,7 +11,6 @@ import pytest
 from setta.api.listener import (
     ListenerCallbackSpec,
     ListenerDependencyMetadata,
-    ListenerRuntimeState,
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
@@ -62,7 +61,9 @@ from setta.types.websocket import (
 
 from tests.helpers.binary_frames import encode_binary_frame
 from tests.helpers.listener_runtime_state import (
+    ListenerTestRuntimeState,
     build_listener_dependency_cache,
+    build_listener_dependency_metadata_from_graph,
     build_listener_runtime_state,
 )
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
@@ -1165,8 +1166,8 @@ class TestSettaListenerRealtimeIntegration:
                 },
             ),
         )
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
+        listener._runtime_state = ListenerTestRuntimeState(
+            dependency_metadata=build_listener_dependency_metadata_from_graph(
                 dep_graph
             ),
             dependency_graph=dep_graph,
@@ -1598,7 +1599,7 @@ class TestSettaListenerBootstrapFailure:
                 ),
             ]
         )
-        listener._runtime_state = ListenerRuntimeState(
+        listener._runtime_state = ListenerTestRuntimeState(
             dependency_metadata=ListenerDependencyMetadata.from_catalog(catalog),
             dependency_graph=_GraphlessDependencyGraph(),
         )
@@ -1683,7 +1684,7 @@ class TestSettaListenerBootstrapFailure:
                 )
             )
 
-        listener._runtime_state = ListenerRuntimeState(
+        listener._runtime_state = ListenerTestRuntimeState(
             dependency_metadata=runtime_state.dependency_metadata,
             dependency_graph=_GraphlessDependencyGraph(),
         )
@@ -1751,7 +1752,7 @@ class TestSettaListenerBootstrapFailure:
                 )
             )
 
-        listener._runtime_state = ListenerRuntimeState(
+        listener._runtime_state = ListenerTestRuntimeState(
             dependency_metadata=runtime_state.dependency_metadata,
             dependency_graph=_GraphlessDependencyGraph(),
         )

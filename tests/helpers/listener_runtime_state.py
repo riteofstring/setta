@@ -1,8 +1,9 @@
+from dataclasses import dataclass
 from typing import Any
 
 from setta.api.listener import (
     ListenerDependencyMetadata,
-    ListenerRuntimeState,
+    ListenerDependencyMetadataEntry,
     SettaListener,
 )
 from setta.code_gen.dependency_graph import (
@@ -21,12 +22,62 @@ from setta.types.section_impls import SectionType
 _UNAVAILABLE = object()
 
 
+@dataclass(slots=True)
+class ListenerTestRuntimeState:
+    dependency_metadata: ListenerDependencyMetadata
+    dependency_graph: DependencyGraph | None = None
+
+
+def build_listener_dependency_metadata_from_graph(
+    dependency_graph: DependencyGraph,
+) -> ListenerDependencyMetadata:
+    entries: list[ListenerDependencyMetadataEntry] = []
+    for dep_key, node in dependency_graph.graph.items():
+        section_type = None
+        code_obj_type = None
+        control_code_obj_id = None
+        control_code_obj_type = None
+        section_representation = None
+        control_value_representation = None
+        value_representation = None
+        if isinstance(node, SectionNode):
+            section_type = node.type
+            control_code_obj_id = node.control_code_obj_id
+            control_code_obj_type = node.control_code_obj_type
+            section_representation = node.representation
+            control_value_representation = node.control_value_representation
+        elif isinstance(node, ParamNode):
+            code_obj_type = node.type
+            value_representation = node.value_representation
+        entries.append(
+            ListenerDependencyMetadataEntry(
+                dependencyKey=dep_key,
+                name=node.name,
+                fullPathName=node.full_path_name,
+                dependencies=tuple(
+                    child_dep_key
+                    for child_dep_key, is_used in node.deps.items()
+                    if is_used
+                ),
+                sectionType=section_type,
+                codeObjType=code_obj_type,
+                controlCodeObjId=control_code_obj_id,
+                controlCodeObjType=control_code_obj_type,
+                sectionRepresentation=section_representation,
+                controlValueRepresentation=control_value_representation,
+                valueRepresentation=value_representation,
+            )
+        )
+    entries.sort(key=lambda entry: entry.fullPathName)
+    return ListenerDependencyMetadata(entries)
+
+
 def build_listener_runtime_state(
     project_state: ProjectStateSingleConfig,
-) -> ListenerRuntimeState:
+) -> ListenerTestRuntimeState:
     dependency_graph = DependencyGraph(project_state)
-    return ListenerRuntimeState(
-        dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
+    return ListenerTestRuntimeState(
+        dependency_metadata=build_listener_dependency_metadata_from_graph(
             dependency_graph
         ),
         dependency_graph=dependency_graph,
@@ -35,7 +86,7 @@ def build_listener_runtime_state(
 
 def build_listener_dependency_cache(
     listener: SettaListener,
-    runtime_state: ListenerRuntimeState,
+    runtime_state: ListenerTestRuntimeState,
 ) -> dict[str, Any]:
     dependency_graph = runtime_state.dependency_graph
     if dependency_graph is None:
@@ -71,7 +122,7 @@ def build_listener_dependency_cache(
 
 def _build_cached_dependency_value(
     listener: SettaListener,
-    runtime_state: ListenerRuntimeState,
+    runtime_state: ListenerTestRuntimeState,
     dep_key: BaseDependencyKeyUnion,
     *,
     value_codec: PythonValueCodec,
@@ -113,7 +164,7 @@ def _build_cached_dependency_value(
 
 def _build_cached_param_node_value(
     listener: SettaListener,
-    runtime_state: ListenerRuntimeState,
+    runtime_state: ListenerTestRuntimeState,
     node: ParamNode,
     *,
     value_codec: PythonValueCodec,
@@ -146,7 +197,7 @@ def _build_cached_param_node_value(
 
 def _build_cached_section_node_value(
     listener: SettaListener,
-    runtime_state: ListenerRuntimeState,
+    runtime_state: ListenerTestRuntimeState,
     node: SectionNode,
     *,
     value_codec: PythonValueCodec,
@@ -183,7 +234,7 @@ def _build_cached_section_node_value(
 
 def _build_cached_mapping_value(
     listener: SettaListener,
-    runtime_state: ListenerRuntimeState,
+    runtime_state: ListenerTestRuntimeState,
     deps: dict[BaseDependencyKeyUnion, bool],
     *,
     value_codec: PythonValueCodec,

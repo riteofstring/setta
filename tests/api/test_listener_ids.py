@@ -6,7 +6,6 @@ from setta.api import ListenerDependencyId, SettaListener, dep_id
 from setta.api.listener import (
     ListenerDependencyMetadata,
     ListenerDependencyValues,
-    ListenerRuntimeState,
 )
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.code_obj_impls import (
@@ -35,7 +34,10 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DictSectionImpl
 from setta.types.websocket import WebsocketMsgListenerRegister
-from tests.helpers.listener_runtime_state import build_listener_runtime_state
+from tests.helpers.listener_runtime_state import (
+    ListenerTestRuntimeState,
+    build_listener_runtime_state,
+)
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -435,7 +437,7 @@ def test_metadata_backed_callback_state_uses_go_password_snapshot_values() -> No
         dependency_metadata,
     )
 
-    runtime_state = ListenerRuntimeState(
+    runtime_state = ListenerTestRuntimeState(
         dependency_metadata=dependency_metadata,
         dependency_graph=DependencyGraph(project_state),
     )

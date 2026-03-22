@@ -29,7 +29,6 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.code_gen.dependency_graph import (
-    DependencyGraph,
     Node,
     ParamNode,
     SectionNode,
@@ -158,7 +157,6 @@ class ListenerCallbackContext:
 @dataclass(slots=True)
 class ListenerRuntimeState:
     dependency_metadata: "ListenerDependencyMetadata"
-    dependency_graph: DependencyGraph | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,51 +209,6 @@ class ListenerDependencyMetadata:
             for dependency_key, dependents in dependents_by_key.items()
         }
         self._ordered_names = tuple(ordered_names)
-
-    @classmethod
-    def from_dependency_graph(
-        cls,
-        dependency_graph: DependencyGraph,
-    ) -> "ListenerDependencyMetadata":
-        entries: list[ListenerDependencyMetadataEntry] = []
-        for dep_key, node in dependency_graph.graph.items():
-            section_type: SectionType | None = None
-            code_obj_type: CodeObjType | None = None
-            control_code_obj_id = None
-            control_code_obj_type = None
-            section_representation = None
-            control_value_representation = None
-            value_representation = None
-            if isinstance(node, SectionNode):
-                section_type = node.type
-                control_code_obj_id = node.control_code_obj_id
-                control_code_obj_type = node.control_code_obj_type
-                section_representation = node.representation
-                control_value_representation = node.control_value_representation
-            elif isinstance(node, ParamNode):
-                code_obj_type = node.type
-                value_representation = node.value_representation
-            entries.append(
-                ListenerDependencyMetadataEntry(
-                    dependencyKey=dep_key,
-                    name=node.name,
-                    fullPathName=node.full_path_name,
-                    dependencies=tuple(
-                        child_dep_key
-                        for child_dep_key, is_used in node.deps.items()
-                        if is_used
-                    ),
-                    sectionType=section_type,
-                    codeObjType=code_obj_type,
-                    controlCodeObjId=control_code_obj_id,
-                    controlCodeObjType=control_code_obj_type,
-                    sectionRepresentation=section_representation,
-                    controlValueRepresentation=control_value_representation,
-                    valueRepresentation=value_representation,
-                )
-            )
-        entries.sort(key=lambda entry: entry.fullPathName)
-        return cls(entries)
 
     @classmethod
     def from_catalog(

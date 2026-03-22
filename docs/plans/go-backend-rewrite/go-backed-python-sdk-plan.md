@@ -461,6 +461,9 @@ Phase 4 progress:
 - the active listener runtime no longer ships the project-state reconstruction
   helpers that were only needed for test/fallback paths; that logic now lives
   under `tests/helpers/` instead of the retained production SDK surface
+- the production listener metadata/runtime path no longer exposes graph-derived
+  project-state assembly hooks; the remaining dependency-graph builders are
+  retained only in test helpers
 
 Phase 4 status:
 

@@ -1,10 +1,6 @@
 import pytest
 
-from setta.api.listener import (
-    ListenerDependencyMetadata,
-    ListenerRuntimeState,
-    SettaListener,
-)
+from setta.api.listener import SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -15,6 +11,10 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
 from setta.types.websocket import WebsocketMsgListenerRegister
+from tests.helpers.listener_runtime_state import (
+    ListenerTestRuntimeState,
+    build_listener_dependency_metadata_from_graph,
+)
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -128,8 +128,8 @@ class TestSettaListenerDependencyTranslation:
             project_name=self.project_state.projectConfig.name,
         )
         listener._project_config_id = self.project_state.projectConfig.id
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
+        listener._runtime_state = ListenerTestRuntimeState(
+            dependency_metadata=build_listener_dependency_metadata_from_graph(
                 self.dependency_graph
             ),
             dependency_graph=self.dependency_graph,
