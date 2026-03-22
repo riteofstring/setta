@@ -489,7 +489,7 @@ func synthesizeUntrackedDiff(relPath string, absPath string, initialTruncated bo
 		return "", initialTruncated, fmt.Errorf("stat untracked path: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return "", initialTruncated, &Error{Kind: ErrorPathNotFile, Message: fmt.Sprintf("Path must point to a regular file: %s", relPath)}
+		return "", initialTruncated, &Error{Kind: ErrorPathNotFile, Message: "Path must point to a file."}
 	}
 
 	file, err := os.Open(absPath)

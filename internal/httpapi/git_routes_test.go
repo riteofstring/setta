@@ -219,6 +219,137 @@ func TestRegisterGitRoutesUsesOldPathForRenameAndRejectsDirectories(t *testing.T
 	}
 }
 
+func TestRegisterGitRoutesRejectRepoRootAndUntrackedDirectoryPathspecs(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	untrackedDir := filepath.Join(repoRoot, "new-dir")
+	if err := os.MkdirAll(untrackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir untracked dir: %v", err)
+	}
+	writeGitRouteFile(t, filepath.Join(untrackedDir, "inside.txt"), "x\n")
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	for _, requestBody := range []string{
+		`{"path":".","mode":"unstaged"}`,
+		`{"path":"new-dir","mode":"unstaged"}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(requestBody))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected non-file diff 400 for %s, got %d with body %q", requestBody, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), "Path must point to a file.") {
+			t.Fatalf("unexpected non-file response for %s: %q", requestBody, response.Body.String())
+		}
+	}
+}
+
+func TestRegisterGitRoutesPreserveLeadingSpacesAndEnforceSymlinkDiffPolicies(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	leadingSpacePath := " leading-space.txt"
+	writeGitRouteFile(t, filepath.Join(repoRoot, leadingSpacePath), "one\n")
+	runGitRouteCommand(t, repoRoot, "add", leadingSpacePath)
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add leading-space path")
+	writeGitRouteFile(t, filepath.Join(repoRoot, leadingSpacePath), "two\n")
+
+	specialPath := "a[1].txt"
+	plainPath := "a1.txt"
+	writeGitRouteFile(t, filepath.Join(repoRoot, specialPath), "one\n")
+	writeGitRouteFile(t, filepath.Join(repoRoot, plainPath), "one\n")
+	runGitRouteCommand(t, repoRoot, "add", specialPath, plainPath)
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add special path names")
+	writeGitRouteFile(t, filepath.Join(repoRoot, specialPath), "two\n")
+	writeGitRouteFile(t, filepath.Join(repoRoot, plainPath), "two\n")
+
+	outsideRoot := t.TempDir()
+	oldTarget := filepath.Join(outsideRoot, "old-target.txt")
+	newTarget := filepath.Join(outsideRoot, "new-target.txt")
+	writeGitRouteFile(t, oldTarget, "old\n")
+	writeGitRouteFile(t, newTarget, "new\n")
+	trackedSymlinkPath := filepath.Join(repoRoot, "outside-link.txt")
+	if err := os.Symlink(oldTarget, trackedSymlinkPath); err != nil {
+		t.Fatalf("create tracked symlink: %v", err)
+	}
+	runGitRouteCommand(t, repoRoot, "add", "outside-link.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add outside symlink")
+	if err := os.Remove(trackedSymlinkPath); err != nil {
+		t.Fatalf("remove tracked symlink: %v", err)
+	}
+	if err := os.Symlink(newTarget, trackedSymlinkPath); err != nil {
+		t.Fatalf("recreate tracked symlink: %v", err)
+	}
+
+	untrackedTarget := filepath.Join(outsideRoot, "outside-target.txt")
+	writeGitRouteFile(t, untrackedTarget, "outside\n")
+	if err := os.Symlink(untrackedTarget, filepath.Join(repoRoot, "untracked-outside-link.txt")); err != nil {
+		t.Fatalf("create untracked symlink: %v", err)
+	}
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	leadingRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":" leading-space.txt","mode":"unstaged"}`))
+	leadingRequest.Header.Set("Content-Type", "application/json")
+	leadingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(leadingResponse, leadingRequest)
+	if leadingResponse.Code != http.StatusOK {
+		t.Fatalf("expected leading-space diff 200, got %d with body %q", leadingResponse.Code, leadingResponse.Body.String())
+	}
+	var leadingPayload gitread.DiffResponse
+	if err := json.Unmarshal(leadingResponse.Body.Bytes(), &leadingPayload); err != nil {
+		t.Fatalf("decode leading-space payload: %v", err)
+	}
+	if !strings.Contains(leadingPayload.Diff, "diff --git a/ leading-space.txt b/ leading-space.txt") || !strings.Contains(leadingPayload.Diff, "-one") || !strings.Contains(leadingPayload.Diff, "+two") {
+		t.Fatalf("unexpected leading-space diff %q", leadingPayload.Diff)
+	}
+
+	specialRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":"a[1].txt","mode":"unstaged"}`))
+	specialRequest.Header.Set("Content-Type", "application/json")
+	specialResponse := httptest.NewRecorder()
+	handler.ServeHTTP(specialResponse, specialRequest)
+	if specialResponse.Code != http.StatusOK {
+		t.Fatalf("expected literal path diff 200, got %d with body %q", specialResponse.Code, specialResponse.Body.String())
+	}
+	var specialPayload gitread.DiffResponse
+	if err := json.Unmarshal(specialResponse.Body.Bytes(), &specialPayload); err != nil {
+		t.Fatalf("decode literal path payload: %v", err)
+	}
+	if !strings.Contains(specialPayload.Diff, "diff --git a/a[1].txt b/a[1].txt") || strings.Contains(specialPayload.Diff, "diff --git a/a1.txt b/a1.txt") {
+		t.Fatalf("unexpected literal path diff %q", specialPayload.Diff)
+	}
+
+	trackedSymlinkRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":"outside-link.txt","mode":"unstaged"}`))
+	trackedSymlinkRequest.Header.Set("Content-Type", "application/json")
+	trackedSymlinkResponse := httptest.NewRecorder()
+	handler.ServeHTTP(trackedSymlinkResponse, trackedSymlinkRequest)
+	if trackedSymlinkResponse.Code != http.StatusOK {
+		t.Fatalf("expected tracked symlink diff 200, got %d with body %q", trackedSymlinkResponse.Code, trackedSymlinkResponse.Body.String())
+	}
+	var trackedSymlinkPayload gitread.DiffResponse
+	if err := json.Unmarshal(trackedSymlinkResponse.Body.Bytes(), &trackedSymlinkPayload); err != nil {
+		t.Fatalf("decode tracked symlink payload: %v", err)
+	}
+	if !strings.Contains(trackedSymlinkPayload.Diff, "diff --git a/outside-link.txt b/outside-link.txt") {
+		t.Fatalf("unexpected tracked symlink diff %q", trackedSymlinkPayload.Diff)
+	}
+
+	untrackedSymlinkRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":"untracked-outside-link.txt","mode":"unstaged"}`))
+	untrackedSymlinkRequest.Header.Set("Content-Type", "application/json")
+	untrackedSymlinkResponse := httptest.NewRecorder()
+	handler.ServeHTTP(untrackedSymlinkResponse, untrackedSymlinkRequest)
+	if untrackedSymlinkResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected untracked symlink diff 403, got %d with body %q", untrackedSymlinkResponse.Code, untrackedSymlinkResponse.Body.String())
+	}
+	if !strings.Contains(untrackedSymlinkResponse.Body.String(), "Symlink paths are not supported for synthesized diffs.") {
+		t.Fatalf("unexpected untracked symlink response %q", untrackedSymlinkResponse.Body.String())
+	}
+}
+
 func TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksNonIDEModes(t *testing.T) {
 	t.Parallel()
 

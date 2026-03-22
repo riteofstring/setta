@@ -648,6 +648,36 @@ func TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) 
 	}
 }
 
+func TestServiceDiffRejectsRepoRootAndUntrackedDirectoriesAsNonFiles(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	untrackedDir := filepath.Join(repoRoot, "new-dir")
+	if err := os.MkdirAll(untrackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir untracked dir: %v", err)
+	}
+	writeFile(t, filepath.Join(untrackedDir, "inside.txt"), "x\n")
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	for _, path := range []string{".", "new-dir"} {
+		_, err := service.Diff(context.Background(), DiffRequest{
+			Path: path,
+			Mode: DiffModeUnstaged,
+		})
+		var serviceErr *Error
+		if !errors.As(err, &serviceErr) {
+			t.Fatalf("expected gitread error for %q, got %v", path, err)
+		}
+		if serviceErr.Kind != ErrorPathNotFile || serviceErr.Message != "Path must point to a file." {
+			t.Fatalf("unexpected non-file error for %q: %#v", path, serviceErr)
+		}
+	}
+}
+
 func TestServiceDiffPreservesLeadingSpacesAndRejectsSymlinkEscapes(t *testing.T) {
 	t.Parallel()
 
@@ -695,6 +725,50 @@ func TestServiceDiffPreservesLeadingSpacesAndRejectsSymlinkEscapes(t *testing.T)
 	}
 	if serviceErr.Kind != ErrorPathForbidden || serviceErr.Message != "Symlink paths are not supported for synthesized diffs." {
 		t.Fatalf("unexpected symlink diff error %#v", serviceErr)
+	}
+}
+
+func TestServiceDiffAllowsTrackedSymlinkPathspecOutsideRepo(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	outsideRoot := t.TempDir()
+	oldTarget := filepath.Join(outsideRoot, "old-target.txt")
+	newTarget := filepath.Join(outsideRoot, "new-target.txt")
+	writeFile(t, oldTarget, "old\n")
+	writeFile(t, newTarget, "new\n")
+
+	symlinkName := "outside-link.txt"
+	symlinkPath := filepath.Join(repoRoot, symlinkName)
+	if err := os.Symlink(oldTarget, symlinkPath); err != nil {
+		t.Fatalf("create tracked symlink: %v", err)
+	}
+	runGitReadCommand(t, repoRoot, "add", symlinkName)
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add tracked symlink")
+	if err := os.Remove(symlinkPath); err != nil {
+		t.Fatalf("remove tracked symlink: %v", err)
+	}
+	if err := os.Symlink(newTarget, symlinkPath); err != nil {
+		t.Fatalf("recreate tracked symlink: %v", err)
+	}
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	response, err := service.Diff(context.Background(), DiffRequest{
+		Path: symlinkName,
+		Mode: DiffModeUnstaged,
+	})
+	if err != nil {
+		t.Fatalf("tracked symlink diff: %v", err)
+	}
+	if response.Path != symlinkName {
+		t.Fatalf("expected tracked symlink path to round-trip, got %#v", response)
+	}
+	if !strings.Contains(response.Diff, "diff --git a/outside-link.txt b/outside-link.txt") {
+		t.Fatalf("expected tracked symlink diff header, got %q", response.Diff)
 	}
 }
 
