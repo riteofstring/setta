@@ -39,6 +39,18 @@ def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     assert ". ./activate.sh" not in reset_script
 
 
+def test_browser_bootstrap_scripts_use_shared_setta_cli_helper() -> None:
+    root = repo_root()
+    for rel_path in (
+        "scripts/start-browser-mcp.sh",
+        "scripts/bootstrap-url.sh",
+        "scripts/kill-setta.sh",
+    ):
+        script = (root / rel_path).read_text(encoding="utf-8")
+        assert "scripts/lib/setta_cli_command.sh" in script
+        assert "setta_cli_command_init" in script
+
+
 def test_frontend_postinstall_uses_node_xterm_patch() -> None:
     root = repo_root()
     package_json = json.loads((root / "frontend" / "package.json").read_text())
