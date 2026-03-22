@@ -554,15 +554,9 @@ type MCPRuntimeStatusRequestInput httpapi.MCPRuntimeStatusRequest
 
 type MCPRuntimeStatusResponse httpapi.MCPRuntimeStatusResponse
 
-type GetPasswordParamValueRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	SectionID       string `json:"sectionId"`
-	ParamInfoID     string `json:"paramInfoId"`
-}
+type GetPasswordParamValueRequestInput httpapi.GetPasswordParamValueRequest
 
-type GetPasswordParamValueResponse struct {
-	Value string `json:"value"`
-}
+type GetPasswordParamValueResponse httpapi.GetPasswordParamValueResponse
 
 type GetAttachmentDownloadURLRequestInput httpapi.GetAttachmentDownloadURLRequest
 
@@ -574,13 +568,9 @@ type AttachmentDownloadURLEntry httpapi.AttachmentDownloadURLEntry
 
 type GetAttachmentDownloadURLsResponse []AttachmentDownloadURLEntry
 
-type ForceRefreshListenerRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type ForceRefreshListenerRequestInput httpapi.ForceRefreshProjectRequest
 
-type ListenerCoverageRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type ListenerCoverageRequestInput httpapi.ListenerCoverageRequest
 
 type DependencyKeyType = realtime.DependencyKeyType
 

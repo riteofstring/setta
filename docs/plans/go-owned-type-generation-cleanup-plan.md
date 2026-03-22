@@ -289,6 +289,16 @@ That means:
     - `LauncherOpenMode -> launcher.LauncherOpenMode`
     - `LauncherWorkspaceBehavior -> launcher.LauncherWorkspaceBehavior`
     - `LauncherUpdateCapability -> launcher.LauncherUpdateCapability`
+  - more request and websocket helper types now wrap exact backend owners instead of repeating route/realtime payload shapes:
+    - `GetPasswordParamValueRequestInput -> httpapi.GetPasswordParamValueRequest`
+    - `GetPasswordParamValueResponse -> httpapi.GetPasswordParamValueResponse`
+    - `ForceRefreshListenerRequestInput -> httpapi.ForceRefreshProjectRequest`
+    - `ListenerCoverageRequestInput -> httpapi.ListenerCoverageRequest`
+    - `UISettingRevealActivationStep -> realtime.UISettingRevealActivationStep`
+    - `UISettingRevealTarget -> realtime.UISettingRevealTarget`
+    - `UISettingRevealContent -> realtime.UISettingRevealContent`
+    - `UISettingRevealResultStatus -> realtime.UISettingRevealResultStatus`
+    - `UISettingRevealResultContent -> realtime.UISettingRevealResultContent`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

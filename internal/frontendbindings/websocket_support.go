@@ -1,6 +1,10 @@
 package frontendbindings
 
-import "strings"
+import (
+	"strings"
+
+	"setta/internal/realtime"
+)
 
 type WebsocketConnectionType string
 
@@ -64,45 +68,15 @@ type WebsocketMsgCurrentAddressUpdate struct {
 	Content     string                     `json:"content"`
 }
 
-type UISettingRevealActivationStep struct {
-	Type      string `json:"type"`
-	ItemValue string `json:"itemValue"`
-}
+type UISettingRevealActivationStep realtime.UISettingRevealActivationStep
 
-type UISettingRevealTarget struct {
-	SettingID             string                          `json:"settingId"`
-	Side                  string                          `json:"side"`
-	OverviewTabKey        *string                         `json:"overviewTabKey,omitempty"`
-	UIEditorTabName       *string                         `json:"uiEditorTabName,omitempty"`
-	PluginID              *string                         `json:"pluginId,omitempty"`
-	PaneID                *string                         `json:"paneId,omitempty"`
-	Strategy              string                          `json:"strategy"`
-	AnchorID              *string                         `json:"anchorId,omitempty"`
-	PluginRevealKey       *string                         `json:"pluginRevealKey,omitempty"`
-	RevealActivationSteps []UISettingRevealActivationStep `json:"revealActivationSteps"`
-}
+type UISettingRevealTarget realtime.UISettingRevealTarget
 
-type UISettingRevealContent struct {
-	ProjectConfigID string                  `json:"projectConfigId"`
-	ChatID          *string                 `json:"chatId,omitempty"`
-	ActiveSectionID *string                 `json:"activeSectionId,omitempty"`
-	Reveals         []UISettingRevealTarget `json:"reveals"`
-	DurationMS      int                     `json:"durationMs"`
-	RequestID       string                  `json:"requestId"`
-}
+type UISettingRevealContent realtime.UISettingRevealContent
 
-type UISettingRevealResultStatus struct {
-	SettingID    string  `json:"settingId"`
-	Status       string  `json:"status"`
-	ErrorCode    *string `json:"errorCode,omitempty"`
-	ErrorMessage *string `json:"errorMessage,omitempty"`
-}
+type UISettingRevealResultStatus realtime.UISettingRevealResultStatus
 
-type UISettingRevealResultContent struct {
-	ProjectConfigID string                        `json:"projectConfigId"`
-	RequestID       string                        `json:"requestId"`
-	Statuses        []UISettingRevealResultStatus `json:"statuses"`
-}
+type UISettingRevealResultContent realtime.UISettingRevealResultContent
 
 type WebsocketMsgRealtimeUIChangeContent struct {
 	ProjectConfigID string                   `json:"projectConfigId"`
