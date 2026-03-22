@@ -58,7 +58,7 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 		t.Fatalf("expected first share publish 200, got %d with body %q", firstResponse.Code, firstResponse.Body.String())
 	}
 
-	var firstPayload deploymentMetadataResponse
+	var firstPayload DeploymentMetadataResponse
 	if err := json.Unmarshal(firstResponse.Body.Bytes(), &firstPayload); err != nil {
 		t.Fatalf("decode first share publish payload: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 		t.Fatalf("expected second share publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
 	}
 
-	var secondPayload deploymentMetadataResponse
+	var secondPayload DeploymentMetadataResponse
 	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
 		t.Fatalf("decode second share publish payload: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 		t.Fatalf("expected share versions 200, got %d with body %q", versionsResponse.Code, versionsResponse.Body.String())
 	}
 
-	var versionsPayload []deploymentMetadataResponse
+	var versionsPayload []DeploymentMetadataResponse
 	if err := json.Unmarshal(versionsResponse.Body.Bytes(), &versionsPayload); err != nil {
 		t.Fatalf("decode share versions payload: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 		t.Fatalf("expected share latest 200, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
 	}
 
-	var latestPayload deploymentMetadataResponse
+	var latestPayload DeploymentMetadataResponse
 	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
 		t.Fatalf("decode share latest payload: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 		t.Fatalf("expected share list 200, got %d with body %q", listResponse.Code, listResponse.Body.String())
 	}
 
-	var listPayload []deploymentMetadataResponse
+	var listPayload []DeploymentMetadataResponse
 	if err := json.Unmarshal(listResponse.Body.Bytes(), &listPayload); err != nil {
 		t.Fatalf("decode share list payload: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot(t *tes
 		t.Fatalf("expected share publish 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload deploymentMetadataResponse
+	var payload DeploymentMetadataResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode share publish payload: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		t.Fatalf("expected app publish 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload deploymentMetadataResponse
+	var payload DeploymentMetadataResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode app publish payload: %v", err)
 	}
@@ -358,7 +358,7 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		t.Fatalf("expected second app publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
 	}
 
-	var secondPayload deploymentMetadataResponse
+	var secondPayload DeploymentMetadataResponse
 	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
 		t.Fatalf("decode second app publish payload: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		t.Fatalf("expected app versions 200, got %d with body %q", versionsResponse.Code, versionsResponse.Body.String())
 	}
 
-	var versionsPayload []deploymentMetadataResponse
+	var versionsPayload []DeploymentMetadataResponse
 	if err := json.Unmarshal(versionsResponse.Body.Bytes(), &versionsPayload); err != nil {
 		t.Fatalf("decode app versions payload: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		t.Fatalf("expected app latest 200, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
 	}
 
-	var latestPayload deploymentMetadataResponse
+	var latestPayload DeploymentMetadataResponse
 	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
 		t.Fatalf("decode app latest payload: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		t.Fatalf("expected app list 200, got %d with body %q", listResponse.Code, listResponse.Body.String())
 	}
 
-	var listPayload []deploymentMetadataResponse
+	var listPayload []DeploymentMetadataResponse
 	if err := json.Unmarshal(listResponse.Body.Bytes(), &listPayload); err != nil {
 		t.Fatalf("decode app list payload: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestRegisterDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *testin
 		t.Fatalf("expected app latest 200, got %d with body %q", appLatestResponse.Code, appLatestResponse.Body.String())
 	}
 
-	var appLatestPayload deploymentMetadataResponse
+	var appLatestPayload DeploymentMetadataResponse
 	if err := json.Unmarshal(appLatestResponse.Body.Bytes(), &appLatestPayload); err != nil {
 		t.Fatalf("decode app latest payload: %v", err)
 	}
@@ -811,7 +811,7 @@ func TestRegisterDeploymentIDERoutesMapCatalogReadErrors(t *testing.T) {
 				t.Fatalf("expected catalog read %d, got %d with body %q", testCase.expectedCode, response.Code, response.Body.String())
 			}
 			if testCase.expectEmptyList {
-				var payload []deploymentMetadataResponse
+				var payload []DeploymentMetadataResponse
 				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 					t.Fatalf("decode empty catalog list response: %v", err)
 				}

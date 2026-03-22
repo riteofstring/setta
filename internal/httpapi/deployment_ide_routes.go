@@ -28,7 +28,7 @@ type DeploymentIDERouteDependencies struct {
 	AppPublisher   *deployments.AppPublisher
 }
 
-type deploymentMetadataResponse struct {
+type DeploymentMetadataResponse struct {
 	DeploymentName     string    `json:"deploymentName"`
 	DeploymentVersion  string    `json:"deploymentVersion"`
 	DefaultProjectID   string    `json:"defaultProjectConfigId"`
@@ -183,16 +183,16 @@ func publishAppDeploymentHandler(projectState *projectstate.Runtime, publisher *
 	}
 }
 
-func deploymentMetadataResponses(entries []deployments.Metadata) []deploymentMetadataResponse {
-	responses := make([]deploymentMetadataResponse, 0, len(entries))
+func deploymentMetadataResponses(entries []deployments.Metadata) []DeploymentMetadataResponse {
+	responses := make([]DeploymentMetadataResponse, 0, len(entries))
 	for _, entry := range entries {
 		responses = append(responses, deploymentMetadataResponseFromMetadata(entry))
 	}
 	return responses
 }
 
-func deploymentMetadataResponseFromMetadata(metadata deployments.Metadata) deploymentMetadataResponse {
-	return deploymentMetadataResponse{
+func deploymentMetadataResponseFromMetadata(metadata deployments.Metadata) DeploymentMetadataResponse {
+	return DeploymentMetadataResponse{
 		DeploymentName:     metadata.DeploymentName,
 		DeploymentVersion:  metadata.DeploymentVersion,
 		DefaultProjectID:   metadata.DefaultProjectID,

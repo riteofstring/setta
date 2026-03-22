@@ -6,11 +6,16 @@ import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
 	binary "setta/internal/binary"
+	deployments "setta/internal/deployments"
 	externalagentconfigs "setta/internal/externalagentconfigs"
 	httpapi "setta/internal/httpapi"
 	llmconfig "setta/internal/llmconfig"
+	lspcompletion "setta/internal/lspcompletion"
+	projectshell "setta/internal/projectshell"
+	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	prompttemplates "setta/internal/prompttemplates"
+	realtime "setta/internal/realtime"
 )
 
 func DiscoveredConvertibleTypes() []reflect.Type {
@@ -359,17 +364,17 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf((*WindowSpaceConfig)(nil)).Elem(),
 		reflect.TypeOf((*SectionsClipboardData)(nil)).Elem(),
 		reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}),
-		reflect.TypeOf(ProjectMetadataEntry{}),
-		reflect.TypeOf(AllProjectMetadata{}),
-		reflect.TypeOf(DeploymentType("")),
-		reflect.TypeOf(DeploymentListenerConfig{}),
-		reflect.TypeOf(DeploymentManifest{}),
+		reflect.TypeOf((*ProjectMetadataEntry)(nil)).Elem(),
+		reflect.TypeOf((*AllProjectMetadata)(nil)).Elem(),
+		reflect.TypeOf((*DeploymentType)(nil)).Elem(),
+		reflect.TypeOf((*DeploymentListenerConfig)(nil)).Elem(),
+		reflect.TypeOf((*DeploymentManifest)(nil)).Elem(),
 		reflect.TypeOf(ShareDeploymentMetadata{}),
 		reflect.TypeOf(ShareDeploymentMetadataList(nil)),
 		reflect.TypeOf(AppDeploymentMetadata{}),
 		reflect.TypeOf(AppDeploymentMetadataList(nil)),
-		reflect.TypeOf(ShareDeploymentSessionResponse{}),
-		reflect.TypeOf(AppDeploymentSessionResponse{}),
+		reflect.TypeOf((*ShareDeploymentSessionResponse)(nil)).Elem(),
+		reflect.TypeOf((*AppDeploymentSessionResponse)(nil)).Elem(),
 		reflect.TypeOf(DeploymentVersionRouteParams{}),
 		reflect.TypeOf(DeploymentNameRouteParams{}),
 		reflect.TypeOf(LoadDeploymentProjectConfigRequestInput{}),
@@ -391,10 +396,10 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(DeleteNotificationResponse{}),
 		reflect.TypeOf(DocstringToMarkdownResponse("")),
 		reflect.TypeOf(AgenticSummaryCacheStatus{}),
-		reflect.TypeOf(AIFollowToolArgumentsUpdateContent{}),
-		reflect.TypeOf(AIFollowToolResultUpdateContent{}),
+		reflect.TypeOf((*AIFollowToolArgumentsUpdateContent)(nil)).Elem(),
+		reflect.TypeOf((*AIFollowToolResultUpdateContent)(nil)).Elem(),
 		reflect.TypeOf(AIFollowSnapshotResponse(nil)),
-		reflect.TypeOf(CodeMirrorCompletion{}),
+		reflect.TypeOf((*CodeMirrorCompletion)(nil)).Elem(),
 		reflect.TypeOf(CodeMirrorCompletionResponse(nil)),
 		reflect.TypeOf(CreateNewSectionVariantRequestInput{}),
 		reflect.TypeOf(CreateNewSectionVariantResponse{}),
@@ -445,7 +450,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(SetCodeObjNameRequestInput{}),
 		reflect.TypeOf(SetCodeObjDisplayNameRequestInput{}),
 		reflect.TypeOf(Position{}),
-		reflect.TypeOf(RunSnapshotMode("")),
+		reflect.TypeOf((*RunSnapshotMode)(nil)).Elem(),
 		reflect.TypeOf(RenameRefactorMode("")),
 		reflect.TypeOf(BackgroundVariant("")),
 		reflect.TypeOf(SelectionMode("")),
@@ -465,7 +470,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(SectionSizingPolicyGlobals{}),
 		reflect.TypeOf(SectionSizingPolicyByType{}),
 		reflect.TypeOf(SectionSizingPolicy{}),
-		reflect.TypeOf(SharePolicy{}),
+		reflect.TypeOf((*SharePolicy)(nil)).Elem(),
 		reflect.TypeOf(SettingsShortcuts{}),
 		reflect.TypeOf(SettingsGUI{}),
 		reflect.TypeOf(SettingsBackend{}),
@@ -760,5 +765,17 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*projectview.SingleConfig)(nil)).Elem(): reflect.TypeOf((*ProjectStateSingleConfig)(nil)).Elem(),
 		reflect.TypeOf((*projectview.ShownParamIDDetails)(nil)).Elem(): reflect.TypeOf((*ShownParamIdDetails)(nil)).Elem(),
 		reflect.TypeOf((*projectview.ShownParamIDs)(nil)).Elem(): reflect.TypeOf((*ShownParamIds)(nil)).Elem(),
+		reflect.TypeOf((*projectstate.ProjectConfigMetadata)(nil)).Elem(): reflect.TypeOf((*ProjectMetadataEntry)(nil)).Elem(),
+		reflect.TypeOf((*projectshell.AllProjectMetadata)(nil)).Elem(): reflect.TypeOf((*AllProjectMetadata)(nil)).Elem(),
+		reflect.TypeOf((*deployments.Type)(nil)).Elem(): reflect.TypeOf((*DeploymentType)(nil)).Elem(),
+		reflect.TypeOf((*deployments.ListenerConfig)(nil)).Elem(): reflect.TypeOf((*DeploymentListenerConfig)(nil)).Elem(),
+		reflect.TypeOf((*deployments.Manifest)(nil)).Elem(): reflect.TypeOf((*DeploymentManifest)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.ShareDeploymentSessionResponse)(nil)).Elem(): reflect.TypeOf((*ShareDeploymentSessionResponse)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.AppDeploymentSessionResponse)(nil)).Elem(): reflect.TypeOf((*AppDeploymentSessionResponse)(nil)).Elem(),
+		reflect.TypeOf((*realtime.AIFollowToolArgumentsUpdateContent)(nil)).Elem(): reflect.TypeOf((*AIFollowToolArgumentsUpdateContent)(nil)).Elem(),
+		reflect.TypeOf((*realtime.AIFollowToolResultUpdateContent)(nil)).Elem(): reflect.TypeOf((*AIFollowToolResultUpdateContent)(nil)).Elem(),
+		reflect.TypeOf((*lspcompletion.CodeMirrorCompletion)(nil)).Elem(): reflect.TypeOf((*CodeMirrorCompletion)(nil)).Elem(),
+		reflect.TypeOf((*deployments.RunSnapshotMode)(nil)).Elem(): reflect.TypeOf((*RunSnapshotMode)(nil)).Elem(),
+		reflect.TypeOf((*deployments.Policy)(nil)).Elem(): reflect.TypeOf((*SharePolicy)(nil)).Elem(),
 	}
 }

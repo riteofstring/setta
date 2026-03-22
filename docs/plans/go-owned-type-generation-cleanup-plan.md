@@ -172,6 +172,14 @@ That means:
   - `ProjectCodegenPythonTarget`
   - `ProjectCodegenPluginTarget`
 - `internal/frontendbindings/project_state_support.go` now aliases that project-codegen family to `internal/projectview` instead of declaring local mirror structs/enums.
+- the deployment session / project-metadata / follow-update / completion family has also been pushed onto real backend owners:
+  - `internal/httpapi` now owns `ShareDeploymentSessionResponse`, `AppDeploymentSessionResponse`, and the exported `DeploymentMetadataResponse`
+  - `internal/projectshell` owns `AllProjectMetadata`
+  - `internal/projectstate` owns `ProjectConfigMetadata`
+  - `internal/deployments` owns `Type`, `ListenerConfig`, `Manifest`, `RunSnapshotMode`, and `Policy`
+  - `internal/realtime` owns `AIFollowToolArgumentsUpdateContent` and `AIFollowToolResultUpdateContent`
+  - `internal/lspcompletion` owns `CodeMirrorCompletion`
+- `internal/frontendbindings/project_state_support.go` now wraps that owner-backed deployment / project-metadata / follow-update / completion family instead of repeating those field layouts locally.
 - `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
   - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, and validation.
 - `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:
@@ -225,7 +233,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the detailed chat-message schema family, and the external-agent config/settings family.
+This has improved for the project-state/view/windowing family, the project/deployment metadata family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the follow-update / completion family, the detailed chat-message schema family, and the external-agent config/settings family.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -257,6 +265,11 @@ The prompt-format duplication has already been removed. The remaining work here 
 - collapse the backend ownership first
 - then point frontend/Python generation at the surviving owner
 - do not teach the generators to arbitrate between multiple backend owners forever
+
+One concrete remaining example is deployment metadata naming on the frontend side:
+- `ShareDeploymentMetadata` and `AppDeploymentMetadata` still describe the same HTTP payload shape
+- the route contract owner is now `httpapi.DeploymentMetadataResponse`
+- the remaining decision is whether to keep two frontend-facing names as thin wrappers, or collapse them to one shared generated name
 
 ### 5. A few handwritten Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before.

@@ -3,8 +3,13 @@ package frontendbindings
 import (
 	"time"
 
+	"setta/internal/deployments"
+	"setta/internal/httpapi"
+	"setta/internal/lspcompletion"
+	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/realtime"
 	"setta/internal/scriptablechat"
 )
 
@@ -52,32 +57,15 @@ type SectionsClipboardData = projectstate.SectionsClipboardData
 
 type BaseClipboardDataUnionWithDiscriminator struct{}
 
-type ProjectMetadataEntry struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
+type ProjectMetadataEntry projectstate.ProjectConfigMetadata
 
-type AllProjectMetadata struct {
-	DefaultProjectConfigID *string                `json:"defaultProjectConfigId"`
-	ProjectMetadata        []ProjectMetadataEntry `json:"projectMetadata"`
-}
+type AllProjectMetadata projectshell.AllProjectMetadata
 
-type DeploymentType string
+type DeploymentType deployments.Type
 
-type DeploymentListenerConfig struct {
-	Entrypoint string `json:"entrypoint"`
-	Enabled    bool   `json:"enabled"`
-}
+type DeploymentListenerConfig deployments.ListenerConfig
 
-type DeploymentManifest struct {
-	Version           int                       `json:"version"`
-	DeploymentName    string                    `json:"deploymentName"`
-	DeploymentType    DeploymentType            `json:"deploymentType"`
-	DefaultProjectID  string                    `json:"defaultProjectConfigId"`
-	DeploymentVersion string                    `json:"deploymentVersion"`
-	CreatedAt         time.Time                 `json:"createdAt"`
-	Listener          *DeploymentListenerConfig `json:"listener,omitempty"`
-}
+type DeploymentManifest deployments.Manifest
 
 type ShareDeploymentMetadata struct {
 	DeploymentName     string    `json:"deploymentName"`
@@ -103,27 +91,9 @@ type AppDeploymentMetadata struct {
 
 type AppDeploymentMetadataList []AppDeploymentMetadata
 
-type ShareDeploymentSessionResponse struct {
-	DeploymentName         string                 `json:"deploymentName"`
-	DeploymentVersion      string                 `json:"deploymentVersion"`
-	ShareSessionID         string                 `json:"shareSessionId"`
-	SessionRunCount        int                    `json:"sessionRunCount"`
-	DefaultProjectConfigID string                 `json:"defaultProjectConfigId"`
-	ProjectMetadata        []ProjectMetadataEntry `json:"projectMetadata"`
-	SharePolicy            SharePolicy            `json:"sharePolicy"`
-	Manifest               *DeploymentManifest    `json:"manifest,omitempty"`
-}
+type ShareDeploymentSessionResponse httpapi.ShareDeploymentSessionResponse
 
-type AppDeploymentSessionResponse struct {
-	DeploymentName         string                 `json:"deploymentName"`
-	DeploymentVersion      string                 `json:"deploymentVersion"`
-	ShareSessionID         string                 `json:"shareSessionId"`
-	SessionRunCount        int                    `json:"sessionRunCount"`
-	DefaultProjectConfigID string                 `json:"defaultProjectConfigId"`
-	ProjectMetadata        []ProjectMetadataEntry `json:"projectMetadata"`
-	AppPolicy              SharePolicy            `json:"appPolicy"`
-	Manifest               *DeploymentManifest    `json:"manifest,omitempty"`
-}
+type AppDeploymentSessionResponse httpapi.AppDeploymentSessionResponse
 
 type DeploymentVersionRouteParams struct {
 	DeploymentName string `json:"deploymentName"`
@@ -223,24 +193,13 @@ type AgenticSummaryCacheStatus struct {
 	WouldAttemptSectionIDs []string `json:"wouldAttemptSectionIds"`
 }
 
-type AIFollowToolArgumentsUpdateContent struct {
-	ProjectConfigID string              `json:"projectConfigId"`
-	ChatID          string              `json:"chatId"`
-	IDsByType       map[string][]string `json:"idsByType"`
-}
+type AIFollowToolArgumentsUpdateContent realtime.AIFollowToolArgumentsUpdateContent
 
-type AIFollowToolResultUpdateContent struct {
-	ProjectConfigID string              `json:"projectConfigId"`
-	ChatID          string              `json:"chatId"`
-	IDsByType       map[string][]string `json:"idsByType"`
-}
+type AIFollowToolResultUpdateContent realtime.AIFollowToolResultUpdateContent
 
 type AIFollowSnapshotResponse []AIFollowToolArgumentsUpdateContent
 
-type CodeMirrorCompletion struct {
-	Label string `json:"label"`
-	Type  string `json:"type"`
-}
+type CodeMirrorCompletion lspcompletion.CodeMirrorCompletion
 
 type CodeMirrorCompletionResponse []CodeMirrorCompletion
 
@@ -588,7 +547,7 @@ type Position struct {
 	Y float64 `json:"y"`
 }
 
-type RunSnapshotMode string
+type RunSnapshotMode deployments.RunSnapshotMode
 
 type RenameRefactorMode string
 
@@ -628,7 +587,7 @@ type SectionSizingPolicyByType struct{}
 
 type SectionSizingPolicy struct{}
 
-type SharePolicy struct{}
+type SharePolicy deployments.Policy
 
 type SettingsShortcuts struct{}
 

@@ -3998,8 +3998,8 @@ export function createSectionsClipboardData(
 export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
 
 export type ProjectMetadataEntry = {
-  id: string;
   name: string;
+  id: string;
 };
 export function createProjectMetadataEntry(
   options: Partial<ProjectMetadataEntry> = {},
@@ -4035,7 +4035,7 @@ export type DeploymentManifest = {
   deploymentType: DeploymentType;
   defaultProjectConfigId: string;
   deploymentVersion: string;
-  createdAt: string;
+  createdAt?: string;
   listener?: DeploymentListenerConfig | null;
 };
 export function createDeploymentManifest(

@@ -26,31 +26,26 @@ type DeploymentRouteDependencies struct {
 	Deployment *deployments.Runtime
 }
 
-type deploymentProjectMetadata struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
 type ShareDeploymentSessionResponse struct {
-	DeploymentName         string                      `json:"deploymentName"`
-	DeploymentVersion      string                      `json:"deploymentVersion"`
-	ShareSessionID         string                      `json:"shareSessionId"`
-	SessionRunCount        int                         `json:"sessionRunCount"`
-	DefaultProjectConfigID string                      `json:"defaultProjectConfigId"`
-	ProjectMetadata        []deploymentProjectMetadata `json:"projectMetadata"`
-	SharePolicy            deployments.Policy          `json:"sharePolicy"`
-	Manifest               *deployments.Manifest       `json:"manifest,omitempty"`
+	DeploymentName         string                               `json:"deploymentName"`
+	DeploymentVersion      string                               `json:"deploymentVersion"`
+	ShareSessionID         string                               `json:"shareSessionId"`
+	SessionRunCount        int                                  `json:"sessionRunCount"`
+	DefaultProjectConfigID string                               `json:"defaultProjectConfigId"`
+	ProjectMetadata        []projectstate.ProjectConfigMetadata `json:"projectMetadata"`
+	SharePolicy            deployments.Policy                   `json:"sharePolicy"`
+	Manifest               *deployments.Manifest                `json:"manifest,omitempty"`
 }
 
 type AppDeploymentSessionResponse struct {
-	DeploymentName         string                      `json:"deploymentName"`
-	DeploymentVersion      string                      `json:"deploymentVersion"`
-	ShareSessionID         string                      `json:"shareSessionId"`
-	SessionRunCount        int                         `json:"sessionRunCount"`
-	DefaultProjectConfigID string                      `json:"defaultProjectConfigId"`
-	ProjectMetadata        []deploymentProjectMetadata `json:"projectMetadata"`
-	AppPolicy              deployments.Policy          `json:"appPolicy"`
-	Manifest               *deployments.Manifest       `json:"manifest,omitempty"`
+	DeploymentName         string                               `json:"deploymentName"`
+	DeploymentVersion      string                               `json:"deploymentVersion"`
+	ShareSessionID         string                               `json:"shareSessionId"`
+	SessionRunCount        int                                  `json:"sessionRunCount"`
+	DefaultProjectConfigID string                               `json:"defaultProjectConfigId"`
+	ProjectMetadata        []projectstate.ProjectConfigMetadata `json:"projectMetadata"`
+	AppPolicy              deployments.Policy                   `json:"appPolicy"`
+	Manifest               *deployments.Manifest                `json:"manifest,omitempty"`
 }
 
 type loadDeploymentProjectConfigRequest struct {
@@ -162,11 +157,11 @@ func currentDeploymentSession(runtime *deployments.Runtime, request *http.Reques
 	return session, nil
 }
 
-func deploymentProjectMetadataFromRuntime(runtime *deployments.Runtime) []deploymentProjectMetadata {
+func deploymentProjectMetadataFromRuntime(runtime *deployments.Runtime) []projectstate.ProjectConfigMetadata {
 	snapshot := runtime.Base().Snapshot()
-	metadata := make([]deploymentProjectMetadata, 0, len(snapshot.Document.Projects))
+	metadata := make([]projectstate.ProjectConfigMetadata, 0, len(snapshot.Document.Projects))
 	for _, project := range snapshot.Document.Projects {
-		metadata = append(metadata, deploymentProjectMetadata{
+		metadata = append(metadata, projectstate.ProjectConfigMetadata{
 			ID:   project.ID,
 			Name: project.Name,
 		})
