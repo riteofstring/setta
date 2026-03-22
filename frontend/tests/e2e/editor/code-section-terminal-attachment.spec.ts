@@ -1866,10 +1866,12 @@ test("attaching a narrow terminal to a wider code section expands terminal cols"
 
     // Attach to a wider code section and verify cols increase after embed.
     await setSectionSize(page, codeSectionId, { width: 920, height: 520 });
-    await postBackend(page, "/setCodeSectionAttachedTerminal", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
-      sectionId: codeSectionId,
-      terminalSectionId: terminalId,
+      sectionIds: [terminalId],
+      newParentId: codeSectionId,
+      newIndex: 0,
+      positionsById: null,
     });
 
     const attachedId = await waitForAttachedTerminalId(
@@ -1967,6 +1969,20 @@ test("terminal created as attached reflows while attached and after detach", asy
       );
     }
 
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `ATTACHED_INIT_REFLOW_READY_${Date.now()}`,
+      {
+        timeoutMs: process.env.CI ? 60000 : 30000,
+      },
+    );
+    await focusTerminalAndType(page, terminalId, "clear");
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
     const attachedMarker = `ATTACHED_INIT_REFLOW_${Date.now()}`;
     const attachedXCount = Math.max(120, 3 * narrowAttachedResize.cols);
     await focusTerminalAndType(
@@ -2045,6 +2061,20 @@ test("terminal created as attached reflows while attached and after detach", asy
         `Missing terminalResize payload for ${terminalId} in detached narrow state.`,
       );
     }
+
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `DETACHED_AFTER_ATTACH_INIT_READY_${Date.now()}`,
+      {
+        timeoutMs: process.env.CI ? 60000 : 30000,
+      },
+    );
+    await focusTerminalAndType(page, terminalId, "clear");
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
 
     const detachedMarker = `DETACHED_AFTER_ATTACH_INIT_${Date.now()}`;
     const detachedXCount = Math.max(120, 3 * narrowDetachedResize.cols);
