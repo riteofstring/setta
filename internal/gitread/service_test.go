@@ -1256,6 +1256,77 @@ func TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths(t *testin
 	}
 }
 
+func TestServiceCommitFileDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	specialPath := "a[1].txt"
+	plainPath := "a1.txt"
+	writeFile(t, filepath.Join(repoRoot, specialPath), "one\n")
+	writeFile(t, filepath.Join(repoRoot, plainPath), "one\n")
+	runGitReadCommand(t, repoRoot, "add", specialPath, plainPath)
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add literal files")
+	writeFile(t, filepath.Join(repoRoot, specialPath), "two\n")
+	writeFile(t, filepath.Join(repoRoot, plainPath), "two\n")
+	runGitReadCommand(t, repoRoot, "add", specialPath, plainPath)
+	runGitReadCommand(t, repoRoot, "commit", "-m", "update literal files")
+	literalCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	nestedDir := filepath.Join(repoRoot, "dir")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("mkdir dir: %v", err)
+	}
+	writeFile(t, filepath.Join(nestedDir, "nested.txt"), "nested\n")
+	runGitReadCommand(t, repoRoot, "add", "dir/nested.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add nested")
+	directoryCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	spacedDir := filepath.Join(repoRoot, " dir")
+	if err := os.MkdirAll(spacedDir, 0o755); err != nil {
+		t.Fatalf("mkdir spaced dir: %v", err)
+	}
+	writeFile(t, filepath.Join(spacedDir, "inside.txt"), "inside\n")
+	runGitReadCommand(t, repoRoot, "add", " dir/inside.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add spaced directory")
+	spacedDirectoryCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	literalDiff, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: literalCommit,
+		Path:       specialPath,
+	})
+	if err != nil {
+		t.Fatalf("literal commit file diff: %v", err)
+	}
+	if !strings.Contains(literalDiff.Diff, "diff --git a/a[1].txt b/a[1].txt") || strings.Contains(literalDiff.Diff, "diff --git a/a1.txt b/a1.txt") {
+		t.Fatalf("unexpected literal commit diff %q", literalDiff.Diff)
+	}
+
+	for _, testCase := range []struct {
+		path       string
+		commitHash string
+	}{
+		{path: "dir", commitHash: directoryCommit},
+		{path: " dir", commitHash: spacedDirectoryCommit},
+	} {
+		_, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+			CommitHash: testCase.commitHash,
+			Path:       testCase.path,
+		})
+		var serviceErr *Error
+		if !errors.As(err, &serviceErr) {
+			t.Fatalf("expected gitread error for %q, got %v", testCase.path, err)
+		}
+		if serviceErr.Kind != ErrorPathNotFile || serviceErr.Message != "Path must point to a file." {
+			t.Fatalf("unexpected directory pathspec error for %q: %#v", testCase.path, serviceErr)
+		}
+	}
+}
+
 func TestServiceCommitDetailsAndFileDiffRejectInvalidCommitHashes(t *testing.T) {
 	t.Parallel()
 

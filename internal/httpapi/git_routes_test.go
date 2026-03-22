@@ -552,6 +552,76 @@ func TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff(t *testing.T) {
 	}
 }
 
+func TestRegisterGitRoutesCommitFileDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	specialPath := "a[1].txt"
+	plainPath := "a1.txt"
+	writeGitRouteFile(t, filepath.Join(repoRoot, specialPath), "one\n")
+	writeGitRouteFile(t, filepath.Join(repoRoot, plainPath), "one\n")
+	runGitRouteCommand(t, repoRoot, "add", specialPath, plainPath)
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add literal files")
+	writeGitRouteFile(t, filepath.Join(repoRoot, specialPath), "two\n")
+	writeGitRouteFile(t, filepath.Join(repoRoot, plainPath), "two\n")
+	runGitRouteCommand(t, repoRoot, "add", specialPath, plainPath)
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "update literal files")
+	literalCommit := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	nestedDir := filepath.Join(repoRoot, "dir")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("mkdir dir: %v", err)
+	}
+	writeGitRouteFile(t, filepath.Join(nestedDir, "nested.txt"), "nested\n")
+	runGitRouteCommand(t, repoRoot, "add", "dir/nested.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add nested")
+	directoryCommit := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	spacedDir := filepath.Join(repoRoot, " dir")
+	if err := os.MkdirAll(spacedDir, 0o755); err != nil {
+		t.Fatalf("mkdir spaced dir: %v", err)
+	}
+	writeGitRouteFile(t, filepath.Join(spacedDir, "inside.txt"), "inside\n")
+	runGitRouteCommand(t, repoRoot, "add", " dir/inside.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add spaced directory")
+	spacedDirectoryCommit := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	literalRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"`+literalCommit+`","path":"a[1].txt"}`))
+	literalRequest.Header.Set("Content-Type", "application/json")
+	literalResponse := httptest.NewRecorder()
+	handler.ServeHTTP(literalResponse, literalRequest)
+	if literalResponse.Code != http.StatusOK {
+		t.Fatalf("expected literal commit file diff 200, got %d with body %q", literalResponse.Code, literalResponse.Body.String())
+	}
+	var literalPayload gitread.CommitFileDiffResponse
+	if err := json.Unmarshal(literalResponse.Body.Bytes(), &literalPayload); err != nil {
+		t.Fatalf("decode literal commit diff payload: %v", err)
+	}
+	if !strings.Contains(literalPayload.Diff, "diff --git a/a[1].txt b/a[1].txt") || strings.Contains(literalPayload.Diff, "diff --git a/a1.txt b/a1.txt") {
+		t.Fatalf("unexpected literal commit diff payload %q", literalPayload.Diff)
+	}
+
+	for _, testCase := range []struct {
+		requestBody string
+	}{
+		{requestBody: `{"commitHash":"` + directoryCommit + `","path":"dir"}`},
+		{requestBody: `{"commitHash":"` + spacedDirectoryCommit + `","path":" dir"}`},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(testCase.requestBody))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected directory commit file diff 400 for %s, got %d with body %q", testCase.requestBody, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), "Path must point to a file.") {
+			t.Fatalf("unexpected directory commit file diff response for %s: %q", testCase.requestBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff(t *testing.T) {
 	t.Parallel()
 
