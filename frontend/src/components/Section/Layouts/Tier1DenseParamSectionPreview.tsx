@@ -28,6 +28,8 @@ type PreviewData = {
   bodyBounds: SectionBodyBounds;
 };
 
+let previewCaptureQueueTail: Promise<void> = Promise.resolve();
+
 type Tier1DenseParamSectionPreviewProps = PropsWithChildren<{
   sectionId: string;
   isActiveSection: boolean;
@@ -97,28 +99,35 @@ export const Tier1DenseParamSectionPreview = function Tier1DenseParamSectionPrev
 
     let cancelled = false;
     const cancelIdleCapture = scheduleIdleCapture(() => {
-      void capturePreview({
-        liveBodyRoot: liveBodyRootRef.current,
-        previewHost,
-        onPending() {
-          if (!cancelled) {
-            setStatus("pending");
-          }
-        },
-        onReady(nextPreviewData) {
-          if (!cancelled) {
-            setPreviewData(nextPreviewData);
-            setNeedsCapture(false);
-            setStatus("ready");
-          }
-        },
-        onError() {
-          if (!cancelled) {
-            setPreviewData(null);
-            setNeedsCapture(false);
-            setStatus("error");
-          }
-        },
+      void queuePreviewCapture(async () => {
+        if (cancelled) {
+          return;
+        }
+
+        await capturePreview({
+          liveBodyRoot: liveBodyRootRef.current,
+          previewHost,
+          isCancelled: () => cancelled,
+          onPending() {
+            if (!cancelled) {
+              setStatus("pending");
+            }
+          },
+          onReady(nextPreviewData) {
+            if (!cancelled) {
+              setPreviewData(nextPreviewData);
+              setNeedsCapture(false);
+              setStatus("ready");
+            }
+          },
+          onError() {
+            if (!cancelled) {
+              setPreviewData(null);
+              setNeedsCapture(false);
+              setStatus("error");
+            }
+          },
+        });
       });
     });
 
@@ -201,17 +210,19 @@ export const Tier1DenseParamSectionPreview = function Tier1DenseParamSectionPrev
 async function capturePreview({
   liveBodyRoot,
   previewHost,
+  isCancelled,
   onPending,
   onReady,
   onError,
 }: {
   liveBodyRoot: HTMLDivElement | null;
   previewHost: HTMLElement;
+  isCancelled: () => boolean;
   onPending: () => void;
   onReady: (previewData: PreviewData) => void;
   onError: () => void;
 }) {
-  if (liveBodyRoot === null) {
+  if (liveBodyRoot === null || isCancelled()) {
     onError();
     return;
   }
@@ -226,6 +237,9 @@ async function capturePreview({
     }
 
     await waitForStablePaint();
+    if (isCancelled()) {
+      return;
+    }
 
     const initialCaptureSize = resolveCaptureSize(previewHost);
     const initialBodyBounds = resolveSectionBodyBounds(liveBodyRoot, previewHost);
@@ -236,6 +250,9 @@ async function capturePreview({
     cleanupCaptureHost = cleanup;
 
     await waitForStablePaint();
+    if (isCancelled()) {
+      return;
+    }
 
     const renderedCaptureSize = resolveCaptureSize(captureTarget);
     const { snapdom } = await import("@zumer/snapdom");
@@ -249,6 +266,9 @@ async function capturePreview({
 
     if (!svgImage.complete) {
       await svgImage.decode().catch(() => undefined);
+    }
+    if (isCancelled()) {
+      return;
     }
 
     onReady({
@@ -467,6 +487,12 @@ function getLiveBodyChildren(root: HTMLElement | null): Array<HTMLElement> {
   return Array.from(root.children).filter(
     (child): child is HTMLElement => child instanceof HTMLElement,
   );
+}
+
+function queuePreviewCapture(task: () => Promise<void>): Promise<void> {
+  const nextTask = previewCaptureQueueTail.then(task, task);
+  previewCaptureQueueTail = nextTask.catch(() => undefined);
+  return nextTask;
 }
 
 function resolveFinitePositiveNumber(value: number): number {
