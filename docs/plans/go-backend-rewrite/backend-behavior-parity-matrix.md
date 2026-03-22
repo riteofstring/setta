@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `7ff15cbb3e`
+- Target head: `b4a4aecacc`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -94,6 +94,21 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `b4a4aecacc`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/utils/test_process_file_lock.py::{test_acquire_process_file_lock_maps_parent_creation_failures,test_acquire_process_file_lock_does_not_remap_body_oserror}`
+  against `internal/frontendorigins/service.go::store.update` and
+  `internal/workspacelaunch/intents.go::intentStore.update`, plus the focused
+  Go proof in
+  `TestServiceTrustOriginReturnsUnavailableWhenLockParentCannotBeCreated`,
+  `TestIntentStoreMapsUnavailableReadAndLockParentFailures`, and
+  `TestIntentStoreUpdatePreservesCallbackError`; no new implementation gap was
+  found, and the existing
+  `stateful_store.file_lock.setup_failure_and_body_error_domains_survive_on_store_specific_go_helpers`
+  row remained the correct terminal `Proved` disposition for those stale
+  backlog clues.
 - Follow-up in this pass on `7ff15cbb3e`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` again passed cleanly, so
   `critical_backend_suite::go_test_all` remained stale saved-suite output on
