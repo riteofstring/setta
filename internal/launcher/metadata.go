@@ -136,7 +136,11 @@ func BuildLauncherInstallMetadata(input LauncherInstallMetadataInput) (LauncherI
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
-	workspaceBehavior, err := normalizeLauncherWorkspaceBehavior(string(input.WorkspaceBehavior))
+	workspaceBehaviorInput := input.WorkspaceBehavior
+	if strings.TrimSpace(string(workspaceBehaviorInput)) == "" {
+		workspaceBehaviorInput = LauncherWorkspaceBehaviorDefault
+	}
+	workspaceBehavior, err := normalizeLauncherWorkspaceBehavior(string(workspaceBehaviorInput))
 	if err != nil {
 		return LauncherInstallMetadata{}, err
 	}
