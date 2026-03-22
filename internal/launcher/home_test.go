@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -73,6 +76,146 @@ func TestHomeServiceRecentWorkspaceRoundtrip(t *testing.T) {
 	}
 	if len(removed) != 0 {
 		t.Fatalf("expected recent workspaces to be empty, got %#v", removed)
+	}
+}
+
+func TestHomeServiceConcurrentRecentWorkspaceAddsRetainBothEntries(t *testing.T) {
+	baseRoot := t.TempDir()
+	allowedRoot := filepath.Join(baseRoot, "allowed")
+	t.Setenv(launcherAllowedRootsEnv, allowedRoot)
+	settaHome := filepath.Join(baseRoot, ".setta")
+	workspaceA := filepath.Join(allowedRoot, "workspace-a")
+	workspaceB := filepath.Join(allowedRoot, "workspace-b")
+	for _, workspaceRoot := range []string{workspaceA, workspaceB} {
+		if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+			t.Fatalf("mkdir workspace root %q: %v", workspaceRoot, err)
+		}
+	}
+
+	service := NewHomeService(HomeServiceOptions{
+		EnvLookup: os.LookupEnv,
+		Now: func() time.Time {
+			return time.Unix(100, 0).UTC()
+		},
+	})
+
+	// Concurrent recent-workspace writes must serialize through the lock file
+	// without dropping one of the added workspaces.
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for _, workspaceRoot := range []string{workspaceA, workspaceB} {
+		workspaceRoot := workspaceRoot
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := service.AddRecentWorkspace(settaHome, workspaceRoot, nil)
+			errs <- err
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent add recent workspace: %v", err)
+		}
+	}
+
+	loaded, err := service.LoadRecentWorkspaces(settaHome)
+	if err != nil {
+		t.Fatalf("load recent workspaces after concurrent add: %v", err)
+	}
+
+	resolvedWorkspaceA, err := resolvePathLoose(workspaceA)
+	if err != nil {
+		t.Fatalf("resolve workspace A: %v", err)
+	}
+	resolvedWorkspaceB, err := resolvePathLoose(workspaceB)
+	if err != nil {
+		t.Fatalf("resolve workspace B: %v", err)
+	}
+
+	gotRoots := map[string]struct{}{}
+	for _, entry := range loaded {
+		gotRoots[entry.WorkspaceRoot] = struct{}{}
+	}
+	expectedRoots := map[string]struct{}{
+		resolvedWorkspaceA: {},
+		resolvedWorkspaceB: {},
+	}
+	if !reflect.DeepEqual(gotRoots, expectedRoots) {
+		t.Fatalf("expected concurrent recent workspaces %#v, got %#v", expectedRoots, gotRoots)
+	}
+}
+
+func TestWriteRecentWorkspacesFileFailureKeepsPreviousJSON(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission-based write failure assertion is unix-specific")
+	}
+
+	root := t.TempDir()
+	recentPath := recentWorkspacesPath(filepath.Join(root, ".setta"))
+	launcherDir := filepath.Dir(recentPath)
+	if err := os.MkdirAll(launcherDir, 0o755); err != nil {
+		t.Fatalf("mkdir launcher dir: %v", err)
+	}
+
+	originalEntries := []RecentWorkspaceEntry{{
+		WorkspaceRoot: filepath.Join(root, "workspace-existing"),
+		Pinned:        false,
+		LastUsedAt:    111,
+	}}
+	if err := writeRecentWorkspacesFile(recentPath, originalEntries); err != nil {
+		t.Fatalf("write original recent workspaces: %v", err)
+	}
+
+	originalContent, err := os.ReadFile(recentPath)
+	if err != nil {
+		t.Fatalf("read original recent workspaces: %v", err)
+	}
+
+	if err := os.Chmod(launcherDir, 0o555); err != nil {
+		t.Fatalf("chmod launcher dir read-only: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(launcherDir, 0o755); err != nil {
+			t.Fatalf("restore launcher dir permissions: %v", err)
+		}
+	})
+
+	// A failed atomic write must leave the last good recent-workspaces JSON
+	// intact for the next launcher-home read.
+	err = writeRecentWorkspacesFile(recentPath, []RecentWorkspaceEntry{{
+		WorkspaceRoot: filepath.Join(root, "workspace-replacement"),
+		Pinned:        true,
+		LastUsedAt:    222,
+	}})
+	if err == nil {
+		t.Fatal("expected recent workspace write failure")
+	}
+	if !strings.Contains(err.Error(), "Failed writing launcher recent-workspaces file") {
+		t.Fatalf("expected launcher workspace store write error, got %v", err)
+	}
+
+	persistedContent, err := os.ReadFile(recentPath)
+	if err != nil {
+		t.Fatalf("read persisted recent workspaces after failure: %v", err)
+	}
+	if string(persistedContent) != string(originalContent) {
+		t.Fatalf("expected write failure to preserve previous JSON, got before=%s after=%s", string(originalContent), string(persistedContent))
+	}
+
+	var persisted []RecentWorkspaceEntry
+	if err := json.Unmarshal(persistedContent, &persisted); err != nil {
+		t.Fatalf("decode persisted recent workspaces after failure: %v", err)
+	}
+	if !reflect.DeepEqual(persisted, originalEntries) {
+		t.Fatalf("expected persisted entries %#v after failure, got %#v", originalEntries, persisted)
 	}
 }
 
