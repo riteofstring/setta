@@ -1,4 +1,4 @@
-"""Centralized logging bootstrap for Python helper processes."""
+"""Centralized logging bootstrap for backend and listener processes."""
 
 import logging
 import logging.config
@@ -13,6 +13,8 @@ DictConfigMapping = MutableMapping[str, Any]
 DEFAULT_LOG_FORMAT = (
     "%(asctime)s | %(levelname)-8s | %(name)s | %(setta_context)s | %(message)s"
 )
+ACCESS_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(setta_context)s | %(message)s"
+
 _ENV_DEFAULT = "SETTA_LOG_LEVEL"
 _LISTENER_ENV_DEFAULT = "SETTA_LISTENER_LOG_LEVEL"
 _SETTA_LOGGING_CONFIGURED = False
@@ -31,9 +33,10 @@ def configure_logging(
     env_var: str = _ENV_DEFAULT,
     stream: Literal["stdout", "stderr"] = "stdout",
     log_file: str | os.PathLike[str] | None = None,
+    include_access_logger: bool = True,
     force: bool = False,
 ) -> int:
-    """Configure logging for Python helper entry points."""
+    """Configure logging for backend entry points."""
 
     global _SETTA_LOGGING_CONFIGURED
     global _LAST_LEVEL
@@ -56,6 +59,12 @@ def configure_logging(
             "formatter": "default",
             "filters": ["setta_context", "suppress_cancelled"],
         },
+        "uvicorn_access": {
+            "class": "logging.StreamHandler",
+            "stream": stream_target,
+            "formatter": "access",
+            "filters": ["setta_context", "suppress_cancelled"],
+        },
     }
 
     if log_file is not None:
@@ -75,7 +84,31 @@ def configure_logging(
             "format": DEFAULT_LOG_FORMAT,
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
+        "access": {
+            "format": ACCESS_LOG_FORMAT,
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
     }
+
+    root_handlers = list(handler_names)
+    loggers_config: dict[str, dict[str, Any]] = {
+        "uvicorn": {
+            "level": resolved_level,
+            "handlers": list(root_handlers),
+            "propagate": False,
+        },
+        "uvicorn.error": {
+            "level": resolved_level,
+            "handlers": list(root_handlers),
+            "propagate": False,
+        },
+    }
+    if include_access_logger:
+        loggers_config["uvicorn.access"] = {
+            "level": resolved_level,
+            "handlers": ["uvicorn_access"],
+            "propagate": False,
+        }
 
     config: DictConfigMapping = {
         "version": 1,
@@ -92,8 +125,9 @@ def configure_logging(
         "handlers": handlers,
         "root": {
             "level": resolved_level,
-            "handlers": list(handler_names),
+            "handlers": list(root_handlers),
         },
+        "loggers": loggers_config,
     }
 
     logging.config.dictConfig(config)
@@ -119,6 +153,7 @@ def configure_listener_logging(
         env_var=env_var,
         stream=stream,
         log_file=log_file,
+        include_access_logger=False,
         force=force,
     )
 

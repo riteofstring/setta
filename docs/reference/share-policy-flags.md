@@ -10,11 +10,6 @@ Notes:
 - Policy gates apply only in deployment mode. IDE mode ignores these flags.
 - CodeParam edits are always blocked in deployment mode, regardless of
   `allowParamChanges`.
-- Project-state `undo` / `redo` replay the current share-session overlay history
-  without a dedicated policy flag. They are not blocked by
-  `allowParamChanges` / `allowVariantChanges` / `allowLayoutChanges` /
-  `allowLLM`, though the underlying mutations that create history entries still
-  obey their usual policy gates.
 - `runSnapshotMode=never` is rejected for deployments.
 - Git features are always disabled in deployment mode: the Overview Git tab is
   hidden, and git API routes return 403 (`Route.GET_GIT_STATUS`,
@@ -72,7 +67,7 @@ App deployments default to:
 
 **allowRun** (runs + terminals)
 - Code execution: run code (`Route.RUN_CODE`).
-- Terminal access: terminal websocket (`Route.TERMINAL`), delete terminals (`Route.DELETE_TERMINALS`), interrupt terminal processes (`Route.INTERRUPT_TERMINAL_PROCESSES`).
+- Terminal access: terminal websocket (`Route.TERMINAL`), delete terminals (`Route.DELETE_TERMINALS`), kill subprocesses (`Route.KILL_SUBPROCESSES`).
 - Example: viewer clicks Run -> allowed only if `allowRun` is true.
 - Note: deployment mode disables terminal input; runs always execute from snapshot files.
 
@@ -108,7 +103,5 @@ Project-chat/window-space behavior is documented in
 - `never` is rejected for deployments.
 
 See `docs/reference/sharing-mode-vs-ide-mode.md` for session lifecycle and
-deployment setup. The policy schema/defaults live in
-`internal/deployments/policy.go`; route/runtime enforcement is spread across
-the deployment-aware handlers in `internal/httpapi/*` and the run/deployment
-services such as `internal/runs/service.go`.
+deployment setup, and `backend/setta/share/policy.py` for the enforcement
+helpers.
