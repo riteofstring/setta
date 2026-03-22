@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from setta.api.listener import ListenerDependencyMetadata
 from setta.types.listener import (
@@ -7,15 +6,12 @@ from setta.types.listener import (
     ListenerDependencyCatalogEntry,
 )
 
-if TYPE_CHECKING:
-    from setta.code_gen.dependency_graph import DependencyGraph
-
 
 @dataclass(slots=True)
 class ListenerTestRuntimeState:
     dependency_metadata: ListenerDependencyMetadata
     dependency_catalog: ListenerDependencyCatalog | None = None
-    dependency_graph: "DependencyGraph | None" = None
+    dependency_graph: object | None = None
 
 
 def build_listener_runtime_state_from_catalog(
