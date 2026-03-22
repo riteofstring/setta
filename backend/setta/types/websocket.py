@@ -27,7 +27,6 @@ from setta.types.listener import (
     ListenerRouterEndpointCallContent,
     ListenerRouterEndpointResultContent,
 )
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
@@ -404,12 +403,6 @@ class RenameRefactorBroadcastContent(BaseModel):
     frontendOpId: str
     renameMode: RenameRefactorMode
     changedNodeValues: list[RenameReferenceChangedValue]
-
-
-class ProjectStateSingleConfigWithCompletedOpIds(BaseModel):
-    projectState: ProjectStateSingleConfig
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
 
 
 class AIFollowToolArgumentsUpdateContent(BaseModel):

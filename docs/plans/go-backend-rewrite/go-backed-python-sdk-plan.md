@@ -552,6 +552,10 @@ Phase 6 progress:
 - backend-only helper payloads such as realtime UI-change and dependency-event
   broadcast content have been moved out of the retained listener type module
   and now live on the backend websocket type side instead
+- the backend websocket type module no longer keeps the dead
+  `ProjectStateSingleConfigWithCompletedOpIds` envelope, so that retained
+  module no longer imports `ProjectStateSingleConfig` just to carry an unused
+  latest-state payload wrapper
 - the handwritten listener DTOs that remain in the retained listener type
   module are now limited to the binary payload attachment shim layer around the
   generated nested entry models
