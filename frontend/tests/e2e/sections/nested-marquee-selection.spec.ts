@@ -1,10 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
+  moveSectionsFromFrontend,
   openIsolatedProject,
-  postBackend,
-  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type ImplType = "Group" | "Code";
@@ -29,14 +30,13 @@ test("marquee selection includes nested group children", async ({ page }) => {
       [groupId]: { x: 420, y: 120 },
       [childId]: { x: 80, y: 120 },
     });
-    await postBackend(page, "/moveSections", {
+    await moveSectionsFromFrontend(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionIds: [childId],
       newParentId: groupId,
       newIndex: 0,
       positionsById: null,
     });
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect
       .poll(async () => {
@@ -234,20 +234,14 @@ async function createTopLevelSection(
   projectConfigId: string,
   implType: ImplType,
 ): Promise<string> {
-  const response = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType,
-    },
-  );
-
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType,
+  });
   const sectionId = response?.sectionId;
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -256,18 +250,21 @@ async function placeSections(
   projectConfigId: string,
   positionsById: Record<string, { x: number; y: number }>,
 ): Promise<void> {
-  for (const [sectionId, position] of Object.entries(positionsById)) {
-    await postBackend(page, "/moveSections", {
-      projectConfigId,
-      sectionIds: [sectionId],
-      newParentId: null,
-      newIndex: null,
-      positionsById: {
-        [sectionId]: position,
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId,
+    operations: Object.entries(positionsById).map(([sectionId, position]) => ({
+      routeName: "route_move_sections" as const,
+      payload: {
+        sectionIds: [sectionId],
+        newParentId: null,
+        newIndex: null,
+        positionsById: {
+          [sectionId]: position,
+        },
+        frontendOpId: null,
       },
-    });
-  }
-  await refreshProjectStateFromBackend(page, projectConfigId);
+    })),
+  });
 }
 
 async function readFrontendActiveIds(page: Page): Promise<string[]> {

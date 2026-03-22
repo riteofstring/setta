@@ -3,10 +3,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
-  postBackend,
-  refreshProjectStateFromBackend,
+  setCodeFileBindingFromFrontend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -14,10 +14,6 @@ const MIN_UI_EDITOR_WIDTH = 425;
 const OVERFLOW_TOLERANCE_PX = 2;
 const LONG_CODE_FILE_NAME =
   "a_really_long_file_name_that_needs_to_truncate_cleanly.py";
-
-type CreateTopLevelSectionResponse = {
-  sectionId?: string;
-};
 
 test.use({ viewport: { width: 1600, height: 1000 } });
 
@@ -90,18 +86,13 @@ async function createCodeSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const response = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Code",
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Code",
+  });
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating code section.");
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return response.sectionId;
 }
 
@@ -111,7 +102,7 @@ async function setCodeFileBinding(
   sectionId: string,
   canonicalPath: string,
 ): Promise<void> {
-  await postBackend(page, "/setCodeFileBinding", {
+  await setCodeFileBindingFromFrontend(page, {
     projectConfigId,
     sectionId,
     binding: {
@@ -119,7 +110,6 @@ async function setCodeFileBinding(
       access_mode: "read_write",
     },
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function createLongCodeFilePath(workspaceRoot: string): Promise<string> {

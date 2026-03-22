@@ -92,6 +92,27 @@ type AllLLMConfigs = {
   default_config_id?: string | null;
 };
 type CreateSectionResponse = { sectionId?: string };
+type FrontendHydratableRouteName =
+  | "route_add_kwarg"
+  | "route_change_param_impl"
+  | "route_create_agentic_edge"
+  | "route_create_child_sections"
+  | "route_create_edge"
+  | "route_create_top_level_section"
+  | "route_move_sections"
+  | "route_set_callable"
+  | "route_set_code_file_binding"
+  | "route_set_code_obj_name"
+  | "route_set_param_entered_value"
+  | "route_set_section_edge_inputs"
+  | "route_set_section_edge_outputs"
+  | "route_set_section_pinned_params"
+  | "route_toggle_minimized"
+  | "route_update_param_impl_config";
+type FrontendHydratableRouteOperation = {
+  routeName: FrontendHydratableRouteName;
+  payload: Record<string, unknown>;
+};
 type IsolatedProjectContext = {
   projectConfigId: string;
   defaultProjectConfigId: string | null;
@@ -875,6 +896,61 @@ export async function createCallableSection(
   return response.sectionId;
 }
 
+export async function applyProjectMutationsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    operations: FrontendHydratableRouteOperation[];
+  },
+): Promise<Array<unknown | null>> {
+  return await page.evaluate(async (input) => {
+    const { res200 } = await import("/src/utils/endpointUtils");
+    const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
+      await import("/src/state/actions/sectionInfos");
+    const endpointModule = await import("/src/utils/generatedEndpoints");
+    const { route_get_latest_project_state } = endpointModule;
+
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while applying test mutations: expected ${input.projectConfigId}.`,
+      );
+    }
+
+    type RouteResponse = {
+      status: number;
+      data?: unknown | null;
+    };
+
+    const results: Array<unknown | null> = [];
+    for (const operation of input.operations) {
+      const route = endpointModule[operation.routeName] as (
+        payload: Record<string, unknown>,
+      ) => Promise<RouteResponse>;
+      const response = await route({
+        projectConfigId: input.projectConfigId,
+        ...operation.payload,
+      });
+      if (!res200(response)) {
+        throw new Error(
+          `Failed frontend test mutation ${operation.routeName} for ${input.projectConfigId}: ${response.status}`,
+        );
+      }
+      results.push((response.data as unknown | null) ?? null);
+    }
+
+    const latestProjectStateResponse = await route_get_latest_project_state({
+      projectConfigId: input.projectConfigId,
+    });
+    if (!res200(latestProjectStateResponse)) {
+      throw new Error(
+        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    return results;
+  }, payload);
+}
+
 export async function createTopLevelSectionFromFrontend(
   page: Page,
   payload: {
@@ -888,43 +964,24 @@ export async function createTopLevelSectionFromFrontend(
     viewportBounds?: { x: number; y: number; w: number; h: number } | null;
   },
 ): Promise<CreateSectionResponse | null> {
-  return await page.evaluate(async (input) => {
-    const { res200 } = await import("/src/utils/endpointUtils");
-    const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
-      await import("/src/state/actions/sectionInfos");
-    const { route_create_top_level_section, route_get_latest_project_state } =
-      await import("/src/utils/generatedEndpoints");
-    if (getCurrProjectConfigId() !== input.projectConfigId) {
-      throw new Error(
-        `Active project mismatch while creating section: expected ${input.projectConfigId}.`,
-      );
-    }
-    const created = await route_create_top_level_section({
-      projectConfigId: input.projectConfigId,
-      implType: input.implType,
-      controlCodeObjType: input.controlCodeObjType ?? null,
-      implOverrides: input.implOverrides ?? null,
-      position: input.position ?? null,
-      name: input.name ?? null,
-      topLevelSections: input.topLevelSections ?? null,
-      viewportBounds: input.viewportBounds ?? null,
-    });
-    if (!res200(created)) {
-      throw new Error(
-        `Failed to create section (${input.implType}) for ${input.projectConfigId}: ${created.status}`,
-      );
-    }
-    const latestProjectStateResponse = await route_get_latest_project_state({
-      projectConfigId: input.projectConfigId,
-    });
-    if (!res200(latestProjectStateResponse)) {
-      throw new Error(
-        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
-      );
-    }
-    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
-    return created.data;
-  }, payload);
+  const [created] = await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_create_top_level_section",
+        payload: {
+          implType: payload.implType,
+          controlCodeObjType: payload.controlCodeObjType ?? null,
+          implOverrides: payload.implOverrides ?? null,
+          position: payload.position ?? null,
+          name: payload.name ?? null,
+          topLevelSections: payload.topLevelSections ?? null,
+          viewportBounds: payload.viewportBounds ?? null,
+        },
+      },
+    ],
+  });
+  return (created as CreateSectionResponse | null) ?? null;
 }
 
 export async function setCallableFromFrontend(
@@ -936,41 +993,303 @@ export async function setCallableFromFrontend(
     refetchParams: boolean;
   },
 ): Promise<Record<string, unknown> | null> {
-  return await page.evaluate(async (input) => {
-    const { res200 } = await import("/src/utils/endpointUtils");
-    const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
-      await import("/src/state/actions/sectionInfos");
-    const { route_get_latest_project_state, route_set_callable } = await import(
-      "/src/utils/generatedEndpoints"
-    );
-    if (getCurrProjectConfigId() !== input.projectConfigId) {
-      throw new Error(
-        `Active project mismatch while setting callable: expected ${input.projectConfigId}.`,
-      );
-    }
-    const response = await route_set_callable({
-      projectConfigId: input.projectConfigId,
-      sectionId: input.sectionId,
-      callableName: input.callableName,
-      refetchParams: input.refetchParams,
-      frontendOpId: null,
-    });
-    if (!res200(response)) {
-      throw new Error(
-        `Failed to set callable for ${input.sectionId}: ${response.status}`,
-      );
-    }
-    const latestProjectStateResponse = await route_get_latest_project_state({
-      projectConfigId: input.projectConfigId,
-    });
-    if (!res200(latestProjectStateResponse)) {
-      throw new Error(
-        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
-      );
-    }
-    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
-    return (response.data as Record<string, unknown> | null) ?? null;
-  }, payload);
+  const [response] = await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_callable",
+        payload: {
+          sectionId: payload.sectionId,
+          callableName: payload.callableName,
+          refetchParams: payload.refetchParams,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+  return (response as Record<string, unknown> | null) ?? null;
+}
+
+export async function moveSectionsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionIds: string[];
+    newParentId: string | null;
+    newIndex: number | null;
+    positionsById: Record<string, { x: number; y: number }> | null;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_move_sections",
+        payload: {
+          sectionIds: payload.sectionIds,
+          newParentId: payload.newParentId,
+          newIndex: payload.newIndex,
+          positionsById: payload.positionsById,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function createChildSectionsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    parentId: string;
+    implType: string;
+    numChildren: number;
+    startIdx?: number | null;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_create_child_sections",
+        payload: {
+          parentId: payload.parentId,
+          implType: payload.implType,
+          numChildren: payload.numChildren,
+          startIdx: payload.startIdx ?? null,
+        },
+      },
+    ],
+  });
+}
+
+export async function addKwargFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_add_kwarg",
+        payload: {
+          sectionId: payload.sectionId,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionPinnedParamsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    pinnedParams: string[];
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_section_pinned_params",
+        payload: {
+          sectionId: payload.sectionId,
+          pinnedParams: payload.pinnedParams,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionEdgeInputsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    edgeInputParams: string[];
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_section_edge_inputs",
+        payload: {
+          sectionId: payload.sectionId,
+          edgeInputParams: payload.edgeInputParams,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionEdgeOutputsFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    edgeOutputPorts: Array<Record<string, unknown>>;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_section_edge_outputs",
+        payload: {
+          sectionId: payload.sectionId,
+          edgeOutputPorts: payload.edgeOutputPorts,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function toggleMinimizedFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_toggle_minimized",
+        payload: {
+          sectionId: payload.sectionId,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setCodeObjNameFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    codeObjId: string;
+    name: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_code_obj_name",
+        payload: {
+          codeObjId: payload.codeObjId,
+          name: payload.name,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function changeParamImplFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    selectedId: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_change_param_impl",
+        payload: {
+          sectionId: payload.sectionId,
+          paramInfoId: payload.paramInfoId,
+          selectedId: payload.selectedId,
+        },
+      },
+    ],
+  });
+}
+
+export async function setParamEnteredValueFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    value: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_param_entered_value",
+        payload: {
+          sectionId: payload.sectionId,
+          paramInfoId: payload.paramInfoId,
+          value: payload.value,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function updateParamImplConfigFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    newConfig: Record<string, unknown>;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_update_param_impl_config",
+        payload: {
+          sectionId: payload.sectionId,
+          paramInfoId: payload.paramInfoId,
+          newConfig: payload.newConfig,
+        },
+      },
+    ],
+  });
+}
+
+export async function setCodeFileBindingFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    binding: Record<string, unknown>;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_code_file_binding",
+        payload: {
+          sectionId: payload.sectionId,
+          binding: payload.binding,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
 }
 
 export async function setChatSectionChatId(

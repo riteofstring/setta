@@ -1,10 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  addKwargFromFrontend,
+  changeParamImplFromFrontend,
   cleanupIsolatedProject,
   createCallableSection,
   ensureAppReady,
   openIsolatedProject,
-  refreshProjectStateFromBackend,
+  setCodeObjNameFromFrontend,
+  setParamEnteredValueFromFrontend,
+  setCallableFromFrontend,
 } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -19,40 +23,37 @@ test("password param reveals saved secret on demand", async ({ page }) => {
 
   try {
     await setCallable(page, projectConfigId, sectionId);
-    await refreshProjectStateFromBackend(page, projectConfigId);
     await expect(
       page.locator(`[id="${sectionId}-CustomResizable"]`),
     ).toBeVisible();
 
     const beforeParamIds = await getSectionParamIds(page, sectionId);
 
-    await postBackend(page, "/addKwarg", {
+    await addKwargFromFrontend(page, {
       projectConfigId,
       sectionId,
     });
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const afterParamIds = await getSectionParamIds(page, sectionId);
     const paramId = getNewParamId(beforeParamIds, afterParamIds);
 
-    await postBackend(page, "/setCodeObjName", {
+    await setCodeObjNameFromFrontend(page, {
       projectConfigId,
       codeObjId: paramId,
       name: "secret_value",
     });
-    await postBackend(page, "/changeParamImpl", {
+    await changeParamImplFromFrontend(page, {
       projectConfigId,
       sectionId,
       paramInfoId: paramId,
       selectedId: "PasswordParam",
     });
-    await postBackend(page, "/setParamEnteredValue", {
+    await setParamEnteredValueFromFrontend(page, {
       projectConfigId,
       sectionId,
       paramInfoId: paramId,
       value: "topsecret",
     });
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const paramRow = page.locator(`#ParamContainer-${sectionId}-${paramId}`);
     await expect(paramRow).toBeVisible();
@@ -125,12 +126,22 @@ async function setCallable(
   projectConfigId: string,
   sectionId: string,
 ): Promise<void> {
-  await postBackendWithRetries(page, "/setCallable", {
-    projectConfigId,
-    sectionId,
-    callableName: TARGET_CALLABLE,
-    refetchParams: false,
-  });
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await setCallableFromFrontend(page, {
+        projectConfigId,
+        sectionId,
+        callableName: TARGET_CALLABLE,
+        refetchParams: false,
+      });
+      return;
+    } catch (error) {
+      if (attempt === 7) {
+        throw error;
+      }
+      await page.waitForTimeout(500);
+    }
+  }
 }
 
 async function postBackend<T>(
@@ -152,35 +163,4 @@ async function postBackend<T>(
     return null;
   }
   return JSON.parse(text) as T;
-}
-
-async function postBackendWithRetries<T>(
-  page: Page,
-  path: string,
-  payload: Record<string, unknown> | null,
-  attempts = 8,
-  delayMs = 500,
-): Promise<T | null> {
-  let lastStatus = 0;
-  let lastText = "";
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
-      data: payload,
-    });
-    lastStatus = response.status();
-    lastText = await response.text();
-    if (response.ok()) {
-      if (!lastText) {
-        return null;
-      }
-      return JSON.parse(lastText) as T;
-    }
-    if (attempt < attempts - 1) {
-      await page.waitForTimeout(delayMs);
-    }
-  }
-  const detail = lastText ? ` ${lastText}` : "";
-  throw new Error(
-    `Backend request failed (${lastStatus}): ${path}${detail}`,
-  );
 }

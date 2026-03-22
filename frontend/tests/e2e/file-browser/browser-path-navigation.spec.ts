@@ -3,11 +3,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -154,20 +154,15 @@ test("browser sections support breadcrumb and go-up navigation", async ({
       );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Browser",
-        viewportBounds,
-      },
-    );
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Browser",
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     const folderName = `pw-browser-section-nav-${Date.now()}`;
     const parentFolder = path.join(workspaceRoot, folderName);
