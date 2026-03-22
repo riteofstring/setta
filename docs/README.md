@@ -1,9 +1,7 @@
 # Docs Overview
 
 Start with the Guides and Reference sections for normal contributor work.
-The cleanup tracker under `plans/go-backend-rewrite/` is for merge prep,
-parity tracking, and package-surface cleanup rather than the general project
-entrypoint.
+The `plans/` tree is for working notes, not the default contributor entrypoint.
 
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
@@ -81,9 +79,3 @@ entrypoint.
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/ralph-mode.md` – planning notes for ralph mode.
 - `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
-
-## Merge Cleanup / Rewrite Closeout
-- `plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md` – concrete merge-prep checklist for front-door docs, stale references, dead-code review, and Python package cleanup.
-- `plans/go-backend-rewrite/README.md` – map for the active cleanup/parity docs and the historical archive.
-- `plans/go-backend-rewrite/CURRENT.md` – current task router for parity, Python package boundaries, and cleanup work.
-- `plans/go-backend-rewrite/archive/README.md` – historical phase docs, spikes, and older rewrite snapshots.

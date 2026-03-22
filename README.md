@@ -62,9 +62,4 @@ binaries:
 - [Dev quickstart](docs/guides/dev-quickstart.md)
 - [Dev scripts](docs/guides/dev-scripts.md)
 - [Dev vs built runtime](docs/reference/dev-vs-built.md)
-- [Merge-readiness cleanup checklist](docs/plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md)
-
-Rewrite/parity cleanup work lives under
-[`docs/plans/go-backend-rewrite/`](docs/plans/go-backend-rewrite/README.md);
-that doc set is for merge-prep and package-boundary cleanup, not the default
-contributor entrypoint.
+- [Worktree dev quickstart](docs/guides/worktree-dev-quickstart.md)

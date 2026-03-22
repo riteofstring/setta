@@ -1,260 +1,157 @@
-# Merge-Readiness Cleanup Checklist
+# Merge-Readiness Cleanup Plan
 
 Last updated: `2026-03-25`
 
-Purpose: prepare the Go-backed branch for merge into `main` by making the
-repo's contributor guidance stable, shrinking stale rewrite-only surfaces, and
-deleting dead Python/code/test residue only when current callers and
-replacement owners are proved.
+Purpose: prepare this branch for merge by getting the repo into a state where
+Go is simply the backend runtime, Python is only the intentionally retained
+package/SDK surface, and the docs no longer talk as if the backend "used to be
+Python."
 
-Use this file as the execution tracker.
-Use `go-rewrite-closeout-cleanup-plan.md` for the narrative plan and
-`unused-python-deletion-plan.md` for deletion proof rules.
+Use this file as a temporary tracker. The likely end state is that
+`docs/plans/go-backend-rewrite/` is removed, including this file, once any
+still-useful content has been rehomed.
 
-## Principles
+## Target State
 
-- Present Setta in normal docs as the current backend/package layout; keep
-  rewrite/merge framing inside the cleanup tracker docs.
-- Prefer small, reviewable cleanup batches over one giant "cleanup" diff.
-- Do not delete Python merely because it looks old; prove current caller
-  reachability, replacement ownership, or explicit no-replacement first.
-- Remove rewrite-only contributor clutter from the default path before pruning
-  deep historical archives.
-- Compare candidate deletions against `main` first. Do not delete top-level
-  docs or repo workflow files that still exist on `main` unless the cleanup
-  explicitly replaces them.
+- Contributor-facing docs assume the backend is Go-owned under `cmd/` and
+  `internal/`.
+- Python is documented only where it is still true today:
+  - packaged entrypoint/wheel boundary
+  - source Python SDK/listener authoring surface
+  - narrow build/test/tooling workflows that really require Python
+- Docs do not explain the repo in migration terms.
+- Branch-only rewrite planning docs are gone.
+- Branch-only dependency doc dumps are gone unless a tiny, explicit subset is
+  proved useful for current contributor work.
+- Unrelated docs that still belong on `main` remain unless there is a separate,
+  non-rewrite reason to delete them.
 
-## Batch 1: Front-Door Docs And Ownership Story
+## Current Baseline
 
-- [x] Update `README.md` so the default docs entrypoints are stable
-  contributor docs instead of rewrite trackers.
-- [x] Fix branch-local absolute doc links in `README.md`.
-- [x] Update `docs/README.md` to separate normal contributor docs from
-  rewrite-closeout docs.
-- [x] Make the backend/package split explicit in
-  `AGENTS.md`.
-- [x] Decide whether a permanent architecture/reference doc is needed once the
-  merge is close.
-  - decision:
-    - no extra pre-merge architecture doc is needed; `README.md`,
-      `AGENTS.md`, `docs/README.md`, and the plans folder map now cover the
-      contributor-facing layout
+- `docs/plans/go-backend-rewrite/` currently contains 260 files and is
+  branch-only relative to `main`.
+- `docs/reference/dependencies/` currently contains 63 files and is
+  branch-only relative to `main`.
+- `backend/setta/**/*.py` currently contains 86 Python files.
+- Some top-level docs such as `useful_prompts.md`, `branch_intent.md`, and
+  `cumulative_review.md` still exist on `main`; cleanup should not delete them
+  just because they are unrelated to the Go migration.
 
-Verification:
+## Rules
 
-- `rg -n "Users/kevin/Documents/AppDevelopment/setta.go-rewrite" README.md docs/README.md AGENTS.md`
-- `rg -n "CURRENT.md|go-rewrite-closeout-cleanup-plan|merge-readiness-cleanup-checklist" README.md docs/README.md docs/plans/go-backend-rewrite/README.md`
+- Compare against `main` before deleting any doc outside obviously branch-only
+  rewrite surfaces.
+- Treat `docs/plans/go-backend-rewrite/` as delete-first, not preserve-first.
+  Only extract present-day operational content that still matters.
+- Treat `docs/reference/dependencies/` as delete-first, not archive-first.
+  Keep something there only if a live doc or workflow still needs it.
+- Remove rewrite framing rather than relabeling it. The default docs should not
+  read like merge-prep notes.
+- Keep the retained Python surface explicit, but do not describe it as the
+  backend.
+- Allow limited legacy references only when they are truly current:
+  - negative tests/assertions
+  - logger names or compatibility labels
+  - explicit comparisons against `main` while cleanup is still in progress
 
-## Batch 2: Top-Level Branch-Only File Cleanup
+## Workstream 1: Freeze The Keep/Delete Matrix
 
-- [x] Compare top-level markdown files against `main` before deleting them.
-- [x] Keep `branch_intent.md`, `cumulative_review.md`, and `useful_prompts.md`
-  because they still exist on `main` and are outside this cleanup scope.
-- [x] Keep `CLAUDE.md` as a minimal pointer to `AGENTS.md`.
-- [x] Re-check the repo-root markdown inventory after restoring the main-owned
-  files.
+Goal: establish the delete policy before touching large doc trees.
 
-Verification:
+- [x] Diff doc surfaces against `main` and classify each bucket:
+  - exists on `main`, unrelated to rewrite cleanup
+  - branch-only rewrite planning/history
+  - branch-only active product doc
+  - branch-only dependency dump
+- [x] Record an explicit keep-list for non-rewrite docs that still exist on
+  `main`.
+- [x] Record an explicit delete-first list for:
+  - `docs/plans/go-backend-rewrite/`
+  - `docs/reference/dependencies/`
+- [x] Record any content that must be extracted before deletion because it is
+  still genuinely useful in a normal post-merge repo.
 
-- `git diff --name-status main...HEAD -- branch_intent.md cumulative_review.md useful_prompts.md CLAUDE.md`
+Frozen matrix:
 
-## Batch 3: High-Traffic Stale-Doc Sweep
-
-- [x] Audit these docs first:
-  - `docs/guides/dev-quickstart.md`
-  - `docs/guides/dev-scripts.md`
-  - `docs/reference/dev-vs-built.md`
-  - `docs/reference/logging-and-error-handling.md`
-  - `docs/reference/setta-cli-commands.md`
-- [x] Triage each stale reference into:
-  - rewrite to active Go owner/path
-  - relabel as retained Python/package boundary
-  - archive/delete if the behavior is gone
-- [x] Use these search buckets as the initial audit set:
-  - `backend/setta/routers`
-  - `backend/setta/start.py`
-  - `backend/setta/dev_start.py`
-  - `backend/setta/server.py`
-  - `FastAPI`
-  - `uvicorn`
-  - `Python backend`
-
-Verification:
-
-- `rg -n "backend/setta/(routers|start\\.py|dev_start\\.py|server\\.py)|FastAPI|uvicorn|Python backend" README.md docs backend tests scripts frontend -g '!frontend/node_modules/**' -g '!**/dist/**'`
-
-## Batch 4: Retained Python Boundary Audit
-
-- [x] Freeze the intentional keep-list from `CURRENT.md`.
-- [x] Re-check imports rooted at:
-  - `backend/setta/__main__.py`
-  - `backend/setta/entrypoint.py`
-  - `backend/setta/api/*`
-  - `backend/setta/share/listener_runtime.py`
-  - `backend/setta/mcp/tool_metadata.py`
-- [x] Classify the remaining `backend/setta/**/*.py` tree into:
-  - retained boundary
-  - retained support module
-  - explicit asset/process boundary
-  - deletion candidate
-
-Audit snapshot:
-
-- 74 local Python modules are still reachable from the explicit Python package
-  boundary import closure.
-- Keep outside that closure for non-deletion reasons:
-  - explicit process boundaries:
-    - `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
-    - `backend/setta/share/deployment_listener_process.py`
-  - dynamic/package support:
-    - `backend/setta/logging/filters.py`
-    - `backend/setta/sdk_contracts/__init__.py`
-    - `backend/setta/code_gen/python/value_helpers.py`
-    - `backend/setta/secrets/password_store.py`
-  - active repo tooling support:
-    - `backend/setta/utils/format_code.py`
-  - generation/test support:
-    - `backend/setta/types/core.py`
-    - `backend/setta/types/generated/effective_impls.py`
-    - `backend/setta/types/generated/impl_args_as_typed_dicts.py`
-    - `backend/setta/types/generated/impl_field_literals.py`
-    - `backend/setta/types/generated/shared_modifier.py`
-- Next deletion-review queue:
-  - none currently; re-open only if a new candidate is proved dead
+- Keep by default because they still exist on `main` and are not rewrite-only:
+  - `useful_prompts.md`
+  - `branch_intent.md`
+  - `cumulative_review.md`
+  - `CLAUDE.md`
+- Keep and continue editing as normal current-state docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/README.md`
+  - normal guides/reference docs under `docs/guides/` and `docs/reference/`
+- Delete-first branch-only rewrite tree:
+  - `docs/plans/go-backend-rewrite/` (`260` files, all branch-only vs `main`)
+  - external callers that must be removed or deleted with it:
+    - `scripts/backend_gap_hunt_candidates.py`
+    - `scripts/prompts/backend-behavior-gap-hunt.txt`
+    - `scripts/prompts/backend-behavior-gap-hunt-followup.txt`
+    - `scripts/prompts/backend-behavior-parity-matrix-gap-check.txt`
+    - `scripts/prompts/backend-behavior-parity-matrix-gap-check-followup.txt`
+- Delete-first branch-only dependency dump:
+  - `docs/reference/dependencies/` (`63` files, all branch-only vs `main`)
+  - no non-rewrite external callers were found; current references are inside
+    the rewrite-doc tree itself
+- Extract-before-delete candidates:
+  - none proved yet from `docs/reference/dependencies/`
+  - none proved yet from `docs/plans/go-backend-rewrite/` beyond short
+    current-state wording that can be folded into `README.md`, `AGENTS.md`, or
+    `docs/README.md` if still needed
+- Branch-only but not automatically preserved just because they are docs:
+  - `docs/notes/chatgpt-go-backed-python.md`
+  - `scripts/backend_gap_hunt_candidates.py`
+  - `scripts/prompts/backend-behavior-*`
+  - `scripts/prompts/backend-behavior-parity-*`
+  - treat these as likely cleanup companions to the rewrite-doc deletion, not
+    as long-term repo fixtures
 
 Verification:
 
-- `find backend/setta -name '*.py' | sort`
-- `git ls-files 'backend/setta/**/*.py'`
+- `git diff --name-status main...HEAD -- README.md AGENTS.md CLAUDE.md docs useful_prompts.md branch_intent.md cumulative_review.md`
+- `git diff --name-status main...HEAD -- docs/plans/go-backend-rewrite docs/reference/dependencies`
 
-## Batch 5: Dead Python And Test Deletion
+## Workstream 2: Front-Door Docs Must Read Like A Normal Go Repo
 
-- [x] Delete bounded Python clusters only with a deletion ledger:
-  - file set
-  - classification
-  - current caller evidence
-  - replacement owner or no-replacement justification
-  - proof tests
-  - decision
-- [x] First bounded deletion batch:
-  - file set:
-    - `backend/setta/utils/errors.py`
-  - classification:
-    - dead reference tail
-  - current caller evidence:
-    - no non-doc import/use hits for `setta.utils.errors`,
-      `InvalidProjectName`, `InvalidSectionName`, or `InvalidParamName`
-  - replacement owner:
-    - active name-validation errors already live in Go under
-      `internal/projectstate/*NameError`
-  - proof tests:
-    - existing Go name-validation and route tests under `internal/projectstate`
-      and `internal/httpapi`
-  - decision:
-    - delete now
-- [x] Second bounded deletion batch:
-  - file set:
-    - `backend/setta/code_gen/value_mode.py`
-  - classification:
-    - dead enum/helper tail
-  - current caller evidence:
-    - no import/use hits for `PythonValueMode`, `LIVE_RUNTIME`, or
-      `PACKAGED_RUNTIME` outside the deleted file itself; only a stale doc
-      mention remained
-  - replacement owner:
-    - no runtime owner needed; the packaged-vs-live wording now lives directly
-      in docs without a Python enum indirection
-  - proof tests:
-    - no runtime/test surface imports the enum; deletion verified by repo-wide
-      search plus script/CLI smoke from Batch 6
-  - decision:
-    - delete now
-- [x] Third bounded deletion batch:
-  - file set:
-    - `backend/setta/types/hierarchy_traversal.py`
-    - `backend/setta/utils/utils.py`
-  - classification:
-    - dead traversal/helper tail
-  - current caller evidence:
-    - no repo import/use hits for `setta.types.hierarchy_traversal`,
-      `setta.utils.utils`, `build_project_sections_dir`,
-      `build_gen_code_path`, `replace_at_positions`, or `try_json`
-      outside the deleted files themselves
-  - replacement owner:
-    - no replacement needed; the pair no longer anchors an active package,
-      tooling, or test surface on this branch
-  - proof tests:
-    - `./scripts/go.sh test ./internal/codegen/... ./internal/runs/... -count=1`
-    - `source activate.sh && pytest tests/types/test_effective_impls.py -q`
-  - decision:
-    - delete now
-- [x] Fourth bounded deletion batch:
-  - file set:
-    - `backend/setta/types/dropzone.py`
-  - classification:
-    - dead source-helper tail
-  - current caller evidence:
-    - no Python module import/use hits for `backend/setta/types/dropzone.py`,
-      `parse_dropzone_value`, or `dropzone_value_to_attachments`;
-      remaining references were parity/archive notes plus the separate frontend
-      `DropzoneStoredValue` type alias
-  - replacement owner:
-    - active dropzone normalization/parsing lives on the Go backend and the
-      frontend helper surface (`frontend/src/utils/dropzone.ts`)
-  - proof tests:
-    - run focused Go dropzone/param slices:
-      `./scripts/go.sh test ./internal/projectstate ./internal/httpapi -run 'Dropzone|ParamValue|PasswordParam' -count=1`
-  - decision:
-    - delete now
-- [x] Delete Python tests only when they either:
-  - prove a dead path, or
-  - have clear Go/frontend replacement coverage
-  - current status:
-    - no additional Python test deletion queue remains after the surviving-suite
-      scan; future deletions should keep using this bar
-- [x] Keep tests that still prove the Python SDK, wheel boundary, or
-  listener authoring/client surface.
-  - listener/package surface:
-    - `tests/api/*`
-    - `tests/share/test_listener_runtime.py`
-    - `tests/types/test_listener_binary_payload.py`
-  - package/auth/logging boundary:
-    - `tests/auth/*`
-    - `tests/logging/*`
-    - `tests/sessions/test_registry.py`
-    - `tests/utils/*`
-  - script/packaging/wiring boundary:
-    - `tests/start/*`
-  - Python SDK/chat-tooling/contracts:
-    - `tests/llm/*`
-    - `tests/types/test_chat_messages.py`
-    - `tests/types/test_code_obj_value_policy.py`
-    - `tests/types/test_effective_impls.py`
-    - `tests/types/test_sdk_contracts_generated.py`
-  - parity/governance helpers:
-    - `tests/agentic/test_opencode_question_*`
-    - `tests/skills/test_skill_docs.py`
-  - surviving-suite proof:
-    - import scan over `tests/` found no imports of deleted Python backend owners
-    - `source activate.sh && ./scripts/run_backend_tests.sh` passed (`580 passed`)
+Goal: the repo landing path should present the current architecture without any
+rewrite framing.
+
+- [ ] Re-audit `README.md`, `docs/README.md`, `AGENTS.md`, and `CLAUDE.md` as a
+  single set.
+- [x] Remove links that send normal contributors into
+  `docs/plans/go-backend-rewrite/`.
+- [ ] Remove wording that explains the backend in migration terms.
+- [ ] Keep only current-state ownership statements:
+  - Go runtime/CLI/server ownership
+  - retained Python package/SDK boundary
+  - frontend/generated binding ownership
+- [ ] Re-check high-traffic guides/reference docs so they also read as
+  current-state docs, not rewrite notes.
 
 Verification:
 
-- `./scripts/run_go_tests.sh`
-- `./scripts/run_backend_tests.sh`
+- `rg -n "go-backend-rewrite|rewrite closeout|Python backend|FastAPI|backend/setta/(routers|start\\.py|dev_start\\.py|server\\.py)" README.md AGENTS.md CLAUDE.md docs/README.md docs/guides docs/reference`
 
-## Batch 6: Script And Packaging Surface Verification
+## Workstream 3: Script, Packaging, And Help Surfaces
 
-- [x] Confirm docs and help text line up with the real supported entrypoints:
+Goal: commands and help text should match the Go-first runtime story.
+
+- [ ] Audit the supported entrypoints together:
   - `./scripts/go.sh`
   - `./scripts/run-dev-instance.sh`
   - `frontend/backendStart.sh`
   - `./build.sh`
   - `./verify_install.sh`
   - `python -m setta`
-- [x] Correct stale help text or wrapper wording while touching each script.
-- [x] Keep the default dev story centered on the backend runtime; keep Python
-  activation scoped to SDK/package tooling and Python-specific workflows.
+- [ ] Make the default source/dev loop consistently Go-first.
+- [ ] Keep Python activation guidance only where it is still correct:
+  - retained Python tooling
+  - packaging flows
+  - Python/package tests
+- [ ] Remove stale help text that still implies removed Python startup paths or
+  router ownership.
 
 Verification:
 
@@ -264,31 +161,160 @@ Verification:
 - `./build.sh`
 - `./verify_install.sh`
 
-## Batch 7: Rewrite Doc Rehoming And Archive Trim
+## Workstream 4: Delete `docs/plans/go-backend-rewrite/`
 
-- [x] Remove rewrite docs from default contributor paths once the replacement
-  guidance is stable.
-- [x] Keep the archive intact until there is a clear rule for what is still
-  historically useful.
-- [x] Delete only obviously dead/empty rewrite-era docs after checking for
-  references.
-  - result:
-    - `find docs/plans/go-backend-rewrite -type f -empty` returned no files
-- [x] Leave `archive/` as history, not as the main entrypoint.
+Goal: remove rewrite-plan sprawl from the repo instead of carrying it forward
+as history.
+
+- [ ] Inventory which files in `docs/plans/go-backend-rewrite/` still contain
+  present-day value.
+- [ ] For any still-useful content, extract only the durable parts into neutral
+  docs outside this folder.
+- [ ] Delete rewrite-only planning/history docs rather than archiving them in
+  place.
+- [ ] Delete the folder entrypoints and trackers once their useful content has
+  been moved or dropped:
+  - `CURRENT.md`
+  - `README.md`
+  - `merge-readiness-cleanup-checklist.md`
+  - all remaining rewrite plans/checklists/matrices
+- [ ] Remove inbound references from normal docs, scripts, or contributor
+  guidance.
 
 Verification:
 
-- `find docs/plans/go-backend-rewrite/archive -type f | wc -l`
-- `rg -n "plans/go-backend-rewrite/archive" README.md docs`
+- `git diff --name-status main...HEAD -- docs/plans/go-backend-rewrite`
+- `rg -n "go-backend-rewrite|CURRENT.md|merge-readiness-cleanup-checklist|go-rewrite-closeout-cleanup-plan" README.md AGENTS.md CLAUDE.md docs scripts`
+
+## Workstream 5: Delete `docs/reference/dependencies/`
+
+Goal: remove the large dependency-document dump unless a very small subset is
+proved necessary.
+
+- [ ] Find all inbound references to `docs/reference/dependencies/`.
+- [ ] Classify each referenced file as:
+  - actively needed right now
+  - only referenced by rewrite docs
+  - dead
+- [ ] Delete the whole tree if nothing live needs it.
+- [ ] If a tiny subset is still useful, move or compress that content into a
+  much smaller neutral home instead of keeping the full dump tree.
+- [ ] Remove any scripts or maintenance expectations that imply this tree is a
+  normal permanent part of the repo.
+
+Verification:
+
+- `rg -n "docs/reference/dependencies" README.md AGENTS.md docs scripts`
+- `git diff --name-status main...HEAD -- docs/reference/dependencies`
+
+## Workstream 6: Re-Audit The Retained Python Surface
+
+Goal: keep only the Python that still has a real current owner story.
+
+- [ ] Re-freeze the intentional keep-list from current code:
+  - `backend/setta/__main__.py`
+  - `backend/setta/entrypoint.py`
+  - `backend/setta/api/*`
+  - `backend/setta/share/listener_runtime.py`
+  - `backend/setta/mcp/tool_metadata.py`
+  - wheel/package hooks in `pyproject.toml`
+- [ ] Classify every remaining Python file into:
+  - retained package boundary
+  - retained support module
+  - generated/type support
+  - packaging/build support
+  - explicit process/sidecar boundary
+  - deletion candidate
+- [ ] Rewrite docs that still call this surface "the backend" so they describe
+  it as package/SDK/tooling ownership instead.
+- [ ] Build the next deletion queue from ambiguous survivors.
+
+Verification:
+
+- `find backend/setta -name '*.py' | sort`
+- `git ls-files 'backend/setta/**/*.py'`
+- `rg -n "from setta|import setta|backend/setta" tests backend/setta pyproject.toml scripts docs`
+
+## Workstream 7: Delete Residual Dead Python And Superseded Tests
+
+Goal: remove dead code in bounded batches after the documentation reset makes
+the intended Python boundary clear.
+
+- [ ] Build deletion batches around clusters, not one-off files, when the
+  evidence supports it.
+- [ ] For each batch, record:
+  - file set
+  - classification
+  - current caller evidence
+  - replacement owner or no-replacement justification
+  - proof tests
+  - decision
+- [ ] Delete Python tests only when they prove a dead path or are clearly
+  replaced by Go/frontend coverage for the surviving behavior.
+- [ ] Keep tests that still prove the retained Python package/SDK boundary.
+- [ ] Re-run the full backend pytest suite after each material deletion batch.
+
+Verification:
+
+- `./scripts/run_go_tests.sh`
+- `source activate.sh && ./scripts/run_backend_tests.sh`
+
+## Workstream 8: Search-Driven Zero-History Sweep
+
+Goal: eliminate mentions that depend on the repo being understood as a
+Python-to-Go migration.
+
+- [ ] Sweep for migration/history language in active docs and plans:
+  - `go-backend-rewrite`
+  - `Go rewrite`
+  - `rewrite closeout`
+  - `Python backend`
+  - `FastAPI`
+  - `backend/setta/routers`
+  - `backend/setta/start.py`
+  - `backend/setta/dev_start.py`
+  - `backend/setta/server.py`
+  - `uvicorn`
+- [ ] For each hit, classify it as:
+  - delete/fix now
+  - acceptable current Python package reference
+  - acceptable test/negative assertion
+  - temporary cleanup-only reference that must disappear before merge
+- [ ] Continue until contributor-facing docs and normal plan/reference paths no
+  longer require any migration context to understand the repo.
+
+Known likely-allowed hits while cleanup is still in progress:
+
+- logger/test references to legacy logger names
+- negative packaging assertions
+- this temporary tracker and any other temporary cleanup-only notes
+
+Verification:
+
+- `rg -n "go-backend-rewrite|Go rewrite|rewrite closeout|Python backend|FastAPI|backend/setta/(routers|start\\.py|dev_start\\.py|server\\.py)|uvicorn" README.md AGENTS.md CLAUDE.md docs backend/setta tests scripts frontend -g '!frontend/node_modules/**' -g '!**/dist/**'`
 
 ## Final Merge Gate
 
-- [x] Front-door docs present the repo in current-state terms with an explicit
-  backend/package split.
-- [x] Top-level branch-only clutter is gone or explicitly justified.
-- [x] High-traffic docs no longer imply Python/FastAPI owns the active backend
-  runtime.
-- [x] Remaining Python code is either intentional package/tooling surface or
-  backed by a
-  deletion-proof ledger.
-- [x] Packaging/install smoke still passes at the Go/Python package boundary.
+- [ ] Non-rewrite docs that still belong on `main` have been kept unless there
+  was a separate reason to remove them.
+- [ ] `docs/plans/go-backend-rewrite/` has been deleted.
+- [ ] `docs/reference/dependencies/` has been deleted or reduced to a tiny,
+  clearly justified replacement.
+- [ ] Contributor-facing docs assume Go backend ownership without explaining
+  prior Python ownership.
+- [ ] Remaining Python files all have a clear current owner story.
+- [ ] Remaining legacy-reference search hits are limited to intentional tests,
+  compatibility names, or narrow retained Python package docs.
+- [ ] Packaging/install smoke still passes at the Go/Python boundary.
+- [ ] Go tests pass.
+- [ ] Python/package tests pass.
+
+## Suggested Execution Order
+
+1. Freeze the keep/delete matrix against `main`.
+2. Fix front-door docs and command/help surfaces.
+3. Extract any real keeper content, then delete `docs/plans/go-backend-rewrite/`.
+4. Delete `docs/reference/dependencies/` unless a tiny subset survives review.
+5. Re-audit the retained Python tree and land the next deletion batches.
+6. Run the zero-history search sweep.
+7. End with packaging/install smoke plus full Go and Python test passes.
