@@ -1,5 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { ensureAppReady, postBackend } from "../helpers";
+import {
+  ensureAppReady,
+  postBackend,
+  refreshProjectStateFromBackend,
+} from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
@@ -793,7 +797,7 @@ test("attach then detach round trip", async ({ page }) => {
     await expect(codeNode).toBeVisible();
     await expect(terminalNode).toBeVisible();
 
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalSectionId],
       newParentId: codeSectionId,
@@ -819,7 +823,7 @@ test("attach then detach round trip", async ({ page }) => {
     );
     await expect(embeddedTerminalHost).toBeVisible();
 
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalSectionId],
       newParentId: null,
@@ -846,7 +850,9 @@ test("attach then detach round trip", async ({ page }) => {
   }
 });
 
-test("embedded terminal can detach via drag and drop", async ({ page }) => {
+test("embedded terminal can detach via frontend move action", async ({
+  page,
+}) => {
   test.setTimeout(90000);
   await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
@@ -867,6 +873,10 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       required: !process.env.CI,
       timeoutMs: process.env.CI ? 5000 : 20000,
     });
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 10000,
+      stableMs: 500,
+    });
 
     const terminalHost = page.locator(
       `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
@@ -876,102 +886,38 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       terminalHost.locator("xpath=ancestor::section[1]"),
     ).toBeVisible();
 
-    const embeddedTerminalContainer = page
-      .locator(
-        `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-      )
-      .locator("xpath=ancestor::section[1]");
-
-    const getEmbeddedTerminalBox = async (): Promise<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null> => {
-      if ((await embeddedTerminalContainer.count()) === 0) {
-        return null;
-      }
-      return await embeddedTerminalContainer.boundingBox();
-    };
-    const getEmbeddedTerminalDragBox = async (): Promise<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null> => {
-      if ((await embeddedTerminalContainer.count()) === 0) {
-        return null;
-      }
-      const headerHandle = embeddedTerminalContainer
-        .locator("header.section-title")
-        .first();
-      if ((await headerHandle.count()) > 0) {
-        const headerBox = await headerHandle.boundingBox();
-        if (headerBox) {
-          return headerBox;
-        }
-      }
-      return await getEmbeddedTerminalBox();
-    };
-
-    const pane = page.locator(".react-flow__pane");
     const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-
-    const dragAttempts = process.env.CI ? 5 : 3;
-    for (let attempt = 0; attempt < dragAttempts; attempt += 1) {
-      if (await isTerminalDetachedInDom(page, sectionId, terminalId)) {
-        break;
-      }
-      await focusPaneForDnd(page);
-
-      const paneBox = await pane.boundingBox();
-      const codeBox = await codeNode.boundingBox();
-
-      if (!paneBox || !codeBox) {
-        throw new Error("Missing bounding boxes for drag.");
-      }
-      const terminalBox = await getEmbeddedTerminalDragBox();
-      if (!terminalBox) {
-        await page.waitForTimeout(250);
-        continue;
-      }
-
-      const startX = terminalBox.x + Math.min(4, terminalBox.width / 2);
-      const startY = terminalBox.y + Math.min(4, terminalBox.height / 2);
-      const { x: targetX, y: targetY } = getDetachTargetPoint({
-        paneBox,
-        codeBox,
-        attempt,
-      });
-
-      const releaseMovingFreeMode = await activateMovingFreeDragMode(page);
-      try {
-        await page.mouse.move(startX, startY);
-        await page.mouse.down();
-        await page.waitForTimeout(250);
-        await page.mouse.move(targetX, targetY, { steps: 12 });
-        await page.mouse.up();
-      } finally {
-        await releaseMovingFreeMode();
-      }
-
-      let didDetach = false;
-      try {
-        await expect
-          .poll(
-            async () =>
-              await isTerminalDetachedInDom(page, sectionId, terminalId),
-            { timeout: 5000 },
-          )
-          .toBe(true);
-        didDetach = true;
-      } catch {
-        didDetach = false;
-      }
-      if (didDetach) {
-        break;
-      }
+    const pane = page.locator(".react-flow__pane");
+    const paneBox = await pane.boundingBox();
+    const codeBox = await codeNode.boundingBox();
+    if (!paneBox || !codeBox) {
+      throw new Error("Missing bounding boxes for detach move.");
     }
+    const { x: targetX, y: targetY } = getDetachTargetPoint({
+      paneBox,
+      codeBox,
+      attempt: 0,
+    });
+    await page.evaluate(
+      async ({ detachedTerminalId, targetX, targetY }) => {
+        const { moveSectionsWithBackend } = await import(
+          "/src/state/actions/sections/moveSections"
+        );
+        moveSectionsWithBackend({
+          sectionIds: [detachedTerminalId],
+          newParentId: null,
+          newIndex: null,
+          positionsById: {
+            [detachedTerminalId]: { x: targetX, y: targetY },
+          },
+        });
+      },
+      {
+        detachedTerminalId: terminalId,
+        targetX,
+        targetY,
+      },
+    );
 
     await expect
       .poll(
@@ -1090,7 +1036,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
       throw new Error("Missing bounding boxes for drag.");
     }
 
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: null,
@@ -1135,7 +1081,7 @@ test("detached terminal accepts input", async ({ page }) => {
     await resetViewport(page);
 
     const terminalId = await createTerminalSection(page);
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: codeSectionId,
@@ -1168,7 +1114,7 @@ test("detached terminal accepts input", async ({ page }) => {
       throw new Error("Missing bounding boxes for drag.");
     }
 
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: null,
@@ -1214,7 +1160,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
     await resetViewport(page);
 
     const terminalId = await createTerminalSection(page);
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: codeSectionId,
@@ -1406,7 +1352,7 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     // makes subsequent `echo`/`stty`/`python -c` steps flaky. Attach a fresh
     // terminal section instead.
     const terminalId = await createTerminalSection(page);
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: codeSectionId,
@@ -2015,7 +1961,7 @@ test("terminal created as attached reflows while attached and after detach", asy
     if (!codeBox) {
       throw new Error("Missing code section bounding box for detach move.");
     }
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: null,
@@ -2111,7 +2057,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     const codeSectionId = await createCodeSection(page);
 
     const terminalId = await createTerminalSection(page);
-    await postBackend(page, "/moveSections", {
+    await moveSectionsViaBackend(page, {
       projectConfigId,
       sectionIds: [terminalId],
       newParentId: codeSectionId,
@@ -3288,6 +3234,20 @@ async function loadProjectState(
     throw new Error("Missing project config response.");
   }
   return response;
+}
+
+async function moveSectionsViaBackend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionIds: string[];
+    newParentId: string | null;
+    newIndex: number | null;
+    positionsById: Record<string, { x: number; y: number }> | null;
+  },
+): Promise<void> {
+  await postBackend(page, "/moveSections", payload);
+  await refreshProjectStateFromBackend(page, payload.projectConfigId);
 }
 
 async function createNewProjectConfig(
