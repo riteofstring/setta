@@ -19,7 +19,7 @@ from setta.llm.chat_toolkit import (
 )
 from setta.llm.chat_toolkit.stream_assembler import AssistantMessageBuilder
 from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPreviewKind
-from setta.types.chat import Chat, ChatMetadata
+from setta.types.chat import Chat, ChatMetadata, ChatSectionState
 from setta.types.chat_messages import (
     AssistantChatMessage,
     BaseChatMessageUnion,
@@ -49,7 +49,6 @@ from setta.types.chat_toolkit import (
 )
 from setta.types.dependency_key import SectionDependencyKey
 from setta.types.id import ID
-from setta.types.section_impls import ChatSectionState
 
 if TYPE_CHECKING:
     from setta.api.listener import ListenerCallbackContext

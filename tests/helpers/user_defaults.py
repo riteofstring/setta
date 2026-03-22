@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 # Section type imports
 from setta.types.artifact import DrawAreaLayer
+from setta.types.chat import ChatSectionBranch
 from setta.types.generated.go_shared_types import (
     ButtonActionMode,
     BrowserAreaViewMode,
@@ -42,7 +43,6 @@ from setta.types.generated.go_shared_types import (
 from setta.types.chat_messages import BaseChatMessageUnion
 from setta.types.edges import EdgePort
 from setta.types.id import ID, create_new_id
-from setta.types.section_impls import ChatSectionBranch
 from tests.helpers.settings_models import ColorPickerChoice
 
 

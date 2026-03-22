@@ -4,6 +4,7 @@ import pytest
 
 from setta.api import SettaListener, dep_id
 from setta.api.listener import ListenerCallbackContext
+from setta.types.chat import ChatSectionState
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -29,7 +30,6 @@ from setta.types.listener import (
 )
 from setta.types.generated.go_shared_types import SectionType
 from setta.types.project_config import SectionRepresentationMode
-from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,

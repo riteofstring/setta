@@ -1,6 +1,6 @@
 from typing import Awaitable, Callable, NotRequired, TypedDict
 
-from setta.types.chat import Chat, ChatMetadata
+from setta.types.chat import Chat, ChatMetadata, ChatSectionState
 from setta.types.chat_messages import (
     AssistantChatMessage,
     BaseChatMessageUnion,
@@ -19,7 +19,6 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.id import ID
-from setta.types.section_impls import ChatSectionState
 
 ListenerEndpointCaller = Callable[[str, object], Awaitable[object]]
 
