@@ -398,6 +398,38 @@ func TestLocalLaunchServiceProfileLaunchKeepsExplicitAutoSettaFilesLocation(t *t
 	}
 }
 
+func TestLocalLaunchServiceKeepsExplicitGlobalSettaFilesLocation(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	fixture.sessions.result.Paths.SettaFilesRoot = "/tmp/global-setta_files"
+	fixture.sessions.result.Paths.ResolvedFilesLocation = config.ResolvedFilesLocationGlobal
+	fixture.sessions.result.Paths.RuntimeRoot = "/tmp/global-setta_files/runtime"
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","settaFilesLocation":"global"}`), "http://launcher.example:7999/home")
+
+	result, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	if fixture.sessions.captured[0].SettaFilesLocation == nil || *fixture.sessions.captured[0].SettaFilesLocation != "global" {
+		t.Fatalf("expected explicit global settaFilesLocation to be preserved, got %#v", fixture.sessions.captured[0].SettaFilesLocation)
+	}
+	if result.SettaFilesLocation != "global" {
+		t.Fatalf("expected global setta files location, got %q", result.SettaFilesLocation)
+	}
+	if result.SettaFilesRoot != "/tmp/global-setta_files" {
+		t.Fatalf("expected global setta files root, got %q", result.SettaFilesRoot)
+	}
+}
+
 func TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation(t *testing.T) {
 	t.Parallel()
 
