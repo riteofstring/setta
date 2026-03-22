@@ -74,6 +74,120 @@ func TestDefaultSingleConfigDerivesFrontendFieldsFromSnapshot(t *testing.T) {
 	}
 }
 
+func TestSingleConfigByProjectIDKeepsCanvasArtifactPathsDeploymentRelative(t *testing.T) {
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				Sections: map[string]projectstate.Section{
+					"chart-section": {
+						ID:               "chart-section",
+						Name:             "Chart",
+						VariantIDs:       []string{"chart-variant"},
+						DefaultVariantID: "chart-variant",
+					},
+					"draw-section": {
+						ID:               "draw-section",
+						Name:             "Draw",
+						VariantIDs:       []string{"draw-variant"},
+						DefaultVariantID: "draw-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"chart-variant": {
+						ID:     "chart-variant",
+						Name:   "Chart Variant",
+						ImplID: "chart-impl",
+					},
+					"draw-variant": {
+						ID:     "draw-variant",
+						Name:   "Draw Variant",
+						ImplID: "draw-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"chart-impl": {
+						ID:      "chart-impl",
+						Kind:    projectstate.SectionKind("frontend"),
+						Payload: mustRawJSON(t, map[string]any{"id": "chart-impl", "type": "Chart", "dataPath": "artifacts/chart.csv"}),
+					},
+					"draw-impl": {
+						ID:   "draw-impl",
+						Kind: projectstate.SectionKindDraw,
+						Draw: &projectstate.DrawSectionImpl{},
+						Payload: mustRawJSON(t, map[string]any{
+							"id":   "draw-impl",
+							"type": "Draw",
+							"layers": []any{
+								map[string]any{
+									"elements": []any{
+										map[string]any{
+											"type":        "BrushStroke",
+											"dataPath":    "artifacts/draw.json",
+											"transformId": "artifacts/draw-transform.json",
+										},
+									},
+								},
+							},
+						}),
+					},
+				},
+				SectionVariantMap: map[string]string{
+					"chart-section": "chart-variant",
+					"draw-section":  "draw-variant",
+				},
+				TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+					"chart-section": {},
+					"draw-section":  {},
+				},
+			},
+		},
+	}
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	var chartPayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls["chart-impl"], &chartPayload); err != nil {
+		t.Fatalf("decode chart payload: %v", err)
+	}
+	if got := chartPayload["dataPath"]; got != "artifacts/chart.csv" {
+		t.Fatalf("expected deployment-relative chart path, got %#v", got)
+	}
+
+	var drawPayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls["draw-impl"], &drawPayload); err != nil {
+		t.Fatalf("decode draw payload: %v", err)
+	}
+	layers, ok := drawPayload["layers"].([]any)
+	if !ok || len(layers) != 1 {
+		t.Fatalf("expected one draw layer, got %#v", drawPayload["layers"])
+	}
+	layer, ok := layers[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw layer object, got %#v", layers[0])
+	}
+	elements, ok := layer["elements"].([]any)
+	if !ok || len(elements) != 1 {
+		t.Fatalf("expected one draw element, got %#v", layer["elements"])
+	}
+	element, ok := elements[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw element object, got %#v", elements[0])
+	}
+	if got := element["dataPath"]; got != "artifacts/draw.json" {
+		t.Fatalf("expected deployment-relative draw dataPath, got %#v", got)
+	}
+	if got := element["transformId"]; got != "artifacts/draw-transform.json" {
+		t.Fatalf("expected deployment-relative draw transformId, got %#v", got)
+	}
+}
+
 func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *testing.T) {
 	document := testProjectViewDocument(t)
 
