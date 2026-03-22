@@ -85,6 +85,52 @@ func TestServiceUpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched(t *testin
 	}
 }
 
+func TestServiceCreateSessionDoesNotPreloadImageCache(t *testing.T) {
+	t.Parallel()
+
+	service, runtime, deploymentRoot := newShareArtifactTestService(t, true)
+
+	artifactPath := filepath.Join(deploymentRoot, "artifacts", "preview.png")
+	if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
+		t.Fatalf("mkdir artifact parent: %v", err)
+	}
+	if err := os.WriteFile(artifactPath, []byte("fake-image"), 0o644); err != nil {
+		t.Fatalf("write disk artifact: %v", err)
+	}
+
+	if _, err := runtime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	service.mu.RLock()
+	_, hasOverlay := service.sessions["share-a"]
+	_, hasCachedImage := service.images[artifactPath]
+	service.mu.RUnlock()
+	if hasOverlay {
+		t.Fatal("expected session bootstrap to leave artifact overlay empty before the first load")
+	}
+	if hasCachedImage {
+		t.Fatal("expected session bootstrap to leave image cache empty before the first load")
+	}
+
+	loaded, err := service.LoadCachedImages(context.Background(), "share-a", artifacts.LoadCachedPathsRequest{
+		Paths: []string{artifactPath},
+	})
+	if err != nil {
+		t.Fatalf("load cached image after session bootstrap: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0] == nil {
+		t.Fatalf("expected lazy cached image load, got %#v", loaded)
+	}
+
+	service.mu.RLock()
+	_, hasCachedImage = service.images[artifactPath]
+	service.mu.RUnlock()
+	if !hasCachedImage {
+		t.Fatal("expected first image load to populate the cache")
+	}
+}
+
 func TestServiceDeleteIsInMemoryOnlyAndNormalizesIDs(t *testing.T) {
 	t.Parallel()
 
