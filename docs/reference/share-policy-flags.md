@@ -4,7 +4,8 @@ Deployments (both share and app) include a `policy.json` at the deployment root.
 When the server runs in deployment mode (`setta share` or `setta app`), these
 flags gate route families and UI affordances.
 
-Schema: `SharePolicy` (`backend/setta/types/share_deployment.py`).
+Source of truth: deployment runtime policy in `internal/deployments/policy.go`
+and the exported frontend shape in `internal/frontendbindings/project_state_support.go`.
 
 Notes:
 - Policy gates apply only in deployment mode. IDE mode ignores these flags.

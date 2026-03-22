@@ -3,7 +3,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from setta.types.code_obj_impls import ColorPickerChoice
-from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.settings_state import RunSnapshotMode
 
 # Test helper copy of the former backend settings models.
 
@@ -37,6 +37,12 @@ class PanOnScrollMode(str, Enum):
     free = "free"
     vertical = "vertical"
     horizontal = "horizontal"
+
+
+class RenameRefactorMode(str, Enum):
+    ALWAYS_ASK = "ALWAYS_ASK"
+    ALWAYS_RENAME = "ALWAYS_RENAME"
+    NEVER_RENAME = "NEVER_RENAME"
 
 
 class SettingsShortcuts(BaseModel):

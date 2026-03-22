@@ -131,7 +131,7 @@ Transcription profile CRUD is separate from chat engine config:
 ### LLM config + API key routes
 
 - `/api/llm/config`
-  - `GET` returns the full LLM config (`AllLLMConfigs`).
+  - `GET` returns the full LLM config payload.
   - `POST` replaces the full LLM config payload.
 - `/api/llm/apiKeys`
   - `GET` returns `{ apiKeys, revision }`.

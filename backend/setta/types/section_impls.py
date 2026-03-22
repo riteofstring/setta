@@ -1,4 +1,3 @@
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
@@ -81,26 +80,6 @@ class CodeLanguage(str, Enum):
 
 
 CodeLanguageKey = CodeLanguage | str
-
-
-def normalize_code_language(language: CodeLanguageKey) -> CodeLanguageKey:
-    if isinstance(language, CodeLanguage):
-        return language
-    if not isinstance(language, str):
-        raise TypeError("Code language must be a string.")
-    normalized = language.strip().lower()
-    if normalized == "":
-        raise ValueError("Code language must be a non-empty string.")
-    try:
-        return CodeLanguage(normalized)
-    except ValueError:
-        return normalized
-
-
-def code_language_to_string(language: CodeLanguageKey) -> str:
-    if isinstance(language, CodeLanguage):
-        return language.value
-    return language
 
 
 class ConfigLanguage(str, Enum):
@@ -186,12 +165,6 @@ class BrowserSavedSearch(BaseModel, extra="forbid"):
     )
     color: str = "#3b82f6"
     quickInfo: str = ""
-
-
-class BrowserAreaItem(BaseModel, extra="forbid"):
-    id: str
-    type: Any
-    lastModified: datetime
 
 
 class TaskBoardColumn(BaseModel, extra="forbid"):

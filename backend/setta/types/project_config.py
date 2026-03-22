@@ -4,13 +4,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
-from setta.types.agentic_edges import AgenticEdge
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID, create_new_id
 from setta.types.section_impls import SectionType
-from setta.types.state_machine_edges import StateMachineEdge
-from setta.types.window_space_validation import validate_window_space_window_owner
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -63,6 +60,30 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
 
 
+class AgenticEdgeKind(str, Enum):
+    chat_chat = "chat_chat"
+    section_chat = "section_chat"
+    chat_section = "chat_section"
+
+
+class AgenticEdgeContextMode(str, Enum):
+    reference_only = "reference_only"
+    inline_text = "inline_text"
+    summary = "summary"
+
+
+class AgenticEdge(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    sourceSectionId: ID
+    targetSectionId: ID
+    kind: AgenticEdgeKind
+    contextMode: AgenticEdgeContextMode = AgenticEdgeContextMode.reference_only
+    style: dict[str, str | int | float] | None = None
+    hidden: bool = False
+    zIndex: int = 0
+    selected: bool = False
+
+
 class WindowSpaceSurfaceKind(str, Enum):
     project_chat = "project_chat"
     section = "section"
@@ -72,6 +93,35 @@ class WindowSpaceWindowMode(str, Enum):
     project_ai_mode = "project_ai_mode"
     section_mode = "section_mode"
     git_graph_mode = "git_graph_mode"
+
+
+def _enum_value(value: object) -> object:
+    return getattr(value, "value", value)
+
+
+def validate_window_space_window_owner(
+    *,
+    surface_kind: object,
+    mode: object,
+    section_id: ID | None,
+    chat_id: ID | None,
+) -> None:
+    surface_kind_value = _enum_value(surface_kind)
+    mode_value = _enum_value(mode)
+    if surface_kind_value == "section" and section_id is None:
+        raise ValueError("Section window-space windows require sectionIdOrNull.")
+    if surface_kind_value == "project_chat" and section_id is not None:
+        raise ValueError(
+            "Project-chat window-space windows cannot carry sectionIdOrNull."
+        )
+    if surface_kind_value == "section" and mode_value == "git_graph_mode":
+        raise ValueError("Section window-space windows cannot use git_graph_mode.")
+    if surface_kind_value == "project_chat" and mode_value == "section_mode":
+        raise ValueError("Project-chat window-space windows cannot use section_mode.")
+    if mode_value != "project_ai_mode" and chat_id is not None:
+        raise ValueError(
+            "Window-space windows must use project_ai_mode to bind chatId."
+        )
 
 
 class NormalizedFloatingWindowBounds(BaseModel, extra="forbid"):
@@ -113,6 +163,76 @@ class WindowSpaceConfig(WindowSpaceState, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     sortIndex: int = 0
+
+
+class StateMachineTargetActionType(str, Enum):
+    send_prompt = "send_prompt"
+    reset_thread = "reset_thread"
+
+
+class StateMachineThreadStrategy(str, Enum):
+    continue_current_thread = "continue_current_thread"
+    new_thread_before_send = "new_thread_before_send"
+
+
+class StateMachineSourceFilterType(str, Enum):
+    run_completed = "run_completed"
+    run_failed = "run_failed"
+    signal = "signal"
+
+
+class StateMachineCountOperator(str, Enum):
+    lt = "lt"
+    lte = "lte"
+    eq = "eq"
+    gte = "gte"
+    gt = "gt"
+
+
+class StateMachineSourceFilter(BaseModel, extra="forbid"):
+    type: StateMachineSourceFilterType = StateMachineSourceFilterType.run_completed
+    signalName: str | None = None
+    payloadField: str | None = None
+    equals: str | None = None
+
+
+class StateMachineSourceActivationCountCondition(BaseModel, extra="forbid"):
+    operator: StateMachineCountOperator = StateMachineCountOperator.eq
+    value: int
+
+
+class StateMachineTargetAction(BaseModel, extra="forbid"):
+    type: StateMachineTargetActionType = StateMachineTargetActionType.send_prompt
+    promptTemplateId: ID | None = None
+    promptSectionId: ID | None = None
+    inlinePrompt: str | None = None
+    promptInputs: dict[str, str] = Field(default_factory=dict)
+    threadStrategy: StateMachineThreadStrategy = (
+        StateMachineThreadStrategy.continue_current_thread
+    )
+    stopIfRunning: bool = False
+    engineConfigId: ID | None = None
+    agentProfileId: ID | None = None
+    permissionMode: str | None = None
+    searchEnabled: bool | None = None
+
+
+class StateMachineEdge(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    machineGroupId: str
+    sourceSectionId: ID
+    sourcePortId: str
+    targetSectionId: ID
+    targetPortId: str
+    sourceFilter: StateMachineSourceFilter | None = None
+    sourceActivationCountCondition: (
+        StateMachineSourceActivationCountCondition | None
+    ) = None
+    targetAction: StateMachineTargetAction | None = None
+    style: dict[str, str | int | float] | None = None
+    hidden: bool = False
+    zIndex: int = 0
+    selected: bool = False
 
 
 class ProjectCodegenLanguage(str, Enum):
@@ -418,13 +538,6 @@ def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodege
     return python_target.sectionPolicy
 
 
-def get_code_obj_value_policy(project_config: "ProjectConfig") -> CodeObjValuePolicy:
-    python_target = get_python_codegen_target(project_config)
-    if python_target is None:
-        return CodeObjValuePolicy()
-    return python_target.codeObjValuePolicy
-
-
 class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     language: Literal[ProjectCodegenLanguage.python] = ProjectCodegenLanguage.python
     genCodePrefix: str = ""
@@ -454,18 +567,6 @@ ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
 
 def default_codegen_targets() -> list[ProjectCodegenTarget]:
     return [ProjectCodegenPythonTarget()]
-
-
-def project_config_has_codegen_language(
-    project_config: "ProjectConfig",
-    language: ProjectCodegenLanguage | str,
-) -> bool:
-    language_value = (
-        language.value if isinstance(language, ProjectCodegenLanguage) else language
-    )
-    return any(
-        target.language == language_value for target in project_config.codegenTargets
-    )
 
 
 def get_python_codegen_target(
