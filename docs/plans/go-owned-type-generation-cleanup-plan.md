@@ -76,6 +76,7 @@ That means:
   - `internal/realtime`
   - `internal/artifacts`
   - `internal/scriptablechat`
+- `internal/projectview`
 - the Python shared-type pipeline still prunes aggressively afterward, so widening owner-package discovery no longer requires hand-maintaining another allowlist just to keep the output small.
 - `internal/realtime` now owns typed listener/streaming enums instead of leaving those names implicit in plain string constants:
   - `StreamingEventType`
@@ -131,6 +132,22 @@ That means:
 - the Go -> Python generator now also preserves named Go string-enum field types inside generated models instead of flattening them to plain `str`, which makes the generated Python surface much closer to the real backend schema.
 - `backend/setta/types/dependency_value.py` no longer hand-owns the dependency-value field layouts:
   - the Python file is now only a discriminated-union adapter over Go-generated models so the listener SDK can keep using `Field(discriminator="type")`.
+- the frontend-facing project codegen policy family now has a real Go owner in `internal/projectview` instead of empty `frontendbindings` placeholders:
+  - `ProjectCodegenLanguage`
+  - `SectionCodegenMode`
+  - `SectionRepresentationMode`
+  - `CodeObjValueRepresentationMode`
+  - `SectionTypeCodegenPolicy`
+  - `SectionCodegenOverride`
+  - `SectionCodegenPolicy`
+  - `CodeObjTypeValuePolicy`
+  - `CodeObjValueOverride`
+  - `CodeObjValuePolicy`
+  - `ProjectCodegenPythonTarget`
+  - `ProjectCodegenPluginTarget`
+- `internal/frontendbindings/project_state_support.go` now aliases that project-codegen family to `internal/projectview` instead of declaring local mirror structs/enums.
+- `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
+  - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, validation, and policy-resolution helpers.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -152,11 +169,11 @@ Working assumption for the next passes:
 - `chat.py` and `chat_stream_events.py` are now typed Python adapters over Go-owned generated models, not primary schema owners.
 - `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
 - `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
-- the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
+- the remaining handwritten part of `project_config.py` is now narrower Python-only policy/default glue over Go-generated project codegen and project-state models, not another large shared-model family.
 - `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
 - `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is mostly Python-side chart settings, tuple aliases, default ids, and draw-area convenience defaults.
-- the main remaining shared-contract candidates are now the remaining local policy/default layer in `project_config.py` and any reducible remainder in `artifact.py`.
+- the main remaining shared-contract candidate is now any reducible remainder in `artifact.py`; the surviving `project_config.py` code is mostly policy/default logic rather than schema ownership.
 
 ## What Is Still Wrong
 
@@ -170,7 +187,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, and the detailed chat-message schema family, but not yet for the larger external-agent settings families.
+This has improved for the project-state/view/windowing family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, and the detailed chat-message schema family, but not yet for the larger external-agent settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -207,7 +224,6 @@ The prompt-format duplication has already been removed. The remaining work here 
 The remaining handwritten Python files are much smaller and clearer than before.
 
 The main candidates are now:
-- the remaining local wrapper content in `project_config.py`, if more of its defaults can move cleanly onto Go-owned models without adding duplicate Go definitions
 - the remainder of `artifact.py`, if chart settings and draw-area defaults can be moved or deleted cleanly without reintroducing duplicate Go definitions
 
 Already narrowed to Python adapter layers:

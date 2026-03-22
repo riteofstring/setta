@@ -6,6 +6,7 @@ import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
 	projectstate "setta/internal/projectstate"
+	projectview "setta/internal/projectview"
 	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
 )
@@ -281,5 +282,26 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(scriptablechat.GetAllMetadataRequest{}),
 		reflect.TypeOf(scriptablechat.EmitStreamDeltaRequest{}),
 		reflect.TypeOf(scriptablechat.RunToolsRequest{}),
+		reflect.TypeOf(projectview.ProjectCodegenLanguage("")),
+		reflect.TypeOf(projectview.SectionCodegenMode("")),
+		reflect.TypeOf(projectview.SectionRepresentationMode("")),
+		reflect.TypeOf(projectview.CodeObjValueRepresentationMode("")),
+		reflect.TypeOf(projectview.SectionTypeCodegenPolicy{}),
+		reflect.TypeOf(projectview.SectionCodegenOverride{}),
+		reflect.TypeOf(projectview.SectionCodegenPolicy{}),
+		reflect.TypeOf(projectview.CodeObjTypeValuePolicy{}),
+		reflect.TypeOf(projectview.CodeObjValueOverride{}),
+		reflect.TypeOf(projectview.CodeObjValuePolicy{}),
+		reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}),
+		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}),
+		reflect.TypeOf(projectview.SingleConfig{}),
+		reflect.TypeOf(projectview.ProjectConfig{}),
+		reflect.TypeOf(projectview.Core{}),
+		reflect.TypeOf(projectview.Variant{}),
+		reflect.TypeOf(projectview.SingletonSections{}),
+		reflect.TypeOf(projectview.ShownParamIDs{}),
+		reflect.TypeOf(projectview.ShownParamIDDetails{}),
+		reflect.TypeOf(projectview.ProjectStateSummary{}),
+		reflect.TypeOf(projectview.ProjectStateItem{}),
 	}
 }

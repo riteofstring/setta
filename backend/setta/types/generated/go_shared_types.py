@@ -208,16 +208,6 @@ class ChatRole(str, Enum):
     tool = "tool"
 
 
-class PromptFormat(str, Enum):
-    Jinja = "Jinja"
-
-
-class RunSnapshotMode(str, Enum):
-    never = "never"
-    ephemeral = "ephemeral"
-    always = "always"
-
-
 class ProjectCodegenLanguage(str, Enum):
     python = "python"
 
@@ -240,6 +230,16 @@ class CodeObjValueRepresentationMode(str, Enum):
     string = "string"
     file_path = "file_path"
     file_read = "file_read"
+
+
+class PromptFormat(str, Enum):
+    Jinja = "Jinja"
+
+
+class RunSnapshotMode(str, Enum):
+    never = "never"
+    ephemeral = "ephemeral"
+    always = "always"
 
 
 class SectionType(str, Enum):
@@ -738,6 +738,51 @@ class ToolChatMessage(SettaSharedTypeModel):
     is_error: bool
     started_at: datetime
     completed_at: datetime | None = None
+
+
+class SectionTypeCodegenPolicy(SettaSharedTypeModel):
+    mode: SectionCodegenMode
+    representation: SectionRepresentationMode
+
+
+class SectionCodegenOverride(SettaSharedTypeModel):
+    mode: SectionCodegenMode
+    representation: SectionRepresentationMode
+
+
+class SectionCodegenPolicy(SettaSharedTypeModel):
+    allowlist: list[str]
+    metaControlAllowlist: list[str]
+    exclude: list[str]
+    typePolicies: dict[str, SectionTypeCodegenPolicy]
+    sectionOverrides: dict[str, SectionCodegenOverride]
+
+
+class CodeObjTypeValuePolicy(SettaSharedTypeModel):
+    representation: CodeObjValueRepresentationMode
+
+
+class CodeObjValueOverride(SettaSharedTypeModel):
+    representation: CodeObjValueRepresentationMode
+
+
+class CodeObjValuePolicy(SettaSharedTypeModel):
+    typePolicies: dict[str, CodeObjTypeValuePolicy]
+    codeObjOverrides: dict[str, CodeObjValueOverride]
+
+
+class ProjectCodegenPythonTarget(SettaSharedTypeModel):
+    language: ProjectCodegenLanguage
+    genCodePrefix: str
+    genCodeSuffix: str
+    generateMetadata: bool
+    sectionPolicy: SectionCodegenPolicy
+    codeObjValuePolicy: CodeObjValuePolicy
+
+
+class ProjectCodegenPluginTarget(SettaSharedTypeModel):
+    language: str
+    options: dict[str, Any]
 
 
 class LLMConfig(SettaSharedTypeModel):

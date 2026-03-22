@@ -5,11 +5,19 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.generated.go_shared_types import (
     CodeObjType,
+    CodeObjTypeValuePolicy as GoCodeObjTypeValuePolicy,
+    CodeObjValueOverride as GoCodeObjValueOverride,
+    CodeObjValuePolicy as GoCodeObjValuePolicy,
     CodeObjValueRepresentationMode,
     Edge,
+    ProjectCodegenPluginTarget as GoProjectCodegenPluginTarget,
     ProjectCodegenLanguage,
+    ProjectCodegenPythonTarget as GoProjectCodegenPythonTarget,
+    SectionCodegenOverride as GoSectionCodegenOverride,
+    SectionCodegenPolicy as GoSectionCodegenPolicy,
     SectionCodegenMode,
     SectionRepresentationMode,
+    SectionTypeCodegenPolicy as GoSectionTypeCodegenPolicy,
     SectionType,
     StateMachineEdge,
     TopLevelSectionLayout,
@@ -24,12 +32,12 @@ from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
+class SectionTypeCodegenPolicy(GoSectionTypeCodegenPolicy):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
 
 
-class SectionCodegenOverride(BaseModel, extra="forbid"):
+class SectionCodegenOverride(GoSectionCodegenOverride):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
 
@@ -84,7 +92,7 @@ def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolic
     return policies
 
 
-class SectionCodegenPolicy(BaseModel, extra="forbid"):
+class SectionCodegenPolicy(GoSectionCodegenPolicy):
     allowlist: list[SectionType] | None = Field(
         default_factory=default_section_allowlist
     )
@@ -104,13 +112,13 @@ class ResolvedSectionCodegenPolicy:
     representation: SectionRepresentationMode
 
 
-class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):
+class CodeObjTypeValuePolicy(GoCodeObjTypeValuePolicy):
     representation: CodeObjValueRepresentationMode = (
         CodeObjValueRepresentationMode.expression
     )
 
 
-class CodeObjValueOverride(BaseModel, extra="forbid"):
+class CodeObjValueOverride(GoCodeObjValueOverride):
     representation: CodeObjValueRepresentationMode = (
         CodeObjValueRepresentationMode.expression
     )
@@ -142,7 +150,7 @@ def default_code_obj_representation(
     return CodeObjValueRepresentationMode.expression
 
 
-class CodeObjValuePolicy(BaseModel, extra="forbid"):
+class CodeObjValuePolicy(GoCodeObjValuePolicy):
     typePolicies: dict[CodeObjType, CodeObjTypeValuePolicy] = Field(
         default_factory=default_code_obj_type_value_policies
     )
@@ -282,7 +290,7 @@ def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodege
     return python_target.sectionPolicy
 
 
-class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
+class ProjectCodegenPythonTarget(GoProjectCodegenPythonTarget):
     language: Literal[ProjectCodegenLanguage.python] = ProjectCodegenLanguage.python
     genCodePrefix: str = ""
     genCodeSuffix: str = f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()"
@@ -291,7 +299,7 @@ class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     codeObjValuePolicy: CodeObjValuePolicy = Field(default_factory=CodeObjValuePolicy)
 
 
-class ProjectCodegenPluginTarget(BaseModel, extra="forbid"):
+class ProjectCodegenPluginTarget(GoProjectCodegenPluginTarget):
     language: str
     options: dict[str, Any] = Field(default_factory=dict)
 

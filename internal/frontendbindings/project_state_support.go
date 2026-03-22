@@ -602,13 +602,13 @@ type MetaControlSizeMode string
 
 type SectionSizeMode string
 
-type ProjectCodegenLanguage string
+type ProjectCodegenLanguage = projectview.ProjectCodegenLanguage
 
-type SectionCodegenMode string
+type SectionCodegenMode = projectview.SectionCodegenMode
 
-type SectionRepresentationMode string
+type SectionRepresentationMode = projectview.SectionRepresentationMode
 
-type CodeObjValueRepresentationMode string
+type CodeObjValueRepresentationMode = projectview.CodeObjValueRepresentationMode
 
 type SectionSizeValue struct{}
 
@@ -642,23 +642,23 @@ type SaveSettingsRequestInput struct {
 	Settings SettingsState `json:"settings"`
 }
 
-type SectionTypeCodegenPolicy struct{}
+type SectionTypeCodegenPolicy = projectview.SectionTypeCodegenPolicy
 
-type SectionCodegenOverride struct{}
+type SectionCodegenOverride = projectview.SectionCodegenOverride
 
-type SectionCodegenPolicy struct{}
+type SectionCodegenPolicy = projectview.SectionCodegenPolicy
 
-type CodeObjTypeValuePolicy struct{}
+type CodeObjTypeValuePolicy = projectview.CodeObjTypeValuePolicy
 
-type CodeObjValueOverride struct{}
+type CodeObjValueOverride = projectview.CodeObjValueOverride
 
-type CodeObjValuePolicy struct{}
+type CodeObjValuePolicy = projectview.CodeObjValuePolicy
 
-type ProjectCodegenPythonTarget struct{}
+type ProjectCodegenPythonTarget = projectview.ProjectCodegenPythonTarget
 
-type ProjectCodegenPluginTarget struct{}
+type ProjectCodegenPluginTarget = projectview.ProjectCodegenPluginTarget
 
-type ProjectCodegenTarget struct{}
+type ProjectCodegenTarget = projectview.ProjectCodegenTarget
 
 type ProjectConfig = projectview.ProjectConfig
 

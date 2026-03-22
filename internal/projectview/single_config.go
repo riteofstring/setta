@@ -857,12 +857,7 @@ func codegenTargetPayload(target projectstate.ProjectCodegenTarget) json.RawMess
 			return payload
 		}
 	}
-	if len(target.Payload) > 0 {
-		return cloneRawJSON(target.Payload)
-	}
-	return mustMarshal(map[string]any{
-		"language": target.Language,
-	})
+	return pluginCodegenTargetPayload(target)
 }
 
 func pythonCodegenTargetPayload(
@@ -880,34 +875,50 @@ func pythonCodegenTargetPayload(
 	if err != nil {
 		return nil, false
 	}
-	return mustMarshal(map[string]any{
-		"language":         string(projectstate.CodeLanguagePython),
-		"genCodePrefix":    config.GenCodePrefix,
-		"genCodeSuffix":    config.GenCodeSuffix,
-		"generateMetadata": config.GenerateMetadata,
-		"sectionPolicy": frontendPythonSectionPolicy(
+	return mustMarshal(ProjectCodegenPythonTarget{
+		Language:         ProjectCodegenLanguagePython,
+		GenCodePrefix:    config.GenCodePrefix,
+		GenCodeSuffix:    config.GenCodeSuffix,
+		GenerateMetadata: config.GenerateMetadata,
+		SectionPolicy: frontendPythonSectionPolicy(
 			config.SectionPolicy,
 			sectionPolicy,
 		),
-		"codeObjValuePolicy": frontendPythonCodeObjValuePolicy(
+		CodeObjValuePolicy: frontendPythonCodeObjValuePolicy(
 			config.CodeObjValuePolicy,
 			codeObjValuePolicy,
 		),
 	}), true
 }
 
+func pluginCodegenTargetPayload(target projectstate.ProjectCodegenTarget) json.RawMessage {
+	payload := ProjectCodegenPluginTarget{
+		Language: target.Language,
+		Options:  map[string]any{},
+	}
+	if rawFields, ok := rawJSONObjectFields(target.Payload); ok {
+		if rawOptions, exists := rawFields["options"]; exists {
+			var options map[string]any
+			if err := json.Unmarshal(rawOptions, &options); err == nil && options != nil {
+				payload.Options = options
+			}
+		}
+	}
+	return mustMarshal(payload)
+}
+
 func frontendPythonSectionPolicy(
 	raw projectstate.RawJSON,
 	policy projectstate.PythonSectionCodegenPolicy,
-) map[string]any {
+) SectionCodegenPolicy {
 	rawFields, ok := rawJSONObjectFields(raw)
 	if !ok {
-		return map[string]any{
-			"allowlist":            orderedPolicyList(policy.Allowlist, defaultPythonSectionAllowlistOrder, policy.AllowlistAllowAll),
-			"metaControlAllowlist": orderedPolicyList(policy.MetaControlAllowlist, defaultPythonMetaControlAllowlistOrder, policy.MetaControlAllowlistAllowAll),
-			"exclude":              orderedSetValues(policy.Exclude),
-			"typePolicies":         frontendPythonSectionTypePolicies(policy.TypePolicies),
-			"sectionOverrides":     frontendPythonSectionOverrides(policy.SectionOverrides),
+		return SectionCodegenPolicy{
+			Allowlist:            orderedPolicyList(policy.Allowlist, defaultPythonSectionAllowlistOrder, policy.AllowlistAllowAll),
+			MetaControlAllowlist: orderedPolicyList(policy.MetaControlAllowlist, defaultPythonMetaControlAllowlistOrder, policy.MetaControlAllowlistAllowAll),
+			Exclude:              orderedSetValues(policy.Exclude),
+			TypePolicies:         frontendPythonSectionTypePolicies(policy.TypePolicies),
+			SectionOverrides:     frontendPythonSectionOverrides(policy.SectionOverrides),
 		}
 	}
 
@@ -948,24 +959,24 @@ func frontendPythonSectionPolicy(
 			policy.SectionOverrides,
 		)
 	}
-	return map[string]any{
-		"allowlist":            allowlist,
-		"metaControlAllowlist": metaControlAllowlist,
-		"exclude":              exclude,
-		"typePolicies":         typePolicies,
-		"sectionOverrides":     sectionOverrides,
+	return SectionCodegenPolicy{
+		Allowlist:            allowlist,
+		MetaControlAllowlist: metaControlAllowlist,
+		Exclude:              exclude,
+		TypePolicies:         typePolicies,
+		SectionOverrides:     sectionOverrides,
 	}
 }
 
 func frontendPythonCodeObjValuePolicy(
 	raw projectstate.RawJSON,
 	policy projectstate.PythonCodeObjValuePolicy,
-) map[string]any {
+) CodeObjValuePolicy {
 	rawFields, ok := rawJSONObjectFields(raw)
 	if !ok {
-		return map[string]any{
-			"typePolicies":     frontendPythonCodeObjTypePolicies(policy.TypePolicies),
-			"codeObjOverrides": frontendPythonCodeObjOverrides(policy.CodeObjOverrides),
+		return CodeObjValuePolicy{
+			TypePolicies:     frontendPythonCodeObjTypePolicies(policy.TypePolicies),
+			CodeObjOverrides: frontendPythonCodeObjOverrides(policy.CodeObjOverrides),
 		}
 	}
 
@@ -983,21 +994,21 @@ func frontendPythonCodeObjValuePolicy(
 			policy.CodeObjOverrides,
 		)
 	}
-	return map[string]any{
-		"typePolicies":     typePolicies,
-		"codeObjOverrides": codeObjOverrides,
+	return CodeObjValuePolicy{
+		TypePolicies:     typePolicies,
+		CodeObjOverrides: codeObjOverrides,
 	}
 }
 
 func frontendPythonSectionTypePolicies(
 	policies map[string]projectstate.PythonSectionTypeCodegenPolicy,
-) map[string]any {
-	result := make(map[string]any, len(policies))
+) map[string]SectionTypeCodegenPolicy {
+	result := make(map[string]SectionTypeCodegenPolicy, len(policies))
 	for _, key := range orderedPolicyKeys(policies, pythonSectionTypeOrder) {
 		policy := policies[key]
-		result[key] = map[string]any{
-			"mode":           string(policy.Mode),
-			"representation": string(policy.Representation),
+		result[key] = SectionTypeCodegenPolicy{
+			Mode:           SectionCodegenMode(policy.Mode),
+			Representation: SectionRepresentationMode(policy.Representation),
 		}
 	}
 	return result
@@ -1005,13 +1016,13 @@ func frontendPythonSectionTypePolicies(
 
 func frontendPythonSectionOverrides(
 	overrides map[string]projectstate.PythonSectionCodegenOverride,
-) map[string]any {
-	result := make(map[string]any, len(overrides))
+) map[string]SectionCodegenOverride {
+	result := make(map[string]SectionCodegenOverride, len(overrides))
 	for _, key := range orderedMapKeys(overrides) {
 		override := overrides[key]
-		result[key] = map[string]any{
-			"mode":           string(override.Mode),
-			"representation": string(override.Representation),
+		result[key] = SectionCodegenOverride{
+			Mode:           SectionCodegenMode(override.Mode),
+			Representation: SectionRepresentationMode(override.Representation),
 		}
 	}
 	return result
@@ -1020,17 +1031,17 @@ func frontendPythonSectionOverrides(
 func frontendPythonSectionTypePoliciesFromRaw(
 	raw json.RawMessage,
 	policies map[string]projectstate.PythonSectionTypeCodegenPolicy,
-) map[string]any {
+) map[string]SectionTypeCodegenPolicy {
 	fields, ok := rawJSONObjectFields(raw)
 	if !ok {
 		return frontendPythonSectionTypePolicies(policies)
 	}
-	result := make(map[string]any, len(fields))
+	result := make(map[string]SectionTypeCodegenPolicy, len(fields))
 	for _, key := range orderedPolicyKeys(fields, pythonSectionTypeOrder) {
 		policy := policies[key]
-		result[key] = map[string]any{
-			"mode":           string(policy.Mode),
-			"representation": string(policy.Representation),
+		result[key] = SectionTypeCodegenPolicy{
+			Mode:           SectionCodegenMode(policy.Mode),
+			Representation: SectionRepresentationMode(policy.Representation),
 		}
 	}
 	return result
@@ -1039,17 +1050,17 @@ func frontendPythonSectionTypePoliciesFromRaw(
 func frontendPythonSectionOverridesFromRaw(
 	raw json.RawMessage,
 	overrides map[string]projectstate.PythonSectionCodegenOverride,
-) map[string]any {
+) map[string]SectionCodegenOverride {
 	fields, ok := rawJSONObjectFields(raw)
 	if !ok {
 		return frontendPythonSectionOverrides(overrides)
 	}
-	result := make(map[string]any, len(fields))
+	result := make(map[string]SectionCodegenOverride, len(fields))
 	for _, key := range orderedPolicyKeys(fields, nil) {
 		override := overrides[key]
-		result[key] = map[string]any{
-			"mode":           string(override.Mode),
-			"representation": string(override.Representation),
+		result[key] = SectionCodegenOverride{
+			Mode:           SectionCodegenMode(override.Mode),
+			Representation: SectionRepresentationMode(override.Representation),
 		}
 	}
 	return result
@@ -1057,12 +1068,12 @@ func frontendPythonSectionOverridesFromRaw(
 
 func frontendPythonCodeObjTypePolicies(
 	policies map[string]projectstate.PythonCodeObjTypeValuePolicy,
-) map[string]any {
-	result := make(map[string]any, len(policies))
+) map[string]CodeObjTypeValuePolicy {
+	result := make(map[string]CodeObjTypeValuePolicy, len(policies))
 	for _, key := range orderedPolicyKeys(policies, pythonCodeObjTypeOrder) {
 		policy := policies[key]
-		result[key] = map[string]any{
-			"representation": string(policy.Representation),
+		result[key] = CodeObjTypeValuePolicy{
+			Representation: CodeObjValueRepresentationMode(policy.Representation),
 		}
 	}
 	return result
@@ -1071,16 +1082,16 @@ func frontendPythonCodeObjTypePolicies(
 func frontendPythonCodeObjTypePoliciesFromRaw(
 	raw json.RawMessage,
 	policies map[string]projectstate.PythonCodeObjTypeValuePolicy,
-) map[string]any {
+) map[string]CodeObjTypeValuePolicy {
 	fields, ok := rawJSONObjectFields(raw)
 	if !ok {
 		return frontendPythonCodeObjTypePolicies(policies)
 	}
-	result := make(map[string]any, len(fields))
+	result := make(map[string]CodeObjTypeValuePolicy, len(fields))
 	for _, key := range orderedPolicyKeys(fields, pythonCodeObjTypeOrder) {
 		policy := policies[key]
-		result[key] = map[string]any{
-			"representation": string(policy.Representation),
+		result[key] = CodeObjTypeValuePolicy{
+			Representation: CodeObjValueRepresentationMode(policy.Representation),
 		}
 	}
 	return result
@@ -1088,12 +1099,12 @@ func frontendPythonCodeObjTypePoliciesFromRaw(
 
 func frontendPythonCodeObjOverrides(
 	overrides map[string]projectstate.PythonCodeObjValueOverride,
-) map[string]any {
-	result := make(map[string]any, len(overrides))
+) map[string]CodeObjValueOverride {
+	result := make(map[string]CodeObjValueOverride, len(overrides))
 	for _, key := range orderedMapKeys(overrides) {
 		override := overrides[key]
-		result[key] = map[string]any{
-			"representation": string(override.Representation),
+		result[key] = CodeObjValueOverride{
+			Representation: CodeObjValueRepresentationMode(override.Representation),
 		}
 	}
 	return result
@@ -1102,16 +1113,16 @@ func frontendPythonCodeObjOverrides(
 func frontendPythonCodeObjOverridesFromRaw(
 	raw json.RawMessage,
 	overrides map[string]projectstate.PythonCodeObjValueOverride,
-) map[string]any {
+) map[string]CodeObjValueOverride {
 	fields, ok := rawJSONObjectFields(raw)
 	if !ok {
 		return frontendPythonCodeObjOverrides(overrides)
 	}
-	result := make(map[string]any, len(fields))
+	result := make(map[string]CodeObjValueOverride, len(fields))
 	for _, key := range orderedPolicyKeys(fields, nil) {
 		override := overrides[key]
-		result[key] = map[string]any{
-			"representation": string(override.Representation),
+		result[key] = CodeObjValueOverride{
+			Representation: CodeObjValueRepresentationMode(override.Representation),
 		}
 	}
 	return result
@@ -1500,7 +1511,7 @@ func cloneRawJSONObject(raw json.RawMessage) json.RawMessage {
 	return cloneRawJSON(raw)
 }
 
-func mustMarshal(payload map[string]any) json.RawMessage {
+func mustMarshal(payload any) json.RawMessage {
 	content, err := json.Marshal(payload)
 	if err != nil {
 		panic(err)
