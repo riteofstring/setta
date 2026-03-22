@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -181,6 +182,79 @@ func TestRegisterLLMRoutesGetsAndSetsManagedAPIKeys(t *testing.T) {
 	}
 	if got := loaded.APIKeys["UNSCOPED_CUSTOM_KEY"]; got != "custom-secret" {
 		t.Fatalf("expected unscoped key to roundtrip, got %#v", loaded)
+	}
+}
+
+func TestRegisterLLMRoutesSetManagedAPIKeysUsesWriteSnapshotWithoutStoreReread(t *testing.T) {
+	t.Parallel()
+
+	configs := llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-main": {
+				ID:        "openai-main",
+				Model:     "gpt-4o",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}
+	root := t.TempDir()
+	envPath := llmconfig.ManagedAPIKeysPath(root)
+	runtime, err := llmconfig.NewRuntime(configs)
+	if err != nil {
+		t.Fatalf("new llm runtime: %v", err)
+	}
+
+	var mutateOnce sync.Once
+	service, err := llmconfig.NewService(llmconfig.ServiceOptions{
+		ConfigPath:         llmconfig.Path(root),
+		ManagedAPIKeysPath: envPath,
+		Runtime:            runtime,
+		ProcessEnv: func() map[string]string {
+			mutateOnce.Do(func() {
+				if err := os.Remove(envPath); err != nil && !os.IsNotExist(err) {
+					t.Fatalf("remove managed api keys path after write: %v", err)
+				}
+				if err := os.MkdirAll(envPath, 0o755); err != nil {
+					t.Fatalf("replace managed api keys path with directory: %v", err)
+				}
+			})
+			return map[string]string{}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new llm service: %v", err)
+	}
+
+	handler := newLLMRouteTestHandler(t, config.ModeIDE, service)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteLLMAPIKeys,
+		strings.NewReader(`{"apiKeys":{"OPENAI_API_KEY":"openai-secret"},"expectedRevision":0}`),
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode managed api key response: %v", err)
+	}
+	if payload.Revision <= 0 {
+		t.Fatalf("expected positive revision, got %#v", payload)
+	}
+	if got := payload.APIKeys["OPENAI_API_KEY"]; got != "openai-secret" {
+		t.Fatalf("expected openai key in response snapshot, got %#v", payload)
+	}
+	info, err := os.Stat(envPath)
+	if err != nil {
+		t.Fatalf("stat mutated managed api key path: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("expected managed api key path to be replaced with directory, got mode %v", info.Mode())
 	}
 }
 
