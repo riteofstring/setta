@@ -271,6 +271,26 @@ Tighten these next:
 
 Require the canonical `canonical_path` / `access_mode` shape only.
 
+Status: completed on 2026-03-24.
+
+Execution result:
+
+- `internal/projectstate/code_section_bindings.go` no longer reads legacy
+  `codeFileBinding.path` or `codeFileBinding.accessMode`.
+- `internal/projectstate/code_updates.go` no longer treats legacy
+  `accessMode` as authoritative for effective access mode.
+- `internal/projectstate/readable_export.go` no longer reads legacy
+  `codeFileBinding.path`.
+- `internal/projectstate/project_graph.go` now rejects persisted section payloads
+  that still use legacy code-file-binding keys instead of silently tolerating
+  them.
+
+Verification run:
+
+- `./scripts/go.sh test ./internal/projectstate -run 'Test(StoreLoadRejectsLegacyCodeFileBindingPayloadKeys|EffectiveCodeFileBindingIgnoresLegacyPayloadKeys|EffectiveCodeSectionBindingAccessModeIgnoresLegacyPayloadKey|ReadableCodeFilePathIgnoresLegacyPayloadPath)' -count=1`
+- `./scripts/go.sh test ./internal/projectstate -count=1`
+- `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/launcher ./internal/projectshell -run '^$' -count=1`
+
 ### Phase 3. Remove smaller API compatibility surfaces
 
 Review whether to drop:

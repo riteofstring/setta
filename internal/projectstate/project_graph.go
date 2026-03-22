@@ -33,6 +33,7 @@ var (
 	ErrUnsupportedGeneratedSectionKind            = errors.New("unsupported generated section kind")
 	ErrCodeLanguageRequired                       = errors.New("code language is required")
 	ErrCodeFileBindingPathRequired                = errors.New("code file binding path is required")
+	ErrCodeFileBindingLegacyPayloadKeys           = errors.New("code file binding payload must use canonical_path and access_mode keys")
 	ErrDrawRenderedImagePathRequired              = errors.New("draw rendered image path is required")
 	ErrTopLevelSectionNotFound                    = errors.New("top-level section was not found in project")
 	ErrDuplicateTopLevelSection                   = errors.New("duplicate top-level section id")
@@ -482,6 +483,13 @@ func (p Project) Normalized() (Project, error) {
 		impl.Payload, err = normalizeRawJSON(impl.Payload, fmt.Sprintf("section impl %q payload", impl.ID))
 		if err != nil {
 			return Project{}, err
+		}
+		payload, err := rawObjectFromProjectPayload(impl.Payload)
+		if err != nil {
+			return Project{}, fmt.Errorf("decode section impl %q payload: %w", impl.ID, err)
+		}
+		if err := validateCanonicalCodeFileBindingPayload(payload); err != nil {
+			return Project{}, fmt.Errorf("validate section impl %q code file binding payload: %w", impl.ID, err)
 		}
 		if strings.TrimSpace(string(impl.Kind)) == "" {
 			return Project{}, fmt.Errorf("%w: %q", ErrSectionImplKindRequired, impl.ID)

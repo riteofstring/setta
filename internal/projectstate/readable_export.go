@@ -568,9 +568,6 @@ func readableCodeFilePath(payload map[string]any, impl SectionImpl) string {
 			if canonicalPath := payloadRawStringField(binding, "canonical_path"); canonicalPath != "" {
 				return canonicalPath
 			}
-			if path := payloadRawStringField(binding, "path"); path != "" {
-				return path
-			}
 		}
 	}
 	if impl.Code != nil && impl.Code.Binding != nil {

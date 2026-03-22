@@ -245,16 +245,10 @@ func effectiveCodeFileBinding(payload map[string]any, binding *CodeFileBinding) 
 
 	path := strings.TrimSpace(payloadStringField(bindingObject, "canonical_path"))
 	if path == "" {
-		path = strings.TrimSpace(payloadStringField(bindingObject, "path"))
-	}
-	if path == "" {
 		return nil
 	}
 
 	accessMode := strings.TrimSpace(payloadStringField(bindingObject, "access_mode"))
-	if accessMode == "" {
-		accessMode = strings.TrimSpace(payloadStringField(bindingObject, "accessMode"))
-	}
 
 	autoBinding, _ := bindingObject["autoBinding"].(bool)
 	return &CodeFileBinding{
@@ -283,4 +277,31 @@ func setCodeSectionBinding(impl SectionImpl, binding *CodeFileBinding) (SectionI
 	}
 	updatedImpl.Payload = rawPayload
 	return updatedImpl, nil
+}
+
+func validateCanonicalCodeFileBindingPayload(payload map[string]any) error {
+	rawBinding, ok := payload["codeFileBinding"]
+	if !ok {
+		return nil
+	}
+
+	bindingObject, ok := rawBinding.(map[string]any)
+	if !ok {
+		return ErrFrontendPayloadInvalid
+	}
+	if _, ok := bindingObject["path"]; ok {
+		return ErrCodeFileBindingLegacyPayloadKeys
+	}
+	if _, ok := bindingObject["accessMode"]; ok {
+		return ErrCodeFileBindingLegacyPayloadKeys
+	}
+
+	path := strings.TrimSpace(payloadStringField(bindingObject, "canonical_path"))
+	if path == "" {
+		return ErrCodeFileBindingPathRequired
+	}
+	if _, err := normalizeCodeFileAccessMode(CodeFileAccessMode(payloadStringField(bindingObject, "access_mode"))); err != nil {
+		return err
+	}
+	return nil
 }

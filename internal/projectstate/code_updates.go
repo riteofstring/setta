@@ -71,9 +71,6 @@ func effectiveCodeSectionBindingAccessMode(payload map[string]any, binding *Code
 	bindingObject, ok := payloadObjectField(payload, "codeFileBinding")
 	if ok {
 		mode := strings.TrimSpace(payloadStringField(bindingObject, "access_mode"))
-		if mode == "" {
-			mode = strings.TrimSpace(payloadStringField(bindingObject, "accessMode"))
-		}
 		if mode != "" {
 			return CodeFileAccessMode(mode)
 		}

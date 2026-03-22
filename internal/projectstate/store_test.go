@@ -393,6 +393,48 @@ func TestStoreLoadRejectsProjectChatWindowingThatRequiresRepair(t *testing.T) {
 	}
 }
 
+func TestStoreLoadRejectsLegacyCodeFileBindingPayloadKeys(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		bindingObject map[string]any
+	}{
+		{
+			name: "legacy path key",
+			bindingObject: map[string]any{
+				"path":        "pkg/legacy.py",
+				"access_mode": "read_write",
+				"autoBinding": false,
+			},
+		},
+		{
+			name: "legacy accessMode key",
+			bindingObject: map[string]any{
+				"canonical_path": "pkg/legacy.py",
+				"accessMode":     "read_write",
+				"autoBinding":    false,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			projectPath := filepath.Join(t.TempDir(), "project.json")
+			writeTestJSON(t, projectPath, legacyCodeFileBindingStorePayload(testCase.bindingObject))
+			store := newTestStore(t, projectPath)
+
+			_, err := store.Load(context.Background())
+			if !errors.Is(err, ErrCodeFileBindingLegacyPayloadKeys) {
+				t.Fatalf("expected legacy code file binding keys to fail closed, got %v", err)
+			}
+		})
+	}
+}
+
 func TestStoreLoadRawReturnsUnnormalizedDocument(t *testing.T) {
 	t.Parallel()
 
@@ -658,4 +700,70 @@ func writeTestJSON(t *testing.T, path string, payload map[string]any) {
 	}
 	content = append(content, '\n')
 	writeTestFile(t, path, content)
+}
+
+func legacyCodeFileBindingStorePayload(bindingObject map[string]any) map[string]any {
+	return map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":               "project-alpha",
+				"name":             "Alpha",
+				"activeViewModeId": "view-main",
+				"viewModes": map[string]any{
+					"view-main": map[string]any{
+						"id":   "view-main",
+						"name": "Main",
+						"visibilityBySectionId": map[string]any{
+							"section-main": true,
+						},
+						"topLevelSections": map[string]any{},
+					},
+				},
+				"projectChatWindowing": map[string]any{
+					"instancesById":      map[string]any{},
+					"order":              []any{},
+					"nextInstanceNumber": 1,
+				},
+				"sectionVariantMap": map[string]any{
+					"section-main": "variant-main",
+				},
+				"sections": map[string]any{
+					"section-main": map[string]any{
+						"id":               "section-main",
+						"name":             "Main",
+						"variantIds":       []any{"variant-main"},
+						"defaultVariantId": "variant-main",
+					},
+				},
+				"sectionVariants": map[string]any{
+					"variant-main": map[string]any{
+						"id":     "variant-main",
+						"implId": "impl-main",
+					},
+				},
+				"sectionImpls": map[string]any{
+					"impl-main": map[string]any{
+						"id":   "impl-main",
+						"kind": string(SectionKindCode),
+						"payload": map[string]any{
+							"id":              "impl-main",
+							"type":            "Code",
+							"code":            "print('hello')\n",
+							"codeLanguage":    "python",
+							"children":        []any{},
+							"codeFileBinding": bindingObject,
+						},
+						"code": map[string]any{
+							"language": "python",
+						},
+					},
+				},
+				"codeObjs":        map[string]any{},
+				"codeObjVariants": map[string]any{},
+				"codeObjImpls":    map[string]any{},
+			},
+		},
+	}
 }
