@@ -3110,7 +3110,7 @@ func CurrentEndpoints() []EndpointSpec {
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getAgentProfiles",
-			ResponseType:    reflect.TypeOf(AgentProfileListResponse{}),
+			ResponseType:    reflect.TypeOf(AgentProfileList(nil)),
 		},
 		{
 			FunctionName:    "route_get_agent_profile",
@@ -3118,7 +3118,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getAgentProfile",
 			RequestType:     reflect.TypeOf(GetAgentProfileRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentProfileResponse{}),
+			ResponseType:    reflect.TypeOf(AgentProfile{}),
 		},
 		{
 			FunctionName:    "route_create_agent_profile",
@@ -3126,7 +3126,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "createAgentProfile",
 			RequestType:     reflect.TypeOf(CreateAgentProfileRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentProfileResponse{}),
+			ResponseType:    reflect.TypeOf(AgentProfile{}),
 		},
 		{
 			FunctionName:    "route_update_agent_profile",
@@ -3134,7 +3134,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "updateAgentProfile",
 			RequestType:     reflect.TypeOf(UpdateAgentProfileRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentProfileResponse{}),
+			ResponseType:    reflect.TypeOf(AgentProfile{}),
 		},
 		{
 			FunctionName:    "route_delete_agent_profile",
@@ -3148,7 +3148,7 @@ func CurrentEndpoints() []EndpointSpec {
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getAgentRuns",
-			ResponseType:    reflect.TypeOf(AgentRunListResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRunList(nil)),
 		},
 		{
 			FunctionName:    "route_get_agent_run",
@@ -3156,7 +3156,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getAgentRun",
 			RequestType:     reflect.TypeOf(GetAgentRunRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_start_agent_run",
@@ -3164,7 +3164,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "startAgentRun",
 			RequestType:     reflect.TypeOf(StartAgentRunRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_stop_agent_run",
@@ -3172,7 +3172,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "stopAgentRun",
 			RequestType:     reflect.TypeOf(StopAgentRunRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_start_state_machine_run",
@@ -3180,7 +3180,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "startStateMachineRun",
 			RequestType:     reflect.TypeOf(StartStateMachineRunRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_stop_state_machine_run",
@@ -3204,7 +3204,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getStateMachineRun",
 			RequestType:     reflect.TypeOf(GetStateMachineRunRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_start_run_chain",
@@ -3212,7 +3212,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "startRunChain",
 			RequestType:     reflect.TypeOf(StartRunChainRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_stop_run_chain",
@@ -3220,14 +3220,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "stopRunChain",
 			RequestType:     reflect.TypeOf(StopRunChainRequestInput{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_get_engine_configs",
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getEngineConfigs",
-			ResponseType:    reflect.TypeOf(EngineConfigListResponse{}),
+			ResponseType:    reflect.TypeOf(EngineConfigList(nil)),
 		},
 		{
 			FunctionName:    "route_get_engine_config",
@@ -3235,7 +3235,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getEngineConfig",
 			RequestType:     reflect.TypeOf(GetEngineConfigRequestInput{}),
-			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
+			ResponseType:    reflect.TypeOf(EngineConfig{}),
 		},
 		{
 			FunctionName:    "route_create_engine_config",
@@ -3243,7 +3243,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "createEngineConfig",
 			RequestType:     reflect.TypeOf(CreateEngineConfigRequestInput{}),
-			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
+			ResponseType:    reflect.TypeOf(EngineConfig{}),
 		},
 		{
 			FunctionName:    "route_update_engine_config",
@@ -3251,7 +3251,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "updateEngineConfig",
 			RequestType:     reflect.TypeOf(UpdateEngineConfigRequestInput{}),
-			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
+			ResponseType:    reflect.TypeOf(EngineConfig{}),
 		},
 		{
 			FunctionName:    "route_delete_engine_config",
@@ -3348,7 +3348,7 @@ func CurrentEndpoints() []EndpointSpec {
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getTranscriptionProfiles",
-			ResponseType:    reflect.TypeOf(TranscriptionProfileListResponse{}),
+			ResponseType:    reflect.TypeOf(TranscriptionProfileList(nil)),
 		},
 		{
 			FunctionName:    "route_create_transcription_profile",
@@ -3356,7 +3356,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "createTranscriptionProfile",
 			RequestType:     reflect.TypeOf(CreateTranscriptionProfileRequestInput{}),
-			ResponseType:    reflect.TypeOf(TranscriptionProfileResponse{}),
+			ResponseType:    reflect.TypeOf(TranscriptionProfile{}),
 		},
 		{
 			FunctionName:    "route_update_transcription_profile",
@@ -3364,7 +3364,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "updateTranscriptionProfile",
 			RequestType:     reflect.TypeOf(UpdateTranscriptionProfileRequestInput{}),
-			ResponseType:    reflect.TypeOf(TranscriptionProfileResponse{}),
+			ResponseType:    reflect.TypeOf(TranscriptionProfile{}),
 		},
 		{
 			FunctionName:    "route_delete_transcription_profile",
@@ -3451,7 +3451,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "stopExternalAgentRun",
 			RequestType:     reflect.TypeOf(httpapi.StopExternalAgentRunRequest{}),
-			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+			ResponseType:    reflect.TypeOf(AgentRun{}),
 		},
 		{
 			FunctionName:    "route_respond_external_agent_approval",

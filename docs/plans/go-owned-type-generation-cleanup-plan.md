@@ -183,6 +183,10 @@ That means:
 - the share/app deployment metadata naming split has been collapsed on the generated frontend side:
   - `DeploymentMetadata` / `DeploymentMetadataList` now back both share and app deployment catalog endpoints
   - `frontendbindings` no longer keeps separate `ShareDeploymentMetadata` and `AppDeploymentMetadata` mirror types for the same HTTP payload
+- the generated agent / engine / transcription endpoint surface no longer goes through unused `*Response` alias names:
+  - deleted the empty `AgentProfileResponse`, `AgentProfileListResponse`, `AgentRunResponse`, `AgentRunListResponse`, `EngineConfigResponse`, `EngineConfigListResponse`, `TranscriptionProfileResponse`, and `TranscriptionProfileListResponse` wrappers
+  - endpoint specs and generated endpoints now point directly at `AgentProfile`, `AgentProfileList`, `AgentRun`, `AgentRunList`, `EngineConfig`, `EngineConfigList`, `TranscriptionProfile`, and `TranscriptionProfileList`
+  - the matching manual converter alias entries were removed too
 - `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
   - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, and validation.
 - `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:

@@ -39,6 +39,8 @@ type AgentProfile struct {
 	MemoryScope                 *string  `json:"memoryScope,omitempty"`
 }
 
+type AgentProfileList []AgentProfile
+
 type TranscriptionTransportMode string
 
 const (
@@ -56,6 +58,8 @@ type TranscriptionProfile struct {
 	SupportsRealtimeTranscription bool                       `json:"supportsRealtimeTranscription"`
 	Language                      *string                    `json:"language,omitempty"`
 }
+
+type TranscriptionProfileList []TranscriptionProfile
 
 type AgentRunStatus string
 
@@ -88,6 +92,8 @@ type AgentRun struct {
 }
 
 type AgentRunList []AgentRun
+
+type EngineConfigList []EngineConfig
 
 type DetachedRunStatus string
 

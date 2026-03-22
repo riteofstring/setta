@@ -538,18 +538,6 @@ export function createTranscriptionSessionDeltaResponse(options: Partial<Transcr
 }
 
 
-export type AgentProfileResponse = AgentProfile;
-
-
-export type AgentProfileListResponse = Array<AgentProfile>;
-
-
-export type AgentRunResponse = AgentRun;
-
-
-export type AgentRunListResponse = Array<AgentRun>;
-
-
 export type GetAgentRunRequestInput = {
   runId: string;
 };
@@ -729,12 +717,6 @@ export function createStopRunChainRequestInput(options: Partial<StopRunChainRequ
 }
 
 
-export type EngineConfigResponse = EngineConfig;
-
-
-export type EngineConfigListResponse = Array<EngineConfig>;
-
-
 export type GetEngineConfigRequestInput = {
   configId: string;
 };
@@ -781,12 +763,6 @@ export type DeleteEngineConfigRequestInput = {
 export function createDeleteEngineConfigRequestInput(options: Partial<DeleteEngineConfigRequestInput> = {}): DeleteEngineConfigRequestInput {
   return options as DeleteEngineConfigRequestInput;
 }
-
-
-export type TranscriptionProfileResponse = TranscriptionProfile;
-
-
-export type TranscriptionProfileListResponse = Array<TranscriptionProfile>;
 
 
 export type UpdateAgentProfileRequestInput = {
@@ -926,6 +902,9 @@ export function createAgentProfile(options: Partial<AgentProfile> = {}): AgentPr
 }
 
 
+export type AgentProfileList = Array<AgentProfile>;
+
+
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
   file: "file",
@@ -946,6 +925,9 @@ export type TranscriptionProfile = {
 export function createTranscriptionProfile(options: Partial<TranscriptionProfile> = {}): TranscriptionProfile {
   return options as TranscriptionProfile;
 }
+
+
+export type TranscriptionProfileList = Array<TranscriptionProfile>;
 
 
 export const AgentRunStatusEnum = {
@@ -1009,6 +991,9 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
 
 
 export type AgentRunList = Array<AgentRun>;
+
+
+export type EngineConfigList = Array<EngineConfig>;
 
 
 export type DetachedRun = {

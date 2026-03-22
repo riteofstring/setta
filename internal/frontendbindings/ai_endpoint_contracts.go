@@ -135,14 +135,6 @@ type TranscriptionSessionDeltaResponse struct {
 	IsFinal    bool   `json:"isFinal"`
 }
 
-type AgentProfileResponse struct{}
-
-type AgentProfileListResponse struct{}
-
-type AgentRunResponse struct{}
-
-type AgentRunListResponse struct{}
-
 type GetAgentRunRequestInput struct {
 	RunID string `json:"runId"`
 }
@@ -235,10 +227,6 @@ type StopRunChainRequestInput struct {
 	RunID string `json:"runId"`
 }
 
-type EngineConfigResponse struct{}
-
-type EngineConfigListResponse struct{}
-
 type GetEngineConfigRequestInput struct {
 	ConfigID string `json:"configId"`
 }
@@ -254,10 +242,6 @@ type CreateEngineConfigRequestInput struct {
 type DeleteEngineConfigRequestInput struct {
 	ConfigID string `json:"configId"`
 }
-
-type TranscriptionProfileResponse struct{}
-
-type TranscriptionProfileListResponse struct{}
 
 type UpdateAgentProfileRequestInput struct {
 	Profile AgentProfile `json:"profile"`

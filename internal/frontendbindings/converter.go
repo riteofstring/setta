@@ -2412,46 +2412,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "sectionId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "projectConfigId", TypeExpr: "string | null", Optional: true},
 			),
-			reflect.TypeOf(AgentProfileResponse{}): {
-				Name:  "AgentProfileResponse",
-				Kind:  "alias",
-				Alias: "AgentProfile",
-			},
-			reflect.TypeOf(AgentProfileListResponse{}): {
-				Name:  "AgentProfileListResponse",
-				Kind:  "alias",
-				Alias: "Array<AgentProfile>",
-			},
-			reflect.TypeOf(AgentRunResponse{}): {
-				Name:  "AgentRunResponse",
-				Kind:  "alias",
-				Alias: "AgentRun",
-			},
-			reflect.TypeOf(AgentRunListResponse{}): {
-				Name:  "AgentRunListResponse",
-				Kind:  "alias",
-				Alias: "Array<AgentRun>",
-			},
-			reflect.TypeOf(EngineConfigResponse{}): {
-				Name:  "EngineConfigResponse",
-				Kind:  "alias",
-				Alias: "EngineConfig",
-			},
-			reflect.TypeOf(EngineConfigListResponse{}): {
-				Name:  "EngineConfigListResponse",
-				Kind:  "alias",
-				Alias: "Array<EngineConfig>",
-			},
-			reflect.TypeOf(TranscriptionProfileResponse{}): {
-				Name:  "TranscriptionProfileResponse",
-				Kind:  "alias",
-				Alias: "TranscriptionProfile",
-			},
-			reflect.TypeOf(TranscriptionProfileListResponse{}): {
-				Name:  "TranscriptionProfileListResponse",
-				Kind:  "alias",
-				Alias: "Array<TranscriptionProfile>",
-			},
 			reflect.TypeOf(UpdateAgentProfileRequestInput{}): objectDeclaration(
 				"UpdateAgentProfileRequestInput",
 				TypeProperty{Name: "profile", TypeExpr: "AgentProfile"},

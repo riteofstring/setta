@@ -1288,26 +1288,26 @@ export async function route_set_llm_api_keys(
 }
 
 export async function route_get_agent_profiles(): Promise<
-  ResponseDataAndStatus<gt.AgentProfileListResponse>
+  ResponseDataAndStatus<gt.AgentProfileList>
 > {
   return await get(GoHTTPRouteHelpers.getAgentProfiles());
 }
 
 export async function route_get_agent_profile(
   x: gt.GetAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post(GoHTTPRouteHelpers.getAgentProfile(), x);
 }
 
 export async function route_create_agent_profile(
   x: gt.CreateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post(GoHTTPRouteHelpers.createAgentProfile(), x);
 }
 
 export async function route_update_agent_profile(
   x: gt.UpdateAgentProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post(GoHTTPRouteHelpers.updateAgentProfile(), x);
 }
 
@@ -1318,32 +1318,32 @@ export async function route_delete_agent_profile(
 }
 
 export async function route_get_agent_runs(): Promise<
-  ResponseDataAndStatus<gt.AgentRunListResponse>
+  ResponseDataAndStatus<gt.AgentRunList>
 > {
   return await get(GoHTTPRouteHelpers.getAgentRuns());
 }
 
 export async function route_get_agent_run(
   x: gt.GetAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.getAgentRun(), x);
 }
 
 export async function route_start_agent_run(
   x: gt.StartAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.startAgentRun(), x);
 }
 
 export async function route_stop_agent_run(
   x: gt.StopAgentRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.stopAgentRun(), x);
 }
 
 export async function route_start_state_machine_run(
   x: gt.StartStateMachineRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.startStateMachineRun(), x);
 }
 
@@ -1361,43 +1361,43 @@ export async function route_reset_state_machine(
 
 export async function route_get_state_machine_run(
   x: gt.GetStateMachineRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.getStateMachineRun(), x);
 }
 
 export async function route_start_run_chain(
   x: gt.StartRunChainRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.startRunChain(), x);
 }
 
 export async function route_stop_run_chain(
   x: gt.StopRunChainRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.stopRunChain(), x);
 }
 
 export async function route_get_engine_configs(): Promise<
-  ResponseDataAndStatus<gt.EngineConfigListResponse>
+  ResponseDataAndStatus<gt.EngineConfigList>
 > {
   return await get(GoHTTPRouteHelpers.getEngineConfigs());
 }
 
 export async function route_get_engine_config(
   x: gt.GetEngineConfigRequestInput,
-): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post(GoHTTPRouteHelpers.getEngineConfig(), x);
 }
 
 export async function route_create_engine_config(
   x: gt.CreateEngineConfigRequestInput,
-): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post(GoHTTPRouteHelpers.createEngineConfig(), x);
 }
 
 export async function route_update_engine_config(
   x: gt.UpdateEngineConfigRequestInput,
-): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
+): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post(GoHTTPRouteHelpers.updateEngineConfig(), x);
 }
 
@@ -1474,20 +1474,20 @@ export async function route_delete_external_agent_config(
 }
 
 export async function route_get_transcription_profiles(): Promise<
-  ResponseDataAndStatus<gt.TranscriptionProfileListResponse>
+  ResponseDataAndStatus<gt.TranscriptionProfileList>
 > {
   return await get(GoHTTPRouteHelpers.getTranscriptionProfiles());
 }
 
 export async function route_create_transcription_profile(
   x: gt.CreateTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfileResponse>> {
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
   return await post(GoHTTPRouteHelpers.createTranscriptionProfile(), x);
 }
 
 export async function route_update_transcription_profile(
   x: gt.UpdateTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfileResponse>> {
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
   return await post(GoHTTPRouteHelpers.updateTranscriptionProfile(), x);
 }
 
@@ -1553,7 +1553,7 @@ export async function route_get_ai_follow_snapshot(
 
 export async function route_stop_external_agent_run(
   x: gt.StopExternalAgentRunRequest,
-): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.stopExternalAgentRun(), x);
 }
 
