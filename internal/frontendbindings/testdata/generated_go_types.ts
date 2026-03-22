@@ -202,54 +202,55 @@ export function createChatContextUsage(options: Partial<ChatContextUsage> = {}):
 export type APIKeys = Record<string, string>;
 
 
-export type LLMConfig = {
-  id: string;
-  model: string;
-  provider?: string | null;
-  base_url?: string | null;
-  api_key_env?: string | null;
-  other_params?: Record<string, unknown> | null;
-  mcpServerIds?: Array<string> | null;
-  temporary: boolean;
+export type ManagedAPIKeysSnapshot = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt: boolean;
+  errorCode?: string | null;
+  message?: string | null;
 };
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
+export function createManagedAPIKeysSnapshot(options: Partial<ManagedAPIKeysSnapshot> = {}): ManagedAPIKeysSnapshot {
+  return options as ManagedAPIKeysSnapshot;
 }
 
 
-export const MCPServerTransportEnum = {
-  sse: "sse",
-  streamable_http: "streamable_http",
-  stdio: "stdio",
-} as const;
-export type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
-
-
-export type MCPServerConfig = {
-  transport: MCPServerTransport;
-  url?: string | null;
-  command?: string | null;
-  args?: Array<string> | null;
-  env?: Record<string, string> | null;
-  http_headers?: Record<string, string> | null;
-  cwd?: string | null;
-  encoding?: string | null;
-  encoding_error_handler?: string | null;
+export type SetLLMAPIKeysRequestInput = {
+  apiKeys: APIKeys;
+  expectedRevision: number;
 };
-export function createMCPServerConfig(options: Partial<MCPServerConfig> = {}): MCPServerConfig {
-  return options as MCPServerConfig;
+export function createSetLLMAPIKeysRequestInput(options: Partial<SetLLMAPIKeysRequestInput> = {}): SetLLMAPIKeysRequestInput {
+  return options as SetLLMAPIKeysRequestInput;
 }
 
 
-export type AllLLMConfigs = {
-  configs: Record<string, LLMConfig>;
-  mcpServers: Record<string, MCPServerConfig>;
-  defaultMcpServerIds: Array<string>;
-  default_config_id?: string | null;
-  codexMcpImportedAt?: string | null;
+export type CreateAgentProfileRequestInput = {
+  name?: string | null;
+  description?: string | null;
+  systemPrompt?: string | null;
+  enableBackgroundSummaryFill?: boolean | null;
+  enableLlmChatTitles?: boolean | null;
+  engineConfigId?: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope?: string | null;
 };
-export function createAllLLMConfigs(options: Partial<AllLLMConfigs> = {}): AllLLMConfigs {
-  return options as AllLLMConfigs;
+export function createCreateAgentProfileRequestInput(options: Partial<CreateAgentProfileRequestInput> = {}): CreateAgentProfileRequestInput {
+  return options as CreateAgentProfileRequestInput;
+}
+
+
+export type GetAgentProfileRequestInput = {
+  profileId: string;
+};
+export function createGetAgentProfileRequestInput(options: Partial<GetAgentProfileRequestInput> = {}): GetAgentProfileRequestInput {
+  return options as GetAgentProfileRequestInput;
+}
+
+
+export type DeleteAgentProfileRequestInput = {
+  profileId: string;
+};
+export function createDeleteAgentProfileRequestInput(options: Partial<DeleteAgentProfileRequestInput> = {}): DeleteAgentProfileRequestInput {
+  return options as DeleteAgentProfileRequestInput;
 }
 
 
@@ -270,6 +271,46 @@ export type PromptTemplate = {
 };
 export function createPromptTemplate(options: Partial<PromptTemplate> = {}): PromptTemplate {
   return options as PromptTemplate;
+}
+
+
+export type PromptTemplateListResponse = Array<PromptTemplate>;
+
+
+export type GetPromptTemplateRequestInput = {
+  templateId: string;
+};
+export function createGetPromptTemplateRequestInput(options: Partial<GetPromptTemplateRequestInput> = {}): GetPromptTemplateRequestInput {
+  return options as GetPromptTemplateRequestInput;
+}
+
+
+export type CreatePromptTemplateRequestInput = {
+  name?: string | null;
+  description?: string | null;
+  template?: string | null;
+  format?: PromptFormat | null;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+export function createCreatePromptTemplateRequestInput(options: Partial<CreatePromptTemplateRequestInput> = {}): CreatePromptTemplateRequestInput {
+  return options as CreatePromptTemplateRequestInput;
+}
+
+
+export type UpdatePromptTemplateRequestInput = {
+  template: PromptTemplate;
+};
+export function createUpdatePromptTemplateRequestInput(options: Partial<UpdatePromptTemplateRequestInput> = {}): UpdatePromptTemplateRequestInput {
+  return options as UpdatePromptTemplateRequestInput;
+}
+
+
+export type DeletePromptTemplateRequestInput = {
+  templateId: string;
+};
+export function createDeletePromptTemplateRequestInput(options: Partial<DeletePromptTemplateRequestInput> = {}): DeletePromptTemplateRequestInput {
+  return options as DeletePromptTemplateRequestInput;
 }
 
 
@@ -392,6 +433,9 @@ export function createExternalAgentConfig(options: Partial<ExternalAgentConfig> 
 }
 
 
+export type ExternalAgentConfigListResponse = Array<ExternalAgentConfig>;
+
+
 export type ExternalAgentEnvVarStatus = {
   present: Array<string>;
   missing: Array<string>;
@@ -422,6 +466,294 @@ export function createExternalAgentPreflightStatus(options: Partial<ExternalAgen
 }
 
 
+export type ExternalAgentPreflightStatusListResponse = Array<ExternalAgentPreflightStatus>;
+
+
+export type GetExternalAgentConfigRequestInput = {
+  configId: string;
+};
+export function createGetExternalAgentConfigRequestInput(options: Partial<GetExternalAgentConfigRequestInput> = {}): GetExternalAgentConfigRequestInput {
+  return options as GetExternalAgentConfigRequestInput;
+}
+
+
+export type CreateExternalAgentConfigRequestInput = {
+  name?: string | null;
+  description?: string | null;
+  toolType?: ExternalAgentToolType | null;
+  runMode?: ExternalAgentRunMode | null;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode?: ExternalAgentSettingsMode | null;
+  settingsSources?: Array<ClaudeSettingsSource> | null;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
+  settingsAllowSettaEdits?: boolean | null;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy?: ExternalAgentWorkingDirStrategy | null;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+export function createCreateExternalAgentConfigRequestInput(options: Partial<CreateExternalAgentConfigRequestInput> = {}): CreateExternalAgentConfigRequestInput {
+  return options as CreateExternalAgentConfigRequestInput;
+}
+
+
+export type UpdateExternalAgentConfigRequestInput = {
+  config: ExternalAgentConfig;
+};
+export function createUpdateExternalAgentConfigRequestInput(options: Partial<UpdateExternalAgentConfigRequestInput> = {}): UpdateExternalAgentConfigRequestInput {
+  return options as UpdateExternalAgentConfigRequestInput;
+}
+
+
+export type DeleteExternalAgentConfigRequestInput = {
+  configId: string;
+};
+export function createDeleteExternalAgentConfigRequestInput(options: Partial<DeleteExternalAgentConfigRequestInput> = {}): DeleteExternalAgentConfigRequestInput {
+  return options as DeleteExternalAgentConfigRequestInput;
+}
+
+
+export type DeleteTranscriptionProfileRequestInput = {
+  profileId: string;
+};
+export function createDeleteTranscriptionProfileRequestInput(options: Partial<DeleteTranscriptionProfileRequestInput> = {}): DeleteTranscriptionProfileRequestInput {
+  return options as DeleteTranscriptionProfileRequestInput;
+}
+
+
+export type GetLLMResponseResponse = string;
+
+
+export type StopLLMChatResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string | null;
+  stoppedMessageId?: string | null;
+};
+export function createStopLLMChatResponse(options: Partial<StopLLMChatResponse> = {}): StopLLMChatResponse {
+  return options as StopLLMChatResponse;
+}
+
+
+export type TranscriptionSessionDeltaResponse = {
+  appendText: string;
+  fullText: string;
+  isFinal: boolean;
+};
+export function createTranscriptionSessionDeltaResponse(options: Partial<TranscriptionSessionDeltaResponse> = {}): TranscriptionSessionDeltaResponse {
+  return options as TranscriptionSessionDeltaResponse;
+}
+
+
+export type AgentProfileResponse = AgentProfile;
+
+
+export type AgentProfileListResponse = Array<AgentProfile>;
+
+
+export type AgentRunResponse = AgentRun;
+
+
+export type AgentRunListResponse = Array<AgentRun>;
+
+
+export type GetAgentRunRequestInput = {
+  runId: string;
+};
+export function createGetAgentRunRequestInput(options: Partial<GetAgentRunRequestInput> = {}): GetAgentRunRequestInput {
+  return options as GetAgentRunRequestInput;
+}
+
+
+export type StartAgentRunRequestInput = {
+  profileId: string;
+  inputs: Record<string, unknown>;
+};
+export function createStartAgentRunRequestInput(options: Partial<StartAgentRunRequestInput> = {}): StartAgentRunRequestInput {
+  return options as StartAgentRunRequestInput;
+}
+
+
+export type StopAgentRunRequestInput = {
+  runId: string;
+};
+export function createStopAgentRunRequestInput(options: Partial<StopAgentRunRequestInput> = {}): StopAgentRunRequestInput {
+  return options as StopAgentRunRequestInput;
+}
+
+
+export type StartStateMachineRunRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+  startSectionId?: string | null;
+};
+export function createStartStateMachineRunRequestInput(options: Partial<StartStateMachineRunRequestInput> = {}): StartStateMachineRunRequestInput {
+  return options as StartStateMachineRunRequestInput;
+}
+
+
+export type StopStateMachineRunRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+export function createStopStateMachineRunRequestInput(options: Partial<StopStateMachineRunRequestInput> = {}): StopStateMachineRunRequestInput {
+  return options as StopStateMachineRunRequestInput;
+}
+
+
+export type ResetStateMachineRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+export function createResetStateMachineRequestInput(options: Partial<ResetStateMachineRequestInput> = {}): ResetStateMachineRequestInput {
+  return options as ResetStateMachineRequestInput;
+}
+
+
+export type GetStateMachineRunRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+export function createGetStateMachineRunRequestInput(options: Partial<GetStateMachineRunRequestInput> = {}): GetStateMachineRunRequestInput {
+  return options as GetStateMachineRunRequestInput;
+}
+
+
+export type StateMachineRunControlResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string | null;
+};
+export function createStateMachineRunControlResponse(options: Partial<StateMachineRunControlResponse> = {}): StateMachineRunControlResponse {
+  return options as StateMachineRunControlResponse;
+}
+
+
+export const RunSnapshotModeEnum = {
+  ephemeral: "ephemeral",
+  always: "always",
+  never: "never",
+} as const;
+export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
+
+
+export type RunDetachedRequestInput = {
+  projectConfigId: string;
+  entrySectionId: string;
+  runSnapshotMode: RunSnapshotMode;
+  sectionVariantOverrides: Record<string, string>;
+  paramOverrides: Record<string, string>;
+  tags: Record<string, string>;
+};
+export function createRunDetachedRequestInput(options: Partial<RunDetachedRequestInput> = {}): RunDetachedRequestInput {
+  return options as RunDetachedRequestInput;
+}
+
+
+export const DetachedRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+  lost: "lost",
+} as const;
+export type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
+
+
+export type RunDetachedResponse = {
+  runId: string;
+  status: DetachedRunStatus;
+};
+export function createRunDetachedResponse(options: Partial<RunDetachedResponse> = {}): RunDetachedResponse {
+  return options as RunDetachedResponse;
+}
+
+
+export type GetRunStatusRequestInput = {
+  runId: string;
+};
+export function createGetRunStatusRequestInput(options: Partial<GetRunStatusRequestInput> = {}): GetRunStatusRequestInput {
+  return options as GetRunStatusRequestInput;
+}
+
+
+export type CancelRunRequestInput = {
+  runId: string;
+};
+export function createCancelRunRequestInput(options: Partial<CancelRunRequestInput> = {}): CancelRunRequestInput {
+  return options as CancelRunRequestInput;
+}
+
+
+export type GetRunnerSummaryRequestInput = {
+  projectConfigId: string;
+};
+export function createGetRunnerSummaryRequestInput(options: Partial<GetRunnerSummaryRequestInput> = {}): GetRunnerSummaryRequestInput {
+  return options as GetRunnerSummaryRequestInput;
+}
+
+
+export type RunChainStepInput = {
+  id: string;
+  name: string;
+  engineConfigId: string;
+  agentProfileId?: string | null;
+  prompt?: string | null;
+  messages?: Array<Record<string, unknown>>;
+  inputs?: Record<string, unknown>;
+  includePreviousOutputs?: boolean | null;
+};
+export function createRunChainStepInput(options: Partial<RunChainStepInput> = {}): RunChainStepInput {
+  return options as RunChainStepInput;
+}
+
+
+export type RunChainSpecInput = {
+  id: string;
+  name: string;
+  steps: Array<RunChainStepInput>;
+  stopOnFailure?: boolean | null;
+};
+export function createRunChainSpecInput(options: Partial<RunChainSpecInput> = {}): RunChainSpecInput {
+  return options as RunChainSpecInput;
+}
+
+
+export type StartRunChainRequestInput = {
+  spec: RunChainSpecInput;
+  inputs: Record<string, unknown>;
+};
+export function createStartRunChainRequestInput(options: Partial<StartRunChainRequestInput> = {}): StartRunChainRequestInput {
+  return options as StartRunChainRequestInput;
+}
+
+
+export type StopRunChainRequestInput = {
+  runId: string;
+};
+export function createStopRunChainRequestInput(options: Partial<StopRunChainRequestInput> = {}): StopRunChainRequestInput {
+  return options as StopRunChainRequestInput;
+}
+
+
+export type EngineConfigResponse = EngineConfig;
+
+
+export type EngineConfigListResponse = Array<EngineConfig>;
+
+
+export type GetEngineConfigRequestInput = {
+  configId: string;
+};
+export function createGetEngineConfigRequestInput(options: Partial<GetEngineConfigRequestInput> = {}): GetEngineConfigRequestInput {
+  return options as GetEngineConfigRequestInput;
+}
+
+
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
   external_agent: "external_agent",
@@ -439,6 +771,104 @@ export function createEngineConfigDefaults(options: Partial<EngineConfigDefaults
     },
     options,
   );
+}
+
+
+export type CreateEngineConfigRequestInput = {
+  name?: string | null;
+  engineType?: EngineType | null;
+  settaLlmConfigId?: string | null;
+  externalAgentConfigId?: string | null;
+  defaults?: EngineConfigDefaults | null;
+};
+export function createCreateEngineConfigRequestInput(options: Partial<CreateEngineConfigRequestInput> = {}): CreateEngineConfigRequestInput {
+  return options as CreateEngineConfigRequestInput;
+}
+
+
+export type DeleteEngineConfigRequestInput = {
+  configId: string;
+};
+export function createDeleteEngineConfigRequestInput(options: Partial<DeleteEngineConfigRequestInput> = {}): DeleteEngineConfigRequestInput {
+  return options as DeleteEngineConfigRequestInput;
+}
+
+
+export type TranscriptionProfileResponse = TranscriptionProfile;
+
+
+export type TranscriptionProfileListResponse = Array<TranscriptionProfile>;
+
+
+export type UpdateAgentProfileRequestInput = {
+  profile: AgentProfile;
+};
+export function createUpdateAgentProfileRequestInput(options: Partial<UpdateAgentProfileRequestInput> = {}): UpdateAgentProfileRequestInput {
+  return options as UpdateAgentProfileRequestInput;
+}
+
+
+export type UpdateEngineConfigRequestInput = {
+  config: EngineConfig;
+};
+export function createUpdateEngineConfigRequestInput(options: Partial<UpdateEngineConfigRequestInput> = {}): UpdateEngineConfigRequestInput {
+  return options as UpdateEngineConfigRequestInput;
+}
+
+
+export type CreateTranscriptionProfileRequestInput = {
+  name: string;
+  transcriptionLlmConfigId: string;
+  transportMode: TranscriptionTransportMode;
+  chunkMs: number;
+  language?: string | null;
+};
+export function createCreateTranscriptionProfileRequestInput(options: Partial<CreateTranscriptionProfileRequestInput> = {}): CreateTranscriptionProfileRequestInput {
+  return options as CreateTranscriptionProfileRequestInput;
+}
+
+
+export type UpdateTranscriptionProfileRequestInput = {
+  profile: TranscriptionProfile;
+};
+export function createUpdateTranscriptionProfileRequestInput(options: Partial<UpdateTranscriptionProfileRequestInput> = {}): UpdateTranscriptionProfileRequestInput {
+  return options as UpdateTranscriptionProfileRequestInput;
+}
+
+
+export type SetChatSectionStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  state: ChatSectionState;
+};
+export function createSetChatSectionStateRequestInput(options: Partial<SetChatSectionStateRequestInput> = {}): SetChatSectionStateRequestInput {
+  return options as SetChatSectionStateRequestInput;
+}
+
+
+export type GetChatSectionChatIDResponse = string;
+
+
+export type GetLLMChatResponse = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  llmConfig?: LLMConfig | null;
+  contextUsage?: ChatContextUsage | null;
+};
+export function createGetLLMChatResponse(options: Partial<GetLLMChatResponse> = {}): GetLLMChatResponse {
+  return options as GetLLMChatResponse;
+}
+
+
+export type ExternalAgentChatResponse = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  contextUsage?: ChatContextUsage | null;
+};
+export function createExternalAgentChatResponse(options: Partial<ExternalAgentChatResponse> = {}): ExternalAgentChatResponse {
+  return options as ExternalAgentChatResponse;
 }
 
 
@@ -592,17 +1022,6 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
 export type AgentRunList = Array<AgentRun>;
 
 
-export const DetachedRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-export type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
-
-
 export type DetachedRun = {
   runId: string;
   status: DetachedRunStatus;
@@ -746,271 +1165,100 @@ export function createLLMStreamingResponse(options: Partial<LLMStreamingResponse
 }
 
 
-export type AIFollowToolArgumentsUpdateContent = {
-  projectConfigId: string;
-  chatId: string;
-  idsByType: Record<string, Array<string>>;
-};
-export function createAIFollowToolArgumentsUpdateContent(options: Partial<AIFollowToolArgumentsUpdateContent> = {}): AIFollowToolArgumentsUpdateContent {
-  return options as AIFollowToolArgumentsUpdateContent;
-}
-
-
-export type AIFollowToolResultUpdateContent = {
-  projectConfigId: string;
-  chatId: string;
-  idsByType: Record<string, Array<string>>;
-};
-export function createAIFollowToolResultUpdateContent(options: Partial<AIFollowToolResultUpdateContent> = {}): AIFollowToolResultUpdateContent {
-  return options as AIFollowToolResultUpdateContent;
-}
-
-
-export const PluginScopeEnum = {
-  Workspace: "workspace",
-  SettaFiles: "setta_files",
-  Global: "global",
+export const MCPServerTransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
 } as const;
-export type PluginScope = ObjectValues<typeof PluginScopeEnum>;
+export type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
 
 
-export const PluginRuntimeStateEnum = {
-  active: "active",
-  disabled: "disabled",
-  invalid: "invalid",
-  shadowed: "shadowed",
-  pending_restart: "pending_restart",
-} as const;
-export type PluginRuntimeState = ObjectValues<typeof PluginRuntimeStateEnum>;
-
-
-export const PluginInstallerBackendEnum = {
-  Auto: "auto",
-  Pip: "pip",
-  UV: "uv",
-} as const;
-export type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
-
-
-export const PluginSourceManagerEnum = {
-  Setta: "setta",
-  PackageManager: "package_manager",
-} as const;
-export type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
-
-
-export const PluginSourceTrustStatusEnum = {
-  Unverified: "unverified",
-} as const;
-export type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
-
-
-export const PluginEnablementSourceEnum = {
-  WorkspaceDisabled: "workspace_disabled",
-  WorkspaceEnabled: "workspace_enabled",
-  GlobalAutoEnabled: "global_auto_enabled",
-  ManifestDefault: "manifest_default",
-} as const;
-export type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
-
-
-export const PluginRestartCapabilityModeEnum = {
-  Manual: "manual",
-  Programmatic: "programmatic",
-} as const;
-export type PluginRestartCapabilityMode = ObjectValues<typeof PluginRestartCapabilityModeEnum>;
-
-
-export type PluginRestartCapability = {
-  mode: PluginRestartCapabilityMode;
-  command: string | null;
-  reason: string | null;
+export type MCPServerConfig = {
+  transport: MCPServerTransport;
+  url?: string | null;
+  command?: string | null;
+  args?: Array<string> | null;
+  env?: Record<string, string> | null;
+  http_headers?: Record<string, string> | null;
+  cwd?: string | null;
+  encoding?: string | null;
+  encoding_error_handler?: string | null;
 };
-export function createPluginRestartCapability(options: Partial<PluginRestartCapability> = {}): PluginRestartCapability {
-  return options as PluginRestartCapability;
+export function createMCPServerConfig(options: Partial<MCPServerConfig> = {}): MCPServerConfig {
+  return options as MCPServerConfig;
 }
 
 
-export const PluginBlockedCapabilityReasonEnum = {
-  ModePolicy: "mode_policy",
-  HostPolicy: "host_policy",
-  ManifestInvalid: "manifest_invalid",
-} as const;
-export type PluginBlockedCapabilityReason = ObjectValues<typeof PluginBlockedCapabilityReasonEnum>;
-
-
-export type PluginBlockedCapability = {
-  capability: string;
-  reason: PluginBlockedCapabilityReason;
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string | null;
+  base_url?: string | null;
+  api_key_env?: string | null;
+  other_params?: Record<string, unknown> | null;
+  mcpServerIds?: Array<string> | null;
+  temporary: boolean;
 };
-export function createPluginBlockedCapability(options: Partial<PluginBlockedCapability> = {}): PluginBlockedCapability {
-  return options as PluginBlockedCapability;
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
 }
 
 
-export type PluginErrorInfo = {
-  code: string;
-  message: string;
+export type AllLLMConfigs = {
+  configs: Record<string, LLMConfig>;
+  mcpServers: Record<string, MCPServerConfig>;
+  defaultMcpServerIds: Array<string>;
+  default_config_id?: string | null;
+  codexMcpImportedAt?: string | null;
 };
-export function createPluginErrorInfo(options: Partial<PluginErrorInfo> = {}): PluginErrorInfo {
-  return options as PluginErrorInfo;
+export function createAllLLMConfigs(options: Partial<AllLLMConfigs> = {}): AllLLMConfigs {
+  return options as AllLLMConfigs;
 }
 
 
-export type PluginFrontendDescriptor = {
-  entrypointUrl: string | null;
-  styleUrl: string | null;
-};
-export function createPluginFrontendDescriptor(options: Partial<PluginFrontendDescriptor> = {}): PluginFrontendDescriptor {
-  return options as PluginFrontendDescriptor;
-}
+export type BinaryUploadRequestInput = FormData;
 
 
-export type PluginContentDescriptor = {
-  hasBlueprints: boolean;
-  hasProjectTemplates: boolean;
-  hasPrompts: boolean;
-};
-export function createPluginContentDescriptor(options: Partial<PluginContentDescriptor> = {}): PluginContentDescriptor {
-  return options as PluginContentDescriptor;
-}
-
-
-export type PluginConfigDescriptor = {
-  hasSchema: boolean;
-  schemaJson: Record<string, unknown>;
-  schemaJsonDigestSha256: string | null;
-  currentConfig: Record<string, unknown>;
-  currentConfigDigestSha256: string | null;
-};
-export function createPluginConfigDescriptor(options: Partial<PluginConfigDescriptor> = {}): PluginConfigDescriptor {
-  return options as PluginConfigDescriptor;
-}
-
-
-export type PluginRegisteredCodegenTarget = {
-  targetId: string;
-  pluginId: string;
-  language: string;
-  name: string;
-  defaultFileName: string;
-};
-export function createPluginRegisteredCodegenTarget(options: Partial<PluginRegisteredCodegenTarget> = {}): PluginRegisteredCodegenTarget {
-  return options as PluginRegisteredCodegenTarget;
-}
-
-
-export type PluginRegisteredBackendRoute = {
-  path: string;
-  methods: Array<string>;
-};
-export function createPluginRegisteredBackendRoute(options: Partial<PluginRegisteredBackendRoute> = {}): PluginRegisteredBackendRoute {
-  return options as PluginRegisteredBackendRoute;
-}
-
-
-export type PluginRegisteredStaticDir = {
-  routePrefix: string;
-  dir: string;
-};
-export function createPluginRegisteredStaticDir(options: Partial<PluginRegisteredStaticDir> = {}): PluginRegisteredStaticDir {
-  return options as PluginRegisteredStaticDir;
-}
-
-
-export type PluginRegisteredListenerEndpoint = {
-  name: string;
-};
-export function createPluginRegisteredListenerEndpoint(options: Partial<PluginRegisteredListenerEndpoint> = {}): PluginRegisteredListenerEndpoint {
-  return options as PluginRegisteredListenerEndpoint;
-}
-
-
-export const DependencyKeyTypeEnum = {
-  Section: "Section",
-  SectionParam: "SectionParam",
-} as const;
-export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
-
-
-export type SectionDependencyKey = {
-  sectionId: string;
-  type: typeof DependencyKeyTypeEnum.Section;
-};
-export function createSectionDependencyKey(options: Partial<SectionDependencyKey> = {}): SectionDependencyKey {
-  return options as SectionDependencyKey;
-}
-
-
-export type SectionParamDependencyKey = {
-  sectionId: string;
-  codeObjId: string;
-  type: typeof DependencyKeyTypeEnum.SectionParam;
-};
-export function createSectionParamDependencyKey(options: Partial<SectionParamDependencyKey> = {}): SectionParamDependencyKey {
-  return options as SectionParamDependencyKey;
-}
-
-
-export type BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey;
-
-
-export const DependencyValueTypeEnum = {
-  Literal: "Literal",
-  Binary: "Binary",
-  FileRead: "FileRead",
-} as const;
-export type DependencyValueType = ObjectValues<typeof DependencyValueTypeEnum>;
-
-
-export type BinaryContentRef = {
+export type BinaryDownloadRequestInput = {
   contentId: string;
-  byteLength: number;
-  mimeType: string | null;
-  sha256: string | null;
 };
-export function createBinaryContentRef(options: Partial<BinaryContentRef> = {}): BinaryContentRef {
-  return options as BinaryContentRef;
+export function createBinaryDownloadRequestInput(options: Partial<BinaryDownloadRequestInput> = {}): BinaryDownloadRequestInput {
+  return options as BinaryDownloadRequestInput;
 }
 
 
-export type LiteralDependencyValue = {
-  payload: string;
-  type: typeof DependencyValueTypeEnum.Literal;
+export type BinaryDownloadResponse = Uint8Array;
+
+
+export type ImportFilesToArtifactsRequestInput = {
+  paths: Array<string>;
+  uploadScope: string;
 };
-export function createLiteralDependencyValue(options: Partial<LiteralDependencyValue> = {}): LiteralDependencyValue {
-  return options as LiteralDependencyValue;
+export function createImportFilesToArtifactsRequestInput(options: Partial<ImportFilesToArtifactsRequestInput> = {}): ImportFilesToArtifactsRequestInput {
+  return options as ImportFilesToArtifactsRequestInput;
 }
 
 
-export type FileReadDependencyValue = {
-  payload: string;
-  type: typeof DependencyValueTypeEnum.FileRead;
+export type ImportFilesToArtifactsResponseItem = {
+  kind: string;
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
 };
-export function createFileReadDependencyValue(options: Partial<FileReadDependencyValue> = {}): FileReadDependencyValue {
-  return options as FileReadDependencyValue;
+export function createImportFilesToArtifactsResponseItem(options: Partial<ImportFilesToArtifactsResponseItem> = {}): ImportFilesToArtifactsResponseItem {
+  return options as ImportFilesToArtifactsResponseItem;
 }
 
 
-export type BinaryDependencyValue = {
-  payload: BinaryContentRef;
-  type: typeof DependencyValueTypeEnum.Binary;
+export type ImportFilesToArtifactsResponse = Array<ImportFilesToArtifactsResponseItem>;
+
+
+export type LoadCachedArtifactsRequestInput = {
+  paths: Array<string>;
 };
-export function createBinaryDependencyValue(options: Partial<BinaryDependencyValue> = {}): BinaryDependencyValue {
-  return options as BinaryDependencyValue;
-}
-
-
-export type BaseDependencyValueUnion = LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue;
-
-
-export type DependencyEvent = {
-  dependencyKey: BaseDependencyKeyUnion;
-  payload: BaseDependencyValueUnion | null;
-  timestampMs: number;
-};
-export function createDependencyEvent(options: Partial<DependencyEvent> = {}): DependencyEvent {
-  return options as DependencyEvent;
+export function createLoadCachedArtifactsRequestInput(options: Partial<LoadCachedArtifactsRequestInput> = {}): LoadCachedArtifactsRequestInput {
+  return options as LoadCachedArtifactsRequestInput;
 }
 
 
@@ -1044,6 +1292,13 @@ export type CanvasPoint = [number, number];
 
 
 export type DrawAreaTransform = [number, number, number, number, number, number];
+
+
+export type BrushStrokePoint = {
+};
+export function createBrushStrokePoint(options: Partial<BrushStrokePoint> = {}): BrushStrokePoint {
+  return options as BrushStrokePoint;
+}
 
 
 export type BrushStroke = {
@@ -1182,6 +1437,13 @@ export function createDrawAreaLayerItemTransformArtifact(options: Partial<DrawAr
 }
 
 
+export type ChartDataScalar = {
+};
+export function createChartDataScalar(options: Partial<ChartDataScalar> = {}): ChartDataScalar {
+  return options as ChartDataScalar;
+}
+
+
 export type ChartDataValue = Record<string, Array<string | number>>;
 
 
@@ -1237,6 +1499,80 @@ export type ChartDataMapping = Record<string, ChartDataArtifact>;
 export type FileMapping = Record<string, FileArtifact>;
 
 
+export const ArtifactSaveConflictStrategyEnum = {
+  skip: "skip",
+  backup: "backup",
+  overwrite: "overwrite",
+} as const;
+export type ArtifactSaveConflictStrategy = ObjectValues<typeof ArtifactSaveConflictStrategyEnum>;
+
+
+export const ArtifactSaveStatusEnum = {
+  saved: "saved",
+  unchanged: "unchanged",
+  skipped: "skipped",
+  conflict: "conflict",
+} as const;
+export type ArtifactSaveStatus = ObjectValues<typeof ArtifactSaveStatusEnum>;
+
+
+export type ArtifactSaveResult = {
+  id: string;
+  type: ArtifactType;
+  status: ArtifactSaveStatus;
+  backupPath?: string | null;
+  message?: string | null;
+};
+export function createArtifactSaveResult(options: Partial<ArtifactSaveResult> = {}): ArtifactSaveResult {
+  return options as ArtifactSaveResult;
+}
+
+
+export type UpdateArtifactsRequestInput = {
+  artifacts: Array<ArtifactUnion>;
+  conflictStrategy?: ArtifactSaveConflictStrategy | null;
+  uploadScope?: string | null;
+};
+export function createUpdateArtifactsRequestInput(options: Partial<UpdateArtifactsRequestInput> = {}): UpdateArtifactsRequestInput {
+  return options as UpdateArtifactsRequestInput;
+}
+
+
+export type UpdateArtifactsResponse = Array<ArtifactSaveResult>;
+
+
+export type DeleteArtifactRequestItem = {
+  id: string;
+  type: ArtifactType;
+};
+export function createDeleteArtifactRequestItem(options: Partial<DeleteArtifactRequestItem> = {}): DeleteArtifactRequestItem {
+  return options as DeleteArtifactRequestItem;
+}
+
+
+export type DeleteArtifactsRequestInput = {
+  artifacts: Array<DeleteArtifactRequestItem>;
+};
+export function createDeleteArtifactsRequestInput(options: Partial<DeleteArtifactsRequestInput> = {}): DeleteArtifactsRequestInput {
+  return options as DeleteArtifactsRequestInput;
+}
+
+
+export type DeleteArtifactsResponse = Array<string>;
+
+
+export type LoadCachedImageArtifactsResponse = Array<ImageArtifact | null>;
+
+
+export type LoadCachedChartDataResponse = Array<ChartDataArtifact | null>;
+
+
+export type LoadCachedBrushStrokesResponse = Array<BrushStrokeArtifact | null>;
+
+
+export type LoadCachedDrawAreaLayerItemTransformResponse = Array<DrawAreaLayerItemTransformArtifact | null>;
+
+
 export type UpdateArtifactMsgContent = {
   artifacts: Array<ArtifactUnion>;
   updateType: "update" | "delete";
@@ -1246,13 +1582,3115 @@ export function createUpdateArtifactMsgContent(options: Partial<UpdateArtifactMs
 }
 
 
-export type CodeFileBindingUpdate = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
+export type BackendInitEvent = {
+  message: string;
+  timestamp: string;
 };
-export function createCodeFileBindingUpdate(options: Partial<CodeFileBindingUpdate> = {}): CodeFileBindingUpdate {
-  return options as CodeFileBindingUpdate;
+export function createBackendInitEvent(options: Partial<BackendInitEvent> = {}): BackendInitEvent {
+  return options as BackendInitEvent;
 }
+
+
+export type BackendInitStatusResponse = {
+  events: Array<BackendInitEvent>;
+  isReady: boolean;
+  error: string | null;
+  authCookieRefreshWindowSeconds: number;
+  worktreeName: string | null;
+};
+export function createBackendInitStatusResponse(options: Partial<BackendInitStatusResponse> = {}): BackendInitStatusResponse {
+  return options as BackendInitStatusResponse;
+}
+
+
+export type AuthRefreshStatusResponse = {
+  authCookieRefreshWindowSeconds: number;
+};
+export function createAuthRefreshStatusResponse(options: Partial<AuthRefreshStatusResponse> = {}): AuthRefreshStatusResponse {
+  return options as AuthRefreshStatusResponse;
+}
+
+
+export const ServerModeEnum = {
+  IDE: "ide",
+  Share: "share",
+  App: "app",
+  Launcher: "launcher",
+} as const;
+export type ServerMode = ObjectValues<typeof ServerModeEnum>;
+
+
+export type ServerModeResponse = {
+  mode: ServerMode;
+};
+export function createServerModeResponse(options: Partial<ServerModeResponse> = {}): ServerModeResponse {
+  return options as ServerModeResponse;
+}
+
+
+export type SettaHomeInfoResponse = {
+  settaHome: string;
+  globalSettaFilesBase: string;
+  activeSettaFilesLocation: string | null;
+  llmConfigPath: string;
+};
+export function createSettaHomeInfoResponse(options: Partial<SettaHomeInfoResponse> = {}): SettaHomeInfoResponse {
+  return options as SettaHomeInfoResponse;
+}
+
+
+export const LaunchSettaFilesLocationEnum = {
+  Auto: "auto",
+  Local: "local",
+  Global: "global",
+} as const;
+export type LaunchSettaFilesLocation = ObjectValues<typeof LaunchSettaFilesLocationEnum>;
+
+
+export const LaunchResolvedSettaFilesLocationEnum = {
+  Local: "local",
+  Global: "global",
+} as const;
+export type LaunchResolvedSettaFilesLocation = ObjectValues<typeof LaunchResolvedSettaFilesLocationEnum>;
+
+
+export type LaunchRequestInput = {
+  launchIntentToken?: string | null;
+  workspaceRoot?: string | null;
+  profile?: string | null;
+  settaHome?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: LaunchSettaFilesLocation | null;
+  runtimeRoot?: string | null;
+  sshTarget?: string | null;
+  sshArgs?: string | null;
+  remoteCmd?: string | null;
+  localPort?: number | null;
+};
+export function createLaunchRequestInput(options: Partial<LaunchRequestInput> = {}): LaunchRequestInput {
+  return options as LaunchRequestInput;
+}
+
+
+export type CreateWorkspaceLaunchIntentRequestInput = {
+  launchRequest: LaunchRequestInput;
+  returnUrl: string;
+};
+export function createCreateWorkspaceLaunchIntentRequestInput(options: Partial<CreateWorkspaceLaunchIntentRequestInput> = {}): CreateWorkspaceLaunchIntentRequestInput {
+  return options as CreateWorkspaceLaunchIntentRequestInput;
+}
+
+
+export type LaunchErrorPayload = {
+  code: string;
+  message: string;
+};
+export function createLaunchErrorPayload(options: Partial<LaunchErrorPayload> = {}): LaunchErrorPayload {
+  return options as LaunchErrorPayload;
+}
+
+
+export type CreateWorkspaceLaunchIntentResponse = {
+  ok: boolean;
+  launchIntentToken: string | null;
+  requestedAt: number | null;
+  error: LaunchErrorPayload | null;
+};
+export function createCreateWorkspaceLaunchIntentResponse(options: Partial<CreateWorkspaceLaunchIntentResponse> = {}): CreateWorkspaceLaunchIntentResponse {
+  return options as CreateWorkspaceLaunchIntentResponse;
+}
+
+
+export type LaunchSessionInfo = {
+  id: string;
+  workspacePath: string;
+  workspacePathCanonical: string;
+  host: string;
+  port: number;
+  pid: number;
+  startedAt: string;
+};
+export function createLaunchSessionInfo(options: Partial<LaunchSessionInfo> = {}): LaunchSessionInfo {
+  return options as LaunchSessionInfo;
+}
+
+
+export type LaunchResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  returnUrl: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  session: LaunchSessionInfo | null;
+  remoteCmdResolved: string | null;
+  error: LaunchErrorPayload | null;
+};
+export function createLaunchResponse(options: Partial<LaunchResponse> = {}): LaunchResponse {
+  return options as LaunchResponse;
+}
+
+
+export type LauncherHomeErrorPayload = {
+  code: string;
+  message: string;
+};
+export function createLauncherHomeErrorPayload(options: Partial<LauncherHomeErrorPayload> = {}): LauncherHomeErrorPayload {
+  return options as LauncherHomeErrorPayload;
+}
+
+
+export type GetLauncherRecentWorkspacesRequestInput = {
+  setta_home?: string | null;
+};
+export function createGetLauncherRecentWorkspacesRequestInput(options: Partial<GetLauncherRecentWorkspacesRequestInput> = {}): GetLauncherRecentWorkspacesRequestInput {
+  return options as GetLauncherRecentWorkspacesRequestInput;
+}
+
+
+export type LauncherRecentWorkspacePayload = {
+  workspaceRoot: string;
+  pinned: boolean;
+  lastUsedAt: number;
+};
+export function createLauncherRecentWorkspacePayload(options: Partial<LauncherRecentWorkspacePayload> = {}): LauncherRecentWorkspacePayload {
+  return options as LauncherRecentWorkspacePayload;
+}
+
+
+export type LauncherRecentWorkspacesResponse = {
+  ok: boolean;
+  workspaces: Array<LauncherRecentWorkspacePayload>;
+  error: LauncherHomeErrorPayload | null;
+};
+export function createLauncherRecentWorkspacesResponse(options: Partial<LauncherRecentWorkspacesResponse> = {}): LauncherRecentWorkspacesResponse {
+  return options as LauncherRecentWorkspacesResponse;
+}
+
+
+export type LauncherRecentWorkspaceRequestInput = {
+  settaHome?: string | null;
+  workspaceRoot: string;
+  pinned?: boolean | null;
+};
+export function createLauncherRecentWorkspaceRequestInput(options: Partial<LauncherRecentWorkspaceRequestInput> = {}): LauncherRecentWorkspaceRequestInput {
+  return options as LauncherRecentWorkspaceRequestInput;
+}
+
+
+export type PinLauncherRecentWorkspaceRequestInput = {
+  settaHome?: string | null;
+  workspaceRoot: string;
+  pinned: boolean;
+};
+export function createPinLauncherRecentWorkspaceRequestInput(options: Partial<PinLauncherRecentWorkspaceRequestInput> = {}): PinLauncherRecentWorkspaceRequestInput {
+  return options as PinLauncherRecentWorkspaceRequestInput;
+}
+
+
+export type LauncherFilesystemRootsResponse = {
+  ok: boolean;
+  roots: Array<string>;
+};
+export function createLauncherFilesystemRootsResponse(options: Partial<LauncherFilesystemRootsResponse> = {}): LauncherFilesystemRootsResponse {
+  return options as LauncherFilesystemRootsResponse;
+}
+
+
+export type LauncherDirectoryEntryPayload = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+};
+export function createLauncherDirectoryEntryPayload(options: Partial<LauncherDirectoryEntryPayload> = {}): LauncherDirectoryEntryPayload {
+  return options as LauncherDirectoryEntryPayload;
+}
+
+
+export type LauncherListDirectoryRequestInput = {
+  path?: string | null;
+  cursor?: string | null;
+  pageSize?: number | null;
+};
+export function createLauncherListDirectoryRequestInput(options: Partial<LauncherListDirectoryRequestInput> = {}): LauncherListDirectoryRequestInput {
+  return options as LauncherListDirectoryRequestInput;
+}
+
+
+export type LauncherListDirectoryResponse = {
+  ok: boolean;
+  currentPath: string | null;
+  parentPath: string | null;
+  entries: Array<LauncherDirectoryEntryPayload>;
+  nextCursor: string | null;
+  hasMore: boolean;
+  truncated: boolean;
+  error: LauncherHomeErrorPayload | null;
+};
+export function createLauncherListDirectoryResponse(options: Partial<LauncherListDirectoryResponse> = {}): LauncherListDirectoryResponse {
+  return options as LauncherListDirectoryResponse;
+}
+
+
+export type LauncherOpenWorkspaceRequestInput = {
+  workspaceRoot: string;
+  settaHome?: string | null;
+  profile?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: LaunchSettaFilesLocation | null;
+  runtimeRoot?: string | null;
+  createIfMissing?: boolean | null;
+};
+export function createLauncherOpenWorkspaceRequestInput(options: Partial<LauncherOpenWorkspaceRequestInput> = {}): LauncherOpenWorkspaceRequestInput {
+  return options as LauncherOpenWorkspaceRequestInput;
+}
+
+
+export type LauncherOpenWorkspaceResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  error: LauncherHomeErrorPayload | null;
+};
+export function createLauncherOpenWorkspaceResponse(options: Partial<LauncherOpenWorkspaceResponse> = {}): LauncherOpenWorkspaceResponse {
+  return options as LauncherOpenWorkspaceResponse;
+}
+
+
+export const LauncherOpenModeEnum = {
+  Browser: "browser",
+  ChromeApp: "chrome-app",
+} as const;
+export type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
+
+
+export const LauncherWorkspaceBehaviorEnum = {
+  LastUsedOrPrompt: "last_used_or_prompt",
+  AlwaysPrompt: "always_prompt",
+} as const;
+export type LauncherWorkspaceBehavior = ObjectValues<typeof LauncherWorkspaceBehaviorEnum>;
+
+
+export const SetupLauncherWorkspaceBehaviorEnum = {
+  LastUsedOrPrompt: "last-used-or-prompt",
+  AlwaysPrompt: "always-prompt",
+} as const;
+export type SetupLauncherWorkspaceBehavior = ObjectValues<typeof SetupLauncherWorkspaceBehaviorEnum>;
+
+
+export const LauncherInstallSourceEnum = {
+  UVTool: "uv-tool",
+  InstallerManaged: "installer-managed",
+  Unsupported: "unsupported",
+} as const;
+export type LauncherInstallSource = ObjectValues<typeof LauncherInstallSourceEnum>;
+
+
+export const LauncherUpdateCapabilityEnum = {
+  InApp: "in_app",
+  InstallerManaged: "installer_managed",
+  Unsupported: "unsupported",
+} as const;
+export type LauncherUpdateCapability = ObjectValues<typeof LauncherUpdateCapabilityEnum>;
+
+
+export type LauncherOperationErrorPayload = {
+  code: string;
+  message: string;
+};
+export function createLauncherOperationErrorPayload(options: Partial<LauncherOperationErrorPayload> = {}): LauncherOperationErrorPayload {
+  return options as LauncherOperationErrorPayload;
+}
+
+
+export type GetLauncherStatusRequestInput = {
+  setta_home?: string | null;
+};
+export function createGetLauncherStatusRequestInput(options: Partial<GetLauncherStatusRequestInput> = {}): GetLauncherStatusRequestInput {
+  return options as GetLauncherStatusRequestInput;
+}
+
+
+export type LauncherStatusResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+};
+export function createLauncherStatusResponse(options: Partial<LauncherStatusResponse> = {}): LauncherStatusResponse {
+  return options as LauncherStatusResponse;
+}
+
+
+export type LauncherUpdateResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+  packageSpec?: string | null;
+  fromVersion?: string | null;
+  toVersion?: string | null;
+};
+export function createLauncherUpdateResponse(options: Partial<LauncherUpdateResponse> = {}): LauncherUpdateResponse {
+  return options as LauncherUpdateResponse;
+}
+
+
+export type LauncherRequestBaseInput = {
+  settaHome?: string | null;
+};
+export function createLauncherRequestBaseInput(options: Partial<LauncherRequestBaseInput> = {}): LauncherRequestBaseInput {
+  return options as LauncherRequestBaseInput;
+}
+
+
+export type SetupLauncherRequestInput = {
+  settaHome?: string | null;
+  channel?: string | null;
+  installSource?: LauncherInstallSource | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: SetupLauncherWorkspaceBehavior | null;
+  installArtifacts?: boolean | null;
+  artifactOptions?: Record<string, string>;
+};
+export function createSetupLauncherRequestInput(options: Partial<SetupLauncherRequestInput> = {}): SetupLauncherRequestInput {
+  return options as SetupLauncherRequestInput;
+}
+
+
+export type UpdateLauncherRequestInput = {
+  settaHome?: string | null;
+  packageSpec?: string | null;
+};
+export function createUpdateLauncherRequestInput(options: Partial<UpdateLauncherRequestInput> = {}): UpdateLauncherRequestInput {
+  return options as UpdateLauncherRequestInput;
+}
+
+
+export const AppCatalogPropTypeEnum = {
+  String: "string",
+  Number: "number",
+  Dimension: "dimension",
+  Boolean: "boolean",
+} as const;
+export type AppCatalogPropType = ObjectValues<typeof AppCatalogPropTypeEnum>;
+
+
+export type AppCatalogProp = {
+  type: AppCatalogPropType;
+  responsive?: boolean;
+  required?: boolean;
+  min?: number | null;
+  max?: number | null;
+  enum?: Array<unknown>;
+  default?: unknown;
+};
+export function createAppCatalogProp(options: Partial<AppCatalogProp> = {}): AppCatalogProp {
+  return options as AppCatalogProp;
+}
+
+
+export type AppCatalogComponent = {
+  type: string;
+  children: boolean;
+  props?: Record<string, AppCatalogProp>;
+};
+export function createAppCatalogComponent(options: Partial<AppCatalogComponent> = {}): AppCatalogComponent {
+  return options as AppCatalogComponent;
+}
+
+
+export type AppCatalogAction = {
+  name: string;
+};
+export function createAppCatalogAction(options: Partial<AppCatalogAction> = {}): AppCatalogAction {
+  return options as AppCatalogAction;
+}
+
+
+export type AppCatalogResponse = {
+  id: string;
+  version: string;
+  components: Array<AppCatalogComponent>;
+  actions: Array<AppCatalogAction>;
+};
+export function createAppCatalogResponse(options: Partial<AppCatalogResponse> = {}): AppCatalogResponse {
+  return options as AppCatalogResponse;
+}
+
+
+export type AppRoute = {
+  path: string;
+  name?: string | null;
+  rootKey?: string | null;
+};
+export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
+  return options as AppRoute;
+}
+
+
+export type AppDefinition = {
+  appSpecVersion?: string;
+  catalogId?: string;
+  appSpecPath?: string | null;
+  routes?: Array<AppRoute>;
+  dataBindings?: Record<string, unknown>;
+  actions?: Record<string, unknown>;
+  theme?: Record<string, unknown>;
+  assets?: Array<unknown>;
+};
+export function createAppDefinition(options: Partial<AppDefinition> = {}): AppDefinition {
+  return options as AppDefinition;
+}
+
+
+export type GetAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+};
+export function createGetAppDefinitionRequestInput(options: Partial<GetAppDefinitionRequestInput> = {}): GetAppDefinitionRequestInput {
+  return options as GetAppDefinitionRequestInput;
+}
+
+
+export type AppDefinitionReadResponse = {
+  appSpec: unknown;
+  appDefinition?: AppDefinition | null;
+};
+export function createAppDefinitionReadResponse(options: Partial<AppDefinitionReadResponse> = {}): AppDefinitionReadResponse {
+  return options as AppDefinitionReadResponse;
+}
+
+
+export type SetAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecPath?: string | null;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+export function createSetAppDefinitionRequestInput(options: Partial<SetAppDefinitionRequestInput> = {}): SetAppDefinitionRequestInput {
+  return options as SetAppDefinitionRequestInput;
+}
+
+
+export type ValidateAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+export function createValidateAppDefinitionRequestInput(options: Partial<ValidateAppDefinitionRequestInput> = {}): ValidateAppDefinitionRequestInput {
+  return options as ValidateAppDefinitionRequestInput;
+}
+
+
+export type AppValidationIssue = {
+  message: string;
+  elementKey?: string | null;
+  elementType?: string | null;
+};
+export function createAppValidationIssue(options: Partial<AppValidationIssue> = {}): AppValidationIssue {
+  return options as AppValidationIssue;
+}
+
+
+export type AppCapabilities = {
+  catalogId: string;
+  catalogVersion: string;
+  appSpecVersion: string;
+  themeSchemaVersion: string;
+  features: Record<string, boolean>;
+};
+export function createAppCapabilities(options: Partial<AppCapabilities> = {}): AppCapabilities {
+  return options as AppCapabilities;
+}
+
+
+export type AppDefinitionValidationResponse = {
+  errors: Array<AppValidationIssue>;
+  warnings: Array<AppValidationIssue>;
+  capabilities: AppCapabilities;
+};
+export function createAppDefinitionValidationResponse(options: Partial<AppDefinitionValidationResponse> = {}): AppDefinitionValidationResponse {
+  return options as AppDefinitionValidationResponse;
+}
+
+
+export type AppDefinitionMutationResponse = {
+  appSpec: unknown;
+  appDefinition?: AppDefinition | null;
+};
+export function createAppDefinitionMutationResponse(options: Partial<AppDefinitionMutationResponse> = {}): AppDefinitionMutationResponse {
+  return options as AppDefinitionMutationResponse;
+}
+
+
+export type SettaLspDiagnosticPosition = {
+  line: number;
+  character: number;
+};
+export function createSettaLspDiagnosticPosition(options: Partial<SettaLspDiagnosticPosition> = {}): SettaLspDiagnosticPosition {
+  return options as SettaLspDiagnosticPosition;
+}
+
+
+export type SettaLspDiagnosticRange = {
+  start: SettaLspDiagnosticPosition;
+  end: SettaLspDiagnosticPosition;
+};
+export function createSettaLspDiagnosticRange(options: Partial<SettaLspDiagnosticRange> = {}): SettaLspDiagnosticRange {
+  return options as SettaLspDiagnosticRange;
+}
+
+
+export type SettaLspDiagnostic = {
+  message: string;
+  severity: number | null;
+  code: unknown;
+  source: string | null;
+  range: SettaLspDiagnosticRange;
+  uri: string | null;
+};
+export function createSettaLspDiagnostic(options: Partial<SettaLspDiagnostic> = {}): SettaLspDiagnostic {
+  return options as SettaLspDiagnostic;
+}
+
+
+export type SettaSectionTypeErrors = {
+  callable: Array<string>;
+  params: Record<string, Array<string>>;
+};
+export function createSettaSectionTypeErrors(options: Partial<SettaSectionTypeErrors> = {}): SettaSectionTypeErrors {
+  return options as SettaSectionTypeErrors;
+}
+
+
+export type SettaProjectConfigDiagnostics = {
+  projectConfigId: string;
+  errors: Record<string, SettaSectionTypeErrors>;
+  isGenCode: boolean;
+};
+export function createSettaProjectConfigDiagnostics(options: Partial<SettaProjectConfigDiagnostics> = {}): SettaProjectConfigDiagnostics {
+  return options as SettaProjectConfigDiagnostics;
+}
+
+
+export type SettaLspDiagnosticsPayload = {
+  projectConfigId: string;
+  genCode: SettaProjectConfigDiagnostics;
+  codeSections: Record<string, Array<SettaLspDiagnostic>>;
+  unmappedGenCode: Array<SettaLspDiagnostic>;
+};
+export function createSettaLspDiagnosticsPayload(options: Partial<SettaLspDiagnosticsPayload> = {}): SettaLspDiagnosticsPayload {
+  return options as SettaLspDiagnosticsPayload;
+}
+
+
+export type GetLatestLspDiagnosticsRequestInput = {
+  projectConfigId: string;
+};
+export function createGetLatestLspDiagnosticsRequestInput(options: Partial<GetLatestLspDiagnosticsRequestInput> = {}): GetLatestLspDiagnosticsRequestInput {
+  return options as GetLatestLspDiagnosticsRequestInput;
+}
+
+
+export type TypeCheckRequestInput = {
+  projectConfigId: string;
+};
+export function createTypeCheckRequestInput(options: Partial<TypeCheckRequestInput> = {}): TypeCheckRequestInput {
+  return options as TypeCheckRequestInput;
+}
+
+
+export type SetTypeErrorIgnoreRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  ignoreTypeErrors: boolean;
+};
+export function createSetTypeErrorIgnoreRequestInput(options: Partial<SetTypeErrorIgnoreRequestInput> = {}): SetTypeErrorIgnoreRequestInput {
+  return options as SetTypeErrorIgnoreRequestInput;
+}
+
+
+export type AppGenSkillEntry = {
+  skillId: string;
+  name: string;
+  rootLabel: string;
+  rootPath: string;
+  relativePath: string;
+  isEditable: boolean;
+  editabilityReason: string | null;
+  description: string;
+};
+export function createAppGenSkillEntry(options: Partial<AppGenSkillEntry> = {}): AppGenSkillEntry {
+  return options as AppGenSkillEntry;
+}
+
+
+export type GetAppGenSkillsResponse = {
+  skills: Array<AppGenSkillEntry>;
+  customSkillCreateRootPath: string | null;
+  customSkillCreateRootActionable: boolean;
+};
+export function createGetAppGenSkillsResponse(options: Partial<GetAppGenSkillsResponse> = {}): GetAppGenSkillsResponse {
+  return options as GetAppGenSkillsResponse;
+}
+
+
+export type GetAppGenSkillContentRequestInput = {
+  skillId: string;
+};
+export function createGetAppGenSkillContentRequestInput(options: Partial<GetAppGenSkillContentRequestInput> = {}): GetAppGenSkillContentRequestInput {
+  return options as GetAppGenSkillContentRequestInput;
+}
+
+
+export type AppGenSkillContent = {
+  skillId: string;
+  content: string;
+  truncated: boolean;
+  originalSizeBytes: number;
+};
+export function createAppGenSkillContent(options: Partial<AppGenSkillContent> = {}): AppGenSkillContent {
+  return options as AppGenSkillContent;
+}
+
+
+export type UpsertAppGenCustomSkillRequestInput = {
+  skillId: string | null;
+  relativePath: string | null;
+  content: string;
+};
+export function createUpsertAppGenCustomSkillRequestInput(options: Partial<UpsertAppGenCustomSkillRequestInput> = {}): UpsertAppGenCustomSkillRequestInput {
+  return options as UpsertAppGenCustomSkillRequestInput;
+}
+
+
+export type UpsertAppGenCustomSkillResponse = {
+  skillId: string;
+  created: boolean;
+  rootPath: string;
+  skillDocPath: string;
+  skill: AppGenSkillEntry;
+  skillContent: AppGenSkillContent;
+};
+export function createUpsertAppGenCustomSkillResponse(options: Partial<UpsertAppGenCustomSkillResponse> = {}): UpsertAppGenCustomSkillResponse {
+  return options as UpsertAppGenCustomSkillResponse;
+}
+
+
+export const MCPTransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+export type MCPTransport = ObjectValues<typeof MCPTransportEnum>;
+
+
+export const MCPRuntimeStateEnum = {
+  connected: "connected",
+  connecting: "connecting",
+  retrying: "retrying",
+  error: "error",
+  disabled: "disabled",
+  unknown: "unknown",
+} as const;
+export type MCPRuntimeState = ObjectValues<typeof MCPRuntimeStateEnum>;
+
+
+export type MCPServerRuntimeStatus = {
+  serverId: string;
+  source: string;
+  transport: MCPTransport;
+  endpoint: string;
+  state: MCPRuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+};
+export function createMCPServerRuntimeStatus(options: Partial<MCPServerRuntimeStatus> = {}): MCPServerRuntimeStatus {
+  return options as MCPServerRuntimeStatus;
+}
+
+
+export type MCPRuntimeStatusRequestInput = {
+  chatId: string | null;
+  engineConfigId: string | null;
+};
+export function createMCPRuntimeStatusRequestInput(options: Partial<MCPRuntimeStatusRequestInput> = {}): MCPRuntimeStatusRequestInput {
+  return options as MCPRuntimeStatusRequestInput;
+}
+
+
+export type MCPRuntimeStatusResponse = {
+  llmConfigPath: string;
+  activeSettaFilesLocation: string;
+  servers: Array<MCPServerRuntimeStatus>;
+  externalServers: Array<MCPServerRuntimeStatus>;
+};
+export function createMCPRuntimeStatusResponse(options: Partial<MCPRuntimeStatusResponse> = {}): MCPRuntimeStatusResponse {
+  return options as MCPRuntimeStatusResponse;
+}
+
+
+export type GetPasswordParamValueRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+export function createGetPasswordParamValueRequestInput(options: Partial<GetPasswordParamValueRequestInput> = {}): GetPasswordParamValueRequestInput {
+  return options as GetPasswordParamValueRequestInput;
+}
+
+
+export type GetPasswordParamValueResponse = {
+  value: string;
+};
+export function createGetPasswordParamValueResponse(options: Partial<GetPasswordParamValueResponse> = {}): GetPasswordParamValueResponse {
+  return options as GetPasswordParamValueResponse;
+}
+
+
+export type GetAttachmentDownloadURLRequestInput = {
+  artifactId: string;
+  projectConfigId: string | null;
+};
+export function createGetAttachmentDownloadURLRequestInput(options: Partial<GetAttachmentDownloadURLRequestInput> = {}): GetAttachmentDownloadURLRequestInput {
+  return options as GetAttachmentDownloadURLRequestInput;
+}
+
+
+export type GetAttachmentDownloadURLResponse = {
+  url: string;
+  expiresAt: number;
+};
+export function createGetAttachmentDownloadURLResponse(options: Partial<GetAttachmentDownloadURLResponse> = {}): GetAttachmentDownloadURLResponse {
+  return options as GetAttachmentDownloadURLResponse;
+}
+
+
+export type GetAttachmentDownloadURLsRequestInput = {
+  artifactIds: Array<string>;
+  projectConfigId: string | null;
+};
+export function createGetAttachmentDownloadURLsRequestInput(options: Partial<GetAttachmentDownloadURLsRequestInput> = {}): GetAttachmentDownloadURLsRequestInput {
+  return options as GetAttachmentDownloadURLsRequestInput;
+}
+
+
+export type AttachmentDownloadURLEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
+export function createAttachmentDownloadURLEntry(options: Partial<AttachmentDownloadURLEntry> = {}): AttachmentDownloadURLEntry {
+  return options as AttachmentDownloadURLEntry;
+}
+
+
+export type GetAttachmentDownloadURLsResponse = Array<AttachmentDownloadURLEntry>;
+
+
+export type ForceRefreshListenerRequestInput = {
+  projectConfigId: string;
+};
+export function createForceRefreshListenerRequestInput(options: Partial<ForceRefreshListenerRequestInput> = {}): ForceRefreshListenerRequestInput {
+  return options as ForceRefreshListenerRequestInput;
+}
+
+
+export type ListenerCoverageRequestInput = {
+  projectConfigId: string;
+};
+export function createListenerCoverageRequestInput(options: Partial<ListenerCoverageRequestInput> = {}): ListenerCoverageRequestInput {
+  return options as ListenerCoverageRequestInput;
+}
+
+
+export const DependencyKeyTypeEnum = {
+  Section: "Section",
+  SectionParam: "SectionParam",
+} as const;
+export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
+
+
+export type SectionDependencyKey = {
+  sectionId: string;
+  type: typeof DependencyKeyTypeEnum.Section;
+};
+export function createSectionDependencyKey(options: Partial<SectionDependencyKey> = {}): SectionDependencyKey {
+  return options as SectionDependencyKey;
+}
+
+
+export type SectionParamDependencyKey = {
+  sectionId: string;
+  codeObjId: string;
+  type: typeof DependencyKeyTypeEnum.SectionParam;
+};
+export function createSectionParamDependencyKey(options: Partial<SectionParamDependencyKey> = {}): SectionParamDependencyKey {
+  return options as SectionParamDependencyKey;
+}
+
+
+export type BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey;
+
+
+export const DependencyValueTypeEnum = {
+  Literal: "Literal",
+  Binary: "Binary",
+  FileRead: "FileRead",
+} as const;
+export type DependencyValueType = ObjectValues<typeof DependencyValueTypeEnum>;
+
+
+export type BinaryContentRef = {
+  contentId: string;
+  byteLength: number;
+  mimeType: string | null;
+  sha256: string | null;
+};
+export function createBinaryContentRef(options: Partial<BinaryContentRef> = {}): BinaryContentRef {
+  return options as BinaryContentRef;
+}
+
+
+export type LiteralDependencyValue = {
+  payload: string;
+  type: typeof DependencyValueTypeEnum.Literal;
+};
+export function createLiteralDependencyValue(options: Partial<LiteralDependencyValue> = {}): LiteralDependencyValue {
+  return options as LiteralDependencyValue;
+}
+
+
+export type FileReadDependencyValue = {
+  payload: string;
+  type: typeof DependencyValueTypeEnum.FileRead;
+};
+export function createFileReadDependencyValue(options: Partial<FileReadDependencyValue> = {}): FileReadDependencyValue {
+  return options as FileReadDependencyValue;
+}
+
+
+export type BinaryDependencyValue = {
+  payload: BinaryContentRef;
+  type: typeof DependencyValueTypeEnum.Binary;
+};
+export function createBinaryDependencyValue(options: Partial<BinaryDependencyValue> = {}): BinaryDependencyValue {
+  return options as BinaryDependencyValue;
+}
+
+
+export type BaseDependencyValueUnion = LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue;
+
+
+export type DependencyEvent = {
+  dependencyKey: BaseDependencyKeyUnion;
+  payload: BaseDependencyValueUnion | null;
+  timestampMs: number;
+};
+export function createDependencyEvent(options: Partial<DependencyEvent> = {}): DependencyEvent {
+  return options as DependencyEvent;
+}
+
+
+export type ListenerCoverageSnapshot = {
+  projectConfigId: string;
+  dependencies: Array<BaseDependencyKeyUnion>;
+  hasRealtimeWildcard: boolean;
+};
+export function createListenerCoverageSnapshot(options: Partial<ListenerCoverageSnapshot> = {}): ListenerCoverageSnapshot {
+  return options as ListenerCoverageSnapshot;
+}
+
+
+export const PluginScopeEnum = {
+  Workspace: "workspace",
+  SettaFiles: "setta_files",
+  Global: "global",
+} as const;
+export type PluginScope = ObjectValues<typeof PluginScopeEnum>;
+
+
+export const PluginRuntimeStateEnum = {
+  active: "active",
+  disabled: "disabled",
+  invalid: "invalid",
+  shadowed: "shadowed",
+  pending_restart: "pending_restart",
+} as const;
+export type PluginRuntimeState = ObjectValues<typeof PluginRuntimeStateEnum>;
+
+
+export const PluginEnablementSourceEnum = {
+  WorkspaceDisabled: "workspace_disabled",
+  WorkspaceEnabled: "workspace_enabled",
+  GlobalAutoEnabled: "global_auto_enabled",
+  ManifestDefault: "manifest_default",
+} as const;
+export type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
+
+
+export const PluginSourceManagerEnum = {
+  Setta: "setta",
+  PackageManager: "package_manager",
+} as const;
+export type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
+
+
+export const PluginInstallerBackendEnum = {
+  Auto: "auto",
+  Pip: "pip",
+  UV: "uv",
+} as const;
+export type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
+
+
+export const PluginSourceTrustStatusEnum = {
+  Unverified: "unverified",
+} as const;
+export type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
+
+
+export const PluginBlockedCapabilityReasonEnum = {
+  ModePolicy: "mode_policy",
+  HostPolicy: "host_policy",
+  ManifestInvalid: "manifest_invalid",
+} as const;
+export type PluginBlockedCapabilityReason = ObjectValues<typeof PluginBlockedCapabilityReasonEnum>;
+
+
+export const PluginRestartCapabilityModeEnum = {
+  Manual: "manual",
+  Programmatic: "programmatic",
+} as const;
+export type PluginRestartCapabilityMode = ObjectValues<typeof PluginRestartCapabilityModeEnum>;
+
+
+export type PluginErrorInfo = {
+  code: string;
+  message: string;
+};
+export function createPluginErrorInfo(options: Partial<PluginErrorInfo> = {}): PluginErrorInfo {
+  return options as PluginErrorInfo;
+}
+
+
+export type PluginBlockedCapability = {
+  capability: string;
+  reason: PluginBlockedCapabilityReason;
+};
+export function createPluginBlockedCapability(options: Partial<PluginBlockedCapability> = {}): PluginBlockedCapability {
+  return options as PluginBlockedCapability;
+}
+
+
+export type PluginFrontendDescriptor = {
+  entrypointUrl: string | null;
+  styleUrl: string | null;
+};
+export function createPluginFrontendDescriptor(options: Partial<PluginFrontendDescriptor> = {}): PluginFrontendDescriptor {
+  return options as PluginFrontendDescriptor;
+}
+
+
+export type PluginContentDescriptor = {
+  hasBlueprints: boolean;
+  hasProjectTemplates: boolean;
+  hasPrompts: boolean;
+};
+export function createPluginContentDescriptor(options: Partial<PluginContentDescriptor> = {}): PluginContentDescriptor {
+  return options as PluginContentDescriptor;
+}
+
+
+export type PluginConfigDescriptor = {
+  hasSchema: boolean;
+  schemaJson: Record<string, unknown>;
+  schemaJsonDigestSha256: string | null;
+  currentConfig: Record<string, unknown>;
+  currentConfigDigestSha256: string | null;
+};
+export function createPluginConfigDescriptor(options: Partial<PluginConfigDescriptor> = {}): PluginConfigDescriptor {
+  return options as PluginConfigDescriptor;
+}
+
+
+export type PluginRegisteredCodegenTarget = {
+  targetId: string;
+  pluginId: string;
+  language: string;
+  name: string;
+  defaultFileName: string;
+};
+export function createPluginRegisteredCodegenTarget(options: Partial<PluginRegisteredCodegenTarget> = {}): PluginRegisteredCodegenTarget {
+  return options as PluginRegisteredCodegenTarget;
+}
+
+
+export type PluginRegisteredBackendRoute = {
+  path: string;
+  methods: Array<string>;
+};
+export function createPluginRegisteredBackendRoute(options: Partial<PluginRegisteredBackendRoute> = {}): PluginRegisteredBackendRoute {
+  return options as PluginRegisteredBackendRoute;
+}
+
+
+export type PluginRegisteredStaticDir = {
+  routePrefix: string;
+  dir: string;
+};
+export function createPluginRegisteredStaticDir(options: Partial<PluginRegisteredStaticDir> = {}): PluginRegisteredStaticDir {
+  return options as PluginRegisteredStaticDir;
+}
+
+
+export type PluginRegisteredListenerEndpoint = {
+  name: string;
+};
+export function createPluginRegisteredListenerEndpoint(options: Partial<PluginRegisteredListenerEndpoint> = {}): PluginRegisteredListenerEndpoint {
+  return options as PluginRegisteredListenerEndpoint;
+}
+
+
+export type PluginRestartCapability = {
+  mode: PluginRestartCapabilityMode;
+  command: string | null;
+  reason: string | null;
+};
+export function createPluginRestartCapability(options: Partial<PluginRestartCapability> = {}): PluginRestartCapability {
+  return options as PluginRestartCapability;
+}
+
+
+export type PluginListEntry = {
+  pluginId: string;
+  name: string;
+  version: string;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourceManager: PluginSourceManager;
+  sourceManagerHint: string | null;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  frontend: PluginFrontendDescriptor;
+  content: PluginContentDescriptor;
+  config: PluginConfigDescriptor;
+  effectiveCapabilities: Array<string>;
+  enablementSource: PluginEnablementSource | null;
+  restartRequired: boolean;
+};
+export function createPluginListEntry(options: Partial<PluginListEntry> = {}): PluginListEntry {
+  return options as PluginListEntry;
+}
+
+
+export type PluginListResponse = {
+  schemaVersion: number;
+  serverMode: ServerMode;
+  restartCapability: PluginRestartCapability;
+  plugins: Array<PluginListEntry>;
+};
+export function createPluginListResponse(options: Partial<PluginListResponse> = {}): PluginListResponse {
+  return options as PluginListResponse;
+}
+
+
+export type PluginStatusEntry = {
+  pluginId: string;
+  name: string;
+  version: string;
+  state: PluginRuntimeState;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourceManager: PluginSourceManager;
+  sourceManagerHint: string | null;
+  sourcePath: string;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  shadowedBySourcePath: string | null;
+  requestedCapabilities: Array<string>;
+  effectiveCapabilities: Array<string>;
+  blockedCapabilities: Array<PluginBlockedCapability>;
+  registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
+  registeredBackendRoutes: Array<PluginRegisteredBackendRoute>;
+  registeredStaticDirs: Array<PluginRegisteredStaticDir>;
+  registeredListenerEndpoints: Array<PluginRegisteredListenerEndpoint>;
+  enablementSource: PluginEnablementSource | null;
+  restartRequired: boolean;
+  runtimePayloadDigestSha256: string;
+  errors: Array<PluginErrorInfo>;
+};
+export function createPluginStatusEntry(options: Partial<PluginStatusEntry> = {}): PluginStatusEntry {
+  return options as PluginStatusEntry;
+}
+
+
+export type PluginStatusResponse = {
+  schemaVersion: number;
+  serverMode: ServerMode;
+  restartCapability: PluginRestartCapability;
+  plugins: Array<PluginStatusEntry>;
+};
+export function createPluginStatusResponse(options: Partial<PluginStatusResponse> = {}): PluginStatusResponse {
+  return options as PluginStatusResponse;
+}
+
+
+export type PluginRuntimeResponse = {
+  schemaVersion: number;
+  list: PluginListResponse;
+  status: PluginStatusResponse;
+};
+export function createPluginRuntimeResponse(options: Partial<PluginRuntimeResponse> = {}): PluginRuntimeResponse {
+  return options as PluginRuntimeResponse;
+}
+
+
+export type PluginRescanResponse = {
+  schemaVersion: number;
+  serverMode: ServerMode;
+  installedPlugins: number;
+  activePlugins: number;
+};
+export function createPluginRescanResponse(options: Partial<PluginRescanResponse> = {}): PluginRescanResponse {
+  return options as PluginRescanResponse;
+}
+
+
+export type PluginEnableDisableRequestInput = {
+  pluginId: string;
+};
+export function createPluginEnableDisableRequestInput(options: Partial<PluginEnableDisableRequestInput> = {}): PluginEnableDisableRequestInput {
+  return options as PluginEnableDisableRequestInput;
+}
+
+
+export type PluginInstallRequestInput = {
+  sourceSpec: string;
+  scope: PluginScope | null;
+  installer: PluginInstallerBackend | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+export function createPluginInstallRequestInput(options: Partial<PluginInstallRequestInput> = {}): PluginInstallRequestInput {
+  return options as PluginInstallRequestInput;
+}
+
+
+export type PluginLinkRequestInput = {
+  localPluginRoot: string;
+  scope: PluginScope | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+export function createPluginLinkRequestInput(options: Partial<PluginLinkRequestInput> = {}): PluginLinkRequestInput {
+  return options as PluginLinkRequestInput;
+}
+
+
+export type PluginInstallResponse = {
+  pluginId: string;
+  version: string;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourcePath: string;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  requestedCapabilities: Array<string>;
+  trustStatus: PluginSourceTrustStatus;
+  trustWarning: string;
+  components: Array<string>;
+  state: PluginRuntimeState;
+  restartRequired: boolean;
+};
+export function createPluginInstallResponse(options: Partial<PluginInstallResponse> = {}): PluginInstallResponse {
+  return options as PluginInstallResponse;
+}
+
+
+export type PluginEnableDisableResponse = {
+  pluginId: string;
+  state: PluginRuntimeState;
+  restartRequired: boolean;
+};
+export function createPluginEnableDisableResponse(options: Partial<PluginEnableDisableResponse> = {}): PluginEnableDisableResponse {
+  return options as PluginEnableDisableResponse;
+}
+
+
+export type PluginUninstallRequestInput = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+export function createPluginUninstallRequestInput(options: Partial<PluginUninstallRequestInput> = {}): PluginUninstallRequestInput {
+  return options as PluginUninstallRequestInput;
+}
+
+
+export type PluginUninstallResponse = {
+  pluginId: string;
+  removedFromScope: PluginScope;
+  restartRequired: boolean;
+};
+export function createPluginUninstallResponse(options: Partial<PluginUninstallResponse> = {}): PluginUninstallResponse {
+  return options as PluginUninstallResponse;
+}
+
+
+export type PluginUpdateRequestInput = {
+  pluginId: string;
+  scope: PluginScope | null;
+  to: string | null;
+};
+export function createPluginUpdateRequestInput(options: Partial<PluginUpdateRequestInput> = {}): PluginUpdateRequestInput {
+  return options as PluginUpdateRequestInput;
+}
+
+
+export type PluginUpdateResponse = {
+  pluginId: string;
+  fromVersion: string;
+  toVersion: string;
+  sourceDigestSha256: string | null;
+  restartRequired: boolean;
+};
+export function createPluginUpdateResponse(options: Partial<PluginUpdateResponse> = {}): PluginUpdateResponse {
+  return options as PluginUpdateResponse;
+}
+
+
+export type PluginRollbackRequestInput = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+export function createPluginRollbackRequestInput(options: Partial<PluginRollbackRequestInput> = {}): PluginRollbackRequestInput {
+  return options as PluginRollbackRequestInput;
+}
+
+
+export type PluginRollbackResponse = {
+  pluginId: string;
+  restoredVersion: string;
+  sourceDigestSha256: string | null;
+  restartRequired: boolean;
+};
+export function createPluginRollbackResponse(options: Partial<PluginRollbackResponse> = {}): PluginRollbackResponse {
+  return options as PluginRollbackResponse;
+}
+
+
+export type PluginConfigValidationResult = {
+  ok: boolean;
+};
+export function createPluginConfigValidationResult(options: Partial<PluginConfigValidationResult> = {}): PluginConfigValidationResult {
+  return options as PluginConfigValidationResult;
+}
+
+
+export type PluginConfigWriteRequestInput = {
+  pluginId: string;
+  config: Record<string, unknown>;
+};
+export function createPluginConfigWriteRequestInput(options: Partial<PluginConfigWriteRequestInput> = {}): PluginConfigWriteRequestInput {
+  return options as PluginConfigWriteRequestInput;
+}
+
+
+export type PluginConfigWriteResponse = {
+  pluginId: string;
+  config: Record<string, unknown>;
+  validation: PluginConfigValidationResult;
+};
+export function createPluginConfigWriteResponse(options: Partial<PluginConfigWriteResponse> = {}): PluginConfigWriteResponse {
+  return options as PluginConfigWriteResponse;
+}
+
+
+export type PluginLockWriteResponse = {
+  lockfilePath: string;
+  pluginCount: number;
+};
+export function createPluginLockWriteResponse(options: Partial<PluginLockWriteResponse> = {}): PluginLockWriteResponse {
+  return options as PluginLockWriteResponse;
+}
+
+
+export type PluginLockApplyRequestInput = {
+  check: boolean;
+};
+export function createPluginLockApplyRequestInput(options: Partial<PluginLockApplyRequestInput> = {}): PluginLockApplyRequestInput {
+  return options as PluginLockApplyRequestInput;
+}
+
+
+export type PluginLockApplyResponse = {
+  lockfilePath: string;
+  plannedChanges: Array<string>;
+  applied: boolean;
+};
+export function createPluginLockApplyResponse(options: Partial<PluginLockApplyResponse> = {}): PluginLockApplyResponse {
+  return options as PluginLockApplyResponse;
+}
+
+
+export type PluginRestartResponse = {
+  accepted: boolean;
+  mode: PluginRestartCapabilityMode;
+  command: string | null;
+  reason: string | null;
+};
+export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
+  return options as PluginRestartResponse;
+}
+
+
+export type CreateFileRequestInput = {
+  filepath: string;
+};
+export function createCreateFileRequestInput(options: Partial<CreateFileRequestInput> = {}): CreateFileRequestInput {
+  return options as CreateFileRequestInput;
+}
+
+
+export type CheckIfFileExistsRequestInput = {
+  filepath: string;
+};
+export function createCheckIfFileExistsRequestInput(options: Partial<CheckIfFileExistsRequestInput> = {}): CheckIfFileExistsRequestInput {
+  return options as CheckIfFileExistsRequestInput;
+}
+
+
+export type CheckIfFileExistsResponse = boolean;
+
+
+export type CheckWorkspaceInitializedRequestInput = {
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+};
+export function createCheckWorkspaceInitializedRequestInput(options: Partial<CheckWorkspaceInitializedRequestInput> = {}): CheckWorkspaceInitializedRequestInput {
+  return options as CheckWorkspaceInitializedRequestInput;
+}
+
+
+export type CheckWorkspaceInitializedResponse = boolean;
+
+
+export type FileBrowserRootResponse = {
+  rootPath: string;
+  pathSeparator: string;
+  ignorePatterns: Array<string>;
+};
+export function createFileBrowserRootResponse(options: Partial<FileBrowserRootResponse> = {}): FileBrowserRootResponse {
+  return options as FileBrowserRootResponse;
+}
+
+
+export const MissingFolderBehaviorEnum = {
+  error: "error",
+  empty: "empty",
+} as const;
+export type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
+
+
+export type GetFolderContentsRequestInput = {
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+  includeMtime?: boolean | null;
+  includeSize?: boolean | null;
+  includeHidden?: boolean | null;
+  includeSettaInitialized?: boolean | null;
+  ignorePatterns?: Array<string> | null;
+  maxEntries?: number | null;
+  missingFolderBehavior?: MissingFolderBehavior | null;
+};
+export function createGetFolderContentsRequestInput(options: Partial<GetFolderContentsRequestInput> = {}): GetFolderContentsRequestInput {
+  return options as GetFolderContentsRequestInput;
+}
+
+
+export const FolderContentItemTypeEnum = {
+  folder: "folder",
+  file: "file",
+} as const;
+export type FolderContentItemType = ObjectValues<typeof FolderContentItemTypeEnum>;
+
+
+export type FolderContentItem = {
+  name: string;
+  type: FolderContentItemType;
+  fullPath: string;
+  mtime?: number | null;
+  size?: number | null;
+  isSettaInitialized?: boolean | null;
+};
+export function createFolderContentItem(options: Partial<FolderContentItem> = {}): FolderContentItem {
+  return options as FolderContentItem;
+}
+
+
+export type GetFolderContentsResponse = Array<FolderContentItem>;
+
+
+export type GetFileBrowserDownloadURLsRequestInput = {
+  paths: Array<string>;
+};
+export function createGetFileBrowserDownloadURLsRequestInput(options: Partial<GetFileBrowserDownloadURLsRequestInput> = {}): GetFileBrowserDownloadURLsRequestInput {
+  return options as GetFileBrowserDownloadURLsRequestInput;
+}
+
+
+export type FileBrowserDownloadRouteParams = {
+  token: string;
+};
+export function createFileBrowserDownloadRouteParams(options: Partial<FileBrowserDownloadRouteParams> = {}): FileBrowserDownloadRouteParams {
+  return options as FileBrowserDownloadRouteParams;
+}
+
+
+export type FileBrowserDownloadURLEntry = {
+  path: string;
+  url: string;
+  expiresAt: number;
+};
+export function createFileBrowserDownloadURLEntry(options: Partial<FileBrowserDownloadURLEntry> = {}): FileBrowserDownloadURLEntry {
+  return options as FileBrowserDownloadURLEntry;
+}
+
+
+export type GetFileBrowserDownloadURLsResponse = Array<FileBrowserDownloadURLEntry>;
+
+
+export type GetFileBrowserFileContentRequestInput = {
+  path: string;
+  maxBytes?: number | null;
+};
+export function createGetFileBrowserFileContentRequestInput(options: Partial<GetFileBrowserFileContentRequestInput> = {}): GetFileBrowserFileContentRequestInput {
+  return options as GetFileBrowserFileContentRequestInput;
+}
+
+
+export type FileBrowserFileContentResponse = {
+  path: string;
+  mimeType: string;
+  contentId: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createFileBrowserFileContentResponse(options: Partial<FileBrowserFileContentResponse> = {}): FileBrowserFileContentResponse {
+  return options as FileBrowserFileContentResponse;
+}
+
+
+export type GetFileBrowserFileStatRequestInput = {
+  path: string;
+};
+export function createGetFileBrowserFileStatRequestInput(options: Partial<GetFileBrowserFileStatRequestInput> = {}): GetFileBrowserFileStatRequestInput {
+  return options as GetFileBrowserFileStatRequestInput;
+}
+
+
+export type FileBrowserFileStatResponse = {
+  path: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createFileBrowserFileStatResponse(options: Partial<FileBrowserFileStatResponse> = {}): FileBrowserFileStatResponse {
+  return options as FileBrowserFileStatResponse;
+}
+
+
+export type WriteFileBrowserFileContentRequestInput = {
+  path: string;
+  contentId: string;
+  expectedMtimeNs?: number | null;
+};
+export function createWriteFileBrowserFileContentRequestInput(options: Partial<WriteFileBrowserFileContentRequestInput> = {}): WriteFileBrowserFileContentRequestInput {
+  return options as WriteFileBrowserFileContentRequestInput;
+}
+
+
+export type WriteFileBrowserFileContentResponse = {
+  path: string;
+  mimeType: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createWriteFileBrowserFileContentResponse(options: Partial<WriteFileBrowserFileContentResponse> = {}): WriteFileBrowserFileContentResponse {
+  return options as WriteFileBrowserFileContentResponse;
+}
+
+
+export const TransferOperationEnum = {
+  copy: "copy",
+  move: "move",
+} as const;
+export type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
+
+
+export type TransferFileBrowserEntryRequestInput = {
+  sourcePath: string;
+  destinationFolderPath: string;
+  operation: TransferOperation;
+};
+export function createTransferFileBrowserEntryRequestInput(options: Partial<TransferFileBrowserEntryRequestInput> = {}): TransferFileBrowserEntryRequestInput {
+  return options as TransferFileBrowserEntryRequestInput;
+}
+
+
+export type TransferFileBrowserEntryResponse = {
+  sourcePath: string;
+  destinationPath: string;
+  operation: TransferOperation;
+};
+export function createTransferFileBrowserEntryResponse(options: Partial<TransferFileBrowserEntryResponse> = {}): TransferFileBrowserEntryResponse {
+  return options as TransferFileBrowserEntryResponse;
+}
+
+
+export const GitDiffModeEnum = {
+  unstaged: "unstaged",
+  staged: "staged",
+} as const;
+export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
+
+
+export type GitRepoInfo = {
+  isGitRepo: boolean;
+  repoRoot: string | null;
+  headBranch: string | null;
+  headCommit: string | null;
+};
+export function createGitRepoInfo(options: Partial<GitRepoInfo> = {}): GitRepoInfo {
+  return options as GitRepoInfo;
+}
+
+
+export type GitStatusEntry = {
+  path: string;
+  oldPath: string | null;
+  indexStatus: string;
+  worktreeStatus: string;
+  kind: string;
+};
+export function createGitStatusEntry(options: Partial<GitStatusEntry> = {}): GitStatusEntry {
+  return options as GitStatusEntry;
+}
+
+
+export type GitWorktreeEntry = {
+  path: string;
+  displayName: string;
+  branchName: string | null;
+  headCommit: string | null;
+  isCurrent: boolean;
+  isPrunable: boolean;
+  prunableReason: string | null;
+};
+export function createGitWorktreeEntry(options: Partial<GitWorktreeEntry> = {}): GitWorktreeEntry {
+  return options as GitWorktreeEntry;
+}
+
+
+export type GetGitStatusResponse = {
+  repo: GitRepoInfo;
+  entries: Array<GitStatusEntry>;
+  isTruncated: boolean;
+  worktrees: Array<GitWorktreeEntry>;
+};
+export function createGetGitStatusResponse(options: Partial<GetGitStatusResponse> = {}): GetGitStatusResponse {
+  return options as GetGitStatusResponse;
+}
+
+
+export type GetGitDiffRequestInput = {
+  path: string;
+  oldPath: string | null;
+  mode: GitDiffMode;
+};
+export function createGetGitDiffRequestInput(options: Partial<GetGitDiffRequestInput> = {}): GetGitDiffRequestInput {
+  return options as GetGitDiffRequestInput;
+}
+
+
+export type GetGitDiffResponse = {
+  repoRoot: string;
+  path: string;
+  mode: GitDiffMode;
+  diff: string;
+  isTruncated: boolean;
+};
+export function createGetGitDiffResponse(options: Partial<GetGitDiffResponse> = {}): GetGitDiffResponse {
+  return options as GetGitDiffResponse;
+}
+
+
+export type GitCommit = {
+  hash: string;
+  parents: Array<string>;
+  authorName: string;
+  authorEmail: string;
+  authorTimeMs: number;
+  subject: string;
+  decorations: Array<string>;
+};
+export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
+  return options as GitCommit;
+}
+
+
+export type GetGitLogRequestInput = {
+  rev: string;
+  allRefs: boolean;
+  offset: number;
+  pageSize: number;
+};
+export function createGetGitLogRequestInput(options: Partial<GetGitLogRequestInput> = {}): GetGitLogRequestInput {
+  return options as GetGitLogRequestInput;
+}
+
+
+export type GetGitLogResponse = {
+  repoRoot: string;
+  headBranch: string | null;
+  commits: Array<GitCommit>;
+  offset: number;
+  pageSize: number;
+  nextOffset: number | null;
+  hasMore: boolean;
+  isCapped: boolean;
+};
+export function createGetGitLogResponse(options: Partial<GetGitLogResponse> = {}): GetGitLogResponse {
+  return options as GetGitLogResponse;
+}
+
+
+export type GitCommitChangedFile = {
+  path: string;
+  oldPath: string | null;
+  status: string;
+  additions: number | null;
+  deletions: number | null;
+};
+export function createGitCommitChangedFile(options: Partial<GitCommitChangedFile> = {}): GitCommitChangedFile {
+  return options as GitCommitChangedFile;
+}
+
+
+export type GetGitCommitDetailsRequestInput = {
+  commitHash: string;
+};
+export function createGetGitCommitDetailsRequestInput(options: Partial<GetGitCommitDetailsRequestInput> = {}): GetGitCommitDetailsRequestInput {
+  return options as GetGitCommitDetailsRequestInput;
+}
+
+
+export type GetGitCommitDetailsResponse = {
+  repoRoot: string;
+  commitHash: string;
+  parents: Array<string>;
+  authorName: string;
+  authorEmail: string;
+  authorTimeMs: number;
+  committerName: string;
+  committerEmail: string;
+  committerTimeMs: number;
+  subject: string;
+  body: string;
+  files: Array<GitCommitChangedFile>;
+  isTruncated: boolean;
+};
+export function createGetGitCommitDetailsResponse(options: Partial<GetGitCommitDetailsResponse> = {}): GetGitCommitDetailsResponse {
+  return options as GetGitCommitDetailsResponse;
+}
+
+
+export type GetGitCommitFileDiffRequestInput = {
+  commitHash: string;
+  path: string;
+  oldPath: string | null;
+};
+export function createGetGitCommitFileDiffRequestInput(options: Partial<GetGitCommitFileDiffRequestInput> = {}): GetGitCommitFileDiffRequestInput {
+  return options as GetGitCommitFileDiffRequestInput;
+}
+
+
+export type GetGitCommitFileDiffResponse = {
+  repoRoot: string;
+  commitHash: string;
+  path: string;
+  diff: string;
+  isTruncated: boolean;
+};
+export function createGetGitCommitFileDiffResponse(options: Partial<GetGitCommitFileDiffResponse> = {}): GetGitCommitFileDiffResponse {
+  return options as GetGitCommitFileDiffResponse;
+}
+
+
+export type ProjectStateSingleConfig = {
+  projectConfig: ProjectConfig;
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+  artifactGroups?: Record<string, unknown>;
+  singletonSections: SingletonSections;
+  parentSectionMap: Record<string, string | null>;
+  shownParamIds: Record<string, ShownParamIds>;
+  requiredDecodedImages: Array<string>;
+  genCodeBinding?: CodeFileBinding | null;
+  projectChatWindowing: ProjectChatWindowingState;
+};
+export function createProjectStateSingleConfig(options: Partial<ProjectStateSingleConfig> = {}): ProjectStateSingleConfig {
+  return mergeGeneratedOptions(
+    {
+      projectConfig: createProjectConfig(),
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+      projectChatWindowing: createProjectChatWindowingState(),
+    },
+    options,
+  );
+}
+
+
+export type ProjectStateSingleConfigWithCompletedOpIds = {
+  projectState: ProjectStateSingleConfig;
+  completedOpIds: Array<string>;
+  pendingOpIds: Array<string>;
+};
+export function createProjectStateSingleConfigWithCompletedOpIds(options: Partial<ProjectStateSingleConfigWithCompletedOpIds> = {}): ProjectStateSingleConfigWithCompletedOpIds {
+  return mergeGeneratedOptions(
+    {
+      projectState: createProjectStateSingleConfig(),
+      completedOpIds: [],
+      pendingOpIds: [],
+    },
+    options,
+  );
+}
+
+
+export const ClipboardDataTypeEnum = {
+  Sections: "Sections",
+} as const;
+export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
+
+
+export type ClipboardProjectStateCore = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+};
+export function createClipboardProjectStateCore(options: Partial<ClipboardProjectStateCore> = {}): ClipboardProjectStateCore {
+  return mergeGeneratedOptions(
+    {
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+    },
+    options,
+  );
+}
+
+
+export type Core = {
+  id: string;
+  name: string;
+  displayName: string;
+  variants: Array<string>;
+  defaultVariant: string | null;
+  sharedModifier: Record<string, unknown>;
+  unsharedKeys: Array<string>;
+};
+export function createCore(options: Partial<Core> = {}): Core {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      displayName: "",
+      variants: [],
+      defaultVariant: null,
+      sharedModifier: {},
+      unsharedKeys: [],
+    },
+    options,
+  );
+}
+
+
+export type Variant = {
+  id: string;
+  name: string;
+  impl: string;
+  nonPresetImpls: Array<string>;
+  modifier: Record<string, unknown>;
+  isFrozen: boolean;
+};
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      impl: "",
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    },
+    options,
+  );
+}
+
+
+export type SingletonSections = {
+  GlobalVariables: string | null;
+  GenPythonCode: string | null;
+  GenPythonMetadata: string | null;
+};
+export function createSingletonSections(options: Partial<SingletonSections> = {}): SingletonSections {
+  return mergeGeneratedOptions(
+    {
+      GlobalVariables: null,
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+    },
+    options,
+  );
+}
+
+
+export type ShownParamIdDetails = {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+};
+export function createShownParamIdDetails(options: Partial<ShownParamIdDetails> = {}): ShownParamIdDetails {
+  return mergeGeneratedOptions(
+    {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+    options,
+  );
+}
+
+
+export type ShownParamIds = {
+  pinned: ShownParamIdDetails;
+  unpinned: ShownParamIdDetails;
+};
+export function createShownParamIds(options: Partial<ShownParamIds> = {}): ShownParamIds {
+  return mergeGeneratedOptions(
+    {
+      pinned: createShownParamIdDetails(),
+      unpinned: createShownParamIdDetails(),
+    },
+    options,
+  );
+}
+
+
+export const ChatWindowPlacementEnum = {
+  bottom_docked: "bottom_docked",
+  floating: "floating",
+  maximized: "maximized",
+  canvas_section: "canvas_section",
+} as const;
+export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
+
+
+export const ChatWindowModeEnum = {
+  project_ai_mode: "project_ai_mode",
+  section_mode: "section_mode",
+  git_graph_mode: "git_graph_mode",
+} as const;
+export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
+
+
+export type ChatWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export function createChatWindowBounds(options: Partial<ChatWindowBounds> = {}): ChatWindowBounds {
+  return mergeGeneratedOptions(
+    {
+      x: 120,
+      y: 120,
+      width: 820,
+      height: 520,
+    },
+    options,
+  );
+}
+
+
+export type ChatWindowDockMetrics = {
+  widthFraction?: number | null;
+  preferredWidthPx?: number | null;
+};
+export function createChatWindowDockMetrics(options: Partial<ChatWindowDockMetrics> = {}): ChatWindowDockMetrics {
+  return mergeGeneratedOptions(
+    {
+      widthFraction: null,
+      preferredWidthPx: null,
+    },
+    options,
+  );
+}
+
+
+export type ProjectChatWindowInstance = {
+  instanceId: string;
+  placement?: ChatWindowPlacement;
+  isMinimized?: boolean;
+  isClosed?: boolean;
+  isMaximized?: boolean;
+  bounds?: ChatWindowBounds;
+  dockMetrics?: ChatWindowDockMetrics;
+  zIndex?: number;
+  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
+  mode?: ChatWindowMode;
+  sectionIdOrNull?: string | null;
+  title?: string | null;
+  lastFocusedAt?: number;
+  chatId?: string | null;
+};
+export function createProjectChatWindowInstance(options: Partial<ProjectChatWindowInstance> = {}): ProjectChatWindowInstance {
+  return mergeGeneratedOptions(
+    {
+      instanceId: "",
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      isMinimized: false,
+      isClosed: false,
+      isMaximized: false,
+      bounds: createChatWindowBounds(),
+      dockMetrics: createChatWindowDockMetrics(),
+      zIndex: 0,
+      lastPlacementBeforeMaximize: null,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      sectionIdOrNull: null,
+      title: null,
+      lastFocusedAt: 0,
+      chatId: null,
+    },
+    options,
+  );
+}
+
+
+export type ProjectChatWindowingState = {
+  instancesById: Record<string, ProjectChatWindowInstance>;
+  order: Array<string>;
+  nextInstanceNumber: number;
+};
+export function createProjectChatWindowingState(options: Partial<ProjectChatWindowingState> = {}): ProjectChatWindowingState {
+  return mergeGeneratedOptions(
+    {
+      instancesById: {},
+      order: [],
+      nextInstanceNumber: 1,
+    },
+    options,
+  );
+}
+
+
+export const WindowSpaceSurfaceKindEnum = {
+  project_chat: "project_chat",
+  section: "section",
+} as const;
+export type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
+
+
+export type NormalizedFloatingWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export function createNormalizedFloatingWindowBounds(options: Partial<NormalizedFloatingWindowBounds> = {}): NormalizedFloatingWindowBounds {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    },
+    options,
+  );
+}
+
+
+export type WindowSpaceWindow = {
+  surfaceKind?: WindowSpaceSurfaceKind;
+  sectionIdOrNull?: string | null;
+  mode?: ChatWindowMode;
+  title?: string | null;
+  chatId?: string | null;
+  embeddedGitPaneVisible?: boolean;
+  zIndex?: number;
+  normalizedBounds?: NormalizedFloatingWindowBounds;
+};
+export function createWindowSpaceWindow(options: Partial<WindowSpaceWindow> = {}): WindowSpaceWindow {
+  return mergeGeneratedOptions(
+    {
+      surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+      sectionIdOrNull: null,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      title: null,
+      chatId: null,
+      embeddedGitPaneVisible: false,
+      zIndex: 0,
+      normalizedBounds: createNormalizedFloatingWindowBounds(),
+    },
+    options,
+  );
+}
+
+
+export type WindowSpaceState = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+};
+export function createWindowSpaceState(options: Partial<WindowSpaceState> = {}): WindowSpaceState {
+  return mergeGeneratedOptions(
+    {
+      windowsById: {},
+      order: [],
+    },
+    options,
+  );
+}
+
+
+export type WindowSpaceConfig = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+  id: string;
+  name: string;
+  sortIndex?: number;
+};
+export function createWindowSpaceConfig(options: Partial<WindowSpaceConfig> = {}): WindowSpaceConfig {
+  return mergeGeneratedOptions(
+    {
+      windowsById: {},
+      order: [],
+      id: "",
+      name: "",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+
+export type SectionsClipboardData = {
+  type: typeof ClipboardDataTypeEnum.Sections;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+};
+export function createSectionsClipboardData(options: Partial<SectionsClipboardData> = {}): SectionsClipboardData {
+  return mergeGeneratedOptions(
+    {
+      type: ClipboardDataTypeEnum.Sections,
+      data: createClipboardProjectStateCoreWithSectionVariantMap(),
+    },
+    options,
+  );
+}
+
+
+export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
+
+
+export type ProjectMetadataEntry = {
+  id: string;
+  name: string;
+};
+export function createProjectMetadataEntry(options: Partial<ProjectMetadataEntry> = {}): ProjectMetadataEntry {
+  return options as ProjectMetadataEntry;
+}
+
+
+export type AllProjectMetadata = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: Array<ProjectMetadataEntry>;
+};
+export function createAllProjectMetadata(options: Partial<AllProjectMetadata> = {}): AllProjectMetadata {
+  return options as AllProjectMetadata;
+}
+
+
+export type DeploymentType = string;
+
+
+export type DeploymentListenerConfig = {
+  entrypoint: string;
+  enabled: boolean;
+};
+export function createDeploymentListenerConfig(options: Partial<DeploymentListenerConfig> = {}): DeploymentListenerConfig {
+  return options as DeploymentListenerConfig;
+}
+
+
+export type DeploymentManifest = {
+  version: number;
+  deploymentName: string;
+  deploymentType: DeploymentType;
+  defaultProjectConfigId: string;
+  deploymentVersion: string;
+  createdAt: string;
+  listener?: DeploymentListenerConfig | null;
+};
+export function createDeploymentManifest(options: Partial<DeploymentManifest> = {}): DeploymentManifest {
+  return options as DeploymentManifest;
+}
+
+
+export type ShareDeploymentMetadata = {
+  deploymentName: string;
+  deploymentVersion: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  createdAt: string;
+  deploymentRoot: string;
+  policyPath: string;
+};
+export function createShareDeploymentMetadata(options: Partial<ShareDeploymentMetadata> = {}): ShareDeploymentMetadata {
+  return options as ShareDeploymentMetadata;
+}
+
+
+export type ShareDeploymentMetadataList = Array<ShareDeploymentMetadata>;
+
+
+export type AppDeploymentMetadata = {
+  deploymentName: string;
+  deploymentVersion: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  createdAt: string;
+  deploymentRoot: string;
+  policyPath: string;
+};
+export function createAppDeploymentMetadata(options: Partial<AppDeploymentMetadata> = {}): AppDeploymentMetadata {
+  return options as AppDeploymentMetadata;
+}
+
+
+export type AppDeploymentMetadataList = Array<AppDeploymentMetadata>;
+
+
+export type SharePolicy = {
+  allowParamChanges: boolean;
+  allowVariantChanges: boolean;
+  allowLayoutChanges: boolean;
+  allowRun: boolean;
+  allowLLM: boolean;
+  allowExternalLinks: boolean;
+  allowFileDownloads: boolean;
+  allowMultipleRuns: boolean;
+  runSnapshotMode: RunSnapshotMode;
+};
+export function createSharePolicy(options: Partial<SharePolicy> = {}): SharePolicy {
+  return mergeGeneratedOptions(
+    {
+      allowParamChanges: true,
+      allowVariantChanges: true,
+      allowLayoutChanges: true,
+      allowRun: false,
+      allowLLM: false,
+      allowExternalLinks: false,
+      allowFileDownloads: false,
+      allowMultipleRuns: true,
+      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+    },
+    options,
+  );
+}
+
+
+export type ShareDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectMetadataEntry>;
+  sharePolicy: SharePolicy;
+  manifest?: DeploymentManifest | null;
+};
+export function createShareDeploymentSessionResponse(options: Partial<ShareDeploymentSessionResponse> = {}): ShareDeploymentSessionResponse {
+  return options as ShareDeploymentSessionResponse;
+}
+
+
+export type AppDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectMetadataEntry>;
+  appPolicy: SharePolicy;
+  manifest?: DeploymentManifest | null;
+};
+export function createAppDeploymentSessionResponse(options: Partial<AppDeploymentSessionResponse> = {}): AppDeploymentSessionResponse {
+  return options as AppDeploymentSessionResponse;
+}
+
+
+export type DeploymentVersionRouteParams = {
+  deploymentName: string;
+  version: string;
+};
+export function createDeploymentVersionRouteParams(options: Partial<DeploymentVersionRouteParams> = {}): DeploymentVersionRouteParams {
+  return options as DeploymentVersionRouteParams;
+}
+
+
+export type DeploymentNameRouteParams = {
+  deploymentName: string;
+};
+export function createDeploymentNameRouteParams(options: Partial<DeploymentNameRouteParams> = {}): DeploymentNameRouteParams {
+  return options as DeploymentNameRouteParams;
+}
+
+
+export type LoadDeploymentProjectConfigRequestInput = {
+  projectConfigId: string;
+};
+export function createLoadDeploymentProjectConfigRequestInput(options: Partial<LoadDeploymentProjectConfigRequestInput> = {}): LoadDeploymentProjectConfigRequestInput {
+  return options as LoadDeploymentProjectConfigRequestInput;
+}
+
+
+export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
+
+
+export type AppDeploymentStateResponse = {
+  projectState: ProjectStateSingleConfig;
+  appDefinition?: AppDefinition | null;
+  appSpec: JSONValue;
+  appPolicy: SharePolicy;
+};
+export function createAppDeploymentStateResponse(options: Partial<AppDeploymentStateResponse> = {}): AppDeploymentStateResponse {
+  return options as AppDeploymentStateResponse;
+}
+
+
+export type PublishShareDeploymentRequestInput = {
+  deploymentName: string;
+  projectConfigId: string;
+  sharePolicyOverrides?: SharePolicy | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean;
+};
+export function createPublishShareDeploymentRequestInput(options: Partial<PublishShareDeploymentRequestInput> = {}): PublishShareDeploymentRequestInput {
+  return options as PublishShareDeploymentRequestInput;
+}
+
+
+export type PublishAppDeploymentRequestInput = {
+  deploymentName: string;
+  projectConfigId: string;
+  appPolicyOverrides?: SharePolicy | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean;
+};
+export function createPublishAppDeploymentRequestInput(options: Partial<PublishAppDeploymentRequestInput> = {}): PublishAppDeploymentRequestInput {
+  return options as PublishAppDeploymentRequestInput;
+}
+
+
+export type LoadProjectConfigRequestInput = {
+  projectConfigName: string;
+};
+export function createLoadProjectConfigRequestInput(options: Partial<LoadProjectConfigRequestInput> = {}): LoadProjectConfigRequestInput {
+  return options as LoadProjectConfigRequestInput;
+}
+
+
+export type SaveProjectRequestInput = {
+  projectConfigId: string;
+};
+export function createSaveProjectRequestInput(options: Partial<SaveProjectRequestInput> = {}): SaveProjectRequestInput {
+  return options as SaveProjectRequestInput;
+}
+
+
+export type SaveAsNewProjectConfigRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  newConfigName: string;
+  withRefs: boolean;
+};
+export function createSaveAsNewProjectConfigRequestInput(options: Partial<SaveAsNewProjectConfigRequestInput> = {}): SaveAsNewProjectConfigRequestInput {
+  return options as SaveAsNewProjectConfigRequestInput;
+}
+
+
+export type CreateProjectConfigRequestInput = {
+  previewImgColor: string;
+};
+export function createCreateProjectConfigRequestInput(options: Partial<CreateProjectConfigRequestInput> = {}): CreateProjectConfigRequestInput {
+  return options as CreateProjectConfigRequestInput;
+}
+
+
+export type CreateProjectConfigResponse = string;
+
+
+export type DeleteProjectConfigsRequestInput = {
+  ids: Array<string>;
+};
+export function createDeleteProjectConfigsRequestInput(options: Partial<DeleteProjectConfigsRequestInput> = {}): DeleteProjectConfigsRequestInput {
+  return options as DeleteProjectConfigsRequestInput;
+}
+
+
+export type DeleteProjectConfigsResponse = boolean;
+
+
+export type SetProjectConfigNameRequestInput = {
+  projectConfigId: string;
+  newName: string;
+};
+export function createSetProjectConfigNameRequestInput(options: Partial<SetProjectConfigNameRequestInput> = {}): SetProjectConfigNameRequestInput {
+  return options as SetProjectConfigNameRequestInput;
+}
+
+
+export type SetAsDefaultProjectRequestInput = {
+  projectConfigId: string;
+};
+export function createSetAsDefaultProjectRequestInput(options: Partial<SetAsDefaultProjectRequestInput> = {}): SetAsDefaultProjectRequestInput {
+  return options as SetAsDefaultProjectRequestInput;
+}
+
+
+export type GetNotificationsRequestInput = {
+  projectConfigId: string;
+};
+export function createGetNotificationsRequestInput(options: Partial<GetNotificationsRequestInput> = {}): GetNotificationsRequestInput {
+  return options as GetNotificationsRequestInput;
+}
+
+
+export type DeleteNotificationRequestInput = {
+  notificationId: string;
+};
+export function createDeleteNotificationRequestInput(options: Partial<DeleteNotificationRequestInput> = {}): DeleteNotificationRequestInput {
+  return options as DeleteNotificationRequestInput;
+}
+
+
+export type NotificationsResponse = Array<SettaNotification>;
+
+
+export type DeleteNotificationResponse = {
+  success: boolean;
+};
+export function createDeleteNotificationResponse(options: Partial<DeleteNotificationResponse> = {}): DeleteNotificationResponse {
+  return options as DeleteNotificationResponse;
+}
+
+
+export type DocstringToMarkdownResponse = string;
+
+
+export type AgenticSummaryCacheStatus = {
+  maxSummariesPerRun: number;
+  summarySectionIds: Array<string>;
+  cachedSectionIds: Array<string>;
+  missingSectionIds: Array<string>;
+  emptySourceSectionIds: Array<string>;
+  consideredSectionIds: Array<string>;
+  wouldAttemptSectionIds: Array<string>;
+};
+export function createAgenticSummaryCacheStatus(options: Partial<AgenticSummaryCacheStatus> = {}): AgenticSummaryCacheStatus {
+  return options as AgenticSummaryCacheStatus;
+}
+
+
+export type AIFollowToolArgumentsUpdateContent = {
+  projectConfigId: string;
+  chatId: string;
+  idsByType: Record<string, Array<string>>;
+};
+export function createAIFollowToolArgumentsUpdateContent(options: Partial<AIFollowToolArgumentsUpdateContent> = {}): AIFollowToolArgumentsUpdateContent {
+  return options as AIFollowToolArgumentsUpdateContent;
+}
+
+
+export type AIFollowToolResultUpdateContent = {
+  projectConfigId: string;
+  chatId: string;
+  idsByType: Record<string, Array<string>>;
+};
+export function createAIFollowToolResultUpdateContent(options: Partial<AIFollowToolResultUpdateContent> = {}): AIFollowToolResultUpdateContent {
+  return options as AIFollowToolResultUpdateContent;
+}
+
+
+export type AIFollowSnapshotResponse = Array<AIFollowToolArgumentsUpdateContent>;
+
+
+export type CodeMirrorCompletion = {
+  label: string;
+  type: string;
+};
+export function createCodeMirrorCompletion(options: Partial<CodeMirrorCompletion> = {}): CodeMirrorCompletion {
+  return options as CodeMirrorCompletion;
+}
+
+
+export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
+
+
+export type CreateNewSectionVariantRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createCreateNewSectionVariantRequestInput(options: Partial<CreateNewSectionVariantRequestInput> = {}): CreateNewSectionVariantRequestInput {
+  return options as CreateNewSectionVariantRequestInput;
+}
+
+
+export type CreateNewSectionVariantResponse = {
+  variantId: string;
+};
+export function createCreateNewSectionVariantResponse(options: Partial<CreateNewSectionVariantResponse> = {}): CreateNewSectionVariantResponse {
+  return options as CreateNewSectionVariantResponse;
+}
+
+
+export type SetSectionVariantRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createSetSectionVariantRequestInput(options: Partial<SetSectionVariantRequestInput> = {}): SetSectionVariantRequestInput {
+  return options as SetSectionVariantRequestInput;
+}
+
+
+export type SetDefaultSectionVariantRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createSetDefaultSectionVariantRequestInput(options: Partial<SetDefaultSectionVariantRequestInput> = {}): SetDefaultSectionVariantRequestInput {
+  return options as SetDefaultSectionVariantRequestInput;
+}
+
+
+export type SetSectionVariantSortOrderRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  orderedVariantIds: Array<string>;
+};
+export function createSetSectionVariantSortOrderRequestInput(options: Partial<SetSectionVariantSortOrderRequestInput> = {}): SetSectionVariantSortOrderRequestInput {
+  return options as SetSectionVariantSortOrderRequestInput;
+}
+
+
+export type ToggleVariantFrozenRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  variantId: string;
+};
+export function createToggleVariantFrozenRequestInput(options: Partial<ToggleVariantFrozenRequestInput> = {}): ToggleVariantFrozenRequestInput {
+  return options as ToggleVariantFrozenRequestInput;
+}
+
+
+export type ToggleVariantJSONSourceRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createToggleVariantJSONSourceRequestInput(options: Partial<ToggleVariantJSONSourceRequestInput> = {}): ToggleVariantJSONSourceRequestInput {
+  return options as ToggleVariantJSONSourceRequestInput;
+}
+
+
+export type SetVariantJSONSourceKeysRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+  jsonSourceKeys: Array<string>;
+};
+export function createSetVariantJSONSourceKeysRequestInput(options: Partial<SetVariantJSONSourceKeysRequestInput> = {}): SetVariantJSONSourceKeysRequestInput {
+  return options as SetVariantJSONSourceKeysRequestInput;
+}
+
+
+export type SetSectionVariantNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  variantId: string;
+  name: string;
+};
+export function createSetSectionVariantNameRequestInput(options: Partial<SetSectionVariantNameRequestInput> = {}): SetSectionVariantNameRequestInput {
+  return options as SetSectionVariantNameRequestInput;
+}
+
+
+export type DeleteSectionVariantOrAskResponse = string;
+
+
+export type CreateChildSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  parentId: string;
+  implType: SectionType;
+  numChildren: number;
+  startIdx?: number | null;
+};
+export function createCreateChildSectionsRequestInput(options: Partial<CreateChildSectionsRequestInput> = {}): CreateChildSectionsRequestInput {
+  return options as CreateChildSectionsRequestInput;
+}
+
+
+export type CreateChildSectionsViaIncrementerRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  implType: SectionType;
+  numChildren: number;
+};
+export function createCreateChildSectionsViaIncrementerRequestInput(options: Partial<CreateChildSectionsViaIncrementerRequestInput> = {}): CreateChildSectionsViaIncrementerRequestInput {
+  return options as CreateChildSectionsViaIncrementerRequestInput;
+}
+
+
+export type CreateChildSectionsResponse = {
+  sectionIds: Array<string>;
+};
+export function createCreateChildSectionsResponse(options: Partial<CreateChildSectionsResponse> = {}): CreateChildSectionsResponse {
+  return options as CreateChildSectionsResponse;
+}
+
+
+export type DeleteChildSectionsViaDecrementerRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  numChildren: number;
+};
+export function createDeleteChildSectionsViaDecrementerRequestInput(options: Partial<DeleteChildSectionsViaDecrementerRequestInput> = {}): DeleteChildSectionsViaDecrementerRequestInput {
+  return options as DeleteChildSectionsViaDecrementerRequestInput;
+}
+
+
+export type DeleteChildSectionsViaDecrementerResponse = {
+  sectionIds: Array<string>;
+};
+export function createDeleteChildSectionsViaDecrementerResponse(options: Partial<DeleteChildSectionsViaDecrementerResponse> = {}): DeleteChildSectionsViaDecrementerResponse {
+  return options as DeleteChildSectionsViaDecrementerResponse;
+}
+
+
+export type DeleteSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createDeleteSectionsRequestInput(options: Partial<DeleteSectionsRequestInput> = {}): DeleteSectionsRequestInput {
+  return options as DeleteSectionsRequestInput;
+}
+
+
+export type DeleteSelectedParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoIds: Array<string>;
+};
+export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSelectedParamsRequestInput> = {}): DeleteSelectedParamsRequestInput {
+  return options as DeleteSelectedParamsRequestInput;
+}
+
+
+export type PrepareSectionsForCopyRequestInput = {
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createPrepareSectionsForCopyRequestInput(options: Partial<PrepareSectionsForCopyRequestInput> = {}): PrepareSectionsForCopyRequestInput {
+  return options as PrepareSectionsForCopyRequestInput;
+}
+
+
+export type PasteSectionsRequestInput = {
+  projectConfigId: string;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+  position: Position;
+  asRef: boolean;
+};
+export function createPasteSectionsRequestInput(options: Partial<PasteSectionsRequestInput> = {}): PasteSectionsRequestInput {
+  return options as PasteSectionsRequestInput;
+}
+
+
+export type SectionsClipboardDataResponse = SectionsClipboardData;
+
+
+export type CreateEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown> | null;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown> | null;
+};
+export function createCreateEdgeRequestInput(options: Partial<CreateEdgeRequestInput> = {}): CreateEdgeRequestInput {
+  return options as CreateEdgeRequestInput;
+}
+
+
+export type UpdateEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: Edge;
+};
+export function createUpdateEdgeRequestInput(options: Partial<UpdateEdgeRequestInput> = {}): UpdateEdgeRequestInput {
+  return options as UpdateEdgeRequestInput;
+}
+
+
+export type DeleteEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+export function createDeleteEdgesRequestInput(options: Partial<DeleteEdgesRequestInput> = {}): DeleteEdgesRequestInput {
+  return options as DeleteEdgesRequestInput;
+}
+
+
+export type ReconnectEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+};
+export function createReconnectEdgeRequestInput(options: Partial<ReconnectEdgeRequestInput> = {}): ReconnectEdgeRequestInput {
+  return options as ReconnectEdgeRequestInput;
+}
+
+
+export type SetEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<Edge>;
+};
+export function createSetEdgesRequestInput(options: Partial<SetEdgesRequestInput> = {}): SetEdgesRequestInput {
+  return options as SetEdgesRequestInput;
+}
+
+
+export type CreateStateMachineEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id?: string | null;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createCreateStateMachineEdgeRequestInput(options: Partial<CreateStateMachineEdgeRequestInput> = {}): CreateStateMachineEdgeRequestInput {
+  return options as CreateStateMachineEdgeRequestInput;
+}
+
+
+export type UpdateStateMachineEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: StateMachineEdge;
+};
+export function createUpdateStateMachineEdgeRequestInput(options: Partial<UpdateStateMachineEdgeRequestInput> = {}): UpdateStateMachineEdgeRequestInput {
+  return options as UpdateStateMachineEdgeRequestInput;
+}
+
+
+export type DeleteStateMachineEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+export function createDeleteStateMachineEdgesRequestInput(options: Partial<DeleteStateMachineEdgesRequestInput> = {}): DeleteStateMachineEdgesRequestInput {
+  return options as DeleteStateMachineEdgesRequestInput;
+}
+
+
+export type SetStateMachineEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<StateMachineEdge>;
+};
+export function createSetStateMachineEdgesRequestInput(options: Partial<SetStateMachineEdgesRequestInput> = {}): SetStateMachineEdgesRequestInput {
+  return options as SetStateMachineEdgesRequestInput;
+}
+
+
+export type CreateAgenticEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id?: string | null;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+};
+export function createCreateAgenticEdgeRequestInput(options: Partial<CreateAgenticEdgeRequestInput> = {}): CreateAgenticEdgeRequestInput {
+  return options as CreateAgenticEdgeRequestInput;
+}
+
+
+export type UpdateAgenticEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: AgenticEdge;
+};
+export function createUpdateAgenticEdgeRequestInput(options: Partial<UpdateAgenticEdgeRequestInput> = {}): UpdateAgenticEdgeRequestInput {
+  return options as UpdateAgenticEdgeRequestInput;
+}
+
+
+export type DeleteAgenticEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+export function createDeleteAgenticEdgesRequestInput(options: Partial<DeleteAgenticEdgesRequestInput> = {}): DeleteAgenticEdgesRequestInput {
+  return options as DeleteAgenticEdgesRequestInput;
+}
+
+
+export type SetAgenticEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<AgenticEdge>;
+};
+export function createSetAgenticEdgesRequestInput(options: Partial<SetAgenticEdgesRequestInput> = {}): SetAgenticEdgesRequestInput {
+  return options as SetAgenticEdgesRequestInput;
+}
+
+
+export type MoveSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+  newParentId: string | null;
+  newIndex: number | null;
+  positionsById: Record<string, Position> | null;
+};
+export function createMoveSectionsRequestInput(options: Partial<MoveSectionsRequestInput> = {}): MoveSectionsRequestInput {
+  return options as MoveSectionsRequestInput;
+}
+
+
+export type MoveParamGroup = {
+  paramIds: Array<string>;
+  newParentId: string;
+  newIndex: number;
+};
+export function createMoveParamGroup(options: Partial<MoveParamGroup> = {}): MoveParamGroup {
+  return options as MoveParamGroup;
+}
+
+
+export type MoveParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+  newParentId: string;
+  newIndex: number;
+};
+export function createMoveParamsRequestInput(options: Partial<MoveParamsRequestInput> = {}): MoveParamsRequestInput {
+  return options as MoveParamsRequestInput;
+}
+
+
+export type MoveParamGroupsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  moves: Array<MoveParamGroup>;
+};
+export function createMoveParamGroupsRequestInput(options: Partial<MoveParamGroupsRequestInput> = {}): MoveParamGroupsRequestInput {
+  return options as MoveParamGroupsRequestInput;
+}
+
+
+export type IndentParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+};
+export function createIndentParamsRequestInput(options: Partial<IndentParamsRequestInput> = {}): IndentParamsRequestInput {
+  return options as IndentParamsRequestInput;
+}
+
+
+export type UnindentParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+};
+export function createUnindentParamsRequestInput(options: Partial<UnindentParamsRequestInput> = {}): UnindentParamsRequestInput {
+  return options as UnindentParamsRequestInput;
+}
+
+
+export type AddKwargRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createAddKwargRequestInput(options: Partial<AddKwargRequestInput> = {}): AddKwargRequestInput {
+  return options as AddKwargRequestInput;
+}
+
+
+export type DeleteKwargRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createDeleteKwargRequestInput(options: Partial<DeleteKwargRequestInput> = {}): DeleteKwargRequestInput {
+  return options as DeleteKwargRequestInput;
+}
+
+
+export type SetParamEnteredValueRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+};
+export function createSetParamEnteredValueRequestInput(options: Partial<SetParamEnteredValueRequestInput> = {}): SetParamEnteredValueRequestInput {
+  return options as SetParamEnteredValueRequestInput;
+}
+
+
+export type UpdateParamImplConfigRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  newConfig: Record<string, unknown>;
+};
+export function createUpdateParamImplConfigRequestInput(options: Partial<UpdateParamImplConfigRequestInput> = {}): UpdateParamImplConfigRequestInput {
+  return options as UpdateParamImplConfigRequestInput;
+}
+
+
+export type SetCodeSectionAttachedTerminalRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  terminalSectionId?: string | null;
+};
+export function createSetCodeSectionAttachedTerminalRequestInput(options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {}): SetCodeSectionAttachedTerminalRequestInput {
+  return options as SetCodeSectionAttachedTerminalRequestInput;
+}
+
+
+export type SetGenCodePrefixRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  genCodePrefix: string;
+};
+export function createSetGenCodePrefixRequestInput(options: Partial<SetGenCodePrefixRequestInput> = {}): SetGenCodePrefixRequestInput {
+  return options as SetGenCodePrefixRequestInput;
+}
+
+
+export type SetGenCodeSuffixRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  genCodeSuffix: string;
+};
+export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSuffixRequestInput> = {}): SetGenCodeSuffixRequestInput {
+  return options as SetGenCodeSuffixRequestInput;
+}
+
+
+export type SetCodeObjNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codeObjId: string;
+  name: string;
+};
+export function createSetCodeObjNameRequestInput(options: Partial<SetCodeObjNameRequestInput> = {}): SetCodeObjNameRequestInput {
+  return options as SetCodeObjNameRequestInput;
+}
+
+
+export type SetCodeObjDisplayNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codeObjId: string;
+  displayName: string;
+};
+export function createSetCodeObjDisplayNameRequestInput(options: Partial<SetCodeObjDisplayNameRequestInput> = {}): SetCodeObjDisplayNameRequestInput {
+  return options as SetCodeObjDisplayNameRequestInput;
+}
+
+
+export type Position = {
+  x: number;
+  y: number;
+};
+export function createPosition(options: Partial<Position> = {}): Position {
+  return options as Position;
+}
+
+
+export const RenameRefactorModeEnum = {
+  ALWAYS_ASK: "ALWAYS_ASK",
+  ALWAYS_RENAME: "ALWAYS_RENAME",
+  NEVER_RENAME: "NEVER_RENAME",
+} as const;
+export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
+
+
+export const BackgroundVariantEnum = {
+  lines: "lines",
+  dots: "dots",
+  cross: "cross",
+} as const;
+export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
+
+
+export const SelectionModeEnum = {
+  partial: "partial",
+  full: "full",
+} as const;
+export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
+
+
+export const PanOnScrollModeEnum = {
+  free: "free",
+  vertical: "vertical",
+  horizontal: "horizontal",
+} as const;
+export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
 
 
 export const MetaControlSizeModeEnum = {
@@ -1267,6 +4705,38 @@ export const SectionSizeModeEnum = {
   auto: "auto",
 } as const;
 export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
+
+
+export const ProjectCodegenLanguageEnum = {
+  python: "python",
+} as const;
+export type ProjectCodegenLanguage = ObjectValues<typeof ProjectCodegenLanguageEnum>;
+
+
+export const SectionCodegenModeEnum = {
+  inherit: "inherit",
+  include: "include",
+  exclude: "exclude",
+} as const;
+export type SectionCodegenMode = ObjectValues<typeof SectionCodegenModeEnum>;
+
+
+export const SectionRepresentationModeEnum = {
+  expression: "expression",
+  file_path: "file_path",
+  file_read: "file_read",
+} as const;
+export type SectionRepresentationMode = ObjectValues<typeof SectionRepresentationModeEnum>;
+
+
+export const CodeObjValueRepresentationModeEnum = {
+  expression: "expression",
+  json_parsed: "json_parsed",
+  string: "string",
+  file_path: "file_path",
+  file_read: "file_read",
+} as const;
+export type CodeObjValueRepresentationMode = ObjectValues<typeof CodeObjValueRepresentationModeEnum>;
 
 
 export type SectionSizeValue = number | SectionSizeMode;
@@ -2035,74 +5505,6 @@ export function createSectionSizingPolicy(options: Partial<SectionSizingPolicy> 
 }
 
 
-export const RunSnapshotModeEnum = {
-  ephemeral: "ephemeral",
-  always: "always",
-  never: "never",
-} as const;
-export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
-
-
-export const RenameRefactorModeEnum = {
-  ALWAYS_ASK: "ALWAYS_ASK",
-  ALWAYS_RENAME: "ALWAYS_RENAME",
-  NEVER_RENAME: "NEVER_RENAME",
-} as const;
-export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
-
-
-export const BackgroundVariantEnum = {
-  lines: "lines",
-  dots: "dots",
-  cross: "cross",
-} as const;
-export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
-
-
-export const SelectionModeEnum = {
-  partial: "partial",
-  full: "full",
-} as const;
-export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
-
-
-export const PanOnScrollModeEnum = {
-  free: "free",
-  vertical: "vertical",
-  horizontal: "horizontal",
-} as const;
-export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
-
-
-export type SharePolicy = {
-  allowParamChanges: boolean;
-  allowVariantChanges: boolean;
-  allowLayoutChanges: boolean;
-  allowRun: boolean;
-  allowLLM: boolean;
-  allowExternalLinks: boolean;
-  allowFileDownloads: boolean;
-  allowMultipleRuns: boolean;
-  runSnapshotMode: RunSnapshotMode;
-};
-export function createSharePolicy(options: Partial<SharePolicy> = {}): SharePolicy {
-  return mergeGeneratedOptions(
-    {
-      allowParamChanges: true,
-      allowVariantChanges: true,
-      allowLayoutChanges: true,
-      allowRun: false,
-      allowLLM: false,
-      allowExternalLinks: false,
-      allowFileDownloads: false,
-      allowMultipleRuns: true,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
-    },
-    options,
-  );
-}
-
-
 export type SettingsShortcuts = {
   newCardShortcut: string;
   newGroupShortcut: string;
@@ -2386,36 +5788,12 @@ export function createSettingsState(options: Partial<SettingsState> = {}): Setti
 }
 
 
-export const ProjectCodegenLanguageEnum = {
-  python: "python",
-} as const;
-export type ProjectCodegenLanguage = ObjectValues<typeof ProjectCodegenLanguageEnum>;
-
-
-export const SectionCodegenModeEnum = {
-  inherit: "inherit",
-  include: "include",
-  exclude: "exclude",
-} as const;
-export type SectionCodegenMode = ObjectValues<typeof SectionCodegenModeEnum>;
-
-
-export const SectionRepresentationModeEnum = {
-  expression: "expression",
-  file_path: "file_path",
-  file_read: "file_read",
-} as const;
-export type SectionRepresentationMode = ObjectValues<typeof SectionRepresentationModeEnum>;
-
-
-export const CodeObjValueRepresentationModeEnum = {
-  expression: "expression",
-  json_parsed: "json_parsed",
-  string: "string",
-  file_path: "file_path",
-  file_read: "file_read",
-} as const;
-export type CodeObjValueRepresentationMode = ObjectValues<typeof CodeObjValueRepresentationModeEnum>;
+export type SaveSettingsRequestInput = {
+  settings: SettingsState;
+};
+export function createSaveSettingsRequestInput(options: Partial<SaveSettingsRequestInput> = {}): SaveSettingsRequestInput {
+  return options as SaveSettingsRequestInput;
+}
 
 
 export type SectionTypeCodegenPolicy = {
@@ -2676,6 +6054,564 @@ export function createProjectCodegenPluginTarget(options: Partial<ProjectCodegen
 export type ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget;
 
 
+export type ProjectConfig = {
+  id: string;
+  name: string;
+  showParamDisplayNames: boolean;
+  allowJsonSourceKeyEdits: boolean;
+  previewImgColor?: string;
+  viewport?: Viewport | null;
+  viewportInitialized: boolean;
+  viewModes: Record<string, ViewMode>;
+  activeViewModeId?: string | null;
+  isEditingViewMode: boolean;
+  codegenTargets: Array<ProjectCodegenTarget>;
+  watchCodeEnabled: boolean;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
+  watchCodeBaselineByPath: Record<string, Array<string>>;
+  entryCodeBlockId?: string | null;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  windowSpaces: Record<string, WindowSpaceConfig>;
+  sectionVariantMap: Record<string, string>;
+  activeIds: Array<string>;
+  edges: Array<Edge>;
+  agenticEdges: Array<AgenticEdge>;
+  stateMachineEdges: Array<StateMachineEdge>;
+};
+export function createProjectConfig(options: Partial<ProjectConfig> = {}): ProjectConfig {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      showParamDisplayNames: false,
+      allowJsonSourceKeyEdits: false,
+      previewImgColor: "",
+      viewport: null,
+      viewportInitialized: false,
+      viewModes: {},
+      activeViewModeId: null,
+      isEditingViewMode: false,
+      codegenTargets: [],
+      watchCodeEnabled: false,
+      watchCodeFolders: [],
+      watchCodeFiles: [],
+      watchCodeRegistry: {},
+      watchCodeBaselineByPath: {},
+      entryCodeBlockId: null,
+      topLevelSections: {},
+      windowSpaces: {},
+      sectionVariantMap: {},
+      activeIds: [],
+      edges: [],
+      agenticEdges: [],
+      stateMachineEdges: [],
+    },
+    options,
+  );
+}
+
+
+export type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+export function createClipboardProjectStateCoreWithSectionVariantMap(options: Partial<ClipboardProjectStateCoreWithSectionVariantMap> = {}): ClipboardProjectStateCoreWithSectionVariantMap {
+  return mergeGeneratedOptions(
+    {
+      core: createClipboardProjectStateCore(),
+      sectionVariantMap: {},
+    },
+    options,
+  );
+}
+
+
+export type TopLevelSectionLayoutInput = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
+  return options as TopLevelSectionLayoutInput;
+}
+
+
+export type ViewportBoundsInput = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+export function createViewportBoundsInput(options: Partial<ViewportBoundsInput> = {}): ViewportBoundsInput {
+  return options as ViewportBoundsInput;
+}
+
+
+export type CreateTopLevelSectionRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  implType: string;
+  controlCodeObjType?: string | null;
+  implOverrides?: Record<string, unknown> | null;
+  position?: Position | null;
+  name?: string | null;
+  topLevelSections?: Record<string, TopLevelSectionLayoutInput>;
+  viewportBounds?: ViewportBoundsInput | null;
+};
+export function createCreateTopLevelSectionRequestInput(options: Partial<CreateTopLevelSectionRequestInput> = {}): CreateTopLevelSectionRequestInput {
+  return options as CreateTopLevelSectionRequestInput;
+}
+
+
+export type CreateTopLevelSectionResponse = {
+  sectionId: string;
+  metaControlParamId?: string | null;
+  panTo?: Position | null;
+};
+export function createCreateTopLevelSectionResponse(options: Partial<CreateTopLevelSectionResponse> = {}): CreateTopLevelSectionResponse {
+  return options as CreateTopLevelSectionResponse;
+}
+
+
+export type CreateViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+export function createCreateViewModeRequestInput(options: Partial<CreateViewModeRequestInput> = {}): CreateViewModeRequestInput {
+  return options as CreateViewModeRequestInput;
+}
+
+
+export type CreateViewModeResponse = string;
+
+
+export type SetActiveViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  activeViewModeId: string;
+};
+export function createSetActiveViewModeRequestInput(options: Partial<SetActiveViewModeRequestInput> = {}): SetActiveViewModeRequestInput {
+  return options as SetActiveViewModeRequestInput;
+}
+
+
+export type ToggleIsEditingViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+export function createToggleIsEditingViewModeRequestInput(options: Partial<ToggleIsEditingViewModeRequestInput> = {}): ToggleIsEditingViewModeRequestInput {
+  return options as ToggleIsEditingViewModeRequestInput;
+}
+
+
+export type ToggleViewModeUserFacingRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+};
+export function createToggleViewModeUserFacingRequestInput(options: Partial<ToggleViewModeUserFacingRequestInput> = {}): ToggleViewModeUserFacingRequestInput {
+  return options as ToggleViewModeUserFacingRequestInput;
+}
+
+
+export type ToggleViewModeTabRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+};
+export function createToggleViewModeTabRequestInput(options: Partial<ToggleViewModeTabRequestInput> = {}): ToggleViewModeTabRequestInput {
+  return options as ToggleViewModeTabRequestInput;
+}
+
+
+export type SetViewModeNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+  name: string;
+};
+export function createSetViewModeNameRequestInput(options: Partial<SetViewModeNameRequestInput> = {}): SetViewModeNameRequestInput {
+  return options as SetViewModeNameRequestInput;
+}
+
+
+export type SetViewModeSortOrderRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  orderedViewModeIds: Array<string>;
+};
+export function createSetViewModeSortOrderRequestInput(options: Partial<SetViewModeSortOrderRequestInput> = {}): SetViewModeSortOrderRequestInput {
+  return options as SetViewModeSortOrderRequestInput;
+}
+
+
+export type DeleteViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+};
+export function createDeleteViewModeRequestInput(options: Partial<DeleteViewModeRequestInput> = {}): DeleteViewModeRequestInput {
+  return options as DeleteViewModeRequestInput;
+}
+
+
+export type SetSectionNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  name: string;
+};
+export function createSetSectionNameRequestInput(options: Partial<SetSectionNameRequestInput> = {}): SetSectionNameRequestInput {
+  return options as SetSectionNameRequestInput;
+}
+
+
+export type AcceptRenameRefactorRequestInput = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+export function createAcceptRenameRefactorRequestInput(options: Partial<AcceptRenameRefactorRequestInput> = {}): AcceptRenameRefactorRequestInput {
+  return options as AcceptRenameRefactorRequestInput;
+}
+
+
+export type DeclineRenameRefactorRequestInput = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+export function createDeclineRenameRefactorRequestInput(options: Partial<DeclineRenameRefactorRequestInput> = {}): DeclineRenameRefactorRequestInput {
+  return options as DeclineRenameRefactorRequestInput;
+}
+
+
+export type ToggleSectionVisibilityRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createToggleSectionVisibilityRequestInput(options: Partial<ToggleSectionVisibilityRequestInput> = {}): ToggleSectionVisibilityRequestInput {
+  return options as ToggleSectionVisibilityRequestInput;
+}
+
+
+export type AutoLayoutTopLevelSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  margin?: number | null;
+};
+export function createAutoLayoutTopLevelSectionsRequestInput(options: Partial<AutoLayoutTopLevelSectionsRequestInput> = {}): AutoLayoutTopLevelSectionsRequestInput {
+  return options as AutoLayoutTopLevelSectionsRequestInput;
+}
+
+
+export type SetShowParamDisplayNamesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  showParamDisplayNames: boolean;
+};
+export function createSetShowParamDisplayNamesRequestInput(options: Partial<SetShowParamDisplayNamesRequestInput> = {}): SetShowParamDisplayNamesRequestInput {
+  return options as SetShowParamDisplayNamesRequestInput;
+}
+
+
+export type TogglePositionLocksRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createTogglePositionLocksRequestInput(options: Partial<TogglePositionLocksRequestInput> = {}): TogglePositionLocksRequestInput {
+  return options as TogglePositionLocksRequestInput;
+}
+
+
+export type ToggleMinimizedRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createToggleMinimizedRequestInput(options: Partial<ToggleMinimizedRequestInput> = {}): ToggleMinimizedRequestInput {
+  return options as ToggleMinimizedRequestInput;
+}
+
+
+export type SetSectionTagColorRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  tagColor?: string | null;
+};
+export function createSetSectionTagColorRequestInput(options: Partial<SetSectionTagColorRequestInput> = {}): SetSectionTagColorRequestInput {
+  return options as SetSectionTagColorRequestInput;
+}
+
+
+export type SetSectionStyleColorRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  styleColor?: string | null;
+};
+export function createSetSectionStyleColorRequestInput(options: Partial<SetSectionStyleColorRequestInput> = {}): SetSectionStyleColorRequestInput {
+  return options as SetSectionStyleColorRequestInput;
+}
+
+
+export type GetLatestProjectStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+export function createGetLatestProjectStateRequestInput(options: Partial<GetLatestProjectStateRequestInput> = {}): GetLatestProjectStateRequestInput {
+  return options as GetLatestProjectStateRequestInput;
+}
+
+
+export type UndoRequestInput = {
+  projectConfigId: string;
+  steps: number;
+};
+export function createUndoRequestInput(options: Partial<UndoRequestInput> = {}): UndoRequestInput {
+  return options as UndoRequestInput;
+}
+
+
+export type RedoRequestInput = {
+  projectConfigId: string;
+  steps: number;
+};
+export function createRedoRequestInput(options: Partial<RedoRequestInput> = {}): RedoRequestInput {
+  return options as RedoRequestInput;
+}
+
+
+export type SetCallableChildCodeObj = {
+  codeObjId: string;
+  name: string;
+};
+export function createSetCallableChildCodeObj(options: Partial<SetCallableChildCodeObj> = {}): SetCallableChildCodeObj {
+  return options as SetCallableChildCodeObj;
+}
+
+
+export type SignatureHelpStatus = string;
+
+
+export type SetCallableResponse = {
+  callableId?: string | null;
+  childCodeObjs: Array<SetCallableChildCodeObj>;
+  lspStatus: SignatureHelpStatus;
+};
+export function createSetCallableResponse(options: Partial<SetCallableResponse> = {}): SetCallableResponse {
+  return options as SetCallableResponse;
+}
+
+
+export type SetCallableRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  callableName: string;
+  refetchParams: boolean;
+};
+export function createSetCallableRequestInput(options: Partial<SetCallableRequestInput> = {}): SetCallableRequestInput {
+  return options as SetCallableRequestInput;
+}
+
+
+export type SetCodeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  code: string;
+};
+export function createSetCodeRequestInput(options: Partial<SetCodeRequestInput> = {}): SetCodeRequestInput {
+  return options as SetCodeRequestInput;
+}
+
+
+export type FormatCodeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createFormatCodeRequestInput(options: Partial<FormatCodeRequestInput> = {}): FormatCodeRequestInput {
+  return options as FormatCodeRequestInput;
+}
+
+
+export type SetCallableHideParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideParams: boolean;
+};
+export function createSetCallableHideParamsRequestInput(options: Partial<SetCallableHideParamsRequestInput> = {}): SetCallableHideParamsRequestInput {
+  return options as SetCallableHideParamsRequestInput;
+}
+
+
+export type SetSectionHideUnpinnedParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideUnpinnedParams: boolean;
+};
+export function createSetSectionHideUnpinnedParamsRequestInput(options: Partial<SetSectionHideUnpinnedParamsRequestInput> = {}): SetSectionHideUnpinnedParamsRequestInput {
+  return options as SetSectionHideUnpinnedParamsRequestInput;
+}
+
+
+export type SetSectionPinnedParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  pinnedParams: Array<string>;
+};
+export function createSetSectionPinnedParamsRequestInput(options: Partial<SetSectionPinnedParamsRequestInput> = {}): SetSectionPinnedParamsRequestInput {
+  return options as SetSectionPinnedParamsRequestInput;
+}
+
+
+export type SetProjectConfigCodegenTargetsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codegenTargets: Array<ProjectCodegenTarget>;
+};
+export function createSetProjectConfigCodegenTargetsRequestInput(options: Partial<SetProjectConfigCodegenTargetsRequestInput> = {}): SetProjectConfigCodegenTargetsRequestInput {
+  return options as SetProjectConfigCodegenTargetsRequestInput;
+}
+
+
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
+
+
+export const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
+
+
+export type SetChatSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+};
+export function createSetChatSectionSettingsRequestInput(options: Partial<SetChatSectionSettingsRequestInput> = {}): SetChatSectionSettingsRequestInput {
+  return options as SetChatSectionSettingsRequestInput;
+}
+
+
+export type SetStateMachineSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  machineGroupId: string;
+  label: string;
+  gateType?: StateMachineGateType | null;
+};
+export function createSetStateMachineSectionSettingsRequestInput(options: Partial<SetStateMachineSectionSettingsRequestInput> = {}): SetStateMachineSectionSettingsRequestInput {
+  return options as SetStateMachineSectionSettingsRequestInput;
+}
+
+
+export type SetWatchCodeEnabledRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  enabled: boolean;
+};
+export function createSetWatchCodeEnabledRequestInput(options: Partial<SetWatchCodeEnabledRequestInput> = {}): SetWatchCodeEnabledRequestInput {
+  return options as SetWatchCodeEnabledRequestInput;
+}
+
+
+export type WatchCodeFolder = {
+  path: string;
+  recursive: boolean;
+};
+export function createWatchCodeFolder(options: Partial<WatchCodeFolder> = {}): WatchCodeFolder {
+  return options as WatchCodeFolder;
+}
+
+
+export type SetWatchCodeInputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+};
+export function createSetWatchCodeInputsRequestInput(options: Partial<SetWatchCodeInputsRequestInput> = {}): SetWatchCodeInputsRequestInput {
+  return options as SetWatchCodeInputsRequestInput;
+}
+
+
+export type GroupSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createGroupSectionsRequestInput(options: Partial<GroupSectionsRequestInput> = {}): GroupSectionsRequestInput {
+  return options as GroupSectionsRequestInput;
+}
+
+
+export type UngroupGroupsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  groupIds: Array<string>;
+};
+export function createUngroupGroupsRequestInput(options: Partial<UngroupGroupsRequestInput> = {}): UngroupGroupsRequestInput {
+  return options as UngroupGroupsRequestInput;
+}
+
+
+export type SetSectionSizesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionSizes: Record<string, SectionSize>;
+};
+export function createSetSectionSizesRequestInput(options: Partial<SetSectionSizesRequestInput> = {}): SetSectionSizesRequestInput {
+  return options as SetSectionSizesRequestInput;
+}
+
+
+export type ToggleParamSelectedRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+export function createToggleParamSelectedRequestInput(options: Partial<ToggleParamSelectedRequestInput> = {}): ToggleParamSelectedRequestInput {
+  return options as ToggleParamSelectedRequestInput;
+}
+
+
+export type UnselectAllParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+export function createUnselectAllParamsRequestInput(options: Partial<UnselectAllParamsRequestInput> = {}): UnselectAllParamsRequestInput {
+  return options as UnselectAllParamsRequestInput;
+}
+
+
 export const SectionTypeEnum = {
   Callable: "Callable",
   Dict: "Dict",
@@ -2854,22 +6790,212 @@ export const DateCalendarWeekStartEnum = {
 export type DateCalendarWeekStart = ObjectValues<typeof DateCalendarWeekStartEnum>;
 
 
-export type EdgePort = {
-  id: string;
-  accessor: string;
+export const ListRootViewModeEnum = {
+  default: "default",
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
+
+
+export const BrowserAreaViewModeEnum = {
+  list: "list",
+  thumbnail: "thumbnail",
+  carousel: "carousel",
+} as const;
+export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
+
+
+export const BrowserSearchScopeEnum = {
+  recursive: "recursive",
+  local: "local",
+} as const;
+export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
+
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<typeof SpreadsheetGridDensityEnum>;
+
+
+export const ChartTypeEnum = {
+  line: "line",
+  scatter: "scatter",
+} as const;
+export type ChartType = ObjectValues<typeof ChartTypeEnum>;
+
+
+export type LineChartSettings = {
+  type: typeof ChartTypeEnum.line;
+  xAxisColumn?: string | null;
+  secondYAxisColumns: Array<string>;
+  xAxisLog: boolean;
+  y1AxisLog: boolean;
+  y2AxisLog: boolean;
 };
-export function createEdgePort(options: Partial<EdgePort> = {}): EdgePort {
-  return options as EdgePort;
+export function createLineChartSettings(options: Partial<LineChartSettings> = {}): LineChartSettings {
+  return mergeGeneratedOptions(
+    {
+      type: ChartTypeEnum.line,
+      xAxisColumn: null,
+      secondYAxisColumns: [],
+      xAxisLog: false,
+      y1AxisLog: false,
+      y2AxisLog: false,
+    },
+    options,
+  );
 }
 
 
-export type TypeErrorIgnoreState = {
-  callable: boolean;
-  params: Record<string, boolean>;
+export type ScatterChartSettings = {
+  type: typeof ChartTypeEnum.scatter;
+  xAxisColumn?: string | null;
+  categoryColumn?: string | null;
+  xAxisLog: boolean;
+  yAxisLog: boolean;
 };
-export function createTypeErrorIgnoreState(options: Partial<TypeErrorIgnoreState> = {}): TypeErrorIgnoreState {
-  return options as TypeErrorIgnoreState;
+export function createScatterChartSettings(options: Partial<ScatterChartSettings> = {}): ScatterChartSettings {
+  return mergeGeneratedOptions(
+    {
+      type: ChartTypeEnum.scatter,
+      xAxisColumn: null,
+      categoryColumn: null,
+      xAxisLog: false,
+      yAxisLog: false,
+    },
+    options,
+  );
 }
+
+
+export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
+
+
+export function createBaseChartSettingsUnionWithDiscriminator(
+  options: ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
+): BaseChartSettingsUnion {
+  switch (options.type) {
+    case ChartTypeEnum.line:
+      return createLineChartSettings(options);
+    case ChartTypeEnum.scatter:
+      return createScatterChartSettings(options);
+    default:
+      throw new Error("Unsupported chart type.");
+  }
+}
+
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+export type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
+
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
+
+
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
+
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+
+export const TaskBoardTaskRecurrenceEnum = {
+  none: "none",
+  hourly: "hourly",
+  daily: "daily",
+  specified_days: "specified_days",
+  specified_months: "specified_months",
+  specified_years: "specified_years",
+} as const;
+export type TaskBoardTaskRecurrence = ObjectValues<typeof TaskBoardTaskRecurrenceEnum>;
+
+
+export const TaskBoardRecurringWeekdayEnum = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+export type TaskBoardRecurringWeekday = ObjectValues<typeof TaskBoardRecurringWeekdayEnum>;
+
+
+export const TaskBoardRecurringMonthEnum = {
+  january: "january",
+  february: "february",
+  march: "march",
+  april: "april",
+  may: "may",
+  june: "june",
+  july: "july",
+  august: "august",
+  september: "september",
+  october: "october",
+  november: "november",
+  december: "december",
+} as const;
+export type TaskBoardRecurringMonth = ObjectValues<typeof TaskBoardRecurringMonthEnum>;
+
+
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = ObjectValues<typeof StateMachineGateTypeEnum>;
+
+
+export const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+export type StateMachineTargetActionType = ObjectValues<typeof StateMachineTargetActionTypeEnum>;
+
+
+export const StateMachineThreadStrategyEnum = {
+  continue_current_thread: "continue_current_thread",
+  new_thread_before_send: "new_thread_before_send",
+} as const;
+export type StateMachineThreadStrategy = ObjectValues<typeof StateMachineThreadStrategyEnum>;
+
+
+export const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+export type StateMachineSourceFilterType = ObjectValues<typeof StateMachineSourceFilterTypeEnum>;
+
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+export type StateMachineCountOperator = ObjectValues<typeof StateMachineCountOperatorEnum>;
 
 
 export const AgenticEdgeKindEnum = {
@@ -2888,77 +7014,214 @@ export const AgenticEdgeContextModeEnum = {
 export type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
 
 
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
-
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
+export type StateMachineGateUIState = {
+  showDetails?: boolean;
 };
-export function createViewport(options: Partial<Viewport> = {}): Viewport {
-  return options as Viewport;
-}
-
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(options: Partial<TopLevelSectionLayout> = {}): TopLevelSectionLayout {
+export function createStateMachineGateUIState(options: Partial<StateMachineGateUIState> = {}): StateMachineGateUIState {
   return mergeGeneratedOptions(
     {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
+      showDetails: false,
     },
     options,
   );
 }
 
 
-export type ViewMode = {
+export type StateMachineSourceFilter = {
+  type?: StateMachineSourceFilterType;
+  signalName?: string | null;
+  payloadField?: string | null;
+  equals?: string | null;
+};
+export function createStateMachineSourceFilter(options: Partial<StateMachineSourceFilter> = {}): StateMachineSourceFilter {
+  return mergeGeneratedOptions(
+    {
+      type: StateMachineSourceFilterTypeEnum.run_completed,
+      signalName: null,
+      payloadField: null,
+      equals: null,
+    },
+    options,
+  );
+}
+
+
+export type StateMachineSourceActivationCountCondition = {
+  operator?: StateMachineCountOperator;
+  value: number;
+};
+export function createStateMachineSourceActivationCountCondition(options: Partial<StateMachineSourceActivationCountCondition> = {}): StateMachineSourceActivationCountCondition {
+  return mergeGeneratedOptions(
+    {
+      operator: StateMachineCountOperatorEnum.eq,
+      value: 0,
+    },
+    options,
+  );
+}
+
+
+export type StateMachineTargetAction = {
+  type?: StateMachineTargetActionType;
+  promptTemplateId?: string | null;
+  promptSectionId?: string | null;
+  inlinePrompt?: string | null;
+  promptInputs?: Record<string, string>;
+  threadStrategy?: StateMachineThreadStrategy;
+  stopIfRunning?: boolean;
+  engineConfigId?: string | null;
+  agentProfileId?: string | null;
+  permissionMode?: string | null;
+  searchEnabled?: boolean | null;
+};
+export function createStateMachineTargetAction(options: Partial<StateMachineTargetAction> = {}): StateMachineTargetAction {
+  return mergeGeneratedOptions(
+    {
+      type: StateMachineTargetActionTypeEnum.send_prompt,
+      promptTemplateId: null,
+      promptSectionId: null,
+      inlinePrompt: null,
+      promptInputs: {},
+      threadStrategy: StateMachineThreadStrategyEnum.continue_current_thread,
+      stopIfRunning: false,
+      engineConfigId: null,
+      agentProfileId: null,
+      permissionMode: null,
+      searchEnabled: null,
+    },
+    options,
+  );
+}
+
+
+export type EdgePort = {
+  id: string;
+  accessor: string;
+};
+export function createEdgePort(options: Partial<EdgePort> = {}): EdgePort {
+  return options as EdgePort;
+}
+
+
+export type TypeErrorIgnoreState = {
+  callable: boolean;
+  params: Record<string, boolean>;
+};
+export function createTypeErrorIgnoreState(options: Partial<TypeErrorIgnoreState> = {}): TypeErrorIgnoreState {
+  return options as TypeErrorIgnoreState;
+}
+
+
+export type ChartData = ChartDataValue;
+
+
+export type ChartDataType = ChartDataValue;
+
+
+export type BrowserSavedSearchTypeFilters = {
+  image: boolean;
+  video: boolean;
+  audio: boolean;
+  text: boolean;
+  data: boolean;
+};
+export function createBrowserSavedSearchTypeFilters(options: Partial<BrowserSavedSearchTypeFilters> = {}): BrowserSavedSearchTypeFilters {
+  return mergeGeneratedOptions(
+    {
+      image: true,
+      video: true,
+      audio: true,
+      text: true,
+      data: true,
+    },
+    options,
+  );
+}
+
+
+export type BrowserSavedSearch = {
   id: string;
   name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
+  query: string;
+  searchScope: BrowserSearchScope;
+  typeFilters: BrowserSavedSearchTypeFilters;
+  color: string;
+  quickInfo: string;
 };
-export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+export function createBrowserSavedSearch(options: Partial<BrowserSavedSearch> = {}): BrowserSavedSearch {
   return mergeGeneratedOptions(
     {
       id: "",
       name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
+      query: "",
+      searchScope: BrowserSearchScopeEnum.recursive,
+      typeFilters: createBrowserSavedSearchTypeFilters(),
+      color: "#3b82f6",
+      quickInfo: "",
     },
     options,
   );
 }
 
 
-export type ViewModeConfig = ViewMode;
-export function createViewModeConfig(options: Partial<ViewModeConfig> = {}): ViewModeConfig {
-  return createViewMode(options);
+export type CodeFileBindingUpdate = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+};
+export function createCodeFileBindingUpdate(options: Partial<CodeFileBindingUpdate> = {}): CodeFileBindingUpdate {
+  return options as CodeFileBindingUpdate;
+}
+
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(options: Partial<TaskBoardColumn> = {}): TaskBoardColumn {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(options: Partial<TaskBoardTask> = {}): TaskBoardTask {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: TaskBoardTaskRecurrenceEnum.none,
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  );
 }
 
 
@@ -3050,12 +7313,69 @@ export function createAgenticEdge(options: Partial<AgenticEdge> = {}): AgenticEd
 }
 
 
-export type WatchCodeFolder = {
-  path: string;
-  recursive: boolean;
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
 };
-export function createWatchCodeFolder(options: Partial<WatchCodeFolder> = {}): WatchCodeFolder {
-  return options as WatchCodeFolder;
+export function createViewport(options: Partial<Viewport> = {}): Viewport {
+  return options as Viewport;
+}
+
+
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(options: Partial<TopLevelSectionLayout> = {}): TopLevelSectionLayout {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
+
+export type ViewMode = {
+  id: string;
+  name: string;
+  sortIndex?: number;
+  isUserFacing?: boolean;
+  isTab?: boolean;
+  visibilityBySectionId?: Record<string, boolean>;
+  viewport?: Viewport | null;
+  viewportInitialized?: boolean;
+  topLevelSections?: Record<string, TopLevelSectionLayout>;
+};
+export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
+
+
+export type ViewModeConfig = ViewMode;
+export function createViewModeConfig(options: Partial<ViewModeConfig> = {}): ViewModeConfig {
+  return createViewMode(options);
 }
 
 
@@ -3083,480 +7403,6 @@ export function createCodeFileBinding(options: Partial<CodeFileBinding> = {}): C
 }
 
 
-export const ClipboardDataTypeEnum = {
-  Sections: "Sections",
-} as const;
-export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
-
-
-export type ClipboardProjectStateCore = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-};
-export function createClipboardProjectStateCore(options: Partial<ClipboardProjectStateCore> = {}): ClipboardProjectStateCore {
-  return mergeGeneratedOptions(
-    {
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-    },
-    options,
-  );
-}
-
-
-export type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
-};
-export function createClipboardProjectStateCoreWithSectionVariantMap(options: Partial<ClipboardProjectStateCoreWithSectionVariantMap> = {}): ClipboardProjectStateCoreWithSectionVariantMap {
-  return mergeGeneratedOptions(
-    {
-      core: createClipboardProjectStateCore(),
-      sectionVariantMap: {},
-    },
-    options,
-  );
-}
-
-
-export type SectionsClipboardData = {
-  type: typeof ClipboardDataTypeEnum.Sections;
-  data: ClipboardProjectStateCoreWithSectionVariantMap;
-};
-export function createSectionsClipboardData(options: Partial<SectionsClipboardData> = {}): SectionsClipboardData {
-  return mergeGeneratedOptions(
-    {
-      type: ClipboardDataTypeEnum.Sections,
-      data: createClipboardProjectStateCoreWithSectionVariantMap(),
-    },
-    options,
-  );
-}
-
-
-export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
-
-
-export type Core = {
-  id: string;
-  name: string;
-  displayName: string;
-  variants: Array<string>;
-  defaultVariant: string | null;
-  sharedModifier: Record<string, unknown>;
-  unsharedKeys: Array<string>;
-};
-export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
-}
-
-
-export type Variant = {
-  id: string;
-  name: string;
-  impl: string;
-  nonPresetImpls: Array<string>;
-  modifier: Record<string, unknown>;
-  isFrozen: boolean;
-};
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
-}
-
-
-export type SingletonSections = {
-  GlobalVariables: string | null;
-  GenPythonCode: string | null;
-  GenPythonMetadata: string | null;
-};
-export function createSingletonSections(options: Partial<SingletonSections> = {}): SingletonSections {
-  return mergeGeneratedOptions(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
-}
-
-
-export type ShownParamIdDetails = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-export function createShownParamIdDetails(options: Partial<ShownParamIdDetails> = {}): ShownParamIdDetails {
-  return mergeGeneratedOptions(
-    {
-      requiredParamIdsToPaths: {},
-      topLevelParamIds: [],
-    },
-    options,
-  );
-}
-
-
-export type ShownParamIds = {
-  pinned: ShownParamIdDetails;
-  unpinned: ShownParamIdDetails;
-};
-export function createShownParamIds(options: Partial<ShownParamIds> = {}): ShownParamIds {
-  return mergeGeneratedOptions(
-    {
-      pinned: createShownParamIdDetails(),
-      unpinned: createShownParamIdDetails(),
-    },
-    options,
-  );
-}
-
-
-export const ChatWindowPlacementEnum = {
-  bottom_docked: "bottom_docked",
-  floating: "floating",
-  maximized: "maximized",
-  canvas_section: "canvas_section",
-} as const;
-export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
-
-
-export const ChatWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
-
-
-export type ChatWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-export function createChatWindowBounds(options: Partial<ChatWindowBounds> = {}): ChatWindowBounds {
-  return mergeGeneratedOptions(
-    {
-      x: 120,
-      y: 120,
-      width: 820,
-      height: 520,
-    },
-    options,
-  );
-}
-
-
-export type ChatWindowDockMetrics = {
-  widthFraction?: number | null;
-  preferredWidthPx?: number | null;
-};
-export function createChatWindowDockMetrics(options: Partial<ChatWindowDockMetrics> = {}): ChatWindowDockMetrics {
-  return mergeGeneratedOptions(
-    {
-      widthFraction: null,
-      preferredWidthPx: null,
-    },
-    options,
-  );
-}
-
-
-export type ProjectChatWindowInstance = {
-  instanceId: string;
-  placement?: ChatWindowPlacement;
-  isMinimized?: boolean;
-  isClosed?: boolean;
-  isMaximized?: boolean;
-  bounds?: ChatWindowBounds;
-  dockMetrics?: ChatWindowDockMetrics;
-  zIndex?: number;
-  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
-  mode?: ChatWindowMode;
-  sectionIdOrNull?: string | null;
-  title?: string | null;
-  lastFocusedAt?: number;
-  chatId?: string | null;
-};
-export function createProjectChatWindowInstance(options: Partial<ProjectChatWindowInstance> = {}): ProjectChatWindowInstance {
-  return mergeGeneratedOptions(
-    {
-      instanceId: "",
-      placement: ChatWindowPlacementEnum.bottom_docked,
-      isMinimized: false,
-      isClosed: false,
-      isMaximized: false,
-      bounds: createChatWindowBounds(),
-      dockMetrics: createChatWindowDockMetrics(),
-      zIndex: 0,
-      lastPlacementBeforeMaximize: null,
-      mode: ChatWindowModeEnum.project_ai_mode,
-      sectionIdOrNull: null,
-      title: null,
-      lastFocusedAt: 0,
-      chatId: null,
-    },
-    options,
-  );
-}
-
-
-export type ProjectChatWindowingState = {
-  instancesById: Record<string, ProjectChatWindowInstance>;
-  order: Array<string>;
-  nextInstanceNumber: number;
-};
-export function createProjectChatWindowingState(options: Partial<ProjectChatWindowingState> = {}): ProjectChatWindowingState {
-  return mergeGeneratedOptions(
-    {
-      instancesById: {},
-      order: [],
-      nextInstanceNumber: 1,
-    },
-    options,
-  );
-}
-
-
-export const WindowSpaceSurfaceKindEnum = {
-  project_chat: "project_chat",
-  section: "section",
-} as const;
-export type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
-
-
-export type NormalizedFloatingWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-export function createNormalizedFloatingWindowBounds(options: Partial<NormalizedFloatingWindowBounds> = {}): NormalizedFloatingWindowBounds {
-  return mergeGeneratedOptions(
-    {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    },
-    options,
-  );
-}
-
-
-export type WindowSpaceWindow = {
-  surfaceKind?: WindowSpaceSurfaceKind;
-  sectionIdOrNull?: string | null;
-  mode?: ChatWindowMode;
-  title?: string | null;
-  chatId?: string | null;
-  embeddedGitPaneVisible?: boolean;
-  zIndex?: number;
-  normalizedBounds?: NormalizedFloatingWindowBounds;
-};
-export function createWindowSpaceWindow(options: Partial<WindowSpaceWindow> = {}): WindowSpaceWindow {
-  return mergeGeneratedOptions(
-    {
-      surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-      sectionIdOrNull: null,
-      mode: ChatWindowModeEnum.project_ai_mode,
-      title: null,
-      chatId: null,
-      embeddedGitPaneVisible: false,
-      zIndex: 0,
-      normalizedBounds: createNormalizedFloatingWindowBounds(),
-    },
-    options,
-  );
-}
-
-
-export type WindowSpaceState = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-};
-export function createWindowSpaceState(options: Partial<WindowSpaceState> = {}): WindowSpaceState {
-  return mergeGeneratedOptions(
-    {
-      windowsById: {},
-      order: [],
-    },
-    options,
-  );
-}
-
-
-export type WindowSpaceConfig = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-  id: string;
-  name: string;
-  sortIndex?: number;
-};
-export function createWindowSpaceConfig(options: Partial<WindowSpaceConfig> = {}): WindowSpaceConfig {
-  return mergeGeneratedOptions(
-    {
-      windowsById: {},
-      order: [],
-      id: "",
-      name: "",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-
-export type ProjectConfig = {
-  id: string;
-  name: string;
-  showParamDisplayNames: boolean;
-  allowJsonSourceKeyEdits: boolean;
-  previewImgColor?: string;
-  viewport?: Viewport | null;
-  viewportInitialized: boolean;
-  viewModes: Record<string, ViewMode>;
-  activeViewModeId?: string | null;
-  isEditingViewMode: boolean;
-  codegenTargets: Array<ProjectCodegenTarget>;
-  watchCodeEnabled: boolean;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
-  watchCodeBaselineByPath: Record<string, Array<string>>;
-  entryCodeBlockId?: string | null;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  windowSpaces: Record<string, WindowSpaceConfig>;
-  sectionVariantMap: Record<string, string>;
-  activeIds: Array<string>;
-  edges: Array<Edge>;
-  agenticEdges: Array<AgenticEdge>;
-  stateMachineEdges: Array<StateMachineEdge>;
-};
-export function createProjectConfig(options: Partial<ProjectConfig> = {}): ProjectConfig {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      previewImgColor: "",
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      topLevelSections: {},
-      windowSpaces: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
-      stateMachineEdges: [],
-    },
-    options,
-  );
-}
-
-
-export type ProjectStateSingleConfig = {
-  projectConfig: ProjectConfig;
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-  artifactGroups?: Record<string, unknown>;
-  singletonSections: SingletonSections;
-  parentSectionMap: Record<string, string | null>;
-  shownParamIds: Record<string, ShownParamIds>;
-  requiredDecodedImages: Array<string>;
-  genCodeBinding?: CodeFileBinding | null;
-  projectChatWindowing: ProjectChatWindowingState;
-};
-export function createProjectStateSingleConfig(options: Partial<ProjectStateSingleConfig> = {}): ProjectStateSingleConfig {
-  return mergeGeneratedOptions(
-    {
-      projectConfig: createProjectConfig(),
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-      projectChatWindowing: createProjectChatWindowingState(),
-    },
-    options,
-  );
-}
-
-
-export type ProjectStateSingleConfigWithCompletedOpIds = {
-  projectState: ProjectStateSingleConfig;
-  completedOpIds: Array<string>;
-  pendingOpIds: Array<string>;
-};
-export function createProjectStateSingleConfigWithCompletedOpIds(options: Partial<ProjectStateSingleConfigWithCompletedOpIds> = {}): ProjectStateSingleConfigWithCompletedOpIds {
-  return mergeGeneratedOptions(
-    {
-      projectState: createProjectStateSingleConfig(),
-      completedOpIds: [],
-      pendingOpIds: [],
-    },
-    options,
-  );
-}
-
-
-export type ChartData = ChartDataValue;
-
-
-export type ChartDataType = ChartDataValue;
-
-
 export const ChatRoleEnum = {
   system: "system",
   user: "user",
@@ -3566,236 +7412,420 @@ export const ChatRoleEnum = {
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
 
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
-
-
-export const ChatDictationModeEnum = {
-  auto: "auto",
-  browser: "browser",
-  provider: "provider",
-} as const;
-export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
-
-
-export const BrowserAreaViewModeEnum = {
-  list: "list",
-  thumbnail: "thumbnail",
-  carousel: "carousel",
-} as const;
-export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
-
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
-} as const;
-export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
-
-
-export const ListRootViewModeEnum = {
-  default: "default",
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
-
-
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-export type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
-
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
-
-export const TaskBoardTaskRecurrenceEnum = {
-  none: "none",
-  hourly: "hourly",
-  daily: "daily",
-  specified_days: "specified_days",
-  specified_months: "specified_months",
-  specified_years: "specified_years",
-} as const;
-export type TaskBoardTaskRecurrence = ObjectValues<typeof TaskBoardTaskRecurrenceEnum>;
-
-
-export const TaskBoardRecurringWeekdayEnum = {
-  monday: "monday",
-  tuesday: "tuesday",
-  wednesday: "wednesday",
-  thursday: "thursday",
-  friday: "friday",
-  saturday: "saturday",
-  sunday: "sunday",
-} as const;
-export type TaskBoardRecurringWeekday = ObjectValues<typeof TaskBoardRecurringWeekdayEnum>;
-
-
-export const TaskBoardRecurringMonthEnum = {
-  january: "january",
-  february: "february",
-  march: "march",
-  april: "april",
-  may: "may",
-  june: "june",
-  july: "july",
-  august: "august",
-  september: "september",
-  october: "october",
-  november: "november",
-  december: "december",
-} as const;
-export type TaskBoardRecurringMonth = ObjectValues<typeof TaskBoardRecurringMonthEnum>;
-
-
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = ObjectValues<typeof StateMachineGateTypeEnum>;
-
-
-export const StateMachineTargetActionTypeEnum = {
-  send_prompt: "send_prompt",
-  reset_thread: "reset_thread",
-} as const;
-export type StateMachineTargetActionType = ObjectValues<typeof StateMachineTargetActionTypeEnum>;
-
-
-export const StateMachineThreadStrategyEnum = {
-  continue_current_thread: "continue_current_thread",
-  new_thread_before_send: "new_thread_before_send",
-} as const;
-export type StateMachineThreadStrategy = ObjectValues<typeof StateMachineThreadStrategyEnum>;
-
-
-export const StateMachineSourceFilterTypeEnum = {
-  run_completed: "run_completed",
-  run_failed: "run_failed",
-  signal: "signal",
-} as const;
-export type StateMachineSourceFilterType = ObjectValues<typeof StateMachineSourceFilterTypeEnum>;
-
-
-export const StateMachineCountOperatorEnum = {
-  lt: "lt",
-  lte: "lte",
-  eq: "eq",
-  gte: "gte",
-  gt: "gt",
-} as const;
-export type StateMachineCountOperator = ObjectValues<typeof StateMachineCountOperatorEnum>;
-
-
-export const ChartTypeEnum = {
-  line: "line",
-  scatter: "scatter",
-} as const;
-export type ChartType = ObjectValues<typeof ChartTypeEnum>;
-
-
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = ObjectValues<typeof SpreadsheetGridDensityEnum>;
-
-
-export type StateMachineGateUIState = {
-  showDetails?: boolean;
+export type ChatFileAttachment = {
+  id: string;
+  name: string;
+  mimeType?: string | null;
+  size?: number | null;
 };
-export function createStateMachineGateUIState(options: Partial<StateMachineGateUIState> = {}): StateMachineGateUIState {
+export function createChatFileAttachment(options: Partial<ChatFileAttachment> = {}): ChatFileAttachment {
+  return options as ChatFileAttachment;
+}
+
+
+export type MessageTextContent = {
+  type: "text";
+  text: string;
+};
+export function createMessageTextContent(options: Partial<MessageTextContent> = {}): MessageTextContent {
   return mergeGeneratedOptions(
     {
-      showDetails: false,
+      type: "text",
+      text: "",
     },
     options,
   );
 }
 
 
-export type StateMachineSourceFilter = {
-  type?: StateMachineSourceFilterType;
-  signalName?: string | null;
-  payloadField?: string | null;
-  equals?: string | null;
+export type MessageImageUrl = {
+  url: string;
+  detail?: "auto" | "low" | "high" | null;
 };
-export function createStateMachineSourceFilter(options: Partial<StateMachineSourceFilter> = {}): StateMachineSourceFilter {
+export function createMessageImageUrl(options: Partial<MessageImageUrl> = {}): MessageImageUrl {
+  return options as MessageImageUrl;
+}
+
+
+export type MessageImageUrlContent = {
+  type: "image_url";
+  image_url: MessageImageUrl;
+};
+export function createMessageImageUrlContent(options: Partial<MessageImageUrlContent> = {}): MessageImageUrlContent {
+  return options as MessageImageUrlContent;
+}
+
+
+export type MessageThinkingContent = {
+  type: "thinking";
+  thinking: string;
+  summary?: string | null;
+  signature?: string | null;
+};
+export function createMessageThinkingContent(options: Partial<MessageThinkingContent> = {}): MessageThinkingContent {
   return mergeGeneratedOptions(
     {
-      type: StateMachineSourceFilterTypeEnum.run_completed,
-      signalName: null,
-      payloadField: null,
-      equals: null,
+      type: "thinking",
+      thinking: "",
+      summary: "",
+      signature: "",
     },
     options,
   );
 }
 
 
-export type StateMachineSourceActivationCountCondition = {
-  operator?: StateMachineCountOperator;
-  value: number;
+export type MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent;
+
+
+export type ToolReferenceContent = {
+  type: "tool_reference";
+  tool_name: string;
 };
-export function createStateMachineSourceActivationCountCondition(options: Partial<StateMachineSourceActivationCountCondition> = {}): StateMachineSourceActivationCountCondition {
+export function createToolReferenceContent(options: Partial<ToolReferenceContent> = {}): ToolReferenceContent {
+  return options as ToolReferenceContent;
+}
+
+
+export type ToolCallFunction = {
+  name: string;
+  arguments: { [key: string]: JSONValue | undefined };
+};
+export function createToolCallFunction(options: Partial<ToolCallFunction> = {}): ToolCallFunction {
   return mergeGeneratedOptions(
     {
-      operator: StateMachineCountOperatorEnum.eq,
-      value: 0,
+      name: "",
+      arguments: {},
     },
     options,
   );
 }
 
 
-export type StateMachineTargetAction = {
-  type?: StateMachineTargetActionType;
-  promptTemplateId?: string | null;
-  promptSectionId?: string | null;
-  inlinePrompt?: string | null;
-  promptInputs?: Record<string, string>;
-  threadStrategy?: StateMachineThreadStrategy;
-  stopIfRunning?: boolean;
-  engineConfigId?: string | null;
-  agentProfileId?: string | null;
-  permissionMode?: string | null;
-  searchEnabled?: boolean | null;
+export type ToolCall = {
+  id: string;
+  type: "function";
+  function: ToolCallFunction;
 };
-export function createStateMachineTargetAction(options: Partial<StateMachineTargetAction> = {}): StateMachineTargetAction {
+export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
   return mergeGeneratedOptions(
     {
-      type: StateMachineTargetActionTypeEnum.send_prompt,
-      promptTemplateId: null,
-      promptSectionId: null,
-      inlinePrompt: null,
-      promptInputs: {},
-      threadStrategy: StateMachineThreadStrategyEnum.continue_current_thread,
-      stopIfRunning: false,
+      id: "",
+      type: "function",
+      function: createToolCallFunction(),
+    },
+    options,
+  );
+}
+
+
+export type SystemChatMessage = {
+  id: string;
+  content: Array<MessageContent>;
+  attachments: Array<ChatFileAttachment>;
+  role: typeof ChatRoleEnum.system;
+};
+export function createSystemChatMessage(options: Partial<SystemChatMessage> = {}): SystemChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.system,
+      content: [],
+      attachments: [],
+    },
+    options,
+  );
+}
+
+
+export type AssistantChatMessage = {
+  id: string;
+  content: Array<MessageContent>;
+  attachments: Array<ChatFileAttachment>;
+  role: typeof ChatRoleEnum.assistant;
+  tool_calls?: Array<ToolCall> | null;
+};
+export function createAssistantChatMessage(options: Partial<AssistantChatMessage> = {}): AssistantChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.assistant,
+      content: [],
+      attachments: [],
+      tool_calls: null,
+    },
+    options,
+  );
+}
+
+
+export type UserChatMessage = {
+  id: string;
+  content: Array<MessageContent>;
+  attachments: Array<ChatFileAttachment>;
+  role: typeof ChatRoleEnum.user;
+};
+export function createUserChatMessage(options: Partial<UserChatMessage> = {}): UserChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.user,
+      content: [],
+      attachments: [],
+    },
+    options,
+  );
+}
+
+
+export type ToolChatMessage = {
+  id: string;
+  role: typeof ChatRoleEnum.tool;
+  tool_call_id: string;
+  tool_name?: string | null;
+  arguments: JSONValue;
+  result: JSONValue;
+  content: Array<ToolReferenceContent | Record<string, unknown>>;
+  is_error: boolean;
+  started_at: string;
+  completed_at?: string | null;
+};
+export function createToolChatMessage(options: Partial<ToolChatMessage> = {}): ToolChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.tool,
+      tool_call_id: "",
+      tool_name: null,
+      arguments: {},
+      result: null,
+      content: [],
+      is_error: false,
+      started_at: "",
+      completed_at: null,
+    },
+    options,
+  );
+}
+
+
+export type BaseChatMessageUnion = SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage;
+
+
+export type ChatSectionBranch = {
+  messages: Array<BaseChatMessageUnion>;
+  createdAt: number;
+  parentBranchId?: string | null;
+  branchFromMessageId?: string | null;
+};
+export function createChatSectionBranch(options: Partial<ChatSectionBranch> = {}): ChatSectionBranch {
+  return options as ChatSectionBranch;
+}
+
+
+export type ChatSectionState = {
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+export function createChatSectionState(options: Partial<ChatSectionState> = {}): ChatSectionState {
+  return options as ChatSectionState;
+}
+
+
+export type UserDefaultChatSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  managed: boolean;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  chatId: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+export function createUserDefaultChatSectionImpl(options: Partial<UserDefaultChatSectionImpl> = {}): UserDefaultChatSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 400,
+        height: 200,
+      },
+      managed: false,
       engineConfigId: null,
+      transcriptionProfileId: null,
       agentProfileId: null,
-      permissionMode: null,
-      searchEnabled: null,
+      chatId: null,
+      thinking: true,
+      permissionMode: ChatPermissionModeEnum.minimal,
+      searchEnabled: true,
+      dictationMode: ChatDictationModeEnum.auto,
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
     },
     options,
+  );
+}
+
+
+export type ChatSectionImpl = BaseSectionImpl & ChatSectionState & {
+  type: typeof SectionTypeEnum.Chat;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  chatId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+};
+
+
+export function createChatSectionImpl(
+  defaultsOrOverrides: Partial<UserDefaultChatSectionImpl> | Partial<ChatSectionImpl> = {},
+  overrides?: Partial<ChatSectionImpl>,
+): ChatSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChatSectionImpl,
+    ChatSectionImpl
+  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chat,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      managed: resolved.defaults.managed,
+      engineConfigId: resolved.defaults.engineConfigId,
+      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
+      agentProfileId: resolved.defaults.agentProfileId,
+      chatId: resolved.defaults.chatId,
+      thinking: resolved.defaults.thinking,
+      permissionMode: resolved.defaults.permissionMode,
+      searchEnabled: resolved.defaults.searchEnabled,
+      dictationMode: resolved.defaults.dictationMode,
+      messages: resolved.defaults.messages,
+      inputText: resolved.defaults.inputText,
+      waitingForResponse: resolved.defaults.waitingForResponse,
+      toolCallArguments: resolved.defaults.toolCallArguments,
+      activeBranchId: resolved.defaults.activeBranchId,
+      branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );
+}
+
+
+export type UserDefaultBrowserSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth: number | null;
+  typesColumnWidth: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+};
+export function createUserDefaultBrowserSectionImpl(options: Partial<UserDefaultBrowserSectionImpl> = {}): UserDefaultBrowserSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 720,
+        height: 460,
+      },
+      folder: "",
+      hideColumn: false,
+      columnWidth: null,
+      typesColumnWidth: null,
+      viewMode: BrowserAreaViewModeEnum.list,
+      savedSearches: [],
+    },
+    options,
+  );
+}
+
+
+export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.Browser;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth?: number | null;
+  typesColumnWidth?: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+};
+
+
+export function createBrowserSectionImpl(
+  defaultsOrOverrides: Partial<UserDefaultBrowserSectionImpl> | Partial<BrowserSectionImpl> = {},
+  overrides?: Partial<BrowserSectionImpl>,
+): BrowserSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultBrowserSectionImpl,
+    BrowserSectionImpl
+  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Browser,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      folder: resolved.defaults.folder,
+      hideColumn: resolved.defaults.hideColumn,
+      columnWidth: resolved.defaults.columnWidth,
+      typesColumnWidth: resolved.defaults.typesColumnWidth,
+      viewMode: resolved.defaults.viewMode,
+      savedSearches: resolved.defaults.savedSearches,
+    },
+    resolved.overrides,
   );
 }
 
@@ -3865,530 +7895,6 @@ export type BaseSectionImpl = {
 export function createBaseSectionImpl(options: Partial<BaseSectionImpl> = {}): BaseSectionImpl {
   return options as BaseSectionImpl;
 }
-
-
-export type CallableSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Callable;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  callable?: string | null;
-  hideParams: boolean;
-};
-
-
-export function createCallableSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultCallableSectionImpl> | Partial<CallableSectionImpl> = {},
-  overrides?: Partial<CallableSectionImpl>,
-): CallableSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCallableSectionImpl,
-    CallableSectionImpl
-  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Callable,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
-      paramFilter: resolved.defaults.paramFilter,
-      columnWidth: resolved.defaults.columnWidth,
-      configLanguage: resolved.defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: resolved.defaults.edgeInputParams,
-      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
-      callable: null,
-      hideParams: resolved.defaults.hideParams,
-    },
-    resolved.overrides,
-  );
-}
-
-
-export type BaseParentSectionImplUnion = BaseSectionImpl & {
-  children: Array<string>;
-};
-
-
-export type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
-  codeObjVariantMap: Record<string, string>;
-};
-
-
-export type DictSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  topLevelParamId: string | null;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-  jsonSourceMissing: boolean;
-};
-
-
-export function createDictSectionImpl(
-  defaults: UserDefaultDictSectionImpl,
-  overrides: Partial<DictSectionImpl> = {},
-): DictSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Dict,
-      id: "",
-      name: "",
-      isFrozen: defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: defaults.tagColor,
-      styleColor: defaults.styleColor,
-      size: defaults.size,
-      aspectRatio: defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: defaults.isMinimized,
-      positionAndSizeLocked: defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: defaults.hideUnpinnedParams,
-      paramFilter: defaults.paramFilter,
-      columnWidth: defaults.columnWidth,
-      configLanguage: defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: defaults.edgeInputParams,
-      edgeOutputPorts: defaults.edgeOutputPorts,
-      topLevelParamId: null,
-      isJsonSource: defaults.isJsonSource,
-      jsonSourceKeys: defaults.jsonSourceKeys,
-      jsonSourceMissing: false,
-    },
-    overrides,
-  );
-}
-
-
-export type UserDefaultCallableSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  hideParams: boolean;
-};
-export function createUserDefaultCallableSectionImpl(options: Partial<UserDefaultCallableSectionImpl> = {}): UserDefaultCallableSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
-      hideParams: false,
-    },
-    options,
-  );
-}
-
-
-export type UserDefaultDictSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-};
-export function createUserDefaultDictSectionImpl(options: Partial<UserDefaultDictSectionImpl> = {}): UserDefaultDictSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
-      isJsonSource: false,
-      jsonSourceKeys: [],
-    },
-    options,
-  );
-}
-
-
-export type BaseDictSectionImplUnion = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  topLevelParamId: string | null;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-  jsonSourceMissing: boolean;
-};
-
-
-export type BaseCodeObjImpl = {
-  type: CodeObjType;
-  id: string;
-  name: string;
-  description: string;
-  isPreset: boolean;
-  children?: Array<string>;
-  coreNameType?: ParamNameType;
-  coreNameEditable?: boolean;
-  passingStyle?: ParameterPassingStyle;
-  typeAnnotation?: string;
-  defaultVal?: string;
-  value?: string;
-  [key: string]: unknown;
-};
-
-
-export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-
-
-export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides: Partial<UserDefaultCodeParamCodeObjImpl> | Partial<CodeParamCodeObjImpl> = {},
-  overrides?: Partial<CodeParamCodeObjImpl>,
-): CodeParamCodeObjImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeParamCodeObjImpl,
-    CodeParamCodeObjImpl
-  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: CodeObjTypeEnum.CodeParam,
-      id: "",
-      name: "",
-      description: "",
-      isPreset: false,
-      coreNameType: resolved.defaults.coreNameType,
-      coreNameEditable: resolved.defaults.coreNameEditable,
-      passingStyle: ParameterPassingStyleEnum.DEFAULT,
-      typeAnnotation: resolved.defaults.typeAnnotation,
-      defaultVal: resolved.defaults.defaultVal,
-      value: resolved.defaults.value,
-    },
-    resolved.overrides,
-  );
-}
-
-
-export type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeCallable;
-  children: Array<string>;
-};
-
-
-export type NestedParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.NestedParam;
-  children: Array<string>;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-};
-
-
-export type BaseCodeObjImplUnion = BaseCodeObjImpl
-  | CodeCallableCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-
-export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl;
-
-
-export type BaseParamCodeObjImplUnion = BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-
-export type BaseParentCodeObjImplUnion = CodeCallableCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-
-export type UserDefaultCodeParamCodeObjImpl = {
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-export function createUserDefaultCodeParamCodeObjImpl(options: Partial<UserDefaultCodeParamCodeObjImpl> = {}): UserDefaultCodeParamCodeObjImpl {
-  return mergeGeneratedOptions(
-    {
-      coreNameType: ParamNameTypeEnum.TEXT,
-      coreNameEditable: false,
-      typeAnnotation: "",
-      defaultVal: "",
-      value: "",
-    },
-    options,
-  );
-}
-
-
-export type ColorPickerChoice = {
-  color: string;
-  description: string;
-};
-export function createColorPickerChoice(options: Partial<ColorPickerChoice> = {}): ColorPickerChoice {
-  return options as ColorPickerChoice;
-}
-
-
-export type TextParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.TextParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  uiType: TextParamInputUIType;
-};
-
-
-export type DateParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.DateParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  dateDisplayFormat: DateDisplayFormat;
-  dateControlMode: DateControlMode;
-  dateSelectionMode: DateSelectionMode;
-  dateCalendarWeekStart: DateCalendarWeekStart;
-  dateIncludesTime: boolean;
-};
-
-
-export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.TimeParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  timeControlMode: TimeControlMode;
-  timeDisplayFormat: TimeDisplayFormat;
-  timeDisplayTransparent: boolean;
-  timeDisplayScale: number;
-  timeDisplayFont: TimeDisplayFont;
-};
-
-
-export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.ButtonParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  label: string;
-  actionMode: ButtonActionMode;
-  requestMethod: HttpRequestMethod;
-  requestUrl: string;
-  requestHeaderKey: string;
-  requestHeaderValue: string;
-  requestBody: string;
-};
-
-
-export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.SliderParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  min: number;
-  max: number;
-  step: number;
-};
-
-
-export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.RotaryParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  min: number;
-  max: number;
-  step: number;
-};
-
-
-export type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.SwitchParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-
-
-export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.ColorPickerParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  colorChoices: Array<ColorPickerChoice>;
-};
-
-
-export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.DropdownParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  choices: Array<string>;
-};
-
-
-export type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.PasswordParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  hasSecret: boolean;
-};
-
-
-export type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.TextAreaParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-
-
-export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.DropzoneParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-  mode: DropzoneMode;
-  maxAttachments?: number | null;
-  placeholder: string;
-};
 
 
 export type UserDefaultListRootSectionImpl = {
@@ -5059,448 +8565,34 @@ export type BaseSectionImplUnion = CallableSectionImpl
   | BaseSectionImpl;
 
 
-export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
-
-
-export type ChatFileAttachment = {
-  id: string;
-  name: string;
-  mimeType?: string | null;
-  size?: number | null;
-};
-export function createChatFileAttachment(options: Partial<ChatFileAttachment> = {}): ChatFileAttachment {
-  return options as ChatFileAttachment;
-}
-
-
-export type MessageTextContent = {
-  type: "text";
-  text: string;
-};
-export function createMessageTextContent(options: Partial<MessageTextContent> = {}): MessageTextContent {
-  return mergeGeneratedOptions(
-    {
-      type: "text",
-      text: "",
-    },
-    options,
-  );
-}
-
-
-export type MessageImageUrl = {
-  url: string;
-  detail?: "auto" | "low" | "high" | null;
-};
-export function createMessageImageUrl(options: Partial<MessageImageUrl> = {}): MessageImageUrl {
-  return options as MessageImageUrl;
-}
-
-
-export type MessageImageUrlContent = {
-  type: "image_url";
-  image_url: MessageImageUrl;
-};
-export function createMessageImageUrlContent(options: Partial<MessageImageUrlContent> = {}): MessageImageUrlContent {
-  return options as MessageImageUrlContent;
-}
-
-
-export type MessageThinkingContent = {
-  type: "thinking";
-  thinking: string;
-  summary?: string | null;
-  signature?: string | null;
-};
-export function createMessageThinkingContent(options: Partial<MessageThinkingContent> = {}): MessageThinkingContent {
-  return mergeGeneratedOptions(
-    {
-      type: "thinking",
-      thinking: "",
-      summary: "",
-      signature: "",
-    },
-    options,
-  );
-}
-
-
-export type MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent;
-
-
-export type ToolReferenceContent = {
-  type: "tool_reference";
-  tool_name: string;
-};
-export function createToolReferenceContent(options: Partial<ToolReferenceContent> = {}): ToolReferenceContent {
-  return options as ToolReferenceContent;
-}
-
-
-export type ToolCallFunction = {
-  name: string;
-  arguments: { [key: string]: JSONValue | undefined };
-};
-export function createToolCallFunction(options: Partial<ToolCallFunction> = {}): ToolCallFunction {
-  return mergeGeneratedOptions(
-    {
-      name: "",
-      arguments: {},
-    },
-    options,
-  );
-}
-
-
-export type ToolCall = {
-  id: string;
-  type: "function";
-  function: ToolCallFunction;
-};
-export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      type: "function",
-      function: createToolCallFunction(),
-    },
-    options,
-  );
-}
-
-
-export type SystemChatMessage = {
-  id: string;
-  content: Array<MessageContent>;
-  attachments: Array<ChatFileAttachment>;
-  role: typeof ChatRoleEnum.system;
-};
-export function createSystemChatMessage(options: Partial<SystemChatMessage> = {}): SystemChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.system,
-      content: [],
-      attachments: [],
-    },
-    options,
-  );
-}
-
-
-export type AssistantChatMessage = {
-  id: string;
-  content: Array<MessageContent>;
-  attachments: Array<ChatFileAttachment>;
-  role: typeof ChatRoleEnum.assistant;
-  tool_calls?: Array<ToolCall> | null;
-};
-export function createAssistantChatMessage(options: Partial<AssistantChatMessage> = {}): AssistantChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.assistant,
-      content: [],
-      attachments: [],
-      tool_calls: null,
-    },
-    options,
-  );
-}
-
-
-export type UserChatMessage = {
-  id: string;
-  content: Array<MessageContent>;
-  attachments: Array<ChatFileAttachment>;
-  role: typeof ChatRoleEnum.user;
-};
-export function createUserChatMessage(options: Partial<UserChatMessage> = {}): UserChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.user,
-      content: [],
-      attachments: [],
-    },
-    options,
-  );
-}
-
-
-export type ToolChatMessage = {
-  id: string;
-  role: typeof ChatRoleEnum.tool;
-  tool_call_id: string;
-  tool_name?: string | null;
-  arguments: JSONValue;
-  result: JSONValue;
-  content: Array<ToolReferenceContent | Record<string, unknown>>;
-  is_error: boolean;
-  started_at: string;
-  completed_at?: string | null;
-};
-export function createToolChatMessage(options: Partial<ToolChatMessage> = {}): ToolChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.tool,
-      tool_call_id: "",
-      tool_name: null,
-      arguments: {},
-      result: null,
-      content: [],
-      is_error: false,
-      started_at: "",
-      completed_at: null,
-    },
-    options,
-  );
-}
-
-
-export type BaseChatMessageUnion = SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage;
-
-
-export type ChatSectionBranch = {
-  messages: Array<BaseChatMessageUnion>;
-  createdAt: number;
-  parentBranchId?: string | null;
-  branchFromMessageId?: string | null;
-};
-export function createChatSectionBranch(options: Partial<ChatSectionBranch> = {}): ChatSectionBranch {
-  return options as ChatSectionBranch;
-}
-
-
-export type ChatSectionState = {
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-export function createChatSectionState(options: Partial<ChatSectionState> = {}): ChatSectionState {
-  return options as ChatSectionState;
-}
-
-
-export type UserDefaultChatSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  chatId: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-export function createUserDefaultChatSectionImpl(options: Partial<UserDefaultChatSectionImpl> = {}): UserDefaultChatSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 400,
-        height: 200,
-      },
-      managed: false,
-      engineConfigId: null,
-      transcriptionProfileId: null,
-      agentProfileId: null,
-      chatId: null,
-      thinking: true,
-      permissionMode: ChatPermissionModeEnum.minimal,
-      searchEnabled: true,
-      dictationMode: ChatDictationModeEnum.auto,
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
-    },
-    options,
-  );
-}
-
-
-export type ChatSectionImpl = BaseSectionImpl & ChatSectionState & {
-  type: typeof SectionTypeEnum.Chat;
-  managed: boolean;
-  engineConfigId?: string | null;
-  transcriptionProfileId?: string | null;
-  agentProfileId?: string | null;
-  chatId?: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-};
-
-
-export function createChatSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultChatSectionImpl> | Partial<ChatSectionImpl> = {},
-  overrides?: Partial<ChatSectionImpl>,
-): ChatSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChatSectionImpl,
-    ChatSectionImpl
-  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chat,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      managed: resolved.defaults.managed,
-      engineConfigId: resolved.defaults.engineConfigId,
-      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
-      agentProfileId: resolved.defaults.agentProfileId,
-      chatId: resolved.defaults.chatId,
-      thinking: resolved.defaults.thinking,
-      permissionMode: resolved.defaults.permissionMode,
-      searchEnabled: resolved.defaults.searchEnabled,
-      dictationMode: resolved.defaults.dictationMode,
-      messages: resolved.defaults.messages,
-      inputText: resolved.defaults.inputText,
-      waitingForResponse: resolved.defaults.waitingForResponse,
-      toolCallArguments: resolved.defaults.toolCallArguments,
-      activeBranchId: resolved.defaults.activeBranchId,
-      branches: resolved.defaults.branches,
-    },
-    resolved.overrides,
-  );
-}
-
-
-export type BrowserSavedSearchTypeFilters = {
-  image: boolean;
-  video: boolean;
-  audio: boolean;
-  text: boolean;
-  data: boolean;
-};
-export function createBrowserSavedSearchTypeFilters(options: Partial<BrowserSavedSearchTypeFilters> = {}): BrowserSavedSearchTypeFilters {
-  return mergeGeneratedOptions(
-    {
-      image: true,
-      video: true,
-      audio: true,
-      text: true,
-      data: true,
-    },
-    options,
-  );
-}
-
-
-export type BrowserSavedSearch = {
-  id: string;
-  name: string;
-  query: string;
-  searchScope: BrowserSearchScope;
-  typeFilters: BrowserSavedSearchTypeFilters;
-  color: string;
-  quickInfo: string;
-};
-export function createBrowserSavedSearch(options: Partial<BrowserSavedSearch> = {}): BrowserSavedSearch {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      query: "",
-      searchScope: BrowserSearchScopeEnum.recursive,
-      typeFilters: createBrowserSavedSearchTypeFilters(),
-      color: "#3b82f6",
-      quickInfo: "",
-    },
-    options,
-  );
-}
-
-
-export type UserDefaultBrowserSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  folder: string;
-  hideColumn: boolean;
+export type CallableSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Callable;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
   columnWidth: number | null;
-  typesColumnWidth: number | null;
-  viewMode: BrowserAreaViewMode;
-  savedSearches: Array<BrowserSavedSearch>;
-};
-export function createUserDefaultBrowserSectionImpl(options: Partial<UserDefaultBrowserSectionImpl> = {}): UserDefaultBrowserSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 720,
-        height: 460,
-      },
-      folder: "",
-      hideColumn: false,
-      columnWidth: null,
-      typesColumnWidth: null,
-      viewMode: BrowserAreaViewModeEnum.list,
-      savedSearches: [],
-    },
-    options,
-  );
-}
-
-
-export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
-  type: typeof SectionTypeEnum.Browser;
-  folder: string;
-  hideColumn: boolean;
-  columnWidth?: number | null;
-  typesColumnWidth?: number | null;
-  viewMode: BrowserAreaViewMode;
-  savedSearches: Array<BrowserSavedSearch>;
+  configLanguage: ConfigLanguage;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  callable?: string | null;
+  hideParams: boolean;
 };
 
 
-export function createBrowserSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultBrowserSectionImpl> | Partial<BrowserSectionImpl> = {},
-  overrides?: Partial<BrowserSectionImpl>,
-): BrowserSectionImpl {
+export function createCallableSectionImpl(
+  defaultsOrOverrides: Partial<UserDefaultCallableSectionImpl> | Partial<CallableSectionImpl> = {},
+  overrides?: Partial<CallableSectionImpl>,
+): CallableSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultBrowserSectionImpl,
-    BrowserSectionImpl
-  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
+    UserDefaultCallableSectionImpl,
+    CallableSectionImpl
+  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
   return mergeGeneratedOptions(
     {
-      type: SectionTypeEnum.Browser,
+      type: SectionTypeEnum.Callable,
       id: "",
       name: "",
       isFrozen: resolved.defaults.isFrozen,
@@ -5514,68 +8606,487 @@ export function createBrowserSectionImpl(
       isMinimized: resolved.defaults.isMinimized,
       positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
       isPreset: false,
-      folder: resolved.defaults.folder,
-      hideColumn: resolved.defaults.hideColumn,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
+      paramFilter: resolved.defaults.paramFilter,
       columnWidth: resolved.defaults.columnWidth,
-      typesColumnWidth: resolved.defaults.typesColumnWidth,
-      viewMode: resolved.defaults.viewMode,
-      savedSearches: resolved.defaults.savedSearches,
+      configLanguage: resolved.defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: resolved.defaults.edgeInputParams,
+      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
+      callable: null,
+      hideParams: resolved.defaults.hideParams,
     },
     resolved.overrides,
   );
 }
 
 
-export type TaskBoardColumn = {
-  id: string;
-  name: string;
-  color: string;
-  sortIndex: number;
+export type BaseParentSectionImplUnion = BaseSectionImpl & {
+  children: Array<string>;
 };
-export function createTaskBoardColumn(options: Partial<TaskBoardColumn> = {}): TaskBoardColumn {
+
+
+export type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
+  codeObjVariantMap: Record<string, string>;
+};
+
+
+export type DictSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+};
+
+
+export function createDictSectionImpl(
+  defaults: UserDefaultDictSectionImpl,
+  overrides: Partial<DictSectionImpl> = {},
+): DictSectionImpl {
   return mergeGeneratedOptions(
     {
+      type: SectionTypeEnum.Dict,
       id: "",
       name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
+      isFrozen: defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: defaults.tagColor,
+      styleColor: defaults.styleColor,
+      size: defaults.size,
+      aspectRatio: defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: defaults.isMinimized,
+      positionAndSizeLocked: defaults.positionAndSizeLocked,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: defaults.hideUnpinnedParams,
+      paramFilter: defaults.paramFilter,
+      columnWidth: defaults.columnWidth,
+      configLanguage: defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: defaults.edgeInputParams,
+      edgeOutputPorts: defaults.edgeOutputPorts,
+      topLevelParamId: null,
+      isJsonSource: defaults.isJsonSource,
+      jsonSourceKeys: defaults.jsonSourceKeys,
+      jsonSourceMissing: false,
     },
-    options,
+    overrides,
   );
 }
 
 
-export type TaskBoardTask = {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  columnId?: string | null;
-  dueDateIso: string;
-  recurrence: TaskBoardTaskRecurrence;
-  recurrenceDays: Array<TaskBoardRecurringWeekday>;
-  recurrenceMonths: Array<TaskBoardRecurringMonth>;
-  recurrenceYears: Array<number>;
-  sortIndex: number;
+export type UserDefaultCallableSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  hideParams: boolean;
 };
-export function createTaskBoardTask(options: Partial<TaskBoardTask> = {}): TaskBoardTask {
+export function createUserDefaultCallableSectionImpl(options: Partial<UserDefaultCallableSectionImpl> = {}): UserDefaultCallableSectionImpl {
   return mergeGeneratedOptions(
     {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: TaskBoardTaskRecurrenceEnum.none,
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
+      ...createGeneratedBaseSectionWithParamsDefaults(),
+      hideParams: false,
     },
     options,
   );
 }
+
+
+export type UserDefaultDictSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+};
+export function createUserDefaultDictSectionImpl(options: Partial<UserDefaultDictSectionImpl> = {}): UserDefaultDictSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionWithParamsDefaults(),
+      isJsonSource: false,
+      jsonSourceKeys: [],
+    },
+    options,
+  );
+}
+
+
+export type BaseDictSectionImplUnion = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+};
+
+
+export type BaseCodeObjImpl = {
+  type: CodeObjType;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
+  children?: Array<string>;
+  coreNameType?: ParamNameType;
+  coreNameEditable?: boolean;
+  passingStyle?: ParameterPassingStyle;
+  typeAnnotation?: string;
+  defaultVal?: string;
+  value?: string;
+  [key: string]: unknown;
+};
+
+
+export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
+
+export function createCodeParamCodeObjImpl(
+  defaultsOrOverrides: Partial<UserDefaultCodeParamCodeObjImpl> | Partial<CodeParamCodeObjImpl> = {},
+  overrides?: Partial<CodeParamCodeObjImpl>,
+): CodeParamCodeObjImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeParamCodeObjImpl,
+    CodeParamCodeObjImpl
+  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: CodeObjTypeEnum.CodeParam,
+      id: "",
+      name: "",
+      description: "",
+      isPreset: false,
+      coreNameType: resolved.defaults.coreNameType,
+      coreNameEditable: resolved.defaults.coreNameEditable,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      typeAnnotation: resolved.defaults.typeAnnotation,
+      defaultVal: resolved.defaults.defaultVal,
+      value: resolved.defaults.value,
+    },
+    resolved.overrides,
+  );
+}
+
+
+export type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeCallable;
+  children: Array<string>;
+};
+
+
+export type NestedParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.NestedParam;
+  children: Array<string>;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+};
+
+
+export type BaseCodeObjImplUnion = BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
+
+
+export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl;
+
+
+export type BaseParamCodeObjImplUnion = BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
+
+
+export type BaseParentCodeObjImplUnion = CodeCallableCodeObjImpl
+  | NestedParamCodeObjImpl;
+
+
+export type UserDefaultCodeParamCodeObjImpl = {
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+export function createUserDefaultCodeParamCodeObjImpl(options: Partial<UserDefaultCodeParamCodeObjImpl> = {}): UserDefaultCodeParamCodeObjImpl {
+  return mergeGeneratedOptions(
+    {
+      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameEditable: false,
+      typeAnnotation: "",
+      defaultVal: "",
+      value: "",
+    },
+    options,
+  );
+}
+
+
+export type ColorPickerChoice = {
+  color: string;
+  description: string;
+};
+export function createColorPickerChoice(options: Partial<ColorPickerChoice> = {}): ColorPickerChoice {
+  return options as ColorPickerChoice;
+}
+
+
+export type TextParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  uiType: TextParamInputUIType;
+};
+
+
+export type DateParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DateParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  dateDisplayFormat: DateDisplayFormat;
+  dateControlMode: DateControlMode;
+  dateSelectionMode: DateSelectionMode;
+  dateCalendarWeekStart: DateCalendarWeekStart;
+  dateIncludesTime: boolean;
+};
+
+
+export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TimeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  timeControlMode: TimeControlMode;
+  timeDisplayFormat: TimeDisplayFormat;
+  timeDisplayTransparent: boolean;
+  timeDisplayScale: number;
+  timeDisplayFont: TimeDisplayFont;
+};
+
+
+export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.ButtonParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  label: string;
+  actionMode: ButtonActionMode;
+  requestMethod: HttpRequestMethod;
+  requestUrl: string;
+  requestHeaderKey: string;
+  requestHeaderValue: string;
+  requestBody: string;
+};
+
+
+export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SliderParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+};
+
+
+export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.RotaryParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+};
+
+
+export type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SwitchParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
+
+export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.ColorPickerParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  colorChoices: Array<ColorPickerChoice>;
+};
+
+
+export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropdownParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  choices: Array<string>;
+};
+
+
+export type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.PasswordParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  hasSecret: boolean;
+};
+
+
+export type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextAreaParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
+
+export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropzoneParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  mode: DropzoneMode;
+  maxAttachments?: number | null;
+  placeholder: string;
+};
 
 
 export type UserDefaultTaskBoardSectionImpl = {
@@ -5658,68 +9169,6 @@ export function createTaskBoardSectionImpl(
     },
     normalizedOverrides,
   );
-}
-
-
-export type LineChartSettings = {
-  type: typeof ChartTypeEnum.line;
-  xAxisColumn?: string | null;
-  secondYAxisColumns: Array<string>;
-  xAxisLog: boolean;
-  y1AxisLog: boolean;
-  y2AxisLog: boolean;
-};
-export function createLineChartSettings(options: Partial<LineChartSettings> = {}): LineChartSettings {
-  return mergeGeneratedOptions(
-    {
-      type: ChartTypeEnum.line,
-      xAxisColumn: null,
-      secondYAxisColumns: [],
-      xAxisLog: false,
-      y1AxisLog: false,
-      y2AxisLog: false,
-    },
-    options,
-  );
-}
-
-
-export type ScatterChartSettings = {
-  type: typeof ChartTypeEnum.scatter;
-  xAxisColumn?: string | null;
-  categoryColumn?: string | null;
-  xAxisLog: boolean;
-  yAxisLog: boolean;
-};
-export function createScatterChartSettings(options: Partial<ScatterChartSettings> = {}): ScatterChartSettings {
-  return mergeGeneratedOptions(
-    {
-      type: ChartTypeEnum.scatter,
-      xAxisColumn: null,
-      categoryColumn: null,
-      xAxisLog: false,
-      yAxisLog: false,
-    },
-    options,
-  );
-}
-
-
-export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
-
-
-export function createBaseChartSettingsUnionWithDiscriminator(
-  options: ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
-    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
-): BaseChartSettingsUnion {
-  switch (options.type) {
-    case ChartTypeEnum.line:
-      return createLineChartSettings(options);
-    case ChartTypeEnum.scatter:
-      return createScatterChartSettings(options);
-    default:
-      throw new Error("Unsupported chart type.");
-  }
 }
 
 
@@ -5868,6 +9317,412 @@ export function createSpreadsheetSectionImpl(
     },
     resolved.overrides,
   );
+}
+
+
+export type SetSectionParamFilterRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  value: string;
+};
+export function createSetSectionParamFilterRequestInput(options: Partial<SetSectionParamFilterRequestInput> = {}): SetSectionParamFilterRequestInput {
+  return options as SetSectionParamFilterRequestInput;
+}
+
+
+export type SetMetaControlShowSectionTitleRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  showSectionTitle: boolean;
+};
+export function createSetMetaControlShowSectionTitleRequestInput(options: Partial<SetMetaControlShowSectionTitleRequestInput> = {}): SetMetaControlShowSectionTitleRequestInput {
+  return options as SetMetaControlShowSectionTitleRequestInput;
+}
+
+
+export type SetSectionColumnWidthRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  columnWidth: number | null;
+};
+export function createSetSectionColumnWidthRequestInput(options: Partial<SetSectionColumnWidthRequestInput> = {}): SetSectionColumnWidthRequestInput {
+  return options as SetSectionColumnWidthRequestInput;
+}
+
+
+export type SetSectionEdgeInputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeInputParams: Array<string>;
+};
+export function createSetSectionEdgeInputsRequestInput(options: Partial<SetSectionEdgeInputsRequestInput> = {}): SetSectionEdgeInputsRequestInput {
+  return options as SetSectionEdgeInputsRequestInput;
+}
+
+
+export type SetSectionEdgeOutputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeOutputPorts: Array<EdgePort>;
+};
+export function createSetSectionEdgeOutputsRequestInput(options: Partial<SetSectionEdgeOutputsRequestInput> = {}): SetSectionEdgeOutputsRequestInput {
+  return options as SetSectionEdgeOutputsRequestInput;
+}
+
+
+export type SetParentDefaultChildSectionTypeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  defaultChildSectionType: SectionType;
+};
+export function createSetParentDefaultChildSectionTypeRequestInput(options: Partial<SetParentDefaultChildSectionTypeRequestInput> = {}): SetParentDefaultChildSectionTypeRequestInput {
+  return options as SetParentDefaultChildSectionTypeRequestInput;
+}
+
+
+export type SetListRootViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: ListRootViewMode;
+};
+export function createSetListRootViewModeRequestInput(options: Partial<SetListRootViewModeRequestInput> = {}): SetListRootViewModeRequestInput {
+  return options as SetListRootViewModeRequestInput;
+}
+
+
+export type ToggleGroupOrientationRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createToggleGroupOrientationRequestInput(options: Partial<ToggleGroupOrientationRequestInput> = {}): ToggleGroupOrientationRequestInput {
+  return options as ToggleGroupOrientationRequestInput;
+}
+
+
+export type SetGroupOverflowModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  overflowMode: boolean;
+};
+export function createSetGroupOverflowModeRequestInput(options: Partial<SetGroupOverflowModeRequestInput> = {}): SetGroupOverflowModeRequestInput {
+  return options as SetGroupOverflowModeRequestInput;
+}
+
+
+export type SetBrowserColumnWidthsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  columnWidth: number | null;
+  typesColumnWidth: number | null;
+};
+export function createSetBrowserColumnWidthsRequestInput(options: Partial<SetBrowserColumnWidthsRequestInput> = {}): SetBrowserColumnWidthsRequestInput {
+  return options as SetBrowserColumnWidthsRequestInput;
+}
+
+
+export type SetBrowserAreaViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: BrowserAreaViewMode;
+};
+export function createSetBrowserAreaViewModeRequestInput(options: Partial<SetBrowserAreaViewModeRequestInput> = {}): SetBrowserAreaViewModeRequestInput {
+  return options as SetBrowserAreaViewModeRequestInput;
+}
+
+
+export type SetBrowserHideColumnRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideColumn: boolean;
+};
+export function createSetBrowserHideColumnRequestInput(options: Partial<SetBrowserHideColumnRequestInput> = {}): SetBrowserHideColumnRequestInput {
+  return options as SetBrowserHideColumnRequestInput;
+}
+
+
+export type SetBrowserSavedSearchesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  savedSearches: Array<BrowserSavedSearch>;
+};
+export function createSetBrowserSavedSearchesRequestInput(options: Partial<SetBrowserSavedSearchesRequestInput> = {}): SetBrowserSavedSearchesRequestInput {
+  return options as SetBrowserSavedSearchesRequestInput;
+}
+
+
+export type SetSpreadsheetFilePathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  filePath: string;
+  activeSheet: string | null;
+};
+export function createSetSpreadsheetFilePathRequestInput(options: Partial<SetSpreadsheetFilePathRequestInput> = {}): SetSpreadsheetFilePathRequestInput {
+  return options as SetSpreadsheetFilePathRequestInput;
+}
+
+
+export type SetSpreadsheetSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+export function createSetSpreadsheetSectionSettingsRequestInput(options: Partial<SetSpreadsheetSectionSettingsRequestInput> = {}): SetSpreadsheetSectionSettingsRequestInput {
+  return options as SetSpreadsheetSectionSettingsRequestInput;
+}
+
+
+export type SetTaskBoardSectionStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+};
+export function createSetTaskBoardSectionStateRequestInput(options: Partial<SetTaskBoardSectionStateRequestInput> = {}): SetTaskBoardSectionStateRequestInput {
+  return options as SetTaskBoardSectionStateRequestInput;
+}
+
+
+export type SetImageAreaImagePathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  imagePath: string;
+};
+export function createSetImageAreaImagePathRequestInput(options: Partial<SetImageAreaImagePathRequestInput> = {}): SetImageAreaImagePathRequestInput {
+  return options as SetImageAreaImagePathRequestInput;
+}
+
+
+export type SetSocialURLRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  url: string;
+};
+export function createSetSocialURLRequestInput(options: Partial<SetSocialURLRequestInput> = {}): SetSocialURLRequestInput {
+  return options as SetSocialURLRequestInput;
+}
+
+
+export type AppendDrawAreaLayerItemRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  layerIdx: number;
+  element: DrawAreaLayerItem;
+};
+export function createAppendDrawAreaLayerItemRequestInput(options: Partial<AppendDrawAreaLayerItemRequestInput> = {}): AppendDrawAreaLayerItemRequestInput {
+  return options as AppendDrawAreaLayerItemRequestInput;
+}
+
+
+export type SetChartAreaDataPathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  dataPath: string;
+};
+export function createSetChartAreaDataPathRequestInput(options: Partial<SetChartAreaDataPathRequestInput> = {}): SetChartAreaDataPathRequestInput {
+  return options as SetChartAreaDataPathRequestInput;
+}
+
+
+export type SetChartTypeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chartType: ChartType;
+};
+export function createSetChartTypeRequestInput(options: Partial<SetChartTypeRequestInput> = {}): SetChartTypeRequestInput {
+  return options as SetChartTypeRequestInput;
+}
+
+
+export type SetChartSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chartSettings: BaseChartSettingsUnion;
+  changedSettings: Array<string>;
+};
+export function createSetChartSettingsRequestInput(options: Partial<SetChartSettingsRequestInput> = {}): SetChartSettingsRequestInput {
+  return options as SetChartSettingsRequestInput;
+}
+
+
+export type SetTextBlockTextRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  text: string;
+};
+export function createSetTextBlockTextRequestInput(options: Partial<SetTextBlockTextRequestInput> = {}): SetTextBlockTextRequestInput {
+  return options as SetTextBlockTextRequestInput;
+}
+
+
+export type SetTextBlockDisplayModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  textDisplayMode: TextBlockDisplayMode;
+};
+export function createSetTextBlockDisplayModeRequestInput(options: Partial<SetTextBlockDisplayModeRequestInput> = {}): SetTextBlockDisplayModeRequestInput {
+  return options as SetTextBlockDisplayModeRequestInput;
+}
+
+
+export type SetTextBlockFormatRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: TextBlockFormat;
+};
+export function createSetTextBlockFormatRequestInput(options: Partial<SetTextBlockFormatRequestInput> = {}): SetTextBlockFormatRequestInput {
+  return options as SetTextBlockFormatRequestInput;
+}
+
+
+export type SetTextBlockHeadingAsSectionNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  headingAsSectionName: boolean;
+};
+export function createSetTextBlockHeadingAsSectionNameRequestInput(options: Partial<SetTextBlockHeadingAsSectionNameRequestInput> = {}): SetTextBlockHeadingAsSectionNameRequestInput {
+  return options as SetTextBlockHeadingAsSectionNameRequestInput;
+}
+
+
+export type SetTextBlockMetaControlStyleRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  metaControlStyle: boolean;
+};
+export function createSetTextBlockMetaControlStyleRequestInput(options: Partial<SetTextBlockMetaControlStyleRequestInput> = {}): SetTextBlockMetaControlStyleRequestInput {
+  return options as SetTextBlockMetaControlStyleRequestInput;
+}
+
+
+export type SetTextBlockMasterFontSizeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  masterFontSizePx: number;
+};
+export function createSetTextBlockMasterFontSizeRequestInput(options: Partial<SetTextBlockMasterFontSizeRequestInput> = {}): SetTextBlockMasterFontSizeRequestInput {
+  return options as SetTextBlockMasterFontSizeRequestInput;
+}
+
+
+export type SetCodeFileBindingRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  binding: CodeFileBindingUpdate;
+};
+export function createSetCodeFileBindingRequestInput(options: Partial<SetCodeFileBindingRequestInput> = {}): SetCodeFileBindingRequestInput {
+  return options as SetCodeFileBindingRequestInput;
+}
+
+
+export type ViewportInput = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+export function createViewportInput(options: Partial<ViewportInput> = {}): ViewportInput {
+  return options as ViewportInput;
+}
+
+
+export type SetTopLevelSectionLayoutRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  topLevelSections: Record<string, TopLevelSectionLayoutInput>;
+};
+export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetTopLevelSectionLayoutRequestInput> = {}): SetTopLevelSectionLayoutRequestInput {
+  return options as SetTopLevelSectionLayoutRequestInput;
+}
+
+
+export type SetViewportRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewport: ViewportInput | null;
+};
+export function createSetViewportRequestInput(options: Partial<SetViewportRequestInput> = {}): SetViewportRequestInput {
+  return options as SetViewportRequestInput;
+}
+
+
+export type SetActiveIDsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  activeIds: Array<string>;
+};
+export function createSetActiveIDsRequestInput(options: Partial<SetActiveIDsRequestInput> = {}): SetActiveIDsRequestInput {
+  return options as SetActiveIDsRequestInput;
+}
+
+
+export type DeleteTerminalsRequestInput = {
+  sectionIds: Array<string>;
+};
+export function createDeleteTerminalsRequestInput(options: Partial<DeleteTerminalsRequestInput> = {}): DeleteTerminalsRequestInput {
+  return options as DeleteTerminalsRequestInput;
+}
+
+
+export type InterruptTerminalProcessesRequestInput = {
+  projectId: string;
+};
+export function createInterruptTerminalProcessesRequestInput(options: Partial<InterruptTerminalProcessesRequestInput> = {}): InterruptTerminalProcessesRequestInput {
+  return options as InterruptTerminalProcessesRequestInput;
+}
+
+
+export type InterruptTerminalProcessesResponse = {
+  interruptedSessionCount: number;
+};
+export function createInterruptTerminalProcessesResponse(options: Partial<InterruptTerminalProcessesResponse> = {}): InterruptTerminalProcessesResponse {
+  return options as InterruptTerminalProcessesResponse;
+}
+
+
+export type RunCodeRequestInput = {
+  projectConfigId: string;
+  sectionId: string | null;
+  terminalSectionId?: string | null;
+  cliId?: string | null;
+  runSnapshotMode?: RunSnapshotMode | null;
+  drawSnapshotsBySectionId?: Record<string, BinaryContentRef> | null;
+  sectionVariantOverrides?: Record<string, string> | null;
+  paramOverrides?: Record<string, string> | null;
+};
+export function createRunCodeRequestInput(options: Partial<RunCodeRequestInput> = {}): RunCodeRequestInput {
+  return options as RunCodeRequestInput;
 }
 
 
@@ -6074,304 +9929,6 @@ export function createFrontendWebsocketMsgUnion(options: Partial<FrontendWebsock
 }
 
 
-export type BackendInitEvent = {
-  message: string;
-  timestamp: string;
-};
-export function createBackendInitEvent(options: Partial<BackendInitEvent> = {}): BackendInitEvent {
-  return options as BackendInitEvent;
-}
-
-
-export type BackendInitStatusResponse = {
-  events: Array<BackendInitEvent>;
-  isReady: boolean;
-  error: string | null;
-  authCookieRefreshWindowSeconds: number;
-  worktreeName: string | null;
-};
-export function createBackendInitStatusResponse(options: Partial<BackendInitStatusResponse> = {}): BackendInitStatusResponse {
-  return options as BackendInitStatusResponse;
-}
-
-
-export type AuthRefreshStatusResponse = {
-  authCookieRefreshWindowSeconds: number;
-};
-export function createAuthRefreshStatusResponse(options: Partial<AuthRefreshStatusResponse> = {}): AuthRefreshStatusResponse {
-  return options as AuthRefreshStatusResponse;
-}
-
-
-export const ServerModeEnum = {
-  IDE: "ide",
-  Share: "share",
-  App: "app",
-  Launcher: "launcher",
-} as const;
-export type ServerMode = ObjectValues<typeof ServerModeEnum>;
-
-
-export type ServerModeResponse = {
-  mode: ServerMode;
-};
-export function createServerModeResponse(options: Partial<ServerModeResponse> = {}): ServerModeResponse {
-  return options as ServerModeResponse;
-}
-
-
-export type SettaHomeInfoResponse = {
-  settaHome: string;
-  globalSettaFilesBase: string;
-  activeSettaFilesLocation: string | null;
-  llmConfigPath: string;
-};
-export function createSettaHomeInfoResponse(options: Partial<SettaHomeInfoResponse> = {}): SettaHomeInfoResponse {
-  return options as SettaHomeInfoResponse;
-}
-
-
-export type SaveSettingsRequestInput = {
-  settings: SettingsState;
-};
-export function createSaveSettingsRequestInput(options: Partial<SaveSettingsRequestInput> = {}): SaveSettingsRequestInput {
-  return options as SaveSettingsRequestInput;
-}
-
-
-export type ProjectMetadataEntry = {
-  id: string;
-  name: string;
-};
-export function createProjectMetadataEntry(options: Partial<ProjectMetadataEntry> = {}): ProjectMetadataEntry {
-  return options as ProjectMetadataEntry;
-}
-
-
-export type AllProjectMetadata = {
-  defaultProjectConfigId: string | null;
-  projectMetadata: Array<ProjectMetadataEntry>;
-};
-export function createAllProjectMetadata(options: Partial<AllProjectMetadata> = {}): AllProjectMetadata {
-  return options as AllProjectMetadata;
-}
-
-
-export type LoadProjectConfigRequestInput = {
-  projectConfigName: string;
-};
-export function createLoadProjectConfigRequestInput(options: Partial<LoadProjectConfigRequestInput> = {}): LoadProjectConfigRequestInput {
-  return options as LoadProjectConfigRequestInput;
-}
-
-
-export type GetLatestProjectStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-export function createGetLatestProjectStateRequestInput(options: Partial<GetLatestProjectStateRequestInput> = {}): GetLatestProjectStateRequestInput {
-  return options as GetLatestProjectStateRequestInput;
-}
-
-
-export type UndoRequestInput = {
-  projectConfigId: string;
-  steps: number;
-};
-export function createUndoRequestInput(options: Partial<UndoRequestInput> = {}): UndoRequestInput {
-  return options as UndoRequestInput;
-}
-
-
-export type RedoRequestInput = {
-  projectConfigId: string;
-  steps: number;
-};
-export function createRedoRequestInput(options: Partial<RedoRequestInput> = {}): RedoRequestInput {
-  return options as RedoRequestInput;
-}
-
-
-export type SaveProjectRequestInput = {
-  projectConfigId: string;
-};
-export function createSaveProjectRequestInput(options: Partial<SaveProjectRequestInput> = {}): SaveProjectRequestInput {
-  return options as SaveProjectRequestInput;
-}
-
-
-export type SaveAsNewProjectConfigRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  newConfigName: string;
-  withRefs: boolean;
-};
-export function createSaveAsNewProjectConfigRequestInput(options: Partial<SaveAsNewProjectConfigRequestInput> = {}): SaveAsNewProjectConfigRequestInput {
-  return options as SaveAsNewProjectConfigRequestInput;
-}
-
-
-export type CreateProjectConfigRequestInput = {
-  previewImgColor: string;
-};
-export function createCreateProjectConfigRequestInput(options: Partial<CreateProjectConfigRequestInput> = {}): CreateProjectConfigRequestInput {
-  return options as CreateProjectConfigRequestInput;
-}
-
-
-export type CreateProjectConfigResponse = string;
-
-
-export type DeleteProjectConfigsRequestInput = {
-  ids: Array<string>;
-};
-export function createDeleteProjectConfigsRequestInput(options: Partial<DeleteProjectConfigsRequestInput> = {}): DeleteProjectConfigsRequestInput {
-  return options as DeleteProjectConfigsRequestInput;
-}
-
-
-export type DeleteProjectConfigsResponse = boolean;
-
-
-export type SetAsDefaultProjectRequestInput = {
-  projectConfigId: string;
-};
-export function createSetAsDefaultProjectRequestInput(options: Partial<SetAsDefaultProjectRequestInput> = {}): SetAsDefaultProjectRequestInput {
-  return options as SetAsDefaultProjectRequestInput;
-}
-
-
-export type SetProjectConfigNameRequestInput = {
-  projectConfigId: string;
-  newName: string;
-};
-export function createSetProjectConfigNameRequestInput(options: Partial<SetProjectConfigNameRequestInput> = {}): SetProjectConfigNameRequestInput {
-  return options as SetProjectConfigNameRequestInput;
-}
-
-
-export type GetNotificationsRequestInput = {
-  projectConfigId: string;
-};
-export function createGetNotificationsRequestInput(options: Partial<GetNotificationsRequestInput> = {}): GetNotificationsRequestInput {
-  return options as GetNotificationsRequestInput;
-}
-
-
-export type NotificationsResponse = Array<SettaNotification>;
-
-
-export type DeleteNotificationRequestInput = {
-  notificationId: string;
-};
-export function createDeleteNotificationRequestInput(options: Partial<DeleteNotificationRequestInput> = {}): DeleteNotificationRequestInput {
-  return options as DeleteNotificationRequestInput;
-}
-
-
-export type DeleteNotificationResponse = {
-  success: boolean;
-};
-export function createDeleteNotificationResponse(options: Partial<DeleteNotificationResponse> = {}): DeleteNotificationResponse {
-  return options as DeleteNotificationResponse;
-}
-
-
-export type CreateNewSectionVariantRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-export function createCreateNewSectionVariantRequestInput(options: Partial<CreateNewSectionVariantRequestInput> = {}): CreateNewSectionVariantRequestInput {
-  return options as CreateNewSectionVariantRequestInput;
-}
-
-
-export type CreateNewSectionVariantResponse = {
-  variantId: string;
-};
-export function createCreateNewSectionVariantResponse(options: Partial<CreateNewSectionVariantResponse> = {}): CreateNewSectionVariantResponse {
-  return options as CreateNewSectionVariantResponse;
-}
-
-
-export type SetSectionVariantRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-export function createSetSectionVariantRequestInput(options: Partial<SetSectionVariantRequestInput> = {}): SetSectionVariantRequestInput {
-  return options as SetSectionVariantRequestInput;
-}
-
-
-export type SetDefaultSectionVariantRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-export function createSetDefaultSectionVariantRequestInput(options: Partial<SetDefaultSectionVariantRequestInput> = {}): SetDefaultSectionVariantRequestInput {
-  return options as SetDefaultSectionVariantRequestInput;
-}
-
-
-export type SetSectionVariantSortOrderRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  orderedVariantIds: Array<string>;
-};
-export function createSetSectionVariantSortOrderRequestInput(options: Partial<SetSectionVariantSortOrderRequestInput> = {}): SetSectionVariantSortOrderRequestInput {
-  return options as SetSectionVariantSortOrderRequestInput;
-}
-
-
-export type ToggleVariantFrozenRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  variantId: string;
-};
-export function createToggleVariantFrozenRequestInput(options: Partial<ToggleVariantFrozenRequestInput> = {}): ToggleVariantFrozenRequestInput {
-  return options as ToggleVariantFrozenRequestInput;
-}
-
-
-export type ToggleVariantJSONSourceRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-export function createToggleVariantJSONSourceRequestInput(options: Partial<ToggleVariantJSONSourceRequestInput> = {}): ToggleVariantJSONSourceRequestInput {
-  return options as ToggleVariantJSONSourceRequestInput;
-}
-
-
-export type SetVariantJSONSourceKeysRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-  jsonSourceKeys: Array<string>;
-};
-export function createSetVariantJSONSourceKeysRequestInput(options: Partial<SetVariantJSONSourceKeysRequestInput> = {}): SetVariantJSONSourceKeysRequestInput {
-  return options as SetVariantJSONSourceKeysRequestInput;
-}
-
-
-export type SetSectionVariantNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  variantId: string;
-  name: string;
-};
-export function createSetSectionVariantNameRequestInput(options: Partial<SetSectionVariantNameRequestInput> = {}): SetSectionVariantNameRequestInput {
-  return options as SetSectionVariantNameRequestInput;
-}
-
-
 export type DeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -6380,9 +9937,6 @@ export type DeleteSectionVariantOrAskRequest = {
 export function createDeleteSectionVariantOrAskRequest(options: Partial<DeleteSectionVariantOrAskRequest> = {}): DeleteSectionVariantOrAskRequest {
   return options as DeleteSectionVariantOrAskRequest;
 }
-
-
-export type DeleteSectionVariantOrAskResponse = string;
 
 
 export type DeleteJSONSourceFileAndVariantRequest = {
@@ -6396,1204 +9950,11 @@ export function createDeleteJSONSourceFileAndVariantRequest(options: Partial<Del
 }
 
 
-export type CreateChildSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  parentId: string;
-  implType: SectionType;
-  numChildren: number;
-  startIdx?: number | null;
-};
-export function createCreateChildSectionsRequestInput(options: Partial<CreateChildSectionsRequestInput> = {}): CreateChildSectionsRequestInput {
-  return options as CreateChildSectionsRequestInput;
-}
-
-
-export type CreateChildSectionsResponse = {
-  sectionIds: Array<string>;
-};
-export function createCreateChildSectionsResponse(options: Partial<CreateChildSectionsResponse> = {}): CreateChildSectionsResponse {
-  return options as CreateChildSectionsResponse;
-}
-
-
-export type CreateChildSectionsViaIncrementerRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  implType: SectionType;
-  numChildren: number;
-};
-export function createCreateChildSectionsViaIncrementerRequestInput(options: Partial<CreateChildSectionsViaIncrementerRequestInput> = {}): CreateChildSectionsViaIncrementerRequestInput {
-  return options as CreateChildSectionsViaIncrementerRequestInput;
-}
-
-
-export type DeleteChildSectionsViaDecrementerRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  numChildren: number;
-};
-export function createDeleteChildSectionsViaDecrementerRequestInput(options: Partial<DeleteChildSectionsViaDecrementerRequestInput> = {}): DeleteChildSectionsViaDecrementerRequestInput {
-  return options as DeleteChildSectionsViaDecrementerRequestInput;
-}
-
-
-export type DeleteChildSectionsViaDecrementerResponse = {
-  sectionIds: Array<string>;
-};
-export function createDeleteChildSectionsViaDecrementerResponse(options: Partial<DeleteChildSectionsViaDecrementerResponse> = {}): DeleteChildSectionsViaDecrementerResponse {
-  return options as DeleteChildSectionsViaDecrementerResponse;
-}
-
-
-export type DeleteSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-export function createDeleteSectionsRequestInput(options: Partial<DeleteSectionsRequestInput> = {}): DeleteSectionsRequestInput {
-  return options as DeleteSectionsRequestInput;
-}
-
-
-export type DeleteSelectedParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoIds: Array<string>;
-};
-export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSelectedParamsRequestInput> = {}): DeleteSelectedParamsRequestInput {
-  return options as DeleteSelectedParamsRequestInput;
-}
-
-
-export type PrepareSectionsForCopyRequestInput = {
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-export function createPrepareSectionsForCopyRequestInput(options: Partial<PrepareSectionsForCopyRequestInput> = {}): PrepareSectionsForCopyRequestInput {
-  return options as PrepareSectionsForCopyRequestInput;
-}
-
-
-export type SectionsClipboardDataResponse = SectionsClipboardData;
-
-
-export type PasteSectionsRequestInput = {
-  projectConfigId: string;
-  data: ClipboardProjectStateCoreWithSectionVariantMap;
-  position: Position;
-  asRef: boolean;
-};
-export function createPasteSectionsRequestInput(options: Partial<PasteSectionsRequestInput> = {}): PasteSectionsRequestInput {
-  return options as PasteSectionsRequestInput;
-}
-
-
-export type CreateEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown> | null;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown> | null;
-};
-export function createCreateEdgeRequestInput(options: Partial<CreateEdgeRequestInput> = {}): CreateEdgeRequestInput {
-  return options as CreateEdgeRequestInput;
-}
-
-
-export type UpdateEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: Edge;
-};
-export function createUpdateEdgeRequestInput(options: Partial<UpdateEdgeRequestInput> = {}): UpdateEdgeRequestInput {
-  return options as UpdateEdgeRequestInput;
-}
-
-
-export type DeleteEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-export function createDeleteEdgesRequestInput(options: Partial<DeleteEdgesRequestInput> = {}): DeleteEdgesRequestInput {
-  return options as DeleteEdgesRequestInput;
-}
-
-
-export type ReconnectEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-};
-export function createReconnectEdgeRequestInput(options: Partial<ReconnectEdgeRequestInput> = {}): ReconnectEdgeRequestInput {
-  return options as ReconnectEdgeRequestInput;
-}
-
-
-export type SetEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<Edge>;
-};
-export function createSetEdgesRequestInput(options: Partial<SetEdgesRequestInput> = {}): SetEdgesRequestInput {
-  return options as SetEdgesRequestInput;
-}
-
-
-export type CreateStateMachineEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id?: string | null;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter?: StateMachineSourceFilter | null;
-  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
-  targetAction?: StateMachineTargetAction | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-export function createCreateStateMachineEdgeRequestInput(options: Partial<CreateStateMachineEdgeRequestInput> = {}): CreateStateMachineEdgeRequestInput {
-  return options as CreateStateMachineEdgeRequestInput;
-}
-
-
-export type UpdateStateMachineEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: StateMachineEdge;
-};
-export function createUpdateStateMachineEdgeRequestInput(options: Partial<UpdateStateMachineEdgeRequestInput> = {}): UpdateStateMachineEdgeRequestInput {
-  return options as UpdateStateMachineEdgeRequestInput;
-}
-
-
-export type DeleteStateMachineEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-export function createDeleteStateMachineEdgesRequestInput(options: Partial<DeleteStateMachineEdgesRequestInput> = {}): DeleteStateMachineEdgesRequestInput {
-  return options as DeleteStateMachineEdgesRequestInput;
-}
-
-
-export type SetStateMachineEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<StateMachineEdge>;
-};
-export function createSetStateMachineEdgesRequestInput(options: Partial<SetStateMachineEdgesRequestInput> = {}): SetStateMachineEdgesRequestInput {
-  return options as SetStateMachineEdgesRequestInput;
-}
-
-
-export type CreateAgenticEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id?: string | null;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-};
-export function createCreateAgenticEdgeRequestInput(options: Partial<CreateAgenticEdgeRequestInput> = {}): CreateAgenticEdgeRequestInput {
-  return options as CreateAgenticEdgeRequestInput;
-}
-
-
-export type UpdateAgenticEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: AgenticEdge;
-};
-export function createUpdateAgenticEdgeRequestInput(options: Partial<UpdateAgenticEdgeRequestInput> = {}): UpdateAgenticEdgeRequestInput {
-  return options as UpdateAgenticEdgeRequestInput;
-}
-
-
-export type DeleteAgenticEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-export function createDeleteAgenticEdgesRequestInput(options: Partial<DeleteAgenticEdgesRequestInput> = {}): DeleteAgenticEdgesRequestInput {
-  return options as DeleteAgenticEdgesRequestInput;
-}
-
-
-export type SetAgenticEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<AgenticEdge>;
-};
-export function createSetAgenticEdgesRequestInput(options: Partial<SetAgenticEdgesRequestInput> = {}): SetAgenticEdgesRequestInput {
-  return options as SetAgenticEdgesRequestInput;
-}
-
-
-export type MoveSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-  newParentId: string | null;
-  newIndex: number | null;
-  positionsById: Record<string, Position> | null;
-};
-export function createMoveSectionsRequestInput(options: Partial<MoveSectionsRequestInput> = {}): MoveSectionsRequestInput {
-  return options as MoveSectionsRequestInput;
-}
-
-
-export type MoveParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramIds: Array<string>;
-  newParentId: string;
-  newIndex: number;
-};
-export function createMoveParamsRequestInput(options: Partial<MoveParamsRequestInput> = {}): MoveParamsRequestInput {
-  return options as MoveParamsRequestInput;
-}
-
-
-export type MoveParamGroup = {
-  paramIds: Array<string>;
-  newParentId: string;
-  newIndex: number;
-};
-export function createMoveParamGroup(options: Partial<MoveParamGroup> = {}): MoveParamGroup {
-  return options as MoveParamGroup;
-}
-
-
-export type MoveParamGroupsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  moves: Array<MoveParamGroup>;
-};
-export function createMoveParamGroupsRequestInput(options: Partial<MoveParamGroupsRequestInput> = {}): MoveParamGroupsRequestInput {
-  return options as MoveParamGroupsRequestInput;
-}
-
-
-export type IndentParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramIds: Array<string>;
-};
-export function createIndentParamsRequestInput(options: Partial<IndentParamsRequestInput> = {}): IndentParamsRequestInput {
-  return options as IndentParamsRequestInput;
-}
-
-
-export type UnindentParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramIds: Array<string>;
-};
-export function createUnindentParamsRequestInput(options: Partial<UnindentParamsRequestInput> = {}): UnindentParamsRequestInput {
-  return options as UnindentParamsRequestInput;
-}
-
-
-export type AddKwargRequestInput = {
-  projectConfigId: string;
-  sectionId: string;
-};
-export function createAddKwargRequestInput(options: Partial<AddKwargRequestInput> = {}): AddKwargRequestInput {
-  return options as AddKwargRequestInput;
-}
-
-
-export type DeleteKwargRequestInput = {
-  projectConfigId: string;
-  sectionId: string;
-};
-export function createDeleteKwargRequestInput(options: Partial<DeleteKwargRequestInput> = {}): DeleteKwargRequestInput {
-  return options as DeleteKwargRequestInput;
-}
-
-
-export type Position = {
-  x: number;
-  y: number;
-};
-export function createPosition(options: Partial<Position> = {}): Position {
-  return options as Position;
-}
-
-
-export type TopLevelSectionLayoutInput = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
-  return options as TopLevelSectionLayoutInput;
-}
-
-
-export type ViewportBoundsInput = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-export function createViewportBoundsInput(options: Partial<ViewportBoundsInput> = {}): ViewportBoundsInput {
-  return options as ViewportBoundsInput;
-}
-
-
-export type CreateTopLevelSectionRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  implType: string;
-  controlCodeObjType?: string | null;
-  implOverrides?: Record<string, unknown> | null;
-  position?: Position | null;
-  name?: string | null;
-  topLevelSections?: Record<string, TopLevelSectionLayoutInput>;
-  viewportBounds?: ViewportBoundsInput | null;
-};
-export function createCreateTopLevelSectionRequestInput(options: Partial<CreateTopLevelSectionRequestInput> = {}): CreateTopLevelSectionRequestInput {
-  return options as CreateTopLevelSectionRequestInput;
-}
-
-
-export type CreateTopLevelSectionResponse = {
-  sectionId: string;
-  metaControlParamId?: string | null;
-  panTo?: Position | null;
-};
-export function createCreateTopLevelSectionResponse(options: Partial<CreateTopLevelSectionResponse> = {}): CreateTopLevelSectionResponse {
-  return options as CreateTopLevelSectionResponse;
-}
-
-
-export type CreateViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-export function createCreateViewModeRequestInput(options: Partial<CreateViewModeRequestInput> = {}): CreateViewModeRequestInput {
-  return options as CreateViewModeRequestInput;
-}
-
-
-export type CreateViewModeResponse = string;
-
-
-export type SetActiveViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  activeViewModeId: string;
-};
-export function createSetActiveViewModeRequestInput(options: Partial<SetActiveViewModeRequestInput> = {}): SetActiveViewModeRequestInput {
-  return options as SetActiveViewModeRequestInput;
-}
-
-
-export type ToggleIsEditingViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-export function createToggleIsEditingViewModeRequestInput(options: Partial<ToggleIsEditingViewModeRequestInput> = {}): ToggleIsEditingViewModeRequestInput {
-  return options as ToggleIsEditingViewModeRequestInput;
-}
-
-
-export type ToggleViewModeUserFacingRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-};
-export function createToggleViewModeUserFacingRequestInput(options: Partial<ToggleViewModeUserFacingRequestInput> = {}): ToggleViewModeUserFacingRequestInput {
-  return options as ToggleViewModeUserFacingRequestInput;
-}
-
-
-export type ToggleViewModeTabRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-};
-export function createToggleViewModeTabRequestInput(options: Partial<ToggleViewModeTabRequestInput> = {}): ToggleViewModeTabRequestInput {
-  return options as ToggleViewModeTabRequestInput;
-}
-
-
-export type SetViewModeNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-  name: string;
-};
-export function createSetViewModeNameRequestInput(options: Partial<SetViewModeNameRequestInput> = {}): SetViewModeNameRequestInput {
-  return options as SetViewModeNameRequestInput;
-}
-
-
-export type SetViewModeSortOrderRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  orderedViewModeIds: Array<string>;
-};
-export function createSetViewModeSortOrderRequestInput(options: Partial<SetViewModeSortOrderRequestInput> = {}): SetViewModeSortOrderRequestInput {
-  return options as SetViewModeSortOrderRequestInput;
-}
-
-
-export type DeleteViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-};
-export function createDeleteViewModeRequestInput(options: Partial<DeleteViewModeRequestInput> = {}): DeleteViewModeRequestInput {
-  return options as DeleteViewModeRequestInput;
-}
-
-
-export type SetSectionNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  name: string;
-};
-export function createSetSectionNameRequestInput(options: Partial<SetSectionNameRequestInput> = {}): SetSectionNameRequestInput {
-  return options as SetSectionNameRequestInput;
-}
-
-
-export type AcceptRenameRefactorRequestInput = {
-  projectConfigId: string;
-  frontendOpId: string;
-};
-export function createAcceptRenameRefactorRequestInput(options: Partial<AcceptRenameRefactorRequestInput> = {}): AcceptRenameRefactorRequestInput {
-  return options as AcceptRenameRefactorRequestInput;
-}
-
-
-export type DeclineRenameRefactorRequestInput = {
-  projectConfigId: string;
-  frontendOpId: string;
-};
-export function createDeclineRenameRefactorRequestInput(options: Partial<DeclineRenameRefactorRequestInput> = {}): DeclineRenameRefactorRequestInput {
-  return options as DeclineRenameRefactorRequestInput;
-}
-
-
-export const LaunchSettaFilesLocationEnum = {
-  Auto: "auto",
-  Local: "local",
-  Global: "global",
-} as const;
-export type LaunchSettaFilesLocation = ObjectValues<typeof LaunchSettaFilesLocationEnum>;
-
-
-export type LaunchRequestInput = {
-  launchIntentToken?: string | null;
-  workspaceRoot?: string | null;
-  profile?: string | null;
-  settaHome?: string | null;
-  settaFilesRoot?: string | null;
-  settaFilesLocation?: LaunchSettaFilesLocation | null;
-  runtimeRoot?: string | null;
-  sshTarget?: string | null;
-  sshArgs?: string | null;
-  remoteCmd?: string | null;
-  localPort?: number | null;
-};
-export function createLaunchRequestInput(options: Partial<LaunchRequestInput> = {}): LaunchRequestInput {
-  return options as LaunchRequestInput;
-}
-
-
-export type CreateWorkspaceLaunchIntentRequestInput = {
-  launchRequest: LaunchRequestInput;
-  returnUrl: string;
-};
-export function createCreateWorkspaceLaunchIntentRequestInput(options: Partial<CreateWorkspaceLaunchIntentRequestInput> = {}): CreateWorkspaceLaunchIntentRequestInput {
-  return options as CreateWorkspaceLaunchIntentRequestInput;
-}
-
-
-export type LaunchErrorPayload = {
-  code: string;
-  message: string;
-};
-export function createLaunchErrorPayload(options: Partial<LaunchErrorPayload> = {}): LaunchErrorPayload {
-  return options as LaunchErrorPayload;
-}
-
-
-export type CreateWorkspaceLaunchIntentResponse = {
-  ok: boolean;
-  launchIntentToken: string | null;
-  requestedAt: number | null;
-  error: LaunchErrorPayload | null;
-};
-export function createCreateWorkspaceLaunchIntentResponse(options: Partial<CreateWorkspaceLaunchIntentResponse> = {}): CreateWorkspaceLaunchIntentResponse {
-  return options as CreateWorkspaceLaunchIntentResponse;
-}
-
-
-export const LaunchResolvedSettaFilesLocationEnum = {
-  Local: "local",
-  Global: "global",
-} as const;
-export type LaunchResolvedSettaFilesLocation = ObjectValues<typeof LaunchResolvedSettaFilesLocationEnum>;
-
-
-export type LaunchSessionInfo = {
-  id: string;
-  workspacePath: string;
-  workspacePathCanonical: string;
-  host: string;
-  port: number;
-  pid: number;
-  startedAt: string;
-};
-export function createLaunchSessionInfo(options: Partial<LaunchSessionInfo> = {}): LaunchSessionInfo {
-  return options as LaunchSessionInfo;
-}
-
-
-export type LaunchResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  returnUrl: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  session: LaunchSessionInfo | null;
-  remoteCmdResolved: string | null;
-  error: LaunchErrorPayload | null;
-};
-export function createLaunchResponse(options: Partial<LaunchResponse> = {}): LaunchResponse {
-  return options as LaunchResponse;
-}
-
-
-export type DeploymentType = string;
-
-
-export type DeploymentListenerConfig = {
-  entrypoint: string;
-  enabled: boolean;
-};
-export function createDeploymentListenerConfig(options: Partial<DeploymentListenerConfig> = {}): DeploymentListenerConfig {
-  return options as DeploymentListenerConfig;
-}
-
-
-export type DeploymentManifest = {
-  version: number;
-  deploymentName: string;
-  deploymentType: DeploymentType;
-  defaultProjectConfigId: string;
-  deploymentVersion: string;
-  createdAt: string;
-  listener?: DeploymentListenerConfig | null;
-};
-export function createDeploymentManifest(options: Partial<DeploymentManifest> = {}): DeploymentManifest {
-  return options as DeploymentManifest;
-}
-
-
-export type ShareDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectMetadataEntry>;
-  sharePolicy: SharePolicy;
-  manifest?: DeploymentManifest | null;
-};
-export function createShareDeploymentSessionResponse(options: Partial<ShareDeploymentSessionResponse> = {}): ShareDeploymentSessionResponse {
-  return options as ShareDeploymentSessionResponse;
-}
-
-
-export type AppDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectMetadataEntry>;
-  appPolicy: SharePolicy;
-  manifest?: DeploymentManifest | null;
-};
-export function createAppDeploymentSessionResponse(options: Partial<AppDeploymentSessionResponse> = {}): AppDeploymentSessionResponse {
-  return options as AppDeploymentSessionResponse;
-}
-
-
-export type LoadDeploymentProjectConfigRequestInput = {
-  projectConfigId: string;
-};
-export function createLoadDeploymentProjectConfigRequestInput(options: Partial<LoadDeploymentProjectConfigRequestInput> = {}): LoadDeploymentProjectConfigRequestInput {
-  return options as LoadDeploymentProjectConfigRequestInput;
-}
-
-
-export type AppRoute = {
-  path: string;
-  name?: string | null;
-  rootKey?: string | null;
-};
-export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
-  return options as AppRoute;
-}
-
-
-export type AppDefinition = {
-  appSpecVersion?: string;
-  catalogId?: string;
-  appSpecPath?: string | null;
-  routes?: Array<AppRoute>;
-  dataBindings?: Record<string, unknown>;
-  actions?: Record<string, unknown>;
-  theme?: Record<string, unknown>;
-  assets?: Array<unknown>;
-};
-export function createAppDefinition(options: Partial<AppDefinition> = {}): AppDefinition {
-  return options as AppDefinition;
-}
-
-
-export type AppDeploymentStateResponse = {
-  projectState: ProjectStateSingleConfig;
-  appDefinition?: AppDefinition | null;
-  appSpec: JSONValue;
-  appPolicy: SharePolicy;
-};
-export function createAppDeploymentStateResponse(options: Partial<AppDeploymentStateResponse> = {}): AppDeploymentStateResponse {
-  return options as AppDeploymentStateResponse;
-}
-
-
-export type ShareDeploymentMetadata = {
-  deploymentName: string;
-  deploymentVersion: string;
-  defaultProjectConfigId: string;
-  defaultProjectConfigName: string;
-  createdAt: string;
-  deploymentRoot: string;
-  policyPath: string;
-};
-export function createShareDeploymentMetadata(options: Partial<ShareDeploymentMetadata> = {}): ShareDeploymentMetadata {
-  return options as ShareDeploymentMetadata;
-}
-
-
-export type ShareDeploymentMetadataList = Array<ShareDeploymentMetadata>;
-
-
-export type PublishShareDeploymentRequestInput = {
-  deploymentName: string;
-  projectConfigId: string;
-  sharePolicyOverrides?: SharePolicy | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean;
-};
-export function createPublishShareDeploymentRequestInput(options: Partial<PublishShareDeploymentRequestInput> = {}): PublishShareDeploymentRequestInput {
-  return options as PublishShareDeploymentRequestInput;
-}
-
-
-export type AppDeploymentMetadata = {
-  deploymentName: string;
-  deploymentVersion: string;
-  defaultProjectConfigId: string;
-  defaultProjectConfigName: string;
-  createdAt: string;
-  deploymentRoot: string;
-  policyPath: string;
-};
-export function createAppDeploymentMetadata(options: Partial<AppDeploymentMetadata> = {}): AppDeploymentMetadata {
-  return options as AppDeploymentMetadata;
-}
-
-
-export type AppDeploymentMetadataList = Array<AppDeploymentMetadata>;
-
-
-export type PublishAppDeploymentRequestInput = {
-  deploymentName: string;
-  projectConfigId: string;
-  appPolicyOverrides?: SharePolicy | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean;
-};
-export function createPublishAppDeploymentRequestInput(options: Partial<PublishAppDeploymentRequestInput> = {}): PublishAppDeploymentRequestInput {
-  return options as PublishAppDeploymentRequestInput;
-}
-
-
-export type GetLauncherRecentWorkspacesRequestInput = {
-  setta_home?: string | null;
-};
-export function createGetLauncherRecentWorkspacesRequestInput(options: Partial<GetLauncherRecentWorkspacesRequestInput> = {}): GetLauncherRecentWorkspacesRequestInput {
-  return options as GetLauncherRecentWorkspacesRequestInput;
-}
-
-
-export type LauncherRecentWorkspacePayload = {
-  workspaceRoot: string;
-  pinned: boolean;
-  lastUsedAt: number;
-};
-export function createLauncherRecentWorkspacePayload(options: Partial<LauncherRecentWorkspacePayload> = {}): LauncherRecentWorkspacePayload {
-  return options as LauncherRecentWorkspacePayload;
-}
-
-
-export type LauncherHomeErrorPayload = {
-  code: string;
-  message: string;
-};
-export function createLauncherHomeErrorPayload(options: Partial<LauncherHomeErrorPayload> = {}): LauncherHomeErrorPayload {
-  return options as LauncherHomeErrorPayload;
-}
-
-
-export type LauncherRecentWorkspacesResponse = {
-  ok: boolean;
-  workspaces: Array<LauncherRecentWorkspacePayload>;
-  error: LauncherHomeErrorPayload | null;
-};
-export function createLauncherRecentWorkspacesResponse(options: Partial<LauncherRecentWorkspacesResponse> = {}): LauncherRecentWorkspacesResponse {
-  return options as LauncherRecentWorkspacesResponse;
-}
-
-
-export type LauncherRecentWorkspaceRequestInput = {
-  settaHome?: string | null;
-  workspaceRoot: string;
-  pinned?: boolean | null;
-};
-export function createLauncherRecentWorkspaceRequestInput(options: Partial<LauncherRecentWorkspaceRequestInput> = {}): LauncherRecentWorkspaceRequestInput {
-  return options as LauncherRecentWorkspaceRequestInput;
-}
-
-
-export type PinLauncherRecentWorkspaceRequestInput = {
-  settaHome?: string | null;
-  workspaceRoot: string;
-  pinned: boolean;
-};
-export function createPinLauncherRecentWorkspaceRequestInput(options: Partial<PinLauncherRecentWorkspaceRequestInput> = {}): PinLauncherRecentWorkspaceRequestInput {
-  return options as PinLauncherRecentWorkspaceRequestInput;
-}
-
-
-export type LauncherFilesystemRootsResponse = {
-  ok: boolean;
-  roots: Array<string>;
-};
-export function createLauncherFilesystemRootsResponse(options: Partial<LauncherFilesystemRootsResponse> = {}): LauncherFilesystemRootsResponse {
-  return options as LauncherFilesystemRootsResponse;
-}
-
-
-export type LauncherListDirectoryRequestInput = {
-  path?: string | null;
-  cursor?: string | null;
-  pageSize?: number | null;
-};
-export function createLauncherListDirectoryRequestInput(options: Partial<LauncherListDirectoryRequestInput> = {}): LauncherListDirectoryRequestInput {
-  return options as LauncherListDirectoryRequestInput;
-}
-
-
-export type LauncherDirectoryEntryPayload = {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  isSymlink: boolean;
-};
-export function createLauncherDirectoryEntryPayload(options: Partial<LauncherDirectoryEntryPayload> = {}): LauncherDirectoryEntryPayload {
-  return options as LauncherDirectoryEntryPayload;
-}
-
-
-export type LauncherListDirectoryResponse = {
-  ok: boolean;
-  currentPath: string | null;
-  parentPath: string | null;
-  entries: Array<LauncherDirectoryEntryPayload>;
-  nextCursor: string | null;
-  hasMore: boolean;
-  truncated: boolean;
-  error: LauncherHomeErrorPayload | null;
-};
-export function createLauncherListDirectoryResponse(options: Partial<LauncherListDirectoryResponse> = {}): LauncherListDirectoryResponse {
-  return options as LauncherListDirectoryResponse;
-}
-
-
-export type LauncherOpenWorkspaceRequestInput = {
-  workspaceRoot: string;
-  settaHome?: string | null;
-  profile?: string | null;
-  settaFilesRoot?: string | null;
-  settaFilesLocation?: LaunchSettaFilesLocation | null;
-  runtimeRoot?: string | null;
-  createIfMissing?: boolean | null;
-};
-export function createLauncherOpenWorkspaceRequestInput(options: Partial<LauncherOpenWorkspaceRequestInput> = {}): LauncherOpenWorkspaceRequestInput {
-  return options as LauncherOpenWorkspaceRequestInput;
-}
-
-
-export type LauncherOpenWorkspaceResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  error: LauncherHomeErrorPayload | null;
-};
-export function createLauncherOpenWorkspaceResponse(options: Partial<LauncherOpenWorkspaceResponse> = {}): LauncherOpenWorkspaceResponse {
-  return options as LauncherOpenWorkspaceResponse;
-}
-
-
-export type GetLauncherStatusRequestInput = {
-  setta_home?: string | null;
-};
-export function createGetLauncherStatusRequestInput(options: Partial<GetLauncherStatusRequestInput> = {}): GetLauncherStatusRequestInput {
-  return options as GetLauncherStatusRequestInput;
-}
-
-
-export const LauncherOpenModeEnum = {
-  Browser: "browser",
-  ChromeApp: "chrome-app",
-} as const;
-export type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
-
-
-export const LauncherWorkspaceBehaviorEnum = {
-  LastUsedOrPrompt: "last_used_or_prompt",
-  AlwaysPrompt: "always_prompt",
-} as const;
-export type LauncherWorkspaceBehavior = ObjectValues<typeof LauncherWorkspaceBehaviorEnum>;
-
-
-export const LauncherUpdateCapabilityEnum = {
-  InApp: "in_app",
-  InstallerManaged: "installer_managed",
-  Unsupported: "unsupported",
-} as const;
-export type LauncherUpdateCapability = ObjectValues<typeof LauncherUpdateCapabilityEnum>;
-
-
-export type LauncherOperationErrorPayload = {
-  code: string;
-  message: string;
-};
-export function createLauncherOperationErrorPayload(options: Partial<LauncherOperationErrorPayload> = {}): LauncherOperationErrorPayload {
-  return options as LauncherOperationErrorPayload;
-}
-
-
-export type LauncherStatusResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-};
-export function createLauncherStatusResponse(options: Partial<LauncherStatusResponse> = {}): LauncherStatusResponse {
-  return options as LauncherStatusResponse;
-}
-
-
-export const LauncherInstallSourceEnum = {
-  UVTool: "uv-tool",
-  InstallerManaged: "installer-managed",
-  Unsupported: "unsupported",
-} as const;
-export type LauncherInstallSource = ObjectValues<typeof LauncherInstallSourceEnum>;
-
-
-export const SetupLauncherWorkspaceBehaviorEnum = {
-  LastUsedOrPrompt: "last-used-or-prompt",
-  AlwaysPrompt: "always-prompt",
-} as const;
-export type SetupLauncherWorkspaceBehavior = ObjectValues<typeof SetupLauncherWorkspaceBehaviorEnum>;
-
-
-export type SetupLauncherRequestInput = {
-  settaHome?: string | null;
-  channel?: string | null;
-  installSource?: LauncherInstallSource | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: SetupLauncherWorkspaceBehavior | null;
-  installArtifacts?: boolean | null;
-  artifactOptions?: Record<string, string>;
-};
-export function createSetupLauncherRequestInput(options: Partial<SetupLauncherRequestInput> = {}): SetupLauncherRequestInput {
-  return options as SetupLauncherRequestInput;
-}
-
-
-export type LauncherRequestBaseInput = {
-  settaHome?: string | null;
-};
-export function createLauncherRequestBaseInput(options: Partial<LauncherRequestBaseInput> = {}): LauncherRequestBaseInput {
-  return options as LauncherRequestBaseInput;
-}
-
-
-export type UpdateLauncherRequestInput = {
-  settaHome?: string | null;
-  packageSpec?: string | null;
-};
-export function createUpdateLauncherRequestInput(options: Partial<UpdateLauncherRequestInput> = {}): UpdateLauncherRequestInput {
-  return options as UpdateLauncherRequestInput;
-}
-
-
-export type LauncherUpdateResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-  packageSpec?: string | null;
-  fromVersion?: string | null;
-  toVersion?: string | null;
-};
-export function createLauncherUpdateResponse(options: Partial<LauncherUpdateResponse> = {}): LauncherUpdateResponse {
-  return options as LauncherUpdateResponse;
-}
-
-
 export type RevealPathInOSFileExplorerRequest = {
   path: string;
 };
 export function createRevealPathInOSFileExplorerRequest(options: Partial<RevealPathInOSFileExplorerRequest> = {}): RevealPathInOSFileExplorerRequest {
   return options as RevealPathInOSFileExplorerRequest;
-}
-
-
-export type AppGenSkillEntry = {
-  skillId: string;
-  name: string;
-  rootLabel: string;
-  rootPath: string;
-  relativePath: string;
-  isEditable: boolean;
-  editabilityReason: string | null;
-  description: string;
-};
-export function createAppGenSkillEntry(options: Partial<AppGenSkillEntry> = {}): AppGenSkillEntry {
-  return options as AppGenSkillEntry;
-}
-
-
-export type GetAppGenSkillsResponse = {
-  skills: Array<AppGenSkillEntry>;
-  customSkillCreateRootPath: string | null;
-  customSkillCreateRootActionable: boolean;
-};
-export function createGetAppGenSkillsResponse(options: Partial<GetAppGenSkillsResponse> = {}): GetAppGenSkillsResponse {
-  return options as GetAppGenSkillsResponse;
-}
-
-
-export type GetAppGenSkillContentRequestInput = {
-  skillId: string;
-};
-export function createGetAppGenSkillContentRequestInput(options: Partial<GetAppGenSkillContentRequestInput> = {}): GetAppGenSkillContentRequestInput {
-  return options as GetAppGenSkillContentRequestInput;
-}
-
-
-export type AppGenSkillContent = {
-  skillId: string;
-  content: string;
-  truncated: boolean;
-  originalSizeBytes: number;
-};
-export function createAppGenSkillContent(options: Partial<AppGenSkillContent> = {}): AppGenSkillContent {
-  return options as AppGenSkillContent;
-}
-
-
-export type UpsertAppGenCustomSkillRequestInput = {
-  skillId: string | null;
-  relativePath: string | null;
-  content: string;
-};
-export function createUpsertAppGenCustomSkillRequestInput(options: Partial<UpsertAppGenCustomSkillRequestInput> = {}): UpsertAppGenCustomSkillRequestInput {
-  return options as UpsertAppGenCustomSkillRequestInput;
-}
-
-
-export type UpsertAppGenCustomSkillResponse = {
-  skillId: string;
-  created: boolean;
-  rootPath: string;
-  skillDocPath: string;
-  skill: AppGenSkillEntry;
-  skillContent: AppGenSkillContent;
-};
-export function createUpsertAppGenCustomSkillResponse(options: Partial<UpsertAppGenCustomSkillResponse> = {}): UpsertAppGenCustomSkillResponse {
-  return options as UpsertAppGenCustomSkillResponse;
-}
-
-
-export type MCPRuntimeStatusRequestInput = {
-  chatId: string | null;
-  engineConfigId: string | null;
-};
-export function createMCPRuntimeStatusRequestInput(options: Partial<MCPRuntimeStatusRequestInput> = {}): MCPRuntimeStatusRequestInput {
-  return options as MCPRuntimeStatusRequestInput;
-}
-
-
-export const MCPTransportEnum = {
-  sse: "sse",
-  streamable_http: "streamable_http",
-  stdio: "stdio",
-} as const;
-export type MCPTransport = ObjectValues<typeof MCPTransportEnum>;
-
-
-export const MCPRuntimeStateEnum = {
-  connected: "connected",
-  connecting: "connecting",
-  retrying: "retrying",
-  error: "error",
-  disabled: "disabled",
-  unknown: "unknown",
-} as const;
-export type MCPRuntimeState = ObjectValues<typeof MCPRuntimeStateEnum>;
-
-
-export type MCPServerRuntimeStatus = {
-  serverId: string;
-  source: string;
-  transport: MCPTransport;
-  endpoint: string;
-  state: MCPRuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-};
-export function createMCPServerRuntimeStatus(options: Partial<MCPServerRuntimeStatus> = {}): MCPServerRuntimeStatus {
-  return options as MCPServerRuntimeStatus;
-}
-
-
-export type MCPRuntimeStatusResponse = {
-  llmConfigPath: string;
-  activeSettaFilesLocation: string;
-  servers: Array<MCPServerRuntimeStatus>;
-  externalServers: Array<MCPServerRuntimeStatus>;
-};
-export function createMCPRuntimeStatusResponse(options: Partial<MCPRuntimeStatusResponse> = {}): MCPRuntimeStatusResponse {
-  return options as MCPRuntimeStatusResponse;
-}
-
-
-export type GetPasswordParamValueRequestInput = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-};
-export function createGetPasswordParamValueRequestInput(options: Partial<GetPasswordParamValueRequestInput> = {}): GetPasswordParamValueRequestInput {
-  return options as GetPasswordParamValueRequestInput;
-}
-
-
-export type GetPasswordParamValueResponse = {
-  value: string;
-};
-export function createGetPasswordParamValueResponse(options: Partial<GetPasswordParamValueResponse> = {}): GetPasswordParamValueResponse {
-  return options as GetPasswordParamValueResponse;
 }
 
 
@@ -7609,320 +9970,11 @@ export function createChangeParamImplRequest(options: Partial<ChangeParamImplReq
 }
 
 
-export type SetParamEnteredValueRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-};
-export function createSetParamEnteredValueRequestInput(options: Partial<SetParamEnteredValueRequestInput> = {}): SetParamEnteredValueRequestInput {
-  return options as SetParamEnteredValueRequestInput;
-}
-
-
-export type UpdateParamImplConfigRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-  newConfig: Record<string, unknown>;
-};
-export function createUpdateParamImplConfigRequestInput(options: Partial<UpdateParamImplConfigRequestInput> = {}): UpdateParamImplConfigRequestInput {
-  return options as UpdateParamImplConfigRequestInput;
-}
-
-
-export type SetCodeObjNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codeObjId: string;
-  name: string;
-};
-export function createSetCodeObjNameRequestInput(options: Partial<SetCodeObjNameRequestInput> = {}): SetCodeObjNameRequestInput {
-  return options as SetCodeObjNameRequestInput;
-}
-
-
-export type SetCodeObjDisplayNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codeObjId: string;
-  displayName: string;
-};
-export function createSetCodeObjDisplayNameRequestInput(options: Partial<SetCodeObjDisplayNameRequestInput> = {}): SetCodeObjDisplayNameRequestInput {
-  return options as SetCodeObjDisplayNameRequestInput;
-}
-
-
-export type SetCodeSectionAttachedTerminalRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  terminalSectionId?: string | null;
-};
-export function createSetCodeSectionAttachedTerminalRequestInput(options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {}): SetCodeSectionAttachedTerminalRequestInput {
-  return options as SetCodeSectionAttachedTerminalRequestInput;
-}
-
-
-export type SetCodeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  code: string;
-};
-export function createSetCodeRequestInput(options: Partial<SetCodeRequestInput> = {}): SetCodeRequestInput {
-  return options as SetCodeRequestInput;
-}
-
-
-export type FormatCodeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-export function createFormatCodeRequestInput(options: Partial<FormatCodeRequestInput> = {}): FormatCodeRequestInput {
-  return options as FormatCodeRequestInput;
-}
-
-
-export type SetCallableRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  callableName: string;
-  refetchParams: boolean;
-};
-export function createSetCallableRequestInput(options: Partial<SetCallableRequestInput> = {}): SetCallableRequestInput {
-  return options as SetCallableRequestInput;
-}
-
-
-export type SetCallableChildCodeObj = {
-  codeObjId: string;
-  name: string;
-};
-export function createSetCallableChildCodeObj(options: Partial<SetCallableChildCodeObj> = {}): SetCallableChildCodeObj {
-  return options as SetCallableChildCodeObj;
-}
-
-
-export type SignatureHelpStatus = string;
-
-
-export type SetCallableResponse = {
-  callableId?: string | null;
-  childCodeObjs: Array<SetCallableChildCodeObj>;
-  lspStatus: SignatureHelpStatus;
-};
-export function createSetCallableResponse(options: Partial<SetCallableResponse> = {}): SetCallableResponse {
-  return options as SetCallableResponse;
-}
-
-
-export type SetProjectConfigCodegenTargetsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codegenTargets: Array<ProjectCodegenTarget>;
-};
-export function createSetProjectConfigCodegenTargetsRequestInput(options: Partial<SetProjectConfigCodegenTargetsRequestInput> = {}): SetProjectConfigCodegenTargetsRequestInput {
-  return options as SetProjectConfigCodegenTargetsRequestInput;
-}
-
-
-export type SetGenCodePrefixRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  genCodePrefix: string;
-};
-export function createSetGenCodePrefixRequestInput(options: Partial<SetGenCodePrefixRequestInput> = {}): SetGenCodePrefixRequestInput {
-  return options as SetGenCodePrefixRequestInput;
-}
-
-
-export type SetGenCodeSuffixRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  genCodeSuffix: string;
-};
-export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSuffixRequestInput> = {}): SetGenCodeSuffixRequestInput {
-  return options as SetGenCodeSuffixRequestInput;
-}
-
-
-export type SetWatchCodeEnabledRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  enabled: boolean;
-};
-export function createSetWatchCodeEnabledRequestInput(options: Partial<SetWatchCodeEnabledRequestInput> = {}): SetWatchCodeEnabledRequestInput {
-  return options as SetWatchCodeEnabledRequestInput;
-}
-
-
-export type SetWatchCodeInputsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-};
-export function createSetWatchCodeInputsRequestInput(options: Partial<SetWatchCodeInputsRequestInput> = {}): SetWatchCodeInputsRequestInput {
-  return options as SetWatchCodeInputsRequestInput;
-}
-
-
-export type SetTextBlockTextRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  text: string;
-};
-export function createSetTextBlockTextRequestInput(options: Partial<SetTextBlockTextRequestInput> = {}): SetTextBlockTextRequestInput {
-  return options as SetTextBlockTextRequestInput;
-}
-
-
-export type SetTextBlockDisplayModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  textDisplayMode: TextBlockDisplayMode;
-};
-export function createSetTextBlockDisplayModeRequestInput(options: Partial<SetTextBlockDisplayModeRequestInput> = {}): SetTextBlockDisplayModeRequestInput {
-  return options as SetTextBlockDisplayModeRequestInput;
-}
-
-
-export type SetTextBlockFormatRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  format: TextBlockFormat;
-};
-export function createSetTextBlockFormatRequestInput(options: Partial<SetTextBlockFormatRequestInput> = {}): SetTextBlockFormatRequestInput {
-  return options as SetTextBlockFormatRequestInput;
-}
-
-
-export type SetTextBlockHeadingAsSectionNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  headingAsSectionName: boolean;
-};
-export function createSetTextBlockHeadingAsSectionNameRequestInput(options: Partial<SetTextBlockHeadingAsSectionNameRequestInput> = {}): SetTextBlockHeadingAsSectionNameRequestInput {
-  return options as SetTextBlockHeadingAsSectionNameRequestInput;
-}
-
-
-export type SetTextBlockMetaControlStyleRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  metaControlStyle: boolean;
-};
-export function createSetTextBlockMetaControlStyleRequestInput(options: Partial<SetTextBlockMetaControlStyleRequestInput> = {}): SetTextBlockMetaControlStyleRequestInput {
-  return options as SetTextBlockMetaControlStyleRequestInput;
-}
-
-
-export type SetTextBlockMasterFontSizeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  masterFontSizePx: number;
-};
-export function createSetTextBlockMasterFontSizeRequestInput(options: Partial<SetTextBlockMasterFontSizeRequestInput> = {}): SetTextBlockMasterFontSizeRequestInput {
-  return options as SetTextBlockMasterFontSizeRequestInput;
-}
-
-
 export type DocstringToMarkdownRequest = {
   docstring: string;
 };
 export function createDocstringToMarkdownRequest(options: Partial<DocstringToMarkdownRequest> = {}): DocstringToMarkdownRequest {
   return options as DocstringToMarkdownRequest;
-}
-
-
-export type DocstringToMarkdownResponse = string;
-
-
-export type DeleteTerminalsRequestInput = {
-  sectionIds: Array<string>;
-};
-export function createDeleteTerminalsRequestInput(options: Partial<DeleteTerminalsRequestInput> = {}): DeleteTerminalsRequestInput {
-  return options as DeleteTerminalsRequestInput;
-}
-
-
-export type InterruptTerminalProcessesRequestInput = {
-  projectId: string;
-};
-export function createInterruptTerminalProcessesRequestInput(options: Partial<InterruptTerminalProcessesRequestInput> = {}): InterruptTerminalProcessesRequestInput {
-  return options as InterruptTerminalProcessesRequestInput;
-}
-
-
-export type InterruptTerminalProcessesResponse = {
-  interruptedSessionCount: number;
-};
-export function createInterruptTerminalProcessesResponse(options: Partial<InterruptTerminalProcessesResponse> = {}): InterruptTerminalProcessesResponse {
-  return options as InterruptTerminalProcessesResponse;
-}
-
-
-export type RunCodeRequestInput = {
-  projectConfigId: string;
-  sectionId: string | null;
-  terminalSectionId?: string | null;
-  cliId?: string | null;
-  runSnapshotMode?: RunSnapshotMode | null;
-  drawSnapshotsBySectionId?: Record<string, BinaryContentRef> | null;
-  sectionVariantOverrides?: Record<string, string> | null;
-  paramOverrides?: Record<string, string> | null;
-};
-export function createRunCodeRequestInput(options: Partial<RunCodeRequestInput> = {}): RunCodeRequestInput {
-  return options as RunCodeRequestInput;
-}
-
-
-export type RunDetachedRequestInput = {
-  projectConfigId: string;
-  entrySectionId: string;
-  runSnapshotMode: RunSnapshotMode;
-  sectionVariantOverrides: Record<string, string>;
-  paramOverrides: Record<string, string>;
-  tags: Record<string, string>;
-};
-export function createRunDetachedRequestInput(options: Partial<RunDetachedRequestInput> = {}): RunDetachedRequestInput {
-  return options as RunDetachedRequestInput;
-}
-
-
-export type RunDetachedResponse = {
-  runId: string;
-  status: DetachedRunStatus;
-};
-export function createRunDetachedResponse(options: Partial<RunDetachedResponse> = {}): RunDetachedResponse {
-  return options as RunDetachedResponse;
-}
-
-
-export type GetRunStatusRequestInput = {
-  runId: string;
-};
-export function createGetRunStatusRequestInput(options: Partial<GetRunStatusRequestInput> = {}): GetRunStatusRequestInput {
-  return options as GetRunStatusRequestInput;
-}
-
-
-export type GetRunnerSummaryRequestInput = {
-  projectConfigId: string;
-};
-export function createGetRunnerSummaryRequestInput(options: Partial<GetRunnerSummaryRequestInput> = {}): GetRunnerSummaryRequestInput {
-  return options as GetRunnerSummaryRequestInput;
 }
 
 
@@ -7967,1387 +10019,6 @@ export function createRunnerSummarySnapshot(options: Partial<RunnerSummarySnapsh
 }
 
 
-export type CancelRunRequestInput = {
-  runId: string;
-};
-export function createCancelRunRequestInput(options: Partial<CancelRunRequestInput> = {}): CancelRunRequestInput {
-  return options as CancelRunRequestInput;
-}
-
-
-export type GetAttachmentDownloadURLRequestInput = {
-  artifactId: string;
-  projectConfigId: string | null;
-};
-export function createGetAttachmentDownloadURLRequestInput(options: Partial<GetAttachmentDownloadURLRequestInput> = {}): GetAttachmentDownloadURLRequestInput {
-  return options as GetAttachmentDownloadURLRequestInput;
-}
-
-
-export type GetAttachmentDownloadURLResponse = {
-  url: string;
-  expiresAt: number;
-};
-export function createGetAttachmentDownloadURLResponse(options: Partial<GetAttachmentDownloadURLResponse> = {}): GetAttachmentDownloadURLResponse {
-  return options as GetAttachmentDownloadURLResponse;
-}
-
-
-export type GetAttachmentDownloadURLsRequestInput = {
-  artifactIds: Array<string>;
-  projectConfigId: string | null;
-};
-export function createGetAttachmentDownloadURLsRequestInput(options: Partial<GetAttachmentDownloadURLsRequestInput> = {}): GetAttachmentDownloadURLsRequestInput {
-  return options as GetAttachmentDownloadURLsRequestInput;
-}
-
-
-export type AttachmentDownloadURLEntry = {
-  artifactId: string;
-  url: string;
-  expiresAt: number;
-};
-export function createAttachmentDownloadURLEntry(options: Partial<AttachmentDownloadURLEntry> = {}): AttachmentDownloadURLEntry {
-  return options as AttachmentDownloadURLEntry;
-}
-
-
-export type GetAttachmentDownloadURLsResponse = Array<AttachmentDownloadURLEntry>;
-
-
-export type CreateFileRequestInput = {
-  filepath: string;
-};
-export function createCreateFileRequestInput(options: Partial<CreateFileRequestInput> = {}): CreateFileRequestInput {
-  return options as CreateFileRequestInput;
-}
-
-
-export type CheckIfFileExistsRequestInput = {
-  filepath: string;
-};
-export function createCheckIfFileExistsRequestInput(options: Partial<CheckIfFileExistsRequestInput> = {}): CheckIfFileExistsRequestInput {
-  return options as CheckIfFileExistsRequestInput;
-}
-
-
-export type CheckIfFileExistsResponse = boolean;
-
-
-export type CheckWorkspaceInitializedRequestInput = {
-  folderPath: string;
-  allowOutsideWorkspaceRoot?: boolean | null;
-};
-export function createCheckWorkspaceInitializedRequestInput(options: Partial<CheckWorkspaceInitializedRequestInput> = {}): CheckWorkspaceInitializedRequestInput {
-  return options as CheckWorkspaceInitializedRequestInput;
-}
-
-
-export type CheckWorkspaceInitializedResponse = boolean;
-
-
-export type FileBrowserRootResponse = {
-  rootPath: string;
-  pathSeparator: string;
-  ignorePatterns: Array<string>;
-};
-export function createFileBrowserRootResponse(options: Partial<FileBrowserRootResponse> = {}): FileBrowserRootResponse {
-  return options as FileBrowserRootResponse;
-}
-
-
-export const MissingFolderBehaviorEnum = {
-  error: "error",
-  empty: "empty",
-} as const;
-export type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
-
-
-export type GetFolderContentsRequestInput = {
-  folderPath: string;
-  allowOutsideWorkspaceRoot?: boolean | null;
-  includeMtime?: boolean | null;
-  includeSize?: boolean | null;
-  includeHidden?: boolean | null;
-  includeSettaInitialized?: boolean | null;
-  ignorePatterns?: Array<string> | null;
-  maxEntries?: number | null;
-  missingFolderBehavior?: MissingFolderBehavior | null;
-};
-export function createGetFolderContentsRequestInput(options: Partial<GetFolderContentsRequestInput> = {}): GetFolderContentsRequestInput {
-  return options as GetFolderContentsRequestInput;
-}
-
-
-export const FolderContentItemTypeEnum = {
-  folder: "folder",
-  file: "file",
-} as const;
-export type FolderContentItemType = ObjectValues<typeof FolderContentItemTypeEnum>;
-
-
-export type FolderContentItem = {
-  name: string;
-  type: FolderContentItemType;
-  fullPath: string;
-  mtime?: number | null;
-  size?: number | null;
-  isSettaInitialized?: boolean | null;
-};
-export function createFolderContentItem(options: Partial<FolderContentItem> = {}): FolderContentItem {
-  return options as FolderContentItem;
-}
-
-
-export type GetFolderContentsResponse = Array<FolderContentItem>;
-
-
-export type GetFileBrowserDownloadURLsRequestInput = {
-  paths: Array<string>;
-};
-export function createGetFileBrowserDownloadURLsRequestInput(options: Partial<GetFileBrowserDownloadURLsRequestInput> = {}): GetFileBrowserDownloadURLsRequestInput {
-  return options as GetFileBrowserDownloadURLsRequestInput;
-}
-
-
-export type FileBrowserDownloadURLEntry = {
-  path: string;
-  url: string;
-  expiresAt: number;
-};
-export function createFileBrowserDownloadURLEntry(options: Partial<FileBrowserDownloadURLEntry> = {}): FileBrowserDownloadURLEntry {
-  return options as FileBrowserDownloadURLEntry;
-}
-
-
-export type GetFileBrowserDownloadURLsResponse = Array<FileBrowserDownloadURLEntry>;
-
-
-export type BinaryDownloadResponse = Uint8Array;
-
-
-export type GetFileBrowserFileContentRequestInput = {
-  path: string;
-  maxBytes?: number | null;
-};
-export function createGetFileBrowserFileContentRequestInput(options: Partial<GetFileBrowserFileContentRequestInput> = {}): GetFileBrowserFileContentRequestInput {
-  return options as GetFileBrowserFileContentRequestInput;
-}
-
-
-export type FileBrowserFileContentResponse = {
-  path: string;
-  mimeType: string;
-  contentId: string;
-  mtimeNs: number;
-  size: number;
-};
-export function createFileBrowserFileContentResponse(options: Partial<FileBrowserFileContentResponse> = {}): FileBrowserFileContentResponse {
-  return options as FileBrowserFileContentResponse;
-}
-
-
-export type GetFileBrowserFileStatRequestInput = {
-  path: string;
-};
-export function createGetFileBrowserFileStatRequestInput(options: Partial<GetFileBrowserFileStatRequestInput> = {}): GetFileBrowserFileStatRequestInput {
-  return options as GetFileBrowserFileStatRequestInput;
-}
-
-
-export type FileBrowserFileStatResponse = {
-  path: string;
-  mtimeNs: number;
-  size: number;
-};
-export function createFileBrowserFileStatResponse(options: Partial<FileBrowserFileStatResponse> = {}): FileBrowserFileStatResponse {
-  return options as FileBrowserFileStatResponse;
-}
-
-
-export type WriteFileBrowserFileContentRequestInput = {
-  path: string;
-  contentId: string;
-  expectedMtimeNs?: number | null;
-};
-export function createWriteFileBrowserFileContentRequestInput(options: Partial<WriteFileBrowserFileContentRequestInput> = {}): WriteFileBrowserFileContentRequestInput {
-  return options as WriteFileBrowserFileContentRequestInput;
-}
-
-
-export type WriteFileBrowserFileContentResponse = {
-  path: string;
-  mimeType: string;
-  mtimeNs: number;
-  size: number;
-};
-export function createWriteFileBrowserFileContentResponse(options: Partial<WriteFileBrowserFileContentResponse> = {}): WriteFileBrowserFileContentResponse {
-  return options as WriteFileBrowserFileContentResponse;
-}
-
-
-export const TransferOperationEnum = {
-  copy: "copy",
-  move: "move",
-} as const;
-export type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
-
-
-export type TransferFileBrowserEntryRequestInput = {
-  sourcePath: string;
-  destinationFolderPath: string;
-  operation: TransferOperation;
-};
-export function createTransferFileBrowserEntryRequestInput(options: Partial<TransferFileBrowserEntryRequestInput> = {}): TransferFileBrowserEntryRequestInput {
-  return options as TransferFileBrowserEntryRequestInput;
-}
-
-
-export type TransferFileBrowserEntryResponse = {
-  sourcePath: string;
-  destinationPath: string;
-  operation: TransferOperation;
-};
-export function createTransferFileBrowserEntryResponse(options: Partial<TransferFileBrowserEntryResponse> = {}): TransferFileBrowserEntryResponse {
-  return options as TransferFileBrowserEntryResponse;
-}
-
-
-export type BinaryUploadRequestInput = FormData;
-
-
-export type BinaryDownloadRequestInput = {
-  contentId: string;
-};
-export function createBinaryDownloadRequestInput(options: Partial<BinaryDownloadRequestInput> = {}): BinaryDownloadRequestInput {
-  return options as BinaryDownloadRequestInput;
-}
-
-
-export type GitRepoInfo = {
-  isGitRepo: boolean;
-  repoRoot: string | null;
-  headBranch: string | null;
-  headCommit: string | null;
-};
-export function createGitRepoInfo(options: Partial<GitRepoInfo> = {}): GitRepoInfo {
-  return options as GitRepoInfo;
-}
-
-
-export type GitStatusEntry = {
-  path: string;
-  oldPath: string | null;
-  indexStatus: string;
-  worktreeStatus: string;
-  kind: string;
-};
-export function createGitStatusEntry(options: Partial<GitStatusEntry> = {}): GitStatusEntry {
-  return options as GitStatusEntry;
-}
-
-
-export type GitWorktreeEntry = {
-  path: string;
-  displayName: string;
-  branchName: string | null;
-  headCommit: string | null;
-  isCurrent: boolean;
-  isPrunable: boolean;
-  prunableReason: string | null;
-};
-export function createGitWorktreeEntry(options: Partial<GitWorktreeEntry> = {}): GitWorktreeEntry {
-  return options as GitWorktreeEntry;
-}
-
-
-export type GetGitStatusResponse = {
-  repo: GitRepoInfo;
-  entries: Array<GitStatusEntry>;
-  isTruncated: boolean;
-  worktrees: Array<GitWorktreeEntry>;
-};
-export function createGetGitStatusResponse(options: Partial<GetGitStatusResponse> = {}): GetGitStatusResponse {
-  return options as GetGitStatusResponse;
-}
-
-
-export const GitDiffModeEnum = {
-  unstaged: "unstaged",
-  staged: "staged",
-} as const;
-export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
-
-
-export type GetGitDiffRequestInput = {
-  path: string;
-  oldPath: string | null;
-  mode: GitDiffMode;
-};
-export function createGetGitDiffRequestInput(options: Partial<GetGitDiffRequestInput> = {}): GetGitDiffRequestInput {
-  return options as GetGitDiffRequestInput;
-}
-
-
-export type GetGitDiffResponse = {
-  repoRoot: string;
-  path: string;
-  mode: GitDiffMode;
-  diff: string;
-  isTruncated: boolean;
-};
-export function createGetGitDiffResponse(options: Partial<GetGitDiffResponse> = {}): GetGitDiffResponse {
-  return options as GetGitDiffResponse;
-}
-
-
-export type GetGitLogRequestInput = {
-  rev: string;
-  allRefs: boolean;
-  offset: number;
-  pageSize: number;
-};
-export function createGetGitLogRequestInput(options: Partial<GetGitLogRequestInput> = {}): GetGitLogRequestInput {
-  return options as GetGitLogRequestInput;
-}
-
-
-export type GitCommit = {
-  hash: string;
-  parents: Array<string>;
-  authorName: string;
-  authorEmail: string;
-  authorTimeMs: number;
-  subject: string;
-  decorations: Array<string>;
-};
-export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
-  return options as GitCommit;
-}
-
-
-export type GetGitLogResponse = {
-  repoRoot: string;
-  headBranch: string | null;
-  commits: Array<GitCommit>;
-  offset: number;
-  pageSize: number;
-  nextOffset: number | null;
-  hasMore: boolean;
-  isCapped: boolean;
-};
-export function createGetGitLogResponse(options: Partial<GetGitLogResponse> = {}): GetGitLogResponse {
-  return options as GetGitLogResponse;
-}
-
-
-export type GetGitCommitDetailsRequestInput = {
-  commitHash: string;
-};
-export function createGetGitCommitDetailsRequestInput(options: Partial<GetGitCommitDetailsRequestInput> = {}): GetGitCommitDetailsRequestInput {
-  return options as GetGitCommitDetailsRequestInput;
-}
-
-
-export type GitCommitChangedFile = {
-  path: string;
-  oldPath: string | null;
-  status: string;
-  additions: number | null;
-  deletions: number | null;
-};
-export function createGitCommitChangedFile(options: Partial<GitCommitChangedFile> = {}): GitCommitChangedFile {
-  return options as GitCommitChangedFile;
-}
-
-
-export type GetGitCommitDetailsResponse = {
-  repoRoot: string;
-  commitHash: string;
-  parents: Array<string>;
-  authorName: string;
-  authorEmail: string;
-  authorTimeMs: number;
-  committerName: string;
-  committerEmail: string;
-  committerTimeMs: number;
-  subject: string;
-  body: string;
-  files: Array<GitCommitChangedFile>;
-  isTruncated: boolean;
-};
-export function createGetGitCommitDetailsResponse(options: Partial<GetGitCommitDetailsResponse> = {}): GetGitCommitDetailsResponse {
-  return options as GetGitCommitDetailsResponse;
-}
-
-
-export type GetGitCommitFileDiffRequestInput = {
-  commitHash: string;
-  path: string;
-  oldPath: string | null;
-};
-export function createGetGitCommitFileDiffRequestInput(options: Partial<GetGitCommitFileDiffRequestInput> = {}): GetGitCommitFileDiffRequestInput {
-  return options as GetGitCommitFileDiffRequestInput;
-}
-
-
-export type GetGitCommitFileDiffResponse = {
-  repoRoot: string;
-  commitHash: string;
-  path: string;
-  diff: string;
-  isTruncated: boolean;
-};
-export function createGetGitCommitFileDiffResponse(options: Partial<GetGitCommitFileDiffResponse> = {}): GetGitCommitFileDiffResponse {
-  return options as GetGitCommitFileDiffResponse;
-}
-
-
-export type ImportFilesToArtifactsRequestInput = {
-  paths: Array<string>;
-  uploadScope: string;
-};
-export function createImportFilesToArtifactsRequestInput(options: Partial<ImportFilesToArtifactsRequestInput> = {}): ImportFilesToArtifactsRequestInput {
-  return options as ImportFilesToArtifactsRequestInput;
-}
-
-
-export type ImportFilesToArtifactsResponseItem = {
-  kind: string;
-  id: string;
-  name: string;
-  mimeType: string;
-  size: number;
-};
-export function createImportFilesToArtifactsResponseItem(options: Partial<ImportFilesToArtifactsResponseItem> = {}): ImportFilesToArtifactsResponseItem {
-  return options as ImportFilesToArtifactsResponseItem;
-}
-
-
-export type ImportFilesToArtifactsResponse = Array<ImportFilesToArtifactsResponseItem>;
-
-
-export type LoadCachedArtifactsRequestInput = {
-  paths: Array<string>;
-};
-export function createLoadCachedArtifactsRequestInput(options: Partial<LoadCachedArtifactsRequestInput> = {}): LoadCachedArtifactsRequestInput {
-  return options as LoadCachedArtifactsRequestInput;
-}
-
-
-export type LoadCachedImageArtifactsResponse = Array<ImageArtifact | null>;
-
-
-export type LoadCachedChartDataResponse = Array<ChartDataArtifact | null>;
-
-
-export type LoadCachedBrushStrokesResponse = Array<BrushStrokeArtifact | null>;
-
-
-export type LoadCachedDrawAreaLayerItemTransformResponse = Array<DrawAreaLayerItemTransformArtifact | null>;
-
-
-export const ArtifactSaveConflictStrategyEnum = {
-  skip: "skip",
-  backup: "backup",
-  overwrite: "overwrite",
-} as const;
-export type ArtifactSaveConflictStrategy = ObjectValues<typeof ArtifactSaveConflictStrategyEnum>;
-
-
-export type UpdateArtifactsRequestInput = {
-  artifacts: Array<ArtifactUnion>;
-  conflictStrategy?: ArtifactSaveConflictStrategy | null;
-  uploadScope?: string | null;
-};
-export function createUpdateArtifactsRequestInput(options: Partial<UpdateArtifactsRequestInput> = {}): UpdateArtifactsRequestInput {
-  return options as UpdateArtifactsRequestInput;
-}
-
-
-export const ArtifactSaveStatusEnum = {
-  saved: "saved",
-  unchanged: "unchanged",
-  skipped: "skipped",
-  conflict: "conflict",
-} as const;
-export type ArtifactSaveStatus = ObjectValues<typeof ArtifactSaveStatusEnum>;
-
-
-export type ArtifactSaveResult = {
-  id: string;
-  type: ArtifactType;
-  status: ArtifactSaveStatus;
-  backupPath?: string | null;
-  message?: string | null;
-};
-export function createArtifactSaveResult(options: Partial<ArtifactSaveResult> = {}): ArtifactSaveResult {
-  return options as ArtifactSaveResult;
-}
-
-
-export type UpdateArtifactsResponse = Array<ArtifactSaveResult>;
-
-
-export type DeleteArtifactRequestItem = {
-  id: string;
-  type: ArtifactType;
-};
-export function createDeleteArtifactRequestItem(options: Partial<DeleteArtifactRequestItem> = {}): DeleteArtifactRequestItem {
-  return options as DeleteArtifactRequestItem;
-}
-
-
-export type DeleteArtifactsRequestInput = {
-  artifacts: Array<DeleteArtifactRequestItem>;
-};
-export function createDeleteArtifactsRequestInput(options: Partial<DeleteArtifactsRequestInput> = {}): DeleteArtifactsRequestInput {
-  return options as DeleteArtifactsRequestInput;
-}
-
-
-export type DeleteArtifactsResponse = Array<string>;
-
-
-export type AppendDrawAreaLayerItemRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  layerIdx: number;
-  element: DrawAreaLayerItem;
-};
-export function createAppendDrawAreaLayerItemRequestInput(options: Partial<AppendDrawAreaLayerItemRequestInput> = {}): AppendDrawAreaLayerItemRequestInput {
-  return options as AppendDrawAreaLayerItemRequestInput;
-}
-
-
-export type ForceRefreshListenerRequestInput = {
-  projectConfigId: string;
-};
-export function createForceRefreshListenerRequestInput(options: Partial<ForceRefreshListenerRequestInput> = {}): ForceRefreshListenerRequestInput {
-  return options as ForceRefreshListenerRequestInput;
-}
-
-
-export type SetTopLevelSectionLayoutRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  topLevelSections: Record<string, TopLevelSectionLayoutInput>;
-};
-export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetTopLevelSectionLayoutRequestInput> = {}): SetTopLevelSectionLayoutRequestInput {
-  return options as SetTopLevelSectionLayoutRequestInput;
-}
-
-
-export type ToggleSectionVisibilityRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-export function createToggleSectionVisibilityRequestInput(options: Partial<ToggleSectionVisibilityRequestInput> = {}): ToggleSectionVisibilityRequestInput {
-  return options as ToggleSectionVisibilityRequestInput;
-}
-
-
-export type AutoLayoutTopLevelSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  margin?: number | null;
-};
-export function createAutoLayoutTopLevelSectionsRequestInput(options: Partial<AutoLayoutTopLevelSectionsRequestInput> = {}): AutoLayoutTopLevelSectionsRequestInput {
-  return options as AutoLayoutTopLevelSectionsRequestInput;
-}
-
-
-export type SetShowParamDisplayNamesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  showParamDisplayNames: boolean;
-};
-export function createSetShowParamDisplayNamesRequestInput(options: Partial<SetShowParamDisplayNamesRequestInput> = {}): SetShowParamDisplayNamesRequestInput {
-  return options as SetShowParamDisplayNamesRequestInput;
-}
-
-
-export type GroupSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-export function createGroupSectionsRequestInput(options: Partial<GroupSectionsRequestInput> = {}): GroupSectionsRequestInput {
-  return options as GroupSectionsRequestInput;
-}
-
-
-export type UngroupGroupsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  groupIds: Array<string>;
-};
-export function createUngroupGroupsRequestInput(options: Partial<UngroupGroupsRequestInput> = {}): UngroupGroupsRequestInput {
-  return options as UngroupGroupsRequestInput;
-}
-
-
-export type SetSectionSizesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionSizes: Record<string, SectionSize>;
-};
-export function createSetSectionSizesRequestInput(options: Partial<SetSectionSizesRequestInput> = {}): SetSectionSizesRequestInput {
-  return options as SetSectionSizesRequestInput;
-}
-
-
-export type SetActiveIDsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  activeIds: Array<string>;
-};
-export function createSetActiveIDsRequestInput(options: Partial<SetActiveIDsRequestInput> = {}): SetActiveIDsRequestInput {
-  return options as SetActiveIDsRequestInput;
-}
-
-
-export type SetSectionParamFilterRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  value: string;
-};
-export function createSetSectionParamFilterRequestInput(options: Partial<SetSectionParamFilterRequestInput> = {}): SetSectionParamFilterRequestInput {
-  return options as SetSectionParamFilterRequestInput;
-}
-
-
-export type SetMetaControlShowSectionTitleRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  showSectionTitle: boolean;
-};
-export function createSetMetaControlShowSectionTitleRequestInput(options: Partial<SetMetaControlShowSectionTitleRequestInput> = {}): SetMetaControlShowSectionTitleRequestInput {
-  return options as SetMetaControlShowSectionTitleRequestInput;
-}
-
-
-export type SetSectionColumnWidthRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  columnWidth: number | null;
-};
-export function createSetSectionColumnWidthRequestInput(options: Partial<SetSectionColumnWidthRequestInput> = {}): SetSectionColumnWidthRequestInput {
-  return options as SetSectionColumnWidthRequestInput;
-}
-
-
-export type TogglePositionLocksRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-export function createTogglePositionLocksRequestInput(options: Partial<TogglePositionLocksRequestInput> = {}): TogglePositionLocksRequestInput {
-  return options as TogglePositionLocksRequestInput;
-}
-
-
-export type ToggleMinimizedRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-export function createToggleMinimizedRequestInput(options: Partial<ToggleMinimizedRequestInput> = {}): ToggleMinimizedRequestInput {
-  return options as ToggleMinimizedRequestInput;
-}
-
-
-export type SetSectionEdgeInputsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  edgeInputParams: Array<string>;
-};
-export function createSetSectionEdgeInputsRequestInput(options: Partial<SetSectionEdgeInputsRequestInput> = {}): SetSectionEdgeInputsRequestInput {
-  return options as SetSectionEdgeInputsRequestInput;
-}
-
-
-export type SetSectionEdgeOutputsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  edgeOutputPorts: Array<EdgePort>;
-};
-export function createSetSectionEdgeOutputsRequestInput(options: Partial<SetSectionEdgeOutputsRequestInput> = {}): SetSectionEdgeOutputsRequestInput {
-  return options as SetSectionEdgeOutputsRequestInput;
-}
-
-
-export type SetParentDefaultChildSectionTypeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  defaultChildSectionType: SectionType;
-};
-export function createSetParentDefaultChildSectionTypeRequestInput(options: Partial<SetParentDefaultChildSectionTypeRequestInput> = {}): SetParentDefaultChildSectionTypeRequestInput {
-  return options as SetParentDefaultChildSectionTypeRequestInput;
-}
-
-
-export type SetListRootViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: ListRootViewMode;
-};
-export function createSetListRootViewModeRequestInput(options: Partial<SetListRootViewModeRequestInput> = {}): SetListRootViewModeRequestInput {
-  return options as SetListRootViewModeRequestInput;
-}
-
-
-export type ToggleGroupOrientationRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-export function createToggleGroupOrientationRequestInput(options: Partial<ToggleGroupOrientationRequestInput> = {}): ToggleGroupOrientationRequestInput {
-  return options as ToggleGroupOrientationRequestInput;
-}
-
-
-export type SetGroupOverflowModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  overflowMode: boolean;
-};
-export function createSetGroupOverflowModeRequestInput(options: Partial<SetGroupOverflowModeRequestInput> = {}): SetGroupOverflowModeRequestInput {
-  return options as SetGroupOverflowModeRequestInput;
-}
-
-
-export type SetSectionTagColorRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  tagColor?: string | null;
-};
-export function createSetSectionTagColorRequestInput(options: Partial<SetSectionTagColorRequestInput> = {}): SetSectionTagColorRequestInput {
-  return options as SetSectionTagColorRequestInput;
-}
-
-
-export type SetSectionStyleColorRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  styleColor?: string | null;
-};
-export function createSetSectionStyleColorRequestInput(options: Partial<SetSectionStyleColorRequestInput> = {}): SetSectionStyleColorRequestInput {
-  return options as SetSectionStyleColorRequestInput;
-}
-
-
-export type SetCallableHideParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideParams: boolean;
-};
-export function createSetCallableHideParamsRequestInput(options: Partial<SetCallableHideParamsRequestInput> = {}): SetCallableHideParamsRequestInput {
-  return options as SetCallableHideParamsRequestInput;
-}
-
-
-export type SetSectionHideUnpinnedParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideUnpinnedParams: boolean;
-};
-export function createSetSectionHideUnpinnedParamsRequestInput(options: Partial<SetSectionHideUnpinnedParamsRequestInput> = {}): SetSectionHideUnpinnedParamsRequestInput {
-  return options as SetSectionHideUnpinnedParamsRequestInput;
-}
-
-
-export type SetSectionPinnedParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  pinnedParams: Array<string>;
-};
-export function createSetSectionPinnedParamsRequestInput(options: Partial<SetSectionPinnedParamsRequestInput> = {}): SetSectionPinnedParamsRequestInput {
-  return options as SetSectionPinnedParamsRequestInput;
-}
-
-
-export type SetBrowserColumnWidthsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  columnWidth: number | null;
-  typesColumnWidth: number | null;
-};
-export function createSetBrowserColumnWidthsRequestInput(options: Partial<SetBrowserColumnWidthsRequestInput> = {}): SetBrowserColumnWidthsRequestInput {
-  return options as SetBrowserColumnWidthsRequestInput;
-}
-
-
-export type SetBrowserAreaViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: BrowserAreaViewMode;
-};
-export function createSetBrowserAreaViewModeRequestInput(options: Partial<SetBrowserAreaViewModeRequestInput> = {}): SetBrowserAreaViewModeRequestInput {
-  return options as SetBrowserAreaViewModeRequestInput;
-}
-
-
-export type SetBrowserHideColumnRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideColumn: boolean;
-};
-export function createSetBrowserHideColumnRequestInput(options: Partial<SetBrowserHideColumnRequestInput> = {}): SetBrowserHideColumnRequestInput {
-  return options as SetBrowserHideColumnRequestInput;
-}
-
-
-export type SetBrowserSavedSearchesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  savedSearches: Array<BrowserSavedSearch>;
-};
-export function createSetBrowserSavedSearchesRequestInput(options: Partial<SetBrowserSavedSearchesRequestInput> = {}): SetBrowserSavedSearchesRequestInput {
-  return options as SetBrowserSavedSearchesRequestInput;
-}
-
-
-export type SetSpreadsheetFilePathRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  filePath: string;
-  activeSheet: string | null;
-};
-export function createSetSpreadsheetFilePathRequestInput(options: Partial<SetSpreadsheetFilePathRequestInput> = {}): SetSpreadsheetFilePathRequestInput {
-  return options as SetSpreadsheetFilePathRequestInput;
-}
-
-
-export type SetSpreadsheetSectionSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-export function createSetSpreadsheetSectionSettingsRequestInput(options: Partial<SetSpreadsheetSectionSettingsRequestInput> = {}): SetSpreadsheetSectionSettingsRequestInput {
-  return options as SetSpreadsheetSectionSettingsRequestInput;
-}
-
-
-export type SetTaskBoardSectionStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn>;
-  tasks: Array<TaskBoardTask>;
-};
-export function createSetTaskBoardSectionStateRequestInput(options: Partial<SetTaskBoardSectionStateRequestInput> = {}): SetTaskBoardSectionStateRequestInput {
-  return options as SetTaskBoardSectionStateRequestInput;
-}
-
-
-export type SetImageAreaImagePathRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  imagePath: string;
-};
-export function createSetImageAreaImagePathRequestInput(options: Partial<SetImageAreaImagePathRequestInput> = {}): SetImageAreaImagePathRequestInput {
-  return options as SetImageAreaImagePathRequestInput;
-}
-
-
-export type SetSocialURLRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  url: string;
-};
-export function createSetSocialURLRequestInput(options: Partial<SetSocialURLRequestInput> = {}): SetSocialURLRequestInput {
-  return options as SetSocialURLRequestInput;
-}
-
-
-export type SetChartAreaDataPathRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  dataPath: string;
-};
-export function createSetChartAreaDataPathRequestInput(options: Partial<SetChartAreaDataPathRequestInput> = {}): SetChartAreaDataPathRequestInput {
-  return options as SetChartAreaDataPathRequestInput;
-}
-
-
-export type SetChartTypeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartType: ChartType;
-};
-export function createSetChartTypeRequestInput(options: Partial<SetChartTypeRequestInput> = {}): SetChartTypeRequestInput {
-  return options as SetChartTypeRequestInput;
-}
-
-
-export type SetChartSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartSettings: BaseChartSettingsUnion;
-  changedSettings: Array<string>;
-};
-export function createSetChartSettingsRequestInput(options: Partial<SetChartSettingsRequestInput> = {}): SetChartSettingsRequestInput {
-  return options as SetChartSettingsRequestInput;
-}
-
-
-export type SetCodeFileBindingRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  binding: CodeFileBindingUpdate;
-};
-export function createSetCodeFileBindingRequestInput(options: Partial<SetCodeFileBindingRequestInput> = {}): SetCodeFileBindingRequestInput {
-  return options as SetCodeFileBindingRequestInput;
-}
-
-
-export type ToggleParamSelectedRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-};
-export function createToggleParamSelectedRequestInput(options: Partial<ToggleParamSelectedRequestInput> = {}): ToggleParamSelectedRequestInput {
-  return options as ToggleParamSelectedRequestInput;
-}
-
-
-export type UnselectAllParamsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-export function createUnselectAllParamsRequestInput(options: Partial<UnselectAllParamsRequestInput> = {}): UnselectAllParamsRequestInput {
-  return options as UnselectAllParamsRequestInput;
-}
-
-
-export type ViewportInput = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-export function createViewportInput(options: Partial<ViewportInput> = {}): ViewportInput {
-  return options as ViewportInput;
-}
-
-
-export type SetViewportRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewport: ViewportInput | null;
-};
-export function createSetViewportRequestInput(options: Partial<SetViewportRequestInput> = {}): SetViewportRequestInput {
-  return options as SetViewportRequestInput;
-}
-
-
-export type ListenerCoverageRequestInput = {
-  projectConfigId: string;
-};
-export function createListenerCoverageRequestInput(options: Partial<ListenerCoverageRequestInput> = {}): ListenerCoverageRequestInput {
-  return options as ListenerCoverageRequestInput;
-}
-
-
-export type ListenerCoverageSnapshot = {
-  projectConfigId: string;
-  dependencies: Array<BaseDependencyKeyUnion>;
-  hasRealtimeWildcard: boolean;
-};
-export function createListenerCoverageSnapshot(options: Partial<ListenerCoverageSnapshot> = {}): ListenerCoverageSnapshot {
-  return options as ListenerCoverageSnapshot;
-}
-
-
-export type ManagedAPIKeysSnapshot = {
-  apiKeys: APIKeys;
-  revision: number;
-  corrupt: boolean;
-  errorCode?: string | null;
-  message?: string | null;
-};
-export function createManagedAPIKeysSnapshot(options: Partial<ManagedAPIKeysSnapshot> = {}): ManagedAPIKeysSnapshot {
-  return options as ManagedAPIKeysSnapshot;
-}
-
-
-export type SetLLMAPIKeysRequestInput = {
-  apiKeys: APIKeys;
-  expectedRevision: number;
-};
-export function createSetLLMAPIKeysRequestInput(options: Partial<SetLLMAPIKeysRequestInput> = {}): SetLLMAPIKeysRequestInput {
-  return options as SetLLMAPIKeysRequestInput;
-}
-
-
-export type AgentProfileListResponse = Array<AgentProfile>;
-
-
-export type GetAgentProfileRequestInput = {
-  profileId: string;
-};
-export function createGetAgentProfileRequestInput(options: Partial<GetAgentProfileRequestInput> = {}): GetAgentProfileRequestInput {
-  return options as GetAgentProfileRequestInput;
-}
-
-
-export type AgentProfileResponse = AgentProfile;
-
-
-export type CreateAgentProfileRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  systemPrompt?: string | null;
-  enableBackgroundSummaryFill?: boolean | null;
-  enableLlmChatTitles?: boolean | null;
-  engineConfigId?: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope?: string | null;
-};
-export function createCreateAgentProfileRequestInput(options: Partial<CreateAgentProfileRequestInput> = {}): CreateAgentProfileRequestInput {
-  return options as CreateAgentProfileRequestInput;
-}
-
-
-export type UpdateAgentProfileRequestInput = {
-  profile: AgentProfile;
-};
-export function createUpdateAgentProfileRequestInput(options: Partial<UpdateAgentProfileRequestInput> = {}): UpdateAgentProfileRequestInput {
-  return options as UpdateAgentProfileRequestInput;
-}
-
-
-export type DeleteAgentProfileRequestInput = {
-  profileId: string;
-};
-export function createDeleteAgentProfileRequestInput(options: Partial<DeleteAgentProfileRequestInput> = {}): DeleteAgentProfileRequestInput {
-  return options as DeleteAgentProfileRequestInput;
-}
-
-
-export type AgentRunListResponse = Array<AgentRun>;
-
-
-export type GetAgentRunRequestInput = {
-  runId: string;
-};
-export function createGetAgentRunRequestInput(options: Partial<GetAgentRunRequestInput> = {}): GetAgentRunRequestInput {
-  return options as GetAgentRunRequestInput;
-}
-
-
-export type AgentRunResponse = AgentRun;
-
-
-export type StartAgentRunRequestInput = {
-  profileId: string;
-  inputs: Record<string, unknown>;
-};
-export function createStartAgentRunRequestInput(options: Partial<StartAgentRunRequestInput> = {}): StartAgentRunRequestInput {
-  return options as StartAgentRunRequestInput;
-}
-
-
-export type StopAgentRunRequestInput = {
-  runId: string;
-};
-export function createStopAgentRunRequestInput(options: Partial<StopAgentRunRequestInput> = {}): StopAgentRunRequestInput {
-  return options as StopAgentRunRequestInput;
-}
-
-
-export type StartStateMachineRunRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-  startSectionId?: string | null;
-};
-export function createStartStateMachineRunRequestInput(options: Partial<StartStateMachineRunRequestInput> = {}): StartStateMachineRunRequestInput {
-  return options as StartStateMachineRunRequestInput;
-}
-
-
-export type StopStateMachineRunRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-export function createStopStateMachineRunRequestInput(options: Partial<StopStateMachineRunRequestInput> = {}): StopStateMachineRunRequestInput {
-  return options as StopStateMachineRunRequestInput;
-}
-
-
-export type StateMachineRunControlResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId?: string | null;
-};
-export function createStateMachineRunControlResponse(options: Partial<StateMachineRunControlResponse> = {}): StateMachineRunControlResponse {
-  return options as StateMachineRunControlResponse;
-}
-
-
-export type ResetStateMachineRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-export function createResetStateMachineRequestInput(options: Partial<ResetStateMachineRequestInput> = {}): ResetStateMachineRequestInput {
-  return options as ResetStateMachineRequestInput;
-}
-
-
-export type GetStateMachineRunRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-export function createGetStateMachineRunRequestInput(options: Partial<GetStateMachineRunRequestInput> = {}): GetStateMachineRunRequestInput {
-  return options as GetStateMachineRunRequestInput;
-}
-
-
-export type RunChainStepInput = {
-  id: string;
-  name: string;
-  engineConfigId: string;
-  agentProfileId?: string | null;
-  prompt?: string | null;
-  messages?: Array<Record<string, unknown>>;
-  inputs?: Record<string, unknown>;
-  includePreviousOutputs?: boolean | null;
-};
-export function createRunChainStepInput(options: Partial<RunChainStepInput> = {}): RunChainStepInput {
-  return options as RunChainStepInput;
-}
-
-
-export type RunChainSpecInput = {
-  id: string;
-  name: string;
-  steps: Array<RunChainStepInput>;
-  stopOnFailure?: boolean | null;
-};
-export function createRunChainSpecInput(options: Partial<RunChainSpecInput> = {}): RunChainSpecInput {
-  return options as RunChainSpecInput;
-}
-
-
-export type StartRunChainRequestInput = {
-  spec: RunChainSpecInput;
-  inputs: Record<string, unknown>;
-};
-export function createStartRunChainRequestInput(options: Partial<StartRunChainRequestInput> = {}): StartRunChainRequestInput {
-  return options as StartRunChainRequestInput;
-}
-
-
-export type StopRunChainRequestInput = {
-  runId: string;
-};
-export function createStopRunChainRequestInput(options: Partial<StopRunChainRequestInput> = {}): StopRunChainRequestInput {
-  return options as StopRunChainRequestInput;
-}
-
-
-export type EngineConfigListResponse = Array<EngineConfig>;
-
-
-export type GetEngineConfigRequestInput = {
-  configId: string;
-};
-export function createGetEngineConfigRequestInput(options: Partial<GetEngineConfigRequestInput> = {}): GetEngineConfigRequestInput {
-  return options as GetEngineConfigRequestInput;
-}
-
-
-export type EngineConfigResponse = EngineConfig;
-
-
-export type CreateEngineConfigRequestInput = {
-  name?: string | null;
-  engineType?: EngineType | null;
-  settaLlmConfigId?: string | null;
-  externalAgentConfigId?: string | null;
-  defaults?: EngineConfigDefaults | null;
-};
-export function createCreateEngineConfigRequestInput(options: Partial<CreateEngineConfigRequestInput> = {}): CreateEngineConfigRequestInput {
-  return options as CreateEngineConfigRequestInput;
-}
-
-
-export type UpdateEngineConfigRequestInput = {
-  config: EngineConfig;
-};
-export function createUpdateEngineConfigRequestInput(options: Partial<UpdateEngineConfigRequestInput> = {}): UpdateEngineConfigRequestInput {
-  return options as UpdateEngineConfigRequestInput;
-}
-
-
-export type DeleteEngineConfigRequestInput = {
-  configId: string;
-};
-export function createDeleteEngineConfigRequestInput(options: Partial<DeleteEngineConfigRequestInput> = {}): DeleteEngineConfigRequestInput {
-  return options as DeleteEngineConfigRequestInput;
-}
-
-
-export type PromptTemplateListResponse = Array<PromptTemplate>;
-
-
-export type GetPromptTemplateRequestInput = {
-  templateId: string;
-};
-export function createGetPromptTemplateRequestInput(options: Partial<GetPromptTemplateRequestInput> = {}): GetPromptTemplateRequestInput {
-  return options as GetPromptTemplateRequestInput;
-}
-
-
-export type CreatePromptTemplateRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  template?: string | null;
-  format?: PromptFormat | null;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-export function createCreatePromptTemplateRequestInput(options: Partial<CreatePromptTemplateRequestInput> = {}): CreatePromptTemplateRequestInput {
-  return options as CreatePromptTemplateRequestInput;
-}
-
-
-export type UpdatePromptTemplateRequestInput = {
-  template: PromptTemplate;
-};
-export function createUpdatePromptTemplateRequestInput(options: Partial<UpdatePromptTemplateRequestInput> = {}): UpdatePromptTemplateRequestInput {
-  return options as UpdatePromptTemplateRequestInput;
-}
-
-
-export type DeletePromptTemplateRequestInput = {
-  templateId: string;
-};
-export function createDeletePromptTemplateRequestInput(options: Partial<DeletePromptTemplateRequestInput> = {}): DeletePromptTemplateRequestInput {
-  return options as DeletePromptTemplateRequestInput;
-}
-
-
-export type ExternalAgentConfigListResponse = Array<ExternalAgentConfig>;
-
-
-export type GetExternalAgentConfigRequestInput = {
-  configId: string;
-};
-export function createGetExternalAgentConfigRequestInput(options: Partial<GetExternalAgentConfigRequestInput> = {}): GetExternalAgentConfigRequestInput {
-  return options as GetExternalAgentConfigRequestInput;
-}
-
-
-export type ExternalAgentPreflightStatusListResponse = Array<ExternalAgentPreflightStatus>;
-
-
-export type CreateExternalAgentConfigRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  toolType?: ExternalAgentToolType | null;
-  runMode?: ExternalAgentRunMode | null;
-  commandPath?: string | null;
-  baseUrl?: string | null;
-  defaultModel?: string | null;
-  sandboxPolicy?: string | null;
-  approvalPolicy?: string | null;
-  settingsMode?: ExternalAgentSettingsMode | null;
-  settingsSources?: Array<ClaudeSettingsSource> | null;
-  settingsFilePath?: string | null;
-  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
-  settingsAllowSettaEdits?: boolean | null;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy?: ExternalAgentWorkingDirStrategy | null;
-  workingDir?: string | null;
-  codexSkipGitRepoCheck?: boolean | null;
-};
-export function createCreateExternalAgentConfigRequestInput(options: Partial<CreateExternalAgentConfigRequestInput> = {}): CreateExternalAgentConfigRequestInput {
-  return options as CreateExternalAgentConfigRequestInput;
-}
-
-
-export type UpdateExternalAgentConfigRequestInput = {
-  config: ExternalAgentConfig;
-};
-export function createUpdateExternalAgentConfigRequestInput(options: Partial<UpdateExternalAgentConfigRequestInput> = {}): UpdateExternalAgentConfigRequestInput {
-  return options as UpdateExternalAgentConfigRequestInput;
-}
-
-
-export type DeleteExternalAgentConfigRequestInput = {
-  configId: string;
-};
-export function createDeleteExternalAgentConfigRequestInput(options: Partial<DeleteExternalAgentConfigRequestInput> = {}): DeleteExternalAgentConfigRequestInput {
-  return options as DeleteExternalAgentConfigRequestInput;
-}
-
-
-export type TranscriptionProfileListResponse = Array<TranscriptionProfile>;
-
-
-export type CreateTranscriptionProfileRequestInput = {
-  name: string;
-  transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
-  chunkMs: number;
-  language?: string | null;
-};
-export function createCreateTranscriptionProfileRequestInput(options: Partial<CreateTranscriptionProfileRequestInput> = {}): CreateTranscriptionProfileRequestInput {
-  return options as CreateTranscriptionProfileRequestInput;
-}
-
-
-export type TranscriptionProfileResponse = TranscriptionProfile;
-
-
-export type UpdateTranscriptionProfileRequestInput = {
-  profile: TranscriptionProfile;
-};
-export function createUpdateTranscriptionProfileRequestInput(options: Partial<UpdateTranscriptionProfileRequestInput> = {}): UpdateTranscriptionProfileRequestInput {
-  return options as UpdateTranscriptionProfileRequestInput;
-}
-
-
-export type DeleteTranscriptionProfileRequestInput = {
-  profileId: string;
-};
-export function createDeleteTranscriptionProfileRequestInput(options: Partial<DeleteTranscriptionProfileRequestInput> = {}): DeleteTranscriptionProfileRequestInput {
-  return options as DeleteTranscriptionProfileRequestInput;
-}
-
-
 export type StartTranscriptionSessionRequest = {
   transcriptionProfileId: string;
   language: string | null;
@@ -9375,16 +10046,6 @@ export type AppendTranscriptionAudioRequest = {
 };
 export function createAppendTranscriptionAudioRequest(options: Partial<AppendTranscriptionAudioRequest> = {}): AppendTranscriptionAudioRequest {
   return options as AppendTranscriptionAudioRequest;
-}
-
-
-export type TranscriptionSessionDeltaResponse = {
-  appendText: string;
-  fullText: string;
-  isFinal: boolean;
-};
-export function createTranscriptionSessionDeltaResponse(options: Partial<TranscriptionSessionDeltaResponse> = {}): TranscriptionSessionDeltaResponse {
-  return options as TranscriptionSessionDeltaResponse;
 }
 
 
@@ -9438,9 +10099,6 @@ export function createGetLLMResponseRequest(options: Partial<GetLLMResponseReque
 }
 
 
-export type GetLLMResponseResponse = string;
-
-
 export type GetLLMChatRequest = {
   chatId: string;
   projectConfigId: string | null;
@@ -9450,32 +10108,11 @@ export function createGetLLMChatRequest(options: Partial<GetLLMChatRequest> = {}
 }
 
 
-export type GetLLMChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  llmConfig?: LLMConfig | null;
-  contextUsage?: ChatContextUsage | null;
-};
-export function createGetLLMChatResponse(options: Partial<GetLLMChatResponse> = {}): GetLLMChatResponse {
-  return options as GetLLMChatResponse;
-}
-
-
 export type StopLLMChatRequest = {
   chatId: string;
 };
 export function createStopLLMChatRequest(options: Partial<StopLLMChatRequest> = {}): StopLLMChatRequest {
   return options as StopLLMChatRequest;
-}
-
-
-export type StopLLMChatResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId?: string | null;
-  stoppedMessageId?: string | null;
-};
-export function createStopLLMChatResponse(options: Partial<StopLLMChatResponse> = {}): StopLLMChatResponse {
-  return options as StopLLMChatResponse;
 }
 
 
@@ -9488,26 +10125,12 @@ export function createGetExternalAgentChatRequest(options: Partial<GetExternalAg
 }
 
 
-export type ExternalAgentChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  contextUsage?: ChatContextUsage | null;
-};
-export function createExternalAgentChatResponse(options: Partial<ExternalAgentChatResponse> = {}): ExternalAgentChatResponse {
-  return options as ExternalAgentChatResponse;
-}
-
-
 export type GetAIFollowSnapshotRequest = {
   projectConfigId: string;
 };
 export function createGetAIFollowSnapshotRequest(options: Partial<GetAIFollowSnapshotRequest> = {}): GetAIFollowSnapshotRequest {
   return options as GetAIFollowSnapshotRequest;
 }
-
-
-export type AIFollowSnapshotResponse = Array<AIFollowToolArgumentsUpdateContent>;
 
 
 export type StopExternalAgentRunRequest = {
@@ -9542,51 +10165,6 @@ export type GetChatSectionChatIDRequest = {
 };
 export function createGetChatSectionChatIDRequest(options: Partial<GetChatSectionChatIDRequest> = {}): GetChatSectionChatIDRequest {
   return options as GetChatSectionChatIDRequest;
-}
-
-
-export type GetChatSectionChatIDResponse = string;
-
-
-export type SetChatSectionSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  managed: boolean;
-  engineConfigId?: string | null;
-  transcriptionProfileId?: string | null;
-  agentProfileId?: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-};
-export function createSetChatSectionSettingsRequestInput(options: Partial<SetChatSectionSettingsRequestInput> = {}): SetChatSectionSettingsRequestInput {
-  return options as SetChatSectionSettingsRequestInput;
-}
-
-
-export type SetStateMachineSectionSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  machineGroupId: string;
-  label: string;
-  gateType?: StateMachineGateType | null;
-};
-export function createSetStateMachineSectionSettingsRequestInput(options: Partial<SetStateMachineSectionSettingsRequestInput> = {}): SetStateMachineSectionSettingsRequestInput {
-  return options as SetStateMachineSectionSettingsRequestInput;
-}
-
-
-export type SetChatSectionStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  state: ChatSectionState;
-};
-export function createSetChatSectionStateRequestInput(options: Partial<SetChatSectionStateRequestInput> = {}): SetChatSectionStateRequestInput {
-  return options as SetChatSectionStateRequestInput;
 }
 
 
@@ -9717,171 +10295,6 @@ export function createGetAgenticSummaryCacheStatusRequest(options: Partial<GetAg
 }
 
 
-export type AgenticSummaryCacheStatus = {
-  maxSummariesPerRun: number;
-  summarySectionIds: Array<string>;
-  cachedSectionIds: Array<string>;
-  missingSectionIds: Array<string>;
-  emptySourceSectionIds: Array<string>;
-  consideredSectionIds: Array<string>;
-  wouldAttemptSectionIds: Array<string>;
-};
-export function createAgenticSummaryCacheStatus(options: Partial<AgenticSummaryCacheStatus> = {}): AgenticSummaryCacheStatus {
-  return options as AgenticSummaryCacheStatus;
-}
-
-
-export const AppCatalogPropTypeEnum = {
-  String: "string",
-  Number: "number",
-  Dimension: "dimension",
-  Boolean: "boolean",
-} as const;
-export type AppCatalogPropType = ObjectValues<typeof AppCatalogPropTypeEnum>;
-
-
-export type AppCatalogProp = {
-  type: AppCatalogPropType;
-  responsive?: boolean;
-  required?: boolean;
-  min?: number | null;
-  max?: number | null;
-  enum?: Array<unknown>;
-  default?: unknown;
-};
-export function createAppCatalogProp(options: Partial<AppCatalogProp> = {}): AppCatalogProp {
-  return options as AppCatalogProp;
-}
-
-
-export type AppCatalogComponent = {
-  type: string;
-  children: boolean;
-  props?: Record<string, AppCatalogProp>;
-};
-export function createAppCatalogComponent(options: Partial<AppCatalogComponent> = {}): AppCatalogComponent {
-  return options as AppCatalogComponent;
-}
-
-
-export type AppCatalogAction = {
-  name: string;
-};
-export function createAppCatalogAction(options: Partial<AppCatalogAction> = {}): AppCatalogAction {
-  return options as AppCatalogAction;
-}
-
-
-export type AppCatalogResponse = {
-  id: string;
-  version: string;
-  components: Array<AppCatalogComponent>;
-  actions: Array<AppCatalogAction>;
-};
-export function createAppCatalogResponse(options: Partial<AppCatalogResponse> = {}): AppCatalogResponse {
-  return options as AppCatalogResponse;
-}
-
-
-export type GetAppDefinitionRequestInput = {
-  frontendOpId?: string | null;
-};
-export function createGetAppDefinitionRequestInput(options: Partial<GetAppDefinitionRequestInput> = {}): GetAppDefinitionRequestInput {
-  return options as GetAppDefinitionRequestInput;
-}
-
-
-export type AppDefinitionReadResponse = {
-  appSpec: unknown;
-  appDefinition?: AppDefinition | null;
-};
-export function createAppDefinitionReadResponse(options: Partial<AppDefinitionReadResponse> = {}): AppDefinitionReadResponse {
-  return options as AppDefinitionReadResponse;
-}
-
-
-export type SetAppDefinitionRequestInput = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecPath?: string | null;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-export function createSetAppDefinitionRequestInput(options: Partial<SetAppDefinitionRequestInput> = {}): SetAppDefinitionRequestInput {
-  return options as SetAppDefinitionRequestInput;
-}
-
-
-export type AppDefinitionMutationResponse = {
-  appSpec: unknown;
-  appDefinition?: AppDefinition | null;
-};
-export function createAppDefinitionMutationResponse(options: Partial<AppDefinitionMutationResponse> = {}): AppDefinitionMutationResponse {
-  return options as AppDefinitionMutationResponse;
-}
-
-
-export type ValidateAppDefinitionRequestInput = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-export function createValidateAppDefinitionRequestInput(options: Partial<ValidateAppDefinitionRequestInput> = {}): ValidateAppDefinitionRequestInput {
-  return options as ValidateAppDefinitionRequestInput;
-}
-
-
-export type AppValidationIssue = {
-  message: string;
-  elementKey?: string | null;
-  elementType?: string | null;
-};
-export function createAppValidationIssue(options: Partial<AppValidationIssue> = {}): AppValidationIssue {
-  return options as AppValidationIssue;
-}
-
-
-export type AppCapabilities = {
-  catalogId: string;
-  catalogVersion: string;
-  appSpecVersion: string;
-  themeSchemaVersion: string;
-  features: Record<string, boolean>;
-};
-export function createAppCapabilities(options: Partial<AppCapabilities> = {}): AppCapabilities {
-  return options as AppCapabilities;
-}
-
-
-export type AppDefinitionValidationResponse = {
-  errors: Array<AppValidationIssue>;
-  warnings: Array<AppValidationIssue>;
-  capabilities: AppCapabilities;
-};
-export function createAppDefinitionValidationResponse(options: Partial<AppDefinitionValidationResponse> = {}): AppDefinitionValidationResponse {
-  return options as AppDefinitionValidationResponse;
-}
-
-
-export type TypeCheckRequestInput = {
-  projectConfigId: string;
-};
-export function createTypeCheckRequestInput(options: Partial<TypeCheckRequestInput> = {}): TypeCheckRequestInput {
-  return options as TypeCheckRequestInput;
-}
-
-
 export type ClearTextFieldCompletionRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -9902,18 +10315,6 @@ export type TextFieldCompletionRequest = {
 export function createTextFieldCompletionRequest(options: Partial<TextFieldCompletionRequest> = {}): TextFieldCompletionRequest {
   return options as TextFieldCompletionRequest;
 }
-
-
-export type CodeMirrorCompletion = {
-  label: string;
-  type: string;
-};
-export function createCodeMirrorCompletion(options: Partial<CodeMirrorCompletion> = {}): CodeMirrorCompletion {
-  return options as CodeMirrorCompletion;
-}
-
-
-export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
 
 
 export type OutputAccessorCompletionRequest = {
@@ -9958,86 +10359,6 @@ export function createGenCodeSuffixCompletionRequest(options: Partial<GenCodeSuf
 }
 
 
-export type GetLatestLspDiagnosticsRequestInput = {
-  projectConfigId: string;
-};
-export function createGetLatestLspDiagnosticsRequestInput(options: Partial<GetLatestLspDiagnosticsRequestInput> = {}): GetLatestLspDiagnosticsRequestInput {
-  return options as GetLatestLspDiagnosticsRequestInput;
-}
-
-
-export type SettaSectionTypeErrors = {
-  callable: Array<string>;
-  params: Record<string, Array<string>>;
-};
-export function createSettaSectionTypeErrors(options: Partial<SettaSectionTypeErrors> = {}): SettaSectionTypeErrors {
-  return options as SettaSectionTypeErrors;
-}
-
-
-export type SettaProjectConfigDiagnostics = {
-  projectConfigId: string;
-  errors: Record<string, SettaSectionTypeErrors>;
-  isGenCode: boolean;
-};
-export function createSettaProjectConfigDiagnostics(options: Partial<SettaProjectConfigDiagnostics> = {}): SettaProjectConfigDiagnostics {
-  return options as SettaProjectConfigDiagnostics;
-}
-
-
-export type SettaLspDiagnosticPosition = {
-  line: number;
-  character: number;
-};
-export function createSettaLspDiagnosticPosition(options: Partial<SettaLspDiagnosticPosition> = {}): SettaLspDiagnosticPosition {
-  return options as SettaLspDiagnosticPosition;
-}
-
-
-export type SettaLspDiagnosticRange = {
-  start: SettaLspDiagnosticPosition;
-  end: SettaLspDiagnosticPosition;
-};
-export function createSettaLspDiagnosticRange(options: Partial<SettaLspDiagnosticRange> = {}): SettaLspDiagnosticRange {
-  return options as SettaLspDiagnosticRange;
-}
-
-
-export type SettaLspDiagnostic = {
-  message: string;
-  severity: number | null;
-  code: unknown;
-  source: string | null;
-  range: SettaLspDiagnosticRange;
-  uri: string | null;
-};
-export function createSettaLspDiagnostic(options: Partial<SettaLspDiagnostic> = {}): SettaLspDiagnostic {
-  return options as SettaLspDiagnostic;
-}
-
-
-export type SettaLspDiagnosticsPayload = {
-  projectConfigId: string;
-  genCode: SettaProjectConfigDiagnostics;
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
-};
-export function createSettaLspDiagnosticsPayload(options: Partial<SettaLspDiagnosticsPayload> = {}): SettaLspDiagnosticsPayload {
-  return options as SettaLspDiagnosticsPayload;
-}
-
-
-export type SetTypeErrorIgnoreRequestInput = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-  ignoreTypeErrors: boolean;
-};
-export function createSetTypeErrorIgnoreRequestInput(options: Partial<SetTypeErrorIgnoreRequestInput> = {}): SetTypeErrorIgnoreRequestInput {
-  return options as SetTypeErrorIgnoreRequestInput;
-}
-
-
 export type SetCodeSectionDiagnosticsMuteRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -10056,288 +10377,6 @@ export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
 };
 export function createSetCodeSectionDiagnosticCodeSuppressionRequest(options: Partial<SetCodeSectionDiagnosticCodeSuppressionRequest> = {}): SetCodeSectionDiagnosticCodeSuppressionRequest {
   return options as SetCodeSectionDiagnosticCodeSuppressionRequest;
-}
-
-
-export type PluginListEntry = {
-  pluginId: string;
-  name: string;
-  version: string;
-  sourceScope: PluginScope;
-  sourceScopeLabel: string;
-  sourceManager: PluginSourceManager;
-  sourceManagerHint: string | null;
-  canonicalSourceKey: string;
-  sourceDigestSha256: string | null;
-  frontend: PluginFrontendDescriptor;
-  content: PluginContentDescriptor;
-  config: PluginConfigDescriptor;
-  effectiveCapabilities: Array<string>;
-  enablementSource: PluginEnablementSource | null;
-  restartRequired: boolean;
-};
-export function createPluginListEntry(options: Partial<PluginListEntry> = {}): PluginListEntry {
-  return options as PluginListEntry;
-}
-
-
-export type PluginListResponse = {
-  schemaVersion: number;
-  serverMode: ServerMode;
-  restartCapability: PluginRestartCapability;
-  plugins: Array<PluginListEntry>;
-};
-export function createPluginListResponse(options: Partial<PluginListResponse> = {}): PluginListResponse {
-  return options as PluginListResponse;
-}
-
-
-export type PluginStatusEntry = {
-  pluginId: string;
-  name: string;
-  version: string;
-  state: PluginRuntimeState;
-  sourceScope: PluginScope;
-  sourceScopeLabel: string;
-  sourceManager: PluginSourceManager;
-  sourceManagerHint: string | null;
-  sourcePath: string;
-  canonicalSourceKey: string;
-  sourceDigestSha256: string | null;
-  shadowedBySourcePath: string | null;
-  requestedCapabilities: Array<string>;
-  effectiveCapabilities: Array<string>;
-  blockedCapabilities: Array<PluginBlockedCapability>;
-  registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
-  registeredBackendRoutes: Array<PluginRegisteredBackendRoute>;
-  registeredStaticDirs: Array<PluginRegisteredStaticDir>;
-  registeredListenerEndpoints: Array<PluginRegisteredListenerEndpoint>;
-  enablementSource: PluginEnablementSource | null;
-  restartRequired: boolean;
-  runtimePayloadDigestSha256: string;
-  errors: Array<PluginErrorInfo>;
-};
-export function createPluginStatusEntry(options: Partial<PluginStatusEntry> = {}): PluginStatusEntry {
-  return options as PluginStatusEntry;
-}
-
-
-export type PluginStatusResponse = {
-  schemaVersion: number;
-  serverMode: ServerMode;
-  restartCapability: PluginRestartCapability;
-  plugins: Array<PluginStatusEntry>;
-};
-export function createPluginStatusResponse(options: Partial<PluginStatusResponse> = {}): PluginStatusResponse {
-  return options as PluginStatusResponse;
-}
-
-
-export type PluginRuntimeResponse = {
-  schemaVersion: number;
-  list: PluginListResponse;
-  status: PluginStatusResponse;
-};
-export function createPluginRuntimeResponse(options: Partial<PluginRuntimeResponse> = {}): PluginRuntimeResponse {
-  return options as PluginRuntimeResponse;
-}
-
-
-export type PluginRescanResponse = {
-  schemaVersion: number;
-  serverMode: ServerMode;
-  installedPlugins: number;
-  activePlugins: number;
-};
-export function createPluginRescanResponse(options: Partial<PluginRescanResponse> = {}): PluginRescanResponse {
-  return options as PluginRescanResponse;
-}
-
-
-export type PluginInstallRequestInput = {
-  sourceSpec: string;
-  scope: PluginScope | null;
-  installer: PluginInstallerBackend | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-export function createPluginInstallRequestInput(options: Partial<PluginInstallRequestInput> = {}): PluginInstallRequestInput {
-  return options as PluginInstallRequestInput;
-}
-
-
-export type PluginInstallResponse = {
-  pluginId: string;
-  version: string;
-  sourceScope: PluginScope;
-  sourceScopeLabel: string;
-  sourcePath: string;
-  canonicalSourceKey: string;
-  sourceDigestSha256: string | null;
-  requestedCapabilities: Array<string>;
-  trustStatus: PluginSourceTrustStatus;
-  trustWarning: string;
-  components: Array<string>;
-  state: PluginRuntimeState;
-  restartRequired: boolean;
-};
-export function createPluginInstallResponse(options: Partial<PluginInstallResponse> = {}): PluginInstallResponse {
-  return options as PluginInstallResponse;
-}
-
-
-export type PluginLinkRequestInput = {
-  localPluginRoot: string;
-  scope: PluginScope | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-export function createPluginLinkRequestInput(options: Partial<PluginLinkRequestInput> = {}): PluginLinkRequestInput {
-  return options as PluginLinkRequestInput;
-}
-
-
-export type PluginUninstallRequestInput = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-export function createPluginUninstallRequestInput(options: Partial<PluginUninstallRequestInput> = {}): PluginUninstallRequestInput {
-  return options as PluginUninstallRequestInput;
-}
-
-
-export type PluginUninstallResponse = {
-  pluginId: string;
-  removedFromScope: PluginScope;
-  restartRequired: boolean;
-};
-export function createPluginUninstallResponse(options: Partial<PluginUninstallResponse> = {}): PluginUninstallResponse {
-  return options as PluginUninstallResponse;
-}
-
-
-export type PluginUpdateRequestInput = {
-  pluginId: string;
-  scope: PluginScope | null;
-  to: string | null;
-};
-export function createPluginUpdateRequestInput(options: Partial<PluginUpdateRequestInput> = {}): PluginUpdateRequestInput {
-  return options as PluginUpdateRequestInput;
-}
-
-
-export type PluginUpdateResponse = {
-  pluginId: string;
-  fromVersion: string;
-  toVersion: string;
-  sourceDigestSha256: string | null;
-  restartRequired: boolean;
-};
-export function createPluginUpdateResponse(options: Partial<PluginUpdateResponse> = {}): PluginUpdateResponse {
-  return options as PluginUpdateResponse;
-}
-
-
-export type PluginRollbackRequestInput = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-export function createPluginRollbackRequestInput(options: Partial<PluginRollbackRequestInput> = {}): PluginRollbackRequestInput {
-  return options as PluginRollbackRequestInput;
-}
-
-
-export type PluginRollbackResponse = {
-  pluginId: string;
-  restoredVersion: string;
-  sourceDigestSha256: string | null;
-  restartRequired: boolean;
-};
-export function createPluginRollbackResponse(options: Partial<PluginRollbackResponse> = {}): PluginRollbackResponse {
-  return options as PluginRollbackResponse;
-}
-
-
-export type PluginEnableDisableRequestInput = {
-  pluginId: string;
-};
-export function createPluginEnableDisableRequestInput(options: Partial<PluginEnableDisableRequestInput> = {}): PluginEnableDisableRequestInput {
-  return options as PluginEnableDisableRequestInput;
-}
-
-
-export type PluginEnableDisableResponse = {
-  pluginId: string;
-  state: PluginRuntimeState;
-  restartRequired: boolean;
-};
-export function createPluginEnableDisableResponse(options: Partial<PluginEnableDisableResponse> = {}): PluginEnableDisableResponse {
-  return options as PluginEnableDisableResponse;
-}
-
-
-export type PluginConfigWriteRequestInput = {
-  pluginId: string;
-  config: Record<string, unknown>;
-};
-export function createPluginConfigWriteRequestInput(options: Partial<PluginConfigWriteRequestInput> = {}): PluginConfigWriteRequestInput {
-  return options as PluginConfigWriteRequestInput;
-}
-
-
-export type PluginConfigValidationResult = {
-  ok: boolean;
-};
-export function createPluginConfigValidationResult(options: Partial<PluginConfigValidationResult> = {}): PluginConfigValidationResult {
-  return options as PluginConfigValidationResult;
-}
-
-
-export type PluginConfigWriteResponse = {
-  pluginId: string;
-  config: Record<string, unknown>;
-  validation: PluginConfigValidationResult;
-};
-export function createPluginConfigWriteResponse(options: Partial<PluginConfigWriteResponse> = {}): PluginConfigWriteResponse {
-  return options as PluginConfigWriteResponse;
-}
-
-
-export type PluginLockWriteResponse = {
-  lockfilePath: string;
-  pluginCount: number;
-};
-export function createPluginLockWriteResponse(options: Partial<PluginLockWriteResponse> = {}): PluginLockWriteResponse {
-  return options as PluginLockWriteResponse;
-}
-
-
-export type PluginLockApplyRequestInput = {
-  check: boolean;
-};
-export function createPluginLockApplyRequestInput(options: Partial<PluginLockApplyRequestInput> = {}): PluginLockApplyRequestInput {
-  return options as PluginLockApplyRequestInput;
-}
-
-
-export type PluginLockApplyResponse = {
-  lockfilePath: string;
-  plannedChanges: Array<string>;
-  applied: boolean;
-};
-export function createPluginLockApplyResponse(options: Partial<PluginLockApplyResponse> = {}): PluginLockApplyResponse {
-  return options as PluginLockApplyResponse;
-}
-
-
-export type PluginRestartResponse = {
-  accepted: boolean;
-  mode: PluginRestartCapabilityMode;
-  command: string | null;
-  reason: string | null;
-};
-export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
-  return options as PluginRestartResponse;
 }
 
 

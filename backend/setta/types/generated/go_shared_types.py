@@ -23,65 +23,18 @@ class Route(str, Enum):
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
 
 
-class TextBlockDisplayMode(str, Enum):
-    Render = "Render"
-    Edit = "Edit"
+class StreamingEventType(str, Enum):
+    message_start = "message_start"
+    delta = "delta"
+    tool_call_delta = "tool_call_delta"
+    tool_argument_preview_delta = "tool_argument_preview_delta"
+    tool_result = "tool_result"
+    message_stop = "message_stop"
+    message_finalized = "message_finalized"
 
 
-class TextBlockFormat(str, Enum):
-    Plaintext = "Plaintext"
-    Markdown = "Markdown"
-
-
-class ListRootViewMode(str, Enum):
-    default = "default"
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class BrowserAreaViewMode(str, Enum):
-    list = "list"
-    thumbnail = "thumbnail"
-    carousel = "carousel"
-
-
-class BrowserSearchScope(str, Enum):
-    recursive = "recursive"
-    local = "local"
-
-
-class SpreadsheetGridDensity(str, Enum):
-    compact = "compact"
-    comfortable = "comfortable"
-
-
-class TaskBoardViewMode(str, Enum):
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class ChatPermissionMode(str, Enum):
-    minimal = "minimal"
-    yolo = "yolo"
-    config_toml_custom = "config_toml_custom"
-
-
-class ChatDictationMode(str, Enum):
-    auto = "auto"
-    browser = "browser"
-    provider = "provider"
-
-
-class StateMachineGateType(str, Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
-
-
-class CodeFileAccessMode(str, Enum):
-    read_write = "read_write"
-    read_only = "read_only"
-    write_only = "write_only"
+class PromptFormat(str, Enum):
+    Jinja = "Jinja"
 
 
 class ArtifactType(str, Enum):
@@ -90,11 +43,6 @@ class ArtifactType(str, Enum):
     DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
     ChartData = "ChartData"
     File = "File"
-
-
-class ChartType(str, Enum):
-    line = "line"
-    scatter = "scatter"
 
 
 class DrawAreaBrushShape(str, Enum):
@@ -120,6 +68,66 @@ class DependencyValueType(str, Enum):
     FileRead = "FileRead"
 
 
+class RunSnapshotMode(str, Enum):
+    never = "never"
+    ephemeral = "ephemeral"
+    always = "always"
+
+
+class ListRootViewMode(str, Enum):
+    default = "default"
+    task_list = "task_list"
+    kanban = "kanban"
+
+
+class BrowserAreaViewMode(str, Enum):
+    list = "list"
+    thumbnail = "thumbnail"
+    carousel = "carousel"
+
+
+class BrowserSearchScope(str, Enum):
+    recursive = "recursive"
+    local = "local"
+
+
+class SpreadsheetGridDensity(str, Enum):
+    compact = "compact"
+    comfortable = "comfortable"
+
+
+class ChartType(str, Enum):
+    line = "line"
+    scatter = "scatter"
+
+
+class TextBlockDisplayMode(str, Enum):
+    Render = "Render"
+    Edit = "Edit"
+
+
+class TextBlockFormat(str, Enum):
+    Plaintext = "Plaintext"
+    Markdown = "Markdown"
+
+
+class CodeFileAccessMode(str, Enum):
+    read_write = "read_write"
+    read_only = "read_only"
+    write_only = "write_only"
+
+
+class TaskBoardViewMode(str, Enum):
+    task_list = "task_list"
+    kanban = "kanban"
+
+
+class StateMachineGateType(str, Enum):
+    AND = "AND"
+    OR = "OR"
+    XOR = "XOR"
+
+
 class ChatRole(str, Enum):
     system = "system"
     user = "user"
@@ -127,24 +135,16 @@ class ChatRole(str, Enum):
     tool = "tool"
 
 
-class StreamingEventType(str, Enum):
-    message_start = "message_start"
-    delta = "delta"
-    tool_call_delta = "tool_call_delta"
-    tool_argument_preview_delta = "tool_argument_preview_delta"
-    tool_result = "tool_result"
-    message_stop = "message_stop"
-    message_finalized = "message_finalized"
+class ChatPermissionMode(str, Enum):
+    minimal = "minimal"
+    yolo = "yolo"
+    config_toml_custom = "config_toml_custom"
 
 
-class PromptFormat(str, Enum):
-    Jinja = "Jinja"
-
-
-class RunSnapshotMode(str, Enum):
-    never = "never"
-    ephemeral = "ephemeral"
-    always = "always"
+class ChatDictationMode(str, Enum):
+    auto = "auto"
+    browser = "browser"
+    provider = "provider"
 
 
 class LLMConfig(SettaSharedTypeModel):

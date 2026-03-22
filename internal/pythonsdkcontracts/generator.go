@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// setta-go-type-discovery: skip
 type GeneratedContracts struct {
 	PythonModule string
 }

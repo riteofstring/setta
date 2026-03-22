@@ -20,6 +20,7 @@ var typesTemplateText string
 //go:embed templates/endpoints.ts.tmpl
 var endpointsTemplateText string
 
+// setta-go-type-discovery: skip
 type GeneratedBindings struct {
 	RoutesTS    string
 	TypesTS     string

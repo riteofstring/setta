@@ -3,11 +3,9 @@ package pythonsharedtypes
 import (
 	"reflect"
 
-	"setta/internal/artifacts"
 	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
-	"setta/internal/projectstate"
-	"setta/internal/runs"
+	"setta/internal/stringenumvalues"
 	"setta/internal/wsapi"
 )
 
@@ -38,64 +36,37 @@ type pythonRouteBinding struct {
 	Path       string
 }
 
+var pythonSharedEnumFallbackPackages = []string{
+	"setta/internal/frontendbindings",
+	"setta/internal/projectstate",
+	"setta/internal/artifacts",
+	"setta/internal/runs",
+}
+
 func currentContractSpecs() ([]contractSpec, error) {
 	routeSpec, err := buildRouteContractSpec()
 	if err != nil {
 		return nil, err
 	}
-	return []contractSpec{
-		routeSpec,
-		stringEnumContractSpec(reflect.TypeOf(projectstate.TextBlockDisplayMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.TextBlockFormat(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.ListRootViewMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.BrowserAreaViewMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.BrowserSearchScope(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.SpreadsheetGridDensity(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.TaskBoardViewMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.ChatPermissionMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.ChatDictationMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.StateMachineGateType(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.CodeFileAccessMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(artifacts.ArtifactType(""))),
-		stringEnumContractSpec(reflect.TypeOf(projectstate.ChartType(""))),
-		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DrawAreaBrushShape(""))),
-		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DrawAreaMode(""))),
-		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DependencyKeyType(""))),
-		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DependencyValueType(""))),
-		stringEnumContractSpec(reflect.TypeOf(frontendbindings.ChatRole(""))),
-		stringEnumContractSpec(reflect.TypeOf(frontendbindings.StreamingEventType(""))),
-		{
-			Name: "LLMConfig",
-			Kind: contractKindModel,
-			Type: reflect.TypeOf(frontendbindings.LLMConfig{}),
-			FieldDefaults: map[string]string{
-				"temporary": "False",
-			},
-		},
-		{
-			Name: "TypeErrorIgnoreState",
-			Kind: contractKindModel,
-			Type: reflect.TypeOf(projectstate.TypeErrorIgnoreState{}),
-			FieldDefaults: map[string]string{
-				"callable": "False",
-				"params":   "Field(default_factory=dict)",
-			},
-		},
-		{
-			Name: "BrowserSavedSearchTypeFilters",
-			Kind: contractKindModel,
-			Type: reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
-			FieldDefaults: map[string]string{
-				"image": "True",
-				"video": "True",
-				"audio": "True",
-				"text":  "True",
-				"data":  "True",
-			},
-		},
-		stringEnumContractSpec(reflect.TypeOf(projectstate.PromptFormat(""))),
-		stringEnumContractSpec(reflect.TypeOf(runs.RunSnapshotMode(""))),
-	}, nil
+	specs := []contractSpec{routeSpec}
+	for _, discoveredType := range frontendbindings.DiscoveredConvertibleTypes() {
+		switch discoveredType.Kind() {
+		case reflect.String:
+			spec, ok, err := enumContractSpecIfConvertible(discoveredType)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				specs = append(specs, spec)
+			}
+		case reflect.Struct:
+			spec, ok := modelContractSpecIfConvertible(discoveredType)
+			if ok {
+				specs = append(specs, spec)
+			}
+		}
+	}
+	return specs, nil
 }
 
 func stringEnumContractSpec(t reflect.Type) contractSpec {
@@ -103,6 +74,75 @@ func stringEnumContractSpec(t reflect.Type) contractSpec {
 		Name: t.Name(),
 		Kind: contractKindEnum,
 		Type: t,
+	}
+}
+
+func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
+	values, ok, err := stringenumvalues.Default().Values(t)
+	if err != nil {
+		return contractSpec{}, false, err
+	}
+	if ok && len(values) > 0 {
+		return stringEnumContractSpec(t), true, nil
+	}
+	values, ok, err = stringenumvalues.Default().ValuesByTypeName(
+		pythonSharedEnumFallbackPackages,
+		t.Name(),
+	)
+	if err != nil {
+		return contractSpec{}, false, err
+	}
+	if !ok || len(values) == 0 {
+		return contractSpec{}, false, nil
+	}
+	enumValues := make([]enumValueSpec, 0, len(values))
+	for _, value := range values {
+		enumValues = append(enumValues, enumValueSpec{
+			Name:  value.Name,
+			Value: value.Value,
+		})
+	}
+	return contractSpec{
+		Name:       t.Name(),
+		Kind:       contractKindEnum,
+		EnumValues: enumValues,
+	}, true, nil
+}
+
+func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
+	spec := contractSpec{
+		Name:          t.Name(),
+		Kind:          contractKindModel,
+		Type:          t,
+		FieldDefaults: pythonSharedFieldDefaultsForType(t),
+	}
+	if _, err := buildModelSpec(spec); err != nil {
+		return contractSpec{}, false
+	}
+	return spec, true
+}
+
+func pythonSharedFieldDefaultsForType(t reflect.Type) map[string]string {
+	switch t {
+	case reflect.TypeOf(frontendbindings.LLMConfig{}):
+		return map[string]string{
+			"temporary": "False",
+		}
+	case reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}):
+		return map[string]string{
+			"callable": "False",
+			"params":   "Field(default_factory=dict)",
+		}
+	case reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}):
+		return map[string]string{
+			"image": "True",
+			"video": "True",
+			"audio": "True",
+			"text":  "True",
+			"data":  "True",
+		}
+	default:
+		return nil
 	}
 }
 

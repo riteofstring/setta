@@ -68,3 +68,29 @@ func TestRegistryUsesValueNameWhenItIsIdentifierAndSuffixWhenItIsNot(t *testing.
 		t.Fatalf("LauncherOpenMode values = %#v, want %#v", got, want)
 	}
 }
+
+func TestRegistryValuesByTypeNameFallsBackAcrossPackages(t *testing.T) {
+	t.Helper()
+
+	values, ok, err := stringenumvalues.New().ValuesByTypeName(
+		[]string{
+			"setta/internal/frontendbindings",
+			"setta/internal/projectstate",
+			"setta/internal/artifacts",
+			"setta/internal/runs",
+		},
+		"ChartType",
+	)
+	if err != nil {
+		t.Fatalf("ValuesByTypeName(...) error = %v", err)
+	}
+	if !ok {
+		t.Fatal("ValuesByTypeName(...) did not resolve ChartType")
+	}
+	if got, want := values, []stringenumvalues.EnumValue{
+		{Name: "line", Value: "line"},
+		{Name: "scatter", Value: "scatter"},
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("ChartType values = %#v, want %#v", got, want)
+	}
+}

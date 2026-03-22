@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"setta/internal/stringenumvalues"
 )
@@ -24,6 +25,16 @@ type fieldSpec struct {
 	DefaultExpr string
 }
 
+var timeType = reflect.TypeOf(time.Time{})
+var pythonKeywords = map[string]struct{}{
+	"False": {}, "None": {}, "True": {}, "and": {}, "as": {}, "assert": {},
+	"async": {}, "await": {}, "break": {}, "class": {}, "continue": {}, "def": {},
+	"del": {}, "elif": {}, "else": {}, "except": {}, "finally": {}, "for": {},
+	"from": {}, "global": {}, "if": {}, "import": {}, "in": {}, "is": {},
+	"lambda": {}, "nonlocal": {}, "not": {}, "or": {}, "pass": {}, "raise": {},
+	"return": {}, "try": {}, "while": {}, "with": {}, "yield": {},
+}
+
 func Build() (GeneratedTypes, error) {
 	specs, err := currentContractSpecs()
 	if err != nil {
@@ -32,6 +43,7 @@ func Build() (GeneratedTypes, error) {
 	models := make([]modelSpec, 0, len(specs))
 	enums := make([]contractSpec, 0, len(specs))
 	typingImports := map[string]struct{}{}
+	needsDatetime := false
 	needsEnum := false
 	needsPydanticField := false
 
@@ -63,6 +75,9 @@ func Build() (GeneratedTypes, error) {
 				if strings.Contains(field.TypeExpr, "Any") {
 					typingImports["Any"] = struct{}{}
 				}
+				if strings.Contains(field.TypeExpr, "datetime") {
+					needsDatetime = true
+				}
 				if strings.Contains(field.DefaultExpr, "Field(") {
 					needsPydanticField = true
 				}
@@ -81,12 +96,15 @@ func Build() (GeneratedTypes, error) {
 	if needsEnum {
 		builder.WriteString("from enum import Enum\n")
 	}
+	if needsDatetime {
+		builder.WriteString("from datetime import datetime\n")
+	}
 	if len(typingImports) > 0 {
 		builder.WriteString("from typing import ")
 		builder.WriteString(strings.Join(sortedImportNames(typingImports), ", "))
 		builder.WriteString("\n")
 	}
-	if needsEnum || len(typingImports) > 0 {
+	if needsEnum || needsDatetime || len(typingImports) > 0 {
 		builder.WriteString("\n")
 	}
 	builder.WriteString("from pydantic import BaseModel, ConfigDict")
@@ -105,7 +123,7 @@ func Build() (GeneratedTypes, error) {
 		builder.WriteString("(str, Enum):\n")
 		for _, value := range enumSpec.EnumValues {
 			builder.WriteString("    ")
-			builder.WriteString(value.Name)
+			builder.WriteString(pythonEnumMemberName(value.Name))
 			builder.WriteString(" = ")
 			builder.WriteString(fmt.Sprintf("%q", value.Value))
 			builder.WriteString("\n")
@@ -117,6 +135,10 @@ func Build() (GeneratedTypes, error) {
 		builder.WriteString("class ")
 		builder.WriteString(model.Name)
 		builder.WriteString("(SettaSharedTypeModel):\n")
+		if len(model.Fields) == 0 {
+			builder.WriteString("    pass\n")
+			continue
+		}
 		for _, field := range model.Fields {
 			builder.WriteString(renderFieldLine(field))
 		}
@@ -223,6 +245,9 @@ func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
 	if strings.TrimSpace(override) != "" {
 		return strings.TrimSpace(override), nil
 	}
+	if fieldType == timeType {
+		return "datetime", nil
+	}
 	switch fieldType.Kind() {
 	case reflect.String:
 		return "str", nil
@@ -230,6 +255,8 @@ func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
 		return "bool", nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return "int", nil
+	case reflect.Float32, reflect.Float64:
+		return "float", nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if fieldType.Kind() == reflect.Uint8 {
 			return "bytes", nil
@@ -245,6 +272,12 @@ func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
 		if fieldType.Elem().Kind() == reflect.Uint8 {
 			return "bytes", nil
 		}
+		elemExpr, err := pythonTypeExpr(fieldType.Elem(), "")
+		if err != nil {
+			return "", err
+		}
+		return "list[" + elemExpr + "]", nil
+	case reflect.Array:
 		elemExpr, err := pythonTypeExpr(fieldType.Elem(), "")
 		if err != nil {
 			return "", err
@@ -312,4 +345,11 @@ func sortedImportNames(imports map[string]struct{}) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func pythonEnumMemberName(name string) string {
+	if _, ok := pythonKeywords[name]; ok {
+		return name + "_"
+	}
+	return name
 }

@@ -86,6 +86,24 @@ func (r *Registry) Values(t reflect.Type) ([]EnumValue, bool, error) {
 	return slices.Clone(values), true, nil
 }
 
+func (r *Registry) ValuesByTypeName(
+	pkgPaths []string,
+	typeName string,
+) ([]EnumValue, bool, error) {
+	for _, pkgPath := range pkgPaths {
+		pkg, err := r.loadPackage(pkgPath)
+		if err != nil {
+			return nil, false, err
+		}
+		values, ok := pkg.enumValuesByType[typeName]
+		if !ok || len(values) == 0 {
+			continue
+		}
+		return slices.Clone(values), true, nil
+	}
+	return nil, false, nil
+}
+
 func (r *Registry) loadPackage(pkgPath string) (*packageData, error) {
 	r.mu.Lock()
 	if cached, ok := r.packages[pkgPath]; ok {

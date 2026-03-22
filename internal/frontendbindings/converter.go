@@ -12,6 +12,7 @@ import (
 
 var timeType = reflect.TypeOf(time.Time{})
 
+// setta-go-type-discovery: skip
 type TypeDeclaration struct {
 	Name            string
 	Kind            string
@@ -33,11 +34,13 @@ type TypeDeclaration struct {
 	ConstExpr       string
 }
 
+// setta-go-type-discovery: skip
 type EnumValue struct {
 	Name  string
 	Value string
 }
 
+// setta-go-type-discovery: skip
 type TypeProperty struct {
 	Name         string
 	TypeExpr     string

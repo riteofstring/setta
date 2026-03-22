@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${ROOT_DIR}"
+./scripts/go.sh run ./cmd/setta-gen-go-type-registries
 ./scripts/go.sh run ./cmd/setta-gen-python-sdk-contracts \
   -out backend/setta/sdk_contracts/generated.py
 ./scripts/go.sh run ./cmd/setta-gen-python-shared-types \

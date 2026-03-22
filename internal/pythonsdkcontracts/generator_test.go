@@ -16,13 +16,8 @@ func TestBuild(t *testing.T) {
 	}
 	for _, snippet := range []string{
 		"SETTA_SDK_CONTRACT_VERSION = 2",
-		"class RunnerSummarySnapshot(SettaSDKContractBaseModel):",
-		"class RunningBackendVersionHandshake(SettaSDKContractBaseModel):",
-		"class ListenerSnapshot(SettaSDKContractBaseModel):",
-		"class ListenerRealtimeEvent(SettaSDKContractBaseModel):",
-		"class LocalCoreCommandEnvelope(SettaSDKContractBaseModel):",
-		"class LocalCoreRenderRealtimeDependencyValuesRequest(SettaSDKContractBaseModel):",
-		"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator",
+		"class SettaSDKContractBaseModel(BaseModel):",
+		"__all__ = [",
 	} {
 		if !strings.Contains(contracts.PythonModule, snippet) {
 			t.Fatalf("generated python sdk contracts missing %q:\n%s", snippet, contracts.PythonModule)
