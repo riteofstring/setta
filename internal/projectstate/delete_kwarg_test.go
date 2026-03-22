@@ -128,6 +128,38 @@ func TestProjectDeleteKwargSupportsGlobalVariables(t *testing.T) {
 	}
 }
 
+// Pruning the deleted last kwarg should also clear any password secret that
+// was stored for the removed impl.
+func TestProjectDeleteKwargClearsRemovedPasswordSecret(t *testing.T) {
+	t.Parallel()
+
+	project := passwordParamNameAndValueTestProject(t)
+	project.passwordSecrets = NewMemoryPasswordSecretStore()
+
+	if err := project.SetSectionCodeObjectValue("dict-a", "shared-secret", "cleanup"); err != nil {
+		t.Fatalf("seed password param value: %v", err)
+	}
+
+	result, err := project.DeleteKwarg("dict-a")
+	if err != nil {
+		t.Fatalf("delete kwarg with password secret: %v", err)
+	}
+	if result.CodeObjID != "shared-secret" {
+		t.Fatalf("expected deleted password codeObjId shared-secret, got %q", result.CodeObjID)
+	}
+
+	secret, err := project.passwordSecrets.Get("shared-secret-impl")
+	if err != nil {
+		t.Fatalf("read password secret after delete_kwarg: %v", err)
+	}
+	if secret != "" {
+		t.Fatalf("expected deleted kwarg password secret to clear, got %q", secret)
+	}
+	if _, ok := project.CodeObjs["shared-secret"]; ok {
+		t.Fatalf("expected deleted password code object to be pruned, got %#v", project.CodeObjs["shared-secret"])
+	}
+}
+
 // Convenience deletion should still clear edge-input state and incoming edges
 // for the removed last child instead of leaving stale section-local references.
 func TestProjectDeleteKwargCleansRemovedEdgeInputState(t *testing.T) {

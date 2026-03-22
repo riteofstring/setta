@@ -559,7 +559,9 @@ func (p *Project) pruneUnusedCodeObjects() error {
 		if _, ok := reachable[codeObjID]; ok {
 			continue
 		}
-		p.deleteWatchCodeCodeObject(codeObjID)
+		if err := p.deleteWatchCodeCodeObject(codeObjID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -592,20 +594,24 @@ func effectiveCodeObjectPayloadForVariant(project Project, codeObjID string, var
 	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), nil
 }
 
-func (p *Project) deleteWatchCodeCodeObject(codeObjID string) {
+func (p *Project) deleteWatchCodeCodeObject(codeObjID string) error {
 	codeObj, ok := p.CodeObjs[codeObjID]
 	if !ok {
-		return
+		return nil
 	}
 	for _, variantID := range codeObj.VariantIDs {
 		variant, ok := p.CodeObjVariants[variantID]
 		if !ok {
 			continue
 		}
+		if err := p.clearPasswordSecretForImpl(variant.ImplID); err != nil {
+			return err
+		}
 		delete(p.CodeObjImpls, variant.ImplID)
 		delete(p.CodeObjVariants, variantID)
 	}
 	delete(p.CodeObjs, codeObjID)
+	return nil
 }
 
 func (p *Project) bindWatchCodeCallableSections(

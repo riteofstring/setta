@@ -88,6 +88,38 @@ func TestProjectDeleteSectionVariantRemovesVariantEdgesAndVariantSpecificState(t
 	}
 }
 
+// Variant deletion should clear password secrets for impls that disappear with
+// the removed code object variant instead of leaving stale runtime secrets.
+func TestProjectDeleteSectionVariantClearsRemovedPasswordSecret(t *testing.T) {
+	t.Parallel()
+
+	project := sectionVariantDeletionTestProject(t)
+	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	project.CodeObjImpls["source-param-impl-b"] = CodeObjectImpl{
+		ID:      "source-param-impl-b",
+		Type:    "PasswordParam",
+		Payload: mustMarshalProjectObject(map[string]any{"id": "source-param-impl-b", "type": "PasswordParam", "value": "", "hasSecret": true}),
+	}
+	if err := project.passwordSecrets.Set("source-param-impl-b", "cleanup"); err != nil {
+		t.Fatalf("seed password secret before DeleteSectionVariant: %v", err)
+	}
+
+	if err := project.DeleteSectionVariant("source-section", "source-variant-b"); err != nil {
+		t.Fatalf("DeleteSectionVariant returned error: %v", err)
+	}
+
+	secret, err := project.passwordSecrets.Get("source-param-impl-b")
+	if err != nil {
+		t.Fatalf("read password secret after DeleteSectionVariant: %v", err)
+	}
+	if secret != "" {
+		t.Fatalf("expected deleted variant password secret to clear, got %q", secret)
+	}
+	if _, ok := project.CodeObjImpls["source-param-impl-b"]; ok {
+		t.Fatal("did not expect deleted password impl to remain in project state")
+	}
+}
+
 func sectionVariantDeletionTestProject(t *testing.T) Project {
 	t.Helper()
 

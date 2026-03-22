@@ -28,6 +28,17 @@ type MemoryPasswordSecretStore struct {
 	values map[string]string
 }
 
+func (p *Project) clearPasswordSecretForImpl(implID string) error {
+	if p == nil || p.passwordSecrets == nil {
+		return nil
+	}
+	trimmedImplID := strings.TrimSpace(implID)
+	if trimmedImplID == "" {
+		return nil
+	}
+	return p.passwordSecrets.Set(trimmedImplID, "")
+}
+
 func NewFilePasswordSecretStore(runtimeRoot string) (*FilePasswordSecretStore, error) {
 	resolvedRuntimeRoot, err := statefs.NormalizePath(runtimeRoot, "")
 	if err != nil {

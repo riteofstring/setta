@@ -58,6 +58,46 @@ func TestProjectSetSectionCodeObjectValueRejectsPasswordParams(t *testing.T) {
 	}
 }
 
+// Password direct writes should key runtime secrets by impl id while leaving
+// the visible project-state payload blank and marked as secret-backed.
+func TestProjectSetSectionCodeObjectValueStoresPasswordSecretByImplID(t *testing.T) {
+	t.Parallel()
+
+	project := passwordParamNameAndValueTestProject(t)
+	project.passwordSecrets = NewMemoryPasswordSecretStore()
+
+	if err := project.SetSectionCodeObjectValue("dict-a", "shared-secret", "hunter2"); err != nil {
+		t.Fatalf("set password param value: %v", err)
+	}
+
+	payload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-secret")
+	if err != nil {
+		t.Fatalf("resolve shared-secret after password write: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "" {
+		t.Fatalf("expected password payload value blank, got %q", got)
+	}
+	if !payloadBoolField(payload, "hasSecret") {
+		t.Fatalf("expected password payload hasSecret true, got %#v", payload)
+	}
+
+	secret, err := project.passwordSecrets.Get("shared-secret-impl")
+	if err != nil {
+		t.Fatalf("read stored password secret by impl id: %v", err)
+	}
+	if secret != "hunter2" {
+		t.Fatalf("expected password secret hunter2 at impl id, got %q", secret)
+	}
+
+	secret, err = project.passwordSecrets.Get("shared-secret")
+	if err != nil {
+		t.Fatalf("read password secret by code object id: %v", err)
+	}
+	if secret != "" {
+		t.Fatalf("expected no password secret at code object id, got %q", secret)
+	}
+}
+
 // Direct dropzone value writes should preserve only the configured number of
 // attachments so hydrated latest-state payloads never exceed maxAttachments.
 func TestProjectSetSectionCodeObjectValueTruncatesStatefulDropzoneAttachments(t *testing.T) {

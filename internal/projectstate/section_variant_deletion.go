@@ -213,6 +213,9 @@ func (p *Project) removeUnusedDeletedSectionVariantCodeObjectVariants(deleted ma
 		if _, ok := stillReferencedImplIDs[implID]; ok {
 			continue
 		}
+		if err := p.clearPasswordSecretForImpl(implID); err != nil {
+			return err
+		}
 		delete(p.CodeObjImpls, implID)
 	}
 
