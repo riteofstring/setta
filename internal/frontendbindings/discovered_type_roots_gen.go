@@ -8,8 +8,8 @@ import (
 	binary "setta/internal/binary"
 	externalagentconfigs "setta/internal/externalagentconfigs"
 	llmconfig "setta/internal/llmconfig"
-	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
+	prompttemplates "setta/internal/prompttemplates"
 )
 
 func DiscoveredConvertibleTypes() []reflect.Type {
@@ -731,7 +731,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	return map[reflect.Type]reflect.Type{
 		reflect.TypeOf((*llmconfig.Transport)(nil)).Elem(): reflect.TypeOf((*MCPServerTransport)(nil)).Elem(),
-		reflect.TypeOf((*projectstate.PromptFormat)(nil)).Elem(): reflect.TypeOf((*PromptFormat)(nil)).Elem(),
+		reflect.TypeOf((*prompttemplates.Format)(nil)).Elem(): reflect.TypeOf((*PromptFormat)(nil)).Elem(),
 		reflect.TypeOf((*externalagentconfigs.ToolType)(nil)).Elem(): reflect.TypeOf((*ExternalAgentToolType)(nil)).Elem(),
 		reflect.TypeOf((*externalagentconfigs.RunMode)(nil)).Elem(): reflect.TypeOf((*ExternalAgentRunMode)(nil)).Elem(),
 		reflect.TypeOf((*externalagentconfigs.SettingsMode)(nil)).Elem(): reflect.TypeOf((*ExternalAgentSettingsMode)(nil)).Elem(),

@@ -68,10 +68,6 @@ class CodeFileAccessMode(str, Enum):
     write_only = "write_only"
 
 
-class PromptFormat(str, Enum):
-    Jinja = "Jinja"
-
-
 class SpreadsheetGridDensity(str, Enum):
     compact = "compact"
     comfortable = "comfortable"
@@ -106,6 +102,10 @@ class StreamingEventType(str, Enum):
     tool_result = "tool_result"
     message_stop = "message_stop"
     message_finalized = "message_finalized"
+
+
+class PromptFormat(str, Enum):
+    Jinja = "Jinja"
 
 
 class ArtifactType(str, Enum):

@@ -162,32 +162,13 @@ func renderRegistry(target registryTarget, entries []registryEntry) string {
 	builder.WriteString("\t}\n")
 	builder.WriteString("}\n")
 	if target.WrapperOverrideFunc != "" {
-		aliasTargets := map[string]struct{}{}
-		for _, entry := range entries {
-			if !entry.Type.IsAlias {
-				continue
-			}
-			key := targetKey(entry.Type)
-			if key == "" {
-				continue
-			}
-			aliasTargets[key] = struct{}{}
-		}
+		wrapperEntries := buildWrapperOverrideEntries(entries)
 		builder.WriteString("\n")
 		builder.WriteString("func ")
 		builder.WriteString(target.WrapperOverrideFunc)
 		builder.WriteString("() map[reflect.Type]reflect.Type {\n")
 		builder.WriteString("\treturn map[reflect.Type]reflect.Type{\n")
-		for _, entry := range entries {
-			if entry.Type.Kind != gotypediscovery.TypeKindNamed ||
-				entry.Type.IsAlias ||
-				strings.TrimSpace(entry.Type.TargetPackagePath) == "" ||
-				strings.TrimSpace(entry.Type.TargetTypeName) == "" {
-				continue
-			}
-			if _, ok := aliasTargets[targetKey(entry.Type)]; ok {
-				continue
-			}
+		for _, entry := range wrapperEntries {
 			builder.WriteString("\t\t")
 			builder.WriteString(renderTargetReflectExpr(entry, importAliases))
 			builder.WriteString(": ")
@@ -286,9 +267,8 @@ func externalImportPaths(target registryTarget, entries []registryEntry) []strin
 		imports = append(imports, entry.PkgPath)
 	}
 	if target.WrapperOverrideFunc != "" {
-		for _, entry := range entries {
-			if strings.TrimSpace(entry.Type.TargetPackagePath) == "" ||
-				entry.Type.TargetPackagePath == targetPkgPath {
+		for _, entry := range buildWrapperOverrideEntries(entries) {
+			if entry.Type.TargetPackagePath == targetPkgPath {
 				continue
 			}
 			if _, ok := seen[entry.Type.TargetPackagePath]; ok {
@@ -312,6 +292,35 @@ func targetKey(discoveredType gotypediscovery.DiscoveredType) string {
 		return ""
 	}
 	return discoveredType.TargetPackagePath + "::" + discoveredType.TargetTypeName
+}
+
+func buildWrapperOverrideEntries(entries []registryEntry) []registryEntry {
+	aliasTargets := map[string]struct{}{}
+	for _, entry := range entries {
+		if !entry.Type.IsAlias {
+			continue
+		}
+		key := targetKey(entry.Type)
+		if key == "" {
+			continue
+		}
+		aliasTargets[key] = struct{}{}
+	}
+
+	wrapperEntries := make([]registryEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Type.Kind != gotypediscovery.TypeKindNamed ||
+			entry.Type.IsAlias ||
+			strings.TrimSpace(entry.Type.TargetPackagePath) == "" ||
+			strings.TrimSpace(entry.Type.TargetTypeName) == "" {
+			continue
+		}
+		if _, ok := aliasTargets[targetKey(entry.Type)]; ok {
+			continue
+		}
+		wrapperEntries = append(wrapperEntries, entry)
+	}
+	return wrapperEntries
 }
 
 func packagePathForPackageName(packageName string) string {

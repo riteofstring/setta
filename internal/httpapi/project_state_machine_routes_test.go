@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/config"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 )
 
 func TestRegisterProjectRoutesStateMachineMutationsPersistAndTrackFrontendOps(t *testing.T) {
@@ -543,7 +544,7 @@ func stateMachineRouteTestProject(t *testing.T) projectstate.Project {
 					"type":             "Prompt",
 					"template":         "Hello {{ name }}",
 					"inputs":           map[string]string{},
-					"format":           string(projectstate.PromptFormatJinja),
+					"format":           string(prompttemplates.FormatJinja),
 					"renderedText":     "",
 					"missingVariables": []string{},
 					"renderError":      nil,

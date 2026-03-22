@@ -6,18 +6,13 @@ import (
 	"strings"
 
 	"setta/internal/promptrender"
-)
-
-type PromptFormat string
-
-const (
-	PromptFormatJinja PromptFormat = "Jinja"
+	"setta/internal/prompttemplates"
 )
 
 type PromptSectionSource struct {
 	PromptTemplateID *string
 	Template         string
-	Format           PromptFormat
+	Format           prompttemplates.Format
 }
 
 func (p *Project) SetPromptTemplate(sectionID string, template string) error {
@@ -26,7 +21,7 @@ func (p *Project) SetPromptTemplate(sectionID string, template string) error {
 		return err
 	}
 
-	format, err := normalizePromptFormat(PromptFormat(payloadStringField(payload, "format")))
+	format, err := normalizePromptFormat(prompttemplates.Format(payloadStringField(payload, "format")))
 	if err != nil {
 		return err
 	}
@@ -67,7 +62,7 @@ func (p *Project) PromptSectionSource(sectionID string) (PromptSectionSource, er
 		return PromptSectionSource{}, err
 	}
 
-	format, err := normalizePromptFormat(PromptFormat(payloadStringField(payload, "format")))
+	format, err := normalizePromptFormat(prompttemplates.Format(payloadStringField(payload, "format")))
 	if err != nil {
 		return PromptSectionSource{}, err
 	}
@@ -92,7 +87,7 @@ func (d *Document) PromptSectionSource(projectID string, sectionID string) (Prom
 	return project.PromptSectionSource(sectionID)
 }
 
-func (p *Project) SetPromptTemplateLink(sectionID string, promptTemplateID *string, template string, format PromptFormat) error {
+func (p *Project) SetPromptTemplateLink(sectionID string, promptTemplateID *string, template string, format prompttemplates.Format) error {
 	section, _, payload, err := p.resolvePromptSectionMutationState(sectionID)
 	if err != nil {
 		return err
@@ -114,7 +109,7 @@ func (p *Project) SetPromptTemplateLink(sectionID string, promptTemplateID *stri
 	})
 }
 
-func (d *Document) SetPromptTemplateLink(projectID string, sectionID string, promptTemplateID *string, template string, format PromptFormat) error {
+func (d *Document) SetPromptTemplateLink(projectID string, sectionID string, promptTemplateID *string, template string, format prompttemplates.Format) error {
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return err
@@ -126,7 +121,7 @@ func (d *Document) SetPromptTemplateLink(projectID string, sectionID string, pro
 	return nil
 }
 
-func (r *Runtime) SetPromptTemplateLink(ctx context.Context, projectID string, sectionID string, promptTemplateID *string, template string, format PromptFormat) (Snapshot, error) {
+func (r *Runtime) SetPromptTemplateLink(ctx context.Context, projectID string, sectionID string, promptTemplateID *string, template string, format prompttemplates.Format) (Snapshot, error) {
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.SetPromptTemplateLink(projectID, sectionID, promptTemplateID, template, format); err != nil {
 			return Document{}, err
@@ -141,7 +136,7 @@ func (p *Project) SetPromptInputs(sectionID string, inputs map[string]string) er
 		return err
 	}
 
-	format, err := normalizePromptFormat(PromptFormat(payloadStringField(payload, "format")))
+	format, err := normalizePromptFormat(prompttemplates.Format(payloadStringField(payload, "format")))
 	if err != nil {
 		return err
 	}
@@ -176,7 +171,7 @@ func (r *Runtime) SetPromptInputs(ctx context.Context, projectID string, section
 	})
 }
 
-func (p *Project) SetPromptFormat(sectionID string, format PromptFormat) error {
+func (p *Project) SetPromptFormat(sectionID string, format prompttemplates.Format) error {
 	section, _, payload, err := p.resolvePromptSectionMutationState(sectionID)
 	if err != nil {
 		return err
@@ -195,7 +190,7 @@ func (p *Project) SetPromptFormat(sectionID string, format PromptFormat) error {
 	})
 }
 
-func (d *Document) SetPromptFormat(projectID string, sectionID string, format PromptFormat) error {
+func (d *Document) SetPromptFormat(projectID string, sectionID string, format prompttemplates.Format) error {
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return err
@@ -207,7 +202,7 @@ func (d *Document) SetPromptFormat(projectID string, sectionID string, format Pr
 	return nil
 }
 
-func (r *Runtime) SetPromptFormat(ctx context.Context, projectID string, sectionID string, format PromptFormat) (Snapshot, error) {
+func (r *Runtime) SetPromptFormat(ctx context.Context, projectID string, sectionID string, format prompttemplates.Format) (Snapshot, error) {
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.SetPromptFormat(projectID, sectionID, format); err != nil {
 			return Document{}, err
@@ -246,18 +241,18 @@ func (p *Project) resolvePromptSectionMutationState(sectionID string) (Section, 
 	return section, variant, payload, nil
 }
 
-func normalizePromptFormat(format PromptFormat) (PromptFormat, error) {
+func normalizePromptFormat(format prompttemplates.Format) (prompttemplates.Format, error) {
 	trimmedFormat := strings.TrimSpace(string(format))
-	switch PromptFormat(trimmedFormat) {
-	case "", PromptFormatJinja:
-		return PromptFormatJinja, nil
+	switch prompttemplates.Format(trimmedFormat) {
+	case "", prompttemplates.FormatJinja:
+		return prompttemplates.FormatJinja, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrPromptFormatInvalid, trimmedFormat)
 	}
 }
 
-func renderPromptSection(template string, inputs map[string]string, format PromptFormat) promptrender.Result {
-	if format == PromptFormatJinja {
+func renderPromptSection(template string, inputs map[string]string, format prompttemplates.Format) promptrender.Result {
+	if format == prompttemplates.FormatJinja {
 		return promptrender.RenderJinja(template, inputs)
 	}
 	return promptrender.Result{

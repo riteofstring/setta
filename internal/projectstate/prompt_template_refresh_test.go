@@ -1,12 +1,16 @@
 package projectstate
 
-import "testing"
+import (
+	"testing"
+
+	"setta/internal/prompttemplates"
+)
 
 func TestDocumentRefreshLinkedPromptSectionsForTemplateUpdatesLinkedCaches(t *testing.T) {
 	t.Parallel()
 
 	projectAlpha := promptSectionMutationTestProject(t)
-	if err := projectAlpha.SetPromptTemplateLink("prompt-section", stringPointer("template-alpha"), "Old {{ name }}", PromptFormatJinja); err != nil {
+	if err := projectAlpha.SetPromptTemplateLink("prompt-section", stringPointer("template-alpha"), "Old {{ name }}", prompttemplates.FormatJinja); err != nil {
 		t.Fatalf("SetPromptTemplateLink alpha returned error: %v", err)
 	}
 	if err := projectAlpha.SetPromptInputs("prompt-section", map[string]string{"name": "Ada"}); err != nil {
@@ -16,7 +20,7 @@ func TestDocumentRefreshLinkedPromptSectionsForTemplateUpdatesLinkedCaches(t *te
 	projectBeta := promptSectionMutationTestProject(t)
 	projectBeta.ID = "project-beta"
 	projectBeta.Name = "Beta"
-	if err := projectBeta.SetPromptTemplateLink("prompt-section", stringPointer("template-other"), "Other {{ name }}", PromptFormatJinja); err != nil {
+	if err := projectBeta.SetPromptTemplateLink("prompt-section", stringPointer("template-other"), "Other {{ name }}", prompttemplates.FormatJinja); err != nil {
 		t.Fatalf("SetPromptTemplateLink beta returned error: %v", err)
 	}
 	if err := projectBeta.SetPromptInputs("prompt-section", map[string]string{"name": "Byron"}); err != nil {
@@ -32,7 +36,7 @@ func TestDocumentRefreshLinkedPromptSectionsForTemplateUpdatesLinkedCaches(t *te
 		},
 	}
 
-	updated, err := document.RefreshLinkedPromptSectionsForTemplate("template-alpha", "Hello {{ name }}", PromptFormatJinja)
+	updated, err := document.RefreshLinkedPromptSectionsForTemplate("template-alpha", "Hello {{ name }}", prompttemplates.FormatJinja)
 	if err != nil {
 		t.Fatalf("RefreshLinkedPromptSectionsForTemplate returned error: %v", err)
 	}
@@ -62,7 +66,7 @@ func TestDocumentRefreshLinkedPromptSectionsForTemplateUpdatesLinkedCaches(t *te
 		t.Fatalf("expected unrelated template to stay unchanged, got %q", got)
 	}
 
-	updated, err = document.RefreshLinkedPromptSectionsForTemplate("template-alpha", "Hello {{ name }}", PromptFormatJinja)
+	updated, err = document.RefreshLinkedPromptSectionsForTemplate("template-alpha", "Hello {{ name }}", prompttemplates.FormatJinja)
 	if err != nil {
 		t.Fatalf("second RefreshLinkedPromptSectionsForTemplate returned error: %v", err)
 	}

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"sort"
 	"strings"
+
+	"setta/internal/prompttemplates"
 )
 
-func (d *Document) RefreshLinkedPromptSectionsForTemplate(promptTemplateID string, template string, format PromptFormat) (bool, error) {
+func (d *Document) RefreshLinkedPromptSectionsForTemplate(promptTemplateID string, template string, format prompttemplates.Format) (bool, error) {
 	normalizedPromptTemplateID := strings.TrimSpace(promptTemplateID)
 	if normalizedPromptTemplateID == "" || len(d.Projects) == 0 {
 		return false, nil
@@ -66,7 +68,7 @@ func (r *Runtime) RefreshLinkedPromptSectionsForTemplate(
 	ctx context.Context,
 	promptTemplateID string,
 	template string,
-	format PromptFormat,
+	format prompttemplates.Format,
 ) (Snapshot, bool, error) {
 	if r == nil {
 		return Snapshot{}, false, ErrRuntimeClosed

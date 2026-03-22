@@ -15,6 +15,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 )
 
 type recordingManagedChatStarter struct {
@@ -336,7 +337,7 @@ func TestRuntimeStartRunDispatchesLiveLinkedPromptSectionContent(t *testing.T) {
 		context.Background(),
 		templateID,
 		"Hello there.",
-		projectstate.PromptFormatJinja,
+		prompttemplates.FormatJinja,
 	)
 	if err != nil {
 		t.Fatalf("RefreshLinkedPromptSectionsForTemplate returned error: %v", err)
@@ -2241,7 +2242,7 @@ func promptSectionStartRuntimeTestProject(
 				"promptTemplateId": promptTemplateValue,
 				"template":         promptTemplate,
 				"inputs":           map[string]string{},
-				"format":           string(projectstate.PromptFormatJinja),
+				"format":           string(prompttemplates.FormatJinja),
 				"renderedText":     "",
 				"missingVariables": []string{},
 				"renderError":      nil,

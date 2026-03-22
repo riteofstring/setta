@@ -265,7 +265,7 @@ func TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejec
 	if got := promptPayload["template"]; got != "Hello {{ name }}" {
 		t.Fatalf("expected linked template contents, got %#v", got)
 	}
-	if got := promptPayload["format"]; got != string(projectstate.PromptFormatJinja) {
+	if got := promptPayload["format"]; got != string(prompttemplates.FormatJinja) {
 		t.Fatalf("expected prompt format Jinja, got %#v", got)
 	}
 
@@ -480,7 +480,7 @@ func promptSectionRouteTestDocument(t *testing.T) projectstate.Document {
 					"type":             "Prompt",
 					"template":         "",
 					"inputs":           map[string]string{},
-					"format":           string(projectstate.PromptFormatJinja),
+					"format":           string(prompttemplates.FormatJinja),
 					"renderedText":     "",
 					"missingVariables": []string{},
 					"renderError":      nil,

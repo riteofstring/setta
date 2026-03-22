@@ -881,7 +881,7 @@ func (p *Project) validateStateMachineSendPromptAction(
 		if err != nil {
 			return stateMachineEdgeInvalidf("Prompt template %s not found for state machine edge %s.", *targetAction.PromptTemplateID, edgeID)
 		}
-		result := renderPromptSection(template.Template, targetAction.PromptInputs, PromptFormat(template.Format))
+		result := renderPromptSection(template.Template, targetAction.PromptInputs, template.Format)
 		if result.RenderError != nil {
 			return stateMachineEdgeInvalidf(
 				"State machine edge %s prompt template %s failed to render: %s",
@@ -902,7 +902,7 @@ func (p *Project) validateStateMachineSendPromptAction(
 	if err != nil {
 		return err
 	}
-	promptFormat, err := normalizePromptFormat(PromptFormat(payloadStringField(promptPayload, "format")))
+	promptFormat, err := normalizePromptFormat(prompttemplates.Format(payloadStringField(promptPayload, "format")))
 	if err != nil {
 		return err
 	}
@@ -913,7 +913,7 @@ func (p *Project) validateStateMachineSendPromptAction(
 			return stateMachineEdgeInvalidf("Prompt template %s not found for state machine edge %s.", promptTemplateID, edgeID)
 		}
 		promptTemplate = template.Template
-		promptFormat = PromptFormat(template.Format)
+		promptFormat = template.Format
 	}
 	result := renderPromptSection(promptTemplate, targetAction.PromptInputs, promptFormat)
 	if result.RenderError != nil {

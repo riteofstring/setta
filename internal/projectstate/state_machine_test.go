@@ -545,7 +545,7 @@ func TestRuntimeStateMachineMutationsAcceptLivePromptTemplateLookupAndSignalFilt
 		"prompt-section",
 		stringPointer("template-live"),
 		"Hello {{ name }}",
-		PromptFormatJinja,
+		prompttemplates.FormatJinja,
 	); err != nil {
 		t.Fatalf("set prompt template link: %v", err)
 	}
@@ -869,7 +869,7 @@ func stateMachineMutationTestProjectWithGroups(
 					"type":             "Prompt",
 					"template":         "Hello {{ name }}",
 					"inputs":           map[string]string{},
-					"format":           string(PromptFormatJinja),
+					"format":           string(prompttemplates.FormatJinja),
 					"renderedText":     "",
 					"missingVariables": []string{},
 					"renderError":      nil,

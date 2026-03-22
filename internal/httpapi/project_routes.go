@@ -1204,10 +1204,10 @@ type SetPromptInputsRequest struct {
 }
 
 type SetPromptFormatRequest struct {
-	FrontendOpID *string                   `json:"frontendOpId"`
-	ProjectID    string                    `json:"projectConfigId"`
-	SectionID    string                    `json:"sectionId"`
-	Format       projectstate.PromptFormat `json:"format"`
+	FrontendOpID *string                `json:"frontendOpId"`
+	ProjectID    string                 `json:"projectConfigId"`
+	SectionID    string                 `json:"sectionId"`
+	Format       prompttemplates.Format `json:"format"`
 }
 
 type SetChatSectionSettingsRequest struct {
@@ -6237,7 +6237,7 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 
 		promptTemplateID := normalizeOptionalBodyString(payload.PromptTemplateID)
 		var nextTemplate string
-		var nextFormat projectstate.PromptFormat
+		var nextFormat prompttemplates.Format
 		if promptTemplateID != nil {
 			if deps.PromptTemplates == nil {
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -6253,7 +6253,7 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 				return
 			}
 			nextTemplate = template.Template
-			nextFormat = projectstate.PromptFormat(template.Format)
+			nextFormat = template.Format
 		} else {
 			snapshot := runtime.Snapshot()
 			source, err := snapshot.Document.PromptSectionSource(projectID, sectionID)
@@ -6276,7 +6276,7 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 					return
 				}
 				nextTemplate = template.Template
-				nextFormat = projectstate.PromptFormat(template.Format)
+				nextFormat = template.Format
 			} else {
 				nextTemplate = source.Template
 				nextFormat = source.Format

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"setta/internal/prompttemplates"
 )
 
 func TestRuntimePromptSectionMutationsUpdateEffectivePayload(t *testing.T) {
@@ -48,7 +50,7 @@ func TestRuntimePromptSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	if _, err := runtime.SetPromptInputs(context.Background(), "project-alpha", "prompt-section", map[string]string{"name": ""}); err != nil {
 		t.Fatalf("SetPromptInputs returned error: %v", err)
 	}
-	if _, err := runtime.SetPromptFormat(context.Background(), "project-alpha", "prompt-section", PromptFormatJinja); err != nil {
+	if _, err := runtime.SetPromptFormat(context.Background(), "project-alpha", "prompt-section", prompttemplates.FormatJinja); err != nil {
 		t.Fatalf("SetPromptFormat returned error: %v", err)
 	}
 
@@ -60,8 +62,8 @@ func TestRuntimePromptSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	if got := payloadRawStringField(payload, "template"); got != "Hello {{ name }}" {
 		t.Fatalf("expected template Hello {{ name }}, got %q", got)
 	}
-	if got := payloadRawStringField(payload, "format"); got != string(PromptFormatJinja) {
-		t.Fatalf("expected format %q, got %q", PromptFormatJinja, got)
+	if got := payloadRawStringField(payload, "format"); got != string(prompttemplates.FormatJinja) {
+		t.Fatalf("expected format %q, got %q", prompttemplates.FormatJinja, got)
 	}
 	inputs, ok := payload["inputs"].(map[string]any)
 	if !ok || inputs["name"] != "" {
@@ -103,7 +105,7 @@ func TestRuntimePromptSectionMutationsLinkPromptTemplatesAndClearLinksOnLocalEdi
 		"prompt-section",
 		stringPointer("template-alpha"),
 		"Linked {{ name }}",
-		PromptFormatJinja,
+		prompttemplates.FormatJinja,
 	); err != nil {
 		t.Fatalf("SetPromptTemplateLink returned error: %v", err)
 	}
@@ -204,14 +206,14 @@ func TestRuntimePromptSectionMutationsRejectInvalidTargetsAndFormats(t *testing.
 		"plain-section",
 		stringPointer("template-alpha"),
 		"Hello {{ name }}",
-		PromptFormatJinja,
+		prompttemplates.FormatJinja,
 	); !errors.Is(err, ErrPromptSectionRequired) {
 		t.Fatalf("expected ErrPromptSectionRequired from SetPromptTemplateLink, got %v", err)
 	}
 	if _, err := runtime.SetPromptInputs(context.Background(), "project-alpha", "plain-section", map[string]string{"name": "Ada"}); !errors.Is(err, ErrPromptSectionRequired) {
 		t.Fatalf("expected ErrPromptSectionRequired from SetPromptInputs, got %v", err)
 	}
-	if _, err := runtime.SetPromptFormat(context.Background(), "project-alpha", "prompt-section", PromptFormat("Liquid")); !errors.Is(err, ErrPromptFormatInvalid) {
+	if _, err := runtime.SetPromptFormat(context.Background(), "project-alpha", "prompt-section", prompttemplates.Format("Liquid")); !errors.Is(err, ErrPromptFormatInvalid) {
 		t.Fatalf("expected ErrPromptFormatInvalid from SetPromptFormat, got %v", err)
 	}
 }
@@ -259,7 +261,7 @@ func promptSectionMutationTestProject(t *testing.T) Project {
 					"type":             "Prompt",
 					"template":         "",
 					"inputs":           map[string]string{},
-					"format":           string(PromptFormatJinja),
+					"format":           string(prompttemplates.FormatJinja),
 					"renderedText":     "",
 					"missingVariables": []string{},
 					"renderError":      nil,

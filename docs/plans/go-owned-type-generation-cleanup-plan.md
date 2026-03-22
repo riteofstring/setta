@@ -50,6 +50,11 @@ That means:
 - `internal/frontendbindings/artifact_support.go` and `contracts.go` now use backend-owned wrapper types for the artifact/binary leaf contract family instead of repeating field layouts locally.
 - parts of `internal/frontendbindings/ai_settings_support.go` now use backend-owned wrapper types for enum/env-status families instead of repeating local string enums and structs.
 - the Go -> Python generator now treats `omitempty` fields as absent-capable unless an explicit Python default override is provided, so generated Python models stay aligned with Go JSON omission behavior.
+- duplicated prompt-format ownership inside Go has been collapsed:
+  - `internal/projectstate.PromptFormat` is gone
+  - `internal/prompttemplates.Format` is now the single backend owner
+  - frontend/Python generation still exports `PromptFormat`, but it now wraps the real owner instead of mirroring a duplicate backend enum
+- the generated type-registry writer now only imports packages that are actually referenced by emitted wrapper overrides, so cleanup passes do not leave stale generated imports behind.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -104,13 +109,13 @@ The remaining work is:
 
 But it still discovers through the `frontendbindings` surface, plus enum fallback logic, which means the real owner packages are still not cleanly expressed for many type families.
 
-### 4. There is still some duplicated type ownership inside Go
+### 4. There may still be some duplicated type ownership inside Go
 The frontend/Python cleanup is surfacing a few remaining “two Go packages define the same concept” cases.
 
-Current known example:
-- prompt format exists both as `internal/projectstate.PromptFormat` and `internal/prompttemplates.Format`
-
-Those need to be collapsed deliberately instead of teaching the generators to arbitrate between multiple backend owners forever.
+The prompt-format duplication has already been removed. The remaining work here is to keep applying the same rule elsewhere if any more duplicated owner pairs are found:
+- collapse the backend ownership first
+- then point frontend/Python generation at the surviving owner
+- do not teach the generators to arbitrate between multiple backend owners forever
 
 ### 5. Some remaining Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before, but several still look like shared contract families rather than Python-only helpers.

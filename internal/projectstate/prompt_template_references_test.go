@@ -1,6 +1,10 @@
 package projectstate
 
-import "testing"
+import (
+	"testing"
+
+	"setta/internal/prompttemplates"
+)
 
 func TestDocumentWorkflowPromptTemplateReferencesListsWorkflowEdgesOnly(t *testing.T) {
 	t.Parallel()
@@ -21,7 +25,7 @@ func TestDocumentWorkflowPromptTemplateReferencesListsWorkflowEdgesOnly(t *testi
 			},
 		},
 	}
-	if err := projectAlpha.SetPromptTemplateLink("prompt-section", stringPointer("template-alpha"), "Linked {{ name }}", PromptFormatJinja); err != nil {
+	if err := projectAlpha.SetPromptTemplateLink("prompt-section", stringPointer("template-alpha"), "Linked {{ name }}", prompttemplates.FormatJinja); err != nil {
 		t.Fatalf("SetPromptTemplateLink returned error: %v", err)
 	}
 

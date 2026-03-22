@@ -385,7 +385,7 @@ func TestRegisterPromptTemplateRoutesUpdateRefreshesLinkedPromptSections(t *test
 	if got := promptPayload["template"]; got != "Hello {{ name }}" {
 		t.Fatalf("expected refreshed template, got %#v", got)
 	}
-	if got := promptPayload["format"]; got != string(projectstate.PromptFormatJinja) {
+	if got := promptPayload["format"]; got != string(prompttemplates.FormatJinja) {
 		t.Fatalf("expected prompt format Jinja, got %#v", got)
 	}
 	if got := promptPayload["renderedText"]; got != "Hello Ada" {
@@ -1014,7 +1014,7 @@ func promptTemplateRouteLinkedPromptProject(
 					"promptTemplateId": templateID,
 					"template":         template,
 					"inputs":           inputs,
-					"format":           string(projectstate.PromptFormatJinja),
+					"format":           string(prompttemplates.FormatJinja),
 					"renderedText":     "",
 					"missingVariables": []string{},
 					"renderError":      nil,

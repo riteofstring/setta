@@ -307,7 +307,7 @@ func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 				r.Context(),
 				template.ID,
 				template.Template,
-				projectstate.PromptFormat(template.Format),
+				template.Format,
 			)
 			if err != nil {
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

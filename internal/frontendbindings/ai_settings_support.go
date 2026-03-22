@@ -3,7 +3,7 @@ package frontendbindings
 import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
-	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 )
 
 type APIKeys map[string]string
@@ -47,10 +47,10 @@ type AllLLMConfigs struct {
 	CodexMCPImportedAt  *string                    `json:"codexMcpImportedAt,omitempty"`
 }
 
-type PromptFormat projectstate.PromptFormat
+type PromptFormat prompttemplates.Format
 
 const (
-	PromptFormatJinja PromptFormat = PromptFormat(projectstate.PromptFormatJinja)
+	PromptFormatJinja PromptFormat = PromptFormat(prompttemplates.FormatJinja)
 )
 
 type PromptTemplate struct {

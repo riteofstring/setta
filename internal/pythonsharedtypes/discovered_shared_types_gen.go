@@ -98,7 +98,6 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.GeneratedSectionKind("")),
 		reflect.TypeOf(projectstate.GeneratedSectionImpl{}),
 		reflect.TypeOf(projectstate.ProjectConfigMetadata{}),
-		reflect.TypeOf(projectstate.PromptFormat("")),
 		reflect.TypeOf(projectstate.PythonSectionCodegenMode("")),
 		reflect.TypeOf(projectstate.PythonSectionRepresentationMode("")),
 		reflect.TypeOf(projectstate.PythonCodeObjValueRepresentationMode("")),

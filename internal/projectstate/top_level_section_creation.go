@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"setta/internal/prompttemplates"
 )
 
 var (
@@ -847,7 +849,7 @@ func createdPromptSectionDefaults() map[string]any {
 	defaults := createdBaseSectionDefaults("Prompt")
 	defaults["promptTemplateId"] = nil
 	defaults["template"] = ""
-	defaults["format"] = string(PromptFormatJinja)
+	defaults["format"] = string(prompttemplates.FormatJinja)
 	defaults["inputs"] = map[string]any{}
 	defaults["renderedText"] = ""
 	defaults["missingVariables"] = []any{}
