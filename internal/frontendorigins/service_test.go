@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -164,6 +165,27 @@ func TestResolveRequestOriginPrefersClientOriginHeaderWhenAllowed(t *testing.T) 
 	}
 }
 
+func TestNormalizeOriginAcceptsHTTPAndHTTPSOrigins(t *testing.T) {
+	t.Parallel()
+
+	if got := NormalizeOrigin("http://127.0.0.1:8000/path"); got != "http://127.0.0.1:8000" {
+		t.Fatalf("expected normalized http origin, got %q", got)
+	}
+	if got := NormalizeOrigin("https://example.com"); got != "https://example.com" {
+		t.Fatalf("expected normalized https origin, got %q", got)
+	}
+}
+
+func TestNormalizeOriginRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	for _, rawOrigin := range []string{"javascript:alert(1)", "  ", ""} {
+		if got := NormalizeOrigin(rawOrigin); got != "" {
+			t.Fatalf("expected invalid origin %q to fail closed, got %q", rawOrigin, got)
+		}
+	}
+}
+
 func TestLauncherOriginProofRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -176,5 +198,35 @@ func TestLauncherOriginProofRoundTrip(t *testing.T) {
 	}
 	if ValidateLauncherOriginHandoffProof("session-1", "http://127.0.0.1:9001", "wrong", []byte("secret")) {
 		t.Fatal("expected invalid proof to fail")
+	}
+}
+
+func TestAppendLauncherOriginHandoffToBootstrapURLPreservesTokenAndAppendsSignedParams(t *testing.T) {
+	t.Parallel()
+
+	updated, err := AppendLauncherOriginHandoffToBootstrapURL(
+		"http://127.0.0.1:61234/__setta__/bootstrap#token=tok",
+		"http://127.0.0.1:8000",
+		"signed-proof",
+	)
+	if err != nil {
+		t.Fatalf("append launcher origin handoff: %v", err)
+	}
+	parsedURL, err := url.Parse(updated)
+	if err != nil {
+		t.Fatalf("parse updated bootstrap url: %v", err)
+	}
+	hashParams, err := url.ParseQuery(strings.TrimPrefix(parsedURL.Fragment, "#"))
+	if err != nil {
+		t.Fatalf("parse bootstrap url hash params: %v", err)
+	}
+	if hashParams.Get("token") != "tok" {
+		t.Fatalf("expected bootstrap token to remain present, got %q", hashParams.Get("token"))
+	}
+	if hashParams.Get("lo") != "http://127.0.0.1:8000" {
+		t.Fatalf("expected normalized launcher origin, got %q", hashParams.Get("lo"))
+	}
+	if hashParams.Get("lop") != "signed-proof" {
+		t.Fatalf("expected launcher origin proof, got %q", hashParams.Get("lop"))
 	}
 }
