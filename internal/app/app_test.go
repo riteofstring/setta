@@ -9070,7 +9070,7 @@ func TestAppServesInterruptTerminalProcessesRoute(t *testing.T) {
 		t.Fatalf("expected one interrupted session, got %#v", payload)
 	}
 
-	output := waitForAppTestOutputContains(t, attachment, "CHILD_EXIT:130")
+	output := waitForAppTestOutputContains(t, app.Terminals(), sessionID, attachment, "CHILD_EXIT:130")
 	if !strings.Contains(output, "CHILD_INTERRUPTED") {
 		t.Fatalf("expected terminal to report interrupt, got %q", output)
 	}
@@ -9142,7 +9142,7 @@ func TestAppServesRunCodeRoute(t *testing.T) {
 
 	terminalID := terminals.BuildTerminalID(impl.Code.AttachedTerminalSectionID, "")
 	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
-	output := waitForAppTestOutputContains(t, attachment, "APP_RUN_OK")
+	output := waitForAppTestOutputContains(t, app.Terminals(), terminalID, attachment, "APP_RUN_OK")
 	if !strings.Contains(output, "APP_RUN_OK") {
 		t.Fatalf("expected run output in attached terminal, got %q", output)
 	}
@@ -9287,7 +9287,7 @@ func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 
 	terminalID := terminals.BuildTerminalID(impl.Code.AttachedTerminalSectionID, "")
 	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
-	output := waitForAppTestOutputContains(t, attachment, "APP_PLUGIN_RUN_OK")
+	output := waitForAppTestOutputContains(t, app.Terminals(), terminalID, attachment, "APP_PLUGIN_RUN_OK")
 	if !strings.Contains(output, "APP_PLUGIN_RUN_OK") {
 		t.Fatalf("expected run output in attached terminal, got %q", output)
 	}
@@ -10072,7 +10072,7 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 
 	terminalID := terminals.BuildTerminalID(codeImpl.Code.AttachedTerminalSectionID, "")
 	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
-	output := waitForAppTestOutputContains(t, attachment, "APP_RUN_OK")
+	output := waitForAppTestOutputContains(t, app.Terminals(), terminalID, attachment, "APP_RUN_OK")
 	if !strings.Contains(output, "APP_RUN_OK") {
 		t.Fatalf("expected run output in attached terminal, got %q", output)
 	}
@@ -10157,7 +10157,7 @@ func TestAppServesRunCodeRouteWithSectionVariantOverrides(t *testing.T) {
 
 	terminalID := terminals.BuildTerminalID(bashImpl.Code.AttachedTerminalSectionID, "")
 	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
-	output := waitForAppTestOutputContains(t, attachment, "APP_BASH_OK")
+	output := waitForAppTestOutputContains(t, app.Terminals(), terminalID, attachment, "APP_BASH_OK")
 	if !strings.Contains(output, "APP_BASH_OK") {
 		t.Fatalf("expected bash override output in attached terminal, got %q", output)
 	}
@@ -10943,7 +10943,7 @@ func prepareAppInterruptShell(t *testing.T, service *terminals.Service, sessionI
 	if err := service.Write(sessionID, []byte("set -m\nstty -echo\nprintf 'READY\\n'\n")); err != nil {
 		t.Fatalf("prepare interactive shell: %v", err)
 	}
-	output := waitForAppTestOutputContains(t, attachment, "READY")
+	output := waitForAppTestOutputContains(t, service, sessionID, attachment, "READY")
 	if !strings.Contains(output, "READY") {
 		t.Fatalf("expected shell readiness output, got %q", output)
 	}
@@ -10973,18 +10973,26 @@ func startAppInterruptibleForegroundJob(t *testing.T, service *terminals.Service
 	if err := service.Write(sessionID, []byte(command)); err != nil {
 		t.Fatalf("start foreground job: %v", err)
 	}
-	output := waitForAppTestOutputContains(t, attachment, "CHILD_RUNNING")
+	output := waitForAppTestOutputContains(t, service, sessionID, attachment, "CHILD_RUNNING")
 	if !strings.Contains(output, "CHILD_RUNNING") {
 		t.Fatalf("expected child process to start, got %q", output)
 	}
 }
 
-func waitForAppTestOutputContains(t *testing.T, attachment *terminals.Attachment, needle string) string {
+func waitForAppTestOutputContains(t *testing.T, service *terminals.Service, sessionID string, attachment *terminals.Attachment, needle string) string {
 	t.Helper()
 
 	buffer := strings.Builder{}
 	buffer.Write(attachment.History)
 	if strings.Contains(buffer.String(), needle) {
+		return buffer.String()
+	}
+
+	readHistory := func() string {
+		history, err := service.History(sessionID)
+		if err == nil && history != "" {
+			return history
+		}
 		return buffer.String()
 	}
 
@@ -10995,14 +11003,22 @@ func waitForAppTestOutputContains(t *testing.T, attachment *terminals.Attachment
 		select {
 		case chunk, ok := <-attachment.Output:
 			if !ok {
-				t.Fatalf("attachment output closed before %q appeared; collected output: %q", needle, buffer.String())
+				history := readHistory()
+				if strings.Contains(history, needle) {
+					return history
+				}
+				t.Fatalf("attachment output closed before %q appeared; collected output: %q", needle, history)
 			}
 			buffer.Write(chunk)
 			if strings.Contains(buffer.String(), needle) {
 				return buffer.String()
 			}
 		case <-timeout.C:
-			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
+			history := readHistory()
+			if strings.Contains(history, needle) {
+				return history
+			}
+			t.Fatalf("timed out waiting for %q; collected output: %q", needle, history)
 		}
 	}
 }

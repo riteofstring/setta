@@ -1019,7 +1019,7 @@ func TestAppIDEMCPServerSupportsGetTerminalOutputOverAuthenticatedSSE(t *testing
 	if err := app.Terminals().Write(sessionID, []byte("authenticated sse terminal output\n")); err != nil {
 		t.Fatalf("write terminal output: %v", err)
 	}
-	waitForAppTestOutputContains(t, attachment, "authenticated sse terminal output")
+	waitForAppTestOutputContains(t, app.Terminals(), sessionID, attachment, "authenticated sse terminal output")
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -1107,7 +1107,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticate
 	if err := app.Terminals().Write(sessionID, []byte("temporary terminal output\n")); err != nil {
 		t.Fatalf("write terminal output: %v", err)
 	}
-	waitForAppTestOutputContains(t, attachment, "temporary terminal output")
+	waitForAppTestOutputContains(t, app.Terminals(), sessionID, attachment, "temporary terminal output")
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -7900,7 +7900,7 @@ func TestAppIDEMCPToolCallRouteSupportsGetTerminalOutput(t *testing.T) {
 	if err := app.Terminals().Write(sessionID, []byte("route terminal output\n")); err != nil {
 		t.Fatalf("write route terminal output: %v", err)
 	}
-	waitForAppTestOutputContains(t, attachment, "route terminal output")
+	waitForAppTestOutputContains(t, app.Terminals(), sessionID, attachment, "route terminal output")
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()

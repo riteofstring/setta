@@ -533,6 +533,32 @@ Last audited: `2026-03-23`
   `TestListenerBroadcasterDependencyEventsShareSequenceWithRealtimeDeltas`,
   `TestListenerBroadcasterEmitDependencyEventsRejectsEmptyEvents`, and
   `TestSequencerTracksIndependentProjectAndSessionScopes`.
+- Follow-up in this pass on `64b695d081`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` reproduced a real critical backend-
+  suite failure in `internal/app`
+  `TestAppServesRunCodeRoute`: the shared app test helper was treating the
+  live attachment stream as the only authoritative source of run output and
+  failing immediately when a fast terminal session closed, even though the
+  terminals service persists the final output in session history and already
+  exposes that post-exit history contract. Go now fixes that suite flake by
+  making the shared app test helper fall back to `Terminals().History(...)`
+  on attachment close/timeout, and the matching `internal/app/mcp_test.go`
+  callers now assert against the same persisted terminal contract instead of
+  one attachment-timing window. The targeted 10x stress rerun of
+  `TestAppServesRunCodeRoute`, the package rerun, and the final exact full-
+  suite rerun all passed, so `critical_backend_suite::go_test_all` closed as
+  a real fixed suite race on this pass rather than remaining stale log
+  output. This pass also re-audited
+  `tests/routers/test_multipart_route_limits.py::{test_binary_upload_accepts_payload_above_starlette_default_part_size,test_append_transcription_audio_accepts_large_json_audio_payload,test_append_transcription_audio_openapi_declares_json_request_body,test_append_transcription_audio_rejects_unauthorized_before_decode,test_append_transcription_audio_rejects_oversized_payload_before_decode}`
+  and confirmed those clues were already terminal explicit `Proved` rows
+  backed directly by
+  `TestRegisterBinaryRoutesAcceptPayloadAboveLegacyMultipartPartSize`,
+  `TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload`,
+  `TestCurrentEndpointsKeepAppendTranscriptionAudioJSONRequestContract`,
+  `TestCurrentEndpointContractManifest`,
+  `TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled`,
+  and
+  `TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
