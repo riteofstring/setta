@@ -202,6 +202,71 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	})
 }
 
+func TestMCPToolCallRouteRejectsNonObjectArgumentsAtTransportBoundary(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name string
+		body string
+	}{
+		{
+			name: "string_arguments",
+			body: `{"tool":"getProjectConfigNamesAndIds","arguments":"nope"}`,
+		},
+		{
+			name: "array_arguments",
+			body: `{"tool":"getProjectConfigNamesAndIds","arguments":[]}`,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			response := postMCPToolRoute(t, handler, testCase.body)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode route error payload: %v", err)
+			}
+			if payload.Error.Code != "invalid_json" {
+				t.Fatalf("expected invalid_json code, got %#v", payload.Error.Code)
+			}
+			if payload.Error.Message != "Invalid JSON payload." {
+				t.Fatalf("unexpected route error message %#v", payload.Error.Message)
+			}
+		})
+	}
+}
+
 func TestMCPToolCallRouteRejectsLegacyInvokeLinkedChatTool(t *testing.T) {
 	t.Parallel()
 

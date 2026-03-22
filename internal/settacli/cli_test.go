@@ -1108,6 +1108,61 @@ func TestRunAPIExplicitCookieAuthTakesPriorityAndUsesSessionBaseURLFallback(t *t
 	}
 }
 
+func TestRunAPIWithExplicitCookieValueUsesSelectedSessionBaseURL(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	captured := map[string]any{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		captured["cookie"] = r.Header.Get("Cookie")
+		captured["project"] = r.Header.Get(mcpx.AgenticContextProjectConfigIDHeader)
+		captured["body"] = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"isError":false}`))
+	}))
+	defer server.Close()
+
+	fixture.createSessionForURL(t, proc, server.URL, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"api",
+		"getProjectConfigNamesAndIds",
+		"--cookie",
+		"session=explicit-cookie",
+		"--agentic-project-config-id",
+		"project-a",
+		"--json-output",
+	)
+	if err != nil {
+		t.Fatalf("run api with explicit cookie value: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != `{"isError":false}` {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+	if captured["cookie"] != "session=explicit-cookie" {
+		t.Fatalf("unexpected cookie header %#v", captured["cookie"])
+	}
+	if captured["project"] != "project-a" {
+		t.Fatalf("unexpected project header %#v", captured["project"])
+	}
+	if captured["body"] != `{"arguments":{},"tool":"getProjectConfigNamesAndIds"}` {
+		t.Fatalf("unexpected request body %#v", captured["body"])
+	}
+}
+
 func TestRunAPIHTTPErrorJSONContract(t *testing.T) {
 	t.Parallel()
 
