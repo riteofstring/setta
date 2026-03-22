@@ -24,21 +24,12 @@ export type SectionBodyAutoModeInputs = {
   projectedHeightPx: number | null;
 };
 
-export type SectionBodyPreviewCandidateInputs = Omit<
-  SectionBodyAutoModeInputs,
-  "viewportInteractionActive"
->;
-
 export const SECTION_BODY_AUTO_MODE_THRESHOLDS = {
   previewEligibleFamilies: ["tier1-dense-params"] as const,
   previewMaxZoom: 0.9,
   previewMaxProjectedWidthPx: 320,
   previewMaxProjectedHeightPx: 220,
   previewFallbackMaxZoomWithoutMeasuredSize: 0.55,
-  previewWarmCooldownMs: 1500,
-  previewWarmMaxSections: 32,
-  previewOverlayMaxVisibleSections: 32,
-  previewOverlayNeighborhoodPaddingFraction: 0.35,
 } as const;
 
 function isPreviewEligibleFamily(family: SectionBodyFamily): boolean {
@@ -58,52 +49,42 @@ export function getProjectedNodeSizePx(
   };
 }
 
-export function isAutoSectionBodyPreviewCandidate({
+export function getAutoSectionBodyRequestedMode({
   ownerKind,
   family,
   isActiveSection,
+  viewportInteractionActive,
   zoom,
   projectedWidthPx,
   projectedHeightPx,
-}: SectionBodyPreviewCandidateInputs): boolean {
+}: SectionBodyAutoModeInputs): Exclude<SectionBodyRequestedMode, "auto"> {
   if (ownerKind !== "canvas") {
-    return false;
+    return "live";
   }
   if (isActiveSection) {
-    return false;
+    return "live";
   }
-  if (!isPreviewEligibleFamily(family)) {
-    return false;
-  }
-
-  if (projectedWidthPx === null || projectedHeightPx === null) {
-    return (
-      zoom <=
-      SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize
-    );
-  }
-
-  const isSmallEnoughForPreview =
-    projectedWidthPx <=
-      SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedWidthPx &&
-    projectedHeightPx <=
-      SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedHeightPx;
-
-  return (
-    zoom <= SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxZoom &&
-    isSmallEnoughForPreview
-  );
-}
-
-export function getAutoSectionBodyRequestedMode({
-  viewportInteractionActive,
-  ...previewCandidateInputs
-}: SectionBodyAutoModeInputs): Exclude<SectionBodyRequestedMode, "auto"> {
   if (!viewportInteractionActive) {
     return "live";
   }
+  if (!isPreviewEligibleFamily(family)) {
+    return "live";
+  }
 
-  return isAutoSectionBodyPreviewCandidate(previewCandidateInputs)
+  if (projectedWidthPx === null || projectedHeightPx === null) {
+    return zoom <=
+      SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize
+      ? "preview"
+      : "live";
+  }
+
+  const isSmallEnoughForPreview =
+    projectedWidthPx <= SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedWidthPx &&
+    projectedHeightPx <=
+      SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedHeightPx;
+
+  return zoom <= SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxZoom &&
+    isSmallEnoughForPreview
     ? "preview"
     : "live";
 }

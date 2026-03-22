@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import {
   type CSSProperties,
   type PropsWithChildren,
@@ -6,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 
 type PreviewStatus = "idle" | "pending" | "ready" | "error";
 
@@ -28,209 +28,184 @@ type PreviewData = {
   bodyBounds: SectionBodyBounds;
 };
 
-type QueuedPreviewCaptureTask = {
-  priority: number;
-  sequence: number;
-  task: () => Promise<void>;
-  resolve: () => void;
-};
-
-let previewCaptureQueue: QueuedPreviewCaptureTask[] = [];
-let previewCaptureQueueRunning = false;
-let previewCaptureQueueSequence = 0;
-let previewCaptureQueueDrainScheduled = false;
+let previewCaptureQueueTail: Promise<void> = Promise.resolve();
 
 type Tier1DenseParamSectionPreviewProps = PropsWithChildren<{
   sectionId: string;
   isActiveSection: boolean;
-  shouldWarmPreview: boolean;
-  warmPriority: number | null;
   showPreview: boolean;
 }>;
 
-export const Tier1DenseParamSectionPreview =
-  function Tier1DenseParamSectionPreview({
-    children,
-    sectionId,
-    isActiveSection,
-    shouldWarmPreview,
-    warmPriority,
-    showPreview,
-  }: Tier1DenseParamSectionPreviewProps) {
-    const liveBodyRootRef = useRef<HTMLDivElement | null>(null);
-    const wasActiveSectionRef = useRef(isActiveSection);
-    const [previewHost, setPreviewHost] = useState<HTMLElement | null>(null);
-    const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-    const [needsCapture, setNeedsCapture] = useState(false);
-    const [status, setStatus] = useState<PreviewStatus>("idle");
+export const Tier1DenseParamSectionPreview = function Tier1DenseParamSectionPreview({
+  children,
+  sectionId,
+  isActiveSection,
+  showPreview,
+}: Tier1DenseParamSectionPreviewProps) {
+  const liveBodyRootRef = useRef<HTMLDivElement | null>(null);
+  const wasActiveSectionRef = useRef(isActiveSection);
+  const [previewHost, setPreviewHost] = useState<HTMLElement | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [needsCapture, setNeedsCapture] = useState(false);
+  const [status, setStatus] = useState<PreviewStatus>("idle");
 
-    useEffect(() => {
-      setPreviewData(null);
+  useEffect(() => {
+    setPreviewData(null);
+    setPreviewHost(null);
+    setNeedsCapture(false);
+    setStatus("idle");
+    wasActiveSectionRef.current = isActiveSection;
+  }, [sectionId]);
+
+  useEffect(() => {
+    const liveBodyRoot = liveBodyRootRef.current;
+    if (liveBodyRoot === null) {
       setPreviewHost(null);
+      return;
+    }
+
+    const root = liveBodyRoot.closest('[id$="-CustomResizable"]');
+    setPreviewHost(root instanceof HTMLElement ? root : null);
+  }, [sectionId]);
+
+  useEffect(() => {
+    if (isActiveSection) {
+      setPreviewData(null);
       setNeedsCapture(false);
       setStatus("idle");
-      wasActiveSectionRef.current = isActiveSection;
-    }, [sectionId]);
+    } else if (wasActiveSectionRef.current) {
+      setPreviewData(null);
+      setNeedsCapture(true);
+    }
+    wasActiveSectionRef.current = isActiveSection;
+  }, [isActiveSection]);
 
-    useEffect(() => {
-      const liveBodyRoot = liveBodyRootRef.current;
-      if (liveBodyRoot === null) {
-        setPreviewHost(null);
-        return;
-      }
+  useEffect(() => {
+    if (showPreview && previewData === null) {
+      setNeedsCapture(true);
+    }
+  }, [previewData, showPreview]);
 
-      const root = liveBodyRoot.closest('[id$="-CustomResizable"]');
-      setPreviewHost(root instanceof HTMLElement ? root : null);
-    }, [sectionId]);
+  useEffect(() => {
+    if (
+      !needsCapture ||
+      showPreview ||
+      isActiveSection ||
+      previewHost === null ||
+      liveBodyRootRef.current === null
+    ) {
+      return;
+    }
 
-    useEffect(() => {
-      if (isActiveSection) {
-        setPreviewData(null);
-        setNeedsCapture(false);
-        setStatus("idle");
-      } else if (wasActiveSectionRef.current) {
-        setPreviewData(null);
-        setNeedsCapture(true);
-      }
-      wasActiveSectionRef.current = isActiveSection;
-    }, [isActiveSection]);
-
-    useEffect(() => {
-      if (shouldWarmPreview && previewData === null) {
-        setNeedsCapture(true);
-      }
-    }, [previewData, shouldWarmPreview]);
-
-    useEffect(() => {
-      if (
-        !needsCapture ||
-        showPreview ||
-        isActiveSection ||
-        previewHost === null ||
-        liveBodyRootRef.current === null
-      ) {
-        return;
-      }
-
-      let cancelled = false;
-      void queuePreviewCapture({
-        priority: warmPriority ?? Number.MAX_SAFE_INTEGER,
-        task: async () => {
-          if (cancelled) {
-            return;
-          }
-
-          await capturePreview({
-            liveBodyRoot: liveBodyRootRef.current,
-            previewHost,
-            isCancelled: () => cancelled,
-            onPending() {
-              if (!cancelled) {
-                setStatus("pending");
-              }
-            },
-            onReady(nextPreviewData) {
-              if (!cancelled) {
-                setPreviewData(nextPreviewData);
-                setNeedsCapture(false);
-                setStatus("ready");
-              }
-            },
-            onError() {
-              if (!cancelled) {
-                setPreviewData(null);
-                setNeedsCapture(false);
-                setStatus("error");
-              }
-            },
-          });
-        },
-      });
-
-      return () => {
-        cancelled = true;
-      };
-    }, [
-      isActiveSection,
-      needsCapture,
-      previewHost,
-      sectionId,
-      showPreview,
-      warmPriority,
-    ]);
-
-    const shouldShowPreview =
-      showPreview &&
-      !isActiveSection &&
-      previewData !== null &&
-      previewHost !== null;
-
-    useLayoutEffect(() => {
-      if (!shouldShowPreview) {
-        return;
-      }
-
-      const liveChildren = getLiveBodyChildren(liveBodyRootRef.current);
-      if (liveChildren.length === 0) {
-        return;
-      }
-
-      const restoreEntries = liveChildren.map((child) => ({
-        child,
-        opacity: child.style.opacity,
-        pointerEvents: child.style.pointerEvents,
-        userSelect: child.style.userSelect,
-        ariaHidden: child.getAttribute("aria-hidden"),
-      }));
-
-      for (const entry of restoreEntries) {
-        entry.child.style.opacity = "0";
-        entry.child.style.pointerEvents = "none";
-        entry.child.style.userSelect = "none";
-        entry.child.setAttribute("aria-hidden", "true");
-      }
-
-      return () => {
-        for (const entry of restoreEntries) {
-          entry.child.style.opacity = entry.opacity;
-          entry.child.style.pointerEvents = entry.pointerEvents;
-          entry.child.style.userSelect = entry.userSelect;
-          if (entry.ariaHidden === null) {
-            entry.child.removeAttribute("aria-hidden");
-          } else {
-            entry.child.setAttribute("aria-hidden", entry.ariaHidden);
-          }
+    let cancelled = false;
+    const cancelIdleCapture = scheduleIdleCapture(() => {
+      void queuePreviewCapture(async () => {
+        if (cancelled) {
+          return;
         }
-      };
-    }, [shouldShowPreview]);
 
-    const previewOverlay =
-      shouldShowPreview && previewData !== null && previewHost !== null
-        ? createPortal(
-            <SectionPreviewOverlay
-              bodyBounds={previewData.bodyBounds}
-              captureSize={previewData.captureSize}
-              previewSrc={previewData.src}
-              sectionId={sectionId}
-            />,
-            previewHost,
-          )
-        : null;
+        await capturePreview({
+          liveBodyRoot: liveBodyRootRef.current,
+          previewHost,
+          isCancelled: () => cancelled,
+          onPending() {
+            if (!cancelled) {
+              setStatus("pending");
+            }
+          },
+          onReady(nextPreviewData) {
+            if (!cancelled) {
+              setPreviewData(nextPreviewData);
+              setNeedsCapture(false);
+              setStatus("ready");
+            }
+          },
+          onError() {
+            if (!cancelled) {
+              setPreviewData(null);
+              setNeedsCapture(false);
+              setStatus("error");
+            }
+          },
+        });
+      });
+    });
 
-    return (
-      <>
-        <div
-          className="contents"
-          data-section-body-preview-root={sectionId}
-          data-section-body-preview-status={status}
-          ref={liveBodyRootRef}
-        >
-          {children}
-        </div>
-        {previewOverlay}
-      </>
-    );
-  };
+    return () => {
+      cancelled = true;
+      cancelIdleCapture();
+    };
+  }, [isActiveSection, needsCapture, previewHost, sectionId, showPreview]);
+
+  const shouldShowPreview =
+    showPreview && !isActiveSection && previewData !== null && previewHost !== null;
+
+  useLayoutEffect(() => {
+    if (!shouldShowPreview) {
+      return;
+    }
+
+    const liveChildren = getLiveBodyChildren(liveBodyRootRef.current);
+    if (liveChildren.length === 0) {
+      return;
+    }
+
+    const restoreEntries = liveChildren.map((child) => ({
+      child,
+      opacity: child.style.opacity,
+      pointerEvents: child.style.pointerEvents,
+      userSelect: child.style.userSelect,
+      ariaHidden: child.getAttribute("aria-hidden"),
+    }));
+
+    for (const entry of restoreEntries) {
+      entry.child.style.opacity = "0";
+      entry.child.style.pointerEvents = "none";
+      entry.child.style.userSelect = "none";
+      entry.child.setAttribute("aria-hidden", "true");
+    }
+
+    return () => {
+      for (const entry of restoreEntries) {
+        entry.child.style.opacity = entry.opacity;
+        entry.child.style.pointerEvents = entry.pointerEvents;
+        entry.child.style.userSelect = entry.userSelect;
+        if (entry.ariaHidden === null) {
+          entry.child.removeAttribute("aria-hidden");
+        } else {
+          entry.child.setAttribute("aria-hidden", entry.ariaHidden);
+        }
+      }
+    };
+  }, [shouldShowPreview]);
+
+  const previewOverlay =
+    shouldShowPreview && previewData !== null && previewHost !== null
+      ? createPortal(
+          <SectionPreviewOverlay
+            bodyBounds={previewData.bodyBounds}
+            captureSize={previewData.captureSize}
+            previewSrc={previewData.src}
+            sectionId={sectionId}
+          />,
+          previewHost,
+        )
+      : null;
+
+  return (
+    <>
+      <div
+        className="contents"
+        data-section-body-preview-root={sectionId}
+        data-section-body-preview-status={status}
+        ref={liveBodyRootRef}
+      >
+        {children}
+      </div>
+      {previewOverlay}
+    </>
+  );
+};
 
 async function capturePreview({
   liveBodyRoot,
@@ -267,10 +242,7 @@ async function capturePreview({
     }
 
     const initialCaptureSize = resolveCaptureSize(previewHost);
-    const initialBodyBounds = resolveSectionBodyBounds(
-      liveBodyRoot,
-      previewHost,
-    );
+    const initialBodyBounds = resolveSectionBodyBounds(liveBodyRoot, previewHost);
     const { captureTarget, cleanup } = mountCaptureClone(
       previewHost,
       initialCaptureSize,
@@ -355,23 +327,18 @@ function SectionPreviewOverlay({
   );
 }
 
-function waitForIdleWindow(): Promise<void> {
+function scheduleIdleCapture(callback: () => void): () => void {
   if (
     typeof window !== "undefined" &&
     typeof window.requestIdleCallback === "function" &&
     typeof window.cancelIdleCallback === "function"
   ) {
-    return new Promise((resolve) => {
-      const handle = window.requestIdleCallback(() => resolve(), {
-        timeout: 300,
-      });
-      void handle;
-    });
+    const handle = window.requestIdleCallback(callback, { timeout: 300 });
+    return () => window.cancelIdleCallback(handle);
   }
 
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, 120);
-  });
+  const handle = window.setTimeout(callback, 120);
+  return () => window.clearTimeout(handle);
 }
 
 async function waitForStablePaint(): Promise<void> {
@@ -522,64 +489,10 @@ function getLiveBodyChildren(root: HTMLElement | null): Array<HTMLElement> {
   );
 }
 
-function queuePreviewCapture({
-  priority,
-  task,
-}: {
-  priority: number;
-  task: () => Promise<void>;
-}): Promise<void> {
-  return new Promise((resolve) => {
-    previewCaptureQueue.push({
-      priority,
-      sequence: previewCaptureQueueSequence,
-      task,
-      resolve,
-    });
-    previewCaptureQueueSequence += 1;
-    previewCaptureQueue.sort(
-      (left, right) =>
-        left.priority - right.priority || left.sequence - right.sequence,
-    );
-    schedulePreviewCaptureQueueDrain();
-  });
-}
-
-function schedulePreviewCaptureQueueDrain(): void {
-  if (previewCaptureQueueDrainScheduled) {
-    return;
-  }
-
-  previewCaptureQueueDrainScheduled = true;
-  queueMicrotask(() => {
-    previewCaptureQueueDrainScheduled = false;
-    void drainPreviewCaptureQueue();
-  });
-}
-
-async function drainPreviewCaptureQueue(): Promise<void> {
-  if (previewCaptureQueueRunning) {
-    return;
-  }
-
-  previewCaptureQueueRunning = true;
-  try {
-    while (previewCaptureQueue.length > 0) {
-      const nextTask = previewCaptureQueue.shift();
-      if (nextTask === undefined) {
-        continue;
-      }
-
-      await waitForIdleWindow();
-      try {
-        await nextTask.task();
-      } finally {
-        nextTask.resolve();
-      }
-    }
-  } finally {
-    previewCaptureQueueRunning = false;
-  }
+function queuePreviewCapture(task: () => Promise<void>): Promise<void> {
+  const nextTask = previewCaptureQueueTail.then(task, task);
+  previewCaptureQueueTail = nextTask.catch(() => undefined);
+  return nextTask;
 }
 
 function resolveFinitePositiveNumber(value: number): number {
