@@ -771,42 +771,49 @@ test("project ai threads remember explicit large-width close after narrow resize
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
 
-  let overviewPane = await getOverviewProjectChatSurface(page);
-  const fullscreenButton = page.getByTestId("overview-pane-fullscreen-button");
-  await fullscreenButton.click();
-  overviewPane = await getOverviewProjectChatSurface(page);
-  const inlineThreadsPanel = overviewPane.getByTestId(
-    "project-chat-threads-panel",
-  );
-  await expect(inlineThreadsPanel).toBeVisible();
-  await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
+  try {
+    let overviewPane = await getOverviewProjectChatSurface(page);
+    const fullscreenButton = page.getByTestId(
+      "overview-pane-fullscreen-button",
+    );
+    await fullscreenButton.click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    const inlineThreadsPanel = overviewPane.getByTestId(
+      "project-chat-threads-panel",
+    );
+    await expect(inlineThreadsPanel).toBeVisible();
+    await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
 
-  await clickDom(overviewPane.getByRole("button", { name: "View Threads" }));
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(0);
+    await clickDom(overviewPane.getByRole("button", { name: "View Threads" }));
+    await expect(
+      overviewPane.getByTestId("project-chat-threads-panel"),
+    ).toHaveCount(0);
 
-  const explicitClosePersisted = await page.evaluate(() => {
-    const raw = window.localStorage.getItem("setta_ai_data");
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
-    return parsed.state?.projectChatThreadsExplicitlyClosedAtLargeWidth ?? null;
-  });
-  expect(explicitClosePersisted).toBe(true);
+    const explicitClosePersisted = await page.evaluate(() => {
+      const raw = window.localStorage.getItem("setta_ai_data");
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+      return parsed.state?.projectChatThreadsExplicitlyClosedAtLargeWidth ?? null;
+    });
+    expect(explicitClosePersisted).toBe(true);
 
-  await fullscreenButton.click();
-  overviewPane = await getOverviewProjectChatSurface(page);
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(0);
-  await fullscreenButton.click();
-  overviewPane = await getOverviewProjectChatSurface(page);
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(0);
+    await fullscreenButton.click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByTestId("project-chat-threads-panel"),
+    ).toHaveCount(0);
+    await fullscreenButton.click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByTestId("project-chat-threads-panel"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("project ai preserves draft text when resize reveals inline threads", async ({
@@ -825,6 +832,7 @@ test("project ai preserves draft text when resize reveals inline threads", async
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
@@ -849,6 +857,7 @@ test("project ai preserves draft text when resize reveals inline threads", async
     await expect(composerInput).toHaveValue(draftText);
   } finally {
     await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
@@ -861,6 +870,7 @@ test("project ai preserves unsent draft text across reloads", async ({
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
@@ -884,6 +894,7 @@ test("project ai preserves unsent draft text across reloads", async ({
     ).toHaveValue(draftText);
   } finally {
     await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
