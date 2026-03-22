@@ -451,12 +451,16 @@ Phase 4 progress:
   Go-owned snapshot contract and uses metadata-backed cache refresh only
 - the old top-level `projectState` / `dependencyCatalog` / `dependencyValues`
   force-refresh envelope has been deleted in favor of `content.snapshot`
+- the retained Python listener websocket parser now round-trips realtime,
+  dependency-event, and force-refresh JSON/binary payloads with the current
+  contract wire shape instead of relying on the deleted project-state envelope
+- retained Python listener transport models are now constrained to the current
+  Go-owned contract shape for active websocket payloads, even where the Python
+  side still needs handwritten wrapper models for dependency-key/value-bearing
+  payloads
 
 Remaining Phase 4 work:
 
-- move the retained Python listener realtime/dependency-event DTOs onto the
-  generated contract layer so the active listener path stops depending on
-  handwritten listener transport models there too
 - remove test-only and fallback-only dependency-graph reconstruction helpers
   once the remaining realtime path no longer needs them
 

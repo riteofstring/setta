@@ -56,6 +56,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
+    WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
 
@@ -1995,6 +1996,87 @@ class TestSettaListenerBootstrapFailure:
 
 
 class TestSettaListenerBinaryParsing:
+    def test_text_realtime_event_round_trips_through_parser(self) -> None:
+        listener = SettaListener(project_name="Text Parse")
+        dependency = create_dep_key(sectionId=ID("section-1"))
+        content = ListenerRealtimeEventContent(
+            projectConfigId=ID("project-1"),
+            deltas=[
+                ListenerRealtimeDelta(
+                    dependency=dependency,
+                    value=LiteralDependencyValue(payload="hello"),
+                )
+            ],
+            sequence=1,
+        )
+        message = WebsocketMsgListenerRealtimeEvent(content=content)
+
+        parsed = listener._parse_websocket_payload(message.model_dump_json())
+
+        assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
+        assert parsed.content.projectConfigId == ID("project-1")
+        assert parsed.content.deltas[0].dependency == dependency
+        assert parsed.content.deltas[0].value == LiteralDependencyValue(payload="hello")
+
+    def test_text_dependency_event_round_trips_through_parser(self) -> None:
+        listener = SettaListener(project_name="Text Parse")
+        dependency = create_dep_key(sectionId=ID("section-1"))
+        content = ListenerDependencyEventContent(
+            projectConfigId=ID("project-1"),
+            dependencyEvents=[
+                DependencyEvent(
+                    dependencyKey=dependency,
+                    payload=LiteralDependencyValue(payload="updated"),
+                    timestampMs=123,
+                )
+            ],
+            sequence=1,
+        )
+        message = WebsocketMsgListenerDependencyEvent(content=content)
+
+        parsed = listener._parse_websocket_payload(message.model_dump_json())
+
+        assert isinstance(parsed, WebsocketMsgListenerDependencyEvent)
+        assert parsed.content.projectConfigId == ID("project-1")
+        assert parsed.content.dependencyEvents[0].dependencyKey == dependency
+        assert parsed.content.dependencyEvents[0].payload == LiteralDependencyValue(
+            payload="updated"
+        )
+
+    def test_text_force_refresh_round_trips_through_parser(self) -> None:
+        listener = SettaListener(project_name="Text Parse")
+        dependency = create_dep_key(sectionId=ID("section-1"))
+        content = ListenerForceRefreshContent(
+            snapshot=ListenerSnapshot(
+                projectConfigId=ID("project-1"),
+                dependencyCatalog=ListenerDependencyCatalog(
+                    entries=[
+                        ListenerDependencyCatalogEntry(
+                            dependencyKey=dependency,
+                            name="Welcome",
+                            fullPathName="Welcome",
+                        )
+                    ]
+                ),
+                dependencyValues=ListenerRenderedDependencyValues(
+                    entries=[
+                        ListenerRenderedDependencyValue(
+                            dependencyKey=dependency,
+                            renderedValue="Snapshot text",
+                        )
+                    ]
+                ),
+            )
+        )
+        message = WebsocketMsgListenerForceRefresh(content=content)
+
+        parsed = listener._parse_websocket_payload(message.model_dump_json())
+
+        assert isinstance(parsed, WebsocketMsgListenerForceRefresh)
+        assert parsed.content.snapshot.projectConfigId == ID("project-1")
+        assert parsed.content.snapshot.dependencyCatalog.entries
+        assert parsed.content.snapshot.dependencyValues.entries
+
     def test_binary_realtime_event_applies_payload_to_all_deltas(self) -> None:
         listener = SettaListener(project_name="Binary Parse")
         dependency_one = create_dep_key(sectionId=ID("section-1"))
@@ -2018,7 +2100,7 @@ class TestSettaListenerBinaryParsing:
             sequence=1,
         )
         message = WebsocketMsgListenerRealtimeEvent(content=content)
-        payload = encode_binary_frame(message.model_dump(), b"payload")
+        payload = encode_binary_frame(message.model_dump(mode="json"), b"payload")
 
         parsed = listener._parse_websocket_payload(payload)
 
@@ -2051,7 +2133,7 @@ class TestSettaListenerBinaryParsing:
             sequence=1,
         )
         message = WebsocketMsgListenerDependencyEvent(content=content)
-        payload = encode_binary_frame(message.model_dump(), b"payload")
+        payload = encode_binary_frame(message.model_dump(mode="json"), b"payload")
 
         parsed = listener._parse_websocket_payload(payload)
 

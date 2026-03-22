@@ -2,24 +2,7 @@ from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
-from setta.sdk_contracts.generated import (
-    ListenerDependencyCatalog as SDKListenerDependencyCatalog,
-)
-from setta.sdk_contracts.generated import (
-    ListenerDependencyCatalogEntry as SDKListenerDependencyCatalogEntry,
-)
-from setta.sdk_contracts.generated import (
-    ListenerForceRefreshEvent as SDKListenerForceRefreshEvent,
-)
-from setta.sdk_contracts.generated import (
-    ListenerRenderedDependencyValue as SDKListenerRenderedDependencyValue,
-)
-from setta.sdk_contracts.generated import (
-    ListenerRenderedDependencyValues as SDKListenerRenderedDependencyValues,
-)
-from setta.sdk_contracts.generated import (
-    ListenerSnapshot as SDKListenerSnapshot,
-)
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -28,6 +11,11 @@ from setta.types.generated.dependency_values import (
 )
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+    SectionRepresentationMode,
+)
+from setta.types.section_impls import SectionType
 
 
 class ListenerDependencyMode(str, Enum):
@@ -53,7 +41,7 @@ class ListenerInitContent(BaseModel):
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: ID
     shareSessionId: str | None = None
-    deltas: list["ListenerRealtimeDelta"]
+    deltas: list["ListenerRealtimeDelta"] = Field(default_factory=list)
     dependencyValues: "ListenerRenderedDependencyValues | None" = None
     sequence: int
 
@@ -82,16 +70,51 @@ class RealtimeDependencyEventContent(BaseModel):
 class ListenerDependencyEventContent(BaseModel):
     projectConfigId: ID
     shareSessionId: str | None = None
-    dependencyEvents: list[DependencyEvent]
+    dependencyEvents: list[DependencyEvent] = Field(default_factory=list)
     sequence: int
 
 
-ListenerDependencyCatalogEntry = SDKListenerDependencyCatalogEntry
-ListenerDependencyCatalog = SDKListenerDependencyCatalog
-ListenerRenderedDependencyValue = SDKListenerRenderedDependencyValue
-ListenerRenderedDependencyValues = SDKListenerRenderedDependencyValues
-ListenerSnapshot = SDKListenerSnapshot
-ListenerForceRefreshContent = SDKListenerForceRefreshEvent
+class ListenerDependencyCatalogEntry(BaseModel):
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    name: str
+    fullPathName: str
+    dependencies: list[BaseDependencyKeyUnionWithDiscriminator] = Field(
+        default_factory=list
+    )
+    sectionType: SectionType | None = None
+    codeObjType: CodeObjType | None = None
+    controlCodeObjId: ID | None = None
+    controlCodeObjType: CodeObjType | None = None
+    sectionRepresentation: SectionRepresentationMode | None = None
+    controlValueRepresentation: CodeObjValueRepresentationMode | None = None
+    valueRepresentation: CodeObjValueRepresentationMode | None = None
+
+
+class ListenerDependencyCatalog(BaseModel):
+    entries: list[ListenerDependencyCatalogEntry] = Field(default_factory=list)
+
+
+class ListenerRenderedDependencyValue(BaseModel):
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    renderedValue: str
+
+
+class ListenerRenderedDependencyValues(BaseModel):
+    entries: list[ListenerRenderedDependencyValue] = Field(default_factory=list)
+
+
+class ListenerSnapshot(BaseModel):
+    projectConfigId: ID
+    shareSessionId: str | None = None
+    dependencyCatalog: ListenerDependencyCatalog
+    dependencyValues: ListenerRenderedDependencyValues
+
+
+class ListenerForceRefreshContent(BaseModel):
+    callId: str | None = None
+    snapshot: ListenerSnapshot
+    sequence: int | None = None
+    refreshKind: str | None = None
 
 
 class ListenerErrorContent(BaseModel):
