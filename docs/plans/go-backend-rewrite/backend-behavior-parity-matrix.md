@@ -588,6 +588,19 @@ Last audited: `2026-03-23`
   `TestProductionCandidateProviderResolvePyPICandidateRequiresExplicitUVBinary`,
   and
   `TestBuildUVInstallEnvMapsPIPEnvVars`.
+- Follow-up in this pass on `1061100d4`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/plugins/test_plugin_manager.py::{test_init_template_generates_publish_ready_scaffold,test_init_template_supports_backend_and_content_variants,test_normalize_worker_route_query_params_handles_repeated_keys}`,
+  confirming those clues were already terminal explicit `Proved` /
+  `Intentional divergence` rows backed directly by
+  `TestServiceInitTemplateGeneratesPublishReadyScaffold`,
+  `TestServiceInitTemplateGeneratesGoBackendScaffold`,
+  `TestServiceInitTemplateGeneratesContentOnlyScaffold`,
+  `TestRunPluginsInitSupportsBackendTemplate`, and
+  `TestServiceDispatchRegisteredBackendRoutePreservesRepeatedQueryParamsInRawQuery`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
