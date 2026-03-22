@@ -502,6 +502,48 @@ func TestLoadIDELaunchConfigUsesProfileRuntimeSettaHomeWhenLookupHomeProvided(t 
 	}
 }
 
+func TestLoadIDELaunchConfigIgnoresAmbientSettaEnvOverrides(t *testing.T) {
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	ambientSettaHome := filepath.Join(root, "ambient-home")
+	ambientFilesRoot := filepath.Join(root, "ambient-files")
+	ambientRuntimeRoot := filepath.Join(root, "ambient-runtime")
+	for _, path := range []string{workspaceRoot, settaHome, ambientSettaHome, ambientFilesRoot, ambientRuntimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	t.Setenv("SETTA_HOME", ambientSettaHome)
+	t.Setenv("SETTA_FILES_ROOT", ambientFilesRoot)
+	t.Setenv("SETTA_FILES_LOCATION", "global")
+	t.Setenv("SETTA_RUNTIME_ROOT", ambientRuntimeRoot)
+	t.Setenv("SETTA_PROFILE", "ambient-profile")
+
+	cfg, err := loadIDELaunchConfig(IDELaunchInput{
+		WorkspaceRoot: workspaceRoot,
+		SettaHome:     settaHome,
+	})
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+
+	// Config resolution must come only from the requested launch input, not ambient SETTA_* state.
+	if cfg.Paths.SettaHome != settaHome {
+		t.Fatalf("expected requested setta home %q, got %q", settaHome, cfg.Paths.SettaHome)
+	}
+	if cfg.Paths.SettaFilesRoot == ambientFilesRoot {
+		t.Fatalf("expected ambient setta files root to be ignored, got %#v", cfg.Paths)
+	}
+	if cfg.Paths.RuntimeRoot == ambientRuntimeRoot {
+		t.Fatalf("expected ambient runtime root to be ignored, got %#v", cfg.Paths)
+	}
+	if cfg.Paths.ProfileName != "" {
+		t.Fatalf("expected ambient profile to be ignored, got %#v", cfg.Paths)
+	}
+}
+
 func TestLocalIDESessionLauncherEnsureSessionSurfacesLaunchFailureTailAndLogPath(t *testing.T) {
 	t.Parallel()
 

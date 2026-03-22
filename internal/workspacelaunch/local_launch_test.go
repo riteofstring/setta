@@ -217,6 +217,102 @@ func TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches(t *tes
 	}
 }
 
+func TestLocalLaunchServiceNonProfileLaunchIgnoresAmbientProfileEnv(t *testing.T) {
+	fixture := newLocalLaunchFixture(t)
+	t.Setenv("SETTA_PROFILE", "missing-profile")
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	// Ambient SETTA_PROFILE must not change a non-profile launch request.
+	if fixture.sessions.captured[0].Profile != "" {
+		t.Fatalf("expected omitted profile, got %#v", fixture.sessions.captured[0])
+	}
+	if fixture.sessions.captured[0].SettaHome != fixture.defaultSettaHome {
+		t.Fatalf("expected default setta home %q, got %#v", fixture.defaultSettaHome, fixture.sessions.captured[0])
+	}
+	if fixture.sessions.captured[0].ProfileLookupHome != "" {
+		t.Fatalf("expected omitted profile lookup home, got %#v", fixture.sessions.captured[0])
+	}
+	if got := os.Getenv("SETTA_PROFILE"); got != "missing-profile" {
+		t.Fatalf("expected ambient SETTA_PROFILE to remain unchanged, got %q", got)
+	}
+}
+
+func TestLocalLaunchServiceWhitespaceProfileIsTreatedAsOmitted(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","profile":"   "}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	// Whitespace-only profile input should behave like the field was omitted.
+	if fixture.sessions.captured[0].Profile != "" {
+		t.Fatalf("expected omitted profile, got %#v", fixture.sessions.captured[0])
+	}
+	if fixture.sessions.captured[0].SettaFilesLocation == nil || *fixture.sessions.captured[0].SettaFilesLocation != "auto" {
+		t.Fatalf("expected auto setta files location, got %#v", fixture.sessions.captured[0].SettaFilesLocation)
+	}
+}
+
+func TestLocalLaunchServiceTrimsWhitespaceOptionalPathInputs(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	intent := fixture.createIntent(
+		t,
+		decodeLaunchRequest(t, "{\"workspaceRoot\":\"/tmp/workspace\",\"profile\":\"dev\",\"settaHome\":\"   \",\"settaFilesRoot\":\"\\t\",\"runtimeRoot\":\"\\n\"}"),
+		"http://launcher.example:7999/home",
+	)
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	// Whitespace-only path flags should not synthesize explicit overrides.
+	if fixture.sessions.captured[0].SettaHome != fixture.defaultSettaHome {
+		t.Fatalf("expected default setta home %q, got %#v", fixture.defaultSettaHome, fixture.sessions.captured[0])
+	}
+	if fixture.sessions.captured[0].SettaFilesRoot != "" {
+		t.Fatalf("expected omitted setta files root, got %#v", fixture.sessions.captured[0])
+	}
+	if fixture.sessions.captured[0].RuntimeRoot != "" {
+		t.Fatalf("expected omitted runtime root, got %#v", fixture.sessions.captured[0])
+	}
+	if fixture.sessions.captured[0].ProfileLookupHome != fixture.defaultProfileLookupHome {
+		t.Fatalf("expected default profile lookup home %q, got %#v", fixture.defaultProfileLookupHome, fixture.sessions.captured[0])
+	}
+}
+
 func TestLocalLaunchServiceForwardsInvalidRuntimeRootSessionError(t *testing.T) {
 	t.Parallel()
 
@@ -299,6 +395,62 @@ func TestLocalLaunchServiceProfileLaunchKeepsExplicitAutoSettaFilesLocation(t *t
 	}
 	if fixture.sessions.captured[0].SettaFilesLocation == nil || *fixture.sessions.captured[0].SettaFilesLocation != "auto" {
 		t.Fatalf("expected explicit auto settaFilesLocation to be preserved, got %#v", fixture.sessions.captured[0].SettaFilesLocation)
+	}
+}
+
+func TestLocalLaunchServiceRemoteProfileLaunchOmitsSettaFilesLocationWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	fixture.ssh.connectResult = remoteLaunchConnectResult()
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","sshTarget":"user@host","profile":"dev"}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch remote workspace: %v", err)
+	}
+
+	if len(fixture.ssh.connectInputs) != 1 {
+		t.Fatalf("expected one remote connect call, got %d", len(fixture.ssh.connectInputs))
+	}
+	// Profile-backed SSH launches keep the omitted settaFilesLocation branch.
+	if fixture.ssh.connectInputs[0].Profile != "dev" {
+		t.Fatalf("expected remote profile dev, got %#v", fixture.ssh.connectInputs[0])
+	}
+	if fixture.ssh.connectInputs[0].SettaFilesLocation != "" {
+		t.Fatalf("expected omitted remote setta files location, got %#v", fixture.ssh.connectInputs[0])
+	}
+}
+
+func TestLocalLaunchServiceRemoteWhitespaceProfileIsTreatedAsOmitted(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	fixture.ssh.connectResult = remoteLaunchConnectResult()
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","sshTarget":"user@host","profile":"   "}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch remote workspace: %v", err)
+	}
+
+	if len(fixture.ssh.connectInputs) != 1 {
+		t.Fatalf("expected one remote connect call, got %d", len(fixture.ssh.connectInputs))
+	}
+	// Whitespace SSH profile input should fall back to the non-profile auto branch.
+	if fixture.ssh.connectInputs[0].Profile != "" {
+		t.Fatalf("expected omitted remote profile, got %#v", fixture.ssh.connectInputs[0])
+	}
+	if fixture.ssh.connectInputs[0].SettaFilesLocation != "auto" {
+		t.Fatalf("expected auto remote setta files location, got %#v", fixture.ssh.connectInputs[0])
 	}
 }
 
