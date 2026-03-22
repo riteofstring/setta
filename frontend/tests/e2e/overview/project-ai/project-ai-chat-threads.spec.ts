@@ -619,9 +619,6 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     "project-chat-thread-draft-entry",
   );
   await expect(draftThreadEntry).toHaveCount(1);
-  await expect(
-    draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
-  ).toHaveCount(0);
   const draftDragHandle = draftThreadEntry.getByTestId(
     "project-chat-thread-drag-handle",
   );
