@@ -117,6 +117,68 @@ function buildGetLLMResponseResponse(chatId: string) {
   return chatId;
 }
 
+function buildMixedSlashCommandEngineFixture() {
+  const llmEngine = {
+    id: "engine-setta-e2e",
+    name: "Setta LLM",
+    engineType: "setta_llm",
+    settaLlmConfigId: "e2e-llm",
+    externalAgentConfigId: null,
+    defaults: {},
+  };
+  const externalEngine = {
+    id: "engine-external-e2e",
+    name: "Codex",
+    engineType: "external_agent",
+    settaLlmConfigId: null,
+    externalAgentConfigId: "external-codex",
+    defaults: {},
+  };
+  return {
+    llmEngine,
+    externalEngine,
+    engineConfigs: [llmEngine, externalEngine],
+  };
+}
+
+async function mockMixedSlashCommandEngines(page: Page): Promise<
+  ReturnType<typeof buildMixedSlashCommandEngineFixture>
+> {
+  const fixture = buildMixedSlashCommandEngineFixture();
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(fixture.engineConfigs),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "e2e-llm": {
+            id: "e2e-llm",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "e2e-llm",
+        codexMcpImportedAt: null,
+      }),
+    });
+  });
+  return fixture;
+}
+
 async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
   const styleInfo = await locator.evaluate((node) => {
@@ -833,6 +895,7 @@ test("project ai chat ignores stale native slash local storage from other projec
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
+  const { externalEngine } = await mockMixedSlashCommandEngines(page);
 
   await page.route("**/api/getAppGenSkills", async (route) => {
     await route.fulfill({
@@ -856,26 +919,6 @@ test("project ai chat ignores stale native slash local storage from other projec
   const projectContext = await openIsolatedProject(page);
 
   try {
-    const backendOrigin =
-      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-    const engineConfigsResponse = await page.request.get(
-      `${backendOrigin}/api/getEngineConfigs`,
-    );
-    expect(engineConfigsResponse.ok()).toBe(true);
-    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-      id: string;
-      name: string;
-      engineType: string;
-    }>;
-    const externalEngine = engineConfigs.find(
-      (engine) => engine.engineType === "external_agent",
-    );
-    if (!externalEngine) {
-      throw new Error(
-        "Missing external agent engine for slash-command local-storage test.",
-      );
-    }
-
     await page.evaluate(
       ({ externalEngineId }) => {
         window.localStorage.setItem(
@@ -939,6 +982,7 @@ test("project ai chat keeps native slash commands unavailable after terminal run
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
+  const { externalEngine } = await mockMixedSlashCommandEngines(page);
   allowExpectedApiError(page, {
     path: "/api/getAgentRuns",
     statuses: [500],
@@ -969,26 +1013,6 @@ test("project ai chat keeps native slash commands unavailable after terminal run
   const projectContext = await openIsolatedProject(page);
 
   try {
-    const backendOrigin =
-      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-    const engineConfigsResponse = await page.request.get(
-      `${backendOrigin}/api/getEngineConfigs`,
-    );
-    expect(engineConfigsResponse.ok()).toBe(true);
-    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-      id: string;
-      name: string;
-      engineType: string;
-    }>;
-    const externalEngine = engineConfigs.find(
-      (engine) => engine.engineType === "external_agent",
-    );
-    if (!externalEngine) {
-      throw new Error(
-        "Missing external agent engine for slash-command terminal failure test.",
-      );
-    }
-
     await openSlashCommandsViewer(page);
     const externalEngineTab = page
       .getByTestId("skills-mcp-slash-tab")
@@ -1023,6 +1047,7 @@ test("project ai chat blocks custom slash creation until native command authorit
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
+  const { externalEngine } = await mockMixedSlashCommandEngines(page);
 
   await page.route("**/api/getAppGenSkills", async (route) => {
     await route.fulfill({
@@ -1036,26 +1061,6 @@ test("project ai chat blocks custom slash creation until native command authorit
   const projectContext = await openIsolatedProject(page);
 
   try {
-    const backendOrigin =
-      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-    const engineConfigsResponse = await page.request.get(
-      `${backendOrigin}/api/getEngineConfigs`,
-    );
-    expect(engineConfigsResponse.ok()).toBe(true);
-    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-      id: string;
-      name: string;
-      engineType: string;
-    }>;
-    const externalEngine = engineConfigs.find(
-      (engine) => engine.engineType === "external_agent",
-    );
-    if (!externalEngine) {
-      throw new Error(
-        "Missing external agent engine for slash-command authority test.",
-      );
-    }
-
     await page.route("**/api/getAgentRuns", async (route) => {
       await new Promise((resolve) => {
         setTimeout(resolve, 2500);
@@ -1136,27 +1141,8 @@ test("project ai chat reloads unresolved native slash commands once authority be
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
+  const { externalEngine } = await mockMixedSlashCommandEngines(page);
 
-  const backendOrigin =
-    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-  const engineConfigsResponse = await page.request.get(
-    `${backendOrigin}/api/getEngineConfigs`,
-  );
-  expect(engineConfigsResponse.ok()).toBe(true);
-  const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-    id: string;
-    name: string;
-    engineType: string;
-    externalAgentConfigId?: string | null;
-  }>;
-  const externalEngine = engineConfigs.find(
-    (engine) => engine.engineType === "external_agent",
-  );
-  if (!externalEngine) {
-    throw new Error(
-      "Missing external agent engine for cached native slash submit test.",
-    );
-  }
   if (!externalEngine.externalAgentConfigId) {
     throw new Error(
       "Missing external agent config id for cached native slash submit test.",
@@ -1311,38 +1297,8 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
-
-  const backendOrigin =
-    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-  const engineConfigsResponse = await page.request.get(
-    `${backendOrigin}/api/getEngineConfigs`,
-  );
-  expect(engineConfigsResponse.ok()).toBe(true);
-  const actualEngineConfigs = (await engineConfigsResponse.json()) as Array<{
-    id: string;
-    name: string;
-    engineType: string;
-    externalAgentConfigId?: string | null;
-    settaLlmConfigId?: string | null;
-  }>;
-  const llmEngine = actualEngineConfigs.find(
-    (engine) => engine.engineType === "setta_llm",
-  );
-  const externalEngine = actualEngineConfigs.find(
-    (engine) => engine.engineType === "external_agent",
-  );
-  if (!llmEngine || !externalEngine) {
-    throw new Error(
-      "Missing mixed engine coverage for slash-command authority retry test.",
-    );
-  }
-  const sortedEngineConfigs = [
-    llmEngine,
-    externalEngine,
-    ...actualEngineConfigs.filter(
-      (engine) => engine.id !== llmEngine.id && engine.id !== externalEngine.id,
-    ),
-  ];
+  const { llmEngine, externalEngine, engineConfigs: sortedEngineConfigs } =
+    await mockMixedSlashCommandEngines(page);
 
   allowExpectedApiError(page, {
     path: "/api/getAgentRuns",
@@ -1352,13 +1308,6 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
     ttlMs: 20_000,
   });
 
-  await page.route("**/api/getEngineConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(sortedEngineConfigs),
-    });
-  });
   await page.route("**/api/getAppGenSkills", async (route) => {
     await route.fulfill({
       status: 200,
