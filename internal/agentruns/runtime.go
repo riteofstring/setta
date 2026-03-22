@@ -108,10 +108,6 @@ func (r *Runtime) StopRun(runID string) (Run, error) {
 	if ok && active.cancel != nil {
 		active.cancel()
 	}
-	if ok {
-		<-active.done
-		return r.service.runs.Load(trimmedRunID)
-	}
 	return r.service.cancelRun(trimmedRunID)
 }
 

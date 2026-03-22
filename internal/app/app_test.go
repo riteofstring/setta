@@ -8379,6 +8379,194 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	}
 }
 
+func TestAppStopsStateMachineRunWhileManagedChildIsStillStreaming(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+
+	providerStarted := make(chan struct{}, 1)
+	providerCancelled := make(chan struct{}, 1)
+	releaseProvider := make(chan struct{})
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		select {
+		case providerStarted <- struct{}{}:
+		default:
+		}
+		select {
+		case <-r.Context().Done():
+			select {
+			case providerCancelled <- struct{}{}:
+			default:
+			}
+			return
+		case <-releaseProvider:
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Workflow child\"}}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":2,\"total_tokens\":15}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer provider.Close()
+	defer close(releaseProvider)
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:        "primary",
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appManagedWorkflowTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed workflow project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStartStateMachineRun,
+		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+	)
+	if err != nil {
+		t.Fatalf("new start workflow request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start workflow run: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected workflow start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+
+	select {
+	case <-providerStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for workflow child provider request")
+	}
+
+	stopRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStopStateMachineRun,
+		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+	)
+	if err != nil {
+		t.Fatalf("new stop workflow request: %v", err)
+	}
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopRequest.AddCookie(authCookie)
+
+	stopClient := &http.Client{Timeout: 2 * time.Second}
+	stopResponse, err := stopClient.Do(stopRequest)
+	if err != nil {
+		t.Fatalf("stop workflow run: %v", err)
+	}
+	defer stopResponse.Body.Close()
+	if stopResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(stopResponse.Body)
+		t.Fatalf("expected workflow stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	}
+
+	select {
+	case <-providerCancelled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for workflow child provider cancellation")
+	}
+
+	var latest agentruns.Run
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		getRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetStateMachineRun,
+			strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+		)
+		if err != nil {
+			t.Fatalf("new get workflow run request: %v", err)
+		}
+		getRequest.Header.Set("Content-Type", "application/json")
+		getRequest.AddCookie(authCookie)
+
+		getResponse, err := http.DefaultClient.Do(getRequest)
+		if err != nil {
+			t.Fatalf("get workflow run: %v", err)
+		}
+		defer getResponse.Body.Close()
+		if getResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(getResponse.Body)
+			t.Fatalf("expected workflow get 200, got %d with body %q", getResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(getResponse.Body).Decode(&latest); err != nil {
+			t.Fatalf("decode latest workflow run: %v", err)
+		}
+		return latest.Status == agentruns.RunStatusCancelled
+	})
+	if latest.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected cancelled workflow run, got %#v", latest)
+	}
+	if !appTestHasRunEventType(latest, "run_cancelled") {
+		t.Fatalf("expected workflow run_cancelled event, got %#v", latest.Events)
+	}
+}
+
 func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

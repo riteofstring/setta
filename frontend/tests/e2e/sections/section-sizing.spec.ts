@@ -1,11 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  cleanupIsolatedProject,
   ensureAppReady,
-  getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   loadProjectConfig,
+  openIsolatedProject,
   type ProjectStateSingleConfigResponse,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 async function createSection(
@@ -13,30 +15,101 @@ async function createSection(
   projectConfigId: string,
   implType: string,
 ) {
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-  // Place the section away from the viewport edges so outboard controls (meta
-  // menus, resize handles) are still hittable.
-  const position = {
-    x: viewportBounds.x + viewportBounds.w * 0.35,
-    y: viewportBounds.y + viewportBounds.h * 0.35,
-  };
   const response = await postBackend<{ sectionId?: string }>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType,
-      position,
-      viewportBounds,
     },
   );
   if (!response?.sectionId) {
     throw new Error(`Missing sectionId for ${implType} creation.`);
   }
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for section placement.");
+  }
+  await postBackend(page, "/moveSections", {
+    projectConfigId,
+    sectionIds: [response.sectionId],
+    newParentId: null,
+    newIndex: null,
+    positionsById: {
+      [response.sectionId]: {
+        x: viewportBounds.x + viewportBounds.w * 0.35,
+        y: viewportBounds.y + viewportBounds.h * 0.35,
+      },
+    },
+  });
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return response.sectionId;
+}
+
+async function setSectionSizes(
+  page: Page,
+  projectConfigId: string,
+  sectionSizes: Record<
+    string,
+    { height?: number | "auto"; width?: number | "auto" }
+  >,
+) {
+  const latestStateResponse = await postBackend<{
+    projectState?: ProjectStateSingleConfigResponse | null;
+  }>(page, "/getLatestProjectState", {
+    projectConfigId,
+  });
+  const latestState = latestStateResponse?.projectState;
+  if (!latestState) {
+    throw new Error("Missing latest project state for setSectionSizes.");
+  }
+  const normalizedSectionSizes = Object.fromEntries(
+    Object.entries(sectionSizes).map(([sectionId, nextSize]) => {
+      const currentSize = getSectionSizeFromState(latestState, sectionId);
+      return [
+        sectionId,
+        {
+          width: nextSize.width ?? currentSize.width,
+          height: nextSize.height ?? currentSize.height,
+        },
+      ];
+    }),
+  );
+  await postBackend(page, "/setSectionSizes", {
+    projectConfigId,
+    sectionSizes: normalizedSectionSizes,
+  });
+  await refreshProjectStateFromBackend(page, projectConfigId);
+}
+
+async function setCallable(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  callableName: string,
+) {
+  await postBackend(page, "/setCallable", {
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams: true,
+  });
+  await refreshProjectStateFromBackend(page, projectConfigId);
+}
+
+async function addKwargs(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  count: number,
+) {
+  for (let i = 0; i < count; i += 1) {
+    await postBackend(page, "/addKwarg", {
+      projectConfigId,
+      sectionId,
+    });
+  }
+  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 function getSectionSizeFromState(
@@ -77,15 +150,29 @@ async function clearResizeEvent(page: Page, sectionId: string) {
   }, sectionId);
 }
 
-test("chart resize clamps to min and persists size", async ({ page }) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+function isolatedSizingTest(
+  name: string,
+  run: (page: Page, projectConfigId: string) => Promise<void>,
+) {
+  test(name, async ({ page }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    try {
+      await run(page, projectContext.projectConfigId);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+}
+
+isolatedSizingTest("chart resize clamps to min and persists size", async (
+  page,
+  projectConfigId,
+) => {
   const sectionId = await createSection(page, projectConfigId, "Chart");
 
   try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
     const handle = sectionNode.locator(
@@ -127,15 +214,14 @@ test("chart resize clamps to min and persists size", async ({ page }) => {
   }
 });
 
-test("meta control slider only shows width resize handle", async ({ page }) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest("meta control slider only shows width resize handle", async (
+  page,
+  projectConfigId,
+) => {
   const sectionId = await createSection(page, projectConfigId, "MetaControl");
 
   try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
     const sectionCard = sectionNode.locator(
@@ -202,22 +288,18 @@ test("meta control slider only shows width resize handle", async ({ page }) => {
   }
 });
 
-test("setSectionSizes updates node dimensions", async ({ page }) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest("setSectionSizes updates node dimensions", async (
+  page,
+  projectConfigId,
+) => {
   const sectionId = await createSection(page, projectConfigId, "TextBlock");
 
   try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
-    await postBackend(page, "/setSectionSizes", {
-      projectConfigId,
-      sectionSizes: {
-        [sectionId]: { width: 520, height: 260 },
-      },
+    await setSectionSizes(page, projectConfigId, {
+      [sectionId]: { width: 520, height: 260 },
     });
 
     await expect
@@ -234,28 +316,19 @@ test("setSectionSizes updates node dimensions", async ({ page }) => {
   }
 });
 
-test("callable resize exits auto height cap", async ({ page }) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest("callable resize exits auto height cap", async (
+  page,
+  projectConfigId,
+) => {
   const sectionId = await createSection(page, projectConfigId, "Callable");
 
   try {
-    await postBackend(page, "/setCallable", {
-      projectConfigId,
-      sectionId,
-      callableName: "sorted",
-      refetchParams: true,
-    });
-    await postBackend(page, "/setSectionSizes", {
-      projectConfigId,
-      sectionSizes: {
-        [sectionId]: { height: "auto" },
-      },
+    await setCallable(page, projectConfigId, sectionId, "sorted");
+    await setSectionSizes(page, projectConfigId, {
+      [sectionId]: { height: "auto" },
     });
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     const paramContainer = sectionNode.locator(
       `[id^="ParamContainer-${sectionId}-"]`,
@@ -316,28 +389,19 @@ test("callable resize exits auto height cap", async ({ page }) => {
   }
 });
 
-test("resize start does not jump at zoom", async ({ page }) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest("resize start does not jump at zoom", async (
+  page,
+  projectConfigId,
+) => {
   const sectionId = await createSection(page, projectConfigId, "Callable");
 
   try {
-    await postBackend(page, "/setCallable", {
-      projectConfigId,
-      sectionId,
-      callableName: "sorted",
-      refetchParams: true,
-    });
-    await postBackend(page, "/setSectionSizes", {
-      projectConfigId,
-      sectionSizes: {
-        [sectionId]: { height: "auto" },
-      },
+    await setCallable(page, projectConfigId, sectionId, "sorted");
+    await setSectionSizes(page, projectConfigId, {
+      [sectionId]: { height: "auto" },
     });
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     const paramContainer = sectionNode.locator(
       `[id^="ParamContainer-${sectionId}-"]`,
@@ -448,34 +512,21 @@ test("resize start does not jump at zoom", async ({ page }) => {
   }
 });
 
-test("right resize handle mousedown does not expand auto height with overflow", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest(
+  "right resize handle mousedown does not expand auto height with overflow",
+  async (page, projectConfigId) => {
   const sectionId = await createSection(page, projectConfigId, "Dict");
 
   let startX = 0;
   let startY = 0;
 
   try {
-    for (let i = 0; i < 40; i += 1) {
-      await postBackend(page, "/addKwarg", {
-        projectConfigId,
-        sectionId,
-      });
-    }
-
-    await postBackend(page, "/setSectionSizes", {
-      projectConfigId,
-      sectionSizes: {
-        [sectionId]: { height: "auto" },
-      },
+    await addKwargs(page, projectConfigId, sectionId, 40);
+    await setSectionSizes(page, projectConfigId, {
+      [sectionId]: { height: "auto" },
     });
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     await sectionNode.scrollIntoViewIfNeeded();
     await sectionNode.hover();
@@ -561,36 +612,24 @@ test("right resize handle mousedown does not expand auto height with overflow", 
       sectionIds: [sectionId],
     });
   }
-});
+  },
+);
 
-test("bottom resize handle mousedown does not expand auto height with overflow", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest(
+  "bottom resize handle mousedown does not expand auto height with overflow",
+  async (page, projectConfigId) => {
   const sectionId = await createSection(page, projectConfigId, "Dict");
 
   let startX = 0;
   let startY = 0;
 
   try {
-    for (let i = 0; i < 40; i += 1) {
-      await postBackend(page, "/addKwarg", {
-        projectConfigId,
-        sectionId,
-      });
-    }
-
-    await postBackend(page, "/setSectionSizes", {
-      projectConfigId,
-      sectionSizes: {
-        [sectionId]: { height: "auto" },
-      },
+    await addKwargs(page, projectConfigId, sectionId, 40);
+    await setSectionSizes(page, projectConfigId, {
+      [sectionId]: { height: "auto" },
     });
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     await sectionNode.scrollIntoViewIfNeeded();
     await sectionNode.hover();
@@ -676,36 +715,24 @@ test("bottom resize handle mousedown does not expand auto height with overflow",
       sectionIds: [sectionId],
     });
   }
-});
+  },
+);
 
-test("bottom resize handle mousedown does not start resize event for auto height overflow", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+isolatedSizingTest(
+  "bottom resize handle mousedown does not start resize event for auto height overflow",
+  async (page, projectConfigId) => {
   const sectionId = await createSection(page, projectConfigId, "Dict");
 
   let startX = 0;
   let startY = 0;
 
   try {
-    for (let i = 0; i < 40; i += 1) {
-      await postBackend(page, "/addKwarg", {
-        projectConfigId,
-        sectionId,
-      });
-    }
-
-    await postBackend(page, "/setSectionSizes", {
-      projectConfigId,
-      sectionSizes: {
-        [sectionId]: { height: "auto" },
-      },
+    await addKwargs(page, projectConfigId, sectionId, 40);
+    await setSectionSizes(page, projectConfigId, {
+      [sectionId]: { height: "auto" },
     });
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     await sectionNode.scrollIntoViewIfNeeded();
     await sectionNode.hover();
@@ -763,4 +790,5 @@ test("bottom resize handle mousedown does not start resize event for auto height
       sectionIds: [sectionId],
     });
   }
-});
+  },
+);

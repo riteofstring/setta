@@ -68,6 +68,8 @@ type ManagedChatProviderServer = {
   close: () => Promise<void>;
 };
 
+const MANAGED_CHAT_PROVIDER_RESPONSE_DELAY_MS = 3000;
+
 type DeterministicManagedChatEngine = {
   engineConfigId: string;
   providerServer: ManagedChatProviderServer;
@@ -734,17 +736,17 @@ test.describe.serial("state machine sections", () => {
       );
       await expect(workflowControlRow).toContainText("Review Flow");
       await expect(workflowControlRow).toContainText("workflow-main");
-      const overviewWorkflowStatus = page.getByTestId(
-        `run-instructions-workflow-status-${startSectionId}`,
+      const overviewWorkflowStatus = page.locator(
+        `[data-testid="run-instructions-workflow-status-${startSectionId}"]:visible`,
       );
-      const overviewStartButton = page.getByTestId(
-        `run-instructions-workflow-start-${startSectionId}`,
+      const overviewStartButton = page.locator(
+        `[data-testid="run-instructions-workflow-start-${startSectionId}"]:visible`,
       );
-      const overviewStopButton = page.getByTestId(
-        `run-instructions-workflow-stop-${startSectionId}`,
+      const overviewStopButton = page.locator(
+        `[data-testid="run-instructions-workflow-stop-${startSectionId}"]:visible`,
       );
-      const overviewResetButton = page.getByTestId(
-        `run-instructions-workflow-reset-${startSectionId}`,
+      const overviewResetButton = page.locator(
+        `[data-testid="run-instructions-workflow-reset-${startSectionId}"]:visible`,
       );
 
       await expect(overviewWorkflowStatus).toHaveText("Idle");
@@ -764,6 +766,7 @@ test.describe.serial("state machine sections", () => {
       );
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
+      await expect(overviewStopButton).toBeEnabled();
       await expect(startActivityPanel).toContainText(
         "Dispatched 1 start action",
       );
@@ -773,10 +776,12 @@ test.describe.serial("state machine sections", () => {
       await expect(startStatus).toHaveText("Stopped");
       await expect(startActivityPanel).toContainText("Workflow stopped");
 
+      await expect(overviewStartButton).toBeEnabled();
       await overviewStartButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
 
+      await expect(overviewResetButton).toBeEnabled();
       await overviewResetButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Idle");
       await expect(startStatus).toHaveText("Idle");
@@ -1910,19 +1915,26 @@ async function startManagedChatProviderServer(): Promise<ManagedChatProviderServ
           response.end(String(error));
           return;
         }
-
-        response.statusCode = 200;
-        response.setHeader("content-type", "text/event-stream");
-        response.write(
-          'data: {"choices":[{"index":0,"delta":{"content":"Workflow child"}}]}\n\n',
-        );
-        response.write(
-          'data: {"choices":[{"index":0,"delta":{"content":" reply"},"finish_reason":"stop"}]}\n\n',
-        );
-        response.write(
-          'data: {"choices":[],"usage":{"prompt_tokens":13,"completion_tokens":2,"total_tokens":15}}\n\n',
-        );
-        response.end("data: [DONE]\n\n");
+        const responseTimer = setTimeout(() => {
+          if (response.destroyed || response.writableEnded) {
+            return;
+          }
+          response.statusCode = 200;
+          response.setHeader("content-type", "text/event-stream");
+          response.write(
+            'data: {"choices":[{"index":0,"delta":{"content":"Workflow child"}}]}\n\n',
+          );
+          response.write(
+            'data: {"choices":[{"index":0,"delta":{"content":" reply"},"finish_reason":"stop"}]}\n\n',
+          );
+          response.write(
+            'data: {"choices":[],"usage":{"prompt_tokens":13,"completion_tokens":2,"total_tokens":15}}\n\n',
+          );
+          response.end("data: [DONE]\n\n");
+        }, MANAGED_CHAT_PROVIDER_RESPONSE_DELAY_MS);
+        request.once("close", () => {
+          clearTimeout(responseTimer);
+        });
       });
     });
     server.once("error", reject);

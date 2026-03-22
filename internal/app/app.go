@@ -1234,9 +1234,21 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if stateMachineRuntime == nil {
 				return
 			}
-			if _, err := stateMachineRuntime.HandleTerminalChildRunUpdate(run); err != nil {
-				logger.Error("state machine runtime failed to process child run update", "runId", run.ID, "error", err)
+			switch run.Status {
+			case agentruns.RunStatusCompleted, agentruns.RunStatusFailed, agentruns.RunStatusCancelled:
+			default:
+				return
 			}
+			parentRunType, ok := run.Inputs["stateMachineParentRunType"].(string)
+			if !ok || strings.TrimSpace(parentRunType) != statemachineruns.RunTypeStateMachine {
+				return
+			}
+			savedRun := run.Clone()
+			go func() {
+				if _, err := stateMachineRuntime.HandleTerminalChildRunUpdate(savedRun); err != nil {
+					logger.Error("state machine runtime failed to process child run update", "runId", savedRun.ID, "error", err)
+				}
+			}()
 		})
 		externalAgentRunService, err := externalagents.NewRunService(externalagents.RunServiceOptions{
 			ProjectState: projectRuntime,

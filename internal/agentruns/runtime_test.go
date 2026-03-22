@@ -17,6 +17,12 @@ type blockingExecutor struct {
 	release chan struct{}
 }
 
+type stubbornExecutor struct {
+	result  ExecutionResult
+	started chan struct{}
+	release chan struct{}
+}
+
 type captureLiveRunTracker struct {
 	activated   chan Run
 	deactivated chan string
@@ -58,6 +64,19 @@ func (e *blockingExecutor) Execute(ctx context.Context, _ ExecutionRequest) (Exe
 	case <-ctx.Done():
 		return e.result, ctx.Err()
 	}
+}
+
+func (e *stubbornExecutor) Execute(_ context.Context, _ ExecutionRequest) (ExecutionResult, error) {
+	if e.started != nil {
+		select {
+		case e.started <- struct{}{}:
+		default:
+		}
+	}
+	if e.release != nil {
+		<-e.release
+	}
+	return e.result, nil
 }
 
 func TestRuntimeStartRunReturnsRunningAndCompletes(t *testing.T) {
@@ -298,6 +317,82 @@ func TestRuntimeStopRunPersistsPartialExecutionResultOnCancellation(t *testing.T
 	usage, ok := waited.Outputs["usage"].(map[string]any)
 	if !ok || usage["total_tokens"] != float64(13) {
 		t.Fatalf("expected persisted usage, got %#v", waited.Outputs["usage"])
+	}
+}
+
+func TestRuntimeStopRunReturnsBeforeExecutorUnwinds(t *testing.T) {
+	t.Parallel()
+
+	executor := &stubbornExecutor{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+		result: ExecutionResult{
+			Outputs: map[string]any{
+				"messages": []any{},
+			},
+		},
+	}
+	service, runs := buildRuntimeServiceFixture(t, executor)
+	runtime, err := NewRuntime(RuntimeOptions{Service: service})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	run, err := runtime.StartRun(profile, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("start run: %v", err)
+	}
+	select {
+	case <-executor.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for executor start")
+	}
+
+	stopDone := make(chan struct{})
+	var stopped Run
+	var stopErr error
+	go func() {
+		stopped, stopErr = runtime.StopRun(run.ID)
+		close(stopDone)
+	}()
+
+	select {
+	case <-stopDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timed out waiting for stop run to return before executor release")
+	}
+	if stopErr != nil {
+		t.Fatalf("stop run: %v", stopErr)
+	}
+	if stopped.Status != RunStatusCancelled {
+		t.Fatalf("expected cancelled run, got %q", stopped.Status)
+	}
+
+	loaded, err := runs.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load cancelled run: %v", err)
+	}
+	if loaded.Status != RunStatusCancelled {
+		t.Fatalf("expected persisted cancelled run, got %q", loaded.Status)
+	}
+
+	close(executor.release)
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	waited, err := runtime.WaitForRun(waitCtx, run.ID)
+	if err != nil {
+		t.Fatalf("wait for cancelled run: %v", err)
+	}
+	if waited.Status != RunStatusCancelled {
+		t.Fatalf("expected cancelled terminal run, got %q", waited.Status)
 	}
 }
 
