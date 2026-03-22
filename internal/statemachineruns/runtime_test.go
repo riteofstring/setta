@@ -1,6 +1,7 @@
 package statemachineruns
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -132,6 +133,24 @@ func (s *blockingManagedChatStarter) StartChat(request managedchat.StartChatRequ
 	}, nil
 }
 
+func managedRequestText(t *testing.T, request managedchat.StartChatRequest) string {
+	t.Helper()
+
+	rawContent, ok := request.Message["content"].([]any)
+	if !ok || len(rawContent) == 0 {
+		t.Fatalf("expected workflow message content array, got %#v", request.Message)
+	}
+	textPart, ok := rawContent[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected workflow message content entry, got %#v", rawContent[0])
+	}
+	text, ok := textPart["text"].(string)
+	if !ok {
+		t.Fatalf("expected workflow message text, got %#v", textPart)
+	}
+	return text
+}
+
 func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T) {
 	t.Parallel()
 
@@ -190,6 +209,77 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 		"start_edge_actions_dispatched",
 	}) {
 		t.Fatalf("expected start dispatch event sequence, got %#v", got)
+	}
+}
+
+func TestRuntimeStartRunDispatchesPromptSectionWithEdgeBindings(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPromptSectionRuntimeFixture(t, promptSectionStartRuntimeTestProject(
+		t,
+		nil,
+		"Hi my name is {{ name }}. What's your name?",
+		map[string]string{"name": "Kevin"},
+	))
+
+	run, err := fixture.runtime.StartRun("project-alpha", "workflow-prompt-section", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+	if run.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running workflow run, got %#v", run)
+	}
+	if len(fixture.managedStarter.requests) != 1 {
+		t.Fatalf("expected one managed chat dispatch, got %#v", fixture.managedStarter.requests)
+	}
+	request := fixture.managedStarter.requests[0]
+	if got := managedRequestText(t, request); got != "Hi my name is Kevin. What's your name?" {
+		t.Fatalf("expected rendered prompt-section message, got %q", got)
+	}
+	if got := request.AdditionalInputs[inputKeyStateMachineTargetSection]; got != "chat-section" {
+		t.Fatalf("expected target section metadata for chat-section, got %#v", request.AdditionalInputs)
+	}
+}
+
+func TestRuntimeStartRunDispatchesLiveLinkedPromptSectionContent(t *testing.T) {
+	t.Parallel()
+
+	templateID := "prompt-template-1"
+	fixture := newPromptSectionRuntimeFixture(t, promptSectionStartRuntimeTestProject(
+		t,
+		&templateID,
+		"Hi my name is {{ name }}. What's your name?",
+		nil,
+	))
+	_, updated, err := fixture.projectRuntime.RefreshLinkedPromptSectionsForTemplate(
+		context.Background(),
+		templateID,
+		"Hello there.",
+		projectstate.PromptFormatJinja,
+	)
+	if err != nil {
+		t.Fatalf("RefreshLinkedPromptSectionsForTemplate returned error: %v", err)
+	}
+	if !updated {
+		t.Fatal("expected linked prompt refresh to update the cached prompt section")
+	}
+
+	run, err := fixture.runtime.StartRun("project-alpha", "workflow-prompt-section", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+	if run.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running workflow run, got %#v", run)
+	}
+	if len(fixture.managedStarter.requests) != 1 {
+		t.Fatalf("expected one managed chat dispatch, got %#v", fixture.managedStarter.requests)
+	}
+	request := fixture.managedStarter.requests[0]
+	if got := managedRequestText(t, request); got != "Hello there." {
+		t.Fatalf("expected refreshed linked prompt content, got %q", got)
+	}
+	if got := request.AdditionalInputs[inputKeyStateMachineTargetSection]; got != "chat-section" {
+		t.Fatalf("expected target section metadata for chat-section, got %#v", request.AdditionalInputs)
 	}
 }
 
@@ -1040,6 +1130,18 @@ func newParallelStartRuntimeFixture(t *testing.T) runtimeFixture {
 	}
 }
 
+func newPromptSectionRuntimeFixture(t *testing.T, project projectstate.Project) runtimeFixture {
+	t.Helper()
+
+	return newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		project,
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+}
+
 func newFollowUpChatRuntimeFixture(t *testing.T) runtimeFixture {
 	t.Helper()
 
@@ -1241,6 +1343,87 @@ func stateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize workflow project: %v", err)
+	}
+	return project
+}
+
+func promptSectionStartRuntimeTestProject(
+	t *testing.T,
+	promptTemplateID *string,
+	promptTemplate string,
+	promptInputs map[string]string,
+) projectstate.Project {
+	t.Helper()
+
+	promptTemplateValue := any(nil)
+	if promptTemplateID != nil {
+		promptTemplateValue = strings.TrimSpace(*promptTemplateID)
+	}
+	promptSectionID := "prompt-section"
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-section":  "chat-variant",
+			promptSectionID: "prompt-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-section":  {ID: "chat-section", Name: "Review Chat", VariantIDs: []string{"chat-variant"}, DefaultVariantID: "chat-variant"},
+			promptSectionID: {ID: promptSectionID, Name: "Prompt Section", VariantIDs: []string{"prompt-variant"}, DefaultVariantID: "prompt-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
+			"chat-variant":   {ID: "chat-variant", ImplID: "chat-impl"},
+			"prompt-variant": {ID: "prompt-variant", ImplID: "prompt-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-prompt-section",
+				"label":          "Kickoff",
+			})},
+			"chat-impl": {ID: "chat-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+			"prompt-impl": {ID: "prompt-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":               "prompt-impl",
+				"type":             "Prompt",
+				"promptTemplateId": promptTemplateValue,
+				"template":         promptTemplate,
+				"inputs":           map[string]string{},
+				"format":           string(projectstate.PromptFormatJinja),
+				"renderedText":     "",
+				"missingVariables": []string{},
+				"renderError":      nil,
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat",
+				MachineGroupID:  "workflow-prompt-section",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:            projectstate.StateMachineTargetActionTypeSendPrompt,
+					PromptSectionID: &promptSectionID,
+					PromptInputs:    promptInputs,
+					ThreadStrategy:  projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize prompt-section workflow project: %v", err)
 	}
 	return project
 }
