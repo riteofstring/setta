@@ -744,11 +744,7 @@ type SetCallableChildCodeObj projectstate.SetCallableChildCodeObj
 
 type SignatureHelpStatus projectstate.SignatureHelpStatus
 
-type SetCallableResponse struct {
-	CallableID    *string                   `json:"callableId,omitempty"`
-	ChildCodeObjs []SetCallableChildCodeObj `json:"childCodeObjs"`
-	LSPStatus     SignatureHelpStatus       `json:"lspStatus"`
-}
+type SetCallableResponse projectstate.SetCallableResponse
 
 type SetCallableRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`

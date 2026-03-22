@@ -63,6 +63,7 @@ That means:
   - `CreateNewSectionVariantResponse`
   - `SetCallableChildCodeObj`
   - `SignatureHelpStatus`
+  - `SetCallableResponse`
   - `CodeFileBindingUpdate`
 - `internal/frontendbindings/artifact_support.go` and `contracts.go` now use backend-owned wrapper types for the artifact/binary leaf contract family instead of repeating field layouts locally.
 - parts of `internal/frontendbindings/ai_settings_support.go` now use backend-owned wrapper types for enum/env-status families instead of repeating local string enums and structs.
@@ -239,6 +240,9 @@ That means:
 - duplicate backend ownership has been reduced further instead of teaching generators to arbitrate between equivalent owners:
   - `managedchat.ChatPermissionMode` and `externalagents.ChatPermissionMode` now alias the single owner `projectstate.ChatPermissionMode`
   - `runs.RunSnapshotMode` now aliases the single owner `deployments.RunSnapshotMode`
+- small route/callable contract shims have been reduced further:
+  - `projectstate.SetCallableResponse` now carries the correct optional `callableId` owner tag
+  - `frontendbindings` no longer needs a local `SetCallableResponse` shape just to preserve optionality
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

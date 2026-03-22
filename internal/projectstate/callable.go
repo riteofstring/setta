@@ -50,7 +50,7 @@ type SetCallableChildCodeObj struct {
 }
 
 type SetCallableResponse struct {
-	CallableID    *string                   `json:"callableId"`
+	CallableID    *string                   `json:"callableId,omitempty"`
 	ChildCodeObjs []SetCallableChildCodeObj `json:"childCodeObjs"`
 	LSPStatus     SignatureHelpStatus       `json:"lspStatus"`
 }
