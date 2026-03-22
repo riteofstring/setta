@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal
 
-from setta.types.generated.go_shared_types import DependencyKeyType
 from setta.types.id import ID
+
+
+class DependencyKeyType(str, Enum):
+    Section = "Section"
+    SectionParam = "SectionParam"
 
 
 @dataclass(frozen=True, slots=True)
