@@ -344,7 +344,7 @@ func TestRegisterAppDefinitionRoutesReturns404DetailWhenProjectManagerUnavailabl
 func TestRegisterAppDefinitionRoutesMalformedJSONReturnsValidationEnvelope(t *testing.T) {
 	t.Parallel()
 
-	// The source FastAPI request models surfaced malformed app-definition payloads through the 422 validation envelope.
+	// Malformed app-definition payloads should surface through the 422 validation envelope.
 	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
 
 	for _, testCase := range []struct {

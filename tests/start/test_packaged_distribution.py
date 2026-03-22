@@ -178,7 +178,7 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
     tmp_path: Path,
 ) -> None:
     # The wheel should ship the thin packaged entrypoint plus explicit runtime
-    # assets, not the full legacy Python backend tree.
+    # assets, not the full source-tree backend/runtime payload.
     project_root = _write_minimal_distribution_project(
         tmp_path,
         include_go_binaries=True,
@@ -298,7 +298,8 @@ def test_wheel_installs_and_runs_real_packaged_entrypoint_modules(
     tmp_path: Path,
 ) -> None:
     # The real packaged Python modules should stay import-safe when installed
-    # without the legacy backend tree that source/dev workflows still carry.
+    # without the larger source-tree backend/runtime files that dev workflows
+    # still carry.
     project_root = _write_minimal_distribution_project(
         tmp_path,
         include_go_binaries=True,

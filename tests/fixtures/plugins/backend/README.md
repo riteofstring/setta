@@ -2,8 +2,8 @@
 
 Go-backed success fixture plugin.
 
-- Purpose: backend plugin install/link/status coverage while the Go-native
-  backend runtime is still under rewrite.
+- Purpose: backend plugin install/link/status coverage against the live Go
+  backend runtime.
 - Capabilities: none. This fixture is a minimal Go backend plugin shell.
 
 Manual smoke:

@@ -408,7 +408,7 @@ func TestRegisterSettingsRoutesRejectsNonObjectSettingsPayload(t *testing.T) {
 func TestRegisterSettingsRoutesSaveMalformedJSONReturnsValidationEnvelope(t *testing.T) {
 	t.Parallel()
 
-	// The source FastAPI route surfaced malformed save payloads through the 422 validation envelope.
+	// Malformed save payloads should surface through the 422 validation envelope.
 	runtime, _ := newSettingsRouteTestRuntime(t)
 	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
 

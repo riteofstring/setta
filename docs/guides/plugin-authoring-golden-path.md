@@ -152,5 +152,6 @@ setta plugins restart-required
 ```
 
 Use fixture references in `tests/fixtures/plugins/` for known-good examples.
-Backend runtime parity still needs more Go rewrite work, but the authoring path
-for backend plugins is now Go-native.
+Backend-capable plugins should assume the live runtime is Go-owned and keep
+their backend entrypoint in `backend/main.go` with dependencies in
+`backend/go.mod`.

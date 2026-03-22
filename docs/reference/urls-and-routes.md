@@ -78,9 +78,9 @@ and hash are not preserved during the replace (current behavior).
 ## Backend API Routes
 
 Frontend routes above are **not** the same as backend API routes. Backend routes
-use the `Route` enum (`backend/setta/types/routes.py`) and are called via
-`/api/<route>` using the generated endpoint helpers in
-`frontend/src/utils/generatedEndpoints.ts`.
+are defined in `internal/httpapi/*.go` and exposed to the frontend through the
+generated endpoint helpers in `frontend/src/utils/generatedEndpoints.ts`
+(generated from `internal/frontendbindings/specs.go`).
 
 ### Chat dictation session routes
 
