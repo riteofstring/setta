@@ -116,7 +116,7 @@ Audit snapshot:
     - `backend/setta/types/generated/impl_field_literals.py`
     - `backend/setta/types/generated/shared_modifier.py`
 - Next deletion-review queue:
-  - `backend/setta/types/dropzone.py`
+  - none currently; re-open only if a new candidate is proved dead
 
 Verification:
 
@@ -182,6 +182,24 @@ Verification:
   - proof tests:
     - `./scripts/go.sh test ./internal/codegen/... ./internal/runs/... -count=1`
     - `source activate.sh && pytest tests/types/test_effective_impls.py -q`
+  - decision:
+    - delete now
+- [x] Fourth bounded deletion batch:
+  - file set:
+    - `backend/setta/types/dropzone.py`
+  - classification:
+    - dead source-helper tail
+  - current caller evidence:
+    - no Python module import/use hits for `backend/setta/types/dropzone.py`,
+      `parse_dropzone_value`, or `dropzone_value_to_attachments`;
+      remaining references were parity/archive notes plus the separate frontend
+      `DropzoneStoredValue` type alias
+  - replacement owner:
+    - active dropzone normalization/parsing lives on the Go backend and the
+      frontend helper surface (`frontend/src/utils/dropzone.ts`)
+  - proof tests:
+    - run focused Go dropzone/param slices:
+      `./scripts/go.sh test ./internal/projectstate ./internal/httpapi -run 'Dropzone|ParamValue|PasswordParam' -count=1`
   - decision:
     - delete now
 - [ ] Delete Python tests only when they either:
