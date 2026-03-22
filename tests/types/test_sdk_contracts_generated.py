@@ -29,7 +29,7 @@ def test_generated_listener_register_request_round_trips_dependency_key_unions()
         },
     )
 
-    # Generated retained-SDK request models must round-trip the same dependency
+    # Generated SDK request models must round-trip the same dependency
     # union payloads that the handwritten listener transport models already use.
     parsed = ListenerRegisterRequest.model_validate_json(request.model_dump_json())
 
