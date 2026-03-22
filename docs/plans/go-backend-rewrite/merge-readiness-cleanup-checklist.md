@@ -109,7 +109,6 @@ Audit snapshot:
     - `backend/setta/utils/format_code.py`
 - Next deletion-review queue:
   - `backend/setta/code_gen/python/value_helpers.py`
-  - `backend/setta/code_gen/value_mode.py`
   - `backend/setta/secrets/password_store.py`
   - `backend/setta/types/core.py`
   - `backend/setta/types/dropzone.py`
@@ -148,6 +147,23 @@ Verification:
   - proof tests:
     - existing Go name-validation and route tests under `internal/projectstate`
       and `internal/httpapi`
+  - decision:
+    - delete now
+- [x] Second bounded deletion batch:
+  - file set:
+    - `backend/setta/code_gen/value_mode.py`
+  - classification:
+    - dead enum/helper tail
+  - current caller evidence:
+    - no import/use hits for `PythonValueMode`, `LIVE_RUNTIME`, or
+      `PACKAGED_RUNTIME` outside the deleted file itself; only a stale doc
+      mention remained
+  - replacement owner:
+    - no runtime owner needed; the packaged-vs-live wording now lives directly
+      in docs without a Python enum indirection
+  - proof tests:
+    - no runtime/test surface imports the enum; deletion verified by repo-wide
+      search plus script/CLI smoke from Batch 6
   - decision:
     - delete now
 - [ ] Delete Python tests only when they either:

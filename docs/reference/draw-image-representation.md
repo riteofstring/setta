@@ -77,8 +77,8 @@ Relevant code:
   - Draw sections as `FileReadDependencyValue(renderedImagePath)` for `file_read`.
   - `file_path` emits a literal path string instead of reading file contents.
   - Missing `imagePath`/`renderedImagePath` downgrade to `expression` with the literal `"None"`.
-- In packaged runtime (`PythonValueMode.PACKAGED_RUNTIME`), generated code
-  uses `value_helpers.read_file_value(path)`:
+- In packaged runtime, generated code uses
+  `value_helpers.read_file_value(path)`:
   - Binary files (png snapshots) return `bytes`.
   - Text files return `str`.
 - Draw snapshots are written on run when the frontend supplies
