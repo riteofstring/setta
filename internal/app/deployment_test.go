@@ -23,6 +23,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/observability"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/pythonenv"
 	"setta/internal/realtime"
@@ -110,6 +111,57 @@ func TestAppShareModeDoesNotSeedIDEFilesOrStartIDEOnlyClients(t *testing.T) {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("expected share deployment startup not to seed %q, got err=%v", path, err)
 		}
+	}
+}
+
+func TestAppShareModePluginRuntimeIgnoresHostGlobalPluginHome(t *testing.T) {
+	cfg := testDeploymentConfig(t, config.ModeShare)
+	repoRoot := appTestRepoRoot(t)
+	hostSettaHome := filepath.Join(t.TempDir(), "host-home", ".setta")
+	copyAppTestDir(
+		t,
+		filepath.Join(repoRoot, "tests", "fixtures", "plugins", "frontend"),
+		filepath.Join(hostSettaHome, "plugins", "setta-fixture-frontend"),
+	)
+	t.Setenv("SETTA_HOME", hostSettaHome)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload plugins.RuntimeResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if payload.List.ServerMode != config.ModeShare || payload.Status.ServerMode != config.ModeShare {
+		t.Fatalf("expected share-mode plugin runtime payload, got list=%q status=%q", payload.List.ServerMode, payload.Status.ServerMode)
+	}
+	if len(payload.List.Plugins) != 0 || len(payload.Status.Plugins) != 0 {
+		t.Fatalf("expected share-mode plugin runtime to ignore host global plugins, got list=%#v status=%#v", payload.List.Plugins, payload.Status.Plugins)
 	}
 }
 

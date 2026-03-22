@@ -320,6 +320,36 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		plannerFilesRoot = deploymentRuntime.Paths().DeploymentRoot
 		artifactsRoot = deploymentRuntime.Paths().ArtifactsRoot
 		shareSessions = deploymentRuntime
+		pluginStore, err = plugins.NewStore(plugins.StoreOptions{
+			WorkspaceRoot:  deploymentRuntime.Paths().DeploymentRoot,
+			SettaFilesRoot: deploymentRuntime.Paths().DeploymentRoot,
+			SettaHome:      deploymentRuntime.Paths().RuntimeRoot,
+		})
+		if err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
+		pluginDiscovery, err = plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
+			Store:      pluginStore,
+			ServerMode: cfg.Server.Mode,
+		})
+		if err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
+		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
+			Store:            pluginStore,
+			DiscoveryService: pluginDiscovery,
+			WorkspaceRoot:    deploymentRuntime.Paths().DeploymentRoot,
+			SettaFilesRoot:   deploymentRuntime.Paths().DeploymentRoot,
+			SettaHome:        deploymentRuntime.Paths().RuntimeRoot,
+			ServerMode:       cfg.Server.Mode,
+		})
+		if err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
+		pluginRouteService = pluginMutationService
 	} else {
 		pythonMaterializer, err = codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
