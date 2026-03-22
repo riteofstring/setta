@@ -847,6 +847,9 @@ func resolveOptionalLinuxIconPath(rawValue string) (string, error) {
 	if err != nil {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("resolve icon_path: %v", err)}
 	}
+	if err := validateTextValueWithoutControlCharacters("icon_path", resolvedPath); err != nil {
+		return "", err
+	}
 	info, err := os.Stat(resolvedPath)
 	if err != nil || info == nil || !info.Mode().IsRegular() {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Icon file does not exist: %s", resolvedPath)}
@@ -1005,10 +1008,8 @@ func validateFileNameComponent(optionKey string, rawValue string) (string, error
 	if normalizedValue == "" {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must be non-empty.", optionKey)}
 	}
-	for _, char := range normalizedValue {
-		if char < 0x20 || char == 0x7f {
-			return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must not contain control characters.", optionKey)}
-		}
+	if err := validateTextValueWithoutControlCharacters(optionKey, normalizedValue); err != nil {
+		return "", err
 	}
 	if normalizedValue == "." || normalizedValue == ".." {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must not contain parent/self references.", optionKey)}
@@ -1020,6 +1021,15 @@ func validateFileNameComponent(optionKey string, rawValue string) (string, error
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must be a file name, not a path.", optionKey)}
 	}
 	return normalizedValue, nil
+}
+
+func validateTextValueWithoutControlCharacters(optionKey string, value string) error {
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must not contain control characters.", optionKey)}
+		}
+	}
+	return nil
 }
 
 func escapeXMLText(rawValue string) string {
