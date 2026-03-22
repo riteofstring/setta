@@ -355,6 +355,166 @@ func TestServiceResolveRemoteWorkspaceRejectsInvalidTildePrefix(t *testing.T) {
 	}
 }
 
+func TestServiceListRemoteWorkspaceSessionsIgnoresWhitespaceRemoteCommand(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, "")
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	sessions, err := service.ListRemoteWorkspaceSessions(ListRemoteWorkspaceSessionsInput{
+		SSHTarget:      "user@host",
+		Workspace:      "/remote/workspace",
+		RemoteCommand:  "   ",
+		ServerMode:     RemoteServerModeIDE,
+		SettaHome:      "",
+		SettaFilesRoot: "",
+	})
+	if err != nil {
+		t.Fatalf("list remote workspace sessions: %v", err)
+	}
+	if len(sessions) != 1 || sessions[0].ID != session.ID {
+		t.Fatalf("expected stub session %#v, got %#v", session, sessions)
+	}
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "setta --setta-files-location auto status --list-sessions --json --workspace /remote/workspace --server-mode ide") {
+		t.Fatalf("expected resolved default remote command in command log, got %q", commandLog)
+	}
+}
+
+func TestServiceStartRemoteSettaUsesUniqueNohupLogFile(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, "")
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	if err := service.startRemoteSetta(
+		"user@host",
+		nil,
+		"bash",
+		"/remote/workspace",
+		"setta",
+		"",
+		SSHCommandPrefix(true, stubPath),
+		"local",
+		"",
+		"",
+	); err != nil {
+		t.Fatalf("start remote setta: %v", err)
+	}
+
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "/nohup-") {
+		t.Fatalf("expected unique nohup log path, got %q", commandLog)
+	}
+	if strings.Contains(commandLog, "/nohup.out") {
+		t.Fatalf("did not expect default nohup.out path, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, "/remote/workspace/setta_files/runtime/logs/nohup-") {
+		t.Fatalf("expected workspace-local logs dir in command log, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, ".out") {
+		t.Fatalf("expected nohup log file suffix in command log, got %q", commandLog)
+	}
+}
+
+func TestServiceStartRemoteSettaPropagatesSshMissing(t *testing.T) {
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      "ssh-does-not-exist",
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	err = service.startRemoteSetta(
+		"user@host",
+		nil,
+		"bash",
+		"/tmp/work",
+		"setta",
+		"",
+		SSHCommandPrefix(true, "ssh-does-not-exist"),
+		"local",
+		"",
+		"",
+	)
+	requireSSHErrorCode(t, err, "SshMissing")
+}
+
+func TestServiceRunSSHCommandReportsMissingBinary(t *testing.T) {
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      "ssh-does-not-exist",
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.runSSHCommand(
+		"user@host",
+		nil,
+		"echo hi",
+		SSHCommandPrefix(true, "ssh-does-not-exist"),
+		100*time.Millisecond,
+	)
+	requireSSHErrorCode(t, err, "SshMissing")
+}
+
+func TestServiceRunSSHCommandTimesOut(t *testing.T) {
+	wrapperPath := writeSSHSleepWrapper(t, 250*time.Millisecond)
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      wrapperPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.runSSHCommand(
+		"user@host",
+		nil,
+		"echo hi",
+		SSHCommandPrefix(true, wrapperPath),
+		25*time.Millisecond,
+	)
+	requireSSHErrorCode(t, err, "SshTimeout")
+}
+
+func TestExtractTokenFromBootstrapURLIgnoresExtraFragmentParams(t *testing.T) {
+	t.Parallel()
+
+	token, err := extractTokenFromBootstrapURL(
+		"http://127.0.0.1:8000/__setta__/bootstrap#token=abc123&wh=payload&lo=http%3A%2F%2Fexample.com",
+	)
+	if err != nil {
+		t.Fatalf("extract bootstrap token: %v", err)
+	}
+	if token != "abc123" {
+		t.Fatalf("expected token abc123, got %q", token)
+	}
+}
+
 func createSSHStubSession(t *testing.T, sessionsRoot string, workspaceRoot string) auth.SessionMetadata {
 	t.Helper()
 	return createSSHStubSessionWithMode(t, sessionsRoot, workspaceRoot, string(RemoteServerModeIDE))
@@ -469,4 +629,15 @@ func assertNoTunnelMetadata(t *testing.T, runtimeRoot string) {
 	if len(metadataFiles) != 0 {
 		t.Fatalf("expected tunnel metadata to be removed, got %#v", metadataFiles)
 	}
+}
+
+func writeSSHSleepWrapper(t *testing.T, sleepDuration time.Duration) string {
+	t.Helper()
+
+	wrapperPath := filepath.Join(t.TempDir(), "ssh-sleep-wrapper.sh")
+	script := fmt.Sprintf("#!/bin/sh\nsleep %.3f\n", sleepDuration.Seconds())
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write ssh sleep wrapper: %v", err)
+	}
+	return wrapperPath
 }

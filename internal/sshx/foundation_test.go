@@ -106,6 +106,29 @@ func TestApplyControlSocketArgsLeavesExplicitOptionsUntouched(t *testing.T) {
 	}
 }
 
+func TestSplitTildePathAllowsSafePrefixes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		path          string
+		wantPrefix    string
+		wantRemainder string
+		wantOK        bool
+	}{
+		{path: "~", wantPrefix: "~", wantRemainder: "", wantOK: true},
+		{path: "~/repo", wantPrefix: "~", wantRemainder: "repo", wantOK: true},
+		{path: "~user/repo", wantPrefix: "~user", wantRemainder: "repo", wantOK: true},
+		{path: "/tmp/repo", wantPrefix: "", wantRemainder: "", wantOK: false},
+	}
+
+	for _, testCase := range testCases {
+		prefix, remainder, ok := splitTildePath(testCase.path)
+		if prefix != testCase.wantPrefix || remainder != testCase.wantRemainder || ok != testCase.wantOK {
+			t.Fatalf("splitTildePath(%q) = (%q, %q, %t), want (%q, %q, %t)", testCase.path, prefix, remainder, ok, testCase.wantPrefix, testCase.wantRemainder, testCase.wantOK)
+		}
+	}
+}
+
 func TestParseJSONPayloadExtractsObjectPayload(t *testing.T) {
 	t.Parallel()
 
@@ -177,6 +200,44 @@ func TestParseRemoteSessionListRejectsInvalidServerMode(t *testing.T) {
 		},
 	})
 	requireSSHErrorCode(t, err, "RemoteSessionList")
+}
+
+func TestParseRemoteSessionListValidatesRequiredKeys(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseRemoteSessionList(map[string]any{
+		"sessions": []any{
+			map[string]any{
+				"id": "session-1",
+			},
+		},
+	})
+	requireSSHErrorCode(t, err, "RemoteSessionList")
+	if !strings.Contains(err.Error(), "missing required key") {
+		t.Fatalf("expected missing-key error, got %q", err.Error())
+	}
+}
+
+func TestParseRemoteSessionListRequiresWorkspacePaths(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseRemoteSessionList(map[string]any{
+		"sessions": []any{
+			map[string]any{
+				"id":            "session-1",
+				"workspacePath": "/tmp/work",
+				"host":          "127.0.0.1",
+				"port":          float64(61234),
+				"pid":           float64(123),
+				"startedAt":     "2025-01-01T00:00:00Z",
+				"serverMode":    "ide",
+			},
+		},
+	})
+	requireSSHErrorCode(t, err, "RemoteSessionList")
+	if !strings.Contains(err.Error(), "workspacePathCanonical") {
+		t.Fatalf("expected canonical workspace path error, got %q", err.Error())
+	}
 }
 
 func TestParseRemoteConnectInfoValidatesLauncherOriginProof(t *testing.T) {
@@ -279,11 +340,106 @@ func TestResolveRemoteLogsDirFallsBackByLocation(t *testing.T) {
 	}
 }
 
+func TestResolveRemoteLogsDirMatchesSourceHelperBranches(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name               string
+		workspace          string
+		settaFilesLocation string
+		settaFilesRoot     string
+		runtimeRoot        string
+		want               string
+	}{
+		{
+			name:               "workspace_local_with_spaces",
+			workspace:          "/tmp/My Work",
+			settaFilesLocation: "local",
+			want:               "/tmp/My Work/setta_files/runtime/logs",
+		},
+		{
+			name:               "global_location",
+			workspace:          "/tmp/My Work",
+			settaFilesLocation: "global",
+			want:               "/tmp",
+		},
+		{
+			name:        "explicit_runtime_root",
+			workspace:   "/tmp/work",
+			runtimeRoot: "/tmp/custom_runtime",
+			want:        "/tmp/custom_runtime/logs",
+		},
+		{
+			name:        "tilde_runtime_root",
+			workspace:   "/tmp/work",
+			runtimeRoot: "~/runtime",
+			want:        "/tmp",
+		},
+		{
+			name:           "explicit_setta_files_root",
+			workspace:      "/tmp/work",
+			settaFilesRoot: "/tmp/custom_state",
+			want:           "/tmp/custom_state/runtime/logs",
+		},
+		{
+			name:           "tilde_setta_files_root",
+			workspace:      "/tmp/work",
+			settaFilesRoot: "~/state",
+			want:           "/tmp",
+		},
+		{
+			name:        "relative_runtime_root",
+			workspace:   "/tmp/workspace",
+			runtimeRoot: "setta_files_dev/runtime_custom",
+			want:        "/tmp/workspace/setta_files_dev/runtime_custom/logs",
+		},
+		{
+			name:           "relative_setta_files_root",
+			workspace:      "/tmp/workspace",
+			settaFilesRoot: "setta_files_dev",
+			want:           "/tmp/workspace/setta_files_dev/runtime/logs",
+		},
+	}
+
+	for _, testCase := range testCases {
+		logsDir, err := ResolveRemoteLogsDir(testCase.workspace, testCase.settaFilesLocation, testCase.settaFilesRoot, testCase.runtimeRoot)
+		if err != nil {
+			t.Fatalf("%s: resolve remote logs dir: %v", testCase.name, err)
+		}
+		if logsDir != testCase.want {
+			t.Fatalf("%s: got %q want %q", testCase.name, logsDir, testCase.want)
+		}
+	}
+}
+
 func TestResolveRemoteLogsDirRejectsInvalidLocation(t *testing.T) {
 	t.Parallel()
 
 	_, err := ResolveRemoteLogsDir("/srv/workspace", "workspace-local", "", "")
 	requireSSHErrorCode(t, err, "InvalidSettaFilesLocation")
+}
+
+func TestIsSafeRemotePathAllowsSpacesAndRejectsControlChars(t *testing.T) {
+	t.Parallel()
+
+	if !isSafeRemotePath("/tmp/has space") {
+		t.Fatal("expected spaces in absolute remote paths to be allowed")
+	}
+	if !isSafeRemotePath("/tmp/has\ttab") {
+		t.Fatal("expected tabs in absolute remote paths to be allowed")
+	}
+	if isSafeRemotePath("relative/path") {
+		t.Fatal("did not expect relative remote path to be treated as safe")
+	}
+	if isSafeRemotePath("/tmp/has\nnewline") {
+		t.Fatal("did not expect newline in remote path to be treated as safe")
+	}
+	if isSafeRemotePath("/tmp/has\rnewline") {
+		t.Fatal("did not expect carriage return in remote path to be treated as safe")
+	}
+	if isSafeRemotePath("/tmp/has\x00null") {
+		t.Fatal("did not expect null byte in remote path to be treated as safe")
+	}
 }
 
 func TestComputeTunnelKeyHashAndTunnelIDAreDeterministic(t *testing.T) {
