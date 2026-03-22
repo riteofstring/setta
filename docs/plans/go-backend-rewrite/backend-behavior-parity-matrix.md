@@ -510,6 +510,29 @@ Last audited: `2026-03-23`
   source-test section against this matrix again leaves `0` tests without an
   exact terminal disposition, so this batch is also stale wrapper output on
   the current head.
+- Follow-up in this pass on `ea045ca00a`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remained stale saved suite output
+  rather than a live Go implementation gap. Reconciling the current
+  `tmp/backend-gap-hunt-candidates.md` source-test section against this
+  matrix still leaves `0` tests without an exact terminal disposition on
+  this head, and this pass re-audited the stale websocket/listener backlog
+  slice from
+  `tests/websockets/test_listener_coverage.py::{test_returns_snapshot_for_new_dependencies,test_returns_none_when_dependencies_unchanged,test_emits_snapshot_when_dependencies_change,test_handles_wildcard_callbacks}`,
+  `tests/websockets/test_action_event_dispatch.py::{test_send_action_event_targets_action_subscribers,test_emit_action_event_increments_sequence,test_emit_action_event_shares_sequence_with_realtime_delta,test_emit_action_event_rejects_empty_payload}`,
+  and
+  `tests/websockets/test_realtime_event_hub_sessions.py::test_sequences_reset_per_share_session`,
+  confirming those clues were already terminal `Proved` /
+  `Intentional divergence` rows backed directly by
+  `TestBuildListenerCoverageSnapshotIgnoresRefreshOnlyCallbacks`,
+  `TestBuildListenerCoverageSnapshotTracksRealtimeWildcard`,
+  `TestRegisterRoutesListenerRegisterBroadcastsCoverageSnapshotToFrontendAndClearsOnDisconnect`,
+  `TestRegisterRoutesShareListenerCoverageBroadcastsOnlyToMatchingSessionFrontend`,
+  `TestListenerBroadcasterEmitDependencyEventsFiltersByDependencyModeAndShareSession`,
+  `TestListenerBroadcasterEmitDependencyEventsIncrementsSequence`,
+  `TestListenerBroadcasterDependencyEventsShareSequenceWithRealtimeDeltas`,
+  `TestListenerBroadcasterEmitDependencyEventsRejectsEmptyEvents`, and
+  `TestSequencerTracksIndependentProjectAndSessionScopes`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
