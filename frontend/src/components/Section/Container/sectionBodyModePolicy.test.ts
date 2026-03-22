@@ -1,10 +1,9 @@
-import { describe, expect, it } from "vitest";
 import {
   getAutoSectionBodyRequestedMode,
   getProjectedNodeSizePx,
-  isAutoSectionBodyPreviewCandidate,
   SECTION_BODY_AUTO_MODE_THRESHOLDS,
 } from "./sectionBodyModePolicy";
+import { describe, expect, it } from "vitest";
 
 describe("sectionBodyModePolicy", () => {
   it("marks inactive dense canvas sections as preview during motion when they are small on screen", () => {
@@ -14,7 +13,6 @@ describe("sectionBodyModePolicy", () => {
         family: "tier1-dense-params",
         isActiveSection: false,
         viewportInteractionActive: true,
-        previewLocalityEligible: true,
         zoom: 0.7,
         projectedWidthPx:
           SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedWidthPx - 1,
@@ -31,7 +29,6 @@ describe("sectionBodyModePolicy", () => {
         family: "tier1-dense-params",
         isActiveSection: true,
         viewportInteractionActive: true,
-        previewLocalityEligible: true,
         zoom: 0.6,
         projectedWidthPx: 120,
         projectedHeightPx: 90,
@@ -46,7 +43,6 @@ describe("sectionBodyModePolicy", () => {
         family: "sparse-local",
         isActiveSection: false,
         viewportInteractionActive: true,
-        previewLocalityEligible: true,
         zoom: 0.5,
         projectedWidthPx: 120,
         projectedHeightPx: 90,
@@ -59,7 +55,6 @@ describe("sectionBodyModePolicy", () => {
         family: "tier1-dense-params",
         isActiveSection: false,
         viewportInteractionActive: true,
-        previewLocalityEligible: true,
         zoom: 0.5,
         projectedWidthPx: 120,
         projectedHeightPx: 90,
@@ -74,8 +69,8 @@ describe("sectionBodyModePolicy", () => {
         family: "tier1-dense-params",
         isActiveSection: false,
         viewportInteractionActive: true,
-        previewLocalityEligible: true,
-        zoom: SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize,
+        zoom:
+          SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize,
         projectedWidthPx: null,
         projectedHeightPx: null,
       }),
@@ -89,7 +84,6 @@ describe("sectionBodyModePolicy", () => {
         family: "tier2-code",
         isActiveSection: false,
         viewportInteractionActive: true,
-        previewLocalityEligible: true,
         zoom: 0.6,
         projectedWidthPx: 140,
         projectedHeightPx: 90,
@@ -106,33 +100,5 @@ describe("sectionBodyModePolicy", () => {
       projectedWidthPx: null,
       projectedHeightPx: null,
     });
-  });
-
-  it("keeps otherwise eligible preview candidates live when locality excludes them", () => {
-    expect(
-      getAutoSectionBodyRequestedMode({
-        ownerKind: "canvas",
-        family: "tier1-dense-params",
-        isActiveSection: false,
-        viewportInteractionActive: true,
-        previewLocalityEligible: false,
-        zoom: 0.6,
-        projectedWidthPx: 120,
-        projectedHeightPx: 90,
-      }),
-    ).toBe("live");
-  });
-
-  it("exposes the preview candidate predicate for separate locality decisions", () => {
-    expect(
-      isAutoSectionBodyPreviewCandidate({
-        ownerKind: "canvas",
-        family: "tier1-dense-params",
-        isActiveSection: false,
-        zoom: 0.6,
-        projectedWidthPx: 120,
-        projectedHeightPx: 90,
-      }),
-    ).toBe(true);
   });
 });

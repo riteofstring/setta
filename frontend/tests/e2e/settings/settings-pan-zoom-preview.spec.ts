@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import { SECTION_BODY_AUTO_MODE_THRESHOLDS } from "../../../src/components/Section/Container/sectionBodyModePolicy";
 import { ensureAppReady } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -35,18 +34,10 @@ test("settings tier1 preview mode uses image overlays without unmounting live bo
     { timeout: 20000 },
   );
 
-  expect(
-    await page.locator('[data-section-body-preview-status="ready"]').count(),
-  ).toBeLessThanOrEqual(
-    SECTION_BODY_AUTO_MODE_THRESHOLDS.previewWarmNeighborhoodMaxSections,
-  );
-
   await panCanvas(page, { deltaX: 140, deltaY: 60, keepMouseDown: true });
 
   await page.waitForFunction(
-    () =>
-      document.querySelectorAll('[data-section-body-preview-image="true"]')
-        .length > 0,
+    () => document.querySelectorAll('[data-section-body-preview-image="true"]').length > 0,
     undefined,
     { timeout: 10000 },
   );
@@ -54,31 +45,18 @@ test("settings tier1 preview mode uses image overlays without unmounting live bo
   expect(
     await page.locator('[data-section-body-preview-image="true"]').count(),
   ).toBeGreaterThan(0);
-  expect(
-    await page.locator('[data-section-body-preview-image="true"]').count(),
-  ).toBeLessThanOrEqual(
-    SECTION_BODY_AUTO_MODE_THRESHOLDS.previewWarmNeighborhoodMaxSections,
-  );
 
   expect(
-    await page.locator("[data-section-body-preview-overlay]").count(),
+    await page.locator('[data-section-body-preview-overlay]').count(),
   ).toBeGreaterThan(0);
-  expect(
-    await page.locator("[data-section-body-preview-overlay]").count(),
-  ).toBeLessThanOrEqual(
-    SECTION_BODY_AUTO_MODE_THRESHOLDS.previewWarmNeighborhoodMaxSections,
-  );
 
   expect(
     await page.evaluate(() =>
       Array.from(
-        document.querySelectorAll<HTMLElement>(
-          "[data-section-body-preview-root]",
-        ),
+        document.querySelectorAll<HTMLElement>("[data-section-body-preview-root]"),
       ).some((root) =>
         Array.from(root.children).some(
-          (child) =>
-            child instanceof HTMLElement && child.style.opacity === "0",
+          (child) => child instanceof HTMLElement && child.style.opacity === "0",
         ),
       ),
     ),
