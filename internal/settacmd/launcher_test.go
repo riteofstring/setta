@@ -219,6 +219,33 @@ func TestRunLauncherSetupRejectsClearAndArtifactOptionsTogether(t *testing.T) {
 	}
 }
 
+func TestRunLauncherSetupRejectsRemovedManagedArtifactOption(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	managedArtifactPath := filepath.Join(t.TempDir(), "artifact")
+
+	stdout, stderr, runErr := runSettaCommand(t,
+		"--setta-home", settaHome,
+		"launcher", "setup",
+		"--json",
+		"--no-install-artifacts",
+		"--managed-artifact", "manual="+managedArtifactPath,
+	)
+	if runErr == nil {
+		t.Fatal("expected launcher setup parse failure")
+	}
+	if code := ExitCode(runErr); code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout on parse failure, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "No such option: --managed-artifact") {
+		t.Fatalf("expected missing managed-artifact option message, got %q", stderr)
+	}
+}
+
 func decodeJSONPayload(t *testing.T, raw string) map[string]any {
 	t.Helper()
 

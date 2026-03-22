@@ -195,7 +195,7 @@ func runLauncherWithDeps(args []string, global globalFlags, stdout io.Writer, st
 
 func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string, deps launcherRootDependencies) error {
 	flags := flag.NewFlagSet("launcher", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard)
 	var parsed launcherRootFlags
 	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON payload only.")
 	flags.StringVar(&parsed.workspace, "workspace", "", "Workspace root.")
@@ -204,7 +204,7 @@ func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr
 	flags.BoolVar(&parsed.noOpen, "no-open", false, "Skip opening browser or Chrome app.")
 	flags.Float64Var(&parsed.timeout, "timeout", 30.0, "Seconds to wait for session startup.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return emitLauncherFlagParseError(stderr, flags, err)
 	}
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher run does not accept positional arguments")
@@ -354,7 +354,7 @@ func runLauncherRoot(args []string, global globalFlags, stdout io.Writer, stderr
 
 func runLauncherSetup(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	flags := flag.NewFlagSet("launcher setup", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard)
 	var parsed launcherSetupFlags
 	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON payload only.")
 	flags.StringVar(&parsed.channel, "channel", "", "Launcher setup channel.")
@@ -366,7 +366,7 @@ func runLauncherSetup(args []string, global globalFlags, stdout io.Writer, stder
 	flags.Var(&boolChoiceFlag{target: &parsed.installArtifacts, value: true}, "install-artifacts", "Install managed platform artifacts.")
 	flags.Var(&boolChoiceFlag{target: &parsed.installArtifacts, value: false}, "no-install-artifacts", "Skip managed platform artifacts.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return emitLauncherFlagParseError(stderr, flags, err)
 	}
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher setup does not accept positional arguments")
@@ -435,10 +435,10 @@ func runLauncherSetup(args []string, global globalFlags, stdout io.Writer, stder
 
 func runLauncherStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	flags := flag.NewFlagSet("launcher status", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard)
 	jsonOutput := flags.Bool("json", false, "Emit JSON payload only.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return emitLauncherFlagParseError(stderr, flags, err)
 	}
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher status does not accept positional arguments")
@@ -491,10 +491,10 @@ func runLauncherStatus(args []string, global globalFlags, stdout io.Writer, stde
 
 func runLauncherRepair(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	flags := flag.NewFlagSet("launcher repair", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard)
 	jsonOutput := flags.Bool("json", false, "Emit JSON payload only.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return emitLauncherFlagParseError(stderr, flags, err)
 	}
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher repair does not accept positional arguments")
@@ -531,10 +531,10 @@ func runLauncherRepair(args []string, global globalFlags, stdout io.Writer, stde
 
 func runLauncherRemove(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	flags := flag.NewFlagSet("launcher remove", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard)
 	jsonOutput := flags.Bool("json", false, "Emit JSON payload only.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return emitLauncherFlagParseError(stderr, flags, err)
 	}
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher remove does not accept positional arguments")
@@ -570,11 +570,11 @@ func runLauncherRemove(args []string, global globalFlags, stdout io.Writer, stde
 
 func runLauncherUpdate(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	flags := flag.NewFlagSet("launcher update", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard)
 	jsonOutput := flags.Bool("json", false, "Emit JSON payload only.")
 	packageSpec := flags.String("package", "setta", "Package spec passed to uv tool install --upgrade.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return emitLauncherFlagParseError(stderr, flags, err)
 	}
 	if len(flags.Args()) != 0 {
 		return fmt.Errorf("launcher update does not accept positional arguments")
@@ -1134,6 +1134,55 @@ func emitLauncherCommandError(stdout io.Writer, stderr io.Writer, jsonOutput boo
 		fmt.Fprintln(stderr, "Remediation: fix or remove launcher metadata, then re-run `setta launcher setup`.")
 	}
 	return &ExitError{Code: exitCode, Silent: true}
+}
+
+func emitLauncherFlagParseError(stderr io.Writer, flags *flag.FlagSet, err error) error {
+	if errors.Is(err, flag.ErrHelp) {
+		if writeErr := writeLauncherFlagSetUsage(stderr, flags); writeErr != nil {
+			return writeErr
+		}
+		return &ExitError{Code: 0, Silent: true}
+	}
+	if writeErr := writeLauncherFlagSetUsageError(stderr, flags, normalizeLauncherFlagParseError(err.Error())); writeErr != nil {
+		return writeErr
+	}
+	return &ExitError{Code: 2, Err: err, Silent: true}
+}
+
+func writeLauncherFlagSetUsageError(writer io.Writer, flags *flag.FlagSet, message string) error {
+	if _, err := fmt.Fprintln(writer, message); err != nil {
+		return err
+	}
+	return writeLauncherFlagSetUsage(writer, flags)
+}
+
+func writeLauncherFlagSetUsage(writer io.Writer, flags *flag.FlagSet) error {
+	if _, err := fmt.Fprintf(writer, "Usage of %s:\n", flags.Name()); err != nil {
+		return err
+	}
+	flags.SetOutput(writer)
+	flags.PrintDefaults()
+	flags.SetOutput(io.Discard)
+	return nil
+}
+
+func normalizeLauncherFlagParseError(message string) string {
+	const unknownFlagPrefix = "flag provided but not defined: "
+	if !strings.HasPrefix(message, unknownFlagPrefix) {
+		return message
+	}
+	flagName := strings.TrimSpace(strings.TrimPrefix(message, unknownFlagPrefix))
+	if strings.HasPrefix(flagName, "--") {
+		return fmt.Sprintf("No such option: %s", flagName)
+	}
+	if strings.HasPrefix(flagName, "-") {
+		trimmed := strings.TrimPrefix(flagName, "-")
+		if len(trimmed) > 1 {
+			return fmt.Sprintf("No such option: --%s", trimmed)
+		}
+		return fmt.Sprintf("No such option: -%s", trimmed)
+	}
+	return fmt.Sprintf("No such option: %s", flagName)
 }
 
 func writeJSONPayload(writer io.Writer, payload any) error {
