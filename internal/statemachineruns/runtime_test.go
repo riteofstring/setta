@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -78,6 +79,58 @@ func (s *recordingRunStopper) StopRun(runID string) (agentruns.Run, error) {
 	return run, nil
 }
 
+type blockingManagedChatStarter struct {
+	mu             sync.Mutex
+	startedTwo     chan struct{}
+	startedTwoOnce sync.Once
+	chatIDs        []string
+	runIDs         []string
+	calls          int
+	requests       []managedchat.StartChatRequest
+}
+
+func newBlockingManagedChatStarter() *blockingManagedChatStarter {
+	return &blockingManagedChatStarter{
+		startedTwo: make(chan struct{}),
+		chatIDs:    []string{"chat-managed-1", "chat-managed-2"},
+		runIDs:     []string{"child-run-1", "child-run-2"},
+	}
+}
+
+func (s *blockingManagedChatStarter) StartChat(request managedchat.StartChatRequest) (managedchat.StartChatResult, error) {
+	s.mu.Lock()
+	s.requests = append(s.requests, request)
+	index := s.calls
+	s.calls++
+	if s.calls == 2 {
+		s.startedTwoOnce.Do(func() {
+			close(s.startedTwo)
+		})
+	}
+	s.mu.Unlock()
+
+	if index == 0 {
+		select {
+		case <-s.startedTwo:
+		case <-time.After(2 * time.Second):
+			return managedchat.StartChatResult{}, errors.New("timed out waiting for parallel start-edge chat dispatch")
+		}
+	}
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"projectConfigId": request.ProjectConfigID,
+		"chatId":          s.chatIDs[index],
+		"sectionId":       derefOptionalString(request.SectionID),
+		"engineConfigId":  request.EngineConfigID,
+	}, testNow())
+	run.ID = s.runIDs[index]
+	return managedchat.StartChatResult{
+		ChatID: s.chatIDs[index],
+		Run:    run,
+	}, nil
+}
+
 func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T) {
 	t.Parallel()
 
@@ -127,6 +180,36 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 	}
 	if chatID == nil || *chatID != "chat-managed-1" {
 		t.Fatalf("expected chat-section chat id chat-managed-1, got %#v", chatID)
+	}
+}
+
+func TestRuntimeStartRunFansOutStartChatEdgeGroupsInParallel(t *testing.T) {
+	t.Parallel()
+
+	fixture := newParallelStartRuntimeFixture(t)
+	run, err := fixture.runtime.StartRun("project-alpha", "workflow-parallel", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+	if run.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running parent run, got %#v", run)
+	}
+	if len(fixture.parallelStarter.requests) != 2 {
+		t.Fatalf("expected two managed chat requests, got %#v", fixture.parallelStarter.requests)
+	}
+	select {
+	case <-fixture.parallelStarter.startedTwo:
+	default:
+		t.Fatal("expected second managed chat dispatch to begin before the first completed")
+	}
+	if got := outputStringList(run, outputKeyChildRunIDs); !sameStringMembers(got, []string{"child-run-1", "child-run-2"}) {
+		t.Fatalf("expected both child run ids, got %#v", got)
+	}
+	if got := outputStringList(run, outputKeyActiveChildRunIDs); !sameStringMembers(got, []string{"child-run-1", "child-run-2"}) {
+		t.Fatalf("expected both child runs to stay active, got %#v", got)
+	}
+	if got := outputListOfMaps(run, outputKeyDispatchedStartActions); len(got) != 2 {
+		t.Fatalf("expected two dispatched start actions, got %#v", got)
 	}
 }
 
@@ -542,11 +625,12 @@ func TestRuntimeReportSignalCountsSourceActivationsForRetryLoop(t *testing.T) {
 }
 
 type runtimeFixture struct {
-	runtime        *Runtime
-	projectRuntime *projectstate.Runtime
-	runs           *agentruns.RunStore
-	managedStarter *recordingManagedChatStarter
-	managedStopper *recordingRunStopper
+	runtime         *Runtime
+	projectRuntime  *projectstate.Runtime
+	runs            *agentruns.RunStore
+	managedStarter  *recordingManagedChatStarter
+	managedStopper  *recordingRunStopper
+	parallelStarter *blockingManagedChatStarter
 }
 
 func newRuntimeFixture(t *testing.T) runtimeFixture {
@@ -615,6 +699,69 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 		runs:           runs,
 		managedStarter: managedStarter,
 		managedStopper: managedStopper,
+	}
+}
+
+func newParallelStartRuntimeFixture(t *testing.T) runtimeFixture {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": parallelStartRuntimeTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	runs, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	engines, err := agentruns.NewEngineStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	if err := engines.Write([]agentruns.EngineConfig{{
+		ID:         "engine-managed",
+		Name:       "Managed Engine",
+		EngineType: agentruns.EngineTypeSettaLLM,
+	}}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+	profiles := newTestAgentProfileStore(t, nil)
+
+	parallelStarter := newBlockingManagedChatStarter()
+	runtime, err := NewRuntime(RuntimeOptions{
+		Runs:     runs,
+		Engines:  engines,
+		Profiles: profiles,
+		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
+			if shareSessionID != nil {
+				t.Fatalf("unexpected share session lookup in parallel start test: %#v", shareSessionID)
+			}
+			return projectRuntime, nil
+		},
+		ManagedChats: parallelStarter,
+		ManagedRuns:  &recordingRunStopper{},
+		TimeNow:      testNow,
+	})
+	if err != nil {
+		t.Fatalf("NewRuntime returned error: %v", err)
+	}
+
+	return runtimeFixture{
+		runtime:         runtime,
+		projectRuntime:  projectRuntime,
+		runs:            runs,
+		parallelStarter: parallelStarter,
 	}
 }
 
@@ -807,6 +954,84 @@ func stateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize workflow project: %v", err)
+	}
+	return project
+}
+
+func parallelStartRuntimeTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-a":        "chat-a-variant",
+			"chat-b":        "chat-b-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-a":        {ID: "chat-a", Name: "Chat A", VariantIDs: []string{"chat-a-variant"}, DefaultVariantID: "chat-a-variant"},
+			"chat-b":        {ID: "chat-b", Name: "Chat B", VariantIDs: []string{"chat-b-variant"}, DefaultVariantID: "chat-b-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
+			"chat-a-variant": {ID: "chat-a-variant", ImplID: "chat-a-impl"},
+			"chat-b-variant": {ID: "chat-b-variant", ImplID: "chat-b-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-parallel",
+				"label":          "Kickoff",
+			})},
+			"chat-a-impl": {ID: "chat-a-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-a-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+			})},
+			"chat-b-impl": {ID: "chat-b-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-b-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat-a",
+				MachineGroupID:  "workflow-parallel",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-a",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Prompt A"),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-start-chat-b",
+				MachineGroupID:  "workflow-parallel",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-b",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Prompt B"),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize parallel workflow project: %v", err)
 	}
 	return project
 }
@@ -1204,6 +1429,26 @@ func hasEventType(run agentruns.Run, eventType string) bool {
 		}
 	}
 	return false
+}
+
+func sameStringMembers(got []string, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	gotCounts := make(map[string]int, len(got))
+	for _, value := range got {
+		gotCounts[value]++
+	}
+	for _, value := range want {
+		if gotCounts[value] == 0 {
+			return false
+		}
+		gotCounts[value]--
+		if gotCounts[value] == 0 {
+			delete(gotCounts, value)
+		}
+	}
+	return len(gotCounts) == 0
 }
 
 func testNow() time.Time {

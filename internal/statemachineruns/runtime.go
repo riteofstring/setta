@@ -120,6 +120,14 @@ type graph struct {
 	Edges          []projectstate.StateMachineEdge `json:"edges"`
 }
 
+type chatEdgeDispatchResult struct {
+	action         map[string]any
+	targetSection  string
+	previousChatID *string
+	chatID         string
+	childRunID     string
+}
+
 type graphSectionKind string
 
 const (
@@ -957,6 +965,10 @@ func (r *Runtime) activateEdges(
 	projectConfigID string,
 	shareSessionID *string,
 ) ([]map[string]any, error) {
+	edgeGroups := groupEdgesByTargetSection(edges)
+	if r.canActivateChatEdgeGroupsInParallel(graph, edgeGroups) {
+		return r.activateChatEdgeGroupsInParallel(projectRuntime, run, graph, edgeGroups, projectConfigID, shareSessionID)
+	}
 	actionResults := make([]map[string]any, 0)
 	for _, edge := range edges {
 		r.incrementEdgeActivationCount(run, edge.ID)
@@ -991,6 +1003,131 @@ func (r *Runtime) activateEdges(
 		}
 	}
 	return actionResults, nil
+}
+
+func groupEdgesByTargetSection(edges []projectstate.StateMachineEdge) [][]projectstate.StateMachineEdge {
+	orderedTargetSectionIDs := make([]string, 0)
+	edgesByTargetSection := make(map[string][]projectstate.StateMachineEdge)
+	for _, edge := range edges {
+		if _, ok := edgesByTargetSection[edge.TargetSectionID]; !ok {
+			orderedTargetSectionIDs = append(orderedTargetSectionIDs, edge.TargetSectionID)
+		}
+		edgesByTargetSection[edge.TargetSectionID] = append(edgesByTargetSection[edge.TargetSectionID], edge.Clone())
+	}
+	grouped := make([][]projectstate.StateMachineEdge, 0, len(orderedTargetSectionIDs))
+	for _, targetSectionID := range orderedTargetSectionIDs {
+		grouped = append(grouped, edgesByTargetSection[targetSectionID])
+	}
+	return grouped
+}
+
+func (r *Runtime) canActivateChatEdgeGroupsInParallel(
+	graph graph,
+	edgeGroups [][]projectstate.StateMachineEdge,
+) bool {
+	if len(edgeGroups) < 2 {
+		return false
+	}
+	for _, group := range edgeGroups {
+		if len(group) == 0 {
+			return false
+		}
+		targetSection, ok := graph.Sections[group[0].TargetSectionID]
+		if !ok || targetSection.Kind != graphSectionKindChat {
+			return false
+		}
+		for _, edge := range group {
+			if edge.TargetAction == nil {
+				return false
+			}
+			if edge.TargetAction.Type != projectstate.StateMachineTargetActionTypeSendPrompt {
+				return false
+			}
+			if edge.TargetSectionID != group[0].TargetSectionID {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (r *Runtime) activateChatEdgeGroupsInParallel(
+	projectRuntime *projectstate.Runtime,
+	run *agentruns.Run,
+	graph graph,
+	edgeGroups [][]projectstate.StateMachineEdge,
+	projectConfigID string,
+	shareSessionID *string,
+) ([]map[string]any, error) {
+	type groupResult struct {
+		dispatches []chatEdgeDispatchResult
+		err        error
+	}
+
+	results := make([]groupResult, len(edgeGroups))
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(edgeGroups))
+	for index, group := range edgeGroups {
+		go func(index int, group []projectstate.StateMachineEdge) {
+			defer waitGroup.Done()
+			dispatches, err := r.activateChatEdgeGroup(projectRuntime, run, graph, group, projectConfigID, shareSessionID)
+			results[index] = groupResult{
+				dispatches: dispatches,
+				err:        err,
+			}
+		}(index, group)
+	}
+	waitGroup.Wait()
+
+	actionResults := make([]map[string]any, 0)
+	var firstErr error
+	for _, result := range results {
+		if result.err != nil && firstErr == nil {
+			firstErr = result.err
+		}
+		for _, dispatch := range result.dispatches {
+			if err := r.applyChatEdgeDispatch(projectRuntime, run, projectConfigID, dispatch); err != nil {
+				return nil, err
+			}
+			actionResults = append(actionResults, cloneAnyMap(dispatch.action))
+		}
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return actionResults, nil
+}
+
+func (r *Runtime) activateChatEdgeGroup(
+	projectRuntime *projectstate.Runtime,
+	run *agentruns.Run,
+	graph graph,
+	edges []projectstate.StateMachineEdge,
+	projectConfigID string,
+	shareSessionID *string,
+) ([]chatEdgeDispatchResult, error) {
+	if len(edges) == 0 {
+		return []chatEdgeDispatchResult{}, nil
+	}
+	currentChatID, err := projectRuntime.ChatSectionChatID(projectConfigID, edges[0].TargetSectionID)
+	if err != nil {
+		return nil, err
+	}
+	dispatches := make([]chatEdgeDispatchResult, 0, len(edges))
+	activeChatID := cloneStringPointer(currentChatID)
+	for _, edge := range edges {
+		targetSection, ok := graph.Sections[edge.TargetSectionID]
+		if !ok {
+			return nil, fmt.Errorf("workflow target section %s not found in graph snapshot", edge.TargetSectionID)
+		}
+		dispatch, err := r.dispatchChatEdgeWithCurrentChatID(projectRuntime, run, graph, edge, targetSection, projectConfigID, shareSessionID, activeChatID)
+		if err != nil {
+			return dispatches, err
+		}
+		dispatches = append(dispatches, dispatch)
+		activeChatID = stringPointer(dispatch.chatID)
+	}
+	return dispatches, nil
 }
 
 func (r *Runtime) activateGateIfReady(
@@ -1076,20 +1213,44 @@ func (r *Runtime) dispatchChatEdge(
 			"threadStrategy":  string(targetAction.ThreadStrategy),
 		}, nil
 	}
-	promptText, err := r.resolvePromptText(projectRuntime, projectConfigID, edge, *targetAction)
+	dispatch, err := r.dispatchChatEdgeWithCurrentChatID(projectRuntime, run, graph, edge, targetSection, projectConfigID, shareSessionID, currentChatID)
 	if err != nil {
 		return nil, err
+	}
+	if err := r.applyChatEdgeDispatch(projectRuntime, run, projectConfigID, dispatch); err != nil {
+		return nil, err
+	}
+	return dispatch.action, nil
+}
+
+func (r *Runtime) dispatchChatEdgeWithCurrentChatID(
+	projectRuntime *projectstate.Runtime,
+	run *agentruns.Run,
+	graph graph,
+	edge projectstate.StateMachineEdge,
+	targetSection graphSection,
+	projectConfigID string,
+	shareSessionID *string,
+	currentChatID *string,
+) (chatEdgeDispatchResult, error) {
+	targetAction := edge.TargetAction
+	if targetAction == nil {
+		return chatEdgeDispatchResult{}, fmt.Errorf("workflow edge %s target action is required for chat dispatch", edge.ID)
+	}
+	promptText, err := r.resolvePromptText(projectRuntime, projectConfigID, edge, *targetAction)
+	if err != nil {
+		return chatEdgeDispatchResult{}, err
 	}
 	engineConfigID, err := r.resolveEngineConfigID(edge.ID, targetSection, *targetAction)
 	if err != nil {
-		return nil, err
+		return chatEdgeDispatchResult{}, err
 	}
 	engineConfig, err := r.engines.Get(engineConfigID)
 	if err != nil {
-		return nil, err
+		return chatEdgeDispatchResult{}, err
 	}
 	if err := r.ensureSignalDispatchProfileAllowed(graph, targetSection, *targetAction); err != nil {
-		return nil, err
+		return chatEdgeDispatchResult{}, err
 	}
 	message := userTextMessage(promptText)
 	resolvedPermissionMode := resolvePermissionMode(targetSection, *targetAction)
@@ -1113,7 +1274,7 @@ func (r *Runtime) dispatchChatEdge(
 	switch engineConfig.EngineType {
 	case agentruns.EngineTypeSettaLLM:
 		if r.managedChats == nil {
-			return nil, ErrRuntimeUnavailable
+			return chatEdgeDispatchResult{}, ErrRuntimeUnavailable
 		}
 		result, err := r.managedChats.StartChat(managedchat.StartChatRequest{
 			ChatID:           nextChatID,
@@ -1128,31 +1289,27 @@ func (r *Runtime) dispatchChatEdge(
 			AdditionalInputs: childInputs,
 		})
 		if err != nil {
-			return nil, err
+			return chatEdgeDispatchResult{}, err
 		}
-		if currentChatID == nil || *currentChatID != result.ChatID {
-			setOwnedChatBinding(run, edge.TargetSectionID, result.ChatID)
-		} else {
-			clearOwnedChatBinding(run, edge.TargetSectionID)
-		}
-		if _, err := projectRuntime.SetChatSectionChatID(r.baseContext, projectConfigID, edge.TargetSectionID, stringPointer(result.ChatID)); err != nil {
-			return nil, err
-		}
-		r.appendChildRunID(run, result.Run.ID)
-		r.addActiveChildRunID(run, result.Run.ID)
-		return map[string]any{
-			"edgeId":                edge.ID,
-			"actionType":            string(targetAction.Type),
-			"targetSectionId":       edge.TargetSectionID,
-			"chatId":                result.ChatID,
-			"runId":                 result.Run.ID,
-			"threadStrategy":        string(targetAction.ThreadStrategy),
-			"engineType":            string(engineConfig.EngineType),
-			"sourceActivationCount": r.sourceActivationCount(*run, edge.SourceSectionID),
+		return chatEdgeDispatchResult{
+			action: map[string]any{
+				"edgeId":                edge.ID,
+				"actionType":            string(targetAction.Type),
+				"targetSectionId":       edge.TargetSectionID,
+				"chatId":                result.ChatID,
+				"runId":                 result.Run.ID,
+				"threadStrategy":        string(targetAction.ThreadStrategy),
+				"engineType":            string(engineConfig.EngineType),
+				"sourceActivationCount": r.sourceActivationCount(*run, edge.SourceSectionID),
+			},
+			targetSection:  edge.TargetSectionID,
+			previousChatID: cloneStringPointer(currentChatID),
+			chatID:         result.ChatID,
+			childRunID:     result.Run.ID,
 		}, nil
 	case agentruns.EngineTypeExternalAgent:
 		if r.externalChats == nil {
-			return nil, ErrRuntimeUnavailable
+			return chatEdgeDispatchResult{}, ErrRuntimeUnavailable
 		}
 		result, err := r.externalChats.StartChat(r.baseContext, externalagents.StartChatRequest{
 			ChatID:           nextChatID,
@@ -1167,31 +1324,46 @@ func (r *Runtime) dispatchChatEdge(
 			AdditionalInputs: childInputs,
 		})
 		if err != nil {
-			return nil, err
+			return chatEdgeDispatchResult{}, err
 		}
-		if currentChatID == nil || *currentChatID != result.ChatID {
-			setOwnedChatBinding(run, edge.TargetSectionID, result.ChatID)
-		} else {
-			clearOwnedChatBinding(run, edge.TargetSectionID)
-		}
-		if _, err := projectRuntime.SetChatSectionChatID(r.baseContext, projectConfigID, edge.TargetSectionID, stringPointer(result.ChatID)); err != nil {
-			return nil, err
-		}
-		r.appendChildRunID(run, result.Run.ID)
-		r.addActiveChildRunID(run, result.Run.ID)
-		return map[string]any{
-			"edgeId":                edge.ID,
-			"actionType":            string(targetAction.Type),
-			"targetSectionId":       edge.TargetSectionID,
-			"chatId":                result.ChatID,
-			"runId":                 result.Run.ID,
-			"threadStrategy":        string(targetAction.ThreadStrategy),
-			"engineType":            string(engineConfig.EngineType),
-			"sourceActivationCount": r.sourceActivationCount(*run, edge.SourceSectionID),
+		return chatEdgeDispatchResult{
+			action: map[string]any{
+				"edgeId":                edge.ID,
+				"actionType":            string(targetAction.Type),
+				"targetSectionId":       edge.TargetSectionID,
+				"chatId":                result.ChatID,
+				"runId":                 result.Run.ID,
+				"threadStrategy":        string(targetAction.ThreadStrategy),
+				"engineType":            string(engineConfig.EngineType),
+				"sourceActivationCount": r.sourceActivationCount(*run, edge.SourceSectionID),
+			},
+			targetSection:  edge.TargetSectionID,
+			previousChatID: cloneStringPointer(currentChatID),
+			chatID:         result.ChatID,
+			childRunID:     result.Run.ID,
 		}, nil
 	default:
-		return nil, fmt.Errorf("workflow edge %s uses unsupported engine type %s", edge.ID, engineConfig.EngineType)
+		return chatEdgeDispatchResult{}, fmt.Errorf("workflow edge %s uses unsupported engine type %s", edge.ID, engineConfig.EngineType)
 	}
+}
+
+func (r *Runtime) applyChatEdgeDispatch(
+	projectRuntime *projectstate.Runtime,
+	run *agentruns.Run,
+	projectConfigID string,
+	dispatch chatEdgeDispatchResult,
+) error {
+	if dispatch.previousChatID == nil || *dispatch.previousChatID != dispatch.chatID {
+		setOwnedChatBinding(run, dispatch.targetSection, dispatch.chatID)
+	} else {
+		clearOwnedChatBinding(run, dispatch.targetSection)
+	}
+	if _, err := projectRuntime.SetChatSectionChatID(r.baseContext, projectConfigID, dispatch.targetSection, stringPointer(dispatch.chatID)); err != nil {
+		return err
+	}
+	r.appendChildRunID(run, dispatch.childRunID)
+	r.addActiveChildRunID(run, dispatch.childRunID)
+	return nil
 }
 
 func (r *Runtime) resolvePromptText(
