@@ -60,7 +60,7 @@ type EdgePort struct {
 type ViewMode struct {
 	ID                    string                           `json:"id"`
 	Name                  string                           `json:"name"`
-	SortIndex             int                              `json:"sortIndex,omitempty"`
+	SortIndex             int                              `json:"sortIndex"`
 	IsUserFacing          bool                             `json:"isUserFacing,omitempty"`
 	IsTab                 bool                             `json:"isTab,omitempty"`
 	VisibilityBySectionID map[string]bool                  `json:"visibilityBySectionId,omitempty"`

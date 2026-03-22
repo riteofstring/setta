@@ -4,6 +4,7 @@ import {
   getCurrentProjectConfigId,
   openOverviewMoreDestination,
   postBackend,
+  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../../helpers";
 
@@ -65,6 +66,7 @@ async function createCallableSectionAndFocus(page: Page): Promise<void> {
   if (!sectionId) {
     throw new Error("Failed to create callable section for overflow test.");
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
 
   await page.evaluate(async (targetSectionId: string) => {
     const { applyActiveSectionChange } = await import(
@@ -143,7 +145,10 @@ async function assertPaneTitleClearsFullscreenButton(
       const heading = Array.from(document.querySelectorAll("h2")).find(
         (node) => node.textContent?.trim() === targetHeadingText,
       );
-      if (!(button instanceof HTMLElement) || !(heading instanceof HTMLElement)) {
+      if (
+        !(button instanceof HTMLElement) ||
+        !(heading instanceof HTMLElement)
+      ) {
         return null;
       }
       const buttonRect = button.getBoundingClientRect();

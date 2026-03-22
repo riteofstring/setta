@@ -191,6 +191,26 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	}
 }
 
+func TestViewModeJSONIncludesZeroSortIndex(t *testing.T) {
+	t.Parallel()
+
+	encoded, err := json.Marshal(ViewMode{
+		ID:        "focus",
+		Name:      "Focus",
+		SortIndex: 0,
+	})
+	if err != nil {
+		t.Fatalf("marshal view mode: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("unmarshal view mode json: %v", err)
+	}
+	if got := decoded["sortIndex"]; got != float64(0) {
+		t.Fatalf("expected marshaled view mode to include sortIndex 0, got %#v in %s", got, string(encoded))
+	}
+}
+
 func newFrontendSourceTestDocument(t *testing.T) Document {
 	t.Helper()
 

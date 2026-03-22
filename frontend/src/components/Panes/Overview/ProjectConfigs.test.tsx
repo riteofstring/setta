@@ -260,4 +260,40 @@ describe("ProjectConfigs", () => {
 
     expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([]);
   });
+
+  it("does not clear persisted order while project metadata is still loading", () => {
+    const configA = createProjectConfig({
+      id: "config-a",
+      name: "Config Alpha",
+    });
+    const configB = createProjectConfig({
+      id: "config-b",
+      name: "Config Beta",
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = configA;
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: configA.id,
+      projectMetadata: [],
+    });
+    useLocalStorage.setState({
+      overviewProjectConfigOrder: [configB.id, configA.id],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+    syncStoreInitialState(useLocalStorage);
+
+    renderToStaticMarkup(
+      <MemoryRouter>
+        <ProjectConfigs />
+      </MemoryRouter>,
+    );
+
+    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([
+      configB.id,
+      configA.id,
+    ]);
+  });
 });

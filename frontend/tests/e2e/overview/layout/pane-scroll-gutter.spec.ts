@@ -4,6 +4,7 @@ import {
   getCurrentProjectConfigId,
   openProjectAiSettingsPopover,
   postBackend,
+  refreshProjectStateFromBackend,
   seedLocalStorage,
   setOverviewTab,
 } from "../../helpers";
@@ -26,6 +27,7 @@ async function focusCallableSection(page: import("@playwright/test").Page) {
   if (!sectionId) {
     throw new Error("Failed to create callable section for pane-scroll test.");
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
 
   await page.evaluate(async (targetSectionId: string) => {
     const { applyActiveSectionChange } = await import(
@@ -107,7 +109,9 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
   await ensureAppReady(page);
   await openProjectAiSettingsPopover(page);
 
-  const overviewTabContentShell = page.getByTestId("overview-tab-content-shell");
+  const overviewTabContentShell = page.getByTestId(
+    "overview-tab-content-shell",
+  );
   const llmKeysTrigger = overviewTabContentShell.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",
   );

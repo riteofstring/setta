@@ -16,6 +16,7 @@ async function seedWindowSpacePane(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
       createWindowSpaceConfig,
     } = await import("/src/utils/generatedTypes.ts");
@@ -45,7 +46,7 @@ async function seedWindowSpacePane(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["floating-window"],
         instancesById: {
-          "floating-window": {
+          "floating-window": createProjectChatWindowInstance({
             instanceId: "floating-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -59,7 +60,7 @@ async function seedWindowSpacePane(
               width: 420,
               height: 320,
             },
-          },
+          }),
         },
       });
     });
@@ -93,6 +94,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
       createWindowSpaceConfig,
     } = await import("/src/utils/generatedTypes.ts");
@@ -115,7 +117,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["keep-window", "stale-window"],
         instancesById: {
-          "keep-window": {
+          "keep-window": createProjectChatWindowInstance({
             instanceId: "keep-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -129,8 +131,8 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
               width: 420,
               height: 320,
             },
-          },
-          "stale-window": {
+          }),
+          "stale-window": createProjectChatWindowInstance({
             instanceId: "stale-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -144,7 +146,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
               width: 360,
               height: 280,
             },
-          },
+          }),
         },
       });
     });
@@ -178,6 +180,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
     } = await import("/src/utils/generatedTypes.ts");
 
@@ -191,7 +194,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["save-window"],
         instancesById: {
-          "save-window": {
+          "save-window": createProjectChatWindowInstance({
             instanceId: "save-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -207,7 +210,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
               width: 420,
               height: 320,
             },
-          },
+          }),
         },
         nextInstanceNumber: 2,
       });
@@ -242,6 +245,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
       createWindowSpaceConfig,
     } = await import("/src/utils/generatedTypes.ts");
@@ -278,7 +282,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["live-window"],
         instancesById: {
-          "live-window": {
+          "live-window": createProjectChatWindowInstance({
             instanceId: "live-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -294,7 +298,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
               width: 420,
               height: 320,
             },
-          },
+          }),
         },
         nextInstanceNumber: 2,
       });
