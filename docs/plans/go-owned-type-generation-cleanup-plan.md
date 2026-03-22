@@ -55,6 +55,11 @@ That means:
   - `internal/prompttemplates.Format` is now the single backend owner
   - frontend/Python generation still exports `PromptFormat`, but it now wraps the real owner instead of mirroring a duplicate backend enum
 - the generated type-registry writer now only imports packages that are actually referenced by emitted wrapper overrides, so cleanup passes do not leave stale generated imports behind.
+- `internal/frontendbindings/ai_settings_support.go` now uses owner-backed wrappers for the prompt-template and LLM config families where the backend structs already matched cleanly:
+  - `PromptTemplate -> prompttemplates.Template`
+  - `MCPServerConfig -> llmconfig.ServerConfig`
+  - `LLMConfig -> llmconfig.Config`
+  - `AllLLMConfigs -> llmconfig.AllConfigs`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -88,7 +93,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family and the artifact/binary leaf family, but not yet for the chat, dependency, and larger settings/config families.
+This has improved for the project-state/view/windowing family, the artifact/binary leaf family, and the prompt-template / LLM-config family, but not yet for the chat, dependency, and larger external-agent settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

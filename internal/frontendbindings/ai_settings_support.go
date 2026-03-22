@@ -16,36 +16,11 @@ const (
 	MCPServerTransportStdio          MCPServerTransport = MCPServerTransport(llmconfig.TransportStdio)
 )
 
-type MCPServerConfig struct {
-	Transport            MCPServerTransport `json:"transport"`
-	URL                  *string            `json:"url,omitempty"`
-	Command              *string            `json:"command,omitempty"`
-	Args                 *[]string          `json:"args,omitempty"`
-	Env                  *map[string]string `json:"env,omitempty"`
-	HTTPHeaders          *map[string]string `json:"http_headers,omitempty"`
-	CWD                  *string            `json:"cwd,omitempty"`
-	Encoding             *string            `json:"encoding,omitempty"`
-	EncodingErrorHandler *string            `json:"encoding_error_handler,omitempty"`
-}
+type MCPServerConfig llmconfig.ServerConfig
 
-type LLMConfig struct {
-	ID           string          `json:"id"`
-	Model        string          `json:"model"`
-	Provider     *string         `json:"provider,omitempty"`
-	BaseURL      *string         `json:"base_url,omitempty"`
-	APIKeyEnv    *string         `json:"api_key_env,omitempty"`
-	OtherParams  *map[string]any `json:"other_params,omitempty"`
-	MCPServerIDs *[]string       `json:"mcpServerIds,omitempty"`
-	Temporary    bool            `json:"temporary"`
-}
+type LLMConfig llmconfig.Config
 
-type AllLLMConfigs struct {
-	Configs             map[string]LLMConfig       `json:"configs"`
-	MCPServers          map[string]MCPServerConfig `json:"mcpServers"`
-	DefaultMCPServerIDs []string                   `json:"defaultMcpServerIds"`
-	DefaultConfigID     *string                    `json:"default_config_id,omitempty"`
-	CodexMCPImportedAt  *string                    `json:"codexMcpImportedAt,omitempty"`
-}
+type AllLLMConfigs llmconfig.AllConfigs
 
 type PromptFormat prompttemplates.Format
 
@@ -53,15 +28,7 @@ const (
 	PromptFormatJinja PromptFormat = PromptFormat(prompttemplates.FormatJinja)
 )
 
-type PromptTemplate struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Template    string         `json:"template"`
-	Format      PromptFormat   `json:"format"`
-	InputSchema map[string]any `json:"inputSchema"`
-	Metadata    map[string]any `json:"metadata"`
-}
+type PromptTemplate prompttemplates.Template
 
 type ExternalAgentToolType externalagentconfigs.ToolType
 

@@ -1236,14 +1236,14 @@ export type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
 
 export type MCPServerConfig = {
   transport: MCPServerTransport;
-  url?: string | null;
-  command?: string | null;
-  args?: Array<string> | null;
-  env?: Record<string, string> | null;
-  http_headers?: Record<string, string> | null;
-  cwd?: string | null;
-  encoding?: string | null;
-  encoding_error_handler?: string | null;
+  url?: string;
+  command?: string;
+  args?: Array<string>;
+  env?: Record<string, string>;
+  http_headers?: Record<string, string>;
+  cwd?: string;
+  encoding?: string;
+  encoding_error_handler?: string;
 };
 export function createMCPServerConfig(
   options: Partial<MCPServerConfig> = {},
@@ -1254,12 +1254,12 @@ export function createMCPServerConfig(
 export type LLMConfig = {
   id: string;
   model: string;
-  provider?: string | null;
-  base_url?: string | null;
-  api_key_env?: string | null;
-  other_params?: Record<string, unknown> | null;
-  mcpServerIds?: Array<string> | null;
-  temporary: boolean;
+  provider?: string;
+  base_url?: string;
+  api_key_env?: string;
+  other_params?: Record<string, unknown>;
+  mcpServerIds?: Array<string>;
+  temporary?: boolean;
 };
 export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
   return options as LLMConfig;
@@ -1269,8 +1269,8 @@ export type AllLLMConfigs = {
   configs: Record<string, LLMConfig>;
   mcpServers: Record<string, MCPServerConfig>;
   defaultMcpServerIds: Array<string>;
-  default_config_id?: string | null;
-  codexMcpImportedAt?: string | null;
+  default_config_id?: string;
+  codexMcpImportedAt?: string;
 };
 export function createAllLLMConfigs(
   options: Partial<AllLLMConfigs> = {},
