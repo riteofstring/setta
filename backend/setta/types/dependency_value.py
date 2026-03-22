@@ -1,39 +1,28 @@
-from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import Field
-from setta.types.generated.go_shared_types import DependencyValueType
-from setta.types.generated.go_shared_types import BinaryContentRef
+from setta.types.generated.go_shared_types import (
+    BinaryContentRef,
+    BinaryDependencyValue as GoBinaryDependencyValue,
+    DependencyValueType,
+    FileReadDependencyValue as GoFileReadDependencyValue,
+    LiteralDependencyValue as GoLiteralDependencyValue,
+)
 
 
-@dataclass(frozen=True, slots=True)
-class BaseDependencyValue:
-    payload: Any
-    type: DependencyValueType
-
-
-@dataclass(frozen=True, slots=True)
-class LiteralDependencyValue(BaseDependencyValue):
+class LiteralDependencyValue(GoLiteralDependencyValue):
+    type: Literal[DependencyValueType.Literal] = DependencyValueType.Literal
     payload: str
-    type: Literal[DependencyValueType.Literal] = field(
-        default=DependencyValueType.Literal, init=False
-    )
 
 
-@dataclass(frozen=True, slots=True)
-class FileReadDependencyValue(BaseDependencyValue):
+class FileReadDependencyValue(GoFileReadDependencyValue):
+    type: Literal[DependencyValueType.FileRead] = DependencyValueType.FileRead
     payload: str
-    type: Literal[DependencyValueType.FileRead] = field(
-        default=DependencyValueType.FileRead, init=False
-    )
 
 
-@dataclass(frozen=True, slots=True)
-class BinaryDependencyValue(BaseDependencyValue):
+class BinaryDependencyValue(GoBinaryDependencyValue):
+    type: Literal[DependencyValueType.Binary] = DependencyValueType.Binary
     payload: BinaryContentRef
-    type: Literal[DependencyValueType.Binary] = field(
-        default=DependencyValueType.Binary, init=False
-    )
 
 
 BaseDependencyValueUnion = (

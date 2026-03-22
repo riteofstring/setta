@@ -128,6 +128,9 @@ That means:
 - `backend/setta/types/websocket.py` no longer owns the listener websocket message-type enum; it now reuses the Go-owned generated `ListenerMessageType`.
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 - the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
+- the Go -> Python generator now also preserves named Go string-enum field types inside generated models instead of flattening them to plain `str`, which makes the generated Python surface much closer to the real backend schema.
+- `backend/setta/types/dependency_value.py` no longer hand-owns the dependency-value field layouts:
+  - the Python file is now only a discriminated-union adapter over Go-generated models so the listener SDK can keep using `Field(discriminator="type")`.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -151,9 +154,9 @@ Working assumption for the next passes:
 - `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
 - the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
 - `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
-- `dependency_value.py` is smaller and narrower, but still needs a deliberate decision because the current frozen dataclass API is used directly in Python tests and runtime helpers.
+- `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is mostly Python-side chart settings, tuple aliases, default ids, and draw-area convenience defaults.
-- the main remaining shared-contract candidates are now `dependency_value.py` and the remaining local policy/default layer in `project_config.py`.
+- the main remaining shared-contract candidates are now the remaining local policy/default layer in `project_config.py` and any reducible remainder in `artifact.py`.
 
 ## What Is Still Wrong
 
@@ -204,7 +207,6 @@ The prompt-format duplication has already been removed. The remaining work here 
 The remaining handwritten Python files are much smaller and clearer than before.
 
 The main candidates are now:
-- `dependency_value.py`, if the Python listener/runtime no longer needs the frozen dataclass constructor/equality behavior
 - the remaining local wrapper content in `project_config.py`, if more of its defaults can move cleanly onto Go-owned models without adding duplicate Go definitions
 - the remainder of `artifact.py`, if chart settings and draw-area defaults can be moved or deleted cleanly without reintroducing duplicate Go definitions
 
@@ -212,6 +214,7 @@ Already narrowed to Python adapter layers:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
+- `dependency_value.py`
 - `listener.py`
 - `websocket.py`
 

@@ -58,6 +58,22 @@ class ListRootViewMode(str, Enum):
     kanban = "kanban"
 
 
+class DrawAreaLayerItemType(str, Enum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+
+
+class ChatWindowMode(str, Enum):
+    project_ai_mode = "project_ai_mode"
+    section_mode = "section_mode"
+    git_graph_mode = "git_graph_mode"
+
+
+class WindowSpaceSurfaceKind(str, Enum):
+    project_chat = "project_chat"
+    section = "section"
+
+
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
@@ -85,6 +101,30 @@ class StateMachineGateType(str, Enum):
     XOR = "XOR"
 
 
+class StateMachineTargetActionType(str, Enum):
+    send_prompt = "send_prompt"
+    reset_thread = "reset_thread"
+
+
+class StateMachineThreadStrategy(str, Enum):
+    continue_current_thread = "continue_current_thread"
+    new_thread_before_send = "new_thread_before_send"
+
+
+class StateMachineSourceFilterType(str, Enum):
+    run_completed = "run_completed"
+    run_failed = "run_failed"
+    signal = "signal"
+
+
+class StateMachineCountOperator(str, Enum):
+    lt = "lt"
+    lte = "lte"
+    eq = "eq"
+    gte = "gte"
+    gt = "gt"
+
+
 class TextBlockDisplayMode(str, Enum):
     Render = "Render"
     Edit = "Edit"
@@ -93,6 +133,12 @@ class TextBlockDisplayMode(str, Enum):
 class TextBlockFormat(str, Enum):
     Plaintext = "Plaintext"
     Markdown = "Markdown"
+
+
+class WatchCodeCallableKind(str, Enum):
+    function = "function"
+    async_function = "async_function"
+    class_init = "class_init"
 
 
 class DependencyKeyType(str, Enum):
@@ -345,7 +391,7 @@ class ChatSectionState(SettaSharedTypeModel):
 
 
 class DrawAreaLayerItem(SettaSharedTypeModel):
-    type: str
+    type: DrawAreaLayerItemType
     dataPath: str
     transformId: str
 
@@ -419,9 +465,9 @@ class NormalizedFloatingWindowBounds(SettaSharedTypeModel):
 
 
 class WindowSpaceWindow(SettaSharedTypeModel):
-    surfaceKind: str | None = None
+    surfaceKind: WindowSpaceSurfaceKind | None = None
     sectionIdOrNull: str | None = None
-    mode: str | None = None
+    mode: ChatWindowMode | None = None
     title: str | None = None
     chatId: str | None = None
     embeddedGitPaneVisible: bool | None = None
@@ -438,24 +484,24 @@ class WindowSpaceConfig(SettaSharedTypeModel):
 
 
 class StateMachineSourceFilter(SettaSharedTypeModel):
-    type: str
+    type: StateMachineSourceFilterType
     signalName: str | None = None
     payloadField: str | None = None
     equals: str | None = None
 
 
 class StateMachineSourceActivationCountCondition(SettaSharedTypeModel):
-    operator: str
+    operator: StateMachineCountOperator
     value: int
 
 
 class StateMachineTargetAction(SettaSharedTypeModel):
-    type: str
+    type: StateMachineTargetActionType
     promptTemplateId: str | None = None
     promptSectionId: str | None = None
     inlinePrompt: str | None = None
     promptInputs: dict[str, str] | None = None
-    threadStrategy: str
+    threadStrategy: StateMachineThreadStrategy
     stopIfRunning: bool | None = None
     engineConfigId: str | None = None
     agentProfileId: str | None = None
@@ -486,12 +532,22 @@ class WatchCodeFolder(SettaSharedTypeModel):
 
 class WatchCodeRegistryEntry(SettaSharedTypeModel):
     callableName: str
-    kind: str
+    kind: WatchCodeCallableKind
     signatureHash: str
     bodyHash: str
     sourcePath: str
     sectionIds: list[str] | None = None
     sectionsCount: int | None = None
+
+
+class LiteralDependencyValue(SettaSharedTypeModel):
+    type: DependencyValueType
+    payload: str
+
+
+class FileReadDependencyValue(SettaSharedTypeModel):
+    type: DependencyValueType
+    payload: str
 
 
 class MessageTextDelta(SettaSharedTypeModel):
@@ -509,18 +565,18 @@ class MessageThinkingDelta(SettaSharedTypeModel):
 
 
 class MessageStartEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     message: dict[str, Any]
 
 
 class MessageDeltaEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     message_id: str
     content: list[Any]
 
 
 class ToolCallDeltaEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     message_id: str
     tool_call_id: str
     arguments_delta: str
@@ -528,12 +584,12 @@ class ToolCallDeltaEvent(SettaSharedTypeModel):
 
 
 class ToolResultEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     result: dict[str, Any]
 
 
 class ToolArgumentPreviewDeltaEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     message_id: str
     tool_call_id: str
     tool_name: str
@@ -544,19 +600,19 @@ class ToolArgumentPreviewDeltaEvent(SettaSharedTypeModel):
 
 
 class MessageStopEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     message_id: str
 
 
 class MessageFinalizedEvent(SettaSharedTypeModel):
-    type: str
+    type: StreamingEventType
     message: dict[str, Any]
 
 
 class BrushStroke(SettaSharedTypeModel):
     strokeStyle: str
     lineWidth: float
-    lineCap: str
+    lineCap: DrawAreaBrushShape
     points: list[Any]
     globalCompositeOperation: str
 
@@ -564,7 +620,7 @@ class BrushStroke(SettaSharedTypeModel):
 class BrushStrokeWithTransform(SettaSharedTypeModel):
     strokeStyle: str
     lineWidth: float
-    lineCap: str
+    lineCap: DrawAreaBrushShape
     points: list[Any]
     globalCompositeOperation: str
     transform: list[float]
@@ -583,19 +639,19 @@ class DrawAreaLayer(SettaSharedTypeModel):
 
 
 class BrushStrokeArtifact(SettaSharedTypeModel):
-    type: str
+    type: ArtifactType
     id: str
     value: BrushStroke
 
 
 class DrawAreaLayerItemTransformArtifact(SettaSharedTypeModel):
-    type: str
+    type: ArtifactType
     id: str
     value: DrawAreaLayerItemTransform
 
 
 class ChartDataArtifact(SettaSharedTypeModel):
-    type: str
+    type: ArtifactType
     id: str
     value: dict[str, list[Any]]
 
@@ -647,7 +703,7 @@ class ToolCall(SettaSharedTypeModel):
 
 class SystemChatMessage(SettaSharedTypeModel):
     id: str
-    role: str
+    role: ChatRole
     createdAt: int
     content: list[dict[str, Any]]
     attachments: list[ChatFileAttachment]
@@ -655,7 +711,7 @@ class SystemChatMessage(SettaSharedTypeModel):
 
 class AssistantChatMessage(SettaSharedTypeModel):
     id: str
-    role: str
+    role: ChatRole
     createdAt: int
     content: list[dict[str, Any]]
     attachments: list[ChatFileAttachment]
@@ -664,7 +720,7 @@ class AssistantChatMessage(SettaSharedTypeModel):
 
 class UserChatMessage(SettaSharedTypeModel):
     id: str
-    role: str
+    role: ChatRole
     createdAt: int
     content: list[dict[str, Any]]
     attachments: list[ChatFileAttachment]
@@ -672,7 +728,7 @@ class UserChatMessage(SettaSharedTypeModel):
 
 class ToolChatMessage(SettaSharedTypeModel):
     id: str
-    role: str
+    role: ChatRole
     createdAt: int
     tool_call_id: str
     tool_name: str | None = None
@@ -720,13 +776,18 @@ class BinaryContentRef(SettaSharedTypeModel):
     sha256: str | None = None
 
 
+class BinaryDependencyValue(SettaSharedTypeModel):
+    type: DependencyValueType
+    payload: BinaryContentRef
+
+
 class ImageArtifact(SettaSharedTypeModel):
-    type: str
+    type: ArtifactType
     id: str
     value: BinaryContentRef
 
 
 class FileArtifact(SettaSharedTypeModel):
-    type: str
+    type: ArtifactType
     id: str
     value: BinaryContentRef

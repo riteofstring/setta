@@ -447,7 +447,7 @@ class TestSettaListenerRealtimeIntegration:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value=LiteralDependencyValue("Updated-1"),
+                    value=LiteralDependencyValue(payload="Updated-1"),
                 )
             ],
             sequence=1,
@@ -461,7 +461,7 @@ class TestSettaListenerRealtimeIntegration:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value=LiteralDependencyValue("Updated-2"),
+                    value=LiteralDependencyValue(payload="Updated-2"),
                 )
             ],
             sequence=2,
@@ -565,7 +565,7 @@ class TestSettaListenerRealtimeIntegration:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value=LiteralDependencyValue("Updated"),
+                    value=LiteralDependencyValue(payload="Updated"),
                 )
             ],
             sequence=1,
@@ -636,7 +636,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Update-A"),
+                        value=LiteralDependencyValue(payload="Update-A"),
                     )
                 ],
                 sequence=1,
@@ -651,7 +651,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Update-B"),
+                        value=LiteralDependencyValue(payload="Update-B"),
                     )
                 ],
                 sequence=2,
@@ -697,7 +697,7 @@ class TestSettaListenerRealtimeIntegration:
                     deltas=[
                         ListenerRealtimeDelta(
                             dependency=dependency_key,
-                            value=LiteralDependencyValue("Update-A"),
+                            value=LiteralDependencyValue(payload="Update-A"),
                         )
                     ],
                     sequence=1,
@@ -747,7 +747,7 @@ class TestSettaListenerRealtimeIntegration:
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        payload=LiteralDependencyValue("payload-a"),
+                        payload=LiteralDependencyValue(payload="payload-a"),
                         timestampMs=1,
                     )
                 ],
@@ -763,7 +763,7 @@ class TestSettaListenerRealtimeIntegration:
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        payload=LiteralDependencyValue("payload-b"),
+                        payload=LiteralDependencyValue(payload="payload-b"),
                         timestampMs=2,
                     )
                 ],
@@ -807,7 +807,7 @@ class TestSettaListenerRealtimeIntegration:
                     dependencyEvents=[
                         DependencyEvent(
                             dependencyKey=dependency_key,
-                            payload=LiteralDependencyValue("payload-b"),
+                            payload=LiteralDependencyValue(payload="payload-b"),
                             timestampMs=2,
                         )
                     ],
@@ -854,7 +854,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
+                        value=LiteralDependencyValue(payload="Updated"),
                     )
                 ],
                 sequence=1,
@@ -901,7 +901,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
+                        value=LiteralDependencyValue(payload="Updated"),
                     )
                 ],
                 sequence=1,
@@ -942,7 +942,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
+                        value=LiteralDependencyValue(payload="Updated"),
                     )
                 ],
                 sequence=1,
@@ -1014,7 +1014,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
+                        value=LiteralDependencyValue(payload="Updated"),
                     )
                 ],
                 sequence=1,
@@ -1076,7 +1076,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated"),
+                        value=LiteralDependencyValue(payload="Updated"),
                     )
                 ],
                 sequence=1,
@@ -1162,14 +1162,14 @@ class TestSettaListenerRealtimeIntegration:
                         sectionId=SECTION_ONE_ID,
                         codeObjId=PARAM_SLIDER_ID,
                     ),
-                    value=LiteralDependencyValue("5"),
+                    value=LiteralDependencyValue(payload="5"),
                 ),
                 ListenerRealtimeDelta(
                     dependency=create_dep_key(
                         sectionId=SECTION_ONE_ID,
                         codeObjId=PARAM_SWITCH_ID,
                     ),
-                    value=LiteralDependencyValue("true"),
+                    value=LiteralDependencyValue(payload="true"),
                 ),
             ],
             sequence=1,
@@ -1424,7 +1424,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated while unavailable"),
+                        value=LiteralDependencyValue(payload="Updated while unavailable"),
                     )
                 ],
                 sequence=1,
@@ -1503,11 +1503,11 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=slider_key,
-                        value=LiteralDependencyValue("5"),
+                        value=LiteralDependencyValue(payload="5"),
                     ),
                     ListenerRealtimeDelta(
                         dependency=switch_key,
-                        value=LiteralDependencyValue("true"),
+                        value=LiteralDependencyValue(payload="true"),
                     ),
                 ],
                 sequence=1,
@@ -1571,7 +1571,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue("5"),
+                        value=LiteralDependencyValue(payload="5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1623,7 +1623,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue("5"),
+                        value=LiteralDependencyValue(payload="5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1670,7 +1670,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue("5"),
+                        value=LiteralDependencyValue(payload="5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1720,7 +1720,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue("5"),
+                        value=LiteralDependencyValue(payload="5"),
                     )
                 ],
                 dependencyValues=dependency_values,

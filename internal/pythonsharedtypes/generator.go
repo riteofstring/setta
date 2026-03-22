@@ -391,6 +391,15 @@ func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
 	if wrapperType, ok := pythonWrapperTypeOverrides[fieldType]; ok {
 		return wrapperType.Name(), nil
 	}
+	if fieldType.Kind() == reflect.String && fieldType.Name() != "" {
+		spec, ok, err := enumContractSpecIfConvertible(fieldType)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return spec.Name, nil
+		}
+	}
 	switch fieldType.Kind() {
 	case reflect.String:
 		return "str", nil

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/realtime"
 )
 
 func TestBuild(t *testing.T) {
@@ -106,5 +107,17 @@ func TestPythonTypeExprUsesWrapperOverrideNamesForNestedOwnerFields(t *testing.T
 	}
 	if typeExpr != "BinaryContentRef" {
 		t.Fatalf("typeExpr = %q, want %q", typeExpr, "BinaryContentRef")
+	}
+}
+
+func TestPythonTypeExprPreservesNamedStringEnumsForNestedOwnerFields(t *testing.T) {
+	t.Helper()
+
+	typeExpr, err := pythonTypeExpr(reflect.TypeOf(realtime.DependencyValueType("")), "")
+	if err != nil {
+		t.Fatalf("pythonTypeExpr(...) error = %v", err)
+	}
+	if typeExpr != "DependencyValueType" {
+		t.Fatalf("typeExpr = %q, want %q", typeExpr, "DependencyValueType")
 	}
 }
