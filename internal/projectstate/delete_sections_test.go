@@ -156,6 +156,119 @@ func TestProjectDeleteSectionsRemovesDescendantsAndTopLevelState(t *testing.T) {
 	}
 }
 
+func TestProjectDeleteSectionsCleansSectionVariantMap(t *testing.T) {
+	project := mustNormalizedDeleteProject(t, Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"chat-section",
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"chat-section": {X: 10, Y: 20},
+		},
+		Sections: map[string]Section{
+			"chat-section": {
+				ID:               "chat-section",
+				Name:             "Chat",
+				VariantIDs:       []string{"chat-variant"},
+				DefaultVariantID: "chat-variant",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"chat-section": "chat-variant",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"chat-variant": {ID: "chat-variant", ImplID: "chat-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"chat-impl": {
+				ID:      "chat-impl",
+				Kind:    SectionKind("chat"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "chat-impl", "type": "Chat"}),
+			},
+		},
+	})
+
+	if _, err := project.DeleteSections(DeleteSectionsInput{
+		SectionIDs: []string{"chat-section"},
+	}); err != nil {
+		t.Fatalf("DeleteSections returned error: %v", err)
+	}
+
+	if _, ok := project.SectionVariantMap["chat-section"]; ok {
+		t.Fatalf("expected deleted section variant map entry to be removed, got %#v", project.SectionVariantMap)
+	}
+	if len(project.SectionVariantMap) != 0 {
+		t.Fatalf("expected empty section variant map after delete, got %#v", project.SectionVariantMap)
+	}
+}
+
+func TestProjectDeleteSectionsPrunesProjectChatWindowingForRemovedSections(t *testing.T) {
+	chatSectionID := "chat-section"
+	project := mustNormalizedDeleteProject(t, Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			chatSectionID,
+		},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			chatSectionID: {X: 10, Y: 20},
+		},
+		Sections: map[string]Section{
+			chatSectionID: {
+				ID:               chatSectionID,
+				Name:             "Chat",
+				VariantIDs:       []string{"chat-variant"},
+				DefaultVariantID: "chat-variant",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			chatSectionID: "chat-variant",
+		},
+		SectionVariants: map[string]SectionVariant{
+			"chat-variant": {ID: "chat-variant", ImplID: "chat-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"chat-impl": {
+				ID:      "chat-impl",
+				Kind:    SectionKind("chat"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "chat-impl", "type": "Chat"}),
+			},
+		},
+		ProjectChatWindowing: &ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-chat-window-1": {
+					InstanceID:      "project-chat-window-1",
+					Placement:       ChatWindowPlacementFloating,
+					Mode:            ChatWindowModeSection,
+					SectionIDOrNull: stringPointer(chatSectionID),
+				},
+			},
+			Order:              []string{"project-chat-window-1"},
+			NextInstanceNumber: 2,
+		},
+	})
+
+	if _, err := project.DeleteSections(DeleteSectionsInput{
+		SectionIDs: []string{chatSectionID},
+	}); err != nil {
+		t.Fatalf("DeleteSections returned error: %v", err)
+	}
+
+	if project.ProjectChatWindowing == nil {
+		t.Fatal("expected project chat windowing to remain initialized")
+	}
+	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected deleted section windows to be pruned, got %#v", project.ProjectChatWindowing.InstancesByID)
+	}
+	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{}) {
+		t.Fatalf("expected empty project chat window order after delete, got %#v", project.ProjectChatWindowing.Order)
+	}
+	if project.ProjectChatWindowing.NextInstanceNumber != 2 {
+		t.Fatalf("expected nextInstanceNumber to be preserved, got %d", project.ProjectChatWindowing.NextInstanceNumber)
+	}
+}
+
 func TestProjectDeleteSectionsClearsAttachedTerminalReferences(t *testing.T) {
 	project := mustNormalizedDeleteProject(t, Project{
 		ID:   "project-alpha",

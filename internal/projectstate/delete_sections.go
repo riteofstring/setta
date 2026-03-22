@@ -89,6 +89,9 @@ func (p *Project) DeleteSections(input DeleteSectionsInput) (DeleteSectionsResul
 	}
 
 	RemoveSections(p, sectionIDs)
+	if err := p.pruneWindowingForDeletedSections(); err != nil {
+		return DeleteSectionsResult{}, err
+	}
 	if err := p.pruneUnusedCodeObjects(); err != nil {
 		return DeleteSectionsResult{}, err
 	}
@@ -97,6 +100,28 @@ func (p *Project) DeleteSections(input DeleteSectionsInput) (DeleteSectionsResul
 	return DeleteSectionsResult{
 		SectionIDs: append([]string(nil), sectionIDs...),
 	}, nil
+}
+
+func (p *Project) pruneWindowingForDeletedSections() error {
+	if p == nil {
+		return nil
+	}
+
+	normalizedWindowing, err := normalizeProjectChatWindowingState(
+		ProjectChatWindowingOrDefault(p.ProjectChatWindowing),
+		p.Sections,
+	)
+	if err != nil {
+		return err
+	}
+	p.ProjectChatWindowing = &normalizedWindowing
+
+	normalizedWindowSpaces, err := normalizeWindowSpaces(p.WindowSpaces, p.Sections)
+	if err != nil {
+		return err
+	}
+	p.WindowSpaces = normalizedWindowSpaces
+	return nil
 }
 
 func normalizeDeleteSectionsInput(input DeleteSectionsInput) (DeleteSectionsInput, error) {
