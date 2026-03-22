@@ -513,38 +513,44 @@ test("saving a window space keeps the latest floating window interaction while s
       });
     });
 
-    const floatingWindow = page.locator(
-      '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="save-window"]',
-    );
+    const floatingWindow = page
+      .locator('[data-testid="project-chat-floating-window"]')
+      .first();
     await expect(floatingWindow).toBeVisible();
+    const windowInstanceId = await floatingWindow.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!windowInstanceId) {
+      throw new Error("Expected a seeded floating project chat window id.");
+    }
 
     await page.getByTestId("window-space-save-current-layout").click();
     await expect.poll(() => syncRequestCount).toBe(1);
 
-    await page.evaluate(async () => {
+    await page.evaluate(async ({ windowInstanceId }) => {
       const { focusProjectChatWindow, setProjectChatWindowBounds } =
         await import("/src/state/actions/projectChatWindowing.ts");
-      focusProjectChatWindow("save-window", 4242);
-      setProjectChatWindowBounds("save-window", {
+      focusProjectChatWindow(windowInstanceId, 4242);
+      setProjectChatWindowBounds(windowInstanceId, {
         x: 260,
         y: 180,
         width: 520,
         height: 360,
       });
-    });
+    }, { windowInstanceId });
     await expect
       .poll(async () =>
-        page.evaluate(async () => {
+        page.evaluate(async ({ windowInstanceId }) => {
           const { useProjectState } = await import("/src/state/definitions.ts");
           const window =
             useProjectState.getState().projectChatWindowing.instancesById[
-              "save-window"
+              windowInstanceId
             ];
           return {
             lastFocusedAt: window?.lastFocusedAt ?? null,
             bounds: window?.bounds ?? null,
           };
-        }),
+        }, { windowInstanceId }),
       )
       .toEqual({
         lastFocusedAt: 4242,
@@ -627,10 +633,13 @@ test("restore stays blocked when deployment policy disallows saved thread rebind
       .poll(async () =>
         page.evaluate(async () => {
           const { useProjectState } = await import("/src/state/definitions.ts");
-          return useProjectState.getState().projectChatWindowing.order;
+          const windowing = useProjectState.getState().projectChatWindowing;
+          return windowing.order.map(
+            (instanceId) => windowing.instancesById[instanceId]?.chatId ?? null,
+          );
         }),
       )
-      .toEqual(["live-window"]);
+      .toEqual(["chat-live"]);
     expect(layoutWriteCount).toBe(0);
     expect(threadBindingWriteCount).toBe(0);
   } finally {

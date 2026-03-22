@@ -337,7 +337,8 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
       .isVisible()
       .catch(() => false)
   ) {
-    return;
+    await page.keyboard.press("Escape");
+    await expect(accordionTrigger.first()).not.toBeVisible();
   }
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   await clickDom(

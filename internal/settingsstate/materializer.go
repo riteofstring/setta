@@ -103,8 +103,29 @@ func applySettingsProjectCodeObjectValue(
 		return nil
 	}
 
-	setNestedValue(output, nextPath, settingsProjectCodeObjectValue(payload))
+	nextValue := settingsProjectCodeObjectValue(payload)
+	if !settingsProjectValueMatchesAllowedValues(nextPath, nextValue) {
+		return nil
+	}
+	setNestedValue(output, nextPath, nextValue)
 	return nil
+}
+
+func settingsProjectValueMatchesAllowedValues(path []string, value any) bool {
+	allowedValues := allowedValuesForPath("settings." + strings.Join(path, "."))
+	if len(allowedValues) == 0 {
+		return true
+	}
+	typed, ok := value.(string)
+	if !ok {
+		return false
+	}
+	for _, allowed := range allowedValues {
+		if typed == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func settingsProjectCodeObjectIsParent(payload map[string]any, impl projectstate.CodeObjectImpl) bool {

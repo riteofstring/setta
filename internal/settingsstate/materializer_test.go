@@ -56,6 +56,57 @@ func TestApplySettingsProjectDocumentReturnsBaseForEmptySettingsProject(t *testi
 	}
 }
 
+func TestApplySettingsProjectDocumentSkipsInvalidEnumValues(t *testing.T) {
+	t.Parallel()
+
+	base, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+
+	projectDocument, err := buildProjectDocumentWithSharedSettingsPath(
+		base,
+		DefaultFileName,
+	)
+	if err != nil {
+		t.Fatalf("buildProjectDocumentWithSharedSettingsPath returned error: %v", err)
+	}
+
+	implID := settingsCodeObjImplID(
+		"sectionSizingPolicy",
+		[]string{
+			"sectionSizingPolicy",
+			"metaControlByType",
+			"TimeParam",
+			"sizeModeWidth",
+		},
+	)
+	impl, ok := projectDocument.Projects[SettingsProjectID].CodeObjImpls[implID]
+	if !ok {
+		t.Fatalf("expected settings project code object impl %q", implID)
+	}
+	impl.Payload = projectstate.RawJSON(`{
+		"id":"` + implID + `",
+		"type":"DropdownParam",
+		"value":""
+	}`)
+	project := projectDocument.Projects[SettingsProjectID]
+	project.CodeObjImpls[implID] = impl
+	projectDocument.Projects[SettingsProjectID] = project
+
+	output, err := ApplySettingsProjectDocument(base, projectDocument)
+	if err != nil {
+		t.Fatalf("ApplySettingsProjectDocument returned error: %v", err)
+	}
+
+	sectionSizingPolicy := output["sectionSizingPolicy"].(map[string]any)
+	metaControlByType := sectionSizingPolicy["metaControlByType"].(map[string]any)
+	timeParam := metaControlByType["TimeParam"].(map[string]any)
+	if got := timeParam["sizeModeWidth"]; got != "any" {
+		t.Fatalf("expected invalid enum overwrite to keep base value \"any\", got %#v", got)
+	}
+}
+
 func settingsProjectMaterializerTestDocument(t *testing.T) projectstate.Document {
 	t.Helper()
 
