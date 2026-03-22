@@ -709,6 +709,25 @@ func TestIntentStoreMapsUnavailableReadAndLockParentFailures(t *testing.T) {
 	})
 }
 
+func TestIntentStoreUpdatePreservesCallbackError(t *testing.T) {
+	t.Parallel()
+
+	store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+	bodyErr := errors.New("body-io-error")
+
+	err := store.update(func(record map[string]StoredIntent) (map[string]StoredIntent, error) {
+		return nil, bodyErr
+	})
+	if !errors.Is(err, bodyErr) {
+		t.Fatalf("expected callback error to survive, got %v", err)
+	}
+
+	var unavailableErr *IntentStoreUnavailableError
+	if errors.As(err, &unavailableErr) {
+		t.Fatalf("expected callback error to keep its original domain, got %#v", unavailableErr)
+	}
+}
+
 func TestIntentStoreCapacityLimitsRecoverAfterPruneAndRemainSessionIsolated(t *testing.T) {
 	t.Parallel()
 
