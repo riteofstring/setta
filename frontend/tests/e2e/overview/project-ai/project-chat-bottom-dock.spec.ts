@@ -1055,6 +1055,7 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -1091,9 +1092,7 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
         "project-chat-floating-window-drag-handle",
       );
     const firstFloatingComposerBeforeSecondUndock =
-      firstFloatingWindowBeforeSecondUndock.getByPlaceholder(
-        "Type a message...",
-      );
+      firstFloatingWindowBeforeSecondUndock.getByTestId("chat-input-textarea");
     await expect(firstFloatingComposerBeforeSecondUndock).toBeVisible();
     const firstFloatingBoundsBeforeSecondUndock =
       await firstFloatingWindowBeforeSecondUndock.boundingBox();
@@ -1282,6 +1281,7 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
     const secondZAfterFocus = await getZIndex(secondWindow);
     expect(firstZAfterFocus).toBeGreaterThan(secondZAfterFocus);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1293,6 +1293,7 @@ test("project chat floating windows show inline threads and chat together when r
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -1341,10 +1342,9 @@ test("project chat floating windows show inline threads and chat together when r
     );
     await expect(inlineThreadsPanel).toBeVisible();
     await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-    await expect(
-      floatingWindow.getByPlaceholder("Type a message..."),
-    ).toBeVisible();
+    await expect(floatingWindow.getByTestId("chat-input-textarea")).toBeVisible();
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
