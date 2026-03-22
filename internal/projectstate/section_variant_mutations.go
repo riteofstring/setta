@@ -272,7 +272,7 @@ func (p *Project) setVariantSectionFields(sectionID string, variantID string, fi
 	}
 
 	switch {
-	case hasAnyUnsharedKey(section.UnsharedKeys, fields):
+	case fieldsContainUnsharedSectionField(section, fields):
 		modifier, err := rawObjectFromProjectPayload(variant.Modifier)
 		if err != nil {
 			return err
@@ -317,16 +317,4 @@ func (p *Project) setVariantSectionFields(sectionID string, variantID string, fi
 	}
 
 	return nil
-}
-
-func hasAnyUnsharedKey(unsharedKeys []string, fields map[string]any) bool {
-	if len(unsharedKeys) == 0 {
-		return false
-	}
-	for fieldName := range fields {
-		if containsString(unsharedKeys, fieldName) {
-			return true
-		}
-	}
-	return false
 }

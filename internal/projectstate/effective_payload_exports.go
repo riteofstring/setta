@@ -23,7 +23,7 @@ func (p *Project) SetSectionFieldForVariant(
 	}
 
 	switch {
-	case !containsString(section.UnsharedKeys, fieldName):
+	case !sectionFieldIsUnshared(section, fieldName):
 		modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
 		if err != nil {
 			return err

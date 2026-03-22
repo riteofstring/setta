@@ -477,7 +477,7 @@ func (p *Project) setCurrentSectionCodeObjVariantMap(sectionID string, codeObjVa
 		normalizedMap[trimmedCodeObjID] = trimmedVariantID
 	}
 
-	if containsString(section.UnsharedKeys, "codeObjVariantMap") {
+	if sectionFieldIsUnshared(section, "codeObjVariantMap") {
 		if !sectionImplIsPreset(impl) {
 			payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
 			if err != nil {
@@ -535,7 +535,7 @@ func (p *Project) setCurrentSectionCodeObjVariantMap(sectionID string, codeObjVa
 	if err != nil {
 		return err
 	}
-	if containsString(section.UnsharedKeys, "codeObjVariantMap") {
+	if sectionFieldIsUnshared(section, "codeObjVariantMap") {
 		if _, ok := modifier["codeObjVariantMap"]; ok {
 			delete(modifier, "codeObjVariantMap")
 			rawModifier, err := marshalProjectObject(modifier)
@@ -570,7 +570,7 @@ func (p *Project) setCurrentSectionField(sectionID string, fieldName string, fie
 	}
 
 	switch {
-	case !containsString(section.UnsharedKeys, fieldName):
+	case !sectionFieldIsUnshared(section, fieldName):
 		modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
 		if err != nil {
 			return err
@@ -622,7 +622,7 @@ func (p *Project) setSectionCodeObjectField(sectionID string, codeObjID string, 
 	}
 
 	switch {
-	case !containsString(codeObj.UnsharedKeys, fieldName):
+	case !codeObjectFieldIsUnshared(codeObj, fieldName):
 		modifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
 		if err != nil {
 			return err

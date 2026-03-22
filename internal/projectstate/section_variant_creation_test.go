@@ -226,6 +226,99 @@ func TestProjectCreateNewSectionVariantDuplicatesParamVariantStateAndEdges(t *te
 	}
 }
 
+func TestProjectCreateNewSectionVariantKeepsEdgePortEditsVariantScoped(t *testing.T) {
+	t.Parallel()
+
+	project := mustNormalizedVariantProject(t, Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"source-section": "source-variant",
+		},
+		Sections: map[string]Section{
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source",
+				VariantIDs:       []string{"source-variant"},
+				DefaultVariantID: "source-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"source-variant": {
+				ID:     "source-variant",
+				ImplID: "source-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"source-impl": {
+				ID:      "source-impl",
+				Kind:    SectionKind("dict"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"source-param": "source-param-variant"}, "edgeInputParams": []string{"source-param"}, "edgeOutputPorts": []map[string]any{{"id": "source-port", "accessor": ""}}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+			},
+		},
+		CodeObjs: map[string]CodeObject{
+			"source-param": {
+				ID:               "source-param",
+				Name:             "source_param",
+				VariantIDs:       []string{"source-param-variant"},
+				DefaultVariantID: "source-param-variant",
+			},
+		},
+		CodeObjVariants: map[string]CodeObjectVariant{
+			"source-param-variant": {
+				ID:     "source-param-variant",
+				ImplID: "source-param-impl",
+			},
+		},
+		CodeObjImpls: map[string]CodeObjectImpl{
+			"source-param-impl": {
+				ID:      "source-param-impl",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-param-impl", "type": "TextParam", "value": "source"}),
+			},
+		},
+	})
+
+	result, err := project.CreateNewSectionVariant(CreateNewSectionVariantInput{
+		SectionID: "source-section",
+	})
+	if err != nil {
+		t.Fatalf("CreateNewSectionVariant returned error: %v", err)
+	}
+	if result.VariantID == "" || result.VariantID == "source-variant" {
+		t.Fatalf("expected a distinct created section variant id, got %q", result.VariantID)
+	}
+
+	if err := project.SetSectionEdgeInputs("source-section", []string{}); err != nil {
+		t.Fatalf("SetSectionEdgeInputs returned error: %v", err)
+	}
+	if err := project.SetSectionEdgeOutputs("source-section", []EdgePort{{ID: "source-port", Accessor: ".bar"}}, nil); err != nil {
+		t.Fatalf("SetSectionEdgeOutputs returned error: %v", err)
+	}
+
+	originalPayload, err := effectiveSectionPayload(project, "source-section", "source-variant")
+	if err != nil {
+		t.Fatalf("original effectiveSectionPayload: %v", err)
+	}
+	newPayload, err := effectiveSectionPayload(project, "source-section", result.VariantID)
+	if err != nil {
+		t.Fatalf("new effectiveSectionPayload: %v", err)
+	}
+
+	if got := payloadStringArrayField(originalPayload, "edgeInputParams"); !reflect.DeepEqual(got, []string{"source-param"}) {
+		t.Fatalf("expected original edgeInputParams [source-param], got %#v", got)
+	}
+	if got := payloadEdgeOutputPorts(originalPayload); !reflect.DeepEqual(got, []EdgePort{{ID: "source-port", Accessor: ""}}) {
+		t.Fatalf("expected original edgeOutputPorts [{source-port }], got %#v", got)
+	}
+	if got := payloadStringArrayField(newPayload, "edgeInputParams"); len(got) != 0 {
+		t.Fatalf("expected new variant edgeInputParams [], got %#v", got)
+	}
+	if got := payloadEdgeOutputPorts(newPayload); !reflect.DeepEqual(got, []EdgePort{{ID: "source-port", Accessor: ".bar"}}) {
+		t.Fatalf("expected new variant edgeOutputPorts [{source-port .bar}], got %#v", got)
+	}
+}
+
 func TestProjectCreateNewSectionVariantReusesPresetImplsAndVariantOverrides(t *testing.T) {
 	t.Parallel()
 

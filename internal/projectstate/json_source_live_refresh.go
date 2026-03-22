@@ -280,7 +280,7 @@ func (p *Project) setCodeObjectFieldForVariant(codeObjID string, variantID strin
 	}
 
 	switch {
-	case !containsString(codeObj.UnsharedKeys, fieldName):
+	case !codeObjectFieldIsUnshared(codeObj, fieldName):
 		modifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
 		if err != nil {
 			return err

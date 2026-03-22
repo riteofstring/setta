@@ -406,16 +406,35 @@ func TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState(t *
 		t.Fatalf("decode latest project payload: %v", err)
 	}
 
-	sharedChildPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-child"].SharedModifier)
-	if got := sharedChildPayload["value"]; got != "updated" {
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	codeObjVariantMap, ok := dictPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected dict codeObjVariantMap object, got %#v", dictPayload["codeObjVariantMap"])
+	}
+	sharedChildVariantID, ok := codeObjVariantMap["shared-child"].(string)
+	if !ok {
+		t.Fatalf("expected shared-child variant id string, got %#v", codeObjVariantMap["shared-child"])
+	}
+	sharedChildImplID := payload.ProjectState.CodeObjVariants[sharedChildVariantID].Impl
+	sharedChildImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjImpls[sharedChildImplID])
+	if got := sharedChildImplPayload["value"]; got != "updated" {
 		t.Fatalf("expected shared-child value updated, got %#v", got)
 	}
+	sharedChildPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-child"].SharedModifier)
 	if got := sharedChildPayload["description"]; got != "Updated description" {
 		t.Fatalf("expected shared-child description Updated description, got %#v", got)
 	}
 
 	sharedSecretPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-secret"].SharedModifier)
-	if got := sharedSecretPayload["value"]; got != "" {
+	sharedSecretVariantID, ok := codeObjVariantMap["shared-secret"].(string)
+	if !ok {
+		t.Fatalf("expected shared-secret variant id string, got %#v", codeObjVariantMap["shared-secret"])
+	}
+	sharedSecretImplID := payload.ProjectState.CodeObjVariants[sharedSecretVariantID].Impl
+	sharedSecretImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjImpls[sharedSecretImplID])
+	if got := sharedSecretImplPayload["value"]; got != "" {
 		t.Fatalf("expected shared-secret value to stay redacted, got %#v", got)
 	}
 	if got := sharedSecretPayload["hasSecret"]; got != true {
@@ -9028,10 +9047,12 @@ func TestRegisterProjectRoutesAppendDrawAreaLayerItemPersistsLatestState(t *test
 		t.Fatalf("decode latest project payload: %v", err)
 	}
 
-	drawModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["draw-section"].SharedModifier)
-	rawLayers, ok := drawModifier["layers"].([]any)
+	drawVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["draw-section"]
+	drawImplID := payload.ProjectState.SectionVariants[drawVariantID].Impl
+	drawPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[drawImplID])
+	rawLayers, ok := drawPayload["layers"].([]any)
 	if !ok || len(rawLayers) != 1 {
-		t.Fatalf("expected one draw layer, got %#v", drawModifier["layers"])
+		t.Fatalf("expected one draw layer, got %#v", drawPayload["layers"])
 	}
 	layer, ok := rawLayers[0].(map[string]any)
 	if !ok {
@@ -9986,14 +10007,16 @@ func TestRegisterProjectRoutesSectionEdgeMutationsPersistLatestState(t *testing.
 		t.Fatalf("decode latest project payload: %v", err)
 	}
 
-	dictSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["dict-section"].SharedModifier)
-	if got := decodeProjectRouteStringArray(dictSharedModifier["edgeInputParams"]); !reflect.DeepEqual(got, []string{"added-param"}) {
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-section"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	if got := decodeProjectRouteStringArray(dictPayload["edgeInputParams"]); !reflect.DeepEqual(got, []string{"added-param"}) {
 		t.Fatalf("expected edgeInputParams [added-param], got %#v", got)
 	}
 
-	rawPorts, ok := dictSharedModifier["edgeOutputPorts"].([]any)
+	rawPorts, ok := dictPayload["edgeOutputPorts"].([]any)
 	if !ok || len(rawPorts) != 1 {
-		t.Fatalf("expected one edgeOutputPort, got %#v", dictSharedModifier["edgeOutputPorts"])
+		t.Fatalf("expected one edgeOutputPort, got %#v", dictPayload["edgeOutputPorts"])
 	}
 	portObject, ok := rawPorts[0].(map[string]any)
 	if !ok {

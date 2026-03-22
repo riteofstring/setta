@@ -214,7 +214,7 @@ func (p *Project) setCurrentCodeSectionDiagnosticsIgnoreState(sectionID string, 
 	fieldName := "diagnosticsIgnoreState"
 
 	switch {
-	case !containsString(section.UnsharedKeys, fieldName):
+	case !sectionFieldIsUnshared(section, fieldName):
 		modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
 		if err != nil {
 			return err
