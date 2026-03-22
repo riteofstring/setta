@@ -9,6 +9,7 @@ import {
   getDisplayedSectionIdToChildren,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
+  getSectionDescendants,
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
@@ -25,15 +26,21 @@ import {
 } from "state/definitions";
 import {
   ChatRoleEnum,
+  ConfigLanguageEnum,
+  createCallableSectionImpl,
   createChatSectionImpl,
   createCodeSectionImpl,
   createCore,
+  createDictSectionImpl,
   createListRootSectionImpl,
   createMessageTextContent,
   createProjectConfig,
+  createProjectStateSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
+  createUserDefaultCallableSectionImpl,
   createUserDefaultChatSectionImpl,
+  createUserDefaultDictSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
   ListRootViewModeEnum,
@@ -296,6 +303,128 @@ describe("getCurrEffectiveSectionImpl", () => {
     expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe(
       "updated",
     );
+  });
+
+  it("returns backend-provided callable defaults for parameterized section impls", () => {
+    const sectionId = "section-sparse-params";
+    const variantId = "variant-sparse-params";
+    const implId = "callable-impl-sparse-params";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          sharedModifier: {},
+          unsharedKeys: [],
+        }),
+      },
+      sectionImpls: {
+        [implId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: implId,
+            type: SectionTypeEnum.Callable,
+          },
+        ),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          modifier: {},
+          nonPresetImpls: [implId],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const effective = getCurrEffectiveSectionImpl(state, sectionId);
+    expect(effective.type).toBe(SectionTypeEnum.Callable);
+    if (effective.type !== SectionTypeEnum.Callable) {
+      throw new Error("Expected callable impl.");
+    }
+    expect(effective.codeObjVariantMap).toEqual({});
+    expect(effective.hideUnpinnedParams).toBe(false);
+    expect(effective.paramFilter).toBe("");
+    expect(effective.columnWidth).toBeNull();
+    expect(effective.configLanguage).toBe(ConfigLanguageEnum.python);
+    expect(effective.pinnedParams).toEqual([]);
+    expect(effective.selectedParams).toEqual([]);
+    expect(effective.ignoreTypeErrors).toEqual({
+      callable: false,
+      params: {},
+    });
+    expect(effective.edgeInputParams).toEqual([]);
+    expect(effective.edgeOutputPorts).toEqual([]);
+    expect(effective.callable).toBeNull();
+    expect(effective.hideParams).toBe(false);
+  });
+
+  it("returns backend-provided dict defaults for parameterized section impls", () => {
+    const sectionId = "section-sparse-dict";
+    const variantId = "variant-sparse-dict";
+    const implId = "dict-impl-sparse";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          sharedModifier: {},
+          unsharedKeys: [],
+        }),
+      },
+      sectionImpls: {
+        [implId]: createDictSectionImpl(createUserDefaultDictSectionImpl(), {
+          id: implId,
+          type: SectionTypeEnum.Dict,
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          modifier: {},
+          nonPresetImpls: [implId],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const effective = getCurrEffectiveSectionImpl(state, sectionId);
+    expect(effective.type).toBe(SectionTypeEnum.Dict);
+    if (effective.type !== SectionTypeEnum.Dict) {
+      throw new Error("Expected dict impl.");
+    }
+    expect(effective.topLevelParamId).toBeNull();
+    expect(effective.isJsonSource).toBe(false);
+    expect(effective.jsonSourceKeys).toEqual([]);
+    expect(effective.jsonSourceMissing).toBe(false);
   });
 });
 
@@ -947,6 +1076,71 @@ describe("getDisplayedSectionIdToChildren", () => {
       [validChildId]: [],
     });
   });
+
+  it("treats generated parent sections with empty children as childless", () => {
+    const sectionId = "generated-section";
+    const variantId = "generated-variant";
+    const implId = "generated-impl";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const generatedImpl = {
+      ...createCodeSectionImpl({
+        id: implId,
+        code: "print('generated')",
+        codeLanguage: "python",
+      }),
+      type: SectionTypeEnum.GenPythonCode,
+      children: [],
+      size: {
+        width: 500,
+        height: 150,
+      },
+    };
+
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        topLevelSections: {
+          [sectionId]: { ...layout },
+        },
+        sectionVariantMap: {
+          [sectionId]: variantId,
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: generatedImpl,
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    expect(getDisplayedSectionIdToChildren(state)).toEqual({
+      [sectionId]: [],
+    });
+    expect(getSectionDescendants(sectionId, state)).toEqual([sectionId]);
+    expect(getCurrEffectiveSectionImpl(state, sectionId).size).toEqual({
+      width: 500,
+      height: 150,
+    });
+  });
 });
 
 describe("createTopLevelSectionLayoutDict", () => {
@@ -1086,7 +1280,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig,
         sections: { [sectionId]: sectionCore },
         sectionImpls: { [implId]: incomingImpl },
@@ -1100,7 +1294,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1169,7 +1363,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: nextConfig,
         sections: {},
         sectionImpls: {},
@@ -1183,7 +1377,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1255,7 +1449,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: {
           ...projectConfig,
           viewport: null,
@@ -1273,7 +1467,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1367,7 +1561,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: {
           ...projectConfig,
           activeViewModeId: viewModeBId,
@@ -1386,7 +1580,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1485,7 +1679,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig: {
           ...projectConfig,
           activeViewModeId: viewModeBId,
@@ -1504,7 +1698,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     };
@@ -1554,7 +1748,7 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     // Only artifactGroups changes here; the backend update must still publish.
     processProjectStateUpdateFromBackend({
-      projectState: {
+      projectState: createProjectStateSingleConfig({
         projectConfig,
         sections: {},
         sectionImpls: {},
@@ -1568,7 +1762,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         shownParamIds: {},
         requiredDecodedImages: [],
         genCodeBinding: null,
-      },
+      }),
       completedOpIds: [],
       pendingOpIds: [],
     });
@@ -1631,7 +1825,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       // This guards the optimized branch after widening the comparator to the
       // full backend-owned project-state shape.
       processProjectStateUpdateFromBackend({
-        projectState: {
+        projectState: createProjectStateSingleConfig({
           projectConfig,
           sections: {},
           sectionImpls: {},
@@ -1645,7 +1839,7 @@ describe("processProjectStateUpdateFromBackend", () => {
           shownParamIds: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-        },
+        }),
         completedOpIds: [],
         pendingOpIds: [],
       });

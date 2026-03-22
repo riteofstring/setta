@@ -1,11 +1,8 @@
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -20,7 +17,19 @@ from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID
+from setta.types.generated.go_shared_types import (
+    BrowserAreaViewMode,
+    BrowserSearchScope,
+    ChatDictationMode,
+    ChatPermissionMode,
+    ListRootViewMode,
+    SpreadsheetGridDensity,
+    StateMachineGateType,
+    TaskBoardViewMode,
+    TextBlockDisplayMode,
+    TextBlockFormat,
+)
+from setta.types.id import ID, create_new_id
 from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -85,26 +94,6 @@ class CodeLanguage(str, Enum):
 CodeLanguageKey = CodeLanguage | str
 
 
-def normalize_code_language(language: CodeLanguageKey) -> CodeLanguageKey:
-    if isinstance(language, CodeLanguage):
-        return language
-    if not isinstance(language, str):
-        raise TypeError("Code language must be a string.")
-    normalized = language.strip().lower()
-    if normalized == "":
-        raise ValueError("Code language must be a non-empty string.")
-    try:
-        return CodeLanguage(normalized)
-    except ValueError:
-        return normalized
-
-
-def code_language_to_string(language: CodeLanguageKey) -> str:
-    if isinstance(language, CodeLanguage):
-        return language.value
-    return language
-
-
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
@@ -118,56 +107,6 @@ class TypeErrorIgnoreState(BaseModel, extra="forbid"):
 class CodeSectionDiagnosticsIgnoreState(BaseModel, extra="forbid"):
     muted: bool = False
     suppressedCodes: list[str | int] = Field(default_factory=list)
-
-
-class TextBlockDisplayMode(str, Enum):
-    Render = "Render"
-    Edit = "Edit"
-
-
-class TextBlockFormat(str, Enum):
-    Plaintext = "Plaintext"
-    Markdown = "Markdown"
-
-
-class ListRootViewMode(str, Enum):
-    default = "default"
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class BrowserAreaViewMode(str, Enum):
-    list = "list"
-    thumbnail = "thumbnail"
-    carousel = "carousel"
-
-
-class BrowserSearchScope(str, Enum):
-    recursive = "recursive"
-    local = "local"
-
-
-class ChatPermissionMode(str, Enum):
-    minimal = "minimal"
-    yolo = "yolo"
-    config_toml_custom = "config_toml_custom"
-
-
-class ChatDictationMode(str, Enum):
-    auto = "auto"
-    browser = "browser"
-    provider = "provider"
-
-
-class TaskBoardViewMode(str, Enum):
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class StateMachineGateType(str, Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
 
 
 class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
@@ -188,21 +127,6 @@ class BrowserSavedSearch(BaseModel, extra="forbid"):
     )
     color: str = "#3b82f6"
     quickInfo: str = ""
-
-
-class BrowserAreaItemType(str, Enum):
-    Image = "Image"
-    Video = "Video"
-    Text = "Text"
-    Data = "Data"
-    Brushes = "Brushes"
-    Other = "Other"
-
-
-class BrowserAreaItem(BaseModel, extra="forbid"):
-    id: str
-    type: Any
-    lastModified: datetime
 
 
 class TaskBoardColumn(BaseModel, extra="forbid"):
@@ -554,11 +478,6 @@ class TaskBoardSectionImpl(BaseSectionImpl):
     viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
     columns: list[TaskBoardColumn] = Field(default_factory=list)
     tasks: list[TaskBoardTask] = Field(default_factory=list)
-
-
-class SpreadsheetGridDensity(str, Enum):
-    compact = "compact"
-    comfortable = "comfortable"
 
 
 class SpreadsheetSectionImpl(BaseSectionImpl):

@@ -17,6 +17,3 @@
 *.webp
 *.mp4
 *.log
-!/fixtures/
-!/fixtures/section-benchmarks/
-!/fixtures/section-benchmarks/*.json
