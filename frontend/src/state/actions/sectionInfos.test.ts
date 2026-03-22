@@ -26,14 +26,18 @@ import {
 } from "state/definitions";
 import {
   ChatRoleEnum,
+  ConfigLanguageEnum,
+  createCallableSectionImpl,
   createChatSectionImpl,
   createCodeSectionImpl,
   createCore,
+  createDictSectionImpl,
   createListRootSectionImpl,
   createMessageTextContent,
   createProjectConfig,
   createSingletonSections,
   createTerminalSectionImpl,
+  createUserDefaultDictSectionImpl,
   createUserDefaultChatSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
@@ -297,6 +301,145 @@ describe("getCurrEffectiveSectionImpl", () => {
     expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe(
       "updated",
     );
+  });
+
+  it("normalizes missing required callable fields for parameterized section impls", () => {
+    const sectionId = "section-sparse-params";
+    const variantId = "variant-sparse-params";
+    const implId = "callable-impl-sparse-params";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          sharedModifier: {},
+          unsharedKeys: [],
+        }),
+      },
+      sectionImpls: {
+        [implId]: {
+          ...createCallableSectionImpl({
+            id: implId,
+            type: SectionTypeEnum.Callable,
+          }),
+          codeObjVariantMap: undefined,
+          hideUnpinnedParams: undefined,
+          paramFilter: undefined,
+          columnWidth: undefined,
+          configLanguage: undefined,
+          pinnedParams: undefined,
+          selectedParams: undefined,
+          ignoreTypeErrors: undefined,
+          edgeInputParams: undefined,
+          edgeOutputPorts: undefined,
+          callable: undefined,
+          hideParams: undefined,
+        },
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          modifier: {},
+          nonPresetImpls: [implId],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const effective = getCurrEffectiveSectionImpl(state, sectionId);
+    expect(effective.type).toBe(SectionTypeEnum.Callable);
+    if (effective.type !== SectionTypeEnum.Callable) {
+      throw new Error("Expected callable impl.");
+    }
+    expect(effective.codeObjVariantMap).toEqual({});
+    expect(effective.hideUnpinnedParams).toBe(false);
+    expect(effective.paramFilter).toBe("");
+    expect(effective.columnWidth).toBeNull();
+    expect(effective.configLanguage).toBe(ConfigLanguageEnum.python);
+    expect(effective.pinnedParams).toEqual([]);
+    expect(effective.selectedParams).toEqual([]);
+    expect(effective.ignoreTypeErrors).toEqual({
+      callable: false,
+      params: {},
+    });
+    expect(effective.edgeInputParams).toEqual([]);
+    expect(effective.edgeOutputPorts).toEqual([]);
+    expect(effective.callable).toBeNull();
+    expect(effective.hideParams).toBe(false);
+  });
+
+  it("normalizes missing dict-specific fields for parameterized section impls", () => {
+    const sectionId = "section-sparse-dict";
+    const variantId = "variant-sparse-dict";
+    const implId = "dict-impl-sparse";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          sharedModifier: {},
+          unsharedKeys: [],
+        }),
+      },
+      sectionImpls: {
+        [implId]: {
+          ...createDictSectionImpl(createUserDefaultDictSectionImpl(), {
+            id: implId,
+            type: SectionTypeEnum.Dict,
+          }),
+          topLevelParamId: undefined,
+          isJsonSource: undefined,
+          jsonSourceKeys: undefined,
+          jsonSourceMissing: undefined,
+        },
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          modifier: {},
+          nonPresetImpls: [implId],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const effective = getCurrEffectiveSectionImpl(state, sectionId);
+    expect(effective.type).toBe(SectionTypeEnum.Dict);
+    if (effective.type !== SectionTypeEnum.Dict) {
+      throw new Error("Expected dict impl.");
+    }
+    expect(effective.topLevelParamId).toBeNull();
+    expect(effective.isJsonSource).toBe(false);
+    expect(effective.jsonSourceKeys).toEqual([]);
+    expect(effective.jsonSourceMissing).toBe(false);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../../helpers";
 
 type CreateTopLevelSectionResponse = {
@@ -40,6 +41,7 @@ test("plugin-not-installed fallback uses canonical scope wording", async ({
       },
     );
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
     await expect(
@@ -95,6 +97,7 @@ test("plugin-kind-missing fallback uses explicit section kind wording", async ({
       },
     );
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
     await expect(
@@ -155,6 +158,7 @@ test("plugin fallback reason updates reactively when plugin state changes", asyn
       },
     );
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(
       page.getByText(

@@ -6,6 +6,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   setOverviewTab,
 } from "../../helpers";
 
@@ -72,6 +73,7 @@ test("frontend react fixture registers a React-rendered section kind", async ({
     );
 
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     const reactCard = page.getByTestId("fixture-react-card").first();
     await expect(reactCard).toBeVisible();
@@ -167,6 +169,7 @@ test("plugin runtime failures replace stale section renderer output with runtime
     );
 
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
     await expect(page.getByTestId("fixture-react-card").first()).toBeVisible();
 
     allowExpectedApiError(page, {

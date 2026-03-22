@@ -8,6 +8,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   setOverviewTab,
 } from "../../helpers";
 
@@ -85,6 +86,7 @@ test("frontend-error fixture surfaces runtime error diagnostics and section fall
       },
     );
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
     await expect(
@@ -147,6 +149,7 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
       },
     );
     expect(created?.sectionId).toBeTruthy();
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
 

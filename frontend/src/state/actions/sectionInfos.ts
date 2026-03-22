@@ -51,8 +51,10 @@ import {
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
+  ConfigLanguageEnum,
   Core,
   ImplArgsBundleMap,
+  isBaseDictSectionImpl,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
@@ -79,6 +81,14 @@ const GENERATED_PYTHON_SECTION_DEFAULT_SIZE = {
   width: 500,
   height: 150,
 } as const;
+const DEFAULT_TYPE_ERROR_IGNORE_STATE = {
+  callable: false,
+  params: {},
+} as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -112,6 +122,70 @@ function normalizeEffectiveSectionImpl(
 ): BaseSectionImplUnion {
   if (isBaseParentSectionImpl(impl) && !Array.isArray(impl.children)) {
     impl.children = [];
+  }
+  if (isBaseSectionWithParamsImpl(impl)) {
+    if (!isRecord(impl.codeObjVariantMap)) {
+      impl.codeObjVariantMap = {};
+    }
+    if (typeof impl.hideUnpinnedParams !== "boolean") {
+      impl.hideUnpinnedParams = false;
+    }
+    if (typeof impl.paramFilter !== "string") {
+      impl.paramFilter = "";
+    }
+    if (impl.columnWidth !== null && typeof impl.columnWidth !== "number") {
+      impl.columnWidth = null;
+    }
+    if (typeof impl.configLanguage !== "string") {
+      impl.configLanguage = ConfigLanguageEnum.python;
+    }
+    if (!Array.isArray(impl.pinnedParams)) {
+      impl.pinnedParams = [];
+    }
+    if (!Array.isArray(impl.selectedParams)) {
+      impl.selectedParams = [];
+    }
+    if (!Array.isArray(impl.edgeInputParams)) {
+      impl.edgeInputParams = [];
+    }
+    if (!Array.isArray(impl.edgeOutputPorts)) {
+      impl.edgeOutputPorts = [];
+    }
+    if (!isRecord(impl.ignoreTypeErrors)) {
+      impl.ignoreTypeErrors = {
+        callable: DEFAULT_TYPE_ERROR_IGNORE_STATE.callable,
+        params: {},
+      };
+    } else {
+      if (typeof impl.ignoreTypeErrors.callable !== "boolean") {
+        impl.ignoreTypeErrors.callable = DEFAULT_TYPE_ERROR_IGNORE_STATE.callable;
+      }
+      if (!isRecord(impl.ignoreTypeErrors.params)) {
+        impl.ignoreTypeErrors.params = {};
+      }
+    }
+  }
+  if (isBaseDictSectionImpl(impl)) {
+    if (impl.topLevelParamId === undefined) {
+      impl.topLevelParamId = null;
+    }
+    if (typeof impl.isJsonSource !== "boolean") {
+      impl.isJsonSource = false;
+    }
+    if (!Array.isArray(impl.jsonSourceKeys)) {
+      impl.jsonSourceKeys = [];
+    }
+    if (typeof impl.jsonSourceMissing !== "boolean") {
+      impl.jsonSourceMissing = false;
+    }
+  }
+  if (impl.type === SectionTypeEnum.Callable) {
+    if (impl.callable === undefined) {
+      impl.callable = null;
+    }
+    if (typeof impl.hideParams !== "boolean") {
+      impl.hideParams = false;
+    }
   }
   if (
     (impl.type === SectionTypeEnum.GenPythonCode ||

@@ -521,6 +521,16 @@ export async function cleanupIsolatedProject(
   // Isolated configs are created for tests only; deleting the config is enough
   // and avoids an extra metadata write call that has proven flaky under CI load.
   try {
+    if (!page.isClosed()) {
+      // Leave the app surface before deleting the backing project so debounced
+      // frontend writes do not race cleanup with stale project IDs.
+      await page
+        .goto("about:blank", {
+          waitUntil: "domcontentloaded",
+          timeout: 2000,
+        })
+        .catch(() => null);
+    }
     await page.request.post(`${BACKEND_ORIGIN}/api/deleteProjectConfigs`, {
       data: { ids: [context.projectConfigId] },
       headers: BACKEND_HELPER_REQUEST_HEADERS,

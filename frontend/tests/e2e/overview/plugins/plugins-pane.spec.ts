@@ -9,6 +9,7 @@ import {
   openIsolatedProject,
   openOverviewMoreDestination,
   postBackend,
+  refreshProjectStateFromBackend,
   setOverviewTab,
 } from "../../helpers";
 
@@ -151,9 +152,12 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   ).toBeVisible();
 
   const paneCommandRunsMetric = page.getByTestId("fixture-pane-command-runs");
+  const paneLastCommandMetric = page.getByTestId("fixture-pane-last-command");
   await expect(paneCommandRunsMetric).toHaveText("0");
   await page.getByTestId("fixture-pane-run-command").click();
   await expect(paneCommandRunsMetric).toHaveText("1");
+  await expect(paneLastCommandMetric).toContainText("fixture-backend:active");
+  await expect(paneLastCommandMetric).toContainText("health:not-registered");
 
   await page.getByTestId("fixture-pane-note-input").fill("plugin ux note");
   await page.getByTestId("fixture-pane-save-note").click();
@@ -221,6 +225,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     },
   );
   expect(created?.sectionId).toBeTruthy();
+  await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
   await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
   await expect(page.getByText("fixture:hello plugin")).toBeVisible();

@@ -5,6 +5,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   setOverviewTab,
 } from "../../helpers";
 
@@ -119,6 +120,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       }
       createdSectionIds.push(sectionId);
     }
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect
       .poll(
