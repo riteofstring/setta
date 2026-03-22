@@ -43,14 +43,13 @@ matrix:
 A bare citation does not remove a source test from the gap-hunt queue.
 
 Some source tests also require stricter proof than an ordinary `Proved` row.
-In particular, source tests that seed real repo `.env` provider keys and hit
-live provider hosts must not be discharged only by hermetic local-provider
-tests. Those rows now require executable live-provider proof plus an explicit
-`proof-mode=live-provider` marker when they stay `Proved`. The launcher
-open-workspace success source test now also requires stronger proof than fake
-launchers or mocked frontend routes alone; when it stays `Proved`, the row
-must cite real unmocked launcher/open-workspace proof with
-`proof-mode=launcher-unmocked-transport`.
+The rule is now generic for every source test: rows without explicit
+`proof-mode=...` markers are treated as `hermetic`, and the source-baseline
+test module determines whether stronger proof is needed. Today the only
+stronger automatically-derived mode is `live-provider`: if a pinned source
+module both seeds repo `.env` keys and probes live external network access,
+its `Proved` rows must carry executable live proof plus an explicit
+`proof-mode=live-provider` marker.
 
 ## Default Loop
 

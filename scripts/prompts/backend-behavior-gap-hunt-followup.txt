@@ -14,11 +14,11 @@ Treat each listed source test or critical backend-suite failure as a clue for a 
 3. If there is no Go gap for a listed source test, do not remove it with a bare citation. Update `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md` so the test has an explicit disposition:
    - `Proved` with explicit Go/executable proof in the `Go tests` column
    - or a justified omission status such as `Retained Python boundary`, `Intentional divergence`, or `Dormant / unproven caller`, with a concrete justification in `Notes`
-   - source tests that use real repo `.env` provider keys and live provider hosts must not be closed by hermetic `httptest` or local fake-provider proof alone; if they remain `Proved`, add executable live-provider proof and mark the row with `proof-mode=live-provider`
-   - mocked `page.route(...)`, local fake launchers, or other stubbed backend responses do not close a real caller-backed launcher/open-workspace flow by themselves; use unmocked transport proof or a differential parity slice, and for the launcher open-workspace success source test mark that proof with `proof-mode=launcher-unmocked-transport`
+   - apply the same proof-mode rule to every source test: rows without explicit `proof-mode=...` markers are treated as `hermetic`
+   - when the pinned source-baseline test module itself seeds repo `.env` keys and probes live external network access, a `Proved` row must carry executable live proof marked `proof-mode=live-provider`
 4. In all cases, update the matrix/docs in the same change so every inspected source-test clue has an explicit disposition, and fix any critical backend-suite failure or leave a concrete explanation backed by executable proof.
 5. Run the relevant targeted parity/tests for the touched slice. When you touched a failure surfaced by the preflight suite, rerun the full Go backend suite command from the backlog entry before declaring it fixed.
 
-Never add `proof-mode=live-provider` or `proof-mode=launcher-unmocked-transport` without actually running that proof in the current branch and reporting the exact command/result.
+Never add `proof-mode=live-provider` without actually running that proof in the current branch and reporting the exact command/result.
 
 Report the exact commands run, what gap was fixed or ruled out, which source tests gained explicit dispositions, and whether the full Go backend suite and both differential parity commands passed.

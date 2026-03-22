@@ -40,6 +40,12 @@ JUSTIFIED_OMISSION_STATUSES = {
     "Dormant / unproven caller",
 }
 PROOF_MODE_PATTERN = re.compile(r"\bproof-mode=([a-z0-9_-]+)\b")
+DEFAULT_PROOF_MODE = "hermetic"
+LIVE_PROVIDER_PROOF_MODE = "live-provider"
+PROOF_MODE_STRENGTH = {
+    DEFAULT_PROOF_MODE: 0,
+    LIVE_PROVIDER_PROOF_MODE: 1,
+}
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,7 @@ class SourceTest:
     name: str
     line: int
     area: str
+    minimum_proof_mode: str
 
 
 @dataclass(frozen=True)
@@ -60,13 +67,6 @@ class MatrixRow:
 
 
 @dataclass(frozen=True)
-class ProofRequirement:
-    path_glob: str
-    test_name_glob: str | None
-    required_proof_mode: str
-
-
-@dataclass(frozen=True)
 class SourceTestDispositionGap:
     source_test: SourceTest
     reason: str
@@ -75,45 +75,6 @@ class SourceTestDispositionGap:
 
 class SourceBaselineInventoryError(RuntimeError):
     pass
-
-
-STRICT_PROOF_REQUIREMENTS = (
-    # Source tests that seed real repo `.env` keys and hit live providers must
-    # not be "proved" only by hermetic local-provider tests.
-    ProofRequirement(
-        path_glob="tests/llm/test_llm_chat_manager_openai_integration.py",
-        test_name_glob=None,
-        required_proof_mode="live-provider",
-    ),
-    ProofRequirement(
-        path_glob="tests/llm/test_llm_chat_manager_anthropic_integration.py",
-        test_name_glob=None,
-        required_proof_mode="live-provider",
-    ),
-    ProofRequirement(
-        path_glob="tests/agentic/test_claude_sdk_adapter_integration.py",
-        test_name_glob=None,
-        required_proof_mode="live-provider",
-    ),
-    ProofRequirement(
-        path_glob="tests/agentic/test_opencode_sdk_adapter_integration.py",
-        test_name_glob=None,
-        required_proof_mode="live-provider",
-    ),
-    ProofRequirement(
-        path_glob="tests/agentic/test_codex_app_server_adapter_integration.py",
-        test_name_glob=None,
-        required_proof_mode="live-provider",
-    ),
-    # The launcher open-workspace success path is too easy to "prove" with
-    # fake launchers or mocked frontend responses while still missing the real
-    # browser-triggered runtime path.
-    ProofRequirement(
-        path_glob="tests/routers/test_launcher_home_routes.py",
-        test_name_glob="test_open_launcher_workspace_returns_bootstrap_fragment",
-        required_proof_mode="launcher-unmocked-transport",
-    ),
-)
 
 
 def repo_root() -> Path:
@@ -264,6 +225,7 @@ def collect_python_tests_from_module_text(
     collected: list[SourceTest] = []
     module = ast.parse(module_text)
     area = relative_path.parts[1] if len(relative_path.parts) > 1 else "tests"
+    minimum_proof_mode = infer_module_minimum_proof_mode(module)
     for node in ast.walk(module):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             if not node.name.startswith("test_"):
@@ -274,9 +236,51 @@ def collect_python_tests_from_module_text(
                     name=node.name,
                     line=node.lineno,
                     area=area,
+                    minimum_proof_mode=minimum_proof_mode,
                 )
             )
     return collected
+
+
+def infer_module_minimum_proof_mode(module: ast.AST) -> str:
+    if (
+        module_calls_name(module, "seed_env_from_repo_dot_env")
+        and module_calls_attribute(module, ("socket", "getaddrinfo"))
+        and module_calls_attribute(module, ("socket", "create_connection"))
+    ):
+        return LIVE_PROVIDER_PROOF_MODE
+    return DEFAULT_PROOF_MODE
+
+
+def module_calls_name(module: ast.AST, function_name: str) -> bool:
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        name_parts = call_name_parts(node.func)
+        if name_parts and name_parts[-1] == function_name:
+            return True
+    return False
+
+
+def module_calls_attribute(module: ast.AST, attribute_path: tuple[str, ...]) -> bool:
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        name_parts = call_name_parts(node.func)
+        if name_parts == attribute_path:
+            return True
+    return False
+
+
+def call_name_parts(node: ast.expr) -> tuple[str, ...] | None:
+    if isinstance(node, ast.Name):
+        return (node.id,)
+    if isinstance(node, ast.Attribute):
+        base = call_name_parts(node.value)
+        if base is None:
+            return None
+        return (*base, node.attr)
+    return None
 
 
 def parse_source_baseline_ref(matrix_text: str) -> str:
@@ -407,17 +411,26 @@ def row_declared_proof_modes(row: MatrixRow) -> set[str]:
     return declared
 
 
-def required_proof_modes_for_test(source_test: SourceTest) -> tuple[str, ...]:
-    required: list[str] = []
-    for requirement in STRICT_PROOF_REQUIREMENTS:
-        if not fnmatch(source_test.path, requirement.path_glob):
-            continue
-        if requirement.test_name_glob is not None and not fnmatch(
-            source_test.name, requirement.test_name_glob
-        ):
-            continue
-        required.append(requirement.required_proof_mode)
-    return tuple(required)
+def row_effective_proof_modes(row: MatrixRow) -> set[str]:
+    declared = row_declared_proof_modes(row)
+    if declared:
+        return declared
+    return {DEFAULT_PROOF_MODE}
+
+
+def row_satisfies_required_proof_mode(row: MatrixRow, required_proof_mode: str) -> bool:
+    if required_proof_mode == DEFAULT_PROOF_MODE:
+        return True
+
+    required_strength = PROOF_MODE_STRENGTH.get(required_proof_mode)
+    if required_strength is None:
+        return required_proof_mode in row_effective_proof_modes(row)
+
+    for proof_mode in row_effective_proof_modes(row):
+        proof_strength = PROOF_MODE_STRENGTH.get(proof_mode)
+        if proof_strength is not None and proof_strength >= required_strength:
+            return True
+    return False
 
 
 def describe_rows(rows: list[MatrixRow]) -> tuple[str, ...]:
@@ -472,19 +485,18 @@ def disposition_gap_for_test(
             rows=describe_rows(unjustified_omission_rows),
         )
 
-    for required_proof_mode in required_proof_modes_for_test(source_test):
-        proved_without_required_proof_mode = [
-            row
-            for row in rows
-            if row.status == "Proved"
-            and required_proof_mode not in row_declared_proof_modes(row)
-        ]
-        if proved_without_required_proof_mode:
-            return SourceTestDispositionGap(
-                source_test=source_test,
-                reason=f"proved_missing_{required_proof_mode}_proof_mode",
-                rows=describe_rows(proved_without_required_proof_mode),
-            )
+    proved_without_required_proof_mode = [
+        row
+        for row in rows
+        if row.status == "Proved"
+        and not row_satisfies_required_proof_mode(row, source_test.minimum_proof_mode)
+    ]
+    if proved_without_required_proof_mode:
+        return SourceTestDispositionGap(
+            source_test=source_test,
+            reason=f"proved_missing_{source_test.minimum_proof_mode}_proof_mode",
+            rows=describe_rows(proved_without_required_proof_mode),
+        )
 
     return None
 

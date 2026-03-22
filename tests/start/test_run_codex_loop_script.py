@@ -751,4 +751,4 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
         "explicit Go/executable proof in the `Go tests` column" in prompt_text
     )
     assert "proof-mode=live-provider" in prompt_text
-    assert "proof-mode=launcher-unmocked-transport" in prompt_text
+    assert "rows without explicit `proof-mode=...` markers are treated as `hermetic`" in prompt_text

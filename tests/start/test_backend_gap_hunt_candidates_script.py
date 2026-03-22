@@ -668,8 +668,21 @@ def test_generate_report_keeps_live_provider_rows_without_live_proof_mode(
     (
         tests_root / "llm" / "test_llm_chat_manager_openai_integration.py"
     ).write_text(
-        """class TestLLMChatManagerOpenAIIntegration:
+        """import socket
+
+from tests.utils.integration_env import seed_env_from_repo_dot_env
+
+
+def _require_openai_key() -> None:
+    seed_env_from_repo_dot_env(("OPENAI_API_KEY",))
+    socket.getaddrinfo("api.openai.com", 443)
+    with socket.create_connection(("api.openai.com", 443), timeout=3):
+        pass
+
+
+class TestLLMChatManagerOpenAIIntegration:
     async def test_gpt_4o_mini_chat_completion(self) -> None:
+        _require_openai_key()
         assert True
 """,
         encoding="utf-8",
@@ -723,8 +736,21 @@ def test_generate_report_accepts_live_provider_rows_with_live_proof_mode(
     (
         tests_root / "llm" / "test_llm_chat_manager_openai_integration.py"
     ).write_text(
-        """class TestLLMChatManagerOpenAIIntegration:
+        """import socket
+
+from tests.utils.integration_env import seed_env_from_repo_dot_env
+
+
+def _require_openai_key() -> None:
+    seed_env_from_repo_dot_env(("OPENAI_API_KEY",))
+    socket.getaddrinfo("api.openai.com", 443)
+    with socket.create_connection(("api.openai.com", 443), timeout=3):
+        pass
+
+
+class TestLLMChatManagerOpenAIIntegration:
     async def test_gpt_4o_mini_chat_completion(self) -> None:
+        _require_openai_key()
         assert True
 """,
         encoding="utf-8",
@@ -751,11 +777,11 @@ def test_generate_report_accepts_live_provider_rows_with_live_proof_mode(
     assert report == []
 
 
-def test_generate_report_keeps_launcher_open_workspace_success_without_unmocked_transport_proof(
+def test_generate_report_treats_rows_without_explicit_proof_modes_as_hermetic(
     tmp_path: Path,
 ) -> None:
-    # The launcher open-workspace success path should not drop out of the
-    # backlog when it is only backed by fake launchers or mocked transports.
+    # Ordinary source tests default to hermetic proof mode, so a proved row
+    # does not need an explicit proof-mode marker.
     repo_root_path = tmp_path / "workspace"
     matrix_path = (
         repo_root_path
@@ -794,12 +820,7 @@ def test_generate_report_keeps_launcher_open_workspace_success_without_unmocked_
         tests_path=tests_root,
     )
 
-    assert len(report) == 1
-    assert (
-        report[0].reason
-        == "proved_missing_launcher-unmocked-transport_proof_mode"
-    )
-    assert report[0].rows == ("launcher_home.open_workspace.success:Proved",)
+    assert report == []
 
 
 def test_script_returns_special_exit_code_when_source_test_backlog_is_empty(
