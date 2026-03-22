@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `557c9c4de5`
+- Target head: `c37903eefa`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -707,6 +707,41 @@ Last audited: `2026-03-23`
   `TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation`,
   `TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRoot`,
   and `TestRegisterWorkspaceLaunchRoutesSkipsDeploymentModes`.
+- Follow-up in this pass on `c37903eefa`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  re-read
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/routers/test_launch_routes.py::{test_launch_returns_structured_error_for_value_error,test_launch_returns_structured_error_for_invalid_runtime_root,test_launch_returns_structured_error_for_invalid_setta_home,test_launch_returns_structured_error_for_runtime_root_matching_workspace,test_launch_local_does_not_inherit_server_files_location_env,test_launch_profile_does_not_inherit_server_files_root_env,test_launch_profile_uses_profile_setta_home_for_runtime_roots,test_launch_does_not_inherit_server_runtime_root_env,test_launch_does_not_inherit_server_profile_env,test_launch_local_always_wins_even_when_global_requested,test_launch_local_with_explicit_setta_files_root}`
+  and
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/routers/test_launch_share_mode_block.py::test_launch_route_blocked_in_share_mode`
+  against `internal/httpapi/workspace_launch_routes.go`,
+  `internal/workspacelaunch/local_launch.go`,
+  `internal/launcher/{open_workspace.go,session_launcher.go}`, and the live
+  workspace launch callers in
+  `frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx` and
+  `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx`,
+  then reran the focused Go proof slice backed directly by
+  `TestLoadRejectsInvalidRuntimeRootWithTypedCode`,
+  `TestLoadRejectsRuntimeRootMatchingWorkspace`,
+  `TestValidateSettaHomeNameRejectsNonstandardLeaf`,
+  `TestLoadIDELaunchConfigUsesProfileRuntimeSettaHomeWhenLookupHomeProvided`,
+  `TestLoadIDELaunchConfigIgnoresAmbientSettaEnvOverrides`,
+  `TestNormalizeSettaFilesLocationForLaunchMatchesSharedLaunchCases`,
+  `TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches`,
+  `TestLocalLaunchServiceNonProfileLaunchIgnoresAmbientProfileEnv`,
+  `TestLocalLaunchServiceWhitespaceProfileIsTreatedAsOmitted`,
+  `TestLocalLaunchServiceTrimsWhitespaceOptionalPathInputs`,
+  `TestLocalLaunchServiceKeepsExplicitGlobalSettaFilesLocation`,
+  `TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation`,
+  `TestRegisterWorkspaceLaunchRoutesLaunchUsesStoredRequestFromIntent`,
+  `TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRoot`,
+  `TestRegisterWorkspaceLaunchRoutesRequiresIntentToken`,
+  `TestRegisterWorkspaceLaunchRoutesSkipsDeploymentModes`,
+  `TestAppIDEModeRejectsWorkspaceLaunchWithoutIntentTokenOverHTTP`, and
+  `TestRunLaunchEmitsTypedJSONConfigErrors`; no new Go gap was found, so
+  those source clues remain correctly discharged by the existing terminal
+  `workspace_launch.*` `Proved` / `Intentional divergence` rows.
 - Follow-up in this pass on `ea6c190f9`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` passed cleanly again, so
   `critical_backend_suite::go_test_all` remains stale saved-suite output on
