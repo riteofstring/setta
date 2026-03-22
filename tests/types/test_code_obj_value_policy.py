@@ -1,6 +1,6 @@
 import pytest
 
-from setta.types.generated.go_shared_types import CodeObjType
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.id import ID
 from setta.types.project_config import (
     CodeObjTypeValuePolicy,

@@ -981,15 +981,6 @@ export function getSectionDescendants(
   return ids;
 }
 
-export function getSectionImplChildren(
-  sectionImpl: BaseSectionImplUnion,
-): Array<string> {
-  if (!isBaseParentSectionImpl(sectionImpl)) {
-    return [];
-  }
-  return [...sectionImpl.children];
-}
-
 export function manualDndChildrenReset() {
   updateDndChildren(
     getDisplayedSectionIdToChildren(useProjectState.getState()),
@@ -1017,39 +1008,6 @@ function getComparableProjectState(
   });
 }
 
-function pruneProjectChatWindowingForExistingSections(
-  projectState: ProjectStateSingleConfig,
-): ProjectStateSingleConfig {
-  const existingSectionIds = new Set(Object.keys(projectState.sections));
-  let changed = false;
-  const nextInstancesById = Object.fromEntries(
-    Object.entries(projectState.projectChatWindowing.instancesById).filter(
-      ([, instance]) => {
-        const sectionId = instance.sectionIdOrNull;
-        if (!sectionId || existingSectionIds.has(sectionId)) {
-          return true;
-        }
-        changed = true;
-        return false;
-      },
-    ),
-  );
-  if (!changed) {
-    return projectState;
-  }
-  const nextOrder = projectState.projectChatWindowing.order.filter(
-    (instanceId) => instanceId in nextInstancesById,
-  );
-  return {
-    ...projectState,
-    projectChatWindowing: {
-      ...projectState.projectChatWindowing,
-      instancesById: nextInstancesById,
-      order: nextOrder,
-    },
-  };
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1059,7 +1017,6 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
-  x.projectState = pruneProjectChatWindowingForExistingSections(x.projectState);
   recordAuthoritativeProjectChatWindowingState(
     x.projectState.projectConfig.id,
     x.projectState.projectChatWindowing,
@@ -1802,10 +1759,7 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({
-    projectConfigId: getCurrProjectConfigId(),
-    groupIds,
-  });
+  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {

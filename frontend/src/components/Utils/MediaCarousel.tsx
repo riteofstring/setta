@@ -511,7 +511,7 @@ export function MediaCarousel<T>({
                 })
               : null;
           const thumbnailContainerClassName = [
-            "single-cell-container shrink-0 overflow-clip rounded-md border border-solid",
+            "relative flex shrink-0 items-center justify-center overflow-clip rounded-md border border-solid",
             isSelected
               ? resolvedSelectedThumbnailClassName
               : resolvedThumbnailClassName,
@@ -563,16 +563,18 @@ export function MediaCarousel<T>({
                     <>
                       <img
                         src={item.thumbnailUrl}
-                        className="single-cell-child z-10 h-full w-full object-cover"
+                        className="absolute inset-0 z-10 h-full w-full object-cover"
                         alt={item.label}
                       />
-                      <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
+                      <IoImageOutline className="absolute inset-0 z-0 m-auto text-setta-200 dark:text-setta-600" />
                     </>
                   ) : (
-                    <FiFileText
-                      size={20}
-                      className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
-                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <FiFileText
+                        size={20}
+                        className="text-setta-200 dark:text-setta-600"
+                      />
+                    </div>
                   ))}
                 {renderThumbnailOverlay ? renderThumbnailOverlay(item) : null}
               </div>

@@ -1,14 +1,22 @@
 import json
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from enum import Enum
+from typing import Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
-from setta.types.generated.go_shared_types import ChatRole
-from setta.types.id import create_new_id
+
+from setta.database.utils import create_new_id
 from setta.utils.timestamps import get_now_timestamp
 
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
+
+
+class ChatRole(str, Enum):
+    system = "system"
+    user = "user"
+    assistant = "assistant"
+    tool = "tool"
 
 
 class ChatFileAttachment(BaseModel):
@@ -133,12 +141,3 @@ class ToolChatMessage(BaseChatMessage):
         output.pop("completed_at", None)
         output.pop("tool_name", None)
         return output
-
-
-BaseChatMessageUnion = (
-    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-)
-
-BaseChatMessageUnionWithDiscriminator = Annotated[
-    BaseChatMessageUnion, Field(discriminator="role")
-]

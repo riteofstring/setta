@@ -1,7 +1,5 @@
-from setta.types.chat import ChatSectionBranch, ChatSectionState
 from setta.types.chat_messages import (
     AssistantChatMessage,
-    BaseChatMessageUnion,
     MessageTextContent,
     MessageThinkingContent,
     ToolCall,
@@ -17,7 +15,9 @@ from setta.types.chat_stream_events import (
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
+from setta.types.section_impls import ChatSectionBranch, ChatSectionState
 
 
 def build_chat_section_state(

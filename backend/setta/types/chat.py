@@ -1,9 +1,11 @@
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
-from setta.types.chat_messages import BaseChatMessageUnion
-from setta.types.generated.go_shared_types import LLMConfig
-from setta.types.id import ID, create_new_id
+
+from setta.database.utils import create_new_id
+from setta.types.generated.chat_messages import BaseChatMessageUnion
+from setta.types.id import ID
+from setta.types.llm_config import LLMConfig
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
@@ -25,22 +27,6 @@ class ChatMetadata(BaseModel):
 class Chat(ChatMetadata):
     messages: list[BaseChatMessageUnion]
     systemPrompt: str | None = None
-
-
-class ChatSectionBranch(BaseModel, extra="forbid"):
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    createdAt: int = 0
-    parentBranchId: ID | None = None
-    branchFromMessageId: ID | None = None
-
-
-class ChatSectionState(BaseModel, extra="forbid"):
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    inputText: str = ""
-    waitingForResponse: bool = False
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
-    activeBranchId: ID | None = None
-    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
 APIKeys = dict[str, str]
