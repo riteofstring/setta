@@ -1,238 +1,270 @@
 # Go-Owned Type Generation Cleanup Plan
 
 ## Goal
-Make Go the source of truth for shared backend/frontend/Python types.
+Make Go the source of truth for shared backend, frontend, and Python types.
 
 That means:
-- `backend/setta/types/` should contain almost no handwritten shared-contract files.
-- Go -> TypeScript generation should discover convertible Go types generically, then prune unused generated output.
-- Go -> Python generation should discover convertible Go types generically, then prune unused generated output.
-- The only handwritten Python types left should be genuinely Python-only runtime helpers.
+- `backend/setta/types/` should contain very few handwritten files.
+- Shared Go-owned types should be generated broadly, then pruned.
+- The remaining handwritten Python types should be clearly Python-only.
+- The Go backend should stay clean too: no duplicate Go definitions just to satisfy generation.
 
 ## Principles
-- Do not keep duplicate shared type definitions in Python if the Go backend already owns the concept.
+- If a type already exists in a real Go backend owner package, reuse it.
 - Do not replace one manual allowlist with another manual allowlist in a different file.
-- Prefer package-level discovery plus prune over hard-coded root manifests.
-- Keep the Go backend clean too: if a type already exists in Go, reuse it instead of introducing a second Go definition just to satisfy generation.
+- Prefer package discovery plus pruning over hand-maintained type inventories.
+- Route and endpoint specs may stay explicit when they are fundamentally route definitions rather than plain data-type discovery.
 - Delete tests that only assert that specific generated type names appear in generated output.
 
-## Current Problems
+## Current State
 
-### 1. Go -> TypeScript is still driven by a giant explicit inventory
-`internal/frontendbindings/specs.go` still has a very large hand-maintained
-`reflect.TypeOf(...)` list. That means the generator is still operating as:
+### Completed
+- Go type discovery is no longer driven by a hand-maintained frontend root manifest.
+- `cmd/setta-gen-go-type-registries` now generates:
+  - `internal/frontendbindings/discovered_type_roots_gen.go`
+  - `internal/pythonsdkcontracts/discovered_contract_types_gen.go`
+- `internal/pythonsharedtypes/contracts.go` now widens from discovered Go-convertible types instead of maintaining a separate Python-side inventory.
+- Go -> Python already follows a real generate-then-prune path:
+  - `frontend/generation/generate_go_python_types.sh`
+  - `backend/scripts/prune_generated_types.py`
+- TypeScript pruning already exists and matches the main-branch cleanup model:
+  - `pnpm full-cleanup`
+  - `frontend/scripts/runKnip.mjs`
+  - `pnpm gcf`
+- `backend/setta/types/generated/` has been collapsed to a single real generated file:
+  - `backend/setta/types/generated/go_shared_types.py`
+- The dead Python-owned impl and union generation layer is gone:
+  - removed `section_impls.py`
+  - removed `code_obj_impls.py`
+  - removed `core.py`
+  - removed generated union wrappers
+  - removed generated `effective_impls.py`
+  - removed the dead Python generators that existed only to support those files
+- Low-value tests that only pinned generated type inventories or specific generated names have already been removed.
 
-- "convert this, this, this, this"
+### Remaining Handwritten Python Types
+Current handwritten files in `backend/setta/types/`:
+- `artifact.py`
+- `binary_content.py`
+- `chat.py`
+- `chat_messages.py`
+- `chat_stream_events.py`
+- `chat_toolkit.py`
+- `dependency_key.py`
+- `dependency_value.py`
+- `edges.py`
+- `id.py`
+- `listener.py`
+- `project_config.py`
+- `websocket.py`
 
-instead of:
+Working assumption for the next passes:
+- `id.py` is likely truly Python-only.
+- parts of `listener.py` are likely truly Python-only.
+- every other file must justify itself as Python-only or move toward Go ownership.
 
-- "discover convertible types from the backend packages, generate them, then prune what nobody uses"
+## What Is Still Wrong
 
-### 2. Go -> Python is still driven by explicit contract inventories
-`internal/pythonsharedtypes/contracts.go` and
-`internal/pythonsdkcontracts/contracts.go` still define the generation surface
-by hand. That is cleaner than the old Python-owned path, but it is still a
-manual root list.
+### 1. Discovery is generated, but ownership still flows through mirror packages
+The biggest remaining problem is no longer “there is a giant manual type list.”
 
-### 3. Handwritten Python types still exist where Go should own the shape
-`backend/setta/types/` is much smaller than before, but several remaining files
-still represent backend data structures that should ultimately come from Go.
+The remaining problem is that too much of the shared type surface still flows through:
+- `internal/frontendbindings/project_state_support.go`
+- `internal/frontendbindings/ai_settings_support.go`
+- related support files under `internal/frontendbindings/`
 
-The biggest remaining handwritten shared-type owners are:
-- `backend/setta/types/section_impls.py`
-- `backend/setta/types/code_obj_impls.py`
-- `backend/setta/types/project_config.py`
-- `backend/setta/types/chat.py`
-- `backend/setta/types/chat_messages.py`
-- `backend/setta/types/chat_stream_events.py`
-- `backend/setta/types/artifact.py`
-- `backend/setta/types/dependency_key.py`
-- `backend/setta/types/dependency_value.py`
-- `backend/setta/types/websocket.py`
+That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-### 4. Generation is centralized, but discovery is not
-`frontend/generation/generate.sh` is already close to the right orchestration
-shape. The remaining problem is the discovery logic behind the generators, not
-the top-level shell entrypoint.
+### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
+The earlier plan was wrong to say TS pruning did not exist.
+
+What actually exists today:
+- generate broad TS output
+- run cleanup via `pnpm full-cleanup`
+- `runKnip.mjs` iteratively trims unused declarations from `frontend/src/utils/generatedTypes.ts`
+
+So the remaining work is not “invent TS pruning.”
+The remaining work is:
+- keep the TS generation surface generic
+- keep the generated output stable under cleanup
+- decide whether the standard documented workflow is `generate` then `full-cleanup`, or whether some of that cleanup should move closer to the generation entrypoint
+
+### 3. Go -> Python still leans on `frontendbindings` more than it should
+`internal/pythonsharedtypes/contracts.go` now widens from discovered convertible Go types, which is good.
+
+But it still discovers through the `frontendbindings` surface, plus enum fallback logic, which means the real owner packages are still not cleanly expressed for many type families.
+
+### 4. Some remaining Python files are still shared-contract candidates
+The remaining handwritten Python files are much smaller and clearer than before, but several still look like shared contract families rather than Python-only helpers.
+
+The main candidates are:
+- `project_config.py`
+- `artifact.py`
+- `chat.py`
+- `chat_messages.py`
+- `chat_stream_events.py`
+- `dependency_key.py`
+- `dependency_value.py`
+- `edges.py`
+- `websocket.py`
+
+Those files should either:
+- disappear because the Python package no longer needs them, or
+- move to Go ownership and generate into `go_shared_types.py`, or
+- be proven Python-only with a concrete runtime reason
 
 ## Desired End State
 
 ### `backend/setta/types/`
-Keep only files that are truly Python-only, for example:
-- `id.py` if its Pydantic/schema integration is still Python-specific
-- narrow runtime glue in `listener.py` if it cannot be expressed cleanly in Go
+Keep only:
+- `id.py` if its Pydantic integration remains genuinely Python-specific
+- the narrow Python runtime glue in `listener.py` if it cannot be expressed cleanly in Go
+- a very small number of other files only if they are truly Python-only
 
 Everything else should either:
-- be generated from Go into one generated Python module, or
+- be generated from Go into `backend/setta/types/generated/go_shared_types.py`, or
 - disappear entirely because it is no longer needed
 
 ### Go -> Python
-- Generic discovery of convertible exported Go types from approved backend packages
-- Single generated Python type module for shared Go-owned types
-- Python prune step runs after generation
-- No manual "generate these specific shared types" inventory except for a small set
-  of explicit exclusions or package registration points if discovery truly needs them
+- Discover convertible exported Go types generically from approved owner packages
+- Generate one broad shared Python type module
+- Run the Python prune script after generation
+- Avoid per-type manual inventories except for narrow exclusions
 
 ### Go -> TypeScript
-- Generic discovery of convertible exported Go types from approved backend packages
-- Generated frontend types/routes/endpoints remain the consumer-facing outputs
-- TS output still supports explicit special cases only where the converter truly
-  needs additional semantic help, not as the normal ownership model
-- Pruning/cleanup remains part of the workflow after generation
+- Discover convertible exported Go types generically from approved owner packages
+- Generate the canonical frontend outputs
+- Continue to rely on the existing TS cleanup path after generation
+- Keep only narrow semantic special cases in the converter
 
 ## Scope
 
 ### In scope
-- Generic discovery for Go -> Python shared types
-- Generic discovery for Go -> TypeScript shared types
-- Migrating remaining backend data-structure types out of handwritten Python
-- Deleting dead generator scripts and dead generated artifacts
-- Deleting low-value generated-code inventory tests
+- Shrinking `backend/setta/types/` further
+- Moving remaining shared type ownership toward real Go owner packages
+- Reducing `frontendbindings` mirror ownership
+- Keeping Go -> Python generic and broad
+- Keeping Go -> TypeScript generic and broad
+- Preserving the existing TS cleanup path while making the overall workflow cleaner
+- Deleting any more dead generators, dead generated outputs, or low-value tests that are discovered
 
 ### Out of scope
-- Inventing a new third schema language
-- Preserving backward compatibility for old Python type module paths
-- Keeping Python reflection-based ownership just because it already exists
+- Introducing a new third schema language
+- Preserving backward compatibility for old Python module paths
+- Keeping Python-owned shared contracts just because they existed historically
 
 ## Execution Plan
 
-### Phase 1: Lock down the ownership rule
-Define and apply a hard rule:
+### Phase 1: Reclassify the remaining handwritten Python files
+For each remaining file in `backend/setta/types/`, make one decision:
+- keep as Python-only
+- move to Go ownership
+- delete as unneeded
 
-- If a type describes backend/runtime/project-state/frontend-contract data and
-  already exists in Go, Go owns it.
-- If a type is only for Python runtime behavior, Python may own it.
+Default rule:
+- if the file describes backend/runtime/project-state/shared-contract data, it should not stay handwritten in Python
 
 Deliverable:
-- a short allowlist of truly Python-only files in `backend/setta/types/`
+- a short explicit survivor list for the Python-only files
 
-Expected survivors:
+Expected likely survivors:
 - `id.py`
-- possibly parts of `listener.py`
+- the Python-specific validation and binary-payload glue in `listener.py`
 
-Everything else must justify itself or move.
-
-### Phase 2: Replace explicit Go -> Python root inventories with discovery
+### Phase 2: Shrink `frontendbindings` as a type owner
 Target files:
-- `internal/pythonsharedtypes/contracts.go`
-- `internal/pythonsdkcontracts/contracts.go`
-- `internal/pythonsharedtypes/generator.go`
-- `internal/pythonsdkcontracts/generator.go`
+- `internal/frontendbindings/project_state_support.go`
+- `internal/frontendbindings/ai_settings_support.go`
+- other support files that define shared structs and enums only to feed conversion
 
 Work:
-- Add package-level discovery for exported convertible types.
-- Discover enums/models from approved Go packages rather than hard-coding each type.
-- Keep a small explicit exclusion mechanism for unsupported or intentionally private types.
-- Keep route/endpoint generation separate where the source of truth is an endpoint spec,
-  not a plain type scan.
-
-Success condition:
-- removing a manual type from the current Go inventory should not be necessary
-  for new shared types to generate
-
-### Phase 3: Replace explicit Go -> TypeScript root inventories with discovery
-Target files:
-- `internal/frontendbindings/specs.go`
-- `internal/frontendbindings/converter.go`
-- related support files under `internal/frontendbindings/`
-
-Work:
-- Replace the huge `CurrentAdditionalTypeRoots()` manifest with package/module discovery.
-- Preserve explicit route spec ownership for endpoints.
-- Preserve explicit converter-side semantic rules only where discovery alone is not enough
-  (for example discriminated unions or custom render behavior).
-- Keep the generated frontend output stable enough that existing compile/build tests still matter.
-
-Success condition:
-- the generator no longer requires continuously appending `reflect.TypeOf(...)`
-  entries for ordinary shared backend types
-
-### Phase 4: Move the impl families to Go ownership
-This is the major structural step.
-
-Target domains:
-- section impls
-- code obj impls
-- project config
-- websocket/shared message families
-
-Target files likely to shrink or disappear:
-- `backend/setta/types/section_impls.py`
-- `backend/setta/types/code_obj_impls.py`
-- `backend/setta/types/project_config.py`
-- `backend/setta/types/websocket.py`
-
-Work:
-- identify the real Go owner packages for these type families
-- reuse existing Go definitions when they already exist
-- only add Go definitions where the concept is currently Python-owned and truly missing
-- generate Python and TypeScript from those Go owners
-- prune unused generated types
+- identify which definitions already have real backend owners elsewhere
+- move ownership away from `frontendbindings` where it is only acting as a mirror
+- keep `frontendbindings` focused on conversion rules, route groups, endpoint specs, and generation helpers
 
 Guardrail:
-- do not create duplicate Go definitions for the same concept under different packages
+- do not create duplicate Go definitions while doing this
 
-### Phase 5: Collapse Python shared types into generated output
-After the Go owners exist and generic discovery is in place:
+### Phase 3: Move the remaining shared Python families to Go ownership
+Primary targets:
+- `project_config.py`
+- `artifact.py`
+- `chat.py`
+- `chat_messages.py`
+- `chat_stream_events.py`
+- `dependency_key.py`
+- `dependency_value.py`
+- `edges.py`
+- `websocket.py`
 
-- generate the full shared Python surface into one generated module
-- update imports to consume generated Go-owned types
-- delete the handwritten Python files that become pure mirrors
-- rerun prune so unused generated names disappear automatically
+Work:
+- find the real Go owner package for each family
+- reuse existing Go definitions wherever they already exist
+- only add new Go definitions where the concept is truly missing
+- generate the Python surface from those Go owners
+- prune unused generated output afterward
+
+### Phase 4: Collapse the Python package surface further
+After the Go owners exist:
+- update Python imports to use `go_shared_types.py`
+- delete the handwritten mirror files that become unnecessary
+- rerun pruning and formatting
 
 Success condition:
-- `backend/setta/types/` contains only Python-only files plus a very small number
-  of wrappers if absolutely required during transition
+- `backend/setta/types/` contains only genuinely Python-only files plus `generated/go_shared_types.py`
 
-### Phase 6: Delete dead compatibility layers and dead tests
-Remove:
-- dead generated wrappers
-- dead generator scripts
-- tests that assert specific generated type names exist
-- tests that only snapshot type inventories without exercising behavior
+### Phase 5: Stabilize the full generation plus cleanup workflow
+Target scripts:
+- `frontend/generation/generate.sh`
+- `frontend/generation/generate_go_frontend_bindings.sh`
+- `frontend/generation/generate_go_python_types.sh`
+- `frontend/scripts/runKnip.mjs`
+- `frontend/scripts/gcf.sh`
 
-Keep:
-- converter behavior tests
-- compile/build/golden tests that validate structure or semantics
-- prune-script tests
-- runtime compatibility tests
+Work:
+- document the intended standard workflow clearly
+- keep `generate` broad and deterministic
+- keep cleanup deterministic after generation
+- avoid reintroducing dead generated files or manual mirrors
 
-### Phase 7: Final cleanup pass
+Open decision:
+- whether TS cleanup should remain a separate cleanup step in the standard workflow, or whether some of it should move closer to the generation entrypoint
+
+### Phase 6: Final cleanup
 - remove stale docs that still point at deleted Python-owned types
-- remove obsolete imports and compatibility shims
-- ensure `pnpm generate` and cleanup commands produce stable output
-- ensure the repo no longer recreates deleted handwritten Python mirrors
+- remove obsolete compatibility imports and dead code paths
+- remove any remaining low-value generated-code tests that only pin names or inventories
+- verify that `pnpm generate` and the standard cleanup flow produce stable output
 
 ## Concrete Work Order
-1. Finish the plan doc and use it as the checklist.
-2. Audit and replace `internal/pythonsdkcontracts/contracts.go` discovery first.
-3. Audit and replace `internal/pythonsharedtypes/contracts.go` discovery next.
-4. Replace `internal/frontendbindings/specs.go` type-root manifest with package discovery.
-5. Migrate `section_impls` and `code_obj_impls` ownership into Go.
-6. Migrate `project_config` and websocket/shared message families into Go.
-7. Delete remaining handwritten Python mirrors.
-8. Run generation and prune.
-9. Run focused Go, Python, and frontend verification.
+1. Reclassify the remaining handwritten Python files.
+2. Identify the biggest mirror-owner blocks in `internal/frontendbindings/`.
+3. Move shared project-state and websocket/chat families toward real Go owners.
+4. Regenerate Python and TypeScript output.
+5. Run the existing prune and cleanup flow.
+6. Delete any handwritten Python mirrors that become unnecessary.
+7. Run focused verification.
 
 ## Verification
-- `./scripts/go.sh test ./internal/frontendbindings ./internal/pythonsharedtypes ./internal/pythonsdkcontracts -count=1`
+- `./scripts/go.sh test ./internal/gotypediscovery ./internal/frontendbindings ./internal/pythonsharedtypes ./internal/pythonsdkcontracts -count=1`
 - `source activate.sh && cd frontend && pnpm generate`
+- `cd frontend && pnpm full-cleanup`
 - `source activate.sh && ./scripts/run_backend_tests.sh`
 - `./scripts/run_go_tests.sh`
 
-Add targeted frontend verification once the TS generator changes start landing.
+Add targeted frontend verification as generator ownership changes land.
 
 ## Acceptance Criteria
-- New shared backend types do not require hand-appending explicit root entries to
-  large generation inventories.
-- `backend/setta/types/` no longer contains handwritten mirrors of Go-owned backend types.
-- Go -> Python and Go -> TypeScript generation both follow the same broad pattern:
-  discover, generate, prune.
-- The remaining handwritten Python files have a clear Python-only justification.
+- New shared backend types do not require hand-appending large root inventories.
+- `backend/setta/types/generated/` stays collapsed to a single generated shared-types file.
+- `backend/setta/types/` no longer contains handwritten mirrors of Go-owned shared types.
+- Go -> Python follows the broad pattern: discover, generate, prune.
+- Go -> TypeScript follows the broad pattern: discover, generate, cleanup-prune.
+- The remaining handwritten Python files have a concrete Python-only justification.
 
 ## Notes
-- The main branch already demonstrated the right general idea on the Python side:
-  broad conversion first, prune later. This plan keeps that shape while moving the
-  source of truth to Go.
-- Route and endpoint specs are still allowed to stay explicit where they are
-  fundamentally route definitions rather than plain data-type discovery.
+- The earlier version of this plan was stale in two important ways:
+  - it claimed TypeScript pruning was missing
+  - it still listed handwritten Python files and generator layers that have already been deleted
+- The main remaining problem is no longer “replace giant manual inventories.”
+- The main remaining problem is “stop using mirror conversion packages as de facto type owners, and finish collapsing the remaining handwritten Python shared-contract files.”
