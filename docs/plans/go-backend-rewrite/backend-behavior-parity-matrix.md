@@ -752,6 +752,18 @@ Last audited: `2026-03-23`
   directly by `TestRunStatusValidationRejectsInvalidCommandShapes` and the
   live packaged `setta status --list-sessions --json` contract documented in
   `docs/reference/setta-cli-commands.md`.
+- Follow-up in this pass on `e45f628eeb`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited `tests/utils/test_git.py::test_git_binary_lookup_is_cached`,
+  confirming that clue remains a terminal explicit `Intentional divergence`
+  row: current git callers still enter through the shared `gitread.Service`
+  mounted behind the Git pane routes, so no live surface can observe the
+  deleted Python module-global `_get_git_binary_path()` cache helper, while
+  the surviving bounded subprocess contract remains backed directly by
+  `TestServiceRunGitTruncatesStdoutAtRequestedCap` and
+  `TestServiceRunGitTruncatesStderrAtRequestedCap`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
