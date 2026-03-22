@@ -114,12 +114,7 @@ function buildUpsertAppGenCustomSkillResponse({
 }
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
+  return chatId;
 }
 
 async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {

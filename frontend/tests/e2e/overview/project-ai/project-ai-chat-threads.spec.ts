@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
+  ensureManagedChatEngine,
   ensureProjectChatThreadsPanelVisible,
   getVisibleProjectChatSurface,
   openIsolatedProject,
@@ -892,6 +893,7 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
   const engineConfigsResponse = await page.request.get(
@@ -1034,6 +1036,7 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
       })
       .toBe(1);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1048,6 +1051,7 @@ test("project ai conversation search ignores hidden tool payloads and counts vis
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
   const engineConfigsResponse = await page.request.get(
@@ -1160,6 +1164,7 @@ test("project ai conversation search ignores hidden tool payloads and counts vis
       ),
     ).toHaveCount(1);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1209,6 +1214,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -1667,6 +1673,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
         .filter({ hasText: "Backend" }),
     ).toHaveCount(0);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });

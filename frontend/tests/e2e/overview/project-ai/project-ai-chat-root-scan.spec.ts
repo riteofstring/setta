@@ -9,12 +9,7 @@ import {
 } from "../../helpers";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
+  return chatId;
 }
 
 type FolderContentsRequest = {
