@@ -282,6 +282,26 @@ Last audited: `2026-03-23`
   `TestCurrentEndpointsKeepAppendTranscriptionAudioJSONRequestContract`,
   `TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled`,
   and `TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode`.
+- Follow-up in this pass on `120f16524`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remained stale/non-reproducible saved
+  suite output rather than a live Go implementation gap; this pass also
+  re-audited the stale share deployment/share-policy route queue slice and
+  confirmed those source clues were already terminal `Proved` rows backed
+  directly by `TestSharePublisherPublishWritesManifestPolicyProjectAndStripsPasswords`,
+  `TestSharePublisherUsesLatestRuntimeSnapshotNotPersistedStore`,
+  `TestSharePublisherWritesStructuredDataAndSupportsFormats`,
+  `TestSharePublisherRebasesPathsAndCopiesFiles`,
+  `TestCatalogListReturnsNewestFirstByCreatedAt`,
+  `TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries`,
+  `TestCatalogLatestUsesHighestVersionRootAsSourceOfTruth`,
+  `TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersions`,
+  `TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot`,
+  `TestRegisterProjectRoutesViewModeMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesSectionStructureMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads`,
+  `TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner`, and
+  `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies`.
 - Follow-up in this pass on `d78af87d3`: the regenerated backlog still
   exposed no live `## Critical Backend Suite Failures` section, so this pass
   stayed on bounded UI-setting helper parity by adding direct realtime-hub
