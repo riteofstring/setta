@@ -85,6 +85,7 @@ def message_attachment(
 ) -> ChatFileAttachment:
     return ChatFileAttachment(id=id, name=name, mimeType=mime_type, size=size)
 
+
 __all__ = [
     "ChatStreamAssembler",
     "ToolCallAccumulator",

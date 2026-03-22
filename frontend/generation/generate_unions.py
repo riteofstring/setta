@@ -37,7 +37,7 @@ def construct_unions(
     if import_names:
         imports = (
             f"from {module_to_import_in_gen_file.__name__} import (\n"
-            f"    {", ".join(import_names)}\n"
+            f"    {', '.join(import_names)}\n"
             ")\n"
         )
 
@@ -60,9 +60,7 @@ def construct_unions(
             defaults.append(f'"{d.name}"')
         defaults = ", ".join(defaults)
         if include_type_set:
-            code += (
-                f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
-            )
+            code += f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
 
     return imports, code
 
@@ -124,6 +122,7 @@ def generate_websocket_unions(output_file: Path):
         "messageType",
         setta.types.websocket,
         lambda x: x,
+        include_type_adapter=True,
     )
 
     code = """from typing import Annotated

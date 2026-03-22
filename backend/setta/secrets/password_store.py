@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 
 from filelock import FileLock
-
 from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.paths import get_setta_paths
 

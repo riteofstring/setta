@@ -1,7 +1,6 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field
-
 from setta.types.chat_messages import ChatFileAttachment, ChatRole
 from setta.types.id import ID
 

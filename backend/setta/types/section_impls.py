@@ -4,9 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from setta.types.artifact import (
-    DrawAreaBrushShape,
     DrawAreaLayer,
-    DrawAreaMode,
     LineChartSettings,
 )
 from setta.types.code_obj_impls import (
@@ -19,18 +17,23 @@ from setta.types.generated.chart_settings_unions import (
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.generated.go_shared_types import (
     BrowserAreaViewMode,
+    BrowserSavedSearchTypeFilters,
     BrowserSearchScope,
     ChatDictationMode,
     ChatPermissionMode,
+    CodeFileAccessMode,
+    DrawAreaBrushShape,
+    DrawAreaMode,
     ListRootViewMode,
+    PromptFormat,
     SpreadsheetGridDensity,
     StateMachineGateType,
     TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
+    TypeErrorIgnoreState,
 )
 from setta.types.id import ID, create_new_id
-from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -99,22 +102,9 @@ class ConfigLanguage(str, Enum):
     json = "json"
 
 
-class TypeErrorIgnoreState(BaseModel, extra="forbid"):
-    callable: bool = False
-    params: dict[ID, bool] = Field(default_factory=dict)
-
-
 class CodeSectionDiagnosticsIgnoreState(BaseModel, extra="forbid"):
     muted: bool = False
     suppressedCodes: list[str | int] = Field(default_factory=list)
-
-
-class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
-    image: bool = True
-    video: bool = True
-    audio: bool = True
-    text: bool = True
-    data: bool = True
 
 
 class BrowserSavedSearch(BaseModel, extra="forbid"):
@@ -220,12 +210,6 @@ class BaseCanvasSectionImpl(BaseSectionImpl):
 
 class BaseParentSectionImpl(BaseSectionImpl):
     children: list[ID] = Field(default_factory=list)
-
-
-class CodeFileAccessMode(str, Enum):
-    read_only = "read_only"
-    read_write = "read_write"
-    write_only = "write_only"
 
 
 class CodeFileBinding(BaseModel, extra="forbid"):

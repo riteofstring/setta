@@ -1,9 +1,8 @@
 import argparse
-from importlib import util
 import sys
+from importlib import util
 from pathlib import Path
 from typing import Callable
-
 
 _IMPORT_ROOT = Path(__file__).resolve(strict=False).parents[2]
 if str(_IMPORT_ROOT) not in sys.path:
@@ -40,9 +39,7 @@ def _load_builder(
     module_name = f"setta_share_listener_{base}_{safe_suffix}"
     spec = util.spec_from_file_location(module_name, entrypoint_path)
     if spec is None or spec.loader is None:
-        raise KeyError(
-            f"Failed to load share listener entrypoint: {entrypoint_path}"
-        )
+        raise KeyError(f"Failed to load share listener entrypoint: {entrypoint_path}")
     module = util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
@@ -59,9 +56,7 @@ def _load_builder(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Start a deployment listener process."
-    )
+    parser = argparse.ArgumentParser(description="Start a deployment listener process.")
     parser.add_argument("--deployment-root", required=True)
     parser.add_argument("--entrypoint", required=True)
     parser.add_argument("--session-id", required=True)

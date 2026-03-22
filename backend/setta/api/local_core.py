@@ -9,12 +9,12 @@ from setta import __version__ as SETTA_SDK_VERSION
 from setta.api.runtime_compat import RuntimeCompatibilityError
 from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
 from setta.sdk_contracts.generated import (
+    SETTA_SDK_CONTRACT_VERSION,
     LocalCoreCommandEnvelope,
     LocalCoreRenderRealtimeDependencyValuesRequest,
     LocalCoreRenderRealtimeDependencyValuesResult,
     LocalCoreResultEnvelope,
     LocalCoreVersionHandshake,
-    SETTA_SDK_CONTRACT_VERSION,
 )
 
 _LOCAL_CORE_PROTOCOL_VERSION = 1

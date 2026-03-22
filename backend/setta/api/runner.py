@@ -21,10 +21,9 @@ from setta.sdk_contracts.generated import (
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
+from setta.types.generated.go_shared_types import Route, RunSnapshotMode
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
-from setta.types.routes import Route
-from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 

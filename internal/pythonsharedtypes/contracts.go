@@ -3,6 +3,7 @@ package pythonsharedtypes
 import (
 	"reflect"
 
+	"setta/internal/artifacts"
 	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
@@ -54,12 +55,42 @@ func currentContractSpecs() ([]contractSpec, error) {
 		stringEnumContractSpec(reflect.TypeOf(projectstate.ChatPermissionMode(""))),
 		stringEnumContractSpec(reflect.TypeOf(projectstate.ChatDictationMode(""))),
 		stringEnumContractSpec(reflect.TypeOf(projectstate.StateMachineGateType(""))),
+		stringEnumContractSpec(reflect.TypeOf(projectstate.CodeFileAccessMode(""))),
+		stringEnumContractSpec(reflect.TypeOf(artifacts.ArtifactType(""))),
+		stringEnumContractSpec(reflect.TypeOf(projectstate.ChartType(""))),
+		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DrawAreaBrushShape(""))),
+		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DrawAreaMode(""))),
+		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DependencyKeyType(""))),
+		stringEnumContractSpec(reflect.TypeOf(frontendbindings.DependencyValueType(""))),
+		stringEnumContractSpec(reflect.TypeOf(frontendbindings.ChatRole(""))),
+		stringEnumContractSpec(reflect.TypeOf(frontendbindings.StreamingEventType(""))),
 		{
 			Name: "LLMConfig",
 			Kind: contractKindModel,
 			Type: reflect.TypeOf(frontendbindings.LLMConfig{}),
 			FieldDefaults: map[string]string{
 				"temporary": "False",
+			},
+		},
+		{
+			Name: "TypeErrorIgnoreState",
+			Kind: contractKindModel,
+			Type: reflect.TypeOf(projectstate.TypeErrorIgnoreState{}),
+			FieldDefaults: map[string]string{
+				"callable": "False",
+				"params":   "Field(default_factory=dict)",
+			},
+		},
+		{
+			Name: "BrowserSavedSearchTypeFilters",
+			Kind: contractKindModel,
+			Type: reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
+			FieldDefaults: map[string]string{
+				"image": "True",
+				"video": "True",
+				"audio": "True",
+				"text":  "True",
+				"data":  "True",
 			},
 		},
 		stringEnumContractSpec(reflect.TypeOf(projectstate.PromptFormat(""))),

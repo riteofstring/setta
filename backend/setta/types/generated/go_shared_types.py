@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SettaSharedTypeModel(BaseModel):
@@ -78,6 +78,65 @@ class StateMachineGateType(str, Enum):
     XOR = "XOR"
 
 
+class CodeFileAccessMode(str, Enum):
+    read_write = "read_write"
+    read_only = "read_only"
+    write_only = "write_only"
+
+
+class ArtifactType(str, Enum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
+    ChartData = "ChartData"
+    File = "File"
+
+
+class ChartType(str, Enum):
+    line = "line"
+    scatter = "scatter"
+
+
+class DrawAreaBrushShape(str, Enum):
+    butt = "butt"
+    round = "round"
+    square = "square"
+
+
+class DrawAreaMode(str, Enum):
+    draw = "draw"
+    erase = "erase"
+    edit = "edit"
+
+
+class DependencyKeyType(str, Enum):
+    Section = "Section"
+    SectionParam = "SectionParam"
+
+
+class DependencyValueType(str, Enum):
+    Literal = "Literal"
+    Binary = "Binary"
+    FileRead = "FileRead"
+
+
+class ChatRole(str, Enum):
+    system = "system"
+    user = "user"
+    assistant = "assistant"
+    tool = "tool"
+
+
+class StreamingEventType(str, Enum):
+    message_start = "message_start"
+    delta = "delta"
+    tool_call_delta = "tool_call_delta"
+    tool_argument_preview_delta = "tool_argument_preview_delta"
+    tool_result = "tool_result"
+    message_stop = "message_stop"
+    message_finalized = "message_finalized"
+
+
 class PromptFormat(str, Enum):
     Jinja = "Jinja"
 
@@ -97,3 +156,16 @@ class LLMConfig(SettaSharedTypeModel):
     other_params: dict[str, Any] | None = None
     mcpServerIds: list[str] | None = None
     temporary: bool = False
+
+
+class TypeErrorIgnoreState(SettaSharedTypeModel):
+    callable: bool = False
+    params: dict[str, bool] = Field(default_factory=dict)
+
+
+class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
+    image: bool = True
+    video: bool = True
+    audio: bool = True
+    text: bool = True
+    data: bool = True

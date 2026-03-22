@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from setta.types.routes import Route
+from setta.types.generated.go_shared_types import Route
 from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)

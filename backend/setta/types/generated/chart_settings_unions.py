@@ -1,11 +1,7 @@
 from typing import Annotated
 
 from pydantic import Field
-
-from setta.types.artifact import (
-    LineChartSettings,
-    ScatterChartSettings,
-)
+from setta.types.artifact import LineChartSettings, ScatterChartSettings
 
 BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings
 

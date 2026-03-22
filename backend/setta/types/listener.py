@@ -26,6 +26,12 @@ from setta.sdk_contracts.generated import (
     ListenerInitRequest as SDKListenerInitRequest,
 )
 from setta.sdk_contracts.generated import (
+    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
+)
+from setta.sdk_contracts.generated import (
     ListenerRegisterAckEvent as SDKListenerRegisterAckEvent,
 )
 from setta.sdk_contracts.generated import (
@@ -42,12 +48,6 @@ from setta.sdk_contracts.generated import (
 )
 from setta.sdk_contracts.generated import (
     ListenerRenderedDependencyValues as SDKListenerRenderedDependencyValues,
-)
-from setta.sdk_contracts.generated import (
-    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
-)
-from setta.sdk_contracts.generated import (
-    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
 )
 from setta.sdk_contracts.generated import (
     ListenerRouterEndpointCall as SDKListenerRouterEndpointCall,

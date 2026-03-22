@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,

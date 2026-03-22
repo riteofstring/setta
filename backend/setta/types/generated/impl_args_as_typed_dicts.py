@@ -1,12 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
-from setta.types.artifact import (
-    DrawAreaBrushShape,
-    DrawAreaLayer,
-    DrawAreaMode,
-    LineChartSettings,
-    ScatterChartSettings,
-)
+from setta.types.artifact import DrawAreaLayer, LineChartSettings, ScatterChartSettings
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -31,6 +25,7 @@ from setta.types.code_obj_impls import (
     TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
+from setta.types.generated.go_shared_types import DrawAreaBrushShape, DrawAreaMode
 from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,

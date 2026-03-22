@@ -12,7 +12,6 @@ from setta.types.generated.dependency_values import (
 )
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
-
 SETTA_SDK_CONTRACT_VERSION = 2
 
 

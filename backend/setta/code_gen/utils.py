@@ -4,6 +4,7 @@ import re
 GEN_CODE_INSTANCE_NAME = "state"
 GEN_CODE_CLASS_NAME = "SettaState"
 
+
 def sanitize_slug(name: str) -> str:
     # Replace brackets, quotes and other invalid chars with underscores.
     invalid_chars = "[]\"' "

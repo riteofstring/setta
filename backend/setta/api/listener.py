@@ -36,11 +36,11 @@ from setta.auth.session import load_current_session_secret
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
-from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.sdk_contracts.generated import (
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
+from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.dependency_key import (
     SectionDependencyKey,
@@ -48,6 +48,7 @@ from setta.types.dependency_key import (
     create_dep_key,
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.generated.go_shared_types import Route
 from setta.types.generated.unions import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnionWithDiscriminator,
@@ -77,7 +78,6 @@ from setta.types.project_config import (
     CodeObjValueRepresentationMode,
     SectionRepresentationMode,
 )
-from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,

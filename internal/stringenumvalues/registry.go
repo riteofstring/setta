@@ -376,21 +376,13 @@ func repoRoot() (string, error) {
 }
 
 func deriveEnumMemberName(typeName string, constName string, value string) string {
+	if isIdentifier(value) {
+		return value
+	}
+
 	suffix := strings.TrimPrefix(constName, typeName)
 	if suffix == "" {
 		suffix = constName
-	}
-	if isIdentifier(value) {
-		snakeCaseSuffix := toSnakeCase(suffix)
-		if value == snakeCaseSuffix {
-			return value
-		}
-		if value == strings.ToLower(suffix) && !isAllUpper(suffix) {
-			return value
-		}
-		if value == suffix {
-			return value
-		}
 	}
 	return suffix
 }

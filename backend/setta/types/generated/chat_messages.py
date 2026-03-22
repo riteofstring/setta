@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from pydantic import Field
-
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,

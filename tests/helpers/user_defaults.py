@@ -5,7 +5,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 # Section type imports
-from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
+from setta.types.artifact import DrawAreaLayer
+from setta.types.generated.go_shared_types import DrawAreaBrushShape, DrawAreaMode
 
 # Code object type imports
 from setta.types.code_obj_impls import (

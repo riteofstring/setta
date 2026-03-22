@@ -100,7 +100,7 @@ def get_imports_str():
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 from setta.types.id import ID
 from setta.types.artifact import LineChartSettings, ScatterChartSettings
-from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
+from setta.types.artifact import DrawAreaLayer
 from setta.types.section_impls import (
     SectionSize,
     CodeLanguage,
@@ -125,6 +125,7 @@ from setta.types.section_impls import (
     TaskBoardColumn,
     TaskBoardTask,
 )
+from setta.types.generated.go_shared_types import DrawAreaBrushShape, DrawAreaMode
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,

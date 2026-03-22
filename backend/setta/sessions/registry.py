@@ -11,7 +11,6 @@ from typing import Literal
 
 import psutil
 from pydantic import BaseModel, Field, ValidationError
-
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
 

@@ -3,7 +3,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from setta.types.code_obj_impls import ColorPickerChoice
-from setta.types.settings_state import RunSnapshotMode
+from setta.types.generated.go_shared_types import RunSnapshotMode
 
 # Test helper copy of the former backend settings models.
 

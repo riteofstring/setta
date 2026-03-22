@@ -33,6 +33,7 @@ func Build() (GeneratedTypes, error) {
 	enums := make([]contractSpec, 0, len(specs))
 	typingImports := map[string]struct{}{}
 	needsEnum := false
+	needsPydanticField := false
 
 	for _, spec := range specs {
 		switch spec.Kind {
@@ -62,6 +63,9 @@ func Build() (GeneratedTypes, error) {
 				if strings.Contains(field.TypeExpr, "Any") {
 					typingImports["Any"] = struct{}{}
 				}
+				if strings.Contains(field.DefaultExpr, "Field(") {
+					needsPydanticField = true
+				}
 			}
 		default:
 			return GeneratedTypes{}, fmt.Errorf(
@@ -85,7 +89,11 @@ func Build() (GeneratedTypes, error) {
 	if needsEnum || len(typingImports) > 0 {
 		builder.WriteString("\n")
 	}
-	builder.WriteString("from pydantic import BaseModel, ConfigDict\n")
+	builder.WriteString("from pydantic import BaseModel, ConfigDict")
+	if needsPydanticField {
+		builder.WriteString(", Field")
+	}
+	builder.WriteString("\n")
 	builder.WriteString("\n\n")
 	builder.WriteString("class SettaSharedTypeModel(BaseModel):\n")
 	builder.WriteString("    model_config = ConfigDict(extra=\"forbid\")\n")

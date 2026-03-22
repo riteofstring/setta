@@ -50,9 +50,7 @@ class ListenerHotReloader:
         if not ignore_patterns:
             ignore = ()
         else:
-            ignore = tuple(
-                pattern.replace("\\", "/") for pattern in ignore_patterns
-            )
+            ignore = tuple(pattern.replace("\\", "/") for pattern in ignore_patterns)
 
         def parse_extra_watch_path(
             raw_path: str,
@@ -73,9 +71,7 @@ class ListenerHotReloader:
                 else:
                     root = Path(*root_parts)
                 root = self._resolve_path(root)
-                pattern = (
-                    Path(*pattern_parts).as_posix() if pattern_parts else "**"
-                )
+                pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
                 yield root, pattern
                 return
             normalized = self._resolve_path(Path(path_string))
@@ -254,6 +250,7 @@ class ListenerHotReloader:
         if path.exists():
             return path.is_file()
         return path.suffix != ""
+
 
 @dataclass(frozen=True)
 class _WatcherSpec:

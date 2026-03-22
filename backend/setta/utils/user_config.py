@@ -33,6 +33,8 @@ def _resolve_path(value: str, *, setta_home: Path) -> Path:
     if not candidate.is_absolute():
         candidate = setta_home / candidate
     return candidate.resolve(strict=False)
+
+
 def _coerce_str(raw: object, *, label: str) -> str | None:
     if raw is None:
         return None

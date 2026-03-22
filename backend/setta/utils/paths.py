@@ -220,6 +220,8 @@ def resolve_setta_paths(
 @lru_cache(maxsize=1)
 def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
+
+
 def normalize_state_path(
     path: Path | str, setta_files_root: Path | None = None
 ) -> Path:
@@ -228,6 +230,8 @@ def normalize_state_path(
     if candidate.is_absolute():
         return candidate.expanduser().resolve(strict=False)
     return (root / candidate).resolve(strict=False)
+
+
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     sanitized_leaf = _sanitize_leaf(workspace_root.name)
     # Keep the computed directory name comfortably under common filesystem name

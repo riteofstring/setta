@@ -26,9 +26,9 @@ from setta.types.chat_messages import (
 )
 from setta.types.chat_stream_events import MessageFinalizedEvent
 from setta.types.chat_toolkit import ChatSendEvent
+from setta.types.generated.go_shared_types import LLMConfig
 from setta.types.id import ID
 from setta.types.listener import ListenerDependencyCatalog
-from setta.types.llm_config import LLMConfig
 from setta.types.section_impls import ChatSectionState
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,

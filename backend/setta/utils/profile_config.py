@@ -27,6 +27,8 @@ class SettaProfileConfig:
     runtime_root: Path | None
     setta_files_location: SettaFilesLocation | None
     auth_cookie_name: str | None
+
+
 def resolve_setta_profile_path(*, setta_home: Path, profile: str) -> Path:
     trimmed = profile.strip()
     if not trimmed:
