@@ -2901,5 +2901,83 @@ Record:
     - keep the exact-image preview path and queued capture correction for product correctness
     - reject this checkpoint as the performance-complete Tier 1 solution for the hybrid-rendering plan
     - the queue helps the pending burst and improves some `RunTask`, but it does not materially collapse the motion-paint budget
-- Next action:
+  - Next action:
   - Narrow Tier 1 preview locality and warm-surface scope so the overview canvas cannot accumulate so many ready image surfaces at once, then rerun the same paired benchmark matrix.
+
+## 2026-03-25 069
+
+- Item: Benchmark a locality-capped Tier 1 preview probe, decide whether to keep it, and restore the branch to the best known checkpoint if the probe is rejected.
+- Status: `done`
+- Details:
+  - Probe commit under test:
+    - `8b0f6280e` `Constrain Tier 1 preview warming to a local neighborhood`
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-preview-locality-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-25_section-benchmark-tier1-preview-locality-rerun`
+  - Same paired benchmark harness and browser/frontend targets were used again:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+    - worktree browser CDP `http://127.0.0.1:9233`
+    - worktree frontend `http://127.0.0.1:3011`
+    - untouched `main` browser CDP `http://127.0.0.1:9309`
+    - untouched `main` frontend `http://127.0.0.1:3087`
+  - Focused verification on the locality probe before the benchmark write-up:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+      - `3` files passed
+      - `18` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+      - `1` test passed
+    - filtered `tsc` on `SectionBodyGate`, `Tier1DenseParamSectionPreview`, `sectionBodyModePolicy`, and `settings-pan-zoom-preview` returned no matching diagnostics
+    - fresh sub-agent CDP visual check:
+      - `/settings` `All Settings`
+      - `/benchmark-tier1`
+      - no old simplified placeholder fallback observed
+      - sampled motion state on `/benchmark-tier1` showed only a small local visible preview set rather than the old broad overlay accumulation
+  - Paired benchmark totals versus untouched `main`:
+    - `settings`
+      - benchmark `Paint`:
+        - `105.944ms -> 576.737ms`
+      - benchmark `RunTask`:
+        - `41939.727ms -> 44650.901ms`
+      - benchmark `UpdateLayoutTree`:
+        - `690.096ms -> 755.065ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `19.531ms -> 1049.454ms`
+      - benchmark `RunTask`:
+        - `17558.466ms -> 18378.127ms`
+      - benchmark `UpdateLayoutTree`:
+        - `26.025ms -> 272.441ms`
+  - Immediate deltas versus the prior queued-image checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `434.401ms -> 576.737ms`
+      - benchmark `RunTask`:
+        - `29680.224ms -> 44650.901ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.593ms -> 755.065ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `762.591ms -> 1049.454ms`
+      - benchmark `RunTask`:
+        - `14109.314ms -> 18378.127ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.719ms -> 272.441ms`
+  - Decision:
+    - reject the locality-capped probe
+    - the smaller visible preview set did not translate into a better benchmark outcome
+    - the strongest read is that aggressive preview eviction added expensive cache-turnover and re-capture churn
+  - Branch-state correction after the reject:
+    - recorded benchmark evidence committed as:
+      - `ebcf7dff3` `Record the rejected Tier 1 preview-locality benchmark rerun`
+    - rejected code probe reverted as:
+      - `4b3ed1986` `Revert the rejected Tier 1 preview-locality probe`
+    - post-revert verification on the restored queued-image state:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+        - `2` files passed
+        - `8` tests passed
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+        - `1` test passed
+      - filtered `tsc` on `SectionBodyGate`, `Tier1DenseParamSectionPreview`, and `settings-pan-zoom-preview` returned no matching diagnostics
+- Next action:
+  - Keep the faithful queued-image checkpoint as the live branch state and pursue a lower-churn follow-up that separates preview retention from overlay visibility before the next paired benchmark rerun.

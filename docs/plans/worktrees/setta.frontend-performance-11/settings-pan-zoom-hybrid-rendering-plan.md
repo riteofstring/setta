@@ -1484,3 +1484,32 @@ These questions should be answered with traces and direct visual verification, n
   - limit how many Tier 1 sections can become preview-ready or overlay-visible at once
   - bias toward a small warm neighborhood instead of letting the whole overview canvas accumulate ready image surfaces
   - rerun the same paired matrix after that locality narrowing
+
+## 2026-03-25 Locality Probe Gate Note
+
+- The locality-capped follow-up probe is now recorded in:
+  - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-preview-locality-rerun.md`
+- Probe sequence now committed:
+  - experimental probe:
+    - `8b0f6280e` `Constrain Tier 1 preview warming to a local neighborhood`
+  - recorded benchmark evidence:
+    - `ebcf7dff3` `Record the rejected Tier 1 preview-locality benchmark rerun`
+  - branch-state correction after the reject:
+    - `4b3ed1986` `Revert the rejected Tier 1 preview-locality probe`
+- Result:
+  - keep the faithful queued-image checkpoint as the current product-correct branch state
+  - reject the locality probe itself as a performance step
+- Why the locality probe was rejected:
+  - it preserved the no-placeholder fidelity requirement and fresh CDP checks still saw only a small local visible preview set
+  - but the authoritative paired benchmark got materially worse, not better:
+    - `settings` benchmark `Paint`: `434.401ms -> 576.737ms` versus the queued-image checkpoint
+    - `tier1Synthetic` benchmark `Paint`: `762.591ms -> 1049.454ms` versus the queued-image checkpoint
+    - `settings` benchmark `RunTask`: `29680.224ms -> 44650.901ms`
+    - `tier1Synthetic` benchmark `UpdateLayoutTree`: `20.719ms -> 272.441ms`
+- Best current read:
+  - limiting visible preview scope is not enough if the policy also evicts ready caches aggressively
+  - the locality probe likely traded broad overlay presence for expensive preview eviction and re-capture churn
+- Next implementation direction:
+  - keep overlay visibility local, but stop forcing high-turnover cache eviction
+  - separate preview retention policy from overlay visibility policy
+  - prefer a stable warm pool or other low-churn retention strategy before running the next paired matrix
