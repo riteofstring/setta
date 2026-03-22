@@ -498,10 +498,18 @@ func resolveSettaFilesRoot(
 	envLocationRaw := lookupEnvTrimmed(envLookup, filesLocationEnv)
 
 	if explicitRootRaw != "" && explicitLocationRaw != "" {
-		return "", "", false, fmt.Errorf("cannot use --setta-files-root together with --setta-files-location")
+		return "", "", false, newConfigError(
+			"InvalidSettaFilesConfig",
+			"cannot use --setta-files-root together with --setta-files-location",
+			nil,
+		)
 	}
 	if envRootRaw != "" && envLocationRaw != "" {
-		return "", "", false, fmt.Errorf("environment variables %s and %s cannot both be set", filesRootEnv, filesLocationEnv)
+		return "", "", false, newConfigError(
+			"InvalidSettaFilesConfig",
+			fmt.Sprintf("environment variables %s and %s cannot both be set", filesRootEnv, filesLocationEnv),
+			nil,
+		)
 	}
 
 	selectedRootRaw := ""

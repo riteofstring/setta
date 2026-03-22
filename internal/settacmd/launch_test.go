@@ -319,6 +319,104 @@ func TestRunLaunchRejectsConflictingWorkspaceBetweenGlobalAndSubcommand(t *testi
 	}
 }
 
+// Root and subcommand location flags should fail closed before launch resolution.
+func TestRunLaunchRejectsConflictingSettaFilesLocationBetweenGlobalAndSubcommand(t *testing.T) {
+	t.Parallel()
+
+	stdout, stderr, err := runLaunchCommandWithDeps(
+		t,
+		[]string{"--json", "--setta-files-location", "global"},
+		globalFlags{settaFilesLocation: "local"},
+		t.TempDir(),
+		launchDependencies{},
+	)
+	if err == nil {
+		t.Fatal("expected conflicting setta-files-location error")
+	}
+	if code := ExitCode(err); code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	payload := decodeJSONPayload(t, stdout)
+	errorPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %#v", payload)
+	}
+	if got := errorPayload["code"]; got != "BadRequest" {
+		t.Fatalf("expected BadRequest error, got %#v", got)
+	}
+	message, ok := errorPayload["message"].(string)
+	if !ok {
+		t.Fatalf("expected string error message, got %#v", errorPayload["message"])
+	}
+	if !strings.Contains(message, "Conflicting --setta-files-location") {
+		t.Fatalf("expected conflicting setta-files-location message, got %q", message)
+	}
+}
+
+// Explicit setta_files roots and location selectors should keep the typed config error branch.
+func TestRunLaunchRejectsConflictingSettaFilesRootAndLocationAsInvalidConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	deps := testLaunchDependencies(t, launchTestOptions{
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
+				ExecutablePath: "/tmp/setta-server",
+			})
+		},
+	})
+
+	stdout, stderr, err := runLaunchCommandWithDeps(
+		t,
+		[]string{"--json", "--setta-files-location", "local"},
+		globalFlags{
+			workspaceRoot:  workspaceRoot,
+			settaHome:      settaHome,
+			settaFilesRoot: filepath.Join(root, "state", "setta_files_dev"),
+		},
+		root,
+		deps,
+	)
+	if err == nil {
+		t.Fatal("expected invalid setta files config error")
+	}
+	if code := ExitCode(err); code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	payload := decodeJSONPayload(t, stdout)
+	errorPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %#v", payload)
+	}
+	if got := errorPayload["code"]; got != "InvalidSettaFilesConfig" {
+		t.Fatalf("expected InvalidSettaFilesConfig error, got %#v", got)
+	}
+	message, ok := errorPayload["message"].(string)
+	if !ok {
+		t.Fatalf("expected string error message, got %#v", errorPayload["message"])
+	}
+	if !strings.Contains(message, "cannot use --setta-files-root together with --setta-files-location") {
+		t.Fatalf("expected conflicting setta files config detail, got %q", message)
+	}
+}
+
 func TestRunLaunchReturnsNilSettaFilesLocationForExplicitRoot(t *testing.T) {
 	t.Parallel()
 

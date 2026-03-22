@@ -451,7 +451,8 @@ func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
 	}
 	if strings.TrimSpace(input.SettaFilesRoot) != "" {
 		cli.SettaFilesRoot = input.SettaFilesRoot
-	} else if input.SettaFilesLocation != nil && strings.TrimSpace(*input.SettaFilesLocation) != "" {
+	}
+	if input.SettaFilesLocation != nil && strings.TrimSpace(*input.SettaFilesLocation) != "" {
 		cli.SettaFilesLocation = strings.TrimSpace(*input.SettaFilesLocation)
 	}
 

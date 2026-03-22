@@ -1083,6 +1083,16 @@ func TestLoadRejectsConflictingSettaFilesFlags(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected conflict error")
 	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaFilesConfig" {
+		t.Fatalf("expected InvalidSettaFilesConfig, got %q", configErr.Code)
+	}
+	if !strings.Contains(configErr.Message, "cannot use --setta-files-root together with --setta-files-location") {
+		t.Fatalf("expected conflicting setta-files flag detail, got %q", configErr.Message)
+	}
 }
 
 func TestLoadPrefersExplicitSettaFilesRootOverExistingLocalRoot(t *testing.T) {
@@ -1399,7 +1409,14 @@ func TestLoadRejectsConflictingEnvSettaFilesRootAndLocation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected environment conflict error")
 	}
-	if got := err.Error(); !strings.Contains(got, filesRootEnv) || !strings.Contains(got, filesLocationEnv) {
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("expected ConfigError, got %T: %v", err, err)
+	}
+	if configErr.Code != "InvalidSettaFilesConfig" {
+		t.Fatalf("expected InvalidSettaFilesConfig, got %q", configErr.Code)
+	}
+	if got := configErr.Message; !strings.Contains(got, filesRootEnv) || !strings.Contains(got, filesLocationEnv) {
 		t.Fatalf("expected environment conflict error to mention %s and %s, got %q", filesRootEnv, filesLocationEnv, got)
 	}
 }
