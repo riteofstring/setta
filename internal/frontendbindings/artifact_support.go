@@ -23,21 +23,9 @@ type LoadCachedArtifactsRequestInput artifacts.LoadCachedPathsRequest
 
 type ArtifactType = artifacts.ArtifactType
 
-type DrawAreaBrushShape string
+type DrawAreaBrushShape = artifacts.DrawAreaBrushShape
 
-const (
-	DrawAreaBrushShapeButt   DrawAreaBrushShape = "butt"
-	DrawAreaBrushShapeRound  DrawAreaBrushShape = "round"
-	DrawAreaBrushShapeSquare DrawAreaBrushShape = "square"
-)
-
-type DrawAreaMode string
-
-const (
-	DrawAreaModeDraw  DrawAreaMode = "draw"
-	DrawAreaModeErase DrawAreaMode = "erase"
-	DrawAreaModeEdit  DrawAreaMode = "edit"
-)
+type DrawAreaMode = artifacts.DrawAreaMode
 
 type CanvasPoint [2]float64
 
@@ -45,50 +33,21 @@ type DrawAreaTransform [6]float64
 
 type BrushStrokePoint struct{}
 
-type BrushStroke struct {
-	StrokeStyle              string             `json:"strokeStyle"`
-	LineWidth                float64            `json:"lineWidth"`
-	LineCap                  DrawAreaBrushShape `json:"lineCap"`
-	Points                   []BrushStrokePoint `json:"points"`
-	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
-}
+type BrushStroke = artifacts.BrushStroke
 
-type BrushStrokeWithTransform struct {
-	StrokeStyle              string             `json:"strokeStyle"`
-	LineWidth                float64            `json:"lineWidth"`
-	LineCap                  DrawAreaBrushShape `json:"lineCap"`
-	Points                   []BrushStrokePoint `json:"points"`
-	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
-	Transform                DrawAreaTransform  `json:"transform"`
-}
+type BrushStrokeWithTransform = artifacts.BrushStrokeWithTransform
 
-type DrawAreaLayerItemTransform struct {
-	Transform     DrawAreaTransform          `json:"transform"`
-	EraserStrokes []BrushStrokeWithTransform `json:"eraserStrokes"`
-}
+type DrawAreaLayerItemTransform = artifacts.DrawAreaLayerItemTransform
 
 type DrawAreaLayerItem = projectstate.DrawAreaLayerItem
 
-type DrawAreaLayer struct {
-	Name         string              `json:"name"`
-	Elements     []DrawAreaLayerItem `json:"elements"`
-	Visible      bool                `json:"visible"`
-	LayerOpacity float64             `json:"layerOpacity"`
-}
+type DrawAreaLayer = artifacts.DrawAreaLayer
 
 type ImageArtifact = artifacts.ImageArtifact
 
-type BrushStrokeArtifact struct {
-	Type  ArtifactType `json:"type"`
-	ID    string       `json:"id"`
-	Value BrushStroke  `json:"value"`
-}
+type BrushStrokeArtifact = artifacts.BrushStrokeArtifact
 
-type DrawAreaLayerItemTransformArtifact struct {
-	Type  ArtifactType               `json:"type"`
-	ID    string                     `json:"id"`
-	Value DrawAreaLayerItemTransform `json:"value"`
-}
+type DrawAreaLayerItemTransformArtifact = artifacts.DrawAreaLayerItemTransformArtifact
 
 type ChartDataScalar struct{}
 

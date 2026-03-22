@@ -388,6 +388,9 @@ func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
 	if fieldType == rawJSONType {
 		return "Any", nil
 	}
+	if wrapperType, ok := pythonWrapperTypeOverrides[fieldType]; ok {
+		return wrapperType.Name(), nil
+	}
 	switch fieldType.Kind() {
 	case reflect.String:
 		return "str", nil

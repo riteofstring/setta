@@ -135,6 +135,18 @@ class StreamingEventType(str, Enum):
     message_finalized = "message_finalized"
 
 
+class DrawAreaBrushShape(str, Enum):
+    butt = "butt"
+    round = "round"
+    square = "square"
+
+
+class DrawAreaMode(str, Enum):
+    draw = "draw"
+    erase = "erase"
+    edit = "edit"
+
+
 class ArtifactType(str, Enum):
     Image = "Image"
     BrushStroke = "BrushStroke"
@@ -152,18 +164,6 @@ class ChatRole(str, Enum):
 
 class PromptFormat(str, Enum):
     Jinja = "Jinja"
-
-
-class DrawAreaBrushShape(str, Enum):
-    butt = "butt"
-    round = "round"
-    square = "square"
-
-
-class DrawAreaMode(str, Enum):
-    draw = "draw"
-    erase = "erase"
-    edit = "edit"
 
 
 class RunSnapshotMode(str, Enum):
@@ -342,6 +342,12 @@ class ChatSectionState(SettaSharedTypeModel):
     toolCallArguments: dict[str, str]
     activeBranchId: str | None = None
     branches: dict[str, ChatSectionBranch]
+
+
+class DrawAreaLayerItem(SettaSharedTypeModel):
+    type: str
+    dataPath: str
+    transformId: str
 
 
 class Viewport(SettaSharedTypeModel):
@@ -547,6 +553,53 @@ class MessageFinalizedEvent(SettaSharedTypeModel):
     message: dict[str, Any]
 
 
+class BrushStroke(SettaSharedTypeModel):
+    strokeStyle: str
+    lineWidth: float
+    lineCap: str
+    points: list[Any]
+    globalCompositeOperation: str
+
+
+class BrushStrokeWithTransform(SettaSharedTypeModel):
+    strokeStyle: str
+    lineWidth: float
+    lineCap: str
+    points: list[Any]
+    globalCompositeOperation: str
+    transform: list[float]
+
+
+class DrawAreaLayerItemTransform(SettaSharedTypeModel):
+    transform: list[float]
+    eraserStrokes: list[BrushStrokeWithTransform]
+
+
+class DrawAreaLayer(SettaSharedTypeModel):
+    name: str
+    elements: list[DrawAreaLayerItem]
+    visible: bool
+    layerOpacity: float
+
+
+class BrushStrokeArtifact(SettaSharedTypeModel):
+    type: str
+    id: str
+    value: BrushStroke
+
+
+class DrawAreaLayerItemTransformArtifact(SettaSharedTypeModel):
+    type: str
+    id: str
+    value: DrawAreaLayerItemTransform
+
+
+class ChartDataArtifact(SettaSharedTypeModel):
+    type: str
+    id: str
+    value: dict[str, list[Any]]
+
+
 class ChatFileAttachment(SettaSharedTypeModel):
     id: str
     name: str
@@ -665,3 +718,15 @@ class BinaryContentRef(SettaSharedTypeModel):
     byteLength: int
     mimeType: str | None = None
     sha256: str | None = None
+
+
+class ImageArtifact(SettaSharedTypeModel):
+    type: str
+    id: str
+    value: BinaryContentRef
+
+
+class FileArtifact(SettaSharedTypeModel):
+    type: str
+    id: str
+    value: BinaryContentRef

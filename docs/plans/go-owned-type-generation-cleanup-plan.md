@@ -81,6 +81,15 @@ That means:
   - `StreamingEventType`
   - `ListenerMessageType`
   - `ListenerDependencyMode`
+- the draw-area / artifact payload family now has real Go owners in `internal/artifacts`:
+  - `DrawAreaBrushShape`
+  - `DrawAreaMode`
+  - `BrushStroke`
+  - `BrushStrokeWithTransform`
+  - `DrawAreaLayerItemTransform`
+  - `DrawAreaLayer`
+  - `BrushStrokeArtifact`
+  - `DrawAreaLayerItemTransformArtifact`
 - `internal/frontendbindings/ai_runtime_support.go` now points the streaming-event family at realtime-owned structs instead of repeating local field layouts:
   - `MessageTextDelta`
   - `MessageThinkingDelta`
@@ -114,8 +123,11 @@ That means:
 - `internal/frontendbindings/project_state_support.go` now points the detailed chat-message schema family at `internal/scriptablechat` instead of keeping local placeholder owners.
 - `backend/setta/types/chat_messages.py` no longer hand-owns the concrete chat-message field layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
+- `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
+  - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
 - `backend/setta/types/websocket.py` no longer owns the listener websocket message-type enum; it now reuses the Go-owned generated `ListenerMessageType`.
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
+- the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -140,7 +152,8 @@ Working assumption for the next passes:
 - the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
 - `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
 - `dependency_value.py` is smaller and narrower, but still needs a deliberate decision because the current frozen dataclass API is used directly in Python tests and runtime helpers.
-- the main remaining shared-contract candidate is now `artifact.py`; everything else is either already Go-owned or needs a concrete Python-only justification.
+- `artifact.py` is no longer a shared-schema owner; the handwritten remainder is mostly Python-side chart settings, tuple aliases, default ids, and draw-area convenience defaults.
+- the main remaining shared-contract candidates are now `dependency_value.py` and the remaining local policy/default layer in `project_config.py`.
 
 ## What Is Still Wrong
 
@@ -154,7 +167,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the artifact/binary leaf family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, and the detailed chat-message schema family, but not yet for the artifact payload family and the larger external-agent settings families.
+This has improved for the project-state/view/windowing family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, and the detailed chat-message schema family, but not yet for the larger external-agent settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -175,6 +188,8 @@ The remaining work is:
 
 It now also discovers directly from several real owner packages, which is better.
 
+It also now applies discovered wrapper overrides to nested fields, not just top-level discovered roots, which removes one class of manual `py_type` patching.
+
 But it still leans on the `frontendbindings` surface, plus enum fallback logic, for a significant part of the exported Python-facing names, which means the real owner packages are still not cleanly expressed for many type families.
 
 ### 4. There may still be some duplicated type ownership inside Go
@@ -188,12 +203,10 @@ The prompt-format duplication has already been removed. The remaining work here 
 ### 5. A few handwritten Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before.
 
-The main candidate is now:
-- `artifact.py`
-
-Secondary candidates:
+The main candidates are now:
 - `dependency_value.py`, if the Python listener/runtime no longer needs the frozen dataclass constructor/equality behavior
 - the remaining local wrapper content in `project_config.py`, if more of its defaults can move cleanly onto Go-owned models without adding duplicate Go definitions
+- the remainder of `artifact.py`, if chart settings and draw-area defaults can be moved or deleted cleanly without reintroducing duplicate Go definitions
 
 Already narrowed to Python adapter layers:
 - `chat.py`

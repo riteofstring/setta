@@ -43,6 +43,8 @@ var pythonSharedEnumFallbackPackages = []string{
 	"setta/internal/runs",
 }
 
+var pythonWrapperTypeOverrides = frontendbindings.DiscoveredWrapperTypeOverrides()
+
 func currentContractSpecs() ([]contractSpec, error) {
 	routeSpec, err := buildRouteContractSpec()
 	if err != nil {

@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	binarypayload "setta/internal/binary"
 )
 
 func TestBuild(t *testing.T) {
@@ -92,5 +94,17 @@ func TestSortModelSpecsByDependencies(t *testing.T) {
 	}
 	if sorted[2].Name != "Chat" {
 		t.Fatalf("sorted[2].Name = %q, want %q", sorted[2].Name, "Chat")
+	}
+}
+
+func TestPythonTypeExprUsesWrapperOverrideNamesForNestedOwnerFields(t *testing.T) {
+	t.Helper()
+
+	typeExpr, err := pythonTypeExpr(reflect.TypeOf(binarypayload.ContentRef{}), "")
+	if err != nil {
+		t.Fatalf("pythonTypeExpr(...) error = %v", err)
+	}
+	if typeExpr != "BinaryContentRef" {
+		t.Fatalf("typeExpr = %q, want %q", typeExpr, "BinaryContentRef")
 	}
 }
