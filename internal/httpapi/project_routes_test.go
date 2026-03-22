@@ -2835,6 +2835,53 @@ func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsPersistLatest
 	}
 }
 
+func TestRegisterProjectRoutesMetaControlParamRenamePersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": metaControlParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	response := post(RouteSetCodeObjName, `{"projectConfigId":"project-alpha","codeObjId":"meta-param","name":"control_name","frontendOpId":"frontend-op-meta-control-name"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	if got := payload.ProjectState.CodeObjs["meta-param"].Name; got != "control_name" {
+		t.Fatalf("expected meta-param name control_name, got %q", got)
+	}
+}
+
 func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 
@@ -14088,6 +14135,67 @@ func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
 		t.Fatalf("normalize password route test project: %v", err)
 	}
 	return project
+}
+
+func metaControlParamRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	return mustNormalizedProjectRouteProject(t, projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"meta-section": "meta-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"meta-section": {
+				ID:               "meta-section",
+				Name:             "Meta",
+				VariantIDs:       []string{"meta-variant"},
+				DefaultVariantID: "meta-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"meta-variant": {
+				ID:     "meta-variant",
+				ImplID: "meta-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"meta-impl": {
+				ID:   "meta-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                 "meta-impl",
+					"type":               "MetaControl",
+					"metaControlParamId": "meta-param",
+					"codeObjVariantMap": map[string]string{
+						"meta-param": "meta-param-variant",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"meta-param": {
+				ID:               "meta-param",
+				Name:             "meta_param",
+				VariantIDs:       []string{"meta-param-variant"},
+				DefaultVariantID: "meta-param-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"meta-param-variant": {
+				ID:     "meta-param-variant",
+				ImplID: "meta-param-impl",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"meta-param-impl": {
+				ID:      "meta-param-impl",
+				Type:    "TextParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "meta-param-impl", "type": "TextParam", "value": "seed"}),
+			},
+		},
+	})
 }
 
 func genCodePrefixSuffixRouteTestProject(t *testing.T) projectstate.Project {
