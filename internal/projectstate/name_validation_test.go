@@ -94,6 +94,49 @@ func TestCollectNameValidationErrorsReportsTextBlockHeadingNameErrors(t *testing
 	)
 }
 
+// Heading-derived section names should also report documented format failures
+// like path separators instead of silently dropping the derived-name error.
+func TestCollectNameValidationErrorsReportsTextBlockHeadingFormatError(t *testing.T) {
+	t.Parallel()
+
+	project := textBlockMutationTestProject(t)
+	project.SectionImpls["text-impl"] = SectionImpl{
+		ID:   "text-impl",
+		Kind: SectionKind("frontend"),
+		Payload: mustMarshalProjectObject(map[string]any{
+			"id":                   "text-impl",
+			"type":                 "TextBlock",
+			"text":                 "# Bad/Name\n\nBody",
+			"format":               "Plaintext",
+			"masterFontSizePx":     14.0,
+			"headingAsSectionName": true,
+			"metaControlStyle":     false,
+			"textDisplayMode":      "Render",
+		}),
+	}
+
+	errors, err := CollectNameValidationErrors(
+		Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: project.ID,
+			Projects: map[string]Project{
+				project.ID: project,
+			},
+		},
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("CollectNameValidationErrors returned error: %v", err)
+	}
+
+	assertNameValidationMapMessage(
+		t,
+		errors.SectionErrors,
+		"text-section",
+		"Text block heading cannot be used as section name: Section name cannot include path separators.",
+	)
+}
+
 // Param validation must report both format failures and duplicate sibling
 // conflicts because the frontend surfaces both states simultaneously.
 func TestCollectNameValidationErrorsReportsParamFormatAndConflicts(t *testing.T) {
@@ -125,6 +168,102 @@ func TestCollectNameValidationErrorsReportsParamFormatAndConflicts(t *testing.T)
 	assertNameValidationMapMessage(t, errors.ParamErrors, "callable-param", "Param name must be a valid Python identifier.")
 	assertNameValidationMapMessage(t, errors.ParamErrors, "shared-child", `Duplicate param name "other".`)
 	assertNameValidationMapMessage(t, errors.ParamErrors, "shared-other", `Duplicate param name "other".`)
+}
+
+// Top-level section validation snapshots should keep reporting Python
+// identifier collisions even when the names remain distinct before sanitizing.
+func TestCollectNameValidationErrorsFlagsTopLevelSectionIdentifierConflict(t *testing.T) {
+	t.Parallel()
+
+	project := sectionNameTestProject(t)
+
+	target := project.Sections["target"]
+	target.Name = "Foo Bar"
+	project.Sections[target.ID] = target
+
+	errors, err := CollectNameValidationErrors(
+		Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: project.ID,
+			Projects: map[string]Project{
+				project.ID: project,
+			},
+		},
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("CollectNameValidationErrors returned error: %v", err)
+	}
+
+	assertNameValidationMapMessage(
+		t,
+		errors.SectionErrors,
+		"target",
+		"Section name conflicts with another top-level name after Python identifier sanitization.",
+	)
+	assertNameValidationMapMessage(
+		t,
+		errors.SectionErrors,
+		"existing",
+		"Section name conflicts with another top-level name after Python identifier sanitization.",
+	)
+}
+
+// Section validation snapshots intentionally allow Chat_ because the current
+// route namespace is explicit rather than colliding with a bare chat slug.
+func TestCollectNameValidationErrorsAllowsChatSlugSectionName(t *testing.T) {
+	t.Parallel()
+
+	project := sectionNameTestProject(t)
+
+	target := project.Sections["target"]
+	target.Name = "Chat_"
+	project.Sections[target.ID] = target
+
+	errors, err := CollectNameValidationErrors(
+		Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: project.ID,
+			Projects: map[string]Project{
+				project.ID: project,
+			},
+		},
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("CollectNameValidationErrors returned error: %v", err)
+	}
+
+	if messages := errors.SectionErrors["target"]; len(messages) != 0 {
+		t.Fatalf("expected no Chat_ section-name errors, got %#v", messages)
+	}
+}
+
+// Meta-control params stay on the same Python-identifier format rules in the
+// validation snapshot even though they skip parent-sibling duplicate checks.
+func TestCollectNameValidationErrorsReportsMetaControlParamFormatErrors(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	metaParam := project.CodeObjs["meta-param"]
+	metaParam.Name = "invalid name"
+	project.CodeObjs[metaParam.ID] = metaParam
+
+	errors, err := CollectNameValidationErrors(
+		Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: project.ID,
+			Projects: map[string]Project{
+				project.ID: project,
+			},
+		},
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("CollectNameValidationErrors returned error: %v", err)
+	}
+
+	assertNameValidationMapMessage(t, errors.ParamErrors, "meta-param", "Param name must be a valid Python identifier.")
 }
 
 func assertNameValidationMapMessage(t *testing.T, errorsByID map[string][]string, id string, want string) {
