@@ -2664,6 +2664,78 @@ func TestRegisterProjectRoutesCreateTopLevelSectionReturns422ForInvalidInitialNa
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionRemainsIDEOnlyInDeployment(t *testing.T) {
+	t.Parallel()
+
+	assertProjectUnchanged := func(t *testing.T, project projectstate.Project) {
+		t.Helper()
+		if len(project.Sections) != 0 {
+			t.Fatalf("expected no sections after rejected deployment createTopLevelSection, got %#v", project.Sections)
+		}
+		if len(project.TopLevelSectionIDs) != 0 {
+			t.Fatalf("expected no top-level section ids after rejected deployment createTopLevelSection, got %#v", project.TopLevelSectionIDs)
+		}
+		if len(project.TopLevelSections) != 0 {
+			t.Fatalf("expected no top-level layouts after rejected deployment createTopLevelSection, got %#v", project.TopLevelSections)
+		}
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			for _, allowRun := range []bool{true, false} {
+				t.Run(fmt.Sprintf("allowRun=%t", allowRun), func(t *testing.T) {
+					deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+						Mode: mode,
+						Document: projectstate.Document{
+							SchemaVersion:    projectstate.CurrentSchemaVersion,
+							DefaultProjectID: "project-alpha",
+							Projects: map[string]projectstate.Project{
+								"project-alpha": {
+									ID:   "project-alpha",
+									Name: "Alpha",
+								},
+							},
+						},
+						Policy: map[string]any{
+							"allowRun": allowRun,
+						},
+					})
+					if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+						t.Fatalf("create deployment session: %v", err)
+					}
+
+					handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+					request := httptest.NewRequest(
+						http.MethodPost,
+						"/api"+RouteCreateTopLevelSection,
+						strings.NewReader(`{"projectConfigId":"project-alpha","implType":"Terminal"}`),
+					)
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("%s allowRun=%t: expected 403, got %d with body %q", mode, allowRun, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+						t.Fatalf("%s allowRun=%t: expected mode_forbidden response, got %q", mode, allowRun, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+						t.Fatalf("%s allowRun=%t: expected deployment-mode denial detail, got %q", mode, allowRun, response.Body.String())
+					}
+
+					overlay, err := deploymentRuntime.Overlay("share-a")
+					if err != nil {
+						t.Fatalf("deployment overlay: %v", err)
+					}
+					assertProjectUnchanged(t, overlay.Snapshot().Document.Projects["project-alpha"])
+					assertProjectUnchanged(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"])
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	t.Parallel()
 
