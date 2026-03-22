@@ -57,6 +57,7 @@ That means:
   - `SettingsManagedBlock`
   - `Config`
 - `internal/frontendbindings/ai_settings_support.go` now aliases that owner-backed external-agent config/settings family instead of repeating the field layouts locally.
+- `internal/frontendbindings/ai_settings_support.go` no longer keeps pass-through wrapper enum constants just to feed generation; owner-backed wrapper enums now resolve generically from their imported backend packages.
 - the external-agent preflight response now has an explicit Go route-contract owner in `internal/httpapi`:
   - `httpapi.ExternalAgentPreflightStatus`
 - `internal/frontendbindings/ai_settings_support.go` now aliases that exported HTTP response type instead of owning the preflight field layout locally.
@@ -199,6 +200,17 @@ That means:
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line
+- `internal/frontendbindings/ai_runtime_support.go` no longer mirrors the runtime agent / engine / transcription / detached-run field layouts:
+  - `EngineType`, `EngineConfigDefaults`, `EngineRuntimeSupport`, and `EngineConfig` now wrap `internal/agentruns`
+  - `AgentProfile` now wraps `internal/agentprofiles`
+  - `TranscriptionTransportMode` and `TranscriptionProfile` now wrap `internal/transcriptionprofiles`
+  - `AgentRunStatus`, `RunEvent`, and `AgentRun` now wrap `internal/agentruns`
+  - `DetachedRunStatus` and `DetachedRun` now wrap `internal/detachedruns`
+- `internal/stringenumvalues` now resolves wrapper enums transitively even when the wrapper package defines no local enum constants, so owner-backed wrapper enums no longer need local pass-through const blocks or hardcoded TS converter entries just to keep their enum values.
+- the TS converter no longer hardcodes runtime enum inventories for:
+  - `EngineType`
+  - `TranscriptionTransportMode`
+  - `AgentRunStatus`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -235,12 +247,11 @@ The biggest remaining problem is no longer “there is a giant manual type list.
 
 The remaining problem is that too much of the shared type surface still flows through:
 - `internal/frontendbindings/project_state_support.go`
-- `internal/frontendbindings/ai_settings_support.go`
 - related support files under `internal/frontendbindings/`
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the project/deployment metadata family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the follow-update / completion family, the detailed chat-message schema family, and the external-agent config/settings family.
+This has improved for the project-state/view/windowing family, the project/deployment metadata family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the follow-update / completion family, the detailed chat-message schema family, the external-agent config/settings family, and the runtime agent / engine / transcription / detached-run family.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -362,7 +373,6 @@ Expected likely survivors:
 ### Phase 2: Shrink `frontendbindings` as a type owner
 Target files:
 - `internal/frontendbindings/project_state_support.go`
-- `internal/frontendbindings/ai_settings_support.go`
 - other support files that define shared structs and enums only to feed conversion
 
 Work:

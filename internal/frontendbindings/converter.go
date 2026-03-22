@@ -2035,22 +2035,6 @@ func newTypeConverter() *typeConverter {
 				{Name: "compact", Value: "compact"},
 				{Name: "comfortable", Value: "comfortable"},
 			},
-			reflect.TypeOf(EngineType("")): {
-				{Name: "setta_llm", Value: "setta_llm"},
-				{Name: "external_agent", Value: "external_agent"},
-			},
-			reflect.TypeOf(TranscriptionTransportMode("")): {
-				{Name: "auto", Value: "auto"},
-				{Name: "file", Value: "file"},
-				{Name: "realtime", Value: "realtime"},
-			},
-			reflect.TypeOf(AgentRunStatus("")): {
-				{Name: "queued", Value: "queued"},
-				{Name: "running", Value: "running"},
-				{Name: "completed", Value: "completed"},
-				{Name: "failed", Value: "failed"},
-				{Name: "cancelled", Value: "cancelled"},
-			},
 			reflect.TypeOf(StreamingEventType("")): {
 				{Name: "MESSAGE_START", Value: "message_start"},
 				{Name: "DELTA", Value: "delta"},

@@ -202,7 +202,106 @@ func (r *Registry) parsePackage(pkgPath string) (*packageData, error) {
 		)
 	}
 
+	for typeName := range data.namedTypes {
+		if _, _, err := r.resolveEnumValuesForType(
+			pkgPath,
+			data,
+			typeName,
+			map[string]bool{},
+		); err != nil {
+			return nil, err
+		}
+	}
+
 	return data, nil
+}
+
+func (r *Registry) resolveEnumValuesForType(
+	pkgPath string,
+	data *packageData,
+	typeName string,
+	stack map[string]bool,
+) ([]EnumValue, bool, error) {
+	if typeName == "" {
+		return nil, false, nil
+	}
+	if values, ok := data.enumValuesByType[typeName]; ok && len(values) > 0 {
+		return slices.Clone(values), true, nil
+	}
+	isStringType, err := r.isNamedStringType(pkgPath, data, typeName)
+	if err != nil {
+		return nil, false, err
+	}
+	if !isStringType {
+		return nil, false, nil
+	}
+	entry, ok := data.namedTypes[typeName]
+	if !ok {
+		return nil, false, nil
+	}
+
+	stackKey := pkgPath + "." + typeName
+	if stack[stackKey] {
+		return nil, false, fmt.Errorf("cyclic enum evaluation for %s", stackKey)
+	}
+	stack[stackKey] = true
+	defer delete(stack, stackKey)
+
+	values, ok, err := r.resolveEnumValuesFromExpr(
+		pkgPath,
+		data,
+		entry.imports,
+		entry.expr,
+		stack,
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok || len(values) == 0 {
+		return nil, false, nil
+	}
+
+	data.enumValuesByType[typeName] = slices.Clone(values)
+	return slices.Clone(values), true, nil
+}
+
+func (r *Registry) resolveEnumValuesFromExpr(
+	pkgPath string,
+	data *packageData,
+	imports map[string]string,
+	expr ast.Expr,
+	stack map[string]bool,
+) ([]EnumValue, bool, error) {
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		if typed.Name == "string" {
+			return nil, false, nil
+		}
+		return r.resolveEnumValuesForType(pkgPath, data, typed.Name, stack)
+	case *ast.SelectorExpr:
+		packageIdent, ok := typed.X.(*ast.Ident)
+		if !ok {
+			return nil, false, nil
+		}
+		importPath, ok := imports[packageIdent.Name]
+		if !ok {
+			return nil, false, nil
+		}
+		importedPackage, err := r.loadPackage(importPath)
+		if err != nil {
+			return nil, false, err
+		}
+		return r.resolveEnumValuesForType(
+			importPath,
+			importedPackage,
+			typed.Sel.Name,
+			stack,
+		)
+	case *ast.ParenExpr:
+		return r.resolveEnumValuesFromExpr(pkgPath, data, imports, typed.X, stack)
+	default:
+		return nil, false, nil
+	}
 }
 
 func collectNamedTypes(

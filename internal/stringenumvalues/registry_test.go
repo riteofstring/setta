@@ -70,6 +70,30 @@ func TestRegistryValuesForImportedWrapperEnum(t *testing.T) {
 	}
 }
 
+func TestRegistryValuesForImportedWrapperEnumWithoutLocalConsts(t *testing.T) {
+	t.Helper()
+
+	values, ok, err := stringenumvalues.New().Values(
+		reflect.TypeOf(frontendbindings.DetachedRunStatus("")),
+	)
+	if err != nil {
+		t.Fatalf("Values() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("Values() did not resolve DetachedRunStatus")
+	}
+	if got, want := values, []stringenumvalues.EnumValue{
+		{Name: "queued", Value: "queued"},
+		{Name: "running", Value: "running"},
+		{Name: "exited", Value: "exited"},
+		{Name: "failed", Value: "failed"},
+		{Name: "canceled", Value: "canceled"},
+		{Name: "lost", Value: "lost"},
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("DetachedRunStatus values = %#v, want %#v", got, want)
+	}
+}
+
 func TestRegistryUsesValueNameWhenItIsIdentifierAndSuffixWhenItIsNot(t *testing.T) {
 	t.Helper()
 

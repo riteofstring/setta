@@ -1051,14 +1051,14 @@ export type DetachedRun = {
   runId: string;
   status: DetachedRunStatus;
   createdAtMs: number;
-  startedAtMs?: number | null;
-  exitedAtMs?: number | null;
-  exitCode?: number | null;
-  pid?: number | null;
+  startedAtMs: number | null;
+  exitedAtMs: number | null;
+  exitCode: number | null;
+  pid: number | null;
   command: string;
   snapshotPath: string;
   projectConfigId: string;
-  entrySectionId?: string | null;
+  entrySectionId: string | null;
   tags: Record<string, string>;
 };
 export function createDetachedRun(
@@ -4007,7 +4007,11 @@ export function createAllProjectMetadata(
   return options as AllProjectMetadata;
 }
 
-export type DeploymentType = string;
+export const DeploymentTypeEnum = {
+  share: "share",
+  app: "app",
+} as const;
+export type DeploymentType = ObjectValues<typeof DeploymentTypeEnum>;
 
 export type DeploymentListenerConfig = {
   entrypoint: string;

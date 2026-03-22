@@ -4,9 +4,12 @@ package frontendbindings
 
 import (
 	"reflect"
+	agentprofiles "setta/internal/agentprofiles"
+	agentruns "setta/internal/agentruns"
 	artifacts "setta/internal/artifacts"
 	binary "setta/internal/binary"
 	deployments "setta/internal/deployments"
+	detachedruns "setta/internal/detachedruns"
 	externalagentconfigs "setta/internal/externalagentconfigs"
 	httpapi "setta/internal/httpapi"
 	llmconfig "setta/internal/llmconfig"
@@ -16,6 +19,7 @@ import (
 	projectview "setta/internal/projectview"
 	prompttemplates "setta/internal/prompttemplates"
 	realtime "setta/internal/realtime"
+	transcriptionprofiles "setta/internal/transcriptionprofiles"
 )
 
 func DiscoveredConvertibleTypes() []reflect.Type {
@@ -71,22 +75,22 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(GetChatSectionChatIDResponse("")),
 		reflect.TypeOf(GetLLMChatResponse{}),
 		reflect.TypeOf(ExternalAgentChatResponse{}),
-		reflect.TypeOf(EngineType("")),
-		reflect.TypeOf(EngineConfigDefaults{}),
-		reflect.TypeOf(EngineRuntimeSupport{}),
-		reflect.TypeOf(EngineConfig{}),
-		reflect.TypeOf(AgentProfile{}),
+		reflect.TypeOf((*EngineType)(nil)).Elem(),
+		reflect.TypeOf((*EngineConfigDefaults)(nil)).Elem(),
+		reflect.TypeOf((*EngineRuntimeSupport)(nil)).Elem(),
+		reflect.TypeOf((*EngineConfig)(nil)).Elem(),
+		reflect.TypeOf((*AgentProfile)(nil)).Elem(),
 		reflect.TypeOf(AgentProfileList(nil)),
-		reflect.TypeOf(TranscriptionTransportMode("")),
-		reflect.TypeOf(TranscriptionProfile{}),
+		reflect.TypeOf((*TranscriptionTransportMode)(nil)).Elem(),
+		reflect.TypeOf((*TranscriptionProfile)(nil)).Elem(),
 		reflect.TypeOf(TranscriptionProfileList(nil)),
-		reflect.TypeOf(AgentRunStatus("")),
-		reflect.TypeOf(RunEvent{}),
-		reflect.TypeOf(AgentRun{}),
+		reflect.TypeOf((*AgentRunStatus)(nil)).Elem(),
+		reflect.TypeOf((*RunEvent)(nil)).Elem(),
+		reflect.TypeOf((*AgentRun)(nil)).Elem(),
 		reflect.TypeOf(AgentRunList(nil)),
 		reflect.TypeOf(EngineConfigList(nil)),
-		reflect.TypeOf(DetachedRunStatus("")),
-		reflect.TypeOf(DetachedRun{}),
+		reflect.TypeOf((*DetachedRunStatus)(nil)).Elem(),
+		reflect.TypeOf((*DetachedRun)(nil)).Elem(),
 		reflect.TypeOf((*StreamingEventType)(nil)).Elem(),
 		reflect.TypeOf((*MessageTextDelta)(nil)).Elem(),
 		reflect.TypeOf((*MessageThinkingDelta)(nil)).Elem(),
@@ -728,6 +732,18 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	return map[reflect.Type]reflect.Type{
 		reflect.TypeOf((*llmconfig.ManagedAPIKeysSnapshot)(nil)).Elem(): reflect.TypeOf((*ManagedAPIKeysSnapshot)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.EngineType)(nil)).Elem(): reflect.TypeOf((*EngineType)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.EngineConfigDefaults)(nil)).Elem(): reflect.TypeOf((*EngineConfigDefaults)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.EngineRuntimeSupport)(nil)).Elem(): reflect.TypeOf((*EngineRuntimeSupport)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.EngineConfig)(nil)).Elem(): reflect.TypeOf((*EngineConfig)(nil)).Elem(),
+		reflect.TypeOf((*agentprofiles.Profile)(nil)).Elem(): reflect.TypeOf((*AgentProfile)(nil)).Elem(),
+		reflect.TypeOf((*transcriptionprofiles.TransportMode)(nil)).Elem(): reflect.TypeOf((*TranscriptionTransportMode)(nil)).Elem(),
+		reflect.TypeOf((*transcriptionprofiles.Profile)(nil)).Elem(): reflect.TypeOf((*TranscriptionProfile)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.RunStatus)(nil)).Elem(): reflect.TypeOf((*AgentRunStatus)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.RunEvent)(nil)).Elem(): reflect.TypeOf((*RunEvent)(nil)).Elem(),
+		reflect.TypeOf((*agentruns.Run)(nil)).Elem(): reflect.TypeOf((*AgentRun)(nil)).Elem(),
+		reflect.TypeOf((*detachedruns.Status)(nil)).Elem(): reflect.TypeOf((*DetachedRunStatus)(nil)).Elem(),
+		reflect.TypeOf((*detachedruns.Run)(nil)).Elem(): reflect.TypeOf((*DetachedRun)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.Transport)(nil)).Elem(): reflect.TypeOf((*MCPServerTransport)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.ServerConfig)(nil)).Elem(): reflect.TypeOf((*MCPServerConfig)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.Config)(nil)).Elem(): reflect.TypeOf((*LLMConfig)(nil)).Elem(),
