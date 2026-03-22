@@ -141,6 +141,39 @@ func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *
 	}
 }
 
+func TestRegisterPluginRoutesDoesNotMountLegacyReadRoutes(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	for _, testCase := range []struct {
+		name string
+		path string
+	}{
+		{name: "list", path: "/api/plugins/list"},
+		{name: "status", path: "/api/plugins/status"},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("expected legacy plugin route %s to be absent with 404, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode legacy plugin route not-found response: %v", err)
+			}
+			if payload.Error.Code != "not_found" {
+				t.Fatalf("expected not_found code for %s, got %q", testCase.path, payload.Error.Code)
+			}
+		})
+	}
+}
+
 func TestRegisterPluginRoutesReturnsRescanSummary(t *testing.T) {
 	t.Parallel()
 
@@ -941,6 +974,9 @@ func TestRegisterPluginRoutesRejectsInvalidInstallScope(t *testing.T) {
 	if !strings.Contains(payload.Error.Message, "environment") {
 		t.Fatalf("expected invalid scope message to mention environment, got %#v", payload)
 	}
+	if !strings.Contains(payload.Error.Message, "setta_files") {
+		t.Fatalf("expected invalid scope message to mention setta_files, got %#v", payload)
+	}
 }
 
 func TestRegisterPluginRoutesRejectsInvalidJSONForEnable(t *testing.T) {
@@ -1329,6 +1365,29 @@ func TestRegisterPluginRootRoutesServesFrontendAssetsAndImmutableCache(t *testin
 	}
 	if got := versionedResponse.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
 		t.Fatalf("expected immutable cache header, got %q", got)
+	}
+}
+
+func TestRegisterPluginRootRoutesRejectFrontendPluginNonFrontendAssetPath(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "full")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/plugins/setta-fixture-full/backend/entrypoint.py", nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected backend file lookup through plugin asset route to fail with 404, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode non-frontend asset error payload: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeAssetNotFound) {
+		t.Fatalf("expected asset not found code, got %q", payload.Error.Code)
 	}
 }
 
