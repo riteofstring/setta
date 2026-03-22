@@ -540,6 +540,17 @@ class WatchCodeRegistryEntry(SettaSharedTypeModel):
     sectionsCount: int | None = None
 
 
+class SectionDependencyKey(SettaSharedTypeModel):
+    type: DependencyKeyType
+    sectionId: str
+
+
+class SectionParamDependencyKey(SettaSharedTypeModel):
+    type: DependencyKeyType
+    sectionId: str
+    codeObjId: str
+
+
 class LiteralDependencyValue(SettaSharedTypeModel):
     type: DependencyValueType
     payload: str

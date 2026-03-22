@@ -177,7 +177,8 @@ Working assumption for the next passes:
 - `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
 - `websocket.py` is now a very thin typed Python adapter over Go-owned listener message models plus Python-specific `TypeAdapter` glue.
 - the remaining handwritten part of `project_config.py` is now narrower Python-only policy/default glue over Go-generated project codegen and project-state models, not another large shared-model family.
-- `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
+- `dependency_key.py` no longer hand-owns the dependency-key field layouts:
+  - the Python file now subclasses Go-generated dependency-key models and only keeps the Python-side frozen/hashable behavior the listener SDK needs.
 - `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is mostly Python-side chart settings, tuple aliases, default ids, and draw-area convenience defaults.
 - the main remaining shared-contract candidate is now any reducible remainder in `artifact.py`; the surviving `project_config.py` code is mostly policy/default logic rather than schema ownership.
@@ -242,7 +243,7 @@ Already narrowed to Python adapter layers:
 - `websocket.py`
 
 Likely Python-only:
-- `dependency_key.py`, because the listener SDK currently uses those frozen dataclasses as hashable dictionary keys
+- the remaining frozen/hashable behavior in `dependency_key.py`, because the listener SDK currently uses dependency keys as dictionary keys
 
 Those files should either:
 - disappear because the Python package no longer needs them, or
