@@ -398,6 +398,50 @@ func TestLocalLaunchServiceProfileLaunchKeepsExplicitAutoSettaFilesLocation(t *t
 	}
 }
 
+func TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	fixture.sessions.err = &launcher.SessionLaunchError{
+		Code:    "InvalidWorkspace",
+		Message: "workspace root does not exist: /tmp/missing-workspace",
+	}
+	intent := fixture.createIntent(
+		t,
+		decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/missing-workspace","settaFilesRoot":"/tmp/missing-workspace/setta_files_dev","settaFilesLocation":"auto"}`),
+		"http://launcher.example:7999/home",
+	)
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err == nil {
+		t.Fatal("expected invalid workspace launch failure")
+	}
+	launchErr, ok := err.(*LaunchError)
+	if !ok {
+		t.Fatalf("expected launch error, got %T", err)
+	}
+	if launchErr.Code != "InvalidWorkspace" {
+		t.Fatalf("expected InvalidWorkspace, got %#v", launchErr)
+	}
+	if !strings.Contains(launchErr.Message, "workspace root does not exist") {
+		t.Fatalf("expected workspace validation detail, got %q", launchErr.Message)
+	}
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	// Explicit settaFilesRoot should drop the auto selector before validation errors are surfaced.
+	if fixture.sessions.captured[0].SettaFilesLocation != nil {
+		t.Fatalf("expected omitted setta files location, got %#v", fixture.sessions.captured[0].SettaFilesLocation)
+	}
+	if fixture.sessions.captured[0].SettaFilesRoot != "/tmp/missing-workspace/setta_files_dev" {
+		t.Fatalf("expected explicit setta files root to be preserved, got %#v", fixture.sessions.captured[0])
+	}
+}
+
 func TestLocalLaunchServiceRemoteProfileLaunchOmitsSettaFilesLocationWhenUnset(t *testing.T) {
 	t.Parallel()
 
