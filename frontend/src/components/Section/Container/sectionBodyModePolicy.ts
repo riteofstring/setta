@@ -19,10 +19,16 @@ export type SectionBodyAutoModeInputs = {
   family: SectionBodyFamily;
   isActiveSection: boolean;
   viewportInteractionActive: boolean;
+  previewLocalityEligible?: boolean;
   zoom: number;
   projectedWidthPx: number | null;
   projectedHeightPx: number | null;
 };
+
+export type SectionBodyPreviewCandidateInputs = Omit<
+  SectionBodyAutoModeInputs,
+  "viewportInteractionActive" | "previewLocalityEligible"
+>;
 
 export const SECTION_BODY_AUTO_MODE_THRESHOLDS = {
   previewEligibleFamilies: ["tier1-dense-params"] as const,
@@ -30,6 +36,8 @@ export const SECTION_BODY_AUTO_MODE_THRESHOLDS = {
   previewMaxProjectedWidthPx: 320,
   previewMaxProjectedHeightPx: 220,
   previewFallbackMaxZoomWithoutMeasuredSize: 0.55,
+  previewWarmNeighborhoodMaxSections: 8,
+  previewWarmNeighborhoodPaddingFraction: 0.35,
 } as const;
 
 function isPreviewEligibleFamily(family: SectionBodyFamily): boolean {
@@ -49,42 +57,57 @@ export function getProjectedNodeSizePx(
   };
 }
 
-export function getAutoSectionBodyRequestedMode({
+export function isAutoSectionBodyPreviewCandidate({
   ownerKind,
   family,
   isActiveSection,
-  viewportInteractionActive,
   zoom,
   projectedWidthPx,
   projectedHeightPx,
-}: SectionBodyAutoModeInputs): Exclude<SectionBodyRequestedMode, "auto"> {
+}: SectionBodyPreviewCandidateInputs): boolean {
   if (ownerKind !== "canvas") {
-    return "live";
+    return false;
   }
   if (isActiveSection) {
-    return "live";
-  }
-  if (!viewportInteractionActive) {
-    return "live";
+    return false;
   }
   if (!isPreviewEligibleFamily(family)) {
-    return "live";
+    return false;
   }
 
   if (projectedWidthPx === null || projectedHeightPx === null) {
-    return zoom <=
+    return (
+      zoom <=
       SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize
-      ? "preview"
-      : "live";
+    );
   }
 
   const isSmallEnoughForPreview =
-    projectedWidthPx <= SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedWidthPx &&
+    projectedWidthPx <=
+      SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedWidthPx &&
     projectedHeightPx <=
       SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxProjectedHeightPx;
 
-  return zoom <= SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxZoom &&
+  return (
+    zoom <= SECTION_BODY_AUTO_MODE_THRESHOLDS.previewMaxZoom &&
     isSmallEnoughForPreview
+  );
+}
+
+export function getAutoSectionBodyRequestedMode({
+  viewportInteractionActive,
+  previewLocalityEligible = true,
+  ...previewCandidateInputs
+}: SectionBodyAutoModeInputs): Exclude<SectionBodyRequestedMode, "auto"> {
+  if (!viewportInteractionActive) {
+    return "live";
+  }
+
+  if (!previewLocalityEligible) {
+    return "live";
+  }
+
+  return isAutoSectionBodyPreviewCandidate(previewCandidateInputs)
     ? "preview"
     : "live";
 }

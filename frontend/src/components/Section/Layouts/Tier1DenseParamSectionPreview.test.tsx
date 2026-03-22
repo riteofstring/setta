@@ -165,6 +165,7 @@ describe("Tier1DenseParamSectionPreview", () => {
         <Tier1DenseParamSectionPreview
           sectionId="section-123"
           isActiveSection={false}
+          keepPreviewWarm
           showPreview
         >
           <LiveBody />
@@ -186,6 +187,7 @@ describe("Tier1DenseParamSectionPreview", () => {
         <Tier1DenseParamSectionPreview
           sectionId="section-123"
           isActiveSection={false}
+          keepPreviewWarm
           showPreview={false}
         >
           <LiveBody />
@@ -209,6 +211,7 @@ describe("Tier1DenseParamSectionPreview", () => {
         <Tier1DenseParamSectionPreview
           sectionId="section-123"
           isActiveSection={false}
+          keepPreviewWarm
           showPreview
         >
           <LiveBody />
@@ -216,7 +219,9 @@ describe("Tier1DenseParamSectionPreview", () => {
       );
     });
 
-    const liveBody = host?.querySelector<HTMLElement>('[data-testid="live-body"]');
+    const liveBody = host?.querySelector<HTMLElement>(
+      '[data-testid="live-body"]',
+    );
     expect(liveBody).not.toBeNull();
     expect(liveBody?.style.opacity).toBe("0");
     expect(
@@ -227,5 +232,65 @@ describe("Tier1DenseParamSectionPreview", () => {
     expect(
       document.querySelector('[data-section-body-preview-image="true"]'),
     ).not.toBeNull();
+  });
+
+  it("evicts cached previews once a section falls out of the warm neighborhood", async () => {
+    function LiveBody() {
+      return (
+        <div
+          data-testid="live-body"
+          data-test-left="20"
+          data-test-top="60"
+          data-test-width="320"
+          data-test-height="120"
+        >
+          Live body
+        </div>
+      );
+    }
+
+    await act(async () => {
+      root?.render(
+        <Tier1DenseParamSectionPreview
+          sectionId="section-123"
+          isActiveSection={false}
+          keepPreviewWarm
+          showPreview={false}
+        >
+          <LiveBody />
+        </Tier1DenseParamSectionPreview>,
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+      await Promise.resolve();
+    });
+
+    expect(snapdomToSvg).toHaveBeenCalledTimes(1);
+    expect(
+      host?.querySelector('[data-section-body-preview-status="ready"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      root?.render(
+        <Tier1DenseParamSectionPreview
+          sectionId="section-123"
+          isActiveSection={false}
+          keepPreviewWarm={false}
+          showPreview={false}
+        >
+          <LiveBody />
+        </Tier1DenseParamSectionPreview>,
+      );
+    });
+
+    expect(
+      host?.querySelector('[data-section-body-preview-status="idle"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('[data-section-body-preview-image="true"]'),
+    ).toBeNull();
   });
 });
