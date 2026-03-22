@@ -3816,7 +3816,7 @@ export function createDeploymentManifest(options: Partial<DeploymentManifest> = 
 }
 
 
-export type ShareDeploymentMetadata = {
+export type DeploymentMetadata = {
   deploymentName: string;
   deploymentVersion: string;
   defaultProjectConfigId: string;
@@ -3825,29 +3825,12 @@ export type ShareDeploymentMetadata = {
   deploymentRoot: string;
   policyPath: string;
 };
-export function createShareDeploymentMetadata(options: Partial<ShareDeploymentMetadata> = {}): ShareDeploymentMetadata {
-  return options as ShareDeploymentMetadata;
+export function createDeploymentMetadata(options: Partial<DeploymentMetadata> = {}): DeploymentMetadata {
+  return options as DeploymentMetadata;
 }
 
 
-export type ShareDeploymentMetadataList = Array<ShareDeploymentMetadata>;
-
-
-export type AppDeploymentMetadata = {
-  deploymentName: string;
-  deploymentVersion: string;
-  defaultProjectConfigId: string;
-  defaultProjectConfigName: string;
-  createdAt: string;
-  deploymentRoot: string;
-  policyPath: string;
-};
-export function createAppDeploymentMetadata(options: Partial<AppDeploymentMetadata> = {}): AppDeploymentMetadata {
-  return options as AppDeploymentMetadata;
-}
-
-
-export type AppDeploymentMetadataList = Array<AppDeploymentMetadata>;
+export type DeploymentMetadataList = Array<DeploymentMetadata>;
 
 
 export type SharePolicy = {

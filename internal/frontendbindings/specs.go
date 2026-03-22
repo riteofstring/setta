@@ -2156,7 +2156,7 @@ func CurrentEndpoints() []EndpointSpec {
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "shareDeployments",
-			ResponseType:    reflect.TypeOf(ShareDeploymentMetadataList{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadataList{}),
 		},
 		{
 			FunctionName:    "route_list_share_deployment_versions",
@@ -2164,7 +2164,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "shareDeploymentVersions",
 			PathParamsType:  reflect.TypeOf(DeploymentNameRouteParams{}),
-			ResponseType:    reflect.TypeOf(ShareDeploymentMetadataList{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadataList{}),
 		},
 		{
 			FunctionName:    "route_get_share_deployment_latest",
@@ -2172,7 +2172,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "shareDeploymentLatest",
 			PathParamsType:  reflect.TypeOf(DeploymentNameRouteParams{}),
-			ResponseType:    reflect.TypeOf(ShareDeploymentMetadata{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadata{}),
 		},
 		{
 			FunctionName:    "route_publish_share_deployment",
@@ -2180,14 +2180,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "shareDeployments",
 			RequestType:     reflect.TypeOf(PublishShareDeploymentRequestInput{}),
-			ResponseType:    reflect.TypeOf(ShareDeploymentMetadata{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadata{}),
 		},
 		{
 			FunctionName:    "route_list_app_deployments",
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "appDeployments",
-			ResponseType:    reflect.TypeOf(AppDeploymentMetadataList{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadataList{}),
 		},
 		{
 			FunctionName:    "route_list_app_deployment_versions",
@@ -2195,7 +2195,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "appDeploymentVersions",
 			PathParamsType:  reflect.TypeOf(DeploymentNameRouteParams{}),
-			ResponseType:    reflect.TypeOf(AppDeploymentMetadataList{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadataList{}),
 		},
 		{
 			FunctionName:    "route_get_app_deployment_latest",
@@ -2203,7 +2203,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "appDeploymentLatest",
 			PathParamsType:  reflect.TypeOf(DeploymentNameRouteParams{}),
-			ResponseType:    reflect.TypeOf(AppDeploymentMetadata{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadata{}),
 		},
 		{
 			FunctionName:    "route_publish_app_deployment",
@@ -2211,7 +2211,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "appDeployments",
 			RequestType:     reflect.TypeOf(PublishAppDeploymentRequestInput{}),
-			ResponseType:    reflect.TypeOf(AppDeploymentMetadata{}),
+			ResponseType:    reflect.TypeOf(DeploymentMetadata{}),
 		},
 		{
 			FunctionName:    "route_get_launcher_recent_workspaces",

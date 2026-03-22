@@ -14,8 +14,8 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   CheckIfFileExistsResponse,
+  DeploymentMetadata,
   PublishShareDeploymentRequestInput,
-  ShareDeploymentMetadata,
   SharePolicy,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
@@ -78,9 +78,9 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<ShareDeploymentMetadata | null>(null);
+    useState<DeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<ShareDeploymentMetadata>
+    Array<DeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -571,7 +571,7 @@ function RecentDeploymentList({
   onCopy,
   onOpen,
 }: {
-  deployments: Array<ShareDeploymentMetadata>;
+  deployments: Array<DeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
   onOpen: (value: string) => void;
@@ -654,7 +654,7 @@ function buildShareUrl(): string {
 
 function extractErrorMessage(
   status: number | undefined,
-  data: ShareDeploymentMetadata | undefined,
+  data: DeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {

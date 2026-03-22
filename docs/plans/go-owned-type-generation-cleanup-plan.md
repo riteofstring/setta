@@ -180,6 +180,9 @@ That means:
   - `internal/realtime` owns `AIFollowToolArgumentsUpdateContent` and `AIFollowToolResultUpdateContent`
   - `internal/lspcompletion` owns `CodeMirrorCompletion`
 - `internal/frontendbindings/project_state_support.go` now wraps that owner-backed deployment / project-metadata / follow-update / completion family instead of repeating those field layouts locally.
+- the share/app deployment metadata naming split has been collapsed on the generated frontend side:
+  - `DeploymentMetadata` / `DeploymentMetadataList` now back both share and app deployment catalog endpoints
+  - `frontendbindings` no longer keeps separate `ShareDeploymentMetadata` and `AppDeploymentMetadata` mirror types for the same HTTP payload
 - `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
   - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, and validation.
 - `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:
@@ -265,11 +268,6 @@ The prompt-format duplication has already been removed. The remaining work here 
 - collapse the backend ownership first
 - then point frontend/Python generation at the surviving owner
 - do not teach the generators to arbitrate between multiple backend owners forever
-
-One concrete remaining example is deployment metadata naming on the frontend side:
-- `ShareDeploymentMetadata` and `AppDeploymentMetadata` still describe the same HTTP payload shape
-- the route contract owner is now `httpapi.DeploymentMetadataResponse`
-- the remaining decision is whether to keep two frontend-facing names as thin wrappers, or collapse them to one shared generated name
 
 ### 5. A few handwritten Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before.

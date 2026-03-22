@@ -21,8 +21,8 @@ import {
   route_publish_app_deployment,
 } from "utils/generatedEndpoints";
 import type {
-  AppDeploymentMetadata,
   CheckIfFileExistsResponse,
+  DeploymentMetadata,
   PublishAppDeploymentRequestInput,
   SharePolicy,
 } from "utils/generatedTypes";
@@ -114,9 +114,9 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<AppDeploymentMetadata | null>(null);
+    useState<DeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<AppDeploymentMetadata>
+    Array<DeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -614,7 +614,7 @@ function RecentDeploymentList({
   isLoading,
   onCopy,
 }: {
-  deployments: Array<AppDeploymentMetadata>;
+  deployments: Array<DeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
 }) {
@@ -673,7 +673,7 @@ function RecentDeploymentList({
 
 function extractErrorMessage(
   status: number | undefined,
-  data: AppDeploymentMetadata | undefined,
+  data: DeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {

@@ -479,49 +479,49 @@ export async function route_load_app_project_config(deploymentName: string, vers
 }
 
 
-export async function route_list_share_deployments(): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadataList>> {
+export async function route_list_share_deployments(): Promise<ResponseDataAndStatus<gt.DeploymentMetadataList>> {
 
   return await get(GoHTTPRouteHelpers.shareDeployments());
 }
 
 
-export async function route_list_share_deployment_versions(deploymentName: string): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadataList>> {
+export async function route_list_share_deployment_versions(deploymentName: string): Promise<ResponseDataAndStatus<gt.DeploymentMetadataList>> {
 
   return await get(GoHTTPRouteHelpers.shareDeploymentVersions(deploymentName));
 }
 
 
-export async function route_get_share_deployment_latest(deploymentName: string): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
+export async function route_get_share_deployment_latest(deploymentName: string): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
 
   return await get(GoHTTPRouteHelpers.shareDeploymentLatest(deploymentName));
 }
 
 
-export async function route_publish_share_deployment(x: gt.PublishShareDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
+export async function route_publish_share_deployment(x: gt.PublishShareDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
 
   return await post(GoHTTPRouteHelpers.shareDeployments(), x);
 }
 
 
-export async function route_list_app_deployments(): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadataList>> {
+export async function route_list_app_deployments(): Promise<ResponseDataAndStatus<gt.DeploymentMetadataList>> {
 
   return await get(GoHTTPRouteHelpers.appDeployments());
 }
 
 
-export async function route_list_app_deployment_versions(deploymentName: string): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadataList>> {
+export async function route_list_app_deployment_versions(deploymentName: string): Promise<ResponseDataAndStatus<gt.DeploymentMetadataList>> {
 
   return await get(GoHTTPRouteHelpers.appDeploymentVersions(deploymentName));
 }
 
 
-export async function route_get_app_deployment_latest(deploymentName: string): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadata>> {
+export async function route_get_app_deployment_latest(deploymentName: string): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
 
   return await get(GoHTTPRouteHelpers.appDeploymentLatest(deploymentName));
 }
 
 
-export async function route_publish_app_deployment(x: gt.PublishAppDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadata>> {
+export async function route_publish_app_deployment(x: gt.PublishAppDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
 
   return await post(GoHTTPRouteHelpers.appDeployments(), x);
 }

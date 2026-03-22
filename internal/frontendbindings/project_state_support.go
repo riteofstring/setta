@@ -1,8 +1,6 @@
 package frontendbindings
 
 import (
-	"time"
-
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/lspcompletion"
@@ -67,29 +65,9 @@ type DeploymentListenerConfig deployments.ListenerConfig
 
 type DeploymentManifest deployments.Manifest
 
-type ShareDeploymentMetadata struct {
-	DeploymentName     string    `json:"deploymentName"`
-	DeploymentVersion  string    `json:"deploymentVersion"`
-	DefaultProjectID   string    `json:"defaultProjectConfigId"`
-	DefaultProjectName string    `json:"defaultProjectConfigName"`
-	CreatedAt          time.Time `json:"createdAt"`
-	DeploymentRoot     string    `json:"deploymentRoot"`
-	PolicyPath         string    `json:"policyPath"`
-}
+type DeploymentMetadata httpapi.DeploymentMetadataResponse
 
-type ShareDeploymentMetadataList []ShareDeploymentMetadata
-
-type AppDeploymentMetadata struct {
-	DeploymentName     string    `json:"deploymentName"`
-	DeploymentVersion  string    `json:"deploymentVersion"`
-	DefaultProjectID   string    `json:"defaultProjectConfigId"`
-	DefaultProjectName string    `json:"defaultProjectConfigName"`
-	CreatedAt          time.Time `json:"createdAt"`
-	DeploymentRoot     string    `json:"deploymentRoot"`
-	PolicyPath         string    `json:"policyPath"`
-}
-
-type AppDeploymentMetadataList []AppDeploymentMetadata
+type DeploymentMetadataList []DeploymentMetadata
 
 type ShareDeploymentSessionResponse httpapi.ShareDeploymentSessionResponse
 
