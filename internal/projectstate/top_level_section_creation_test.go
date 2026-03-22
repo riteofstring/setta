@@ -120,6 +120,48 @@ func TestProjectCreateTopLevelSectionCreatesMetaControlParamAndHonorsExplicitPos
 	}
 }
 
+func TestProjectCreateTopLevelSectionReturnsPanHintWhenViewportTooNarrow(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+	}
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "TextBlock",
+		ImplOverrides: map[string]any{
+			"size": map[string]any{
+				"width":  160.0,
+				"height": 100.0,
+			},
+		},
+		ViewportBounds: &ViewportBounds{
+			X: 0,
+			Y: 0,
+			W: 100,
+			H: 240,
+		},
+	}, DefaultStructuralMutationSettings())
+	if err != nil {
+		t.Fatalf("create top level section with narrow viewport: %v", err)
+	}
+
+	layout, ok := project.TopLevelSections[result.SectionID]
+	if !ok {
+		t.Fatalf("expected created layout, got %#v", project.TopLevelSections)
+	}
+	if layout.X != 124 || layout.Y != 24 {
+		t.Fatalf("expected viewport-adjacent placement {124 24}, got %#v", layout)
+	}
+	if result.PanTo == nil {
+		t.Fatal("expected pan hint when viewport is too narrow")
+	}
+	if result.PanTo.X != 224 || result.PanTo.Y != 74 {
+		t.Fatalf("expected pan hint {224 74}, got %#v", result.PanTo)
+	}
+}
+
 func TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults(t *testing.T) {
 	t.Parallel()
 
