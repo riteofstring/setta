@@ -1,11 +1,9 @@
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
-
-from setta.database.utils import create_new_id
-from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID
-from setta.types.llm_config import LLMConfig
+from setta.types.chat_messages import BaseChatMessageUnion
+from setta.types.generated.go_shared_types import LLMConfig
+from setta.types.id import ID, create_new_id
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 

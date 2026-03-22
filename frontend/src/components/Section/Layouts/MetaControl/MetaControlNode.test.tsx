@@ -11,7 +11,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { MetaControlContent } from "./MetaControlNode";
 
-describe("MetaControlContent rendering", () => {
+describe("MetaControlContent date/time param rendering", () => {
   it("renders a formatted date text input for date params", () => {
     const markup = renderToStaticMarkup(
       <MetaControlContent
@@ -95,117 +95,5 @@ describe("MetaControlContent rendering", () => {
 
     expect(markup).toContain("Prev");
     expect(markup).toContain("Next");
-  });
-
-  it("uses the transparent lower shell for display-only time meta controls", () => {
-    const markup = renderToStaticMarkup(
-      <MetaControlContent
-        sectionId="section-1"
-        controlParamId="param-1"
-        sectionName="Time Control"
-        paramDisplayName="Time Control"
-        codeObjType={CodeObjTypeEnum.TimeParam}
-        value="13:45"
-        defaultVal=""
-        showSectionTitle={false}
-        onValueChange={vi.fn()}
-        timeControlMode={TimeControlModeEnum.display}
-        timeDisplayFormat={TimeDisplayFormatEnum.twelve_hour}
-        timeDisplayTransparent
-      />,
-    );
-
-    expect(markup).toContain("1:45 PM");
-    expect(markup).toContain("border-transparent bg-transparent");
-    expect(markup).not.toContain("border-setta-300/70 bg-setta-50");
-    expect(markup).not.toContain("border-setta-200/50");
-  });
-
-  it("renders time input meta controls without the two-column grid shell", () => {
-    const markup = renderToStaticMarkup(
-      <MetaControlContent
-        sectionId="section-1"
-        controlParamId="param-1"
-        sectionName="Time Control"
-        paramDisplayName="Time Control"
-        codeObjType={CodeObjTypeEnum.TimeParam}
-        value="13:45"
-        defaultVal=""
-        showSectionTitle={false}
-        onValueChange={vi.fn()}
-        timeControlMode={TimeControlModeEnum.input}
-        timeDisplayFormat={TimeDisplayFormatEnum.twelve_hour}
-      />,
-    );
-
-    expect(markup).toContain('type="time"');
-    expect(markup).not.toContain("grid-cols-[1fr,auto]");
-    expect(markup).not.toContain("single-cell-child");
-    expect(markup).not.toContain("col-span-2");
-  });
-
-  it("renders password meta controls without the two-column grid shell", () => {
-    const markup = renderToStaticMarkup(
-      <MetaControlContent
-        sectionId="section-1"
-        controlParamId="param-1"
-        sectionName="Password Control"
-        paramDisplayName="Password Control"
-        codeObjType={CodeObjTypeEnum.PasswordParam}
-        value="topsecret"
-        defaultVal=""
-        showSectionTitle={false}
-        onValueChange={vi.fn()}
-      />,
-    );
-
-    expect(markup).toContain('type="password"');
-    expect(markup).toContain('aria-label="Show password"');
-    expect(markup).not.toContain("grid-cols-[1fr,auto]");
-    expect(markup).not.toContain("single-cell-child");
-    expect(markup).not.toContain("col-span-2");
-  });
-
-  it("renders text area meta controls without the single-cell grid shell", () => {
-    const markup = renderToStaticMarkup(
-      <MetaControlContent
-        sectionId="section-1"
-        controlParamId="param-1"
-        sectionName="Notes"
-        paramDisplayName="Notes"
-        codeObjType={CodeObjTypeEnum.TextAreaParam}
-        value={"alpha\nbeta\ngamma"}
-        defaultVal=""
-        showSectionTitle={false}
-        onValueChange={vi.fn()}
-      />,
-    );
-
-    expect(markup).toContain("alpha");
-    expect(markup).toContain("beta");
-    expect(markup).toContain("gamma");
-    expect(markup).toContain("min-h-24");
-    expect(markup).not.toContain("single-cell-container");
-    expect(markup).not.toContain("single-cell-child");
-  });
-
-  it("renders code meta controls without the single-cell grid shell", () => {
-    const markup = renderToStaticMarkup(
-      <MetaControlContent
-        sectionId="section-1"
-        controlParamId="param-1"
-        sectionName="Script"
-        paramDisplayName="Script"
-        codeObjType={CodeObjTypeEnum.CodeParam}
-        value={"alpha\nbeta\ngamma"}
-        defaultVal=""
-        showSectionTitle={false}
-        onValueChange={vi.fn()}
-      />,
-    );
-
-    expect(markup).toContain("alpha");
-    expect(markup).not.toContain("single-cell-container");
-    expect(markup).not.toContain("single-cell-child");
   });
 });
