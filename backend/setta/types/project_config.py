@@ -6,6 +6,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
+from setta.types.generated.go_shared_types import (
+    StateMachineCountOperator,
+    StateMachineSourceFilterType,
+    StateMachineTargetActionType,
+    StateMachineThreadStrategy,
+    WindowSpaceSurfaceKind,
+)
 from setta.types.id import ID, create_new_id
 from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -84,11 +91,6 @@ class AgenticEdge(BaseModel, extra="forbid"):
     selected: bool = False
 
 
-class WindowSpaceSurfaceKind(str, Enum):
-    project_chat = "project_chat"
-    section = "section"
-
-
 class WindowSpaceWindowMode(str, Enum):
     project_ai_mode = "project_ai_mode"
     section_mode = "section_mode"
@@ -163,30 +165,6 @@ class WindowSpaceConfig(WindowSpaceState, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     sortIndex: int = 0
-
-
-class StateMachineTargetActionType(str, Enum):
-    send_prompt = "send_prompt"
-    reset_thread = "reset_thread"
-
-
-class StateMachineThreadStrategy(str, Enum):
-    continue_current_thread = "continue_current_thread"
-    new_thread_before_send = "new_thread_before_send"
-
-
-class StateMachineSourceFilterType(str, Enum):
-    run_completed = "run_completed"
-    run_failed = "run_failed"
-    signal = "signal"
-
-
-class StateMachineCountOperator(str, Enum):
-    lt = "lt"
-    lte = "lte"
-    eq = "eq"
-    gte = "gte"
-    gt = "gt"
 
 
 class StateMachineSourceFilter(BaseModel, extra="forbid"):

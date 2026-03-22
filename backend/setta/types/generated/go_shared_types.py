@@ -68,10 +68,20 @@ class DependencyValueType(str, Enum):
     FileRead = "FileRead"
 
 
+class WindowSpaceSurfaceKind(str, Enum):
+    project_chat = "project_chat"
+    section = "section"
+
+
 class RunSnapshotMode(str, Enum):
     never = "never"
     ephemeral = "ephemeral"
     always = "always"
+
+
+class CodeLanguage(str, Enum):
+    python = "python"
+    bash = "bash"
 
 
 class ListRootViewMode(str, Enum):
@@ -126,6 +136,30 @@ class StateMachineGateType(str, Enum):
     AND = "AND"
     OR = "OR"
     XOR = "XOR"
+
+
+class StateMachineTargetActionType(str, Enum):
+    send_prompt = "send_prompt"
+    reset_thread = "reset_thread"
+
+
+class StateMachineThreadStrategy(str, Enum):
+    continue_current_thread = "continue_current_thread"
+    new_thread_before_send = "new_thread_before_send"
+
+
+class StateMachineSourceFilterType(str, Enum):
+    run_completed = "run_completed"
+    run_failed = "run_failed"
+    signal = "signal"
+
+
+class StateMachineCountOperator(str, Enum):
+    lt = "lt"
+    lte = "lte"
+    eq = "eq"
+    gte = "gte"
+    gt = "gt"
 
 
 class ChatRole(str, Enum):

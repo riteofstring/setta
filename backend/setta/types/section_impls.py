@@ -20,6 +20,7 @@ from setta.types.generated.go_shared_types import (
     ChatDictationMode,
     ChatPermissionMode,
     CodeFileAccessMode,
+    CodeLanguage,
     DrawAreaBrushShape,
     DrawAreaMode,
     ListRootViewMode,
@@ -78,18 +79,6 @@ class SectionSize(BaseModel, extra="forbid"):
         default=SectionSizeMode.auto,
         description="Section height in pixels or 'auto' when the layout controls it.",
     )
-
-
-class CodeLanguage(str, Enum):
-    python = "python"
-    bash = "bash"
-    javascript = "javascript"
-    typescript = "typescript"
-    json = "json"
-    yaml = "yaml"
-    toml = "toml"
-    markdown = "markdown"
-    plaintext = "plaintext"
 
 
 CodeLanguageKey = CodeLanguage | str
