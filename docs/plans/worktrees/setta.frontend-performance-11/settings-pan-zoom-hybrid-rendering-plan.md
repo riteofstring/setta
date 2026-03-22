@@ -1418,3 +1418,41 @@ These questions should be answered with traces and direct visual verification, n
   - rerun the canonical paired matrix for `settings` and `tier1Synthetic`
   - run a fresh subagent Chrome DevTools MCP sanity pass on `/settings` `All Settings` plus `/benchmark-tier1`
   - append the measured keep/reject decision before making any new Tier 1 code change
+
+## 2026-03-25 Current Execution Note
+
+- The unacceptable handcrafted preview placeholder path is now replaced in committed product code:
+  - `21668877e` `Replace Tier 1 placeholder previews with cached SnapDOM overlays`
+- The follow-up runtime correction is now also committed:
+  - `afbfe7d1f` `Serialize Tier 1 preview capture work and cover it in Playwright`
+- Current corrected Tier 1 preview contract:
+  - keep the real `SectionAreaSwitch` body mounted
+  - never swap to a simplified bars/chips placeholder subtree
+  - seed a cached SnapDOM image after motion settles
+  - only show the exact image overlay during a later active pan/zoom pass when that cache is ready
+- Fresh verification now distinguishes two separate questions:
+  - visual fidelity:
+    - fresh Chrome DevTools MCP subagents on `/benchmark-tier1` confirmed the old simplified placeholder path is no longer what appears during zoom/pan checks
+    - those checks saw real section UI stay visible and did not see the old bars/chips appearance regression
+  - actual image-preview lifecycle:
+    - passive post-gesture CDP checks on `/benchmark-tier1` stayed at `status=idle` with `overlay=0` and `image=0`, which initially looked like the image path was not engaging
+    - direct browser probing on live `/settings` then showed the real two-step lifecycle:
+      - first pan arms capture work and, after settle, moves sections into `ready`
+      - second pan shows `[data-section-body-preview-overlay]` and `[data-section-body-preview-image]` while live body children remain mounted underneath with `opacity: 0`
+- The remaining runtime issue after the first SnapDOM integration was capture fan-out:
+  - without queueing, one pan could push the settings surface into a broad `pending` burst while many sections tried to capture at once
+  - the follow-up queue now serializes preview capture work so only a small in-flight set is active at once
+- Latest live observations on `/settings` after the queue landed:
+  - about `1.5s` after a first pan: `8 ready / 2 pending / 37 idle`
+  - about `11.5s` after that same pan: `44 ready / 2 pending / 1 idle`
+  - during the next active pan: `44` overlays and `44` preview images became visible with `44` live-body roots hidden underneath, then dropped back to `0` overlays/images after release
+- Focused verification completed on the queued image-preview path:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+    - `2` files passed
+    - `8` tests passed
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+    - `1` test passed
+  - filtered `tsc` on `Tier1DenseParamSectionPreview`, `SectionBodyGate`, and `settings-pan-zoom-preview` returned no matching diagnostics
+- Next keep/reject gate from here:
+  - rerun the authoritative paired benchmark matrix for `settings` and `tier1Synthetic` against commit `afbfe7d1f`
+  - decide whether serialized capture alone is sufficient, or whether Tier 1 still needs tighter capture locality / warm-pool limits before this branch can be treated as complete

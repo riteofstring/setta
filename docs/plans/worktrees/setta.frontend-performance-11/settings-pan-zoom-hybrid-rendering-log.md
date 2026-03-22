@@ -2741,3 +2741,87 @@ Record:
     - do not make a keep/reject call until the paired benchmark matrix and fresh browser sanity pass complete
 - Next action:
   - Restart `ai.sh` for this worktree, rerun the paired `settings` plus `tier1Synthetic` benchmark matrix for commit `391f548f4`, then run a fresh subagent Chrome DevTools MCP sanity check before deciding whether to keep or revert the experiment.
+
+## 2026-03-25 066
+
+- Item: Remove the unacceptable simplified Tier 1 placeholder preview path and replace it with a faithful image-backed path.
+- Status: `done`
+- Details:
+  - User-reported regression:
+    - zooming was swapping dense Tier 1 sections onto visibly simplified placeholder bodies
+    - that appearance change was not acceptable
+    - the same path was also associated with hitching
+  - Root cause found in product code:
+    - `SectionBodyGate` was routing preview mode through `Tier1DenseParamSectionPreview`
+    - that component still rendered a handcrafted lightweight placeholder subtree rather than a faithful image capture
+  - Corrective implementation committed as:
+    - `21668877e` `Replace Tier 1 placeholder previews with cached SnapDOM overlays`
+  - Product-path changes:
+    - keep the live `SectionAreaSwitch` body mounted for Tier 1 dense param sections
+    - capture a SnapDOM SVG image after motion settles
+    - show that exact image only during preview-mode motion when cache is ready
+    - hide live children with `opacity: 0` during overlay display instead of unmounting them
+  - Focused automated verification on the corrective path:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+      - `2` files passed
+      - `8` tests passed
+    - broader relevant Vitest slice was already green before the follow-up queueing change
+  - Fresh Chrome DevTools MCP subagent checks after the placeholder removal:
+    - `/settings`
+      - no old placeholder markers were found
+      - no simplified bars/chips subtree was observed
+      - overlay/image markers were not observed in the passive check
+    - `/benchmark-tier1`
+      - zoomed out to about `0.50962` and panned once
+      - saw `root=41`, `status=41`, `overlay=0`, `image=0`
+      - all observed statuses stayed `idle`
+      - visible section bodies remained real UI rather than simplified placeholder content
+  - Interim conclusion:
+    - the visual-regression complaint is addressed
+    - but the image-preview path still needed deeper runtime investigation because passive CDP checks alone were not proving overlay engagement
+- Next action:
+  - Probe the live gesture lifecycle directly and determine whether the image-preview path is failing to arm, failing to complete, or simply being inspected at the wrong moment.
+
+## 2026-03-25 067
+
+- Item: Diagnose the real Tier 1 image-preview lifecycle, reduce capture fan-out, and add a deterministic end-to-end guard.
+- Status: `done`
+- Details:
+  - Direct live-browser probing on `/settings` found the real preview lifecycle:
+    - first pan leaves preview roots out of `idle` and starts capture work
+    - after settle, preview roots become `ready`
+    - a later active pan shows `[data-section-body-preview-overlay]` plus `[data-section-body-preview-image]`
+    - while the overlay is visible, the live body remains mounted underneath and its direct children are hidden with `opacity: 0`
+  - Important runtime problem found before the follow-up fix:
+    - the initial SnapDOM integration could fan out capture work across the whole Tier 1 surface at once
+    - on `/settings`, that produced a broad `pending` burst after a pan, which matches the reported hitching
+  - Corrective follow-up committed as:
+    - `afbfe7d1f` `Serialize Tier 1 preview capture work and cover it in Playwright`
+  - Follow-up implementation:
+    - serialize preview capture work through a shared queue instead of starting all SnapDOM captures at once
+    - keep cancellation checks around queued work so stale captures do not write back after the owning preview becomes invalid
+    - add `frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts` to cover the real two-step gesture lifecycle
+  - Live runtime observations after queueing:
+    - about `1.5s` after the first pan on `/settings`:
+      - `8 ready / 2 pending / 37 idle`
+    - about `11.5s` after the first pan on `/settings`:
+      - `44 ready / 2 pending / 1 idle`
+    - during the next active pan on `/settings`:
+      - `44` overlays
+      - `44` preview images
+      - `44` live-body roots hidden underneath
+    - after release:
+      - overlays and images returned to `0`
+  - Automated verification on the queued path:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+      - `2` files passed
+      - `8` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+      - `1` test passed in about `24.3s`
+    - filtered `tsc` on `Tier1DenseParamSectionPreview`, `SectionBodyGate`, and `settings-pan-zoom-preview` returned no matching diagnostics
+  - Decision:
+    - keep the queued image-preview path
+    - the branch now has a faithful overlay path plus a real E2E guard for the exact motion lifecycle
+    - benchmark data is still required before calling the overall hybrid-rendering plan complete
+- Next action:
+  - Run the authoritative paired benchmark matrix for `settings` and `tier1Synthetic` on commit `afbfe7d1f`, then decide whether further locality/warm-pool narrowing is still required.
