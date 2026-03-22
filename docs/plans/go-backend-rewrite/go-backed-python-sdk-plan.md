@@ -469,10 +469,21 @@ Phase 4 status:
 
 - complete
 
-Phase 5 note:
+Phase 5 progress:
 
-- no proven local-Go-core gap has been established yet, so Phase 5 remains
-  intentionally deferred behind Gate B
+- the repo now has a hidden `setta sdk-local-core` process entrypoint that
+  emits a fail-closed version/contract handshake over stdio and handles a
+  narrow command surface for retained-SDK local canonical work
+- the first local-core command is
+  `listener_render_realtime_dependency_values`, which uses the same Go
+  listener realtime derivation path as the main backend runtime instead of
+  reintroducing Python-owned graph/value semantics
+- `backend/setta/api/local_core.py` now manages that hidden Go subprocess from
+  the retained Python side and verifies protocol version, sdk version, and
+  sdk-contract version before using it
+- the active retained Python listener now uses the local core for canonical
+  realtime dependency rendering and no longer rehydrates realtime deltas by
+  rebuilding listener node/value semantics in Python
 
 ### Phase 5. Introduce A Narrow Local Go Core Only For Proven Gaps
 
@@ -513,6 +524,10 @@ Success condition:
 
 - any remaining canonical local SDK logic is Go-owned without forcing the SDK to
   become a raw transport wrapper
+
+Phase 5 status:
+
+- complete for the active retained SDK listener gap
 
 ### Phase 6. Delete Duplicate Python Runtime Ownership
 
@@ -633,12 +648,17 @@ Phase 7 progress:
   bound port, lets the retained Python listener complete bootstrap +
   registration against that server, and asserts that listener metadata is
   hydrated from the authoritative Go force-refresh snapshot
+- the retained Python SDK now also has a real local-core subprocess test:
+  `tests/api/test_local_core.py` starts the hidden Go `sdk-local-core`
+  command through the packaged/source-checkout Python entrypoint path and
+  verifies realtime dependency rendering across the actual stdio handshake and
+  command/result contract boundary
 
 Phase 7 status:
 
 - complete for the running-backend retained SDK path
-- local-core-specific packaging and smoke work remains intentionally deferred
-  behind Gate B because Phase 5 did not establish a proven local-core need
+- local-core-specific release/install smoke still remains, but the protocol
+  handshake and a real retained-Python-to-Go subprocess test are now in place
 
 ## Recommended First Implementation Sequence
 
@@ -648,8 +668,7 @@ Use this order for actual implementation work:
 2. Phase 1 contract layer
 3. Phase 3 runner pilot
 4. Phase 4 listener completion
-5. Phase 5 local-core introduction, only if phases 1 through 4 leave a proven
-   canonical local gap
+5. Phase 5 local-core introduction for the remaining canonical listener gap
 6. Phase 6 deletion
 7. Phase 7 hardening
 
@@ -686,6 +705,11 @@ canonical SDK-local operations that:
 - cannot be pushed into richer backend-authored snapshots
 - cannot remain Python ergonomic helpers
 - must execute without sending a request to the running backend
+
+Gate B outcome:
+
+- satisfied by the retained listener realtime path, which still needed
+  canonical Setta dependency rendering locally after phases 1 through 4
 
 ### Gate C. Local-Core Transport
 

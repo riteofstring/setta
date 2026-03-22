@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import contextlib
 import inspect
 import logging
@@ -6,7 +7,6 @@ import os
 from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,26 +33,21 @@ from setta.api.runtime_compat import (
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.code_gen.dependency_graph import (
-    Node,
-    ParamNode,
-    SectionNode,
-)
-from setta.code_gen.value_codec import PythonValueCodec
-from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.sessions.registry import SessionMetadata, SessionRegistry
-from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
+from setta.sdk_contracts.generated import (
+    LocalCoreListenerRealtimeDelta,
+    LocalCoreRenderRealtimeDependencyValuesRequest,
+)
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
     create_dep_key,
 )
-from setta.types.dependency_value import DependencyValueType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnionWithDiscriminator,
@@ -68,10 +63,12 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
+    ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
     ListenerRegisterContent,
+    ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerRouterEndpointCallContent,
     ListenerSnapshot,
@@ -98,6 +95,7 @@ from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 from setta.websockets.binary_frames import decode_binary_frame
 
+from .local_core import LocalCoreClient
 from .scheduling import ListenerCallbackScheduler
 
 if TYPE_CHECKING:
@@ -162,6 +160,7 @@ class ListenerCallbackContext:
 @dataclass(slots=True)
 class ListenerRuntimeState:
     dependency_metadata: "ListenerDependencyMetadata"
+    dependency_catalog: ListenerDependencyCatalog
 
 
 @dataclass(frozen=True, slots=True)
@@ -539,9 +538,11 @@ class SettaListener:
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_dependency_metadata: ListenerDependencyMetadata | None = None
+        self._latest_dependency_catalog: ListenerDependencyCatalog | None = None
         self._latest_dependency_snapshot_values: (
             ListenerRenderedDependencyValues | None
         ) = None
+        self._local_core_client: LocalCoreClient | None = None
         self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
         self._pending_router_endpoint_force_refreshes: dict[
             str, asyncio.Future[None]
@@ -855,6 +856,8 @@ class SettaListener:
     def stop(self) -> None:
         """Signal the connection loop to exit."""
         self._stop_event.set()
+        if self._local_core_client is not None:
+            self._local_core_client.close()
 
     def _ensure_logging(self) -> None:
         if self._logging_configured:
@@ -890,6 +893,8 @@ class SettaListener:
                 finally:
                     logger.info("Listener %s connection closed", self._log_identifier)
                     self._websocket = None
+                    if self._local_core_client is not None:
+                        self._local_core_client.close()
                     self._registration_pending = False
                     self._is_registered = False
                     self._expected_ack_callback_ids = set()
@@ -1383,8 +1388,10 @@ class SettaListener:
             dependency_metadata=ListenerDependencyMetadata.from_catalog(
                 snapshot.dependencyCatalog
             ),
+            dependency_catalog=snapshot.dependencyCatalog,
         )
         self._latest_dependency_snapshot_values = snapshot.dependencyValues
+        self._latest_dependency_catalog = snapshot.dependencyCatalog
         previous_cache = dict(self._dependency_cache)
         (
             rendered_snapshot_values,
@@ -1496,6 +1503,78 @@ class SettaListener:
                 continue
         return values_by_name, resolved_dependency_keys
 
+    def _get_local_core_client(self) -> LocalCoreClient:
+        if self._local_core_client is None:
+            self._local_core_client = LocalCoreClient()
+        return self._local_core_client
+
+    def _build_realtime_affected_dependency_keys(
+        self,
+        dependency_metadata: ListenerDependencyMetadata,
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+    ) -> set[BaseDependencyKeyUnion]:
+        affected = set(dirty_dependency_keys)
+        queue = list(dirty_dependency_keys)
+        while queue:
+            dependency_key = queue.pop(0)
+            for dependent_key in dependency_metadata.dependents(dependency_key):
+                if dependent_key in affected:
+                    continue
+                affected.add(dependent_key)
+                queue.append(dependent_key)
+        return affected
+
+    def _build_local_core_realtime_request(
+        self,
+        runtime_state: ListenerRuntimeState,
+        deltas: Sequence[ListenerRealtimeDelta],
+    ) -> LocalCoreRenderRealtimeDependencyValuesRequest:
+        dependency_catalog = runtime_state.dependency_catalog
+        if dependency_catalog is None:
+            raise RuntimeError("Listener dependency catalog is unavailable")
+        current_dependency_values = self._latest_dependency_snapshot_values
+        if current_dependency_values is None:
+            current_dependency_values = ListenerRenderedDependencyValues(entries=[])
+        local_core_deltas: list[LocalCoreListenerRealtimeDelta] = []
+        for delta in deltas:
+            binary_payload_base64: str | None = None
+            if delta.binaryPayload is not None:
+                binary_payload_base64 = base64.b64encode(delta.binaryPayload).decode(
+                    "ascii"
+                )
+            local_core_deltas.append(
+                LocalCoreListenerRealtimeDelta(
+                    dependency=delta.dependency,
+                    value=delta.value,
+                    binaryPayloadBase64=binary_payload_base64,
+                )
+            )
+        return LocalCoreRenderRealtimeDependencyValuesRequest(
+            dependencyCatalog=dependency_catalog,
+            currentDependencyValues=current_dependency_values,
+            deltas=local_core_deltas,
+        )
+
+    def _merge_rendered_dependency_values(
+        self,
+        current: ListenerRenderedDependencyValues | None,
+        *,
+        remove_keys: set[BaseDependencyKeyUnion],
+        updates: ListenerRenderedDependencyValues | None,
+    ) -> ListenerRenderedDependencyValues:
+        merged_entries: dict[
+            BaseDependencyKeyUnion, ListenerRenderedDependencyValue
+        ] = {}
+        if current is not None:
+            for entry in current.entries:
+                if entry.dependencyKey in remove_keys:
+                    continue
+                merged_entries[entry.dependencyKey] = entry
+        if updates is not None:
+            for entry in updates.entries:
+                merged_entries[entry.dependencyKey] = entry
+        return ListenerRenderedDependencyValues(entries=list(merged_entries.values()))
+
     async def _invoke_callback(
         self,
         spec: ListenerCallbackSpec,
@@ -1568,15 +1647,11 @@ class SettaListener:
 
         previous_cache = dict(self._dependency_cache)
         updated_cache = dict(previous_cache)
-        applied_dependencies: dict[str, Any] = {}
-        dirty_dependency_keys: set[BaseDependencyKeyUnion] = set()
+        initial_dirty_dependency_keys: set[BaseDependencyKeyUnion] = set()
         for delta in content.deltas:
             dep_key = delta.dependency
             try:
-                dependency = runtime_state.dependency_metadata.dependency_name(dep_key)
-                dependency_entry = runtime_state.dependency_metadata.entry_for_key(
-                    dep_key
-                )
+                runtime_state.dependency_metadata.dependency_name(dep_key)
             except KeyError:
                 logger.error(
                     "Listener %s received realtime delta for unknown dependency metadata key %s",
@@ -1584,43 +1659,69 @@ class SettaListener:
                     dep_key,
                 )
                 continue
-            binary_payload = (
-                delta.binaryPayload
-                if delta.value.type is DependencyValueType.Binary
-                else None
-            )
-            try:
-                hydrated_value = self._hydrate_realtime_delta_from_metadata(
-                    dependency,
-                    dependency_entry,
-                    delta.value,
-                    binary_payload=binary_payload,
-                )
-            except (AttributeError, KeyError, IndexError, ValueError) as error:
-                logger.debug(
-                    (
-                        "Listener %s could not hydrate realtime delta %s "
-                        "(%s) from metadata: %s"
-                    ),
-                    self._log_identifier,
-                    dependency,
-                    dep_key,
-                    error,
-                    exc_info=logger.isEnabledFor(logging.DEBUG),
-                )
-                hydrated_value = _UNAVAILABLE
-            dirty_dependency_keys.add(dep_key)
-            if hydrated_value is _UNAVAILABLE:
-                updated_cache.pop(dependency, None)
-                applied_dependencies.pop(dependency, None)
-                continue
-            updated_cache[dependency] = hydrated_value
-            applied_dependencies[dependency] = hydrated_value
+            initial_dirty_dependency_keys.add(dep_key)
 
-        if not dirty_dependency_keys:
+        if not initial_dirty_dependency_keys:
             return
 
+        dirty_dependency_keys = self._build_realtime_affected_dependency_keys(
+            runtime_state.dependency_metadata,
+            initial_dirty_dependency_keys,
+        )
+        local_core_dependency_values: ListenerRenderedDependencyValues | None = None
+        try:
+            local_core_result = (
+                await self._get_local_core_client().render_realtime_dependency_values(
+                    self._build_local_core_realtime_request(
+                        runtime_state, content.deltas
+                    )
+                )
+            )
+            local_core_dependency_values = local_core_result.dependencyValues
+        except RuntimeCompatibilityError:
+            raise
+        except Exception as error:
+            logger.debug(
+                "Listener %s local core render failed: %s",
+                self._log_identifier,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+
+        for dependency_key in dirty_dependency_keys:
+            try:
+                dependency = runtime_state.dependency_metadata.dependency_name(
+                    dependency_key
+                )
+            except KeyError:
+                continue
+            updated_cache.pop(dependency, None)
+
         authoritative_dependency_keys: set[BaseDependencyKeyUnion] = set()
+        if local_core_dependency_values is not None:
+            (
+                rendered_dependency_values,
+                _rendered_dependency_keys,
+            ) = self._build_dependency_cache_from_snapshot_values(
+                local_core_dependency_values,
+                runtime_state.dependency_metadata,
+            )
+            for entry in local_core_dependency_values.entries:
+                try:
+                    dependency = runtime_state.dependency_metadata.dependency_name(
+                        entry.dependencyKey
+                    )
+                except KeyError:
+                    logger.debug(
+                        "Listener %s ignoring local core value for unknown dependency key %s",
+                        self._log_identifier,
+                        entry.dependencyKey,
+                    )
+                    continue
+                if dependency in rendered_dependency_values:
+                    updated_cache[dependency] = rendered_dependency_values[dependency]
+                    continue
+                updated_cache.pop(dependency, None)
         if content.dependencyValues is not None:
             (
                 rendered_dependency_values,
@@ -1647,6 +1748,22 @@ class SettaListener:
                     continue
                 updated_cache.pop(dependency, None)
             dirty_dependency_keys.update(authoritative_dependency_keys)
+
+        self._latest_dependency_snapshot_values = (
+            self._merge_rendered_dependency_values(
+                self._latest_dependency_snapshot_values,
+                remove_keys=dirty_dependency_keys,
+                updates=local_core_dependency_values,
+            )
+        )
+        if content.dependencyValues is not None:
+            self._latest_dependency_snapshot_values = (
+                self._merge_rendered_dependency_values(
+                    self._latest_dependency_snapshot_values,
+                    remove_keys=authoritative_dependency_keys,
+                    updates=content.dependencyValues,
+                )
+            )
         self._dependency_cache = updated_cache
 
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
@@ -1654,7 +1771,15 @@ class SettaListener:
             if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
                 continue
             if not spec.structured_dependencies:
-                callbacks_to_run.append((spec, dict(applied_dependencies)))
+                changed = {
+                    dependency: updated_cache[dependency]
+                    for dependency in updated_cache.keys() - previous_cache.keys()
+                }
+                for dependency, value in updated_cache.items():
+                    previous = previous_cache.get(dependency, _MISSING)
+                    if previous is _MISSING or previous != value:
+                        changed[dependency] = value
+                callbacks_to_run.append((spec, changed))
                 continue
 
             changed: dict[str, Any] = {}
@@ -1878,18 +2003,6 @@ class SettaListener:
                 self._pending_router_endpoint_force_refreshes.pop(call_id, None)
         return result
 
-    def _render_direct_node_expression(
-        self,
-        node: Node,
-        *,
-        value_codec: PythonValueCodec,
-    ) -> str | None:
-        if isinstance(node, ParamNode):
-            return value_codec.format_param_expression(node)
-        if isinstance(node, SectionNode):
-            return value_codec.format_section(node)
-        raise ValueError(f"Unsupported node type {type(node).__name__}")
-
     def _evaluate_expression(
         self,
         *,
@@ -1911,98 +2024,6 @@ class SettaListener:
                 error,
             )
             raise
-
-    def _build_metadata_direct_node(
-        self,
-        entry: ListenerDependencyMetadataEntry,
-        value: BaseDependencyValueUnion,
-    ) -> Node | None:
-        if entry.codeObjType is not None:
-            if entry.codeObjType in (
-                CodeObjType.NestedParam,
-                CodeObjType.PasswordParam,
-            ):
-                return None
-            return ParamNode(
-                id="metadata",
-                name=entry.fullPathName,
-                full_path_name=entry.fullPathName,
-                type=entry.codeObjType,
-                isTopLevel=True,
-                value=value,
-                deps={},
-                passing_style=ParameterPassingStyle.DEFAULT,
-                value_representation=(
-                    entry.valueRepresentation
-                    or CodeObjValueRepresentationMode.expression
-                ),
-            )
-        if entry.sectionType is not None:
-            if entry.sectionType in (
-                SectionType.Callable,
-                SectionType.ListRoot,
-                SectionType.Group,
-                SectionType.Dict,
-            ):
-                return None
-            if entry.sectionType is SectionType.MetaControl and (
-                entry.controlCodeObjType is None
-                or entry.controlCodeObjType is CodeObjType.PasswordParam
-            ):
-                return None
-            return SectionNode(
-                id="metadata",
-                name=entry.fullPathName,
-                full_path_name=entry.fullPathName,
-                type=entry.sectionType,
-                isTopLevel=True,
-                value=value,
-                deps={},
-                control_code_obj_type=entry.controlCodeObjType,
-                control_code_obj_id=entry.controlCodeObjId,
-                control_value_representation=entry.controlValueRepresentation,
-                representation=(
-                    entry.sectionRepresentation or SectionRepresentationMode.expression
-                ),
-            )
-        return None
-
-    def _hydrate_realtime_delta_from_metadata(
-        self,
-        dependency: str,
-        entry: ListenerDependencyMetadataEntry,
-        value: BaseDependencyValueUnion,
-        *,
-        binary_payload: bytes | None = None,
-    ) -> Any:
-        if value.type is DependencyValueType.Binary:
-            if binary_payload is None:
-                return _UNAVAILABLE
-            return binary_payload
-        node = self._build_metadata_direct_node(entry, value)
-        if node is None:
-            return _UNAVAILABLE
-
-        def unexpected_metadata_dependency_lookup(
-            dep_key: BaseDependencyKeyUnion,
-        ) -> str:
-            raise ValueError(
-                "Metadata-backed listener delta hydration does not support dependency "
-                f"lookups for {dep_key!r}"
-            )
-
-        expression = self._render_direct_node_expression(
-            node,
-            value_codec=PythonValueCodec(
-                SimpleNamespace(graph={}),
-                unexpected_metadata_dependency_lookup,
-                mode=PythonValueMode.LIVE_RUNTIME,
-            ),
-        )
-        return self._evaluate_expression(
-            dependency=dependency,
-            expression=expression,
-        )
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(
@@ -2160,7 +2181,10 @@ class SettaListener:
         """Replay the most recent cached snapshot for newly registered callbacks."""
         runtime_state = self._runtime_state
         if runtime_state is None:
-            if self._latest_dependency_metadata is None:
+            if (
+                self._latest_dependency_metadata is None
+                or self._latest_dependency_catalog is None
+            ):
                 logger.debug(
                     (
                         "Listener %s cannot replay snapshot without cached "
@@ -2171,6 +2195,7 @@ class SettaListener:
                 return
             runtime_state = ListenerRuntimeState(
                 dependency_metadata=self._latest_dependency_metadata,
+                dependency_catalog=self._latest_dependency_catalog,
             )
             self._runtime_state = runtime_state
 

@@ -16,6 +16,12 @@ from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.listener import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
@@ -25,6 +31,7 @@ _UNAVAILABLE = object()
 @dataclass(slots=True)
 class ListenerTestRuntimeState:
     dependency_metadata: ListenerDependencyMetadata
+    dependency_catalog: ListenerDependencyCatalog | None = None
     dependency_graph: DependencyGraph | None = None
 
 
@@ -80,8 +87,59 @@ def build_listener_runtime_state(
         dependency_metadata=build_listener_dependency_metadata_from_graph(
             dependency_graph
         ),
+        dependency_catalog=build_listener_dependency_catalog_from_graph(
+            dependency_graph
+        ),
         dependency_graph=dependency_graph,
     )
+
+
+def build_listener_dependency_catalog_from_graph(
+    dependency_graph: DependencyGraph,
+) -> ListenerDependencyCatalog:
+    entries: list[ListenerDependencyCatalogEntry] = []
+    for dep_key, node in dependency_graph.graph.items():
+        section_type = None
+        code_obj_type = None
+        passing_style = None
+        control_code_obj_id = None
+        control_code_obj_type = None
+        section_representation = None
+        control_value_representation = None
+        value_representation = None
+        if isinstance(node, SectionNode):
+            section_type = node.type
+            control_code_obj_id = node.control_code_obj_id
+            control_code_obj_type = node.control_code_obj_type
+            section_representation = node.representation
+            control_value_representation = node.control_value_representation
+        elif isinstance(node, ParamNode):
+            code_obj_type = node.type
+            passing_style = node.passing_style
+            value_representation = node.value_representation
+        entries.append(
+            ListenerDependencyCatalogEntry(
+                dependencyKey=dep_key,
+                name=node.name,
+                fullPathName=node.full_path_name,
+                dependencies=[
+                    child_dep_key
+                    for child_dep_key, is_used in node.deps.items()
+                    if is_used
+                ],
+                includeInCodegen=getattr(node, "include_in_codegen", True),
+                sectionType=section_type,
+                codeObjType=code_obj_type,
+                passingStyle=passing_style,
+                controlCodeObjId=control_code_obj_id,
+                controlCodeObjType=control_code_obj_type,
+                sectionRepresentation=section_representation,
+                controlValueRepresentation=control_value_representation,
+                valueRepresentation=value_representation,
+            )
+        )
+    entries.sort(key=lambda entry: entry.fullPathName)
+    return ListenerDependencyCatalog(entries=entries)
 
 
 def build_listener_dependency_cache(
@@ -118,6 +176,25 @@ def build_listener_dependency_cache(
             continue
         values_by_name[name] = value
     return values_by_name
+
+
+def build_listener_rendered_dependency_values(
+    listener: SettaListener,
+    runtime_state: ListenerTestRuntimeState,
+) -> ListenerRenderedDependencyValues:
+    dependency_cache = build_listener_dependency_cache(listener, runtime_state)
+    entries: list[ListenerRenderedDependencyValue] = []
+    for dependency_name in runtime_state.dependency_metadata.names():
+        if dependency_name not in dependency_cache:
+            continue
+        entry = runtime_state.dependency_metadata.entry_for_name(dependency_name)
+        entries.append(
+            ListenerRenderedDependencyValue(
+                dependencyKey=entry.dependencyKey,
+                renderedValue=repr(dependency_cache[dependency_name]),
+            )
+        )
+    return ListenerRenderedDependencyValues(entries=entries)
 
 
 def _build_cached_dependency_value(
@@ -272,10 +349,12 @@ def _build_cached_direct_node_value(
     value_codec: PythonValueCodec,
 ) -> Any:
     try:
-        expression = listener._render_direct_node_expression(
-            node,
-            value_codec=value_codec,
-        )
+        if isinstance(node, ParamNode):
+            expression = value_codec.format_param_expression(node)
+        elif isinstance(node, SectionNode):
+            expression = value_codec.format_section(node)
+        else:
+            return _UNAVAILABLE
     except Exception:
         return _UNAVAILABLE
     if not expression:

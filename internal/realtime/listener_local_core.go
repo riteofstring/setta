@@ -16,34 +16,54 @@ func BuildListenerRealtimeDependencyValuesFromSDKContracts(
 	currentDependencyValues pythonsdkcontracts.ListenerRenderedDependencyValues,
 	deltas []pythonsdkcontracts.LocalCoreListenerRealtimeDelta,
 ) (pythonsdkcontracts.ListenerRenderedDependencyValues, error) {
-	graph, err := buildListenerDependencyGraphFromSDKCatalog(catalog)
-	if err != nil {
-		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
-	}
-	currentValuesByKey, err := sdkCurrentRealtimeDependencyValues(currentDependencyValues)
-	if err != nil {
-		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
-	}
+	realtimeCatalog := realtimeListenerDependencyCatalogFromContract(catalog)
+	realtimeCurrentValues := realtimeListenerRenderedDependencyValuesFromContract(
+		currentDependencyValues,
+	)
 	realtimeDeltas, err := realtimeDeltasFromSDKContracts(deltas)
 	if err != nil {
 		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
 	}
-	values, err := buildListenerRealtimeDependencyValuesFromMetadataGraph(
-		graph,
-		currentValuesByKey,
+	values, err := BuildListenerRealtimeDependencyValuesFromCatalog(
+		realtimeCatalog,
+		realtimeCurrentValues,
 		realtimeDeltas,
 	)
 	if err != nil {
 		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
 	}
-	if values == nil {
-		return pythonsdkcontracts.ListenerRenderedDependencyValues{}, nil
-	}
-	return contractListenerRenderedDependencyValuesFromRealtime(*values), nil
+	return contractListenerRenderedDependencyValuesFromRealtime(values), nil
 }
 
-func buildListenerDependencyGraphFromSDKCatalog(
-	catalog pythonsdkcontracts.ListenerDependencyCatalog,
+func BuildListenerRealtimeDependencyValuesFromCatalog(
+	catalog ListenerDependencyCatalog,
+	currentDependencyValues ListenerRenderedDependencyValues,
+	deltas []ListenerRealtimeDelta,
+) (ListenerRenderedDependencyValues, error) {
+	graph, err := buildListenerDependencyGraphFromRealtimeCatalog(catalog)
+	if err != nil {
+		return ListenerRenderedDependencyValues{}, err
+	}
+	currentValuesByKey, err := realtimeCurrentDependencyValues(currentDependencyValues)
+	if err != nil {
+		return ListenerRenderedDependencyValues{}, err
+	}
+	values, err := buildListenerRealtimeDependencyValuesFromMetadataGraph(
+		graph,
+		currentValuesByKey,
+		deltas,
+	)
+	if err != nil {
+		return ListenerRenderedDependencyValues{}, err
+	}
+	if values == nil {
+		return ListenerRenderedDependencyValues{}, nil
+	}
+	return *values, nil
+}
+
+func buildListenerDependencyGraphFromRealtimeCatalog(
+	catalog ListenerDependencyCatalog,
 ) (*codegen.PythonDependencyGraph, error) {
 	graph := &codegen.PythonDependencyGraph{
 		Nodes:             map[codegen.PythonDependencyKey]codegen.PythonDependencyNode{},
@@ -79,7 +99,7 @@ func buildListenerDependencyGraphFromSDKCatalog(
 			DepOrder:         depOrder,
 			IncludeInCodegen: entry.IncludeInCodegen,
 		}
-		node, err := buildSDKDependencyNode(entry, base)
+		node, err := buildRealtimeCatalogDependencyNode(entry, base)
 		if err != nil {
 			return nil, err
 		}
@@ -92,12 +112,12 @@ func buildListenerDependencyGraphFromSDKCatalog(
 	return graph, nil
 }
 
-func buildSDKDependencyNode(
-	entry pythonsdkcontracts.ListenerDependencyCatalogEntry,
+func buildRealtimeCatalogDependencyNode(
+	entry ListenerDependencyCatalogEntry,
 	base codegen.PythonDependencyNodeBase,
 ) (codegen.PythonDependencyNode, error) {
-	hasSectionType := entry.SectionType != nil && strings.TrimSpace(*entry.SectionType) != ""
-	hasCodeObjType := entry.CodeObjType != nil && strings.TrimSpace(*entry.CodeObjType) != ""
+	hasSectionType := strings.TrimSpace(entry.SectionType) != ""
+	hasCodeObjType := strings.TrimSpace(entry.CodeObjType) != ""
 	switch {
 	case hasSectionType && hasCodeObjType:
 		return nil, fmt.Errorf(
@@ -107,23 +127,23 @@ func buildSDKDependencyNode(
 	case hasCodeObjType:
 		return &codegen.PythonParamNode{
 			PythonDependencyNodeBase: base,
-			CodeObjectType:           strings.TrimSpace(*entry.CodeObjType),
-			PassingStyle:             stringValue(entry.PassingStyle),
+			CodeObjectType:           strings.TrimSpace(entry.CodeObjType),
+			PassingStyle:             strings.TrimSpace(entry.PassingStyle),
 			ValueRepresentation: projectstate.PythonCodeObjValueRepresentationMode(
-				stringValue(entry.ValueRepresentation),
+				strings.TrimSpace(entry.ValueRepresentation),
 			),
 		}, nil
 	case hasSectionType:
 		return &codegen.PythonSectionNode{
 			PythonDependencyNodeBase: base,
-			SectionType:              strings.TrimSpace(*entry.SectionType),
+			SectionType:              strings.TrimSpace(entry.SectionType),
 			Representation: projectstate.PythonSectionRepresentationMode(
-				stringValue(entry.SectionRepresentation),
+				strings.TrimSpace(entry.SectionRepresentation),
 			),
-			ControlCodeObjID:   stringValue(entry.ControlCodeObjID),
-			ControlCodeObjType: stringValue(entry.ControlCodeObjType),
+			ControlCodeObjID:   strings.TrimSpace(entry.ControlCodeObjID),
+			ControlCodeObjType: strings.TrimSpace(entry.ControlCodeObjType),
 			ControlValueRepresentation: projectstate.PythonCodeObjValueRepresentationMode(
-				stringValue(entry.ControlValueRepresentation),
+				strings.TrimSpace(entry.ControlValueRepresentation),
 			),
 		}, nil
 	default:
@@ -134,8 +154,8 @@ func buildSDKDependencyNode(
 	}
 }
 
-func sdkCurrentRealtimeDependencyValues(
-	values pythonsdkcontracts.ListenerRenderedDependencyValues,
+func realtimeCurrentDependencyValues(
+	values ListenerRenderedDependencyValues,
 ) (map[codegen.PythonDependencyKey]string, error) {
 	rendered := map[codegen.PythonDependencyKey]string{}
 	for _, entry := range values.Entries {

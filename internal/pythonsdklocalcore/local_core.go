@@ -1,6 +1,7 @@
 package pythonsdklocalcore
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,22 @@ import (
 
 const ProtocolVersion = 1
 const CommandListenerRenderRealtimeDependencyValues = "listener_render_realtime_dependency_values"
+
+type renderRealtimeDependencyValuesRequest struct {
+	DependencyCatalog       realtime.ListenerDependencyCatalog        `json:"dependencyCatalog"`
+	CurrentDependencyValues realtime.ListenerRenderedDependencyValues `json:"currentDependencyValues"`
+	Deltas                  []localCoreRealtimeDeltaWire              `json:"deltas"`
+}
+
+type localCoreRealtimeDeltaWire struct {
+	Dependency          json.RawMessage `json:"dependency"`
+	Value               json.RawMessage `json:"value"`
+	BinaryPayloadBase64 string          `json:"binaryPayloadBase64,omitempty"`
+}
+
+type renderRealtimeDependencyValuesResultWire struct {
+	DependencyValues realtime.ListenerRenderedDependencyValues `json:"dependencyValues"`
+}
 
 type RunOptions struct {
 	Stdin  io.Reader
@@ -74,17 +91,22 @@ func executeCommand(
 			result.Error = stringPointer(err.Error())
 			return result
 		}
-		values, err := realtime.BuildListenerRealtimeDependencyValuesFromSDKContracts(
+		deltas, err := payload.realtimeDeltas()
+		if err != nil {
+			result.Error = stringPointer(err.Error())
+			return result
+		}
+		values, err := realtime.BuildListenerRealtimeDependencyValuesFromCatalog(
 			payload.DependencyCatalog,
 			payload.CurrentDependencyValues,
-			payload.Deltas,
+			deltas,
 		)
 		if err != nil {
 			result.Error = stringPointer(err.Error())
 			return result
 		}
 		result.OK = true
-		result.Result = pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{
+		result.Result = renderRealtimeDependencyValuesResultWire{
 			DependencyValues: values,
 		}
 		return result
@@ -98,22 +120,47 @@ func executeCommand(
 
 func decodeRenderRealtimeDependencyValuesRequest(
 	payload map[string]any,
-) (pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest, error) {
+) (renderRealtimeDependencyValuesRequest, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}, fmt.Errorf(
+		return renderRealtimeDependencyValuesRequest{}, fmt.Errorf(
 			"encode local core payload: %w",
 			err,
 		)
 	}
-	var request pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest
+	var request renderRealtimeDependencyValuesRequest
 	if err := json.Unmarshal(encoded, &request); err != nil {
-		return pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}, fmt.Errorf(
+		return renderRealtimeDependencyValuesRequest{}, fmt.Errorf(
 			"decode local core payload: %w",
 			err,
 		)
 	}
 	return request, nil
+}
+
+func (r renderRealtimeDependencyValuesRequest) realtimeDeltas() ([]realtime.ListenerRealtimeDelta, error) {
+	deltas := make([]realtime.ListenerRealtimeDelta, 0, len(r.Deltas))
+	for _, delta := range r.Deltas {
+		dependency, err := realtime.CanonicalDependencyKeyFromWire(delta.Dependency)
+		if err != nil {
+			return nil, fmt.Errorf("decode local core dependency key: %w", err)
+		}
+		next := realtime.ListenerRealtimeDelta{
+			Dependency: dependency,
+			Value:      append(json.RawMessage(nil), delta.Value...),
+		}
+		if strings.TrimSpace(delta.BinaryPayloadBase64) != "" {
+			payload, err := base64.StdEncoding.DecodeString(
+				strings.TrimSpace(delta.BinaryPayloadBase64),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("decode local core binary payload: %w", err)
+			}
+			next.BinaryPayload = payload
+		}
+		deltas = append(deltas, next)
+	}
+	return deltas, nil
 }
 
 func stringPointer(value string) *string {

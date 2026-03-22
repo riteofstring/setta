@@ -101,11 +101,29 @@ func TestRunWritesHandshakeAndHandlesRealtimeRenderCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal local core result: %v", err)
 	}
-	var typedResult pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult
+	var typedResult renderRealtimeDependencyValuesResultWire
 	if err := json.Unmarshal(encodedResult, &typedResult); err != nil {
 		t.Fatalf("decode typed local core result: %v", err)
 	}
 	if len(typedResult.DependencyValues.Entries) != 2 {
 		t.Fatalf("expected 2 dependency values, got %d", len(typedResult.DependencyValues.Entries))
+	}
+	if typedResult.DependencyValues.Entries[0].DependencyKey != "section-config" {
+		t.Fatalf(
+			"expected first dependency key section-config, got %s",
+			typedResult.DependencyValues.Entries[0].DependencyKey,
+		)
+	}
+	if typedResult.DependencyValues.Entries[0].RenderedValue != "{'count': 2}" {
+		t.Fatalf(
+			"expected first dependency value to refresh dependents, got %q",
+			typedResult.DependencyValues.Entries[0].RenderedValue,
+		)
+	}
+	if typedResult.DependencyValues.Entries[1].DependencyKey != "section-config.param-count" {
+		t.Fatalf(
+			"expected second dependency key section-config.param-count, got %s",
+			typedResult.DependencyValues.Entries[1].DependencyKey,
+		)
 	}
 }

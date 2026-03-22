@@ -80,6 +80,10 @@ func canonicalDependencyKeyFromWire(raw json.RawMessage) (string, error) {
 	return CanonicalDependencyKey(raw)
 }
 
+func CanonicalDependencyKeyFromWire(raw json.RawMessage) (string, error) {
+	return canonicalDependencyKeyFromWire(raw)
+}
+
 func DecodeCanonicalDependencyKey(value string) (dependencyKey, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {

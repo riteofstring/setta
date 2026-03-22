@@ -63,6 +63,7 @@ from tests.helpers.binary_frames import encode_binary_frame
 from tests.helpers.listener_runtime_state import (
     ListenerTestRuntimeState,
     build_listener_dependency_cache,
+    build_listener_dependency_catalog_from_graph,
     build_listener_dependency_metadata_from_graph,
     build_listener_runtime_state,
 )
@@ -1170,6 +1171,7 @@ class TestSettaListenerRealtimeIntegration:
             dependency_metadata=build_listener_dependency_metadata_from_graph(
                 dep_graph
             ),
+            dependency_catalog=build_listener_dependency_catalog_from_graph(dep_graph),
             dependency_graph=dep_graph,
         )
         listener._project_config_id = PROJECT_TYPED_ID
@@ -1601,6 +1603,7 @@ class TestSettaListenerBootstrapFailure:
         )
         listener._runtime_state = ListenerTestRuntimeState(
             dependency_metadata=ListenerDependencyMetadata.from_catalog(catalog),
+            dependency_catalog=catalog,
             dependency_graph=_GraphlessDependencyGraph(),
         )
         listener._project_config_id = PROJECT_TYPED_ID
@@ -1686,6 +1689,7 @@ class TestSettaListenerBootstrapFailure:
 
         listener._runtime_state = ListenerTestRuntimeState(
             dependency_metadata=runtime_state.dependency_metadata,
+            dependency_catalog=runtime_state.dependency_catalog,
             dependency_graph=_GraphlessDependencyGraph(),
         )
         listener._project_config_id = project_state.projectConfig.id
@@ -1754,6 +1758,7 @@ class TestSettaListenerBootstrapFailure:
 
         listener._runtime_state = ListenerTestRuntimeState(
             dependency_metadata=runtime_state.dependency_metadata,
+            dependency_catalog=runtime_state.dependency_catalog,
             dependency_graph=_GraphlessDependencyGraph(),
         )
         listener._project_config_id = project_state.projectConfig.id
@@ -1938,6 +1943,7 @@ class TestSettaListenerBootstrapFailure:
 
         runtime_state = build_listener_runtime_state(project_state)
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
+        listener._latest_dependency_catalog = runtime_state.dependency_catalog
 
         await listener._replay_cached_snapshot()
 
@@ -1957,6 +1963,7 @@ class TestSettaListenerBootstrapFailure:
         runtime_state = build_listener_runtime_state(project_state)
         dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
+        listener._latest_dependency_catalog = runtime_state.dependency_catalog
         listener._latest_dependency_snapshot_values = ListenerRenderedDependencyValues(
             entries=[
                 ListenerRenderedDependencyValue(
