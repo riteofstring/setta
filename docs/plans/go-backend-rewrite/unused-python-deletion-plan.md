@@ -532,6 +532,18 @@ Current tree note:
   `tests/mcp/test_stdio_bridge_logging.py` had no live repo imports outside
   that bridge/doc-test cluster. `backend/setta/mcp/tool_metadata.py` stays
   retained because surviving Python chat/listener/type modules still import it.
+- The old Python project-state/codegen test cluster is also smaller in the
+  current worktree: `tests/project_state/*`, `tests/code_gen/*`,
+  `tests/types/test_project_chat_windowing.py`,
+  `tests/types/test_section_defaults.py`,
+  `tests/types/test_section_sizing_normalization.py`,
+  `tests/types/test_helpers_lvl2.py`,
+  `tests/types/test_delete_kwarg_edges.py`,
+  `tests/types/test_project_state.py`,
+  `tests/utils/test_name_validation.py`, and
+  `tests/api/test_listener_codegen_targets.py` are gone because they only
+  exercised the old Python-owned canonical project-state/codegen stack rather
+  than the active retained `SettaListener` / `SettaRunner` boundary.
 
 Actions:
 

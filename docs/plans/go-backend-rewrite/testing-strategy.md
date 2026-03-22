@@ -52,9 +52,12 @@ For any subsystem change:
 
 Use these as the current behavior inventory:
 
+- `tests/api`
 - `tests/auth`
+- `tests/share`
+- `tests/start`
+- `tests/types`
 - `tests/websockets`
-- `tests/project_state`
 - `tests/mcp`
 - `tests/llm`
 - `tests/plugins`
