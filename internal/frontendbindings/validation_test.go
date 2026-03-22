@@ -7454,6 +7454,37 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			factoryFunctionName: "createListRootSectionImpl",
 		},
 		{
+			name: "UserDefaultGroupSectionImpl",
+			root: reflect.TypeOf(UserDefaultGroupSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "isHorizontalOrientation", TypeExpr: "boolean", Optional: false},
+				{Name: "overflowMode", TypeExpr: "boolean", Optional: false},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "GroupSectionImpl",
+			root: reflect.TypeOf(GroupSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Group;
+  children: Array<string>;
+  isHorizontalOrientation: boolean;
+  overflowMode: boolean;
+  defaultChildSectionType: SectionType;
+}`,
+			factoryFunctionName: "createGroupSectionImpl",
+		},
+		{
 			name: "UserDefaultTextBlockSectionImpl",
 			root: reflect.TypeOf(UserDefaultTextBlockSectionImpl{}),
 			kind: "object",
@@ -7488,6 +7519,43 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   text: string;
 }`,
 			factoryFunctionName: "createTextBlockSectionImpl",
+		},
+		{
+			name: "UserDefaultPromptSectionImpl",
+			root: reflect.TypeOf(UserDefaultPromptSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "template", TypeExpr: "string", Optional: false},
+				{Name: "format", TypeExpr: "PromptFormat", Optional: false},
+				{Name: "inputs", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "renderedText", TypeExpr: "string", Optional: false},
+				{Name: "missingVariables", TypeExpr: "Array<string>", Optional: false},
+				{Name: "renderError", TypeExpr: "string | null", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "PromptSectionImpl",
+			root: reflect.TypeOf(PromptSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Prompt;
+  promptTemplateId?: string | null;
+  template: string;
+  format: PromptFormat;
+  inputs: Record<string, string>;
+  renderedText: string;
+  missingVariables: Array<string>;
+  renderError?: string | null;
+}`,
+			factoryFunctionName: "createPromptSectionImpl",
 		},
 		{
 			name: "CodeSectionDiagnosticsIgnoreState",
@@ -7564,10 +7632,12 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			alias: `CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
+  | GroupSectionImpl
   | StateMachineStartSectionImpl
   | StateMachineGateSectionImpl
   | StateMachineEndSectionImpl
   | TextBlockSectionImpl
+  | PromptSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl

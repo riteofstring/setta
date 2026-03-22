@@ -1155,6 +1155,10 @@ type UserDefaultListRootSectionImpl struct{}
 
 type ListRootSectionImpl struct{}
 
+type UserDefaultGroupSectionImpl struct{}
+
+type GroupSectionImpl struct{}
+
 type UserDefaultStateMachineStartSectionImpl struct{}
 
 type StateMachineStartSectionImpl struct{}
@@ -1170,6 +1174,10 @@ type StateMachineEndSectionImpl struct{}
 type UserDefaultTextBlockSectionImpl struct{}
 
 type TextBlockSectionImpl struct{}
+
+type UserDefaultPromptSectionImpl struct{}
+
+type PromptSectionImpl struct{}
 
 type CodeSectionDiagnosticsIgnoreState struct{}
 
@@ -1734,9 +1742,9 @@ func projectStateSupportDeclarations() []TypeDeclaration {
     };
   };
   GroupSection: {
-    impl: BaseParentSectionImplUnion;
+    impl: GroupSectionImpl;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+      [K in keyof GroupSectionImpl]?: GroupSectionImpl[K] | ((prev: GroupSectionImpl[K]) => GroupSectionImpl[K]);
     };
   };
   ListRootSection: {
@@ -1755,6 +1763,12 @@ func projectStateSupportDeclarations() []TypeDeclaration {
     impl: BaseSectionImplUnion;
     args: {
       [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
+  };
+  PromptSection: {
+    impl: PromptSectionImpl;
+    args: {
+      [K in keyof PromptSectionImpl]?: PromptSectionImpl[K] | ((prev: PromptSectionImpl[K]) => PromptSectionImpl[K]);
     };
   };
   BaseDictSection: {

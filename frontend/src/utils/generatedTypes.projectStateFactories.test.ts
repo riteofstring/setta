@@ -9,31 +9,35 @@ import {
   CodeObjTypeEnum,
   ConfigLanguageEnum,
   ControlCodeObjTypeSet,
-  createClipboardProjectStateCore,
+  createAgenticEdge,
   createBrowserSavedSearch,
   createBrowserSavedSearchTypeFilters,
   createBrowserSectionImpl,
   createCallableSectionImpl,
-  createAgenticEdge,
+  createClipboardProjectStateCore,
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createCore,
+  createDictSectionImpl,
+  createGroupSectionImpl,
   createListRootSectionImpl,
   createProjectConfig,
-  createTopLevelSectionLayout,
-  createTerminalSectionImpl,
-  createDictSectionImpl,
-  createSectionSize,
   createProjectStateSingleConfig,
+  createPromptSectionImpl,
   createSectionsClipboardData,
+  createSectionSize,
   createSingletonSections,
+  createTerminalSectionImpl,
   createTextBlockSectionImpl,
+  createTopLevelSectionLayout,
   createUserDefaultBrowserSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultCodeSectionImpl,
   createUserDefaultDictSectionImpl,
+  createUserDefaultGroupSectionImpl,
   createUserDefaultListRootSectionImpl,
+  createUserDefaultPromptSectionImpl,
   createUserDefaultTerminalSectionImpl,
   createUserDefaultTextBlockSectionImpl,
   createViewModeConfig,
@@ -44,8 +48,8 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
-  ParamNameTypeEnum,
   ParameterPassingStyleEnum,
+  ParamNameTypeEnum,
   RouteEnum,
   SectionParamCodeObjTypeSet,
   SectionSizeModeEnum,
@@ -115,6 +119,39 @@ describe("generated project state factories", () => {
     expect(sectionImpl.viewMode).toBe(ListRootViewModeEnum.kanban);
     expect(sectionImpl.children).toEqual(["child-1", "child-2"]);
     expect(sectionImpl.defaultChildSectionType).toBe(SectionTypeEnum.Callable);
+  });
+
+  it("exports group and prompt helpers with canonical user defaults", () => {
+    const groupImpl = createGroupSectionImpl(
+      createUserDefaultGroupSectionImpl({
+        isHorizontalOrientation: true,
+      }),
+      {
+        id: "group-impl",
+        children: ["child-1"],
+      },
+    );
+    const promptImpl = createPromptSectionImpl(
+      createUserDefaultPromptSectionImpl({
+        template: "Hello {{ name }}",
+      }),
+      {
+        id: "prompt-impl",
+      },
+    );
+
+    expect(groupImpl.type).toBe(SectionTypeEnum.Group);
+    expect(groupImpl.id).toBe("group-impl");
+    expect(groupImpl.children).toEqual(["child-1"]);
+    expect(groupImpl.isHorizontalOrientation).toBe(true);
+    expect(groupImpl.defaultChildSectionType).toBe(SectionTypeEnum.Callable);
+
+    expect(promptImpl.type).toBe(SectionTypeEnum.Prompt);
+    expect(promptImpl.id).toBe("prompt-impl");
+    expect(promptImpl.promptTemplateId).toBeNull();
+    expect(promptImpl.template).toBe("Hello {{ name }}");
+    expect(promptImpl.renderedText).toBe("");
+    expect(promptImpl.missingVariables).toEqual([]);
   });
 
   it("applies text-block user defaults before impl overrides", () => {

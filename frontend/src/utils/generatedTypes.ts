@@ -4529,6 +4529,75 @@ export function createListRootSectionImpl(
   );
 }
 
+export type UserDefaultGroupSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  isHorizontalOrientation: boolean;
+  overflowMode: boolean;
+  defaultChildSectionType: SectionType;
+};
+export function createUserDefaultGroupSectionImpl(
+  options: Partial<UserDefaultGroupSectionImpl> = {},
+): UserDefaultGroupSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      isHorizontalOrientation: false,
+      overflowMode: false,
+      defaultChildSectionType: SectionTypeEnum.Callable,
+    },
+    options,
+  );
+}
+
+export type GroupSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Group;
+  children: Array<string>;
+  isHorizontalOrientation: boolean;
+  overflowMode: boolean;
+  defaultChildSectionType: SectionType;
+};
+
+export function createGroupSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultGroupSectionImpl>
+    | Partial<GroupSectionImpl> = {},
+  overrides?: Partial<GroupSectionImpl>,
+): GroupSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultGroupSectionImpl,
+    GroupSectionImpl
+  >(createUserDefaultGroupSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Group,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      isHorizontalOrientation: resolved.defaults.isHorizontalOrientation,
+      overflowMode: resolved.defaults.overflowMode,
+      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
+    },
+    resolved.overrides,
+  );
+}
+
 export type UserDefaultStateMachineStartSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -4837,6 +4906,91 @@ export function createTextBlockSectionImpl(
   );
 }
 
+export type UserDefaultPromptSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  template: string;
+  format: PromptFormat;
+  inputs: Record<string, string>;
+  renderedText: string;
+  missingVariables: Array<string>;
+  renderError: string | null;
+};
+export function createUserDefaultPromptSectionImpl(
+  options: Partial<UserDefaultPromptSectionImpl> = {},
+): UserDefaultPromptSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 300,
+        height: 150,
+      },
+      template: "",
+      format: PromptFormatEnum.Jinja,
+      inputs: {},
+      renderedText: "",
+      missingVariables: [],
+      renderError: null,
+    },
+    options,
+  );
+}
+
+export type PromptSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Prompt;
+  promptTemplateId?: string | null;
+  template: string;
+  format: PromptFormat;
+  inputs: Record<string, string>;
+  renderedText: string;
+  missingVariables: Array<string>;
+  renderError?: string | null;
+};
+
+export function createPromptSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultPromptSectionImpl>
+    | Partial<PromptSectionImpl> = {},
+  overrides?: Partial<PromptSectionImpl>,
+): PromptSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultPromptSectionImpl,
+    PromptSectionImpl
+  >(createUserDefaultPromptSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Prompt,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      promptTemplateId: null,
+      template: resolved.defaults.template,
+      format: resolved.defaults.format,
+      inputs: resolved.defaults.inputs,
+      renderedText: resolved.defaults.renderedText,
+      missingVariables: resolved.defaults.missingVariables,
+      renderError: resolved.defaults.renderError,
+    },
+    resolved.overrides,
+  );
+}
+
 export type CodeSectionDiagnosticsIgnoreState = {
   muted: boolean;
   suppressedCodes: Array<string | number>;
@@ -4985,10 +5139,12 @@ export type BaseSectionImplUnion =
   | CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
+  | GroupSectionImpl
   | StateMachineStartSectionImpl
   | StateMachineGateSectionImpl
   | StateMachineEndSectionImpl
   | TextBlockSectionImpl
+  | PromptSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl
@@ -10656,13 +10812,11 @@ export type ImplArgsBundleMap = {
     };
   };
   GroupSection: {
-    impl: BaseParentSectionImplUnion;
+    impl: GroupSectionImpl;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?:
-        | BaseParentSectionImplUnion[K]
-        | ((
-            prev: BaseParentSectionImplUnion[K],
-          ) => BaseParentSectionImplUnion[K]);
+      [K in keyof GroupSectionImpl]?:
+        | GroupSectionImpl[K]
+        | ((prev: GroupSectionImpl[K]) => GroupSectionImpl[K]);
     };
   };
   ListRootSection: {
@@ -10689,6 +10843,14 @@ export type ImplArgsBundleMap = {
       [K in keyof BaseSectionImplUnion]?:
         | BaseSectionImplUnion[K]
         | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
+  };
+  PromptSection: {
+    impl: PromptSectionImpl;
+    args: {
+      [K in keyof PromptSectionImpl]?:
+        | PromptSectionImpl[K]
+        | ((prev: PromptSectionImpl[K]) => PromptSectionImpl[K]);
     };
   };
   BaseDictSection: {

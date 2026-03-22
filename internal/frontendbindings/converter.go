@@ -1020,6 +1020,45 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 				TypeProperty{Name: "overrides", TypeExpr: "Partial<ListRootSectionImpl>", Optional: true},
 			),
 		},
+		reflect.TypeOf(GroupSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createGroupSectionImpl",
+				"GroupSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultGroupSectionImpl,
+    GroupSectionImpl
+  >(createUserDefaultGroupSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Group,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      isHorizontalOrientation: resolved.defaults.isHorizontalOrientation,
+      overflowMode: resolved.defaults.overflowMode,
+      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultGroupSectionImpl> | Partial<GroupSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<GroupSectionImpl>", Optional: true},
+			),
+		},
 		reflect.TypeOf(StateMachineStartSectionImpl{}): {
 			exportedFunctionDeclaration(
 				"createStateMachineStartSectionImpl",
@@ -1173,6 +1212,48 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 					DefaultValue: "{}",
 				},
 				TypeProperty{Name: "overrides", TypeExpr: "Partial<TextBlockSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(PromptSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createPromptSectionImpl",
+				"PromptSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultPromptSectionImpl,
+    PromptSectionImpl
+  >(createUserDefaultPromptSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Prompt,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      promptTemplateId: null,
+      template: resolved.defaults.template,
+      format: resolved.defaults.format,
+      inputs: resolved.defaults.inputs,
+      renderedText: resolved.defaults.renderedText,
+      missingVariables: resolved.defaults.missingVariables,
+      renderError: resolved.defaults.renderError,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultPromptSectionImpl> | Partial<PromptSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<PromptSectionImpl>", Optional: true},
 			),
 		},
 		reflect.TypeOf(CodeSectionImpl{}): {
@@ -3989,6 +4070,38 @@ func newTypeConverter() *typeConverter {
   viewMode: ListRootViewMode;
 }`,
 			),
+			reflect.TypeOf(UserDefaultGroupSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultGroupSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      isHorizontalOrientation: false,
+      overflowMode: false,
+      defaultChildSectionType: SectionTypeEnum.Callable,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "isHorizontalOrientation", TypeExpr: "boolean"},
+				TypeProperty{Name: "overflowMode", TypeExpr: "boolean"},
+				TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
+			),
+			reflect.TypeOf(GroupSectionImpl{}): aliasDeclaration(
+				"GroupSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Group;
+  children: Array<string>;
+  isHorizontalOrientation: boolean;
+  overflowMode: boolean;
+  defaultChildSectionType: SectionType;
+}`,
+			),
 			reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}): objectDeclarationWithCreateExpr(
 				"UserDefaultStateMachineStartSectionImpl",
 				`mergeGeneratedOptions(
@@ -4138,6 +4251,51 @@ func newTypeConverter() *typeConverter {
   text: string;
 }`,
 			),
+			reflect.TypeOf(UserDefaultPromptSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultPromptSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 300,
+        height: 150,
+      },
+      template: "",
+      format: PromptFormatEnum.Jinja,
+      inputs: {},
+      renderedText: "",
+      missingVariables: [],
+      renderError: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "template", TypeExpr: "string"},
+				TypeProperty{Name: "format", TypeExpr: "PromptFormat"},
+				TypeProperty{Name: "inputs", TypeExpr: "Record<string, string>"},
+				TypeProperty{Name: "renderedText", TypeExpr: "string"},
+				TypeProperty{Name: "missingVariables", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "renderError", TypeExpr: "string | null"},
+			),
+			reflect.TypeOf(PromptSectionImpl{}): aliasDeclaration(
+				"PromptSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Prompt;
+  promptTemplateId?: string | null;
+  template: string;
+  format: PromptFormat;
+  inputs: Record<string, string>;
+  renderedText: string;
+  missingVariables: Array<string>;
+  renderError?: string | null;
+}`,
+			),
 			reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}): objectDeclaration(
 				"CodeSectionDiagnosticsIgnoreState",
 				TypeProperty{Name: "muted", TypeExpr: "boolean"},
@@ -4208,10 +4366,12 @@ func newTypeConverter() *typeConverter {
 				`CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
+  | GroupSectionImpl
   | StateMachineStartSectionImpl
   | StateMachineGateSectionImpl
   | StateMachineEndSectionImpl
   | TextBlockSectionImpl
+  | PromptSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl
