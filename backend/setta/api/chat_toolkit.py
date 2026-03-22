@@ -42,8 +42,7 @@ from setta.types.chat_stream_events import (
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
-from setta.types.chat_toolkit import (
-    ChatActionEvent,
+from setta.types.generated.go_shared_types import (
     ChatSendEvent,
     ChatStopEvent,
 )
@@ -52,6 +51,8 @@ from setta.types.id import ID
 
 if TYPE_CHECKING:
     from setta.api.listener import ListenerCallbackContext
+
+ChatActionEvent = ChatSendEvent | ChatStopEvent
 
 
 class ChatHistoryClient:

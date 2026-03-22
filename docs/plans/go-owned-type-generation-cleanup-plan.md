@@ -211,6 +211,14 @@ That means:
   - `EngineType`
   - `TranscriptionTransportMode`
   - `AgentRunStatus`
+- `internal/scriptablechat` now owns the chat-toolkit action payload family too:
+  - `ChatSendAction`
+  - `ChatStopAction`
+  - `ChatSendEvent`
+  - `ChatStopEvent`
+- `internal/frontendbindings/project_state_support.go` now aliases that chat-action family to `internal/scriptablechat`, so the TS generated surface and the Python generated surface both pick it up from the same Go owner.
+- `backend/setta/types/chat_toolkit.py` has been deleted; the Python chat-toolkit code now imports the generated Go-owned event models directly.
+- `frontend/src/components/Section/Layouts/ChatArea.tsx` no longer keeps its own handwritten chat-action payload shape; it now uses the generated chat-action event types.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -218,7 +226,6 @@ Current handwritten files in `backend/setta/types/`:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
-- `chat_toolkit.py`
 - `dependency_key.py`
 - `dependency_value.py`
 - `id.py`

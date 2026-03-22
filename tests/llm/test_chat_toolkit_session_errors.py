@@ -25,8 +25,7 @@ from setta.types.chat_messages import (
     UserChatMessage,
 )
 from setta.types.chat_stream_events import MessageFinalizedEvent
-from setta.types.chat_toolkit import ChatSendEvent
-from setta.types.generated.go_shared_types import LLMConfig
+from setta.types.generated.go_shared_types import ChatSendEvent, LLMConfig
 from setta.types.id import ID
 from setta.types.listener import ListenerDependencyCatalog
 from tests.helpers.listener_runtime_state import (
@@ -268,9 +267,11 @@ class TestChatSessionOpenFromEvent:
         ctx = _build_listener_context(project_config_id, router_caller)
 
         event = ChatSendEvent(
+            action="send",
             sectionId=section_id,
             messageId="msg-1",
             text="System note",
+            attachments=[],
             role=ChatRole.system,
             timestampMs=123,
             managed=True,
@@ -322,6 +323,7 @@ class TestChatSessionOpenFromEvent:
             size=12,
         )
         event = ChatSendEvent(
+            action="send",
             sectionId=section_id,
             messageId="msg-1",
             text="User note",
@@ -374,9 +376,11 @@ class TestChatSessionOpenFromEvent:
         ctx = _build_listener_context(project_config_id, router_caller)
 
         event = ChatSendEvent(
+            action="send",
             sectionId=section_id,
             messageId="msg-1",
             text="Assistant note",
+            attachments=[],
             role=ChatRole.assistant,
             timestampMs=123,
             managed=True,
@@ -402,9 +406,11 @@ class TestChatSessionOpenFromEvent:
         ctx = _build_listener_context(project_config_id, router_caller)
 
         event = ChatSendEvent(
+            action="send",
             sectionId=section_id,
             messageId="msg-1",
             text="Tool note",
+            attachments=[],
             role=ChatRole.tool,
             timestampMs=123,
             managed=True,

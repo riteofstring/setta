@@ -91,8 +91,11 @@ import {
   AgentRun,
   AgenticEdgeKindEnum,
   ChatFileAttachment,
+  ChatRole,
   ChatRoleEnum,
+  ChatSendEvent,
   ChatSectionState,
+  ChatStopEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   EngineTypeEnum,
@@ -105,21 +108,14 @@ import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 
 type ChatSendActionPayload = {
-  action: "send";
-  sectionId: string;
-  messageId: string;
-  text: string;
+  action: ChatSendEvent["action"];
+  sectionId: ChatSendEvent["sectionId"];
+  messageId: ChatSendEvent["messageId"];
+  text: ChatSendEvent["text"];
   attachments: ChatFileAttachment[];
-  role: ChatRoleEnum;
-  timestampMs: number;
-  managed: boolean;
-};
-
-type ChatStopActionPayload = {
-  action: "stop";
-  sectionId: string;
-  timestampMs: number;
-  managed: boolean;
+  role: ChatRole;
+  timestampMs: ChatSendEvent["timestampMs"];
+  managed: ChatSendEvent["managed"];
 };
 
 export function shouldPersistInitializedChatState({
@@ -157,7 +153,7 @@ export function shouldPersistInitializedChatState({
   );
 }
 
-type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
+type ChatActionPayload = ChatSendEvent | ChatStopEvent;
 
 type ChatSectionChatId = string | null;
 type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;

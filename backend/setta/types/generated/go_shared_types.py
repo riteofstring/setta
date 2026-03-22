@@ -208,6 +208,14 @@ class ChatRole(str, Enum):
     tool = "tool"
 
 
+class ChatSendAction(str, Enum):
+    send = "send"
+
+
+class ChatStopAction(str, Enum):
+    stop = "stop"
+
+
 class ProjectCodegenLanguage(str, Enum):
     python = "python"
 
@@ -237,9 +245,9 @@ class PromptFormat(str, Enum):
 
 
 class RunSnapshotMode(str, Enum):
-    never = "never"
     ephemeral = "ephemeral"
     always = "always"
+    never = "never"
 
 
 class SectionType(str, Enum):
@@ -849,6 +857,24 @@ class ChatFileAttachment(SettaSharedTypeModel):
     name: str
     mimeType: str | None = None
     size: int | None = None
+
+
+class ChatSendEvent(SettaSharedTypeModel):
+    action: ChatSendAction
+    sectionId: str
+    messageId: str
+    text: str
+    attachments: list[ChatFileAttachment]
+    role: ChatRole
+    timestampMs: int
+    managed: bool
+
+
+class ChatStopEvent(SettaSharedTypeModel):
+    action: ChatStopAction
+    sectionId: str
+    timestampMs: int
+    managed: bool
 
 
 class MessageTextContent(SettaSharedTypeModel):

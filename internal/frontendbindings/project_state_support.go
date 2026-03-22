@@ -1036,6 +1036,14 @@ type CodeFileBinding = projectview.CodeFileBinding
 
 type ChatRole = scriptablechat.ChatRole
 
+type ChatSendAction = scriptablechat.ChatSendAction
+
+type ChatStopAction = scriptablechat.ChatStopAction
+
+type ChatSendEvent = scriptablechat.ChatSendEvent
+
+type ChatStopEvent = scriptablechat.ChatStopEvent
+
 type ChatPermissionMode = projectstate.ChatPermissionMode
 
 type ChatDictationMode = projectstate.ChatDictationMode

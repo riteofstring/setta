@@ -7737,6 +7737,16 @@ export const ChatRoleEnum = {
 } as const;
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
+export const ChatSendActionEnum = {
+  send: "send",
+} as const;
+export type ChatSendAction = ObjectValues<typeof ChatSendActionEnum>;
+
+export const ChatStopActionEnum = {
+  stop: "stop",
+} as const;
+export type ChatStopAction = ObjectValues<typeof ChatStopActionEnum>;
+
 export type ChatFileAttachment = {
   id: string;
   name: string;
@@ -7747,6 +7757,34 @@ export function createChatFileAttachment(
   options: Partial<ChatFileAttachment> = {},
 ): ChatFileAttachment {
   return options as ChatFileAttachment;
+}
+
+export type ChatSendEvent = {
+  action: ChatSendAction;
+  sectionId: string;
+  messageId: string;
+  text: string;
+  attachments: Array<ChatFileAttachment>;
+  role: ChatRole;
+  timestampMs: number;
+  managed: boolean;
+};
+export function createChatSendEvent(
+  options: Partial<ChatSendEvent> = {},
+): ChatSendEvent {
+  return options as ChatSendEvent;
+}
+
+export type ChatStopEvent = {
+  action: ChatStopAction;
+  sectionId: string;
+  timestampMs: number;
+  managed: boolean;
+};
+export function createChatStopEvent(
+  options: Partial<ChatStopEvent> = {},
+): ChatStopEvent {
+  return options as ChatStopEvent;
 }
 
 export type MessageTextContent = {

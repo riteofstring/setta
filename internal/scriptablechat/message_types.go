@@ -20,6 +20,36 @@ type ChatFileAttachment struct {
 	Size     *int    `json:"size,omitempty"`
 }
 
+type ChatSendAction string
+
+const (
+	ChatSendActionSend ChatSendAction = "send"
+)
+
+type ChatStopAction string
+
+const (
+	ChatStopActionStop ChatStopAction = "stop"
+)
+
+type ChatSendEvent struct {
+	Action      ChatSendAction       `json:"action"`
+	SectionID   string               `json:"sectionId"`
+	MessageID   string               `json:"messageId"`
+	Text        string               `json:"text"`
+	Attachments []ChatFileAttachment `json:"attachments"`
+	Role        ChatRole             `json:"role"`
+	TimestampMS int64                `json:"timestampMs"`
+	Managed     bool                 `json:"managed"`
+}
+
+type ChatStopEvent struct {
+	Action      ChatStopAction `json:"action"`
+	SectionID   string         `json:"sectionId"`
+	TimestampMS int64          `json:"timestampMs"`
+	Managed     bool           `json:"managed"`
+}
+
 type MessageTextContent struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
