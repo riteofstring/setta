@@ -52,7 +52,7 @@ func (p *Project) SetSectionVariant(sectionID string, variantID string) error {
 		p.SectionVariantMap = map[string]string{}
 	}
 	p.SectionVariantMap[section.ID] = variant.ID
-	return nil
+	return p.pruneInvalidAgenticEdges()
 }
 
 func (d *Document) SetDefaultSectionVariant(projectID string, sectionID string, variantID string) error {

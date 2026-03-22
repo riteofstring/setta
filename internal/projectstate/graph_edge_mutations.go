@@ -643,6 +643,27 @@ func (p *Project) SetAgenticEdges(edges []AgenticEdge) error {
 	return nil
 }
 
+func (p *Project) pruneInvalidAgenticEdges() error {
+	if p == nil || len(p.AgenticEdges) == 0 {
+		return nil
+	}
+
+	remaining := make([]AgenticEdge, 0, len(p.AgenticEdges))
+	for _, edge := range p.AgenticEdges {
+		if err := p.validateAgenticEdgeEndpoints(edge); err != nil {
+			if errors.Is(err, ErrSectionNotFound) ||
+				errors.Is(err, ErrAgenticEdgeSourceSectionType) ||
+				errors.Is(err, ErrAgenticEdgeTargetSectionType) {
+				continue
+			}
+			return err
+		}
+		remaining = append(remaining, edge)
+	}
+	p.AgenticEdges = remaining
+	return nil
+}
+
 func (p *Project) applyEdgeExpression(edge Edge, builder EdgeExpressionBuilder) error {
 	if builder == nil {
 		return ErrEdgeExpressionBuilderRequired

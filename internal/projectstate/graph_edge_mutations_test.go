@@ -263,6 +263,51 @@ func TestProjectCreateAgenticEdgeRejectsInvalidSectionTypes(t *testing.T) {
 	}
 }
 
+func TestProjectCreateAgenticEdgeRejectsInvalidTargetAndMissingEndpoints(t *testing.T) {
+	t.Parallel()
+
+	project := graphEdgeMutationTestProject(t)
+
+	for _, testCase := range []struct {
+		name string
+		edge AgenticEdge
+		want error
+	}{
+		{
+			name: "section chat requires chat target",
+			edge: AgenticEdge{
+				SourceSectionID: "source-section",
+				TargetSectionID: "plain-section",
+				Kind:            "section_chat",
+			},
+			want: ErrAgenticEdgeTargetSectionType,
+		},
+		{
+			name: "missing source section",
+			edge: AgenticEdge{
+				SourceSectionID: "missing-section",
+				TargetSectionID: "chat-target",
+				Kind:            "section_chat",
+			},
+			want: ErrSectionNotFound,
+		},
+		{
+			name: "missing target section",
+			edge: AgenticEdge{
+				SourceSectionID: "source-section",
+				TargetSectionID: "missing-section",
+				Kind:            "section_chat",
+			},
+			want: ErrSectionNotFound,
+		},
+	} {
+		_, err := project.CreateAgenticEdge(testCase.edge)
+		if !errors.Is(err, testCase.want) {
+			t.Fatalf("%s: expected %v, got %v", testCase.name, testCase.want, err)
+		}
+	}
+}
+
 func TestRuntimeDeleteAgenticEdgesRemovesSelectedEdges(t *testing.T) {
 	t.Parallel()
 

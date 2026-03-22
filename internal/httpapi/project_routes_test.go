@@ -1142,6 +1142,67 @@ func TestRegisterProjectRoutesSectionVariantMutationsPersistLatestState(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesSetSectionVariantPrunesInvalidAgenticEdges(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantAgenticEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetSectionVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-target","variantId":"chat-target-text-variant"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for setSectionVariant, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap["chat-target"]; got != "chat-target-text-variant" {
+		t.Fatalf("expected chat-target active variant chat-target-text-variant, got %q", got)
+	}
+	if len(project.AgenticEdges) != 0 {
+		t.Fatalf("expected invalid agentic edges to be pruned, got %#v", project.AgenticEdges)
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	if len(payload.ProjectState.ProjectConfig.AgenticEdges) != 0 {
+		t.Fatalf("expected latest project state to omit pruned agentic edges, got %#v", payload.ProjectState.ProjectConfig.AgenticEdges)
+	}
+}
+
 func TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 
@@ -15559,6 +15620,64 @@ func sectionVariantRouteTestProject(t *testing.T, allowJSONSourceKeyEdits bool) 
 					Language: projectstate.CodeLanguagePython,
 				},
 				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "code-impl", "type": "Code", "codeLanguage": "python", "children": []string{}}),
+			},
+		},
+	})
+}
+
+func sectionVariantAgenticEdgeRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	return mustNormalizedProjectRouteProject(t, projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"chat-source": "chat-source-variant",
+			"chat-target": "chat-target-chat-variant",
+		},
+		AgenticEdges: []projectstate.AgenticEdge{
+			{
+				ID:              "agentic-edge-1",
+				SourceSectionID: "chat-source",
+				TargetSectionID: "chat-target",
+				Kind:            "chat_chat",
+				ContextMode:     "reference_only",
+			},
+		},
+		Sections: map[string]projectstate.Section{
+			"chat-source": {
+				ID:               "chat-source",
+				Name:             "Chat Source",
+				VariantIDs:       []string{"chat-source-variant"},
+				DefaultVariantID: "chat-source-variant",
+			},
+			"chat-target": {
+				ID:               "chat-target",
+				Name:             "Chat Target",
+				VariantIDs:       []string{"chat-target-chat-variant", "chat-target-text-variant"},
+				DefaultVariantID: "chat-target-chat-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"chat-source-variant":      {ID: "chat-source-variant", ImplID: "chat-source-impl"},
+			"chat-target-chat-variant": {ID: "chat-target-chat-variant", ImplID: "chat-target-chat-impl"},
+			"chat-target-text-variant": {ID: "chat-target-text-variant", ImplID: "chat-target-text-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"chat-source-impl": {
+				ID:      "chat-source-impl",
+				Kind:    projectstate.SectionKind("chat"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-source-impl", "type": "Chat"}),
+			},
+			"chat-target-chat-impl": {
+				ID:      "chat-target-chat-impl",
+				Kind:    projectstate.SectionKind("chat"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-target-chat-impl", "type": "Chat"}),
+			},
+			"chat-target-text-impl": {
+				ID:      "chat-target-text-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-target-text-impl", "type": "TextBlock"}),
 			},
 		},
 	})
