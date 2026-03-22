@@ -1,4 +1,25 @@
-# Settings Pan/Zoom Hybrid Rendering Plan
+# Archived: Settings Pan/Zoom Hybrid Rendering Plan
+
+Archived on: 2026-03-25
+Superseded by: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-rendering-rewrite-plan.md`
+Superseding log: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-rendering-rewrite-log.md`
+
+Archive reason:
+
+- This plan's core thesis was that the current `xyflow` + live DOM + image-preview overlay path could be tuned into the required performance envelope.
+- That thesis is no longer credible after the rejected queued-image follow-ups:
+  - locality-capped preview warming
+  - widened local warm-pool
+  - pane-locality warming
+- Those probes preserved correctness better than the old simplified fallback, but none of them delivered the benchmark-level paint improvement this effort requires.
+
+The retained branch state from this archived effort is still useful as a correctness checkpoint:
+
+- faithful image-backed previews
+- no handcrafted simplified fallback
+- queued preview capture instead of the original all-at-once burst
+
+But it is not the performance solution, so the workstream now moves to a rendering rewrite plan instead of further threshold tuning here.
 
 Date: 2026-03-20
 Worktree: `setta.frontend-performance-11`

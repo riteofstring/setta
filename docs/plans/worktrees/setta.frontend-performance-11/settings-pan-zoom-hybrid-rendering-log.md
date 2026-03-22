@@ -1,8 +1,21 @@
-# Settings Pan/Zoom Hybrid Rendering Log
+# Archived: Settings Pan/Zoom Hybrid Rendering Log
+
+Archived on: 2026-03-25
+Superseded by: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-rendering-rewrite-log.md`
+Superseding plan: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-rendering-rewrite-plan.md`
+
+Archive reason:
+
+- The hybrid-rendering execution path was concluded as a rejected architecture direction for performance.
+- The log remains as evidence for:
+  - the benchmark harness setup
+  - the correctness fixes that removed the unacceptable simplified fallback
+  - the failed locality / warm-pool tuning probes that did not materially improve `Paint`
 
 Date started: 2026-03-20
 Worktree: `setta.frontend-performance-11`
 Related plan: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-plan.md`
+
 
 ## Usage
 
