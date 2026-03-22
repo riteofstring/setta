@@ -1,1 +1,1 @@
-"""Go-owned generated contracts for the retained Python SDK."""
+"""Go-owned generated contracts for the Python SDK."""

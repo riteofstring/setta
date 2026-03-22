@@ -8,13 +8,13 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
 - Tool registration happens through `defaultToolDefinitions()` in `internal/mcpx/server.go`. Each built-in tool is described by a `tools.Spec`, registered through `internal/tools.Registry`, and exposed with explicit input/output schemas plus normalized metadata.
 - Calls run through the Go ID-translation and scope-enforcement path before the tool handler executes, so the same registered metadata drives temporary-id handling, target resolution, and blocked-result shaping.
 - A search index is built over every discoverable tool from the Go registry. The index blends tool names, descriptions, metadata tags/categories, and schema text. The server-side `search_mcp_tools` helper queries this index for external MCP clients, while the internal managed chat runtime runs its own local multi-server search. The `list_mcp_tools` init tool uses the same registry for a cheap listing.
-- Tool execution surfaces structured `code`/`message` failures through the Go MCP error path rather than the older Python FastMCP wrapper.
+- Tool execution surfaces structured `code`/`message` failures through the Go MCP error path.
 
 ## Tool catalog and metadata (`internal/mcpx` and `internal/tools`)
 - `defaultToolDefinitions()` in `internal/mcpx/server.go` is the source of truth for the built-in Go MCP tool catalog.
 - `internal/tools/registry.go` validates tool names and metadata, rejects duplicates, and keeps the registered catalog sorted for listing and search.
 - `internal/mcpx/tool_catalog.go` builds the same Go-owned tool payloads for CLI/tool-introspection paths, so the live server and offline tool catalog stay aligned.
-- No Python-side decorator registry remains in the active tool-definition path. MCP tool catalog/metadata ownership is fully Go-side under `internal/mcpx` and `internal/tools`; the remaining Python `backend/setta/mcp/*` files are client/annotation helpers for retained Python surfaces rather than server-side tool registration.
+- No Python-side decorator registry remains in the active tool-definition path. MCP tool catalog/metadata ownership is fully Go-side under `internal/mcpx` and `internal/tools`; the Python `backend/setta/mcp/*` files are client/annotation helpers for the package surface rather than server-side tool registration.
 
 ## Tool search tags and categories
 - Every tool can carry `SearchTags` and `SearchCategory` in `internal/tools.Metadata`.

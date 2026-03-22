@@ -14,7 +14,7 @@ import (
 	"setta/internal/projectstate"
 )
 
-func TestAppRetainedPythonRunnerSummaryUsesLiveGoServerContracts(t *testing.T) {
+func TestAppPythonRunnerSummaryUsesLiveGoServerContracts(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -78,7 +78,7 @@ print(json.dumps(payload))
 	command.Env = append(command.Environ(), "PYTHONPATH="+filepath.Join(repoRoot, "backend"))
 	output, err := command.CombinedOutput()
 	if err != nil {
-		t.Fatalf("run retained python runner integration script: %v\n%s", err, string(output))
+		t.Fatalf("run python runner integration script: %v\n%s", err, string(output))
 	}
 
 	var payload struct {
@@ -90,7 +90,7 @@ print(json.dumps(payload))
 		} `json:"learning_rate_param"`
 	}
 	if err := json.Unmarshal(output, &payload); err != nil {
-		t.Fatalf("decode retained python runner payload: %v\n%s", err, string(output))
+		t.Fatalf("decode python runner payload: %v\n%s", err, string(output))
 	}
 
 	if payload.TrainingSectionID != "training-section" {

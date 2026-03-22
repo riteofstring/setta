@@ -30,7 +30,7 @@ in a managed terminal session. It is separate from deployment-mode listeners
 
 ## Deployment listener entrypoint (share/app deployments)
 Deployments can ship a listener entrypoint at `listener/app.py`. If the deployment
-manifest enables it, the Go backend starts a retained Python listener process per
+manifest enables it, the Go backend starts a Python listener process per
 deployment session.
 
 The entrypoint should define either `build_listener` or `build_callbacks` and
@@ -350,7 +350,7 @@ listener.start()
 
 ## Chat/chat-section helpers via ctx.project_manager
 Strings: `Demo Project` is the project name; `Chat` is a chat section dependency; `current chat id=%s` is a log message template.
-`ctx.project_manager` is the narrow retained listener endpoint client for chat/chat-section helpers. For higher-level workflows, use the helpers in `docs/reference/chat-toolkit.md`.
+`ctx.project_manager` is the narrow listener endpoint client for chat/chat-section helpers. For higher-level workflows, use the helpers in `docs/reference/chat-toolkit.md`.
 ```python
 from setta.api import SettaListener
 

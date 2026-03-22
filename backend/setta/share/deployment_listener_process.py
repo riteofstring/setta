@@ -60,7 +60,7 @@ def _load_builder(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Start a retained deployment listener process."
+        description="Start a deployment listener process."
     )
     parser.add_argument("--deployment-root", required=True)
     parser.add_argument("--entrypoint", required=True)

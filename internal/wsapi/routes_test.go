@@ -2559,7 +2559,7 @@ func TestRegisterRoutesListenerFrontendEmitRejectsUnregisteredSocket(t *testing.
 		t.Fatalf("write listener frontend emit without registration: %v", err)
 	}
 
-	// The retained listener caller refuses to emit before registration; the
+	// The listener client refuses to emit before registration; the
 	// transport must also fail closed if a raw websocket skips that precondition.
 	assertRouteListenerError(t, readNextMessage(t, listener), "listener_not_registered", map[string]any{
 		"websocketId": "listener-a",
@@ -2748,7 +2748,7 @@ func TestRegisterRoutesListenerFrontendEmitRejectsEmptyPayload(t *testing.T) {
 	}
 
 	// Raw websocket callers must still provide the same non-empty emit payload
-	// that the retained Python client enforces locally.
+	// that the Python client enforces locally.
 	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_payload", map[string]any{
 		"message": "listener emits require dependencyValues or artifactUpdates",
 	})

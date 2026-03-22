@@ -81,7 +81,7 @@ stateful routes require a `shareSessionId`.
 - Runs always use snapshot files under `deployment_runtime/.../share_runs/<shareSessionId>/...`; terminal input is disabled in deployment mode.
 - If `runSnapshotMode=ephemeral`, a cleanup loop deletes old run outputs (30 minute TTL). `always` keeps run outputs.
 - LLM is only available when `allowLLM=true`; deployment mode uses `ShareChatManager` with an in-memory chat store and no MCP tools.
-- If `manifest.json` defines a listener entrypoint and it is enabled, the Go backend starts a retained Python listener process per share session; listener emits are gated by `allowParamChanges`.
+- If `manifest.json` defines a listener entrypoint and it is enabled, the Go backend starts a Python listener process per share session; listener emits are gated by `allowParamChanges`.
 
 ## Deployment examples
 

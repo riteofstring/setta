@@ -73,7 +73,7 @@ func TestLoadCurrentSessionUsesSessionsRootOverride(t *testing.T) {
 		t.Fatal("expected current session from sessions root override")
 	}
 
-	// The retained Python helpers rely on SETTA_SESSIONS_ROOT so auth helpers can
+	// The Python package helpers rely on SETTA_SESSIONS_ROOT so auth helpers can
 	// resolve a session outside the current working/runtime root.
 	if currentSession.Metadata.ID != metadata.ID {
 		t.Fatalf("expected session id %q, got %q", metadata.ID, currentSession.Metadata.ID)

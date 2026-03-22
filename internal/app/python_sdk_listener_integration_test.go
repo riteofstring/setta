@@ -16,7 +16,7 @@ import (
 	"setta/internal/observability"
 )
 
-func TestAppRetainedPythonListenerBootstrapsFromLiveGoWebsocket(t *testing.T) {
+func TestAppPythonListenerBootstrapsFromLiveGoWebsocket(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 
@@ -133,7 +133,7 @@ asyncio.run(main())
 	command.Env = append(command.Environ(), "PYTHONPATH="+filepath.Join(repoRoot, "backend"))
 	output, err := command.CombinedOutput()
 	if err != nil {
-		t.Fatalf("run retained python listener integration script: %v\n%s", err, string(output))
+		t.Fatalf("run python listener integration script: %v\n%s", err, string(output))
 	}
 
 	var payload struct {
@@ -142,7 +142,7 @@ asyncio.run(main())
 		IsRegistered     bool   `json:"is_registered"`
 	}
 	if err := json.Unmarshal(output, &payload); err != nil {
-		t.Fatalf("decode retained python listener payload: %v\n%s", err, string(output))
+		t.Fatalf("decode python listener payload: %v\n%s", err, string(output))
 	}
 	if payload.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected project-alpha, got %#v", payload.ProjectConfigID)

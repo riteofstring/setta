@@ -77,5 +77,5 @@ and as `ctx.emit_to_frontend` inside callbacks.
   `route_binary_upload`); the websocket payload does not include raw bytes.
 - Tests covering the active transport live in
   `internal/wsapi/routes_test.go`, `internal/app/websocket_test.go`, and the
-  retained Python listener SDK websocket tests under
+  Python listener SDK websocket tests under
   `tests/api/test_listener_websocket_endpoint.py`.

@@ -9,7 +9,7 @@ authors = [
     {name = "Kevin Musgrave"},
     {name = "Jeff Musgrave"}
 ]
-description = "Go-powered Setta runtime with a retained Python package boundary."
+description = "Go-powered Setta runtime with Python SDK and packaging support."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12,<3.14"
@@ -28,7 +28,7 @@ setta = "setta.entrypoint:main"
 
 [project.optional-dependencies]
 source = [
-    # Retained Python SDK/source-only modules that still have live callers.
+    # Python SDK/source-only modules that still have live callers.
     "requests==2.32.4",
     "websockets==15.0.1",
     "psutil==7.0.0",

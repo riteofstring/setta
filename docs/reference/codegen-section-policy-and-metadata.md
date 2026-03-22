@@ -82,7 +82,7 @@ The result is `include_in_codegen` plus the chosen `representation`.
 
 ## How policy affects codegen
 
-The dependency graph uses the resolved policy when exporting nodes (`internal/codegen/python_dependency_graph.go` for codegen and `backend/setta/api/listener.py` for retained listener-side fallback metadata work):
+The dependency graph uses the resolved policy when exporting nodes (`internal/codegen/python_dependency_graph.go` for codegen and `backend/setta/api/listener.py` for listener-side fallback metadata work):
 - Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
 - The Go-owned Python renderer and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`internal/codegen/python_code_renderer.go`, `internal/codegen/python_value_codec.go`).
 - Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat, TaskBoard, Spreadsheet).
@@ -109,7 +109,7 @@ Representation determines how section payloads are encoded:
 - Image sections support `file_path` and `file_read`. The graph stores either a literal path or a `FileReadDependencyValue` pointing at `imagePath`; if the path is missing, the graph downgrades to `expression` with the literal `"None"`.
 - Draw sections support `file_path` and `file_read`. File modes read `renderedImagePath`; missing paths downgrade to `expression` with the literal `"None"`.
 - Chat sections support `expression`, `file_path`, and `file_read`. `expression` emits a Python dict literal from the chat state; file modes point at `setta_files/chats/<chatId>.json` when `chatId` is present, otherwise they downgrade to `expression` with the in-memory state (`internal/codegen/python_dependency_graph.go`, `backend/setta/code_gen/python/value_helpers.py`).
-- Listener-side chat dependency updates from `route_set_chat_section_state` follow the same representation rules through the Go listener route plus the retained Python listener cache/update path (`internal/wsapi/routes.go`, `backend/setta/api/listener.py`).
+- Listener-side chat dependency updates from `route_set_chat_section_state` follow the same representation rules through the Go listener route plus the Python listener cache/update path (`internal/wsapi/routes.go`, `backend/setta/api/listener.py`).
 
 ## Generated Python output
 

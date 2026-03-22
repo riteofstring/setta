@@ -3638,7 +3638,7 @@ func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
 
 func TestAppListenerWebsocketDispatchesScriptableChatBuiltIns(t *testing.T) {
 	// The Go listener websocket should own the scriptable chat history surface
-	// needed by the retained Python chat_toolkit client.
+	// needed by the Python chat_toolkit client.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)

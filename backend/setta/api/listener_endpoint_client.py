@@ -93,7 +93,7 @@ class ListenerSetChatSectionStateRequestPayload(TypedDict):
 
 
 class RouterEndpointAPI:
-    """Thin retained Python client for the active Go-owned listener endpoint set."""
+    """Thin Python client for the active Go-owned listener endpoint set."""
 
     def __init__(self, caller: ListenerEndpointCaller) -> None:
         self._caller = caller
