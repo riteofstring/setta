@@ -1544,3 +1544,34 @@ These questions should be answered with traces and direct visual verification, n
   - do not keep a broad local warm/visible surface
   - if this line continues, find a way to guarantee local preview availability without broadening retained or visible image surfaces this much
   - rerun the same paired matrix only after that narrower retention strategy exists
+
+## 2026-03-25 Pane Locality Probe Gate Note
+
+- The pane-locality rerun is now recorded in:
+  - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-pane-locality-rerun.md`
+- Probe sequence now committed:
+  - experimental keep/reject probe:
+    - `606814701` `Localize Tier 1 preview warming to the visible pane`
+  - branch-state correction after the reject:
+    - `ae5c3824a` `Revert "Localize Tier 1 preview warming to the visible pane"`
+- Result:
+  - reject the pane-locality probe
+  - keep the faithful queued-image checkpoint as the live branch state
+- Why the pane-locality probe was rejected:
+  - fresh sub-agent CDP sanity checks kept the product-fidelity requirement intact:
+    - no old simplified placeholder fallback reappeared on `/settings` or `/benchmark-tier1`
+  - but the authoritative paired matrix still regressed sharply both versus untouched `main` and versus the retained queued-image checkpoint:
+    - `settings` benchmark `Paint`: `87.540ms -> 563.464ms` versus untouched `main`
+    - `tier1Synthetic` benchmark `Paint`: `20.421ms -> 928.813ms` versus untouched `main`
+    - `settings` benchmark `Paint`: `434.401ms -> 563.464ms` versus the retained queued-image checkpoint
+    - `tier1Synthetic` benchmark `Paint`: `762.591ms -> 928.813ms` versus the retained queued-image checkpoint
+    - `settings` benchmark `RunTask`: `29680.224ms -> 40450.694ms` versus the retained queued-image checkpoint
+- Fresh sub-agent CDP read:
+  - quick sanity pass on `/settings` and `/benchmark-tier1` saw no obvious simplified-placeholder fallback, no obvious broad overlay leakage, and no obvious hitching in the short pass
+- Best current read:
+  - narrowing warm/overlay locality alone is still not enough
+  - the short visual pass looked correct, but the authoritative motion benchmark got worse rather than better
+- Next implementation direction:
+  - do not continue locality-only warm/overlay tuning without a different mechanism
+  - if this line continues, target the underlying live-path or overlay motion cost instead of another pane-locality threshold change
+  - rerun the same paired matrix only after that different hypothesis exists

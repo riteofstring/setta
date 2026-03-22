@@ -3060,3 +3060,92 @@ Record:
     - live branch state restored to the prior faithful queued-image checkpoint
 - Next action:
   - Keep the faithful queued-image checkpoint as the live branch state and only retry this line after a narrower retention policy can guarantee nearby preview availability without broadening retained or visible image surfaces this much.
+
+## 2026-03-25 071
+
+- Item: Benchmark the pane-locality follow-up, record the reject, and restore the queued-image checkpoint as the live branch state.
+- Status: `done`
+- Details:
+  - Probe commit under test:
+    - `606814701` `Localize Tier 1 preview warming to the visible pane`
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-pane-locality-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-25_section-benchmark-tier1-pane-locality-rerun`
+  - Same paired benchmark harness and browser/frontend targets were used again:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+    - worktree browser CDP `http://127.0.0.1:9233`
+    - worktree frontend `http://127.0.0.1:3011`
+    - untouched `main` browser CDP `http://127.0.0.1:9309`
+    - untouched `main` frontend `http://127.0.0.1:3087`
+  - Canonical scenes were reinstalled immediately before the rerun:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root ../setta/setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root ../setta/setta_files_dev`
+  - Focused verification on the pane-locality probe before the benchmark write-up:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+      - `3` files passed
+      - `19` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+      - `1` test passed
+    - filtered `tsc` on `SectionBodyGate`, `Tier1DenseParamSectionPreview`, `sectionBodyModePolicy`, and `settings-pan-zoom-preview` returned no matching diagnostics
+    - fresh sub-agent CDP visual check:
+      - `/settings`
+      - `/benchmark-tier1`
+      - no old simplified placeholder fallback observed
+      - no obvious broad overlay leakage observed in the short pass
+      - no obvious hitching or tearing observed in the short pass
+  - Paired benchmark totals versus untouched `main`:
+    - `settings`
+      - benchmark `Paint`:
+        - `87.540ms -> 563.464ms`
+      - benchmark `RunTask`:
+        - `33712.755ms -> 40450.694ms`
+      - benchmark `UpdateLayoutTree`:
+        - `556.290ms -> 689.011ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `20.421ms -> 928.813ms`
+      - benchmark `RunTask`:
+        - `16834.033ms -> 15948.319ms`
+      - benchmark `UpdateLayoutTree`:
+        - `24.483ms -> 24.245ms`
+  - Immediate deltas versus the retained queued-image checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `434.401ms -> 563.464ms`
+      - benchmark `RunTask`:
+        - `29680.224ms -> 40450.694ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.593ms -> 689.011ms`
+      - overview horizontal pan slow `Paint`:
+        - `42.497ms -> 64.192ms`
+      - overview vertical pan slow `Paint`:
+        - `57.981ms -> 74.568ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `762.591ms -> 928.813ms`
+      - benchmark `RunTask`:
+        - `14109.314ms -> 15948.319ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.719ms -> 24.245ms`
+      - overview horizontal pan slow `Paint`:
+        - `125.234ms -> 156.736ms`
+      - detail-to-overview zoom slow `Paint`:
+        - `39.140ms -> 61.100ms`
+  - Decision:
+    - reject the pane-locality probe
+    - it kept fidelity intact, but the authoritative motion benchmark still got materially worse
+  - Branch-state correction after the reject:
+    - rejected code probe reverted as:
+      - `ae5c3824a` `Revert "Localize Tier 1 preview warming to the visible pane"`
+    - post-revert verification on the restored queued-image state:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+        - `2` files passed
+        - `8` tests passed
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+        - `1` test passed
+      - filtered `tsc` on `SectionBodyGate`, `Tier1DenseParamSectionPreview`, `sectionBodyModePolicy`, and `settings-pan-zoom-preview` returned no matching diagnostics
+- Next action:
+  - Keep the faithful queued-image checkpoint as the live branch state and do not continue locality-only warm/overlay tuning until there is a different mechanism to test against the same paired benchmark gate.
