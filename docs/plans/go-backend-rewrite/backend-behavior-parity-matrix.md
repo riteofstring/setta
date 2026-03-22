@@ -654,6 +654,21 @@ Last audited: `2026-03-23`
   `TestCatalogListReturnsNewestFirstByCreatedAt`,
   `TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries`, and
   `TestCatalogLatestUsesHighestVersionRootAsSourceOfTruth`.
+- Follow-up in this pass on `462b3e95d`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/routers/test_multipart_route_limits.py::{test_binary_upload_accepts_payload_above_starlette_default_part_size,test_append_transcription_audio_accepts_large_json_audio_payload,test_append_transcription_audio_openapi_declares_json_request_body,test_append_transcription_audio_rejects_unauthorized_before_decode,test_append_transcription_audio_rejects_oversized_payload_before_decode}`,
+  confirming those clues were already terminal explicit `Proved` rows
+  backed directly by
+  `TestRegisterBinaryRoutesAcceptPayloadAboveLegacyMultipartPartSize`,
+  `TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload`,
+  `TestCurrentEndpointsKeepAppendTranscriptionAudioJSONRequestContract`,
+  `TestCurrentEndpointContractManifest`,
+  `TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled`,
+  and
+  `TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
