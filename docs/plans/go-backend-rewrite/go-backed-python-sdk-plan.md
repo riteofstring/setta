@@ -549,16 +549,20 @@ Phase 6 progress:
 - the nested realtime-delta and dependency-event entry wrappers are now thin
   subclasses of the generated contract models, with Python-only binary payload
   attachment kept as the only retained behavior on those types
-- the handwritten listener DTOs that remain are now limited to backend-only
-  helper payloads that are outside the generated retained-SDK contract family
+- backend-only helper payloads such as realtime UI-change and dependency-event
+  broadcast content have been moved out of the retained listener type module
+  and now live on the backend websocket type side instead
+- the handwritten listener DTOs that remain in the retained listener type
+  module are now limited to the binary payload attachment shim layer around the
+  generated nested entry models
 
 Current Phase 6 boundary:
 
 - keep the Python-only binary payload attachment shim on the nested
   `ListenerRealtimeDelta` and `DependencyEvent` wrappers unless that behavior
   moves into the generated contract layer itself
-- keep backend-only helper payloads such as realtime UI-change and coverage
-  snapshots handwritten unless they become part of the retained SDK contract
+- keep any future backend-only helper payloads out of the retained listener
+  type module unless they are promoted into the retained SDK contract family
 
 ### Phase 7. Packaging, Versioning, And CI Hardening
 

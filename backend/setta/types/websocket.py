@@ -6,9 +6,16 @@ from pydantic import BaseModel, Field, field_serializer, field_validator
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.chat import APIKeys
+from setta.types.generated.dependency_keys import (
+    BaseDependencyKeyUnionWithDiscriminator,
+)
+from setta.types.generated.dependency_values import (
+    BaseDependencyValueUnionWithDiscriminator,
+)
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID, create_new_id
 from setta.types.listener import (
+    DependencyEvent,
     ListenerDependencyEventContent,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -19,8 +26,6 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
     ListenerRouterEndpointResultContent,
-    RealtimeDependencyEventContent,
-    RealtimeUIChangeContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.settings_state import RenameRefactorMode
@@ -469,6 +474,23 @@ class WebsocketMsgUISettingRevealResult(BackendWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForBackend.UISettingRevealResult] = (
         WebsocketMsgTypeForBackend.UISettingRevealResult
     )
+
+
+class ListenerCoverageSnapshot(BaseModel):
+    projectConfigId: ID
+    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
+    hasRealtimeWildcard: bool
+
+
+class RealtimeUIChangeContent(BaseModel):
+    projectConfigId: ID
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    value: BaseDependencyValueUnionWithDiscriminator
+
+
+class RealtimeDependencyEventContent(BaseModel):
+    projectConfigId: ID
+    dependencyEvent: DependencyEvent
 
 
 class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):

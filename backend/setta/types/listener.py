@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field, PrivateAttr, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog as SDKListenerDependencyCatalog,
 )
@@ -58,12 +58,6 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerSnapshot as SDKListenerSnapshot,
 )
-from setta.types.generated.dependency_keys import (
-    BaseDependencyKeyUnionWithDiscriminator,
-)
-from setta.types.generated.dependency_values import (
-    BaseDependencyValueUnionWithDiscriminator,
-)
 from setta.types.id import ID
 
 
@@ -102,11 +96,6 @@ class DependencyEvent(SDKListenerDependencyEventEntry):
         self._binary_payload = value
 
 
-class RealtimeDependencyEventContent(BaseModel):
-    projectConfigId: ID
-    dependencyEvent: DependencyEvent
-
-
 class ListenerDependencyEventContent(SDKListenerDependencyEvent):
     dependencyEvents: list[DependencyEvent] = Field(default_factory=list)
 
@@ -123,18 +112,6 @@ ListenerErrorContent = SDKListenerErrorEvent
 ListenerFrontendEmitRawContent = SDKListenerFrontendEmitRequest
 ListenerRouterEndpointCallContent = SDKListenerRouterEndpointCall
 ListenerRouterEndpointResultContent = SDKListenerRouterEndpointResult
-
-
-class ListenerCoverageSnapshot(BaseModel):
-    projectConfigId: ID
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
-    hasRealtimeWildcard: bool
-
-
-class RealtimeUIChangeContent(BaseModel):
-    projectConfigId: ID
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
 
 
 class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
