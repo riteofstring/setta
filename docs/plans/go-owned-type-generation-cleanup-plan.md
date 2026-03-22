@@ -249,6 +249,22 @@ That means:
   - `internal/frontendbindings/filebrowser_support.go` now wraps `filebrowser.RootResponse`, `filebrowser.FileBrowserDownloadURLEntry`, `filebrowser.FileContentResponse`, `filebrowser.FileStatResponse`, `filebrowser.WriteFileContentResponse`, `filebrowser.TransferOperation`, and `filebrowser.TransferResponse`
   - `internal/frontendbindings/git_support.go` now wraps `gitread.DiffMode`, `gitread.RepoInfo`, `gitread.StatusEntry`, `gitread.GitWorktreeEntry`, `gitread.StatusResponse`, `gitread.DiffRequest`, `gitread.DiffResponse`, `gitread.Commit`, `gitread.LogRequest`, `gitread.LogResponse`, `gitread.CommitChangedFile`, `gitread.CommitDetailsRequest`, `gitread.CommitDetailsResponse`, `gitread.CommitFileDiffRequest`, and `gitread.CommitFileDiffResponse`
   - `internal/frontendbindings/contracts.go` now wraps `mcpx.Transport`, `mcpx.RuntimeState`, `mcpx.ServerRuntimeStatus`, `httpapi.MCPRuntimeStatusRequest`, `httpapi.MCPRuntimeStatusResponse`, `httpapi.GetAttachmentDownloadURLRequest`, `httpapi.GetAttachmentDownloadURLResponse`, `httpapi.GetAttachmentDownloadURLsRequest`, and `httpapi.AttachmentDownloadURLEntry`
+  - `internal/frontendbindings/contracts.go` now also wraps the plugin enum / leaf-struct family from `internal/plugins` instead of repeating those shared definitions locally:
+    - `PluginScope`
+    - `PluginRuntimeState`
+    - `PluginEnablementSource`
+    - `PluginSourceManager`
+    - `PluginInstallerBackend`
+    - `PluginSourceTrustStatus`
+    - `PluginBlockedCapabilityReason`
+    - `PluginErrorInfo`
+    - `PluginBlockedCapability`
+    - `PluginRegisteredCodegenTarget`
+    - `PluginRegisteredBackendRoute`
+    - `PluginRegisteredStaticDir`
+    - `PluginRegisteredListenerEndpoint`
+    - `PluginConfigValidationResult`
+    - `PluginConfigWriteResponse -> plugins.PluginConfigWriteResult`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

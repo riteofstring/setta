@@ -6,6 +6,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
+	"setta/internal/plugins"
 	"setta/internal/realtime"
 )
 
@@ -622,60 +623,60 @@ type ListenerCoverageSnapshot struct {
 	HasRealtimeWildcard bool                     `json:"hasRealtimeWildcard"`
 }
 
-type PluginScope string
+type PluginScope plugins.PluginScope
 
 const (
-	PluginScopeWorkspace  PluginScope = "workspace"
-	PluginScopeSettaFiles PluginScope = "setta_files"
-	PluginScopeGlobal     PluginScope = "global"
+	PluginScopeWorkspace  PluginScope = PluginScope(plugins.PluginScopeWorkspace)
+	PluginScopeSettaFiles PluginScope = PluginScope(plugins.PluginScopeSettaFiles)
+	PluginScopeGlobal     PluginScope = PluginScope(plugins.PluginScopeGlobal)
 )
 
-type PluginRuntimeState string
+type PluginRuntimeState plugins.PluginRuntimeState
 
 const (
-	PluginRuntimeStateActive         PluginRuntimeState = "active"
-	PluginRuntimeStateDisabled       PluginRuntimeState = "disabled"
-	PluginRuntimeStateInvalid        PluginRuntimeState = "invalid"
-	PluginRuntimeStateShadowed       PluginRuntimeState = "shadowed"
-	PluginRuntimeStatePendingRestart PluginRuntimeState = "pending_restart"
+	PluginRuntimeStateActive         PluginRuntimeState = PluginRuntimeState(plugins.PluginRuntimeStateActive)
+	PluginRuntimeStateDisabled       PluginRuntimeState = PluginRuntimeState(plugins.PluginRuntimeStateDisabled)
+	PluginRuntimeStateInvalid        PluginRuntimeState = PluginRuntimeState(plugins.PluginRuntimeStateInvalid)
+	PluginRuntimeStateShadowed       PluginRuntimeState = PluginRuntimeState(plugins.PluginRuntimeStateShadowed)
+	PluginRuntimeStatePendingRestart PluginRuntimeState = PluginRuntimeState(plugins.PluginRuntimeStatePendingRestart)
 )
 
-type PluginEnablementSource string
+type PluginEnablementSource plugins.PluginEnablementSource
 
 const (
-	PluginEnablementSourceWorkspaceDisabled PluginEnablementSource = "workspace_disabled"
-	PluginEnablementSourceWorkspaceEnabled  PluginEnablementSource = "workspace_enabled"
-	PluginEnablementSourceGlobalAutoEnabled PluginEnablementSource = "global_auto_enabled"
-	PluginEnablementSourceManifestDefault   PluginEnablementSource = "manifest_default"
+	PluginEnablementSourceWorkspaceDisabled PluginEnablementSource = PluginEnablementSource(plugins.PluginEnablementSourceWorkspaceDisabled)
+	PluginEnablementSourceWorkspaceEnabled  PluginEnablementSource = PluginEnablementSource(plugins.PluginEnablementSourceWorkspaceEnabled)
+	PluginEnablementSourceGlobalAutoEnabled PluginEnablementSource = PluginEnablementSource(plugins.PluginEnablementSourceGlobalAutoEnabled)
+	PluginEnablementSourceManifestDefault   PluginEnablementSource = PluginEnablementSource(plugins.PluginEnablementSourceManifestDefault)
 )
 
-type PluginSourceManager string
+type PluginSourceManager plugins.PluginSourceManager
 
 const (
-	PluginSourceManagerSetta          PluginSourceManager = "setta"
-	PluginSourceManagerPackageManager PluginSourceManager = "package_manager"
+	PluginSourceManagerSetta          PluginSourceManager = PluginSourceManager(plugins.PluginSourceManagerSetta)
+	PluginSourceManagerPackageManager PluginSourceManager = PluginSourceManager(plugins.PluginSourceManagerPackageManager)
 )
 
-type PluginInstallerBackend string
+type PluginInstallerBackend plugins.PluginInstallerBackend
 
 const (
-	PluginInstallerBackendAuto PluginInstallerBackend = "auto"
-	PluginInstallerBackendPip  PluginInstallerBackend = "pip"
-	PluginInstallerBackendUV   PluginInstallerBackend = "uv"
+	PluginInstallerBackendAuto PluginInstallerBackend = PluginInstallerBackend(plugins.PluginInstallerBackendAuto)
+	PluginInstallerBackendPip  PluginInstallerBackend = PluginInstallerBackend(plugins.PluginInstallerBackendPip)
+	PluginInstallerBackendUV   PluginInstallerBackend = PluginInstallerBackend(plugins.PluginInstallerBackendUV)
 )
 
-type PluginSourceTrustStatus string
+type PluginSourceTrustStatus plugins.PluginSourceTrustStatus
 
 const (
-	PluginSourceTrustStatusUnverified PluginSourceTrustStatus = "unverified"
+	PluginSourceTrustStatusUnverified PluginSourceTrustStatus = PluginSourceTrustStatus(plugins.PluginSourceTrustStatusUnverified)
 )
 
-type PluginBlockedCapabilityReason string
+type PluginBlockedCapabilityReason plugins.PluginBlockedCapabilityReason
 
 const (
-	PluginBlockedCapabilityReasonModePolicy      PluginBlockedCapabilityReason = "mode_policy"
-	PluginBlockedCapabilityReasonHostPolicy      PluginBlockedCapabilityReason = "host_policy"
-	PluginBlockedCapabilityReasonManifestInvalid PluginBlockedCapabilityReason = "manifest_invalid"
+	PluginBlockedCapabilityReasonModePolicy      PluginBlockedCapabilityReason = PluginBlockedCapabilityReason(plugins.PluginBlockedCapabilityReasonModePolicy)
+	PluginBlockedCapabilityReasonHostPolicy      PluginBlockedCapabilityReason = PluginBlockedCapabilityReason(plugins.PluginBlockedCapabilityReasonHostPolicy)
+	PluginBlockedCapabilityReasonManifestInvalid PluginBlockedCapabilityReason = PluginBlockedCapabilityReason(plugins.PluginBlockedCapabilityReasonManifestInvalid)
 )
 
 type PluginRestartCapabilityMode string
@@ -685,15 +686,9 @@ const (
 	PluginRestartCapabilityModeProgrammatic PluginRestartCapabilityMode = "programmatic"
 )
 
-type PluginErrorInfo struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
+type PluginErrorInfo plugins.PluginErrorInfo
 
-type PluginBlockedCapability struct {
-	Capability string                        `json:"capability"`
-	Reason     PluginBlockedCapabilityReason `json:"reason"`
-}
+type PluginBlockedCapability plugins.PluginBlockedCapability
 
 type PluginFrontendDescriptor struct {
 	EntrypointURL *string `json:"entrypointUrl"`
@@ -714,27 +709,13 @@ type PluginConfigDescriptor struct {
 	CurrentConfigDigestSHA256 *string        `json:"currentConfigDigestSha256"`
 }
 
-type PluginRegisteredCodegenTarget struct {
-	TargetID        string `json:"targetId"`
-	PluginID        string `json:"pluginId"`
-	Language        string `json:"language"`
-	Name            string `json:"name"`
-	DefaultFileName string `json:"defaultFileName"`
-}
+type PluginRegisteredCodegenTarget plugins.PluginRegisteredCodegenTarget
 
-type PluginRegisteredBackendRoute struct {
-	Path    string   `json:"path"`
-	Methods []string `json:"methods"`
-}
+type PluginRegisteredBackendRoute plugins.PluginRegisteredBackendRoute
 
-type PluginRegisteredStaticDir struct {
-	RoutePrefix string `json:"routePrefix"`
-	Dir         string `json:"dir"`
-}
+type PluginRegisteredStaticDir plugins.PluginRegisteredStaticDir
 
-type PluginRegisteredListenerEndpoint struct {
-	Name string `json:"name"`
-}
+type PluginRegisteredListenerEndpoint plugins.PluginRegisteredListenerEndpoint
 
 type PluginRestartCapability struct {
 	Mode    PluginRestartCapabilityMode `json:"mode"`
@@ -893,20 +874,14 @@ type PluginRollbackResponse struct {
 	RestartRequired    bool    `json:"restartRequired"`
 }
 
-type PluginConfigValidationResult struct {
-	OK bool `json:"ok"`
-}
+type PluginConfigValidationResult plugins.PluginConfigValidationResult
 
 type PluginConfigWriteRequestInput struct {
 	PluginID string         `json:"pluginId"`
 	Config   map[string]any `json:"config"`
 }
 
-type PluginConfigWriteResponse struct {
-	PluginID   string                       `json:"pluginId"`
-	Config     map[string]any               `json:"config"`
-	Validation PluginConfigValidationResult `json:"validation"`
-}
+type PluginConfigWriteResponse plugins.PluginConfigWriteResult
 
 type PluginLockWriteResponse struct {
 	LockfilePath string `json:"lockfilePath"`
