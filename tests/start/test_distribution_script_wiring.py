@@ -140,6 +140,14 @@ set -euo pipefail
 echo "uv $*" >> "{command_log}"
 """,
     )
+    write_stub_executable(
+        bin_dir / "python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "python $*" >> "{command_log}"
+cat >/dev/null
+""",
+    )
 
     return sandbox_root, command_log
 
@@ -331,6 +339,12 @@ def test_verify_install_still_smokes_the_built_sdist_through_build_sh() -> None:
 
     assert "./build.sh" in script
     assert 'uv pip install --force-reinstall "$filepath"' in script
+    assert "from setta.api.runner import SettaRunner" in script
+    assert "from setta.api.listener import SettaListener" in script
+    assert (
+        "from setta.api.runtime_compat import verify_running_backend_compatibility"
+        in script
+    )
 
 
 def test_build_and_upload_still_reuses_build_sh_before_publish() -> None:
@@ -369,6 +383,7 @@ def test_verify_install_uses_shared_artifact_helper_for_sdist_selection(
         "init-env",
         "build",
         f"uv pip install --force-reinstall {(sandbox_root / 'dist' / 'setta-0.0.0.tar.gz').resolve(strict=False)}",
+        "python -",
         "cleanup",
     ]
 

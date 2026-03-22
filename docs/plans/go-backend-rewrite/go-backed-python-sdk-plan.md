@@ -611,6 +611,11 @@ Phase 7 progress:
   retained Python runner and listener verify that against the local Python
   package version plus the generated contract-version constant before using the
   backend
+- `verify_install.sh` now smokes the installed retained SDK boundary after the
+  built sdist install by importing `SettaRunner`, `SettaListener`, the
+  runtime-compat verifier, and the generated contract-version constant from the
+  installed package instead of treating `uv pip install` success alone as
+  sufficient package smoke
 
 ## Recommended First Implementation Sequence
 
