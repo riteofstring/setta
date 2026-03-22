@@ -6,6 +6,7 @@ import { loadAgentRuns } from "state/actions/ai";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImplIfPresent,
+  getSectionImplChildren,
   getSectionShouldRender,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
@@ -358,7 +359,7 @@ function getDepthListingHelper(
   });
 
   if (isBaseParentSectionImpl(sectionImpl)) {
-    for (const childId of sectionImpl.children) {
+    for (const childId of getSectionImplChildren(sectionImpl)) {
       const childSection = x.sections[childId];
       if (!childSection) {
         continue;

@@ -69,22 +69,6 @@ type ParamUIProps = {
   maybeErrorMessage?: string;
 };
 
-type CodeObjTypeValue = (typeof CodeObjTypeEnum)[keyof typeof CodeObjTypeEnum];
-type TextFamilyCodeObjType =
-  | typeof CodeObjTypeEnum.CodeParam
-  | typeof CodeObjTypeEnum.TextParam
-  | typeof CodeObjTypeEnum.TextAreaParam;
-
-function isTextFamilyCodeObjType(
-  codeObjType: CodeObjTypeValue,
-): codeObjType is TextFamilyCodeObjType {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam
-  );
-}
-
 export function ParamUIConfig({
   sectionId,
   paramInfoId,
@@ -167,33 +151,10 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
-  const codeObjType = useProjectState((x) => {
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseChildlessCodeObjImpl,
-    );
-    return codeObjImpl.type;
-  });
-  if (isTextFamilyCodeObjType(codeObjType)) {
-    return (
-      <TextFamilyParamUI
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        codeObjType={codeObjType}
-        value={value}
-        onChange={onChange}
-        onEscape={() => focusOnSection(null, sectionId, false)}
-        maybeErrorMessage={maybeErrorMessage}
-        isSelectingParams={isSelectingParams}
-        isDeploymentMode={isDeploymentMode}
-        canEditParams={canEditParams}
-      />
-    );
-  }
   const {
+    codeObjType,
     passwordHasSecret,
+    configLanguage,
     defaultVal,
     disabledOrFrozen,
     dropzoneMode,
@@ -231,6 +192,7 @@ export function ParamUI({
     return {
       codeObjType: codeObjImpl.type,
       passwordHasSecret: hasPasswordSecret,
+      configLanguage: impl.configLanguage,
       defaultVal: codeObjImpl.defaultVal,
       disabledOrFrozen: impl.isFrozen,
       dropzoneMode: isDropzone ? codeObjImpl.mode : null,
@@ -266,8 +228,17 @@ export function ParamUI({
       dateIncludesTime: isDateParam ? codeObjImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
+
+  const waitingForResult = useTextFieldWaitingForLSPResult({
+    sectionId,
+    paramInfoId,
+  });
+  const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
   const isDisabled =
-    isSelectingParams || disabledOrFrozen || !canEditParams;
+    isSelectingParams ||
+    disabledOrFrozen ||
+    !canEditParams ||
+    (isDeploymentMode && isCodeParam);
   const showPasswordReveal =
     !isDeploymentMode &&
     shouldShowPasswordReveal({
@@ -284,6 +255,38 @@ export function ParamUI({
   // need to put the group/textinput in a higher div
 
   switch (codeObjType) {
+    case CodeObjTypeEnum.CodeParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+        />
+      );
+    case CodeObjTypeEnum.TextParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+        />
+      );
     case CodeObjTypeEnum.DateParam:
       return (
         <TextParamDateTimeConfigured
@@ -391,6 +394,22 @@ export function ParamUI({
           placeholder={passwordPlaceholder}
         />
       );
+    case CodeObjTypeEnum.TextAreaParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+        />
+      );
     case CodeObjTypeEnum.DropzoneParam:
       return (
         <DropzoneParamConfigured
@@ -410,74 +429,6 @@ export function ParamUI({
   }
 }
 
-function TextFamilyParamUI({
-  sectionId,
-  paramInfoId,
-  codeObjType,
-  value,
-  onChange,
-  onEscape,
-  maybeErrorMessage,
-  isSelectingParams,
-  isDeploymentMode,
-  canEditParams,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  codeObjType: TextFamilyCodeObjType;
-  value: string;
-  onChange: ParamValueChange;
-  onEscape: () => void;
-  maybeErrorMessage: string | undefined;
-  isSelectingParams: boolean;
-  isDeploymentMode: boolean;
-  canEditParams: boolean;
-}) {
-  const { configLanguage, defaultVal, disabledOrFrozen } = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        x,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-        x,
-        sectionId,
-        paramInfoId,
-        isBaseChildlessCodeObjImpl,
-      );
-      return {
-        configLanguage: impl.configLanguage,
-        defaultVal: codeObjImpl.defaultVal,
-        disabledOrFrozen: impl.isFrozen,
-      };
-    },
-    _.isEqual,
-  );
-  const isDisabled =
-    isSelectingParams ||
-    disabledOrFrozen ||
-    !canEditParams ||
-    (isDeploymentMode && codeObjType === CodeObjTypeEnum.CodeParam);
-  const shouldTrackLspWaiting = !isDeploymentMode && configLanguage === "python";
-
-  return (
-    <TextParamConfigured
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      value={value}
-      defaultVal={defaultVal}
-      onChange={onChange}
-      onEscape={onEscape}
-      maybeErrorMessage={maybeErrorMessage}
-      isDisabled={isDisabled}
-      configLanguage={configLanguage}
-      shouldTrackLspWaiting={shouldTrackLspWaiting}
-      isSelectingParams={isSelectingParams}
-    />
-  );
-}
-
 function TextParamConfigured({
   sectionId,
   paramInfoId,
@@ -488,7 +439,7 @@ function TextParamConfigured({
   maybeErrorMessage,
   isDisabled,
   configLanguage,
-  shouldTrackLspWaiting,
+  waitingForResult,
   isSelectingParams,
 }: {
   sectionId: string;
@@ -500,61 +451,36 @@ function TextParamConfigured({
   maybeErrorMessage: string | undefined;
   isDisabled: boolean;
   configLanguage: string;
-  shouldTrackLspWaiting: boolean;
+  waitingForResult: boolean;
   isSelectingParams: boolean;
 }) {
-  const borderClassName = `relative after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-setta-200/50 after:content-[''] dark:after:bg-setta-600/30 ${!isSelectingParams ? "focus-within:after:!bg-blue-400" : ""}`;
-  const wrapperClassName = `section-value flex min-w-0 self-end ${borderClassName}`;
   return (
     <>
-      <div className={wrapperClassName}>
-        <TextInputCodeMirror
-          dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={(completionResult) => {
-            if (!completionResult) {
-              onEscape();
-            }
-          }}
-          dummyCodeClassName={`${NO_PAN_CLASS_NAME} peer/textinput min-w-0 w-full ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-          realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag peer/textinput min-w-0 w-full ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!px-0 [&_.cm-content]:!py-0 [&_.cm-content]:font-[inherit] [&_.cm-content]:text-xs [&_.cm-line]:!px-0 [&_.cm-scroller]:font-[inherit] py-[.125rem] font-mono`}
-          language={configLanguage}
-          isDisabled={isDisabled}
-          tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
-        />
-      </div>
-      {shouldTrackLspWaiting ? (
-        <TextParamWaitingIndicator
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-        />
-      ) : null}
+      <TextInputCodeMirror
+        dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        value={value}
+        defaultVal={defaultVal}
+        onChange={onChange}
+        onEscape={(completionResult) => {
+          if (!completionResult) {
+            onEscape();
+          }
+        }}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+        language={configLanguage}
+        isDisabled={isDisabled}
+        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+      />
+      {waitingForResult && (
+        <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
+      )}
+      <span
+        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
+      />
     </>
-  );
-}
-
-function TextParamWaitingIndicator({
-  sectionId,
-  paramInfoId,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-}) {
-  const waitingForResult = useTextFieldWaitingForLSPResult({
-    sectionId,
-    paramInfoId,
-  });
-
-  if (!waitingForResult) {
-    return null;
-  }
-
-  return (
-    <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
   );
 }
 
@@ -736,8 +662,8 @@ function ColorPickerParamConfigured({
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      wrapperClassName="section-value relative flex min-h-0 h-[calc(100%_-_4px)] w-[calc(100%_-_2px)] min-w-0 justify-self-start self-center items-stretch"
-      colorPickerChoicesClasses="colorpicker relative flex h-full min-h-0 w-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-lg text-white"
+      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
+      colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
     />
   );

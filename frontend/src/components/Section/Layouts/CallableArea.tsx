@@ -3,7 +3,9 @@ import React from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { Tier1DenseParamSectionBody } from "./Tier1DenseParamSectionBody";
+import { ParamGroupContainer } from "../../Params/GroupContainer";
+import { KwargsControls } from "../SectionParts/KwargsControls";
+import { SectionSearch } from "../SectionParts/Search";
 
 function _CallableArea({
   sectionId,
@@ -29,14 +31,19 @@ function _CallableArea({
   }, _.isEqual);
 
   return (
-    <Tier1DenseParamSectionBody
-      sectionId={sectionId}
-      bgColor={bgColor}
-      sectionTypeName={SectionTypeEnum.Callable}
-      callable={callable}
-      hideParams={hideParams}
-      isMinimized={isMinimized}
-    />
+    <>
+      <SectionSearch sectionId={sectionId} callable={callable} />
+      {!hideParams && !isMinimized && (
+        <>
+          <KwargsControls sectionId={sectionId} />
+          <ParamGroupContainer
+            sectionId={sectionId}
+            bgColor={bgColor}
+            sectionTypeName={SectionTypeEnum.Callable}
+          />
+        </>
+      )}
+    </>
   );
 }
 
