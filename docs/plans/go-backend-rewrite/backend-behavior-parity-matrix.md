@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `0ac1877324`
+- Target head: `1ee1a920df`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -94,6 +94,34 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `1ee1a920df`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/routers/test_share_deployments.py::{test_publish_share_deployment_writes_manifest_and_policy,test_publish_share_deployment_uses_latest_manager_state,test_publish_share_deployment_uses_in_memory_json_sources,test_publish_share_deployment_supports_yaml_json_sources,test_publish_share_deployment_supports_toml_json_sources,test_publish_share_deployment_rebases_paths,test_list_versions_and_latest}`
+  against `internal/deployments/share_publish.go::{Publish,rewriteDocumentForDeployment}`,
+  `internal/httpapi/deployment_ide_routes.go::{publishShareDeploymentHandler,listDeploymentVersionMetadataHandler,latestDeploymentMetadataHandler}`,
+  the live caller in
+  `frontend/src/components/Modals/ShareDeploymentsModal/PublishShareDeploymentModal.tsx`,
+  and the focused Go proof in
+  `TestSharePublisherPublishWritesManifestPolicyProjectAndStripsPasswords`,
+  `TestSharePublisherUsesLatestRuntimeSnapshotNotPersistedStore`,
+  `TestSharePublisherWritesStructuredDataAndSupportsFormats`,
+  `TestSharePublisherRebasesPathsAndCopiesFiles`,
+  `TestCatalogListReturnsNewestFirstByCreatedAt`,
+  `TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries`,
+  `TestCatalogLatestUsesHighestVersionRootAsSourceOfTruth`,
+  `TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersions`,
+  and `TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot`;
+  no new implementation gap was found, and the existing
+  `deployment.ide.share_publish.snapshots_latest_runtime_project_state`,
+  `deployment.ide.share_publish.writes_manifest_policy_and_project_payloads_with_default_share_policy`,
+  `deployment.ide.share_catalog.list_versions_and_latest_return_newest_first_metadata`,
+  `deployment.publish.json_source_formats.support_json_yaml_yml_toml_and_require_json_subset_values`,
+  and
+  `deployment.ide.share_publish.rebases_artifact_code_and_json_source_paths_into_deployment_root`
+  rows remained the correct terminal `Proved` dispositions for those stale
+  backlog clues.
 - Follow-up in this pass on `0ac1877324`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` again passed cleanly, so
   `critical_backend_suite::go_test_all` remained stale saved-suite output on
