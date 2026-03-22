@@ -165,6 +165,23 @@ Last audited: `2026-03-23`
   `TestAppShutdownStopsRuntime`,
   `TestAppShutdownClosesSettingsStateEvenWhenRuntimeShutdownFails`, and
   `TestRunTranscriptionSessionCleanupLoopStopsOnContextCancel`.
+- Follow-up in this pass on `ced0c18eb`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` stayed ruled out on the current tree
+  and the saved remote-shell failures in
+  `tmp/backend-gap-hunt-backend-suite.log` remained stale historical suite
+  output rather than a live Go gap. This pass also re-audited
+  `tests/start/test_ssh_common.py::{test_parse_session_list_validates_required_keys,test_parse_session_list_requires_workspace_paths,test_parse_session_list_parses_valid_payload,test_parse_session_list_rejects_invalid_server_mode,test_fetch_remote_sessions_forwards_server_mode_flag}`
+  plus
+  `tests/start/test_ssh_connect.py::test_rollback_local_ssh_tunnel_raises_when_process_remains_alive`
+  and confirmed those source clues were already terminal explicit `Proved`
+  rows backed directly by
+  `TestParseRemoteSessionListValidatesRequiredKeys`,
+  `TestParseRemoteSessionListRequiresWorkspacePaths`,
+  `TestParseRemoteSessionListRoundTripsValidPayload`,
+  `TestParseRemoteSessionListRejectsInvalidServerMode`,
+  `TestServiceListRemoteWorkspaceSessionsForwardsProfileAndServerMode`, and
+  `TestLocalLaunchServiceReturnsRemoteRollbackFailedWithTunnelDetail`.
 - Follow-up in this pass on `c1f38d8901b0274f2f052c36dddaa2a015f5876f`:
   rerunning `./scripts/go.sh test ./... -count=1` passed cleanly again, so the
   saved `tmp/backend-gap-hunt-backend-suite.log` remote-shell failures in
