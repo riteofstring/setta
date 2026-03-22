@@ -5789,6 +5789,85 @@ func TestRegisterProjectRoutesPrepareSectionsForCopyUsesDeploymentOverlayRegardl
 	}
 }
 
+func TestRegisterProjectRoutesPasteSectionsRemainsIDEOnlyInDeployment(t *testing.T) {
+	t.Parallel()
+
+	assertProjectUnchanged := func(t *testing.T, project projectstate.Project) {
+		t.Helper()
+
+		if len(project.Sections) != 3 {
+			t.Fatalf("expected three existing sections after rejected paste, got %#v", project.Sections)
+		}
+		if _, ok := project.Sections["group-root"]; !ok {
+			t.Fatalf("expected group-root to remain present, got %#v", project.Sections)
+		}
+		if _, ok := project.Sections["group-child-a"]; !ok {
+			t.Fatalf("expected group-child-a to remain present, got %#v", project.Sections)
+		}
+		if _, ok := project.Sections["group-child-b"]; !ok {
+			t.Fatalf("expected group-child-b to remain present, got %#v", project.Sections)
+		}
+	}
+
+	requestBody, err := json.Marshal(PasteSectionsRequest{
+		ProjectID: "project-source",
+		Data: projectstate.ClipboardProjectStateCoreWithSectionVariantMap{
+			Core:              projectstate.ClipboardProjectStateCore{},
+			SectionVariantMap: map[string]string{},
+		},
+		Position: projectstate.Position{X: 0, Y: 0},
+		AsRef:    false,
+	})
+	if err != nil {
+		t.Fatalf("marshal pasteSections request: %v", err)
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-source",
+					Projects: map[string]projectstate.Project{
+						"project-source": copyPasteRouteSourceProject(t),
+					},
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RoutePasteSections,
+				strings.NewReader(string(requestBody)),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s in %s mode, got %d with body %q", RoutePasteSections, mode, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+				t.Fatalf("expected mode_forbidden for %s in %s mode, got %q", RoutePasteSections, mode, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+				t.Fatalf("expected deployment-mode denial detail for %s in %s mode, got %q", RoutePasteSections, mode, response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			assertProjectUnchanged(t, overlay.Snapshot().Document.Projects["project-source"])
+			assertProjectUnchanged(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-source"])
+		})
+	}
+}
+
 func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
