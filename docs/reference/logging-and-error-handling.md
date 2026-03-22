@@ -37,7 +37,8 @@ There are two parallel outputs:
 - Shipped backend runtime: the packaged Go CLI/server owns the main backend
   logging path.
 - Listener scripts: `backend/setta/api/listener.py` uses
-  `configure_listener_logging()` (same format, access logger disabled).
+  `configure_listener_logging()` with the shared Python helper formatter and
+  context filters.
 
 ### Formatting
 
@@ -47,8 +48,6 @@ There are two parallel outputs:
 ```
 %(asctime)s | %(levelname)-8s | %(name)s | %(setta_context)s | %(message)s
 ```
-
-Access logs use a slightly shorter format and a dedicated handler when enabled.
 
 ## Structured Context (`setta_context`)
 
