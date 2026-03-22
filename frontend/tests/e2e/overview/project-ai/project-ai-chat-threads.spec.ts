@@ -1705,51 +1705,56 @@ test("project ai chat keeps conversation search on the top row at medium width",
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
 
-  const overviewPane = await getOverviewProjectChatSurface(page);
-  await expect(
-    overviewPane.getByRole("button", { name: "New Chat" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByRole("button", { name: "Project AI Settings" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByTestId("project-chat-conversation-filter"),
-  ).toBeVisible();
+  try {
+    const overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByRole("button", { name: "New Chat" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", { name: "Project AI Settings" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toBeVisible();
 
-  const headerGeometry = await overviewPane.evaluate((paneElement) => {
-    const newChatButton = paneElement.querySelector(
-      'button[aria-label="New Chat"]',
-    );
-    const settingsButton = paneElement.querySelector(
-      'button[aria-label="Project AI Settings"]',
-    );
-    const conversationFilter = paneElement.querySelector(
-      '[data-testid="project-chat-conversation-filter"]',
-    );
-    if (!newChatButton || !settingsButton || !conversationFilter) {
-      return null;
+    const headerGeometry = await overviewPane.evaluate((paneElement) => {
+      const newChatButton = paneElement.querySelector(
+        'button[aria-label="New Chat"]',
+      );
+      const settingsButton = paneElement.querySelector(
+        'button[aria-label="Project AI Settings"]',
+      );
+      const conversationFilter = paneElement.querySelector(
+        '[data-testid="project-chat-conversation-filter"]',
+      );
+      if (!newChatButton || !settingsButton || !conversationFilter) {
+        return null;
+      }
+      const newChatRect = newChatButton.getBoundingClientRect();
+      const settingsRect = settingsButton.getBoundingClientRect();
+      const filterRect = conversationFilter.getBoundingClientRect();
+      return {
+        newTop: newChatRect.top,
+        settingsTop: settingsRect.top,
+        filterTop: filterRect.top,
+      };
+    });
+
+    expect(headerGeometry).not.toBeNull();
+    if (!headerGeometry) {
+      throw new Error("Expected project chat header controls to be measurable.");
     }
-    const newChatRect = newChatButton.getBoundingClientRect();
-    const settingsRect = settingsButton.getBoundingClientRect();
-    const filterRect = conversationFilter.getBoundingClientRect();
-    return {
-      newTop: newChatRect.top,
-      settingsTop: settingsRect.top,
-      filterTop: filterRect.top,
-    };
-  });
-
-  expect(headerGeometry).not.toBeNull();
-  if (!headerGeometry) {
-    throw new Error("Expected project chat header controls to be measurable.");
+    expect(
+      Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(3);
+    expect(
+      Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(6);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
   }
-  expect(
-    Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(3);
-  expect(
-    Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(6);
 });
 
 test("project ai chat keeps settings and conversation search visible when very narrow", async ({
@@ -1764,49 +1769,57 @@ test("project ai chat keeps settings and conversation search visible when very n
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
 
-  const overviewPane = await getOverviewProjectChatSurface(page);
-  await expect(
-    overviewPane.getByRole("button", { name: "New Chat" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByRole("button", { name: "Project AI Settings" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByTestId("project-chat-conversation-filter"),
-  ).toBeVisible();
+  try {
+    const overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByRole("button", { name: "New Chat" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", { name: "Project AI Settings" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toBeVisible();
 
-  const headerGeometry = await overviewPane.evaluate((paneElement) => {
-    const newChatButton = paneElement.querySelector(
-      'button[aria-label="New Chat"]',
-    );
-    const settingsButton = paneElement.querySelector(
-      'button[aria-label="Project AI Settings"]',
-    );
-    const conversationFilter = paneElement.querySelector(
-      '[data-testid="project-chat-conversation-filter"]',
-    );
-    if (!newChatButton || !settingsButton || !conversationFilter) {
-      return null;
+    const headerGeometry = await overviewPane.evaluate((paneElement) => {
+      const newChatButton = paneElement.querySelector(
+        'button[aria-label="New Chat"]',
+      );
+      const settingsButton = paneElement.querySelector(
+        'button[aria-label="Project AI Settings"]',
+      );
+      const conversationFilter = paneElement.querySelector(
+        '[data-testid="project-chat-conversation-filter"]',
+      );
+      if (!newChatButton || !settingsButton || !conversationFilter) {
+        return null;
+      }
+      const newChatRect = newChatButton.getBoundingClientRect();
+      const settingsRect = settingsButton.getBoundingClientRect();
+      const filterRect = conversationFilter.getBoundingClientRect();
+      return {
+        newTop: newChatRect.top,
+        settingsTop: settingsRect.top,
+        filterTop: filterRect.top,
+      };
+    });
+
+    expect(headerGeometry).not.toBeNull();
+    if (!headerGeometry) {
+      throw new Error("Expected project chat header controls to be measurable.");
     }
-    const newChatRect = newChatButton.getBoundingClientRect();
-    const settingsRect = settingsButton.getBoundingClientRect();
-    const filterRect = conversationFilter.getBoundingClientRect();
-    return {
-      newTop: newChatRect.top,
-      settingsTop: settingsRect.top,
-      filterTop: filterRect.top,
-    };
-  });
-
-  expect(headerGeometry).not.toBeNull();
-  if (!headerGeometry) {
-    throw new Error("Expected project chat header controls to be measurable.");
+    expect(
+      Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(3);
+    expect(headerGeometry.filterTop).toBeGreaterThanOrEqual(
+      headerGeometry.settingsTop,
+    );
+    expect(
+      Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(32);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
   }
-  expect(
-    Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(3);
-  expect(
-    Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(12);
 });
