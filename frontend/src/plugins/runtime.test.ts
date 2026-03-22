@@ -34,6 +34,7 @@ import {
   createPluginListEntry,
   createPluginStatusEntry,
   createProjectChatWindowingState,
+  createProjectStateSingleConfigWithCompletedOpIds,
   createProjectConfig,
   createSingletonSections,
   createUserDefaultDictSectionImpl,
@@ -48,6 +49,7 @@ import {
   type PluginRuntimeResponse,
   type PluginStatusEntry,
   type PluginStatusResponse,
+  type ProjectStateSingleConfigWithCompletedOpIds,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type StateCreator, type StoreApi } from "zustand/vanilla";
@@ -400,9 +402,11 @@ class RuntimeTestWebSocket extends EventTarget {
   }
 }
 
-function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
+function buildPluginRuntimeProjectStateUpdate(
+  activeIds: string[],
+): ProjectStateSingleConfigWithCompletedOpIds {
   const state = useProjectState.getState();
-  return {
+  return createProjectStateSingleConfigWithCompletedOpIds({
     projectState: {
       projectConfig: {
         ...state.projectConfig,
@@ -438,12 +442,17 @@ function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
       shownParamIds: {
         ...state.shownParamIds,
       },
+      projectChatWindowing: createProjectChatWindowingState({
+        ...state.projectChatWindowing,
+        instancesById: {
+          ...state.projectChatWindowing.instancesById,
+        },
+        order: [...state.projectChatWindowing.order],
+      }),
       requiredDecodedImages: [...state.requiredDecodedImages],
       genCodeBinding: state.genCodeBinding,
     },
-    completedOpIds: [],
-    pendingOpIds: [],
-  };
+  });
 }
 
 function buildPluginRuntimeProjectState(
