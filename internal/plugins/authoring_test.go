@@ -176,6 +176,56 @@ func TestServiceInitTemplateGeneratesGoBackendScaffold(t *testing.T) {
 	}
 }
 
+// Init should scaffold a content-only template without backend or frontend payloads.
+func TestServiceInitTemplateGeneratesContentOnlyScaffold(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginRoot, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: "setta-content-fixture",
+		Template: "content",
+		OutDir:   roots.workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("init content template: %v", err)
+	}
+	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load content scaffold manifest: %v", err)
+	}
+	if manifest.Content == nil {
+		t.Fatalf("expected content scaffold manifest, got %#v", manifest)
+	}
+	if manifest.Content.BlueprintsDir != "content/blueprints" ||
+		manifest.Content.ProjectTemplatesDir != "content/project_templates" ||
+		manifest.Content.PromptsDir != "content/prompts" {
+		t.Fatalf("expected content manifest directories, got %#v", manifest.Content)
+	}
+	if manifest.Backend != nil || manifest.Frontend != nil {
+		t.Fatalf("expected content-only scaffold, got %#v", manifest)
+	}
+	for _, relativePath := range []string{
+		filepath.Join("content", "blueprints", "starter-blueprint.json"),
+		filepath.Join("content", "project_templates", "starter-template.json"),
+		filepath.Join("content", "prompts", "starter-prompt.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); err != nil {
+			t.Fatalf("expected content scaffold file %s: %v", relativePath, err)
+		}
+	}
+	for _, relativePath := range []string{
+		"backend",
+		"frontend",
+	} {
+		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); !os.IsNotExist(err) {
+			t.Fatalf("expected %s to be omitted from content scaffold, got err=%v", relativePath, err)
+		}
+	}
+	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate content scaffolded plugin: %v", err)
+	}
+}
+
 // Validate should reject unsupported capability values, schema versions, metadata mismatches, and invalid host versions.
 func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
