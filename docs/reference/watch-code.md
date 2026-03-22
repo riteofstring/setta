@@ -72,16 +72,18 @@ Each callable yields:
 errors short-circuit updates to avoid corrupting registry state.
 
 ## Watcher architecture
-Watch Code uses a dedicated `watchdog.Observer` (separate from
-`SpecificFileWatcher`):
-- Watches **parent dirs** of `watchCodeFiles` and each `watchCodeFolder` root.
-- Respects the `recursive` flag per folder.
-- If a watched dir does not exist yet, it watches the nearest existing ancestor
-  and resyncs once the directory appears.
-- Debounces file events in the Go watch-code runtime before applying updates.
+Watch Code now uses a Go-owned polling/runtime path under `internal/watchcode`:
+- `Manager` normalizes config snapshots into tracked files/dirs, desired watch
+  dirs, and scheduled scan/delete work.
+- `Service` snapshots tracked files on a poll interval (default 300ms), diffs
+  them, translates changes into create/modify/delete/move events, and drains
+  the scheduled scans/deletes.
+- The runtime handles explicit files plus watched folders, respects the
+  `recursive` flag, and keeps pending dirs when configured roots do not exist
+  yet.
 
-The manager is started during `BaseProjectManager` initialization and resynced
-whenever project configs change.
+App wiring keeps the service in sync with project config changes and routes file
+updates into the Go project-state watch-code apply path.
 
 ## Update flow (file changes)
 On file changes, Watch Code compares the current scan with the registry for that
@@ -92,8 +94,8 @@ source file:
 2. **Renames:** If both removals and additions exist, Watch Code matches by
    `{kind, signature_hash, body_hash}` and treats the pair as a rename.
 3. **Removals:** Missing callables remove registry entries and clean up sections.
-4. **Signature changes:** Existing entries with new signatures trigger
-   `gen_code.set_callable` to refresh parameter UIs.
+4. **Signature changes:** Existing entries with new signatures refresh the
+   callable section's param UI through the Go watch-code apply path.
 5. **New callables:** Not in registry **and not in baseline** -> create a new
    Callable section and register it.
 
@@ -121,9 +123,10 @@ When a watched file is deleted:
 ## Inline edits & bound code files
 Watch Code responds to **both**:
 - Inline edits (`set_code`): the code section update calls
-  `handle_code_section_update`.
-- On-disk edits for bound code files: the `CodeFiles` watcher reloads sections
-  and then calls `handle_code_section_update`.
+  `ApplyWatchCodeBoundSectionUpdate` after syncing the bound source into the Go
+  LSP/runtime path.
+- On-disk edits for bound code files: the bound-code reload path rehydrates the
+  section content and then applies the same bound-section watch-code update.
 
 For bound Python code sections, the LSP sync happens before Watch Code processes
 the updated file contents.
@@ -137,8 +140,11 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
   consistent relative to the workspace root across relative/absolute paths.
 
 ## Code references
-- `backend/setta/project_state/watch_code.py`
-- `backend/setta/project_state/base_project_manager.py`
-- `backend/setta/project_state/code_files.py`
+- `internal/watchcode/service.go`
+- `internal/watchcode/manager.go`
+- `internal/projectstate/watch_code.go`
+- `internal/projectstate/watch_code_apply.go`
+- `internal/projectstate/watch_code_bound_sections.go`
+- `internal/app/code_updates.go`
 - `backend/setta/types/project_config.py`
 - `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`

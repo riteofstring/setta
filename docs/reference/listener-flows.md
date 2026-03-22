@@ -126,5 +126,5 @@ Notes:
   - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
 - Listener callbacks: optional, configured via `@listener.listen(debounce_ms=..., throttle_ms=...)`
   - `backend/setta/api/listener.py`, `backend/setta/api/scheduling.py`
-- Autosave: 2000ms debounce
-  - `backend/setta/project_state/base_project_manager.py`
+- Save/autosave persistence path:
+  - `internal/app/app.go`, `internal/projectstate/runtime.go`, `internal/projectstate/json_source_save.go`

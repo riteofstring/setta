@@ -108,5 +108,7 @@ Project-chat/window-space behavior is documented in
 - `never` is rejected for deployments.
 
 See `docs/reference/sharing-mode-vs-ide-mode.md` for session lifecycle and
-deployment setup, and `backend/setta/share/policy.py` for the enforcement
-helpers.
+deployment setup. The policy schema/defaults live in
+`internal/deployments/policy.go`; route/runtime enforcement is spread across
+the deployment-aware handlers in `internal/httpapi/*` and the run/deployment
+services such as `internal/runs/service.go`.

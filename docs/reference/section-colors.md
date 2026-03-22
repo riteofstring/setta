@@ -16,7 +16,8 @@ Both values live on `BaseSectionImpl` and therefore apply to every section type.
 
 Relevant generated/state surfaces:
 
-- `backend/setta/types/section_impls.py`
+- `internal/projectstate/layout_presentation.go`
+- `internal/frontendbindings/project_state_support.go`
 - `backend/setta/types/generated/shared_modifier.py`
 - `frontend/src/utils/generatedTypes.ts`
 
@@ -100,7 +101,8 @@ Default tag categories come from `SettingsGUI.sectionTagColorChoices`:
 - Purple `#a855f7`
 - Slate `#64748b`
 
-Defined in `backend/setta/types/settings_state.py`.
+Defined in `internal/settingsstate/defaults.json` and embedded by
+`internal/settingsstate/defaults.go`.
 
 ## Tests and perf guardrails
 

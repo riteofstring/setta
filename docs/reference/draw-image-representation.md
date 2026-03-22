@@ -20,7 +20,7 @@ packaged runtime.
 Relevant code:
 - `backend/setta/types/section_impls.py`
 - `backend/setta/types/artifact.py`
-- `backend/setta/project_state/draw_snapshots.py`
+- `internal/projectstate/draw_snapshots.go`
 
 ## Realtime (IDE/UI + listeners)
 ### UI and artifact caches
@@ -55,8 +55,9 @@ Relevant code:
   via `route_binary_upload` (durable=false) and sends a `BinaryDependencyValue`
   without a binary frame. Listeners receive only metadata and can load bytes
   from the binary store via the `contentId` if needed.
-- Image file changes emit binary deltas via
-  `Artifacts.emit_realtime_image_updates`, which streams bytes in a binary frame.
+- Image file changes flow through the Go artifact watch/runtime path, which
+  reloads the cached image artifact and emits binary deltas to listeners when
+  needed.
 - Listener-side dependency updates for Draw/Image expect `BinaryDependencyValue`
   and are validated on the Go listener websocket path.
 - Direct dependency updates for Image sections are not applied to project state;
@@ -66,7 +67,7 @@ Relevant code:
 Relevant code:
 - `frontend/src/components/Section/Layouts/DrawArea/useRealtimeDrawEmitter.ts`
 - `frontend/src/state/actions/websocketReceive.ts`
-- `backend/setta/project_state/artifacts.py`
+- `internal/app/artifact_watch.go`
 - `internal/wsapi/listener_frontend_emit.go`
 - `internal/artifacts/service.go`
 

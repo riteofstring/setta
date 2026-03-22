@@ -28,7 +28,7 @@
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `reference/lsp-diagnostics.md` – how LSP diagnostics are collected, broadcast, and surfaced (generated code + code sections).
-- `reference/mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
+- `reference/mcp-system-overview.md` – explains the Go-owned MCP server, tool catalog, client bridge, managed chat runtime, and frontend chat loop (plus third-party access).
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `reference/setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
