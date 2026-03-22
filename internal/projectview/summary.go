@@ -7,11 +7,12 @@ import (
 )
 
 type ProjectStateSummary struct {
-	ProjectConfig     ProjectConfig      `json:"projectConfig"`
-	Sections          []ProjectStateItem `json:"sections"`
-	SingletonSections SingletonSections  `json:"singletonSections"`
-	ParentSectionMap  map[string]*string `json:"parentSectionMap"`
-	GenCodeBinding    *CodeFileBinding   `json:"genCodeBinding,omitempty"`
+	ProjectConfig         ProjectConfig      `json:"projectConfig"`
+	Sections              []ProjectStateItem `json:"sections"`
+	SingletonSections     SingletonSections  `json:"singletonSections"`
+	ParentSectionMap      map[string]*string `json:"parentSectionMap"`
+	RequiredDecodedImages []string           `json:"requiredDecodedImages"`
+	GenCodeBinding        *CodeFileBinding   `json:"genCodeBinding,omitempty"`
 }
 
 type ProjectStateItem struct {
@@ -63,11 +64,12 @@ func BuildProjectStateSummary(projectState SingleConfig, allowedSectionIDs map[s
 	}
 
 	return ProjectStateSummary{
-		ProjectConfig:     filteredProjectConfig,
-		Sections:          sections,
-		SingletonSections: filterSingletonSections(projectState.SingletonSections, allowedSectionIDs),
-		ParentSectionMap:  filteredParentMap,
-		GenCodeBinding:    cloneSummaryCodeFileBinding(projectState.GenCodeBinding),
+		ProjectConfig:         filteredProjectConfig,
+		Sections:              sections,
+		SingletonSections:     filterSingletonSections(projectState.SingletonSections, allowedSectionIDs),
+		ParentSectionMap:      filteredParentMap,
+		RequiredDecodedImages: filterRequiredDecodedImagesForSummary(projectState, allowedSectionIDs),
+		GenCodeBinding:        cloneSummaryCodeFileBinding(projectState.GenCodeBinding),
 	}
 }
 
@@ -115,6 +117,7 @@ func filterProjectConfigForSummary(config ProjectConfig, allowedSectionIDs map[s
 	filtered := cloneProjectConfig(config)
 	filtered.SectionVariantMap = filterStringMapByAllowedKeys(filtered.SectionVariantMap, allowedSectionIDs)
 	filtered.TopLevelSections = filterTopLevelSectionLayouts(filtered.TopLevelSections, allowedSectionIDs)
+	filtered.WindowSpaces = filterWindowSpacesForSummary(filtered.WindowSpaces, allowedSectionIDs)
 	filtered.ActiveIDs = filterStringSliceByAllowedSet(filtered.ActiveIDs, allowedSectionIDs)
 	filtered.Edges = filterEdges(filtered.Edges, allowedSectionIDs)
 	filtered.AgenticEdges = filterAgenticEdges(filtered.AgenticEdges, allowedSectionIDs)
@@ -160,6 +163,7 @@ func cloneProjectConfig(config ProjectConfig) ProjectConfig {
 	cloned.WatchCodeBaselineByPath = cloneSummaryStringSliceMap(config.WatchCodeBaselineByPath)
 	cloned.EntryCodeBlockID = cloneSummaryStringPointer(config.EntryCodeBlockID)
 	cloned.TopLevelSections = cloneSummaryTopLevelSectionLayouts(config.TopLevelSections)
+	cloned.WindowSpaces = cloneSummaryWindowSpaces(config.WindowSpaces)
 	cloned.SectionVariantMap = cloneSummaryStringMap(config.SectionVariantMap)
 	cloned.ActiveIDs = append([]string(nil), config.ActiveIDs...)
 	cloned.Edges = cloneSummaryEdges(config.Edges)
@@ -250,6 +254,17 @@ func cloneSummaryTopLevelSectionLayouts(values map[string]projectstate.TopLevelS
 	return cloned
 }
 
+func cloneSummaryWindowSpaces(values map[string]projectstate.WindowSpaceConfig) map[string]projectstate.WindowSpaceConfig {
+	if values == nil {
+		return map[string]projectstate.WindowSpaceConfig{}
+	}
+	cloned := make(map[string]projectstate.WindowSpaceConfig, len(values))
+	for key, value := range values {
+		cloned[key] = value.Clone()
+	}
+	return cloned
+}
+
 func cloneSummaryEdges(values []projectstate.Edge) []projectstate.Edge {
 	if values == nil {
 		return nil
@@ -310,6 +325,57 @@ func filterTopLevelSectionLayouts(values map[string]projectstate.TopLevelSection
 	return filtered
 }
 
+func filterWindowSpacesForSummary(values map[string]projectstate.WindowSpaceConfig, allowedSectionIDs map[string]struct{}) map[string]projectstate.WindowSpaceConfig {
+	filtered := map[string]projectstate.WindowSpaceConfig{}
+	for key, value := range values {
+		cloned := value.Clone()
+		nextWindows := make(map[string]projectstate.WindowSpaceWindow, len(cloned.WindowsByID))
+		for windowID, window := range cloned.WindowsByID {
+			if window.SurfaceKind == projectstate.WindowSpaceSurfaceKindSection {
+				if window.SectionIDOrNull == nil {
+					continue
+				}
+				if _, ok := allowedSectionIDs[*window.SectionIDOrNull]; !ok {
+					continue
+				}
+			}
+			nextWindows[windowID] = window
+		}
+		if len(nextWindows) == 0 {
+			continue
+		}
+		cloned.WindowsByID = nextWindows
+		cloned.Order = filterWindowOrderForSummary(cloned.Order, nextWindows)
+		filtered[key] = cloned
+	}
+	return filtered
+}
+
+func filterWindowOrderForSummary(order []string, windowsByID map[string]projectstate.WindowSpaceWindow) []string {
+	filtered := make([]string, 0, len(windowsByID))
+	seen := make(map[string]struct{}, len(windowsByID))
+	for _, windowID := range order {
+		if _, ok := windowsByID[windowID]; !ok {
+			continue
+		}
+		if _, ok := seen[windowID]; ok {
+			continue
+		}
+		seen[windowID] = struct{}{}
+		filtered = append(filtered, windowID)
+	}
+	extraWindowIDs := make([]string, 0, len(windowsByID)-len(filtered))
+	for windowID := range windowsByID {
+		if _, ok := seen[windowID]; ok {
+			continue
+		}
+		extraWindowIDs = append(extraWindowIDs, windowID)
+	}
+	sort.Strings(extraWindowIDs)
+	filtered = append(filtered, extraWindowIDs...)
+	return filtered
+}
+
 func filterBoolMapByAllowedKeys(values map[string]bool, allowedSectionIDs map[string]struct{}) map[string]bool {
 	filtered := map[string]bool{}
 	for key, value := range values {
@@ -356,6 +422,58 @@ func filterAgenticEdges(values []projectstate.AgenticEdge, allowedSectionIDs map
 			continue
 		}
 		filtered = append(filtered, value.Clone())
+	}
+	return filtered
+}
+
+func filterRequiredDecodedImagesForSummary(projectState SingleConfig, allowedSectionIDs map[string]struct{}) []string {
+	if len(projectState.RequiredDecodedImages) == 0 {
+		return nil
+	}
+	allowedPaths := map[string]struct{}{}
+	for sectionID := range allowedSectionIDs {
+		variantID, ok := projectState.ProjectConfig.SectionVariantMap[sectionID]
+		if !ok {
+			continue
+		}
+		section, ok := projectState.Sections[sectionID]
+		if !ok {
+			continue
+		}
+		variant, ok := projectState.SectionVariants[variantID]
+		if !ok {
+			continue
+		}
+		basePayload, ok := projectState.SectionImpls[variant.Impl]
+		if !ok {
+			continue
+		}
+		base, err := rawObjectFromPayload(basePayload)
+		if err != nil {
+			continue
+		}
+		sharedModifier, err := rawObjectFromModifier(section.SharedModifier)
+		if err != nil {
+			continue
+		}
+		modifier, err := rawObjectFromModifier(variant.Modifier)
+		if err != nil {
+			continue
+		}
+		effectiveSection := mergeObjects(mergeObjects(base, sharedModifier), modifier)
+		if stringField(effectiveSection, "type") != "Draw" {
+			continue
+		}
+		for _, path := range collectDrawImagePaths(effectiveSection) {
+			allowedPaths[path] = struct{}{}
+		}
+	}
+	filtered := make([]string, 0, len(projectState.RequiredDecodedImages))
+	for _, path := range projectState.RequiredDecodedImages {
+		if _, ok := allowedPaths[path]; !ok {
+			continue
+		}
+		filtered = append(filtered, path)
 	}
 	return filtered
 }

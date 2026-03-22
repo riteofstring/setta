@@ -389,11 +389,12 @@ func translateProjectStateSummaryToTemporary(summary projectStateSummary, store 
 		return projectStateSummary{}, err
 	}
 	return projectStateSummary{
-		ProjectConfig:     projectConfig,
-		Sections:          sections,
-		SingletonSections: singletonSections,
-		ParentSectionMap:  parentSectionMap,
-		GenCodeBinding:    cloneCodeFileBinding(summary.GenCodeBinding),
+		ProjectConfig:         projectConfig,
+		Sections:              sections,
+		SingletonSections:     singletonSections,
+		ParentSectionMap:      parentSectionMap,
+		RequiredDecodedImages: append([]string(nil), summary.RequiredDecodedImages...),
+		GenCodeBinding:        cloneCodeFileBinding(summary.GenCodeBinding),
 	}, nil
 }
 
@@ -411,6 +412,10 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 		return projectview.ProjectConfig{}, err
 	}
 	topLevelSections, err := translateStringMapKeysToTemporary(config.TopLevelSections, store)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	windowSpaces, err := translateWindowSpacesToTemporary(config.WindowSpaces, store)
 	if err != nil {
 		return projectview.ProjectConfig{}, err
 	}
@@ -454,11 +459,58 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 		WatchCodeBaselineByPath: cloneStringSliceMap(config.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
 		TopLevelSections:        topLevelSections,
+		WindowSpaces:            windowSpaces,
 		SectionVariantMap:       sectionVariantMap,
 		ActiveIDs:               activeIDs,
 		Edges:                   edges,
 		AgenticEdges:            agenticEdges,
 	}, nil
+}
+
+func translateWindowSpacesToTemporary(values map[string]projectstate.WindowSpaceConfig, store *TemporaryIDStore) (map[string]projectstate.WindowSpaceConfig, error) {
+	if values == nil {
+		return map[string]projectstate.WindowSpaceConfig{}, nil
+	}
+	translated := make(map[string]projectstate.WindowSpaceConfig, len(values))
+	for windowSpaceID, windowSpace := range values {
+		temporaryWindowSpaceID, err := translateStringValueToTemporary(windowSpaceID, store)
+		if err != nil {
+			return nil, err
+		}
+		internalWindowSpaceID, err := translateStringValueToTemporary(windowSpace.ID, store)
+		if err != nil {
+			return nil, err
+		}
+		order, err := translateStringSliceToTemporary(windowSpace.Order, store)
+		if err != nil {
+			return nil, err
+		}
+		windowsByID := make(map[string]projectstate.WindowSpaceWindow, len(windowSpace.WindowsByID))
+		for instanceID, window := range windowSpace.WindowsByID {
+			temporaryInstanceID, err := translateStringValueToTemporary(instanceID, store)
+			if err != nil {
+				return nil, err
+			}
+			clonedWindow := window.Clone()
+			clonedWindow.SectionIDOrNull, err = translateOptionalStringPointerToTemporary(window.SectionIDOrNull, store)
+			if err != nil {
+				return nil, err
+			}
+			clonedWindow.ChatID, err = translateOptionalStringPointerToTemporary(window.ChatID, store)
+			if err != nil {
+				return nil, err
+			}
+			windowsByID[temporaryInstanceID] = clonedWindow
+		}
+		translated[temporaryWindowSpaceID] = projectstate.WindowSpaceConfig{
+			WindowsByID: windowsByID,
+			Order:       order,
+			ID:          internalWindowSpaceID,
+			Name:        windowSpace.Name,
+			SortIndex:   windowSpace.SortIndex,
+		}
+	}
+	return translated, nil
 }
 
 func translateViewModesToTemporary(values map[string]projectstate.ViewMode, store *TemporaryIDStore) (map[string]projectstate.ViewMode, error) {

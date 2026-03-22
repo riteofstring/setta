@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/tools"
 )
 
@@ -157,4 +159,88 @@ func TestTranslateToolErrorToTemporaryAddsTranslatedMissingEdges(t *testing.T) {
 	}) {
 		t.Fatalf("expected translated missing edge ids, got %#v", temporary)
 	}
+}
+
+func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testing.T) {
+	t.Parallel()
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-chat":    "12",
+		"allowed-section": "14",
+		"allowed-variant": "17",
+		"space-1":         "31",
+		"window-a":        "32",
+	})
+
+	store, err := NewTemporaryIDStore(temporaryIDMapPath)
+	if err != nil {
+		t.Fatalf("new temporary id store: %v", err)
+	}
+
+	translated, err := translateProjectStateSummaryToTemporary(projectStateSummary{
+		ProjectConfig: projectview.ProjectConfig{
+			ID: "project-alpha",
+			WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+				"space-1": {
+					ID:   "space-1",
+					Name: "Scoped Layout",
+					WindowsByID: map[string]projectstate.WindowSpaceWindow{
+						"window-a": {
+							SurfaceKind:     projectstate.WindowSpaceSurfaceKindSection,
+							SectionIDOrNull: summaryTestStringPointer("allowed-section"),
+							ChatID:          summaryTestStringPointer("allowed-chat"),
+						},
+					},
+					Order: []string{"window-a"},
+				},
+			},
+			SectionVariantMap: map[string]string{
+				"allowed-section": "allowed-variant",
+			},
+		},
+		Sections: []projectStateSummarySection{{
+			SectionID:       "allowed-section",
+			CoreName:        "Allowed",
+			VariantID:       "allowed-variant",
+			VariantName:     "Allowed Variant",
+			ChildSectionIDs: []string{},
+		}},
+		ParentSectionMap: map[string]*string{
+			"allowed-section": nil,
+		},
+		RequiredDecodedImages: []string{"images/a.png"},
+	}, store)
+	if err != nil {
+		t.Fatalf("translate project state summary to temporary: %v", err)
+	}
+
+	translatedSpace, ok := translated.ProjectConfig.WindowSpaces["31"]
+	if !ok {
+		t.Fatalf("expected translated window space key 31, got %#v", translated.ProjectConfig.WindowSpaces)
+	}
+	if translatedSpace.ID != "31" {
+		t.Fatalf("expected translated window space id 31, got %q", translatedSpace.ID)
+	}
+	if len(translatedSpace.Order) != 1 || translatedSpace.Order[0] != "32" {
+		t.Fatalf("expected translated order [32], got %#v", translatedSpace.Order)
+	}
+	translatedWindow, ok := translatedSpace.WindowsByID["32"]
+	if !ok {
+		t.Fatalf("expected translated window key 32, got %#v", translatedSpace.WindowsByID)
+	}
+	if translatedWindow.SectionIDOrNull == nil || *translatedWindow.SectionIDOrNull != "14" {
+		t.Fatalf("expected translated section binding 14, got %#v", translatedWindow.SectionIDOrNull)
+	}
+	if translatedWindow.ChatID == nil || *translatedWindow.ChatID != "12" {
+		t.Fatalf("expected translated chat binding 12, got %#v", translatedWindow.ChatID)
+	}
+	if len(translated.RequiredDecodedImages) != 1 || translated.RequiredDecodedImages[0] != "images/a.png" {
+		t.Fatalf("expected required decoded images to remain unchanged, got %#v", translated.RequiredDecodedImages)
+	}
+}
+
+func summaryTestStringPointer(value string) *string {
+	return &value
 }
