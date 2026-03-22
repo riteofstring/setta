@@ -828,6 +828,9 @@ test("project ai preserves draft text when resize reveals inline threads", async
   const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
     let overviewPane = await getOverviewProjectChatSurface(page);
     let composerInput = overviewPane.getByTestId("chat-input-textarea");
     await expect(composerInput).toBeVisible();
@@ -861,6 +864,9 @@ test("project ai preserves unsent draft text across reloads", async ({
   const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
     const overviewPane = await getOverviewProjectChatSurface(page);
     const composerInput = overviewPane.getByTestId("chat-input-textarea");
     const draftText = "  keep this unsent draft after reload  \n";
