@@ -151,7 +151,7 @@ Suggested files:
      binding models.
    - Add `WebsocketMsgPresenceHello`, `WebsocketMsgPresenceUpdate`, etc.
 2. Regenerate websocket unions:
-   - `frontend/generation/generate_unions.py websocket_unions` (via `pnpm generate`).
+   - `backend/setta/types/websocket.py` union adapter surface (via `pnpm generate` for other generated SDK outputs).
 
 ### Phase 2: Backend receiver integration
 1. Update `internal/wsapi/routes.go`:

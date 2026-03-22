@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
+from pydantic import Field
 from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.go_shared_types import DependencyValueType
 
@@ -33,3 +34,12 @@ class BinaryDependencyValue(BaseDependencyValue):
     type: Literal[DependencyValueType.Binary] = field(
         default=DependencyValueType.Binary, init=False
     )
+
+
+BaseDependencyValueUnion = (
+    LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue
+)
+
+BaseDependencyValueUnionWithDiscriminator = Annotated[
+    BaseDependencyValueUnion, Field(discriminator="type")
+]

@@ -24,8 +24,8 @@ from setta.types.code_obj_impls import (
     TimeDisplayFont,
     TimeDisplayFormat,
 )
+from setta.types.chat_messages import BaseChatMessageUnion
 from setta.types.edges import EdgePort
-from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID, create_new_id
 from setta.types.section_impls import (
     BrowserAreaViewMode,

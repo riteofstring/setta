@@ -14,12 +14,6 @@ find backend/setta/types/generated/ -name "*.py" \
 
 cd "${ROOT_DIR}/frontend"
 export PYTHONPATH="${ROOT_DIR}/backend${PYTHONPATH:+:${PYTHONPATH}}"
-python -m generation.generate_unions dependency_keys
-python -m generation.generate_unions dependency_values
-python -m generation.generate_unions chart_settings
-python -m generation.generate_unions chat_messages
-python -m generation.generate_unions unions
-python -m generation.generate_unions websocket_unions
 bash ./generation/generate_go_frontend_bindings.sh
 bash ./generation/generate_go_python_types.sh
 

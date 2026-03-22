@@ -22,6 +22,7 @@ from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPrevi
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    BaseChatMessageUnion,
     ChatRole,
     MessageTextContent,
     SystemChatMessage,
@@ -47,7 +48,6 @@ from setta.types.chat_toolkit import (
     ChatStopEvent,
 )
 from setta.types.dependency_key import SectionDependencyKey
-from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.section_impls import ChatSectionState
 

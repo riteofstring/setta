@@ -11,7 +11,7 @@ from setta.types.chat_messages import (
 )
 from setta.types.dependency_key import SectionDependencyKey
 from setta.types.dependency_value import LiteralDependencyValue
-from setta.types.generated.websocket_unions import (
+from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID

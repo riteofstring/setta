@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Annotated, Literal
 
+from pydantic import Field
 from setta.types.generated.go_shared_types import DependencyKeyType
 from setta.types.id import ID
 
@@ -31,3 +32,10 @@ def create_dep_key(sectionId: ID, codeObjId: ID | None = None):
     if codeObjId is None:
         return SectionDependencyKey(sectionId=sectionId)
     return SectionParamDependencyKey(sectionId=sectionId, codeObjId=codeObjId)
+
+
+BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey
+
+BaseDependencyKeyUnionWithDiscriminator = Annotated[
+    BaseDependencyKeyUnion, Field(discriminator="type")
+]

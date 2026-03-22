@@ -4,13 +4,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from setta.types.generated.dependency_keys import (
-    BaseDependencyKeyUnionWithDiscriminator,
-)
-from setta.types.generated.dependency_values import (
-    BaseDependencyValueUnionWithDiscriminator,
-)
-from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+from setta.types.artifact import BaseArtifactUnionWithDiscriminator
+from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator
+from setta.types.dependency_value import BaseDependencyValueUnionWithDiscriminator
 
 SETTA_SDK_CONTRACT_VERSION = 2
 

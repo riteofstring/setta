@@ -1,6 +1,6 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 from setta.types.binary_content import BinaryContentRef
 from setta.types.generated.go_shared_types import (
     ArtifactType,
@@ -154,3 +154,24 @@ class FileArtifact(BaseArtifact):
     type: Literal[ArtifactType.File] = ArtifactType.File
     id: str = Field(default_factory=create_file_artifact_id)
     value: BinaryContentRef
+
+
+BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings
+
+BaseChartSettingsUnionWithDiscriminator = Annotated[
+    BaseChartSettingsUnion, Field(discriminator="type")
+]
+
+BaseArtifactUnion = (
+    ImageArtifact
+    | BrushStrokeArtifact
+    | DrawAreaLayerItemTransformArtifact
+    | ChartDataArtifact
+    | FileArtifact
+)
+
+BaseArtifactUnionWithDiscriminator = Annotated[
+    BaseArtifactUnion, Field(discriminator="type")
+]
+
+BaseArtifactTypeAdapter = TypeAdapter(BaseArtifactUnionWithDiscriminator)

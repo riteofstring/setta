@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from setta.api.listener import SettaListener
-from setta.types.generated.websocket_unions import (
+from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID

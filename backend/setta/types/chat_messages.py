@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
@@ -133,3 +133,12 @@ class ToolChatMessage(BaseChatMessage):
         output.pop("completed_at", None)
         output.pop("tool_name", None)
         return output
+
+
+BaseChatMessageUnion = (
+    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+)
+
+BaseChatMessageUnionWithDiscriminator = Annotated[
+    BaseChatMessageUnion, Field(discriminator="role")
+]

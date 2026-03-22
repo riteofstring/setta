@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, TypeAdapter
 from setta.types.listener import (
     ListenerDependencyEventContent,
     ListenerErrorContent,
@@ -107,3 +107,25 @@ class WebsocketMsgListenerInit(PythonScriptWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerInit] = (
         WebsocketMsgTypeForPythonScript.ListenerInit
     )
+
+
+PythonScriptWebsocketMsgUnion = (
+    WebsocketMsgListenerRealtimeEvent
+    | WebsocketMsgListenerDependencyEvent
+    | WebsocketMsgListenerForceRefresh
+    | WebsocketMsgListenerError
+    | WebsocketMsgListenerFrontendEmit
+    | WebsocketMsgListenerRouterEndpointCall
+    | WebsocketMsgListenerRouterEndpointResult
+    | WebsocketMsgListenerRegister
+    | WebsocketMsgListenerRegisterAck
+    | WebsocketMsgListenerInit
+)
+
+PythonScriptWebsocketMsgUnionWithDiscriminator = Annotated[
+    PythonScriptWebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(
+    PythonScriptWebsocketMsgUnionWithDiscriminator
+)

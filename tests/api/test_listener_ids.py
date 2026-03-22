@@ -15,9 +15,6 @@ from setta.types.dependency_key import (
     SectionParamDependencyKey,
     create_dep_key,
 )
-from setta.types.generated.websocket_unions import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
@@ -26,7 +23,10 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
-from setta.types.websocket import WebsocketMsgListenerRegister
+from setta.types.websocket import (
+    PythonScriptWebsocketMsgTypeAdapter,
+    WebsocketMsgListenerRegister,
+)
 from tests.helpers.listener_runtime_state import (
     ListenerTestRuntimeState,
     build_listener_runtime_state_from_catalog,

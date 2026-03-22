@@ -5,9 +5,9 @@ from setta.mcp.tool_metadata import (
     ToolArgumentPreviewIdType,
     ToolArgumentPreviewKind,
 )
-from setta.types.chat_messages import ToolChatMessage
-from setta.types.generated.chat_messages import (
+from setta.types.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
+    ToolChatMessage,
 )
 from setta.types.generated.go_shared_types import StreamingEventType
 from setta.types.id import ID

@@ -75,7 +75,7 @@ func Build() (GeneratedContracts, error) {
 		builder.WriteString(renderImportLine(line))
 		builder.WriteString("\n")
 	}
-	builder.WriteString("\n\n")
+	builder.WriteString("\n")
 	builder.WriteString("SETTA_SDK_CONTRACT_VERSION = ")
 	builder.WriteString(fmt.Sprintf("%d", SDKContractVersion))
 	builder.WriteString("\n\n\n")

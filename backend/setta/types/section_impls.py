@@ -4,17 +4,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from setta.types.artifact import (
+    BaseChartSettingsUnionWithDiscriminator,
     DrawAreaLayer,
     LineChartSettings,
 )
+from setta.types.chat_messages import BaseChatMessageUnion
 from setta.types.code_obj_impls import (
     ColorPickerChoice,
 )
 from setta.types.edges import EdgePort
-from setta.types.generated.chart_settings_unions import (
-    BaseChartSettingsUnionWithDiscriminator,
-)
-from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.generated.go_shared_types import (
     BrowserAreaViewMode,
     BrowserSavedSearchTypeFilters,

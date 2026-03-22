@@ -2,7 +2,7 @@ import pytest
 
 from setta.api.listener import SettaListener
 from setta.types.dependency_key import create_dep_key
-from setta.types.generated.websocket_unions import (
+from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID

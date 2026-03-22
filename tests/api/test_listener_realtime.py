@@ -21,8 +21,8 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.generated.websocket_unions import (
+from setta.types.dependency_key import BaseDependencyKeyUnion
+from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID

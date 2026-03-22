@@ -41,21 +41,18 @@ from setta.sdk_contracts.generated import (
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
 from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.types.artifact import (
+    BaseArtifactTypeAdapter,
+    BaseArtifactUnionWithDiscriminator,
+)
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.dependency_key import (
+    BaseDependencyKeyUnion,
     SectionDependencyKey,
     SectionParamDependencyKey,
     create_dep_key,
 )
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.go_shared_types import Route
-from setta.types.generated.unions import (
-    BaseArtifactTypeAdapter,
-    BaseArtifactUnionWithDiscriminator,
-)
-from setta.types.generated.websocket_unions import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 from setta.types.listener import (
     DependencyEvent,
     ListenerDependencyCatalog,
@@ -80,6 +77,7 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import SectionType
 from setta.types.websocket import (
+    PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,

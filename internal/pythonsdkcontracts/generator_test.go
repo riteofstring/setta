@@ -22,7 +22,7 @@ func TestBuild(t *testing.T) {
 		"class ListenerRealtimeEvent(SettaSDKContractBaseModel):",
 		"class LocalCoreCommandEnvelope(SettaSDKContractBaseModel):",
 		"class LocalCoreRenderRealtimeDependencyValuesRequest(SettaSDKContractBaseModel):",
-		"from setta.types.generated.dependency_keys import (",
+		"from setta.types.dependency_key import BaseDependencyKeyUnionWithDiscriminator",
 	} {
 		if !strings.Contains(contracts.PythonModule, snippet) {
 			t.Fatalf("generated python sdk contracts missing %q:\n%s", snippet, contracts.PythonModule)
