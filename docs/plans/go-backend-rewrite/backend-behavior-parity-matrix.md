@@ -714,6 +714,18 @@ Last audited: `2026-03-23`
   `TestOpenFailsClosedWhenProjectDocumentMissing`,
   `TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows`, and
   `TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay`.
+- Follow-up in this pass on `ee70a4fa99`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/start/test_launcher_cli::{test_launcher_legacy_install_and_uninstall_commands_are_removed,test_launcher_setup_rejects_combining_artifact_option_with_clear_flag}`,
+  confirming those clues were already terminal explicit `Proved` rows backed
+  directly by
+  `TestRunLauncherRejectsLegacyInstallAndUninstallCommands`,
+  `TestRunLauncherSetupRejectsClearAndArtifactOptionsTogether`, and the live
+  packaged launcher command surface documented in
+  `docs/reference/setta-cli-commands.md`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
