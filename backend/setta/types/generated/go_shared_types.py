@@ -973,6 +973,33 @@ class ProjectCodegenPluginTarget(SettaSharedTypeModel):
     options: dict[str, Any]
 
 
+class ProjectConfig(SettaSharedTypeModel):
+    id: str
+    name: str
+    showParamDisplayNames: bool
+    allowJsonSourceKeyEdits: bool
+    previewImgColor: str | None = None
+    viewport: Viewport | None = None
+    viewportInitialized: bool
+    viewModes: dict[str, ViewMode]
+    activeViewModeId: str | None = None
+    isEditingViewMode: bool
+    codegenTargets: list[Any]
+    watchCodeEnabled: bool
+    watchCodeFolders: list[WatchCodeFolder]
+    watchCodeFiles: list[str]
+    watchCodeRegistry: dict[str, WatchCodeRegistryEntry]
+    watchCodeBaselineByPath: dict[str, list[str]]
+    entryCodeBlockId: str | None = None
+    topLevelSections: dict[str, TopLevelSectionLayout]
+    windowSpaces: dict[str, WindowSpaceConfig]
+    sectionVariantMap: dict[str, str]
+    activeIds: list[str]
+    edges: list[Edge]
+    agenticEdges: list[AgenticEdge]
+    stateMachineEdges: list[StateMachineEdge]
+
+
 class ListenerSnapshot(SettaSharedTypeModel):
     projectConfigId: str
     shareSessionId: str | None = None

@@ -1,7 +1,6 @@
-from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.generated.go_shared_types import (
     CodeObjType,
@@ -13,6 +12,7 @@ from setta.types.generated.go_shared_types import (
     ProjectCodegenPluginTarget as GoProjectCodegenPluginTarget,
     ProjectCodegenLanguage,
     ProjectCodegenPythonTarget as GoProjectCodegenPythonTarget,
+    ProjectConfig as GoProjectConfig,
     SectionCodegenOverride as GoSectionCodegenOverride,
     SectionCodegenPolicy as GoSectionCodegenPolicy,
     SectionCodegenMode,
@@ -106,12 +106,6 @@ class SectionCodegenPolicy(GoSectionCodegenPolicy):
     sectionOverrides: dict[ID, SectionCodegenOverride] = Field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class ResolvedSectionCodegenPolicy:
-    include_in_codegen: bool
-    representation: SectionRepresentationMode
-
-
 class CodeObjTypeValuePolicy(GoCodeObjTypeValuePolicy):
     representation: CodeObjValueRepresentationMode = (
         CodeObjValueRepresentationMode.expression
@@ -157,139 +151,6 @@ class CodeObjValuePolicy(GoCodeObjValuePolicy):
     codeObjOverrides: dict[ID, CodeObjValueOverride] = Field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class ResolvedCodeObjValuePolicy:
-    representation: CodeObjValueRepresentationMode
-
-
-def _apply_codegen_mode(include_in_codegen: bool, mode: SectionCodegenMode) -> bool:
-    if mode is SectionCodegenMode.include:
-        return True
-    if mode is SectionCodegenMode.exclude:
-        return False
-    return include_in_codegen
-
-
-def _is_representation_supported(
-    section_type: SectionType, representation: SectionRepresentationMode
-) -> bool:
-    if section_type is SectionType.Chat:
-        return representation in (
-            SectionRepresentationMode.expression,
-            SectionRepresentationMode.file_path,
-            SectionRepresentationMode.file_read,
-        )
-    if section_type in (SectionType.Draw, SectionType.Image):
-        return representation in (
-            SectionRepresentationMode.file_path,
-            SectionRepresentationMode.file_read,
-        )
-    if section_type is SectionType.Chart:
-        return representation in (
-            SectionRepresentationMode.expression,
-            SectionRepresentationMode.file_path,
-        )
-    return representation is SectionRepresentationMode.expression
-
-
-def resolve_section_codegen_policy(
-    section_policy: SectionCodegenPolicy,
-    section_id: ID,
-    section_type: SectionType,
-) -> ResolvedSectionCodegenPolicy:
-    allowlist = section_policy.allowlist
-    include_in_codegen = allowlist is None or section_type in allowlist
-    type_policy = section_policy.typePolicies.get(section_type)
-    if type_policy is None:
-        type_policy = SectionTypeCodegenPolicy(
-            representation=default_section_representation(section_type)
-        )
-    include_in_codegen = _apply_codegen_mode(include_in_codegen, type_policy.mode)
-    representation = type_policy.representation
-    if section_id in section_policy.exclude:
-        include_in_codegen = False
-    override = section_policy.sectionOverrides.get(section_id)
-    if override is not None:
-        include_in_codegen = _apply_codegen_mode(include_in_codegen, override.mode)
-        representation = override.representation
-    if not _is_representation_supported(section_type, representation):
-        raise ValueError(
-            f"Unsupported representation {representation.value} for section type {section_type.value}"
-        )
-    return ResolvedSectionCodegenPolicy(
-        include_in_codegen=include_in_codegen,
-        representation=representation,
-    )
-
-
-def _is_code_obj_value_representation_supported(
-    code_obj_type: CodeObjType, representation: CodeObjValueRepresentationMode
-) -> bool:
-    if code_obj_type in (
-        CodeObjType.ButtonParam,
-        CodeObjType.CodeCallable,
-        CodeObjType.NestedParam,
-    ):
-        return representation is CodeObjValueRepresentationMode.expression
-    if code_obj_type is CodeObjType.DropzoneParam:
-        return representation in (
-            CodeObjValueRepresentationMode.file_path,
-            CodeObjValueRepresentationMode.file_read,
-        )
-    if code_obj_type in (
-        CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
-        CodeObjType.TextAreaParam,
-        CodeObjType.PasswordParam,
-        CodeObjType.ColorPickerParam,
-    ):
-        return representation is CodeObjValueRepresentationMode.string
-    if code_obj_type in (
-        CodeObjType.CodeParam,
-        CodeObjType.RotaryParam,
-        CodeObjType.SwitchParam,
-        CodeObjType.DropdownParam,
-    ):
-        return representation in (
-            CodeObjValueRepresentationMode.expression,
-            CodeObjValueRepresentationMode.string,
-        )
-    if code_obj_type is CodeObjType.SliderParam:
-        return representation in (
-            CodeObjValueRepresentationMode.expression,
-            CodeObjValueRepresentationMode.json_parsed,
-            CodeObjValueRepresentationMode.string,
-        )
-    return representation is CodeObjValueRepresentationMode.expression
-
-
-def resolve_code_obj_value_policy(
-    value_policy: CodeObjValuePolicy,
-    code_obj_id: ID,
-    code_obj_type: CodeObjType,
-) -> ResolvedCodeObjValuePolicy:
-    type_policy = value_policy.typePolicies.get(code_obj_type)
-    if type_policy is None:
-        type_policy = CodeObjTypeValuePolicy()
-    representation = type_policy.representation
-    override = value_policy.codeObjOverrides.get(code_obj_id)
-    if override is not None:
-        representation = override.representation
-    if not _is_code_obj_value_representation_supported(code_obj_type, representation):
-        raise ValueError(
-            f"Unsupported representation {representation.value} for code obj type {code_obj_type.value}"
-        )
-    return ResolvedCodeObjValuePolicy(representation=representation)
-
-
-def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodegenPolicy:
-    python_target = get_python_codegen_target(project_config)
-    if python_target is None:
-        return SectionCodegenPolicy()
-    return python_target.sectionPolicy
-
-
 class ProjectCodegenPythonTarget(GoProjectCodegenPythonTarget):
     language: Literal[ProjectCodegenLanguage.python] = ProjectCodegenLanguage.python
     genCodePrefix: str = ""
@@ -321,18 +182,7 @@ def default_codegen_targets() -> list[ProjectCodegenTarget]:
     return [ProjectCodegenPythonTarget()]
 
 
-def get_python_codegen_target(
-    project_config: "ProjectConfig",
-) -> ProjectCodegenPythonTarget | None:
-    for target in project_config.codegenTargets:
-        if target.language == ProjectCodegenLanguage.python:
-            if not isinstance(target, ProjectCodegenPythonTarget):
-                raise TypeError("Expected python codegen target.")
-            return target
-    return None
-
-
-class ProjectConfig(BaseModel, extra="forbid"):
+class ProjectConfig(GoProjectConfig, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     showParamDisplayNames: bool = False

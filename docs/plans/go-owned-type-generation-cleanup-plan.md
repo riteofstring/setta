@@ -154,7 +154,12 @@ That means:
   - `ProjectCodegenPluginTarget`
 - `internal/frontendbindings/project_state_support.go` now aliases that project-codegen family to `internal/projectview` instead of declaring local mirror structs/enums.
 - `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
-  - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, validation, and policy-resolution helpers.
+  - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, and validation.
+- `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:
+  - the Python class now subclasses the Go-generated `ProjectConfig` model and only keeps Python-side defaults, richer key typing, and validation
+- the dead Python-only project-config policy helper layer has been removed:
+  - deleted unused `resolve_*codegen_policy` / `get_*codegen_target` helpers
+  - deleted the test that existed only to exercise that dead helper layer
 - `backend/setta/types/websocket.py` no longer hand-owns the listener websocket envelope field layouts:
   - the Python message classes now subclass Go-generated listener message models and only keep the Python-side typed content wrappers and discriminator literals.
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
@@ -182,12 +187,12 @@ Working assumption for the next passes:
 - `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
 - `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
 - `websocket.py` is now a very thin typed Python adapter over Go-owned listener message models plus Python-specific `TypeAdapter` glue.
-- the remaining handwritten part of `project_config.py` is now narrower Python-only policy/default glue over Go-generated project codegen and project-state models, not another large shared-model family.
+- the remaining handwritten part of `project_config.py` is now narrower Python-only defaulting and validation glue over Go-generated project codegen and project-state models, not another large shared-model family.
 - `dependency_key.py` no longer hand-owns the dependency-key field layouts:
   - the Python file now subclasses Go-generated dependency-key models and only keeps the Python-side frozen/hashable behavior the listener SDK needs.
 - `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.
 - `artifact.py` is no longer a shared-schema owner; the handwritten remainder is now tuple aliases, artifact-id factories, discriminator literals, and draw-area convenience defaults.
-- the main remaining large handwritten file is now `project_config.py`; the surviving `artifact.py` code is much closer to a thin Python adapter layer than a schema owner.
+- there is no longer an obvious large shared-schema owner left in `backend/setta/types/`; the surviving `project_config.py` and `artifact.py` code is much closer to adapter/default glue than to schema ownership.
 
 ## What Is Still Wrong
 
@@ -237,9 +242,12 @@ The prompt-format duplication has already been removed. The remaining work here 
 ### 5. A few handwritten Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before.
 
+They are also much closer to adapter/default glue than to true schema ownership now.
+
 The main candidates are now:
-- any reducible remainder in `project_config.py`, if more of the defaulting/policy surface can move onto real Go owners without creating duplicate backend definitions
+- any reducible remainder in `project_config.py`, if more of the defaulting/validation surface can be deleted or expressed without another handwritten adapter layer
 - any remaining thin adapter logic in `artifact.py`, if the Python package no longer needs the tuple aliases, id factories, or convenience defaults
+- any adapter-only file under `chat*.py`, `listener.py`, `dependency_key.py`, or `websocket.py` that can be collapsed further without reintroducing duplicate backend definitions
 
 Already narrowed to Python adapter layers:
 - `chat.py`
