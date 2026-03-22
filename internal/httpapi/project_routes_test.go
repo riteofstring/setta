@@ -2842,6 +2842,189 @@ func TestRegisterProjectRoutesFormatCodeIsBlockedInDeploymentModes(t *testing.T)
 	}
 }
 
+func TestRegisterProjectRoutesMixedParamPolicyRoutesRemainIDEOnlyInDeployment(t *testing.T) {
+	t.Parallel()
+
+	requestSpecs := []struct {
+		name  string
+		route string
+		body  string
+	}{
+		{
+			name:  "set_code",
+			route: RouteSetCode,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"code-section","code":"print('blocked')\n"}`,
+		},
+		{
+			name:  "format_code",
+			route: RouteFormatCode,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"code-section"}`,
+		},
+		{
+			name:  "set_callable",
+			route: RouteSetCallable,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","callableName":"sorted","refetchParams":false}`,
+		},
+		{
+			name:  "set_gen_code_prefix",
+			route: RouteSetGenCodePrefix,
+			body:  `{"projectConfigId":"project-alpha","genCodePrefix":"import math\n"}`,
+		},
+		{
+			name:  "set_gen_code_suffix",
+			route: RouteSetGenCodeSuffix,
+			body:  `{"projectConfigId":"project-alpha","genCodeSuffix":"state = CustomState()\n"}`,
+		},
+		{
+			name:  "append_draw_area_layer_item",
+			route: RouteAppendDrawAreaLayerItem,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"draw-section","layerIdx":0,"element":{"type":"BrushStroke","dataPath":"artifacts/new-stroke.json","transformId":"artifacts/new-transform.json"}}`,
+		},
+		{
+			name:  "set_image_area_image_path",
+			route: RouteSetImageAreaImagePath,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"image.png"}`,
+		},
+		{
+			name:  "set_chart_area_data_path",
+			route: RouteSetChartAreaDataPath,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","dataPath":"artifacts/chart.csv"}`,
+		},
+		{
+			name:  "set_chart_type",
+			route: RouteSetChartType,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartType":"scatter"}`,
+		},
+		{
+			name:  "set_chart_settings",
+			route: RouteSetChartSettings,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"scatter","categoryColumn":"series"},"changedSettings":["categoryColumn"]}`,
+		},
+		{
+			name:  "add_kwarg",
+			route: RouteAddKwarg,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section"}`,
+		},
+		{
+			name:  "delete_kwarg",
+			route: RouteDeleteKwarg,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section"}`,
+		},
+		{
+			name:  "get_password_param_value",
+			route: RouteGetPasswordParamValue,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramInfoId":"password-param"}`,
+		},
+	}
+
+	projectSnapshotJSON := func(t *testing.T, project projectstate.Project) string {
+		t.Helper()
+
+		raw, err := json.Marshal(project)
+		if err != nil {
+			t.Fatalf("marshal project snapshot: %v", err)
+		}
+		return string(raw)
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			for _, allowParamChanges := range []bool{false, true} {
+				t.Run(fmt.Sprintf("allow_param_changes=%t", allowParamChanges), func(t *testing.T) {
+					for _, requestSpec := range requestSpecs {
+						t.Run(requestSpec.name, func(t *testing.T) {
+							deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+								Mode: mode,
+								Document: projectstate.Document{
+									SchemaVersion:    projectstate.CurrentSchemaVersion,
+									DefaultProjectID: "project-alpha",
+									Projects: map[string]projectstate.Project{
+										"project-alpha": {
+											ID:   "project-alpha",
+											Name: "Alpha",
+										},
+									},
+								},
+								Policy: map[string]any{
+									"allowParamChanges": allowParamChanges,
+								},
+							})
+							if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+								t.Fatalf("create deployment session: %v", err)
+							}
+
+							overlay, err := deploymentRuntime.Overlay("share-a")
+							if err != nil {
+								t.Fatalf("deployment overlay: %v", err)
+							}
+							beforeOverlay := projectSnapshotJSON(t, overlay.Snapshot().Document.Projects["project-alpha"])
+							beforeBase := projectSnapshotJSON(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"])
+
+							handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+							request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+							request.Header.Set("Content-Type", "application/json")
+							request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+							response := httptest.NewRecorder()
+							handler.ServeHTTP(response, request)
+							if response.Code != http.StatusForbidden {
+								t.Fatalf(
+									"%s allowParamChanges=%t %s: expected 403, got %d with body %q",
+									mode,
+									allowParamChanges,
+									requestSpec.route,
+									response.Code,
+									response.Body.String(),
+								)
+							}
+							if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+								t.Fatalf(
+									"%s allowParamChanges=%t %s: expected mode_forbidden response, got %q",
+									mode,
+									allowParamChanges,
+									requestSpec.route,
+									response.Body.String(),
+								)
+							}
+							if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+								t.Fatalf(
+									"%s allowParamChanges=%t %s: expected deployment-mode denial detail, got %q",
+									mode,
+									allowParamChanges,
+									requestSpec.route,
+									response.Body.String(),
+								)
+							}
+
+							afterOverlay := projectSnapshotJSON(t, overlay.Snapshot().Document.Projects["project-alpha"])
+							if afterOverlay != beforeOverlay {
+								t.Fatalf(
+									"%s allowParamChanges=%t %s: expected rejected request to leave overlay unchanged, got before=%s after=%s",
+									mode,
+									allowParamChanges,
+									requestSpec.route,
+									beforeOverlay,
+									afterOverlay,
+								)
+							}
+							afterBase := projectSnapshotJSON(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"])
+							if afterBase != beforeBase {
+								t.Fatalf(
+									"%s allowParamChanges=%t %s: expected rejected request to leave base unchanged, got before=%s after=%s",
+									mode,
+									allowParamChanges,
+									requestSpec.route,
+									beforeBase,
+									afterBase,
+								)
+							}
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
