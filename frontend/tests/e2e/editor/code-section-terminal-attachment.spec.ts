@@ -192,21 +192,25 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     // Make the terminal wide enough that the marker line doesn't wrap so we
     // can do a precise single-line selection.
     await setSectionSize(page, terminalId, { width: 1200, height: 420 });
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `SELECTION_READY_${Date.now()}`,
+    );
 
     const marker =
       "SELECTION_ZOOM_TEST_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     await focusTerminalAndType(page, terminalId, `printf '${marker}\\n'`);
-    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
-    await waitForTerminalOutputToStabilize(page, terminalId, {
-      timeoutMs: 10000,
-      stableMs: 500,
-    });
     await waitForTerminalRowsMarker(
       page,
       terminalId,
       marker,
       process.env.CI ? 30000 : 20000,
     );
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 10000,
+      stableMs: 500,
+    });
 
     const startOffset = 14;
     const endOffset = 42;
@@ -2538,8 +2542,7 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
             try {
               const urlObj = new URL(socket.url);
               const parts = urlObj.pathname.split("/").filter(Boolean);
-              const sectionId =
-                parts.length >= 2 ? parts[parts.length - 2] : "unknown";
+              const sectionId = parts.at(-1) ?? "unknown";
               windowWithOutput.__terminalOutputBySectionId![sectionId] =
                 (windowWithOutput.__terminalOutputBySectionId![sectionId] ??
                   "") + text;
@@ -2553,8 +2556,7 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
               try {
                 const urlObj = new URL(socket.url);
                 const parts = urlObj.pathname.split("/").filter(Boolean);
-                const sectionId =
-                  parts.length >= 2 ? parts[parts.length - 2] : "unknown";
+                const sectionId = parts.at(-1) ?? "unknown";
                 windowWithOutput.__terminalReadyBySectionId![sectionId] = true;
                 windowWithOutput.__terminalReadyCountBySectionId![sectionId] =
                   (windowWithOutput.__terminalReadyCountBySectionId![
@@ -2654,14 +2656,24 @@ async function waitForTerminalOutputMarker(
   marker: string,
   timeoutMs = 20000,
 ): Promise<void> {
+  const normalizedMarker = normalizeTerminalCapturedOutput(marker);
   await expect
     .poll(
       async () => {
-        return await getTerminalOutputBuffer(page, terminalId);
+        const normalizedOutput = normalizeTerminalCapturedOutput(
+          await getTerminalOutputBuffer(page, terminalId),
+        );
+        if (normalizedOutput.includes(normalizedMarker)) {
+          return true;
+        }
+        const normalizedRows = normalizeTerminalCapturedOutput(
+          (await getTerminalRowsSnapshot(page, terminalId)).join(""),
+        );
+        return normalizedRows.includes(normalizedMarker);
       },
       { timeout: timeoutMs },
     )
-    .toContain(marker);
+    .toBe(true);
 }
 
 async function waitForTerminalRowsMarker(
@@ -2722,6 +2734,15 @@ async function waitForTerminalReady(
     throw new Error(`Timed out waiting for terminal ${terminalId} readiness.`);
   }
   return false;
+}
+
+function normalizeTerminalCapturedOutput(value: string): string {
+  return value
+    .replaceAll(/\u001b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replaceAll(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, "")
+    .replaceAll(/\u0008/g, "")
+    .replaceAll(/\r/g, "")
+    .replaceAll(/\s+/g, "");
 }
 
 function countOccurrences(haystack: string, needle: string): number {
@@ -2845,8 +2866,7 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
           if (parsed?.messageType === "terminalResize") {
             const url = new URL(this.url);
             const parts = url.pathname.split("/").filter(Boolean);
-            const sectionId =
-              parts.length >= 2 ? parts[parts.length - 2] : "unknown";
+            const sectionId = parts.at(-1) ?? "unknown";
             const phase = window.__terminalResizePhase ?? "idle";
             if (!window.__terminalResizeCountsBySectionId[sectionId]) {
               window.__terminalResizeCountsBySectionId[sectionId] = {
