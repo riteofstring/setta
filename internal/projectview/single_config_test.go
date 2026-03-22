@@ -484,6 +484,97 @@ func TestSingleConfigByProjectIDIncludesEmptyShownParamIDsForCallableWithoutRoot
 	}
 }
 
+func TestSingleConfigByProjectIDMaterializesLegacySectionImplDefaults(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "group-section")
+	project.SectionVariantMap["group-section"] = "group-variant"
+	project.Sections["group-section"] = projectstate.Section{
+		ID:               "group-section",
+		Name:             "Group Section",
+		VariantIDs:       []string{"group-variant"},
+		DefaultVariantID: "group-variant",
+	}
+	project.SectionVariants["group-variant"] = projectstate.SectionVariant{
+		ID:     "group-variant",
+		Name:   "Group Variant",
+		ImplID: "group-impl",
+	}
+	project.SectionImpls["group-impl"] = projectstate.SectionImpl{
+		ID:      "group-impl",
+		Kind:    projectstate.SectionKind("frontend"),
+		Payload: mustRawJSON(t, map[string]any{"id": "group-impl", "type": "Group"}),
+	}
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	var callablePayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls["callable-impl"], &callablePayload); err != nil {
+		t.Fatalf("decode callable payload: %v", err)
+	}
+	if got := callablePayload["configLanguage"]; got != "python" {
+		t.Fatalf("expected callable configLanguage python, got %#v", got)
+	}
+	if _, ok := callablePayload["codeObjVariantMap"].(map[string]any); !ok {
+		t.Fatalf("expected callable codeObjVariantMap object, got %#v", callablePayload["codeObjVariantMap"])
+	}
+	if value, ok := callablePayload["callable"]; !ok || value != nil {
+		t.Fatalf("expected callable root explicit null, got %#v", callablePayload["callable"])
+	}
+	if got := callablePayload["hideParams"]; got != false {
+		t.Fatalf("expected callable hideParams false, got %#v", got)
+	}
+	if params, ok := callablePayload["pinnedParams"].([]any); !ok || len(params) != 0 {
+		t.Fatalf("expected callable pinnedParams empty array, got %#v", callablePayload["pinnedParams"])
+	}
+	if ignoreState, ok := callablePayload["ignoreTypeErrors"].(map[string]any); !ok {
+		t.Fatalf("expected callable ignoreTypeErrors object, got %#v", callablePayload["ignoreTypeErrors"])
+	} else if values, ok := ignoreState["params"].(map[string]any); !ok || len(values) != 0 {
+		t.Fatalf("expected callable ignoreTypeErrors.params empty object, got %#v", ignoreState["params"])
+	}
+
+	var globalPayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls["global-impl"], &globalPayload); err != nil {
+		t.Fatalf("decode global payload: %v", err)
+	}
+	if value, ok := globalPayload["topLevelParamId"]; !ok || value != nil {
+		t.Fatalf("expected global topLevelParamId explicit null, got %#v", globalPayload["topLevelParamId"])
+	}
+	if got := globalPayload["isJsonSource"]; got != false {
+		t.Fatalf("expected global isJsonSource false, got %#v", got)
+	}
+	if keys, ok := globalPayload["jsonSourceKeys"].([]any); !ok || len(keys) != 0 {
+		t.Fatalf("expected global jsonSourceKeys empty array, got %#v", globalPayload["jsonSourceKeys"])
+	}
+
+	var generatedPayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls["gen-impl"], &generatedPayload); err != nil {
+		t.Fatalf("decode generated payload: %v", err)
+	}
+	size, ok := generatedPayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated size object, got %#v", generatedPayload["size"])
+	}
+	if size["width"] != 500.0 || size["height"] != 150.0 {
+		t.Fatalf("expected generated default size {500 150}, got %#v", size)
+	}
+	if children, ok := generatedPayload["children"].([]any); !ok || len(children) != 0 {
+		t.Fatalf("expected generated children empty array, got %#v", generatedPayload["children"])
+	}
+
+	var groupPayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls["group-impl"], &groupPayload); err != nil {
+		t.Fatalf("decode group payload: %v", err)
+	}
+	if children, ok := groupPayload["children"].([]any); !ok || len(children) != 0 {
+		t.Fatalf("expected group children empty array, got %#v", groupPayload["children"])
+	}
+}
+
 func TestSingleConfigByProjectIDPrefersProjectGeneratedCodeBinding(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

@@ -51,10 +51,8 @@ import {
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
-  ConfigLanguageEnum,
   Core,
   ImplArgsBundleMap,
-  isBaseDictSectionImpl,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
@@ -77,18 +75,6 @@ const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
-const GENERATED_PYTHON_SECTION_DEFAULT_SIZE = {
-  width: 500,
-  height: 150,
-} as const;
-const DEFAULT_TYPE_ERROR_IGNORE_STATE = {
-  callable: false,
-  params: {},
-} as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -117,88 +103,6 @@ function getEffectiveImpl<T extends object>(
   return effective;
 }
 
-function normalizeEffectiveSectionImpl(
-  impl: BaseSectionImplUnion,
-): BaseSectionImplUnion {
-  if (isBaseParentSectionImpl(impl) && !Array.isArray(impl.children)) {
-    impl.children = [];
-  }
-  if (isBaseSectionWithParamsImpl(impl)) {
-    if (!isRecord(impl.codeObjVariantMap)) {
-      impl.codeObjVariantMap = {};
-    }
-    if (typeof impl.hideUnpinnedParams !== "boolean") {
-      impl.hideUnpinnedParams = false;
-    }
-    if (typeof impl.paramFilter !== "string") {
-      impl.paramFilter = "";
-    }
-    if (impl.columnWidth !== null && typeof impl.columnWidth !== "number") {
-      impl.columnWidth = null;
-    }
-    if (typeof impl.configLanguage !== "string") {
-      impl.configLanguage = ConfigLanguageEnum.python;
-    }
-    if (!Array.isArray(impl.pinnedParams)) {
-      impl.pinnedParams = [];
-    }
-    if (!Array.isArray(impl.selectedParams)) {
-      impl.selectedParams = [];
-    }
-    if (!Array.isArray(impl.edgeInputParams)) {
-      impl.edgeInputParams = [];
-    }
-    if (!Array.isArray(impl.edgeOutputPorts)) {
-      impl.edgeOutputPorts = [];
-    }
-    if (!isRecord(impl.ignoreTypeErrors)) {
-      impl.ignoreTypeErrors = {
-        callable: DEFAULT_TYPE_ERROR_IGNORE_STATE.callable,
-        params: {},
-      };
-    } else {
-      if (typeof impl.ignoreTypeErrors.callable !== "boolean") {
-        impl.ignoreTypeErrors.callable = DEFAULT_TYPE_ERROR_IGNORE_STATE.callable;
-      }
-      if (!isRecord(impl.ignoreTypeErrors.params)) {
-        impl.ignoreTypeErrors.params = {};
-      }
-    }
-  }
-  if (isBaseDictSectionImpl(impl)) {
-    if (impl.topLevelParamId === undefined) {
-      impl.topLevelParamId = null;
-    }
-    if (typeof impl.isJsonSource !== "boolean") {
-      impl.isJsonSource = false;
-    }
-    if (!Array.isArray(impl.jsonSourceKeys)) {
-      impl.jsonSourceKeys = [];
-    }
-    if (typeof impl.jsonSourceMissing !== "boolean") {
-      impl.jsonSourceMissing = false;
-    }
-  }
-  if (impl.type === SectionTypeEnum.Callable) {
-    if (impl.callable === undefined) {
-      impl.callable = null;
-    }
-    if (typeof impl.hideParams !== "boolean") {
-      impl.hideParams = false;
-    }
-  }
-  if (
-    (impl.type === SectionTypeEnum.GenPythonCode ||
-      impl.type === SectionTypeEnum.GenPythonMetadata) &&
-    (!impl.size ||
-      impl.size.width === undefined ||
-      impl.size.height === undefined)
-  ) {
-    impl.size = { ...GENERATED_PYTHON_SECTION_DEFAULT_SIZE };
-  }
-  return impl;
-}
-
 function getEffectiveSectionImplIfPresent(
   projectState: ProjectStateSingleConfig,
   sectionId: string,
@@ -219,7 +123,7 @@ function getEffectiveSectionImplIfPresent(
   if (!core) {
     return null;
   }
-  return normalizeEffectiveSectionImpl(getEffectiveImpl(impl, core, variant));
+  return getEffectiveImpl(impl, core, variant);
 }
 
 type ChatSectionImpl = Extract<
@@ -450,9 +354,7 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   }
   const childIds =
     childIdsOverride ??
-    (isBaseParentSectionImpl(impl)
-      ? getSectionImplChildren(impl)
-      : [attachedTerminalId]);
+    (isBaseParentSectionImpl(impl) ? impl.children : [attachedTerminalId]);
   const candidateChildId =
     childIds.length > 0 ? childIds[0] : attachedTerminalId;
   const isEmbeddedCandidate =
@@ -579,9 +481,7 @@ export function getCurrEffectiveSectionImpl(
   const variant = getCurrSectionVariant(p, sectionId, preview);
   const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
-  return normalizeEffectiveSectionImpl(
-    getEffectiveImpl(baseImpl, core, variant),
-  );
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 
 export function getCurrEffectiveSectionImplIfPresent(
@@ -608,9 +508,7 @@ export function getCurrEffectiveSectionImplIfPresent(
   if (!core) {
     return null;
   }
-  return normalizeEffectiveSectionImpl(
-    getEffectiveImpl(baseImpl, core, variant),
-  );
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 
 export function getCurrEffectiveSectionImplWithTypeGuard<T>(
@@ -1075,21 +973,12 @@ export function getSectionDescendants(
     if (currId) {
       const impl = getCurrEffectiveSectionImpl(state, currId);
       if (isBaseParentSectionImpl(impl)) {
-        ids.push(...getSectionImplChildren(impl));
+        ids.push(...impl.children);
       }
     }
     idx += 1;
   }
   return ids;
-}
-
-export function getSectionImplChildren(
-  sectionImpl: BaseSectionImplUnion,
-): Array<string> {
-  if (!isBaseParentSectionImpl(sectionImpl)) {
-    return [];
-  }
-  return Array.isArray(sectionImpl.children) ? sectionImpl.children : [];
 }
 
 export function manualDndChildrenReset() {
@@ -1493,7 +1382,7 @@ function getDisplayedSectionIdToChildrenHelper(
   }
   if (isBaseParentSectionImpl(sectionImpl)) {
     const displayedChildren: string[] = [];
-    for (const childId of getSectionImplChildren(sectionImpl)) {
+    for (const childId of sectionImpl.children) {
       const childImpl = getEffectiveSectionImplIfPresent(state, childId);
       if (!childImpl) {
         continue;

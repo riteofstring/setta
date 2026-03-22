@@ -38,8 +38,9 @@ import {
   createProjectStateSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
-  createUserDefaultDictSectionImpl,
+  createUserDefaultCallableSectionImpl,
   createUserDefaultChatSectionImpl,
+  createUserDefaultDictSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
   ListRootViewModeEnum,
@@ -304,7 +305,7 @@ describe("getCurrEffectiveSectionImpl", () => {
     );
   });
 
-  it("normalizes missing required callable fields for parameterized section impls", () => {
+  it("returns backend-provided callable defaults for parameterized section impls", () => {
     const sectionId = "section-sparse-params";
     const variantId = "variant-sparse-params";
     const implId = "callable-impl-sparse-params";
@@ -321,24 +322,13 @@ describe("getCurrEffectiveSectionImpl", () => {
         }),
       },
       sectionImpls: {
-        [implId]: {
-          ...createCallableSectionImpl({
+        [implId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
             id: implId,
             type: SectionTypeEnum.Callable,
-          }),
-          codeObjVariantMap: undefined,
-          hideUnpinnedParams: undefined,
-          paramFilter: undefined,
-          columnWidth: undefined,
-          configLanguage: undefined,
-          pinnedParams: undefined,
-          selectedParams: undefined,
-          ignoreTypeErrors: undefined,
-          edgeInputParams: undefined,
-          edgeOutputPorts: undefined,
-          callable: undefined,
-          hideParams: undefined,
-        },
+          },
+        ),
       },
       sectionVariants: {
         [variantId]: createVariant({
@@ -383,7 +373,7 @@ describe("getCurrEffectiveSectionImpl", () => {
     expect(effective.hideParams).toBe(false);
   });
 
-  it("normalizes missing dict-specific fields for parameterized section impls", () => {
+  it("returns backend-provided dict defaults for parameterized section impls", () => {
     const sectionId = "section-sparse-dict";
     const variantId = "variant-sparse-dict";
     const implId = "dict-impl-sparse";
@@ -400,16 +390,10 @@ describe("getCurrEffectiveSectionImpl", () => {
         }),
       },
       sectionImpls: {
-        [implId]: {
-          ...createDictSectionImpl(createUserDefaultDictSectionImpl(), {
-            id: implId,
-            type: SectionTypeEnum.Dict,
-          }),
-          topLevelParamId: undefined,
-          isJsonSource: undefined,
-          jsonSourceKeys: undefined,
-          jsonSourceMissing: undefined,
-        },
+        [implId]: createDictSectionImpl(createUserDefaultDictSectionImpl(), {
+          id: implId,
+          type: SectionTypeEnum.Dict,
+        }),
       },
       sectionVariants: {
         [variantId]: createVariant({
@@ -1093,22 +1077,24 @@ describe("getDisplayedSectionIdToChildren", () => {
     });
   });
 
-  it("treats malformed generated parent sections without children as childless", () => {
+  it("treats generated parent sections with empty children as childless", () => {
     const sectionId = "generated-section";
     const variantId = "generated-variant";
     const implId = "generated-impl";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const generatedImpl = createCodeSectionImpl({
-      id: implId,
-      code: "print('generated')",
-      codeLanguage: "python",
-    });
-    const malformedGeneratedImpl = Object.fromEntries(
-      Object.entries({
-        ...generatedImpl,
-        type: SectionTypeEnum.GenPythonCode,
-      }).filter(([key]) => key !== "children"),
-    );
+    const generatedImpl = {
+      ...createCodeSectionImpl({
+        id: implId,
+        code: "print('generated')",
+        codeLanguage: "python",
+      }),
+      type: SectionTypeEnum.GenPythonCode,
+      children: [],
+      size: {
+        width: 500,
+        height: 150,
+      },
+    };
 
     const state = {
       projectConfig: createProjectConfig({
@@ -1124,7 +1110,7 @@ describe("getDisplayedSectionIdToChildren", () => {
         [sectionId]: createCore({ id: sectionId }),
       },
       sectionImpls: {
-        [implId]: malformedGeneratedImpl,
+        [implId]: generatedImpl,
       },
       sectionVariants: {
         [variantId]: createVariant({

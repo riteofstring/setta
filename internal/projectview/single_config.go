@@ -796,38 +796,15 @@ func collectDrawImagePaths(sectionPayload map[string]any) []string {
 }
 
 func sectionImplPayload(impl projectstate.SectionImpl) (json.RawMessage, error) {
-	payload := sectionImplPayloadUnchecked(impl)
-	_, err := rawObjectFromPayload(payload)
-	if err != nil {
-		return nil, err
-	}
-	return payload, nil
+	return projectstate.SectionImplPayload(impl)
 }
 
 func sectionImplPayloadUnchecked(impl projectstate.SectionImpl) json.RawMessage {
-	if len(impl.Payload) > 0 {
-		return cloneRawJSON(impl.Payload)
+	payload, err := sectionImplPayload(impl)
+	if err != nil {
+		panic(err)
 	}
-	payload := map[string]any{
-		"id":   impl.ID,
-		"type": fallbackSectionType(impl),
-	}
-	switch {
-	case impl.IsCode():
-		payload["codeLanguage"] = string(impl.Code.Language)
-		if impl.Code.Binding != nil {
-			payload["codeFileBinding"] = bindingObject(impl.Code.Binding)
-		}
-		if impl.Code.AttachedTerminalSectionID != "" {
-			payload["attachedTerminalSectionId"] = impl.Code.AttachedTerminalSectionID
-		}
-		payload["children"] = cloneStringSlice(impl.Code.Children)
-	case impl.IsDraw():
-		if impl.Draw.RenderedImagePath != "" {
-			payload["renderedImagePath"] = impl.Draw.RenderedImagePath
-		}
-	}
-	return mustMarshal(payload)
+	return payload
 }
 
 func codeObjImplPayload(impl projectstate.CodeObjectImpl) (json.RawMessage, error) {

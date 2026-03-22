@@ -20,7 +20,7 @@ func effectiveSectionPayload(project Project, sectionID string, variantID string
 		return nil, fmt.Errorf("%w: %q", ErrSectionImplNotFound, variant.ImplID)
 	}
 
-	base, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
+	base, err := sectionImplPayloadObject(impl)
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +36,37 @@ func effectiveSectionPayload(project Project, sectionID string, variantID string
 	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), nil
 }
 
+func SectionImplPayload(impl SectionImpl) (RawJSON, error) {
+	payload, err := sectionImplPayloadObject(impl)
+	if err != nil {
+		return nil, err
+	}
+	return marshalProjectObject(payload)
+}
+
 func sectionImplPayloadUnchecked(impl SectionImpl) RawJSON {
 	if len(impl.Payload) > 0 {
 		return cloneRawJSON(impl.Payload)
+	}
+	payload, err := rawSectionImplPayloadObject(impl)
+	if err != nil {
+		panic(err)
+	}
+	return mustMarshalProjectObject(payload)
+}
+
+func sectionImplPayloadObject(impl SectionImpl) (map[string]any, error) {
+	payload, err := rawSectionImplPayloadObject(impl)
+	if err != nil {
+		return nil, err
+	}
+	defaults := sectionImplPayloadDefaults(payload, impl)
+	return mergeProjectObjects(defaults, payload), nil
+}
+
+func rawSectionImplPayloadObject(impl SectionImpl) (map[string]any, error) {
+	if len(impl.Payload) > 0 {
+		return rawObjectFromProjectPayload(cloneRawJSON(impl.Payload))
 	}
 
 	payload := map[string]any{
@@ -59,7 +87,60 @@ func sectionImplPayloadUnchecked(impl SectionImpl) RawJSON {
 		}
 		payload["children"] = append([]string(nil), impl.Code.Children...)
 	}
-	return mustMarshalProjectObject(payload)
+	return payload, nil
+}
+
+func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[string]any {
+	sectionType := payloadStringField(payload, "type")
+	if sectionType == "" {
+		sectionType = fallbackSectionType(impl)
+	}
+
+	defaults := map[string]any{}
+	switch sectionType {
+	case "Callable", "Dict", "GlobalVariables":
+		defaults["codeObjVariantMap"] = map[string]any{}
+		defaults["hideUnpinnedParams"] = false
+		defaults["paramFilter"] = ""
+		defaults["columnWidth"] = nil
+		defaults["configLanguage"] = "python"
+		defaults["pinnedParams"] = []any{}
+		defaults["selectedParams"] = []any{}
+		defaults["ignoreTypeErrors"] = map[string]any{
+			"callable": false,
+			"params":   map[string]any{},
+		}
+		defaults["edgeInputParams"] = []any{}
+		defaults["edgeOutputPorts"] = []any{}
+	}
+
+	switch sectionType {
+	case "Callable":
+		defaults["callable"] = nil
+		defaults["hideParams"] = false
+	case "Dict", "GlobalVariables":
+		defaults["topLevelParamId"] = nil
+		defaults["isJsonSource"] = false
+		defaults["jsonSourceKeys"] = []any{}
+		defaults["jsonSourceMissing"] = false
+	}
+
+	switch sectionType {
+	case "Code", "GenPythonCode", "GenPythonMetadata", "Group", "ListRoot":
+		defaults["children"] = []any{}
+	}
+
+	switch sectionType {
+	case "GenPythonCode", "GenPythonMetadata":
+		defaults["size"] = map[string]any{
+			"width":  500.0,
+			"height": 150.0,
+		}
+	case "ListRoot":
+		defaults["viewMode"] = string(ListRootViewModeDefault)
+	}
+
+	return defaults
 }
 
 func rawObjectFromProjectPayload(raw RawJSON) (map[string]any, error) {
