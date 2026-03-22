@@ -616,6 +616,11 @@ Phase 7 progress:
   runtime-compat verifier, and the generated contract-version constant from the
   installed package instead of treating `uv pip install` success alone as
   sufficient package smoke
+- `internal/app` now also includes a live `SettaListener` integration test for
+  the running-backend SDK path: it starts a real Go websocket server on a real
+  bound port, lets the retained Python listener complete bootstrap +
+  registration against that server, and asserts that listener metadata is
+  hydrated from the authoritative Go force-refresh snapshot
 
 ## Recommended First Implementation Sequence
 
