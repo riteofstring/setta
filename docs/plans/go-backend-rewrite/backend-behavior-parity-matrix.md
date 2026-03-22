@@ -155,6 +155,22 @@ Last audited: `2026-03-23`
   `launcher_handoff.helpers.normalize_origin_proof_and_bootstrap_fragment_contract`
   row remained the correct terminal `Proved` disposition for those stale
   backlog clues.
+- Follow-up in this pass on `9c2a0d0ec3`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/utils/test_process_file_lock.py::{test_acquire_process_file_lock_maps_parent_creation_failures,test_acquire_process_file_lock_does_not_remap_body_oserror}`
+  against the store-specific lock/update paths in
+  `internal/frontendorigins/service.go::store.update` and
+  `internal/workspacelaunch/intents.go::intentStore.update`, plus the
+  focused Go proof in
+  `TestServiceTrustOriginReturnsUnavailableWhenLockParentCannotBeCreated`,
+  `TestIntentStoreMapsUnavailableReadAndLockParentFailures`, and
+  `TestIntentStoreUpdatePreservesCallbackError`; no new implementation gap
+  was found, and the existing
+  `stateful_store.file_lock.setup_failure_and_body_error_domains_survive_on_store_specific_go_helpers`
+  row remained the correct terminal `Proved` disposition for those stale
+  backlog clues.
 - Follow-up in this pass on `271f05e8c`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
   `internal/projectstate`
