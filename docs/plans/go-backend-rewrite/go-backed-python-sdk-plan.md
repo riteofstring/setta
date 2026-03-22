@@ -592,6 +592,10 @@ Phase 7 progress:
   `ListenerRegisterRequest` and `ListenerForceRefreshEvent` models round-trip
   dependency-key unions, which is required before more listener DTOs can be
   deleted in Phase 6
+- CI now runs the Go-side retained SDK contract generator test job directly in
+  `.github/workflows/ci.yml`, so drift between `internal/pythonsdkcontracts`
+  and the checked-in generated Python contract module fails in the default CI
+  path instead of only during local focused testing
 
 ## Recommended First Implementation Sequence
 
