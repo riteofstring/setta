@@ -2319,6 +2319,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
         sectionId,
       },
     );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
     await expect(reopenedFloatingWindow).toHaveCount(0);
     await expect(plainDockedWindow).toBeVisible();
     await expect(dockPanels).toHaveCount(1);

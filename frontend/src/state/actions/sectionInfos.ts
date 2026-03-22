@@ -1119,6 +1119,39 @@ function getComparableProjectState(
   });
 }
 
+function pruneProjectChatWindowingForExistingSections(
+  projectState: ProjectStateSingleConfig,
+): ProjectStateSingleConfig {
+  const existingSectionIds = new Set(Object.keys(projectState.sections));
+  let changed = false;
+  const nextInstancesById = Object.fromEntries(
+    Object.entries(projectState.projectChatWindowing.instancesById).filter(
+      ([, instance]) => {
+        const sectionId = instance.sectionIdOrNull;
+        if (!sectionId || existingSectionIds.has(sectionId)) {
+          return true;
+        }
+        changed = true;
+        return false;
+      },
+    ),
+  );
+  if (!changed) {
+    return projectState;
+  }
+  const nextOrder = projectState.projectChatWindowing.order.filter(
+    (instanceId) => instanceId in nextInstancesById,
+  );
+  return {
+    ...projectState,
+    projectChatWindowing: {
+      ...projectState.projectChatWindowing,
+      instancesById: nextInstancesById,
+      order: nextOrder,
+    },
+  };
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1128,6 +1161,7 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  x.projectState = pruneProjectChatWindowingForExistingSections(x.projectState);
   recordAuthoritativeProjectChatWindowingState(
     x.projectState.projectConfig.id,
     x.projectState.projectChatWindowing,
