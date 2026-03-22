@@ -669,6 +669,30 @@ Last audited: `2026-03-23`
   `TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled`,
   and
   `TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode`.
+- Follow-up in this pass on `05e26ca77`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/start/test_startup_helpers.py::{test_parse_deployment_version,test_resolve_share_deployment_root_uses_explicit_root,test_resolve_share_deployment_root_rejects_mixed_args,test_resolve_share_deployment_root_requires_project_name,test_resolve_share_deployment_root_requires_version_or_latest,test_resolve_share_deployment_root_latest_selects_highest,test_resolve_share_deployment_root_version_selects_path,test_resolve_share_deployment_root_rejects_invalid_version,test_is_loopback_host,test_warn_if_public_host_no_auth_emits_warning_for_public_host,test_warn_if_public_host_no_auth_is_silent_for_loopback}`
+  and
+  `tests/start/test_startup_message.py::{test_startup_message_auto_open,test_startup_message_manual_tunnel}`,
+  confirming those clues were already terminal explicit `Proved` rows
+  backed directly by
+  `TestParseDeploymentVersionAcceptsZeroAndRejectsInvalidValues`,
+  `TestResolveShareDeploymentRootUsesExplicitRoot`,
+  `TestResolveShareDeploymentRootRejectsMissingSelectionInputs`,
+  `TestResolveShareDeploymentRootSelectsLatestVersionFromCatalog`,
+  `TestResolveShareDeploymentRootSelectsRequestedVersionFromCatalog`,
+  `TestResolveShareDeploymentRootAcceptsVersionZeroFromCatalog`,
+  `TestRunShareRejectsInvalidVersionFormat`,
+  `TestIsLoopbackHostMatchesSourceContract`,
+  `TestEmitShareStartupOutputWarnsForPublicHostAndPrintsURL`,
+  `TestEmitShareStartupOutputFallsBackWhenBrowserOpenFails`,
+  `TestEmitAppStartupOutputWarnsForPublicHostAndPrintsURL`,
+  `TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails`,
+  `TestRenderLocalStartupMessageRemoteSession`, and
+  `TestRenderLocalStartupMessageAutoOpenSuppressesManualTunnelText`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
