@@ -1256,6 +1256,184 @@ func TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths(t *testin
 	}
 }
 
+func TestServiceCommitDetailsParsesTabPathsAndRenameNumstat(t *testing.T) {
+	t.Parallel()
+
+	// Commit details should preserve literal tabs in paths and pair pure-rename numstat
+	// records with the renamed destination path when `git show -z` emits NUL delimiters.
+	repoRoot := initGitReadTestRepo(t)
+
+	tabPath := "tab\tname.txt"
+	writeFile(t, filepath.Join(repoRoot, tabPath), "tab\n")
+	runGitReadCommand(t, repoRoot, "add", tabPath)
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add tab path")
+	tabCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	writeFile(t, filepath.Join(repoRoot, "rename-src.txt"), "rename\n")
+	runGitReadCommand(t, repoRoot, "add", "rename-src.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add rename source")
+	runGitReadCommand(t, repoRoot, "mv", "rename-src.txt", "rename-dst.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "rename source to dest")
+	renameCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	tabDetails, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: tabCommit})
+	if err != nil {
+		t.Fatalf("tab commit details: %v", err)
+	}
+
+	var tabEntry *CommitChangedFile
+	for index := range tabDetails.Files {
+		if tabDetails.Files[index].Path == tabPath {
+			tabEntry = &tabDetails.Files[index]
+			break
+		}
+	}
+	if tabEntry == nil {
+		t.Fatalf("expected tab path in %#v", tabDetails.Files)
+	}
+	if tabEntry.Status != "A" || tabEntry.Additions == nil || *tabEntry.Additions != 1 || tabEntry.Deletions == nil || *tabEntry.Deletions != 0 {
+		t.Fatalf("unexpected tab path entry %#v", *tabEntry)
+	}
+	if tabDetails.IsTruncated {
+		t.Fatalf("expected non-truncated tab-path details, got %#v", tabDetails)
+	}
+
+	renameDetails, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: renameCommit})
+	if err != nil {
+		t.Fatalf("rename commit details: %v", err)
+	}
+
+	var renameEntry *CommitChangedFile
+	for index := range renameDetails.Files {
+		if renameDetails.Files[index].Path == "rename-dst.txt" {
+			renameEntry = &renameDetails.Files[index]
+			break
+		}
+	}
+	if renameEntry == nil {
+		t.Fatalf("expected rename entry in %#v", renameDetails.Files)
+	}
+	if renameEntry.OldPath == nil || *renameEntry.OldPath != "rename-src.txt" || !strings.HasPrefix(renameEntry.Status, "R") {
+		t.Fatalf("unexpected rename entry %#v", *renameEntry)
+	}
+	if renameEntry.Additions == nil || *renameEntry.Additions != 0 || renameEntry.Deletions == nil || *renameEntry.Deletions != 0 {
+		t.Fatalf("expected pure rename numstat counts to stay zero, got %#v", *renameEntry)
+	}
+	if renameDetails.IsTruncated {
+		t.Fatalf("expected non-truncated rename details, got %#v", renameDetails)
+	}
+}
+
+func TestServiceCommitDetailsUsesSingleGitShowCall(t *testing.T) {
+	t.Parallel()
+
+	// Commit details should verify the commit hash once, then build the payload from a
+	// single `git show --raw --numstat -z` subprocess so the route does not pay extra latency.
+	workspaceRoot := t.TempDir()
+	commitHash := strings.Repeat("c", 40)
+	showArgsPath := filepath.Join(t.TempDir(), "show.args")
+	showCountPath := filepath.Join(t.TempDir(), "show.count")
+	showPayloadPath := filepath.Join(t.TempDir(), "show.out")
+	showPayload := commitHash + "\x00" + strings.Repeat("b", 40) + "\x00A\x00a@example.com\x001700000000\x00A\x00a@example.com\x001700000000\x00subject\x00body\x00" +
+		":100644 100644 1111111 2222222 M\x00tracked.txt\x00" +
+		"1\t0\ttracked.txt\x00"
+	if err := os.WriteFile(showPayloadPath, []byte(showPayload), 0o644); err != nil {
+		t.Fatalf("write show payload: %v", err)
+	}
+
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--verify\" ]; then",
+		"      printf '%s\\n' '" + commitHash + "'",
+		"      exit 0",
+		"    fi",
+		"    ;;",
+		"  show)",
+		"    count=0",
+		"    if [ -f '" + showCountPath + "' ]; then",
+		"      count=$(cat '" + showCountPath + "')",
+		"    fi",
+		"    count=$((count + 1))",
+		"    printf '%s' \"$count\" > '" + showCountPath + "'",
+		"    printf '%s\\n' \"$@\" > '" + showArgsPath + "'",
+		"    cat '" + showPayloadPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: commitHash})
+	if err != nil {
+		t.Fatalf("commit details: %v", err)
+	}
+
+	showCountRaw, err := os.ReadFile(showCountPath)
+	if err != nil {
+		t.Fatalf("read show count: %v", err)
+	}
+	if strings.TrimSpace(string(showCountRaw)) != "1" {
+		t.Fatalf("expected one git show invocation, got %q", string(showCountRaw))
+	}
+
+	showArgsRaw, err := os.ReadFile(showArgsPath)
+	if err != nil {
+		t.Fatalf("read show args: %v", err)
+	}
+	showArgs := strings.Split(strings.TrimSpace(string(showArgsRaw)), "\n")
+	for _, expectedArg := range []string{"--no-ext-diff", "--no-textconv", "--raw", "--numstat", "-z"} {
+		if !containsString(showArgs, expectedArg) {
+			t.Fatalf("expected show args %#v to include %q", showArgs, expectedArg)
+		}
+	}
+	if response.CommitHash != commitHash || response.Subject != "subject" || response.IsTruncated {
+		t.Fatalf("unexpected commit details response %#v", response)
+	}
+	if len(response.Files) != 1 || response.Files[0].Path != "tracked.txt" {
+		t.Fatalf("expected tracked file in commit details, got %#v", response.Files)
+	}
+}
+
+func TestServiceCommitDetailsPreservesControlSeparatorBytes(t *testing.T) {
+	t.Parallel()
+
+	// Commit details metadata is NUL-delimited, so legacy ASCII unit/record separator
+	// bytes inside the subject/body should survive unchanged.
+	repoRoot := initGitReadTestRepo(t)
+	specialSubject := "subject-with-\x1f-unit-and-\x1e-record"
+	specialBody := "body-line-1\x1fwith-unit\nbody-line-2\x1erecord"
+	writeFile(t, filepath.Join(repoRoot, "separator-body.txt"), "separator-body\n")
+	runGitReadCommand(t, repoRoot, "add", "separator-body.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", specialSubject, "-m", specialBody)
+	commitHash := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	details, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: commitHash})
+	if err != nil {
+		t.Fatalf("commit details: %v", err)
+	}
+	if details.Subject != specialSubject {
+		t.Fatalf("expected subject %q, got %#v", specialSubject, details)
+	}
+	if details.Body != specialBody {
+		t.Fatalf("expected body %q, got %#v", specialBody, details)
+	}
+}
+
 func TestServiceCommitFileDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) {
 	t.Parallel()
 
