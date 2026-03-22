@@ -3077,6 +3077,109 @@ func TestRegisterRoutesListenerFrontendEmitBroadcastsChartArtifactUpdates(t *tes
 	}
 }
 
+func TestRegisterRoutesShareListenerFrontendEmitScopesDependencyUpdatesToSession(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	textSectionID := createRouteTopLevelSection(t, deploymentRuntime.Base(), "project-a", "TextBlock", "note")
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share-a session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share-b session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontendA := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-a", nil)
+	defer frontendA.CloseNow()
+	_ = readUntilMessageType(t, frontendA, realtime.MessageTypeFrontendIdentity, 3)
+
+	frontendB := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-b", nil)
+	defer frontendB.CloseNow()
+	_ = readUntilMessageType(t, frontendB, realtime.MessageTypeFrontendIdentity, 3)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write share listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+
+	dependencyName := routeListenerDependencyName(t, deploymentRuntime.Base().Snapshot().Document, "project-a", textSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":"updated from share listener"}}}`)); err != nil {
+		t.Fatalf("write share listener frontend emit dependency update: %v", err)
+	}
+
+	assertRouteProjectStateUpdate(
+		t,
+		readUntilMessageType(t, frontendA, realtime.MessageTypeUpdateFrontendProjectState, 4),
+		"project-a",
+	)
+	assertNoRouteEnvelopeOfType(t, frontendB, realtime.MessageTypeUpdateFrontendProjectState, 300*time.Millisecond)
+
+	overlayA, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("overlay for share-a: %v", err)
+	}
+	projectA, err := overlayA.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project in share-a overlay after listener emit: %v", err)
+	}
+	sectionA, variantA, _, err := projectA.ResolveSection(textSectionID)
+	if err != nil {
+		t.Fatalf("resolve share-a section after listener emit: %v", err)
+	}
+	payloadA, err := projectA.EffectiveSectionPayload(sectionA.ID, variantA.ID)
+	if err != nil {
+		t.Fatalf("effective share-a payload after listener emit: %v", err)
+	}
+	if payloadA["text"] != "updated from share listener" {
+		t.Fatalf("expected share-a payload text to update, got %#v", payloadA["text"])
+	}
+
+	overlayB, err := deploymentRuntime.Overlay("share-b")
+	if err != nil {
+		t.Fatalf("overlay for share-b: %v", err)
+	}
+	projectB, err := overlayB.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project in share-b overlay after listener emit: %v", err)
+	}
+	sectionB, variantB, _, err := projectB.ResolveSection(textSectionID)
+	if err != nil {
+		t.Fatalf("resolve share-b section after listener emit: %v", err)
+	}
+	payloadB, err := projectB.EffectiveSectionPayload(sectionB.ID, variantB.ID)
+	if err != nil {
+		t.Fatalf("effective share-b payload after listener emit: %v", err)
+	}
+	if payloadB["text"] == "updated from share listener" {
+		t.Fatalf("expected share-b payload to remain unchanged, got %#v", payloadB["text"])
+	}
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err = listener.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected share listener frontend emit success to stay silent, got %v", err)
+	}
+}
+
 func TestRegisterRoutesShareListenerFrontendEmitScopesArtifactUpdatesToSession(t *testing.T) {
 	t.Parallel()
 
@@ -3148,6 +3251,48 @@ func TestRegisterRoutesShareListenerFrontendEmitScopesArtifactUpdatesToSession(t
 	if len(loadedB) != 1 || loadedB[0] != nil {
 		t.Fatalf("expected share-b overlay miss after listener emit, got %#v", loadedB)
 	}
+}
+
+func TestRegisterRoutesShareListenerFrontendEmitRejectsDeletedSession(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write share listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+
+	if err := deploymentRuntime.DeleteSession("share-a"); err != nil {
+		t.Fatalf("delete share session before listener emit: %v", err)
+	}
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"Section":"value"}}}`)); err != nil {
+		t.Fatalf("write share listener frontend emit after session deletion: %v", err)
+	}
+
+	readUntilCloseStatus(t, listener, CloseCodeNotFound)
 }
 
 func TestRegisterRoutesListenerFrontendEmitRejectsBlankArtifactPath(t *testing.T) {
