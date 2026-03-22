@@ -76,6 +76,9 @@ func Build() (GeneratedContracts, error) {
 		builder.WriteString("\n")
 	}
 	builder.WriteString("\n\n")
+	builder.WriteString("SETTA_SDK_CONTRACT_VERSION = ")
+	builder.WriteString(fmt.Sprintf("%d", SDKContractVersion))
+	builder.WriteString("\n\n\n")
 	builder.WriteString("class SettaSDKContractBaseModel(BaseModel):\n")
 	builder.WriteString("    pass\n")
 	for _, model := range models {
@@ -94,6 +97,7 @@ func Build() (GeneratedContracts, error) {
 	}
 	builder.WriteString("\n\n")
 	builder.WriteString("__all__ = [\n")
+	builder.WriteString("    \"SETTA_SDK_CONTRACT_VERSION\",\n")
 	for _, model := range models {
 		builder.WriteString("    \"")
 		builder.WriteString(model.Name)

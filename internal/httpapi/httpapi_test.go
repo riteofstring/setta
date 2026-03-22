@@ -19,6 +19,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/frontendorigins"
 	"setta/internal/modes"
+	"setta/internal/pythonsdkcontracts"
 )
 
 type stubInfoService struct {
@@ -39,6 +40,14 @@ func (s stubInfoService) ServerMode(context.Context) string {
 
 func (s stubInfoService) RuntimeInfo(context.Context) RuntimeInfo {
 	return s.info
+}
+
+func (s stubInfoService) SDKRuntimeHandshake(context.Context) pythonsdkcontracts.RunningBackendVersionHandshake {
+	return pythonsdkcontracts.RunningBackendVersionHandshake{
+		SDKVersion:         "0.0.18",
+		CoreVersion:        "dev",
+		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
+	}
 }
 
 func TestHandlerServesFoundationRoutes(t *testing.T) {
@@ -96,6 +105,20 @@ func TestHandlerServesFoundationRoutes(t *testing.T) {
 	}
 	if payload.Paths.SettaFilesLocation != "local" {
 		t.Fatalf("expected local setta files location, got %q", payload.Paths.SettaFilesLocation)
+	}
+
+	runtimeHandshakeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(runtimeHandshakeResponse, httptest.NewRequest(http.MethodGet, "/api/sdkRuntimeHandshake", nil))
+	if runtimeHandshakeResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", runtimeHandshakeResponse.Code)
+	}
+
+	var runtimeHandshake pythonsdkcontracts.RunningBackendVersionHandshake
+	if err := json.Unmarshal(runtimeHandshakeResponse.Body.Bytes(), &runtimeHandshake); err != nil {
+		t.Fatalf("decode runtime handshake: %v", err)
+	}
+	if runtimeHandshake.SDKContractVersion != pythonsdkcontracts.SDKContractVersion {
+		t.Fatalf("expected sdk contract version %d, got %d", pythonsdkcontracts.SDKContractVersion, runtimeHandshake.SDKContractVersion)
 	}
 }
 

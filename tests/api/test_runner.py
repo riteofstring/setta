@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 import setta.api.runner as runner_mod
+from setta import __version__ as SETTA_SDK_VERSION
 from setta.api.runner import RunOverride, RunPlan, SettaRunner
 from setta.auth.cookies import auth_cookie_name
 from setta.sdk_contracts.generated import (
@@ -12,6 +13,8 @@ from setta.sdk_contracts.generated import (
     RunnerSummarySection,
     RunnerSummarySnapshot,
     RunnerSummaryVariant,
+    SETTA_SDK_CONTRACT_VERSION,
+    RunningBackendVersionHandshake,
 )
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
@@ -304,6 +307,7 @@ def test_post_resolves_auth_headers_once_and_reuses_session_headers(
 ) -> None:
     runner = SettaRunner(base_url="http://example.com")
     resolve_calls = 0
+    runtime_compat_calls = 0
     observed_headers: list[dict[str, str]] = []
 
     def resolve_auth_headers() -> dict[str, str]:
@@ -321,6 +325,28 @@ def test_post_resolves_auth_headers_once_and_reuses_session_headers(
         return response
 
     monkeypatch.setattr(runner, "_resolve_auth_headers", resolve_auth_headers)
+
+    def verify_runtime_compatibility(
+        session: requests.Session,
+        *,
+        base_url: str,
+        auth_headers: dict[str, str] | None = None,
+    ) -> RunningBackendVersionHandshake:
+        nonlocal runtime_compat_calls
+        del session, auth_headers
+        runtime_compat_calls += 1
+        assert base_url == "http://example.com"
+        return RunningBackendVersionHandshake(
+            sdkVersion=SETTA_SDK_VERSION,
+            coreVersion="dev",
+            sdkContractVersion=SETTA_SDK_CONTRACT_VERSION,
+        )
+
+    monkeypatch.setattr(
+        runner_mod,
+        "verify_running_backend_compatibility",
+        verify_runtime_compatibility,
+    )
     monkeypatch.setattr(runner._session, "post", post)
 
     # Runner posts should resolve auth once, cache the result, and then reuse
@@ -329,6 +355,7 @@ def test_post_resolves_auth_headers_once_and_reuses_session_headers(
     runner._post(runner_mod.Route.CANCEL_RUN, {"runId": "run-1"})
 
     assert resolve_calls == 1
+    assert runtime_compat_calls == 1
     assert [headers["Cookie"] for headers in observed_headers] == [
         "setta-auth=cached",
         "setta-auth=cached",

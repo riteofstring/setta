@@ -20,11 +20,16 @@ from typing import (
 from urllib.parse import urlencode
 from uuid import uuid4
 
+import requests
 import websockets
 from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
 from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.api.runtime_compat import (
+    RuntimeCompatibilityError,
+    verify_running_backend_compatibility,
+)
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
@@ -545,6 +550,7 @@ class SettaListener:
         self._logging_configured = False
         self._auto_session_metadata: SessionMetadata | None = None
         self._auto_session_secret: bytes | None = None
+        self._runtime_compatibility_verified = False
         self._set_binary_base_url = False
         base_url = os.environ.get("SETTA_BINARY_BASE_URL")
         if base_url is None:
@@ -727,6 +733,8 @@ class SettaListener:
             while not self._stop_event.is_set():
                 try:
                     await self._connect_once()
+                except RuntimeCompatibilityError:
+                    raise
                 except ConnectionRefusedError:
                     logger.warning(
                         "Listener %s connection refused at %s",
@@ -856,6 +864,7 @@ class SettaListener:
 
     async def _connect_once(self) -> None:
         """Open the websocket once and process messages until it closes."""
+        await self._ensure_runtime_compatibility()
         endpoint = self.websocket_endpoint
         with logging_context(
             listener_id=self._log_identifier,
@@ -911,6 +920,18 @@ class SettaListener:
                                     f"refresh for call {call_id} completed"
                                 )
                             )
+
+    async def _ensure_runtime_compatibility(self) -> None:
+        if self._runtime_compatibility_verified:
+            return
+        auth_headers = self._resolve_auth_headers()
+        await asyncio.to_thread(
+            verify_running_backend_compatibility,
+            requests.Session(),
+            base_url=f"http://{self._host}:{self._port}",
+            auth_headers=auth_headers,
+        )
+        self._runtime_compatibility_verified = True
 
     def _parse_websocket_payload(self, payload: str | bytes) -> Any | None:
         """Parse raw websocket payloads into typed messages."""

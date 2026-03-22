@@ -605,6 +605,12 @@ Phase 7 progress:
   Python `SettaRunner` against that server, and verifies runner summary lookups
   across the actual auth, metadata, and runner-summary routes instead of
   relying only on unit-level monkeypatch coverage
+- the running-backend SDK path now has an explicit fail-closed version
+  handshake contract: Go exposes a dedicated generated handshake payload with
+  backend sdk version, core version, and sdk-contract version, and both the
+  retained Python runner and listener verify that against the local Python
+  package version plus the generated contract-version constant before using the
+  backend
 
 ## Recommended First Implementation Sequence
 

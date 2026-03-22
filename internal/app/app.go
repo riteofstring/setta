@@ -25,6 +25,7 @@ import (
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/boundcode"
+	"setta/internal/buildinfo"
 	"setta/internal/chatattachments"
 	"setta/internal/chatsections"
 	"setta/internal/codegen"
@@ -58,6 +59,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonenv"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/runchains"
 	"setta/internal/runs"
@@ -2049,6 +2051,14 @@ func (s infoService) RuntimeInfo(context.Context) httpapi.RuntimeInfo {
 		Auth: httpapi.RuntimeAuth{
 			AuthCookieName: s.authCookieName,
 		},
+	}
+}
+
+func (s infoService) SDKRuntimeHandshake(context.Context) pythonsdkcontracts.RunningBackendVersionHandshake {
+	return pythonsdkcontracts.RunningBackendVersionHandshake{
+		SDKVersion:         buildinfo.HostPackageVersion(),
+		CoreVersion:        buildinfo.Version(),
+		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
 	}
 }
 

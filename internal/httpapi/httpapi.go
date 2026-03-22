@@ -21,6 +21,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/frontendorigins"
 	"setta/internal/modes"
+	"setta/internal/pythonsdkcontracts"
 )
 
 const apiPrefix = "/api"
@@ -29,6 +30,7 @@ const RouteAPIPrefix = apiPrefix
 type InfoService interface {
 	ServerMode(context.Context) string
 	RuntimeInfo(context.Context) RuntimeInfo
+	SDKRuntimeHandshake(context.Context) pythonsdkcontracts.RunningBackendVersionHandshake
 }
 
 type RuntimeInfo struct {
@@ -144,6 +146,9 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 		})
 		r.Get("/runtimeInfo", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, deps.Info.RuntimeInfo(r.Context()))
+		})
+		r.Get("/sdkRuntimeHandshake", func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, deps.Info.SDKRuntimeHandshake(r.Context()))
 		})
 		if deps.Register != nil {
 			deps.Register(r)

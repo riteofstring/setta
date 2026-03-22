@@ -8,11 +8,16 @@ from urllib.parse import urlparse
 import requests
 from pydantic import BaseModel
 
+from setta.api.runtime_compat import verify_running_backend_compatibility
 from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_name
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.sdk_contracts.generated import RunnerSummarySection, RunnerSummarySnapshot
+from setta.sdk_contracts.generated import (
+    RunnerSummarySection,
+    RunnerSummarySnapshot,
+    RunningBackendVersionHandshake,
+)
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
@@ -276,6 +281,7 @@ class SettaRunner:
         self._resolved_auth_headers: dict[str, str] | None = None
         self._project_configs: list[ProjectConfig] | None = None
         self._default_project_config_id: ID | None = None
+        self._verified_runtime_handshake: RunningBackendVersionHandshake | None = None
 
     def summary(self) -> RunnerSummary:
         project_config_id = self._resolve_project_config_id(None)
@@ -330,10 +336,20 @@ class SettaRunner:
             headers = self._resolve_auth_headers()
             self._session.headers.update(headers)
             self._resolved_auth_headers = headers
+        self._ensure_runtime_compatibility()
         url = f"{self._base_url}{Route.PREFIX.value}{route.value}"
         response = self._session.post(url, json=payload)
         response.raise_for_status()
         return response.json()
+
+    def _ensure_runtime_compatibility(self) -> None:
+        if self._verified_runtime_handshake is not None:
+            return
+        self._verified_runtime_handshake = verify_running_backend_compatibility(
+            self._session,
+            base_url=self._base_url,
+            auth_headers=None,
+        )
 
     def _resolve_auth_headers(self) -> dict[str, str]:
         if self._auth_headers is not None:

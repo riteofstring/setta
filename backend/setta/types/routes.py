@@ -10,4 +10,5 @@ class Route(str, Enum):
     GET_RUN_STATUS = "/getRunStatus"
     CANCEL_RUN = "/cancelRun"
     GET_RUNNER_SUMMARY = "/getRunnerSummary"
+    SDK_RUNTIME_HANDSHAKE = "/sdkRuntimeHandshake"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"

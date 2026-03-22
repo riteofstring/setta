@@ -13,6 +13,9 @@ from setta.types.generated.dependency_values import (
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
 
+SETTA_SDK_CONTRACT_VERSION = 1
+
+
 class SettaSDKContractBaseModel(BaseModel):
     pass
 
@@ -172,6 +175,12 @@ class ListenerDependencyEvent(SettaSDKContractBaseModel):
     sequence: int
 
 
+class RunningBackendVersionHandshake(SettaSDKContractBaseModel):
+    sdkVersion: str
+    coreVersion: str
+    sdkContractVersion: int
+
+
 class LocalCoreVersionHandshake(SettaSDKContractBaseModel):
     protocolVersion: int
     sdkVersion: str | None = None
@@ -193,6 +202,7 @@ class LocalCoreResultEnvelope(SettaSDKContractBaseModel):
 
 
 __all__ = [
+    "SETTA_SDK_CONTRACT_VERSION",
     "RunnerSummaryVariant",
     "RunnerSummaryParam",
     "RunnerSummarySection",
@@ -216,6 +226,7 @@ __all__ = [
     "ListenerRealtimeEvent",
     "ListenerDependencyEventEntry",
     "ListenerDependencyEvent",
+    "RunningBackendVersionHandshake",
     "LocalCoreVersionHandshake",
     "LocalCoreCommandEnvelope",
     "LocalCoreResultEnvelope",

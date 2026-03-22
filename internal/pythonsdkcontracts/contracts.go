@@ -6,6 +6,7 @@ import (
 )
 
 const GeneratedPythonModulePath = "backend/setta/sdk_contracts/generated.py"
+const SDKContractVersion = 1
 
 type RunnerSummaryVariant struct {
 	ID   string `json:"id"`
@@ -156,6 +157,12 @@ type ListenerDependencyEvent struct {
 	Sequence         uint64                         `json:"sequence"`
 }
 
+type RunningBackendVersionHandshake struct {
+	SDKVersion         string `json:"sdkVersion"`
+	CoreVersion        string `json:"coreVersion"`
+	SDKContractVersion int    `json:"sdkContractVersion"`
+}
+
 type LocalCoreVersionHandshake struct {
 	ProtocolVersion int     `json:"protocolVersion"`
 	SDKVersion      *string `json:"sdkVersion,omitempty"`
@@ -201,6 +208,7 @@ func currentContractTypes() []reflect.Type {
 		reflect.TypeOf(ListenerRealtimeEvent{}),
 		reflect.TypeOf(ListenerDependencyEventEntry{}),
 		reflect.TypeOf(ListenerDependencyEvent{}),
+		reflect.TypeOf(RunningBackendVersionHandshake{}),
 		reflect.TypeOf(LocalCoreVersionHandshake{}),
 		reflect.TypeOf(LocalCoreCommandEnvelope{}),
 		reflect.TypeOf(LocalCoreResultEnvelope{}),
