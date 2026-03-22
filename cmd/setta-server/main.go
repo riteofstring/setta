@@ -141,11 +141,11 @@ func run(args []string) (err error) {
 	case <-signalCtx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil && err != http.ErrServerClosed {
-			return fmt.Errorf("shutdown http server: %w", err)
-		}
 		if err := application.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown runtime: %w", err)
+		}
+		if err := server.Shutdown(shutdownCtx); err != nil && err != http.ErrServerClosed {
+			return fmt.Errorf("shutdown http server: %w", err)
 		}
 		if err := <-serverErr; err != nil && err != http.ErrServerClosed {
 			return err
