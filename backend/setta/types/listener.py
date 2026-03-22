@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog as SDKListenerDependencyCatalog,
 )
@@ -9,6 +9,9 @@ from setta.sdk_contracts.generated import (
 )
 from setta.sdk_contracts.generated import (
     ListenerDependencyEvent as SDKListenerDependencyEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
 )
 from setta.sdk_contracts.generated import (
     ListenerErrorEvent as SDKListenerErrorEvent,
@@ -42,6 +45,9 @@ from setta.sdk_contracts.generated import (
 )
 from setta.sdk_contracts.generated import (
     ListenerRealtimeEvent as SDKListenerRealtimeEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
 )
 from setta.sdk_contracts.generated import (
     ListenerRouterEndpointCall as SDKListenerRouterEndpointCall,
@@ -84,11 +90,7 @@ class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
     dependencyValues: "ListenerRenderedDependencyValues | None" = None
 
 
-class DependencyEvent(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    payload: BaseDependencyValueUnionWithDiscriminator | None = None
-    timestampMs: int
+class DependencyEvent(SDKListenerDependencyEventEntry):
     _binary_payload: bytes | None = PrivateAttr(default=None)
 
     @property
@@ -135,10 +137,7 @@ class RealtimeUIChangeContent(BaseModel):
     value: BaseDependencyValueUnionWithDiscriminator
 
 
-class ListenerRealtimeDelta(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dependency: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
+class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     _binary_payload: bytes | None = PrivateAttr(default=None)
 
     @property

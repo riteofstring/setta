@@ -546,15 +546,17 @@ Phase 6 progress:
   dependency catalog, rendered-value, snapshot, force-refresh, register, and
   outer realtime/dependency-event contract types directly through
   `backend/setta/types/listener.py`
-- the handwritten listener DTOs that remain are now limited to the nested
-  binary-bearing realtime/dependency entry wrappers and the backend-only helper
-  payloads that are outside the generated retained-SDK contract family
+- the nested realtime-delta and dependency-event entry wrappers are now thin
+  subclasses of the generated contract models, with Python-only binary payload
+  attachment kept as the only retained behavior on those types
+- the handwritten listener DTOs that remain are now limited to backend-only
+  helper payloads that are outside the generated retained-SDK contract family
 
 Current Phase 6 boundary:
 
-- keep the nested `ListenerRealtimeDelta` and `DependencyEvent` payload
-  wrappers handwritten until the generated contract path can carry Python-only
-  binary payload attachment without regressing websocket round-tripping
+- keep the Python-only binary payload attachment shim on the nested
+  `ListenerRealtimeDelta` and `DependencyEvent` wrappers unless that behavior
+  moves into the generated contract layer itself
 - keep backend-only helper payloads such as realtime UI-change and coverage
   snapshots handwritten unless they become part of the retained SDK contract
 
