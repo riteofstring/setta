@@ -1025,6 +1025,56 @@ func TestServiceStartChatBranchEditMissingMessageReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestBuildBranchMessagesReplacesTargetAndTruncatesDescendants(t *testing.T) {
+	t.Parallel()
+
+	result, err := buildBranchMessages(
+		[]map[string]any{
+			userMessage("msg-1", "Original"),
+			assistantMessage("msg-2", "Reply"),
+			userMessage("msg-3", "Later"),
+		},
+		userMessage("edited", "Edited"),
+		"msg-1",
+	)
+	if err != nil {
+		t.Fatalf("build branch messages: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected one branched message, got %#v", result)
+	}
+	if got := result[0]["id"]; got != "msg-1" {
+		t.Fatalf("expected edited message to reuse target id, got %#v", got)
+	}
+	content, ok := result[0]["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected edited content payload, got %#v", result[0]["content"])
+	}
+	firstPart, ok := content[0].(map[string]any)
+	if !ok || firstPart["text"] != "Edited" {
+		t.Fatalf("expected edited content text, got %#v", result[0]["content"])
+	}
+}
+
+func TestBuildBranchMessagesMissingTargetReturnsTypedNotFound(t *testing.T) {
+	t.Parallel()
+
+	_, err := buildBranchMessages(
+		[]map[string]any{
+			userMessage("msg-1", "Original"),
+		},
+		userMessage("edited", "Edited"),
+		"missing",
+	)
+	var branchErr *BranchMessageNotFoundError
+	if !errors.As(err, &branchErr) {
+		t.Fatalf("expected typed branch message error, got %v", err)
+	}
+	if branchErr.MessageID != "missing" {
+		t.Fatalf("expected missing message id to round-trip, got %#v", branchErr)
+	}
+}
+
 // Managed sends should fail explicitly when the runtime boundary exists but the
 // underlying executor is still unavailable in the real app wiring.
 func TestServiceStartChatReturnsExecutorUnavailableWhenStarterDisabled(t *testing.T) {

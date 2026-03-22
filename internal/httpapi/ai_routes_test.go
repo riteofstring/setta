@@ -5536,6 +5536,102 @@ func TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode(t *testing
 	}
 }
 
+func TestRegisterAIRoutesMapsTranscriptionSessionSizeCapTo413(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
+				Provider:  "openai",
+				BaseURL:   "https://example.com/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-file",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+	limitedSessions, err := transcriptionsessions.NewService(transcriptionsessions.ServiceOptions{
+		LLM:                fixture.llm,
+		MaxPendingPCMBytes: 1024,
+	})
+	if err != nil {
+		t.Fatalf("new limited transcription session service: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		limitedSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+
+	oversizedPCM := bytes.Repeat([]byte{0x00, 0x01}, 600)
+	appendRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString(oversizedPCM)+`","sampleRateHz":24000,"channels":1}`),
+	)
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(appendResponse, appendRequest)
+
+	if appendResponse.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d with body %q", appendResponse.Code, appendResponse.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(appendResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "audio_payload_too_large" {
+		t.Fatalf("expected audio_payload_too_large, got %#v", payload)
+	}
+	if payload.Error.Message != "Audio payload is too large. Maximum size is 1024 bytes." {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload(t *testing.T) {
 	t.Parallel()
 
