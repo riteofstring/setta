@@ -43,6 +43,11 @@ Runtime profile/path overrides:
 ./scripts/run-dev-instance.sh --setta-files-root "$PWD/setta_files_dev" --runtime-root "$PWD/setta_files_dev/runtime_dev"
 ```
 
+Run Go tests from a worktree:
+```sh
+./scripts/run_go_tests.sh
+```
+
 Name constraints:
 - `--setta-home` must end with `.setta` or `.setta-development`.
 - `--setta-files-root` must include a path segment named `setta_files` or `setta_files_dev`.

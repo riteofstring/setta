@@ -6,6 +6,9 @@ packaged Go binary for the current shipped command surface. The old
 source-only Python `backend/setta/start.py` CLI has been removed. Root help,
 bare `setta plugins` / `setta plugins lock` navigation, and invalid root argv
 all resolve through the packaged Go CLI boundary.
+Inside a source checkout, that same retained Python wrapper detects the repo
+root and dispatches into `./scripts/go.sh run ./cmd/setta` instead of a
+packaged binary.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -82,6 +85,8 @@ Env equivalents:
 
 Starts the backend server in the current workspace, creates a session entry,
 prints a bootstrap URL + token, and (when possible) auto-opens the browser.
+In a source checkout this is the Go `cmd/setta` path; in an installed package
+it is the retained Python wrapper dispatching into the packaged Go binary.
 
 Options:
 - `--host` sets the bind host (default: `127.0.0.1`).

@@ -15,17 +15,17 @@ definition.
 
 Used by:
 
-- `BaseProjectManager.update_app_definition()` (`backend/setta/project_state/base_project_manager.py`)
+- Go-owned app-definition writes in `internal/projectstate/app_definition_writes.go`
+- HTTP reads/writes in `internal/httpapi/app_definition_routes.go`
 
 This applies a **JSON Merge Patch** to the stored app definition/spec. Use this
 for non-streaming, persisted edits (for example: "set this one field" or "apply
 this config change").
 
-## 2) Streaming Preview / Generation: JSONL JSON-Pointer Patch Ops
+## 2) Streaming Persistence: JSONL JSON-Pointer Patch Ops
 
 Used by:
 
-- `/api/streamAppSpec` (`backend/setta/routers/app_spec_streaming.py`)
 - `setta__stream_app_definition` (`internal/mcpx/server.go` and `internal/projectstate/app_definition_stream.go`)
 
 This consumes **newline-delimited JSON (JSONL)** where each line is an operation
@@ -35,9 +35,14 @@ This format is designed for progressive UI updates while a model is generating a
 spec, and matches streaming UI contracts (for example `@json-render/react`'s
 `useUIStream`).
 
-### `/api/streamAppSpec` generation mode inputs
+The older standalone `/api/streamAppSpec` HTTP helper is now a legacy/dormant
+surface. The current app-config and Project Chat flow uses
+`/api/getLLMResponse` plus `/ws/frontend` tool-preview updates and the Go-owned
+`stream_app_definition` MCP tool instead of a dedicated streaming HTTP route.
 
-`StreamAppSpecRequest` now accepts:
+### Current app-generation mode inputs
+
+The surviving app-generation input contract now centers on:
 
 - `mode`: `"json_render" | "json_render_with_image" | "prompt_builder" | "mcp_server" | null`
 - `referenceImageUrl`
@@ -49,8 +54,9 @@ Current behavior:
   `mode="json_render_with_image"`.
 - Image mode validates that the selected model supports vision before issuing the
   LLM request.
-- `referenceImageUrl` and `referenceImageNotes` are hard-limited by backend
-  guards (see `backend/setta/routers/app_generation_limits.py`).
+- `referenceImageUrl` and `referenceImageNotes` are hard-limited by the
+  current Go send/prompt normalization path in `internal/managedchat` and
+  `internal/externalagents`.
 
 ### Patch Op semantics
 

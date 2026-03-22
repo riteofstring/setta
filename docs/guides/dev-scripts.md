@@ -35,8 +35,8 @@ Use these first for day-to-day work.
   - If you create a single worktree, enters it (starts a new shell there).
   - If you create multiple worktrees, stays in the current folder (equivalent to `--stay`).
 - `./t.sh`
-  - Runs tests (backend pytest + frontend Vitest + Playwright).
-  - Flags: `--b` (backend-only), `--f` (frontend + Playwright only), `--all` (enables opt-in external agent integration tests).
+  - Runs tests (Go suite + retained Python pytest + frontend Vitest + Playwright).
+  - Flags: `--b` (Go + retained Python coverage only), `--f` (frontend + Playwright only), `--all` (enables opt-in external agent integration tests).
   - Logs to `tests.log` at the repo root.
   - External agent integration tests (Claude/Codex/OpenCode) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
 - `./gcf.sh`
@@ -85,7 +85,10 @@ These are used by the top-level wrappers or for advanced workflows.
   - Resolves the active Setta state root and deletes it.
   - Used by `reset`/`aireset` flows.
 - `./scripts/run_backend_tests.sh`
-  - Backend pytest runner (invoked by `t.sh`).
+  - Retained Python pytest runner (invoked by `t.sh`).
+- `./scripts/run_go_tests.sh`
+  - Go test wrapper (invoked by `t.sh`).
+  - Runs `./scripts/go.sh test ./... -count=1` and accepts extra `go test` args.
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
   - Always uses disposable temp `SETTA_WORKSPACE_ROOT` + `SETTA_HOME` paths for isolation.
@@ -117,7 +120,7 @@ These are used by the top-level wrappers or for advanced workflows.
 These are the underlying tasks used by the wrappers above.
 
 - `pnpm start` / `pnpm startr`
-  - Vite + backend (reload for backend on `startr`).
+  - Vite + Go-backed backend (reload for backend on `startr`).
 - `pnpm reset`
   - Resolves + wipes the active Setta state root, then starts dev server.
 - `pnpm test`
@@ -141,7 +144,7 @@ These are the underlying tasks used by the wrappers above.
 Useful when you need to debug a specific subsystem.
 
 - `frontend/backendStart.sh`
-  - Starts the backend process (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
+  - Starts the Go-backed backend process for source/dev runs (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
   - Template/type generation (used by `pnpm generate`).
 - `frontend/generation/generate_go_frontend_bindings.sh`

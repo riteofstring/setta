@@ -24,7 +24,7 @@ Relevant code:
 
 ## Realtime (IDE/UI + listeners)
 ### UI and artifact caches
-- The backend keeps in-memory artifact caches in `Artifacts`:
+- The Go backend keeps in-memory artifact caches in `internal/artifacts.Service`:
   - `ImageArtifact.value` is a `BinaryContentRef` with `contentId` + metadata.
   - `BrushStrokeArtifact.value` and `DrawAreaLayerItemTransformArtifact.value`
     are JSON payloads.
@@ -40,8 +40,9 @@ Relevant code:
   before Draw canvases render (binary images are fetched via the binary endpoint).
 
 Relevant code:
-- `backend/setta/project_state/artifacts.py`
-- `backend/setta/routers/artifact.py`
+- `internal/artifacts/service.go`
+- `internal/httpapi/artifact_routes.go`
+- `internal/app/artifact_watch.go`
 - `frontend/src/state/hooks/artifacts.ts`
 - `frontend/src/components/Section/Layouts/ImageArea.tsx`
 - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
@@ -84,8 +85,10 @@ Relevant code:
   writes the png, and updates `renderedImagePath`.
 
 Relevant code:
+- `internal/codegen/python_dependency_graph.go`
+- `internal/codegen/python_value_codec.go`
+- `internal/runs/service.go`
+- `internal/projectstate/draw_snapshots.go`
 - `backend/setta/code_gen/dependency_graph.py`
 - `backend/setta/code_gen/value_codec.py`
 - `backend/setta/code_gen/python/value_helpers.py`
-- `backend/setta/project_state/base_project_manager.py`
-- `backend/setta/project_state/draw_snapshots.py`

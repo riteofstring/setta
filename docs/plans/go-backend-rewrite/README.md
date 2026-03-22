@@ -8,6 +8,9 @@ Use this file only as the folder map.
 
 - `CURRENT.md`
   - entrypoint, read order, retained Python boundaries, task loop
+- `go-rewrite-closeout-cleanup-plan.md`
+  - repo/docs/script cleanup plan now that the active backend runtime is Go
+    owned and the retained Python boundary is explicit
 - `unused-python-deletion-plan.md`
   - stepwise evidence-gated plan for deleting superseded Python code and tests
 - `backend-behavior-parity-matrix-plan.md`
