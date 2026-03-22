@@ -165,6 +165,7 @@ describe("Tier1DenseParamSectionPreview", () => {
         <Tier1DenseParamSectionPreview
           sectionId="section-123"
           isActiveSection={false}
+          shouldWarmPreview={false}
           showPreview
         >
           <LiveBody />
@@ -186,6 +187,7 @@ describe("Tier1DenseParamSectionPreview", () => {
         <Tier1DenseParamSectionPreview
           sectionId="section-123"
           isActiveSection={false}
+          shouldWarmPreview
           showPreview={false}
         >
           <LiveBody />
@@ -209,6 +211,7 @@ describe("Tier1DenseParamSectionPreview", () => {
         <Tier1DenseParamSectionPreview
           sectionId="section-123"
           isActiveSection={false}
+          shouldWarmPreview
           showPreview
         >
           <LiveBody />
@@ -226,6 +229,117 @@ describe("Tier1DenseParamSectionPreview", () => {
     ).not.toBeNull();
     expect(
       document.querySelector('[data-section-body-preview-image="true"]'),
+    ).not.toBeNull();
+  });
+
+  it("retains a captured preview after warm eligibility drops", async () => {
+    function LiveBody() {
+      return (
+        <div
+          data-testid="live-body"
+          data-test-left="20"
+          data-test-top="60"
+          data-test-width="320"
+          data-test-height="120"
+        >
+          Live body
+        </div>
+      );
+    }
+
+    await act(async () => {
+      root?.render(
+        <Tier1DenseParamSectionPreview
+          sectionId="section-123"
+          isActiveSection={false}
+          shouldWarmPreview
+          showPreview={false}
+        >
+          <LiveBody />
+        </Tier1DenseParamSectionPreview>,
+      );
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+      await Promise.resolve();
+    });
+
+    expect(snapdomToSvg).toHaveBeenCalledTimes(1);
+    expect(
+      host?.querySelector('[data-section-body-preview-status="ready"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      root?.render(
+        <Tier1DenseParamSectionPreview
+          sectionId="section-123"
+          isActiveSection={false}
+          shouldWarmPreview={false}
+          showPreview={false}
+        >
+          <LiveBody />
+        </Tier1DenseParamSectionPreview>,
+      );
+    });
+
+    await act(async () => {
+      root?.render(
+        <Tier1DenseParamSectionPreview
+          sectionId="section-123"
+          isActiveSection={false}
+          shouldWarmPreview={false}
+          showPreview
+        >
+          <LiveBody />
+        </Tier1DenseParamSectionPreview>,
+      );
+    });
+
+    expect(snapdomToSvg).toHaveBeenCalledTimes(1);
+    expect(
+      document.querySelector(
+        '[data-section-body-preview-overlay="section-123"]',
+      ),
+    ).not.toBeNull();
+  });
+
+  it("does not start capture work for far sections that are not warm eligible", async () => {
+    function LiveBody() {
+      return (
+        <div
+          data-testid="live-body"
+          data-test-left="20"
+          data-test-top="60"
+          data-test-width="320"
+          data-test-height="120"
+        >
+          Live body
+        </div>
+      );
+    }
+
+    await act(async () => {
+      root?.render(
+        <Tier1DenseParamSectionPreview
+          sectionId="section-123"
+          isActiveSection={false}
+          shouldWarmPreview={false}
+          showPreview={false}
+        >
+          <LiveBody />
+        </Tier1DenseParamSectionPreview>,
+      );
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+      await Promise.resolve();
+    });
+
+    expect(snapdomToSvg).not.toHaveBeenCalled();
+    expect(
+      host?.querySelector('[data-section-body-preview-status="idle"]'),
     ).not.toBeNull();
   });
 });

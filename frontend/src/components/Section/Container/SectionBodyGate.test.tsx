@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { Node } from "forks/xyflow/core/types";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -21,10 +22,16 @@ type MockProjectState = {
 type MockReactFlowState = {
   viewportInteractionActive: boolean;
   transform: [number, number, number];
+  width: number;
+  height: number;
 };
 
 type MockNodeInternalsState = {
-  x: Map<string, { width: number | null; height: number | null }>;
+  x: Map<string, Node>;
+};
+
+type MockLocalStorageState = {
+  overviewTrueWidth: number;
 };
 
 let mockSectionImpl: {
@@ -42,13 +49,30 @@ let mockProjectState: MockProjectState = {
 let mockReactFlowState: MockReactFlowState = {
   viewportInteractionActive: false,
   transform: [0, 0, 1],
+  width: 200,
+  height: 120,
 };
 
 let mockNodeInternalsState: MockNodeInternalsState = {
-  x: new Map([["section-123", { width: 200, height: 100 }]]),
+  x: new Map([
+    [
+      "section-123",
+      {
+        id: "section-123",
+        position: { x: 0, y: 0 },
+        width: 200,
+        height: 100,
+        zIndex: 0,
+        tempZIndex: 0,
+      },
+    ],
+  ]),
 };
 
 let mockIsActiveSection = false;
+let mockLocalStorageState: MockLocalStorageState = {
+  overviewTrueWidth: 0,
+};
 
 vi.mock("state/actions/sectionInfos", () => ({
   getCurrEffectiveSectionImpl: () => mockSectionImpl,
@@ -59,6 +83,8 @@ vi.mock("state/definitions", () => ({
     selector(mockProjectState),
   useNodeInternals: (selector: (state: MockNodeInternalsState) => unknown) =>
     selector(mockNodeInternalsState),
+  useLocalStorage: (selector: (state: MockLocalStorageState) => unknown) =>
+    selector(mockLocalStorageState),
 }));
 
 vi.mock("forks/xyflow/core/store", () => ({
@@ -100,17 +126,20 @@ vi.mock("../Layouts/Tier1DenseParamSectionPreview", () => ({
     children,
     sectionId,
     isActiveSection,
+    shouldWarmPreview,
     showPreview,
   }: {
     children: ReactNode;
     sectionId: string;
     isActiveSection: boolean;
+    shouldWarmPreview: boolean;
     showPreview: boolean;
   }) => (
     <div
       data-testid="mock-tier1-preview"
       data-section-id={sectionId}
       data-is-active={isActiveSection ? "true" : "false"}
+      data-should-warm-preview={shouldWarmPreview ? "true" : "false"}
       data-show-preview={showPreview ? "true" : "false"}
     >
       {children}
@@ -146,11 +175,28 @@ describe("SectionBodyGate", () => {
     mockReactFlowState = {
       viewportInteractionActive: false,
       transform: [0, 0, 1],
+      width: 200,
+      height: 120,
     };
     mockNodeInternalsState = {
-      x: new Map([["section-123", { width: 200, height: 100 }]]),
+      x: new Map([
+        [
+          "section-123",
+          {
+            id: "section-123",
+            position: { x: 0, y: 0 },
+            width: 200,
+            height: 100,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
     };
     mockIsActiveSection = false;
+    mockLocalStorageState = {
+      overviewTrueWidth: 0,
+    };
   });
 
   it("classifies section families for the hybrid-rendering rollout", () => {
@@ -216,6 +262,123 @@ describe("SectionBodyGate", () => {
     expect(markup).toContain('data-user-view="true"');
   });
 
+  it("shows tier1 preview overlays only for sections inside the visible pane", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Callable,
+      isMinimized: false,
+    };
+    mockReactFlowState = {
+      viewportInteractionActive: true,
+      transform: [0, 0, 0.8],
+      width: 200,
+      height: 120,
+    };
+    mockNodeInternalsState = {
+      x: new Map([
+        [
+          "section-123",
+          {
+            id: "section-123",
+            position: { x: 40, y: 20 },
+            width: 140,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionBodyGate
+        sectionId="section-123"
+        owner={{ kind: "canvas", bgColor: "bg-setta-50", isUserView: false }}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-tier1-preview"');
+    expect(markup).toContain('data-should-warm-preview="true"');
+    expect(markup).toContain('data-show-preview="true"');
+  });
+
+  it("warms nearby tier1 sections without showing overlays until they reach the pane", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Callable,
+      isMinimized: false,
+    };
+    mockReactFlowState = {
+      viewportInteractionActive: true,
+      transform: [0, 0, 0.8],
+      width: 200,
+      height: 120,
+    };
+    mockNodeInternalsState = {
+      x: new Map([
+        [
+          "section-123",
+          {
+            id: "section-123",
+            position: { x: 255, y: 10 },
+            width: 40,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionBodyGate
+        sectionId="section-123"
+        owner={{ kind: "canvas", bgColor: "bg-setta-50", isUserView: false }}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-tier1-preview"');
+    expect(markup).toContain('data-should-warm-preview="true"');
+    expect(markup).toContain('data-show-preview="false"');
+  });
+
+  it("keeps far tier1 sections on the live path until they return near the pane", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Callable,
+      isMinimized: false,
+    };
+    mockReactFlowState = {
+      viewportInteractionActive: true,
+      transform: [0, 0, 0.8],
+      width: 200,
+      height: 120,
+    };
+    mockNodeInternalsState = {
+      x: new Map([
+        [
+          "section-123",
+          {
+            id: "section-123",
+            position: { x: 330, y: 10 },
+            width: 40,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionBodyGate
+        sectionId="section-123"
+        owner={{ kind: "canvas", bgColor: "bg-setta-50", isUserView: false }}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-tier1-preview"');
+    expect(markup).toContain('data-should-warm-preview="false"');
+    expect(markup).toContain('data-show-preview="false"');
+  });
+
   it("skips minimized sections before they reach the body switch", () => {
     mockSectionImpl = {
       type: SectionTypeEnum.Code,
@@ -263,9 +426,23 @@ describe("SectionBodyGate", () => {
     mockReactFlowState = {
       viewportInteractionActive: true,
       transform: [0, 0, 0.6],
+      width: 240,
+      height: 180,
     };
     mockNodeInternalsState = {
-      x: new Map([["section-123", { width: 300, height: 180 }]]),
+      x: new Map([
+        [
+          "section-123",
+          {
+            id: "section-123",
+            position: { x: 0, y: 0 },
+            width: 300,
+            height: 180,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
     };
 
     const markup = renderToStaticMarkup(
