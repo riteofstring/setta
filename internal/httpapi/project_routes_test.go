@@ -9287,6 +9287,73 @@ func TestRegisterProjectRoutesTextBlockMutationsRejectDeploymentPolicyWhenDisall
 	}
 }
 
+func TestRegisterProjectRoutesTextBlockParamPolicyAppliesToAllProjectConfigs(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			projectBeta := textBlockRouteTestProject(t)
+			projectBeta.ID = "project-beta"
+			projectBeta.Name = "Beta"
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": textBlockRouteTestProject(t),
+						"project-beta":  projectBeta,
+					},
+				},
+				Policy: map[string]any{
+					"allowParamChanges":  false,
+					"allowLayoutChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay before rejected text mutation: %v", err)
+			}
+			before := overlay.Snapshot().Document.Projects["project-beta"].Sections["text-section"]
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetTextBlockText,
+				strings.NewReader(`{"projectConfigId":"project-beta","sectionId":"text-section","text":"blocked"}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s on project-beta, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
+				t.Fatalf("expected param_changes_forbidden body for project-beta, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
+				t.Fatalf("expected deployment param policy denial for project-beta, got %q", response.Body.String())
+			}
+
+			after := overlay.Snapshot().Document.Projects["project-beta"].Sections["text-section"]
+			if !reflect.DeepEqual(after, before) {
+				t.Fatalf("expected rejected project-beta text mutation to leave overlay unchanged, got %#v", after)
+			}
+
+			baseProjectBeta := deploymentRuntime.Base().Snapshot().Document.Projects["project-beta"].Sections["text-section"]
+			if !reflect.DeepEqual(baseProjectBeta, before) {
+				t.Fatalf("expected base project-beta section unchanged, got %#v", baseProjectBeta)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *testing.T) {
 	t.Parallel()
 
