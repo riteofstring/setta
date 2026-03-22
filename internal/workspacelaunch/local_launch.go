@@ -38,18 +38,19 @@ type LocalLaunchInput struct {
 }
 
 type LocalLaunchResult struct {
-	BootstrapURLFragment string
-	ReturnURL            string
-	WorkspaceRoot        string
-	SettaFilesLocation   string
-	SettaFilesRoot       string
-	RuntimeRoot          string
-	SettaHome            string
-	Profile              *string
-	RemoteCmdResolved    *string
-	SessionID            string
-	StartedNew           bool
-	Session              auth.SessionMetadata
+	BootstrapURLFragment   string
+	ReturnURL              string
+	WorkspaceRoot          string
+	SettaFilesLocation     string
+	UsesExplicitSettaFiles bool
+	SettaFilesRoot         string
+	RuntimeRoot            string
+	SettaHome              string
+	Profile                *string
+	RemoteCmdResolved      *string
+	SessionID              string
+	StartedNew             bool
+	Session                auth.SessionMetadata
 }
 
 type SSHWorkspaceRuntime interface {
@@ -306,18 +307,19 @@ func (s *LocalLaunchService) Launch(input LocalLaunchInput) (LocalLaunchResult, 
 	_ = launcher.UpdateLauncherLastUsedWorkspaceIfInstalled(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
 
 	return LocalLaunchResult{
-		BootstrapURLFragment: bootstrapURLFragment,
-		ReturnURL:            returnURL,
-		WorkspaceRoot:        launchResult.Paths.WorkspaceRoot,
-		SettaFilesLocation:   string(launchResult.Paths.ResolvedFilesLocation),
-		SettaFilesRoot:       launchResult.Paths.SettaFilesRoot,
-		RuntimeRoot:          launchResult.Paths.RuntimeRoot,
-		SettaHome:            launchResult.Paths.SettaHome,
-		Profile:              optionalStringPointer(launchResult.Paths.ProfileName),
-		RemoteCmdResolved:    nil,
-		SessionID:            launchResult.Session.ID,
-		StartedNew:           launchResult.StartedNew,
-		Session:              launchResult.Session,
+		BootstrapURLFragment:   bootstrapURLFragment,
+		ReturnURL:              returnURL,
+		WorkspaceRoot:          launchResult.Paths.WorkspaceRoot,
+		SettaFilesLocation:     string(launchResult.Paths.ResolvedFilesLocation),
+		UsesExplicitSettaFiles: launchResult.Paths.UsesExplicitSettaFiles,
+		SettaFilesRoot:         launchResult.Paths.SettaFilesRoot,
+		RuntimeRoot:            launchResult.Paths.RuntimeRoot,
+		SettaHome:              launchResult.Paths.SettaHome,
+		Profile:                optionalStringPointer(launchResult.Paths.ProfileName),
+		RemoteCmdResolved:      nil,
+		SessionID:              launchResult.Session.ID,
+		StartedNew:             launchResult.StartedNew,
+		Session:                launchResult.Session,
 	}, nil
 }
 

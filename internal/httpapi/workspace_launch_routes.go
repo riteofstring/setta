@@ -187,7 +187,7 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 			BootstrapURLFragment: stringPointer(result.BootstrapURLFragment),
 			ReturnURL:            stringPointer(result.ReturnURL),
 			WorkspaceRoot:        stringPointer(result.WorkspaceRoot),
-			SettaFilesLocation:   stringPointer(result.SettaFilesLocation),
+			SettaFilesLocation:   launchSettaFilesLocationPointer(result),
 			SettaFilesRoot:       stringPointer(result.SettaFilesRoot),
 			RuntimeRoot:          stringPointer(result.RuntimeRoot),
 			SettaHome:            stringPointer(result.SettaHome),
@@ -207,6 +207,13 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 			Error:             nil,
 		})
 	}
+}
+
+func launchSettaFilesLocationPointer(result workspacelaunch.LocalLaunchResult) *string {
+	if result.UsesExplicitSettaFiles {
+		return nil
+	}
+	return stringPointer(result.SettaFilesLocation)
 }
 
 func workspacelaunchBuildSafeLaunchReturnURL(requestOrigin string) string {
