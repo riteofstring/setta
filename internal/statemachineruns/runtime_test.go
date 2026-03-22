@@ -340,6 +340,116 @@ func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpCha
 	}
 }
 
+func TestRuntimeHandleTerminalChildRunUpdateFailsStalledWhenFailedChildHasNoMatchingTransition(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRuntimeFixture(t)
+	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	childRun, err := fixture.runs.Load("child-run-1")
+	if err != nil {
+		t.Fatalf("load child run: %v", err)
+	}
+	childRun.Status = agentruns.RunStatusFailed
+	if err := fixture.runs.Save(childRun); err != nil {
+		t.Fatalf("save failed child run: %v", err)
+	}
+
+	updated, err := fixture.runtime.HandleTerminalChildRunUpdate(childRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if updated == nil {
+		t.Fatal("expected updated parent run")
+	}
+	if updated.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed parent run, got %#v", updated)
+	}
+	if updated.ID != parentRun.ID {
+		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	}
+	if got := outputStringList(*updated, outputKeyActiveChildRunIDs); len(got) != 0 {
+		t.Fatalf("expected no active child runs after stalled failure, got %#v", got)
+	}
+	if failureSummary, ok := updated.Outputs[outputKeyFailureSummary].(map[string]any); !ok {
+		t.Fatalf("expected failure summary, got %#v", updated.Outputs)
+	} else {
+		if failureSummary["reason"] != "run_stalled" {
+			t.Fatalf("expected run_stalled reason, got %#v", failureSummary)
+		}
+		if failureSummary["message"] != "Workflow has no active children, pending signals, or reachable next step." {
+			t.Fatalf("expected stalled failure message, got %#v", failureSummary)
+		}
+		if details, ok := failureSummary["details"].(map[string]any); !ok || len(details) != 0 {
+			t.Fatalf("expected empty stalled failure details, got %#v", failureSummary)
+		}
+	}
+	if got := eventTypes(*updated); !slices.Equal(got[len(got)-2:], []string{
+		"child_run_failed",
+		"run_failed",
+	}) {
+		t.Fatalf("expected stalled failure event tail, got %#v", got)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateFailsStalledWhenCancelledChildHasNoMatchingTransition(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRuntimeFixture(t)
+	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	childRun, err := fixture.runs.Load("child-run-1")
+	if err != nil {
+		t.Fatalf("load child run: %v", err)
+	}
+	childRun.Status = agentruns.RunStatusCancelled
+	if err := fixture.runs.Save(childRun); err != nil {
+		t.Fatalf("save cancelled child run: %v", err)
+	}
+
+	updated, err := fixture.runtime.HandleTerminalChildRunUpdate(childRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if updated == nil {
+		t.Fatal("expected updated parent run")
+	}
+	if updated.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed parent run, got %#v", updated)
+	}
+	if updated.ID != parentRun.ID {
+		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	}
+	if got := outputStringList(*updated, outputKeyActiveChildRunIDs); len(got) != 0 {
+		t.Fatalf("expected no active child runs after cancelled stall, got %#v", got)
+	}
+	if failureSummary, ok := updated.Outputs[outputKeyFailureSummary].(map[string]any); !ok {
+		t.Fatalf("expected failure summary, got %#v", updated.Outputs)
+	} else {
+		if failureSummary["reason"] != "run_stalled" {
+			t.Fatalf("expected run_stalled reason, got %#v", failureSummary)
+		}
+		if failureSummary["message"] != "Workflow has no active children, pending signals, or reachable next step." {
+			t.Fatalf("expected stalled failure message, got %#v", failureSummary)
+		}
+		if details, ok := failureSummary["details"].(map[string]any); !ok || len(details) != 0 {
+			t.Fatalf("expected empty stalled failure details, got %#v", failureSummary)
+		}
+	}
+	if got := eventTypes(*updated); !slices.Equal(got[len(got)-2:], []string{
+		"child_run_cancelled",
+		"run_failed",
+	}) {
+		t.Fatalf("expected cancelled stalled event tail, got %#v", got)
+	}
+}
+
 func TestRuntimeStartRunFailsClosedWhenSignalTargetProfileDisallowsWorkflowSignalTool(t *testing.T) {
 	t.Parallel()
 

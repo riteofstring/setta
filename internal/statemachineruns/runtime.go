@@ -593,18 +593,13 @@ func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentru
 			parentRun.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
 			r.appendActionEvents(&parentRun, graph, actionResults)
 		}
-	} else if childRun.Status == agentruns.RunStatusFailed {
-		label := sourceSectionID
-		if section, ok := graph.Sections[sourceSectionID]; ok && strings.TrimSpace(section.Label) != "" {
-			label = section.Label
-		}
-		r.failRun(&parentRun, "child_run_failed", fmt.Sprintf("Workflow failed because %s failed.", label), map[string]any{
-			"childRunId":      childRun.ID,
-			"sourceSectionId": sourceSectionID,
-		})
 	}
 	r.incrementSourceActivationCount(&parentRun, sourceSectionID)
 	r.refreshOutputs(&parentRun, graph)
+	if shouldFailAsStalledAfterTerminalChild(parentRun, childRun) {
+		r.failRun(&parentRun, "run_stalled", "Workflow has no active children, pending signals, or reachable next step.", map[string]any{})
+		r.refreshOutputs(&parentRun, graph)
+	}
 	if err := r.runs.Save(parentRun); err != nil {
 		return nil, err
 	}
@@ -1903,6 +1898,33 @@ func markSignalEventProcessed(run *agentruns.Run, signalEvent map[string]any) {
 		return
 	}
 	run.Outputs[outputKeyProcessedSignalEventIDs] = append(stringSliceToAny(processed), signalEventID)
+}
+
+func hasUnprocessedSignalEvents(run agentruns.Run) bool {
+	processed := outputStringList(run, outputKeyProcessedSignalEventIDs)
+	for _, signalEvent := range outputListOfMaps(run, outputKeySignalEvents) {
+		signalEventID := signalEventString(signalEvent, "signalEventId")
+		if signalEventID == "" {
+			continue
+		}
+		if !containsString(processed, signalEventID) {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldFailAsStalledAfterTerminalChild(parentRun agentruns.Run, childRun agentruns.Run) bool {
+	if childRun.Status != agentruns.RunStatusFailed && childRun.Status != agentruns.RunStatusCancelled {
+		return false
+	}
+	if parentRun.Status != agentruns.RunStatusRunning {
+		return false
+	}
+	if len(outputStringList(parentRun, outputKeyActiveChildRunIDs)) > 0 {
+		return false
+	}
+	return !hasUnprocessedSignalEvents(parentRun)
 }
 
 func setGateStatus(run *agentruns.Run, sectionID string, status string) {
