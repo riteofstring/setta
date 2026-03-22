@@ -878,6 +878,138 @@ func TestServiceLogPaginatesAndPreservesDecorations(t *testing.T) {
 	}
 }
 
+func TestServiceLogNonInitialPageSkipsHeadBranchLookup(t *testing.T) {
+	t.Parallel()
+
+	// Later log pages should not perform the extra head-branch lookup, even though the Go
+	// service still resolves the repo root per request through repoRootOrNone.
+	workspaceRoot := t.TempDir()
+	commandsPath := filepath.Join(t.TempDir(), "commands.log")
+	logOutputPath := filepath.Join(t.TempDir(), "log.out")
+	logOutput := strings.Join([]string{
+		strings.Repeat("a", 40) + "\x00\x00A\x00a@example.com\x001700000000\x00subject-1\x00\x00",
+		strings.Repeat("b", 40) + "\x00\x00A\x00a@example.com\x001700000001\x00subject-2\x00\x00",
+	}, "")
+	if err := os.WriteFile(logOutputPath, []byte(logOutput), 0o644); err != nil {
+		t.Fatalf("write log output: %v", err)
+	}
+
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"printf '%s\\n' \"$*\" >> '" + commandsPath + "'",
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    printf 'unexpected rev-parse invocation\\n' >&2",
+		"    exit 1",
+		"    ;;",
+		"  log)",
+		"    cat '" + logOutputPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   2,
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("log later page: %v", err)
+	}
+	if response.HeadBranch != nil {
+		t.Fatalf("expected no head branch on later page, got %#v", response.HeadBranch)
+	}
+
+	commandsRaw, err := os.ReadFile(commandsPath)
+	if err != nil {
+		t.Fatalf("read commands: %v", err)
+	}
+	commandsText := string(commandsRaw)
+	if !strings.Contains(commandsText, "rev-parse --show-toplevel") {
+		t.Fatalf("expected repo-root lookup command, got %q", commandsText)
+	}
+	if strings.Contains(commandsText, "--abbrev-ref") || strings.Contains(commandsText, " --verify ") {
+		t.Fatalf("expected no head lookup or revision verification on later page, got %q", commandsText)
+	}
+}
+
+func TestServiceLogReportsCapBoundaryAndHighOffsetBehavior(t *testing.T) {
+	t.Parallel()
+
+	// At the history cap boundary the log should expose the final partial page, stop
+	// pagination once older history exists beyond the cap, and avoid claiming a cap in
+	// small repos that have no hidden history beyond that boundary.
+	cappedRepo := initGitReadHistoryCapRepo(t, maxLogCount+1)
+	cappedService, err := NewService(ServiceOptions{WorkspaceRoot: cappedRepo})
+	if err != nil {
+		t.Fatalf("new capped service: %v", err)
+	}
+
+	first, err := cappedService.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   maxLogCount - 5,
+		PageSize: 4,
+	})
+	if err != nil {
+		t.Fatalf("capped log first page: %v", err)
+	}
+	if len(first.Commits) != 4 || !first.HasMore || first.NextOffset == nil || *first.NextOffset != maxLogCount-1 || first.IsCapped {
+		t.Fatalf("unexpected capped first page %#v", first)
+	}
+
+	second, err := cappedService.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   maxLogCount - 1,
+		PageSize: 4,
+	})
+	if err != nil {
+		t.Fatalf("capped log second page: %v", err)
+	}
+	if len(second.Commits) != 1 || second.HasMore || second.NextOffset != nil || !second.IsCapped {
+		t.Fatalf("unexpected capped second page %#v", second)
+	}
+
+	beyond, err := cappedService.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   maxLogCount + 99,
+		PageSize: 4,
+	})
+	if err != nil {
+		t.Fatalf("capped log beyond page: %v", err)
+	}
+	if len(beyond.Commits) != 0 || beyond.HasMore || beyond.NextOffset != nil || !beyond.IsCapped {
+		t.Fatalf("unexpected capped beyond page %#v", beyond)
+	}
+
+	smallRepo := initGitReadTestRepo(t)
+	smallService, err := NewService(ServiceOptions{WorkspaceRoot: smallRepo})
+	if err != nil {
+		t.Fatalf("new small service: %v", err)
+	}
+
+	smallBeyond, err := smallService.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   maxLogCount + 99,
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("small log beyond page: %v", err)
+	}
+	if len(smallBeyond.Commits) != 0 || smallBeyond.HasMore || smallBeyond.NextOffset != nil || smallBeyond.IsCapped {
+		t.Fatalf("unexpected small-repo beyond page %#v", smallBeyond)
+	}
+}
+
 func TestServiceLogFallsBackWhenDecorateAtomIsUnexpanded(t *testing.T) {
 	t.Parallel()
 
@@ -966,11 +1098,13 @@ func TestServiceLogRejectsInvalidRevision(t *testing.T) {
 	testCases := []struct {
 		name            string
 		rev             string
+		offset          int
 		expectedMessage string
 	}{
-		{name: "unknown", rev: "does-not-exist", expectedMessage: "Invalid revision: does-not-exist"},
-		{name: "option_like", rev: "-n1", expectedMessage: "Invalid revision."},
-		{name: "contains_nul", rev: "HEAD\x00evil", expectedMessage: "Invalid revision."},
+		{name: "unknown", rev: "does-not-exist", offset: 0, expectedMessage: "Invalid revision: does-not-exist"},
+		{name: "high_offset_unknown", rev: "does-not-exist", offset: maxLogCount + 99, expectedMessage: "Invalid revision: does-not-exist"},
+		{name: "option_like", rev: "-n1", offset: 0, expectedMessage: "Invalid revision."},
+		{name: "contains_nul", rev: "HEAD\x00evil", offset: 0, expectedMessage: "Invalid revision."},
 	}
 
 	for _, testCase := range testCases {
@@ -981,7 +1115,7 @@ func TestServiceLogRejectsInvalidRevision(t *testing.T) {
 			_, err := service.Log(context.Background(), LogRequest{
 				Rev:      testCase.rev,
 				AllRefs:  false,
-				Offset:   0,
+				Offset:   testCase.offset,
 				PageSize: 20,
 			})
 
@@ -993,6 +1127,50 @@ func TestServiceLogRejectsInvalidRevision(t *testing.T) {
 				t.Fatalf("unexpected revision error %#v", serviceErr)
 			}
 		})
+	}
+}
+
+func TestServiceLogTruncatedWithoutParsedCommitsStopsPagination(t *testing.T) {
+	t.Parallel()
+
+	// If a truncated log payload contains no complete commit records, pagination should
+	// stop instead of advertising a looping next page with zero parsed commits.
+	workspaceRoot := t.TempDir()
+	logOutputPath := filepath.Join(t.TempDir(), "log.out")
+	repeatCount := maxLogBytes/len("partial-record-without-delimiters") + 2
+	if err := os.WriteFile(logOutputPath, []byte(strings.Repeat("partial-record-without-delimiters", repeatCount)), 0o644); err != nil {
+		t.Fatalf("write truncated log output: %v", err)
+	}
+
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    printf 'unexpected rev-parse invocation\\n' >&2",
+		"    exit 1",
+		"    ;;",
+		"  log)",
+		"    cat '" + logOutputPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   1,
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("truncated log page: %v", err)
+	}
+	if len(response.Commits) != 0 || response.HasMore || response.NextOffset != nil {
+		t.Fatalf("expected empty non-looping truncated page, got %#v", response)
 	}
 }
 
