@@ -132,7 +132,21 @@ def parse_markdown_table_row(line: str) -> list[str] | None:
     stripped = line.strip()
     if not stripped.startswith("|") or not stripped.endswith("|"):
         return None
-    return [cell.strip() for cell in stripped.split("|")[1:-1]]
+    cells: list[str] = []
+    current_cell: list[str] = []
+    inside_code_span = False
+    for character in stripped[1:-1]:
+        if character == "`":
+            inside_code_span = not inside_code_span
+            current_cell.append(character)
+            continue
+        if character == "|" and not inside_code_span:
+            cells.append("".join(current_cell).strip())
+            current_cell = []
+            continue
+        current_cell.append(character)
+    cells.append("".join(current_cell).strip())
+    return cells
 
 
 def is_separator_row(cells: list[str]) -> bool:
@@ -302,9 +316,10 @@ def collect_python_tests_from_source_baseline(
 def collect_matrix_test_citations(matrix_text: str) -> set[tuple[str, str]]:
     citations: set[tuple[str, str]] = set()
     for code_span in TEST_CODE_SPAN_PATTERN.findall(matrix_text):
-        if not code_span.startswith("tests/") or "::" not in code_span:
+        tests_path_start = code_span.find("tests/")
+        if tests_path_start == -1 or "::" not in code_span:
             continue
-        path, *scope_parts = code_span.split("::")
+        path, *scope_parts = code_span[tests_path_start:].split("::")
         if not path.endswith(".py") or not scope_parts:
             continue
         last_part = scope_parts[-1]

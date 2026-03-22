@@ -201,6 +201,106 @@ def test_generate_report_recognizes_class_scoped_matrix_test_citations(
     ] == ["tests/api/test_runner.py::test_class_uncited"]
 
 
+def test_generate_report_recognizes_pinned_baseline_prefix_on_matrix_test_citations(
+    tmp_path: Path,
+) -> None:
+    # Matrix rows usually cite source tests as `main@<sha>:tests/...`, and the
+    # miner should treat those as the same root `tests/...` source test.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_prefixed_cited() -> None:
+    assert True
+
+
+def test_prefixed_uncited() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.prefixed_scope` | `main@{baseline_ref}:tests/api/test_runner.py::test_prefixed_cited` | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` | `Proved` | prefixed baseline citation |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert [
+        f"{gap.source_test.path}::{gap.source_test.name}" for gap in report
+    ] == ["tests/api/test_runner.py::test_prefixed_uncited"]
+
+
+def test_generate_report_keeps_rows_with_literal_pipes_inside_code_spans(
+    tmp_path: Path,
+) -> None:
+    # Matrix rows can include literal pipes inside backticked option lists,
+    # and those rows still need to be parsed instead of being dropped.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "api").mkdir(parents=True, exist_ok=True)
+
+    (tests_root / "api" / "test_runner.py").write_text(
+        """def test_pipe_cited() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runner.pipe_scope` | `tests/api/test_runner.py::test_pipe_cited`; `docs/reference/runner.md` documents mode selection with `ide|launcher` on the same caller-visible surface | `internal/runner.go` | `TestRunnerLookup` | `frontend/src/components/Runner.tsx` still accepts `--mode=ide|launcher` from the same UI surface | `Proved` | literal-pipe code spans should not break row parsing |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert report == []
+
+
 def test_generate_report_requires_exact_code_span_test_citations(
     tmp_path: Path,
 ) -> None:
