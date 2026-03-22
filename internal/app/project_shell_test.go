@@ -3114,8 +3114,26 @@ func assertAppDefaultGeneratedPythonProjectScaffold(t *testing.T, project projec
 	if !ok {
 		t.Fatalf("expected persisted created section %q, got %#v", sectionID, project.Sections)
 	}
-	if section.Name != "Generated Python Code" {
-		t.Fatalf("expected persisted created section name Generated Python Code, got %q", section.Name)
+	if section.Name != projectstate.GeneratedPythonCodeSectionName {
+		t.Fatalf(
+			"expected persisted created section name %q, got %q",
+			projectstate.GeneratedPythonCodeSectionName,
+			section.Name,
+		)
+	}
+	variant, ok := project.SectionVariants[section.DefaultVariantID]
+	if !ok {
+		t.Fatalf("expected generated python variant %q, got %#v", section.DefaultVariantID, project.SectionVariants)
+	}
+	impl, ok := project.SectionImpls[variant.ImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl %q, got %#v", variant.ImplID, project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), "class SettaState:") {
+		t.Fatalf("expected generated python payload to include wrapper class, got %q", string(impl.Payload))
+	}
+	if !strings.Contains(string(impl.Payload), "pass") {
+		t.Fatalf("expected generated python payload to include empty-body pass, got %q", string(impl.Payload))
 	}
 	if project.ProjectChatWindowing == nil {
 		t.Fatal("expected persisted created project chat windowing state")

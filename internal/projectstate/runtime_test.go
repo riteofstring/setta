@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -710,6 +711,38 @@ func TestRuntimeMutationFailureDoesNotStallLaterMutations(t *testing.T) {
 	}
 	if len(status.Completed) != 1 || status.Completed[0] != "frontend-op-success" {
 		t.Fatalf("expected only successful follow-up op to complete, got %#v", status.Completed)
+	}
+}
+
+func TestRuntimeCreateProjectRunsPythonCodegenSectionReconcilerWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: testPythonGeneratedSectionReconciler(),
+	})
+
+	snapshot, createdProjectID, _, err := runtime.CreateProject(
+		context.Background(),
+		"bg-blue-500/60 dark:bg-blue-600/30",
+	)
+	if err != nil {
+		t.Fatalf("create project through runtime: %v", err)
+	}
+
+	project, err := snapshot.Document.ProjectByID(createdProjectID)
+	if err != nil {
+		t.Fatalf("lookup created project: %v", err)
+	}
+	if len(project.TopLevelSectionIDs) != 1 || project.TopLevelSectionIDs[0] != GeneratedPythonCodeSectionID {
+		t.Fatalf("expected reconciled generated python top-level section, got %#v", project.TopLevelSectionIDs)
+	}
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected reconciled generated python impl, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `python||meta=false`) {
+		t.Fatalf("expected reconciled generated python payload, got %q", string(impl.Payload))
 	}
 }
 

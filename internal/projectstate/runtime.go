@@ -35,11 +35,12 @@ type AfterSaveHook func(context.Context, Snapshot) error
 type PersistedDocumentTransform func(Document) (Document, error)
 
 type RuntimeOptions struct {
-	BeforeSave            BeforeSaveHook
-	AfterSave             AfterSaveHook
-	PersistedTransform    PersistedDocumentTransform
-	PasswordSecrets       PasswordSecretStore
-	WatchCodeIgnoredRoots []string
+	BeforeSave                     BeforeSaveHook
+	AfterSave                      AfterSaveHook
+	PersistedTransform             PersistedDocumentTransform
+	PasswordSecrets                PasswordSecretStore
+	PythonCodegenSectionReconciler PythonCodegenSectionReconciler
+	WatchCodeIgnoredRoots          []string
 }
 
 type Runtime struct {
@@ -57,6 +58,8 @@ type Runtime struct {
 	frontendOpsMu        sync.RWMutex
 	pendingFrontendOps   map[string]struct{}
 	completedFrontendOps []string
+
+	pythonCodegenSectionReconciler PythonCodegenSectionReconciler
 
 	submitMu sync.Mutex
 	closed   bool
@@ -102,7 +105,7 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 	}
 	document = document.withWatchCodeIgnoredRoots(watchCodeIgnoredRoots)
 
-	return openRuntime(document, saveController{
+	runtime, err := openRuntime(document, saveController{
 		store:      store,
 		savePolicy: SavePolicyPersist,
 		saveFn:     store.Save,
@@ -110,6 +113,11 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 		afterSave:  options.AfterSave,
 		transform:  options.PersistedTransform,
 	})
+	if err != nil {
+		return nil, err
+	}
+	runtime.pythonCodegenSectionReconciler = options.PythonCodegenSectionReconciler
+	return runtime, nil
 }
 
 func OpenOverlayRuntime(document Document) (*Runtime, error) {
@@ -123,12 +131,17 @@ func OpenOverlayRuntimeWithOptions(document Document, options RuntimeOptions) (*
 		return nil, fmt.Errorf("normalize watch code ignored roots: %w", err)
 	}
 	document = document.withWatchCodeIgnoredRoots(watchCodeIgnoredRoots)
-	return openRuntime(document, saveController{
+	runtime, err := openRuntime(document, saveController{
 		savePolicy: SavePolicyInMemory,
 		beforeSave: options.BeforeSave,
 		afterSave:  options.AfterSave,
 		transform:  options.PersistedTransform,
 	})
+	if err != nil {
+		return nil, err
+	}
+	runtime.pythonCodegenSectionReconciler = options.PythonCodegenSectionReconciler
+	return runtime, nil
 }
 
 func (r *Runtime) Snapshot() Snapshot {

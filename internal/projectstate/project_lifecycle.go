@@ -321,6 +321,21 @@ func (r *Runtime) CreateProject(ctx context.Context, previewImgColor string) (Sn
 		if err != nil {
 			return Document{}, err
 		}
+		if r.pythonCodegenSectionReconciler != nil {
+			project, err := document.ProjectByID(projectID)
+			if err != nil {
+				return Document{}, err
+			}
+			if err := applySupportedPythonCodegenMutation(
+				ctx,
+				&project,
+				nil,
+				r.pythonCodegenSectionReconciler,
+			); err != nil {
+				return Document{}, err
+			}
+			document.Projects[projectID] = project
+		}
 		createdProjectID = projectID
 		createdName = projectName
 		return document, nil
