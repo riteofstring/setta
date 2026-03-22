@@ -575,6 +575,50 @@ func TestServiceUpsertUpdatesExistingWorkspaceSkillWhenDocReadOnly(t *testing.T)
 	}
 }
 
+func TestServiceUpsertUpdatesSelectedSkillWhenAgentsHomeUnwritable(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	agentsHome := filepath.Join(root, "agents-home")
+	for _, path := range []string{workspaceRoot, homeDir, agentsHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	skillDoc := filepath.Join(workspaceRoot, ".agents", "skills", "editable", "SKILL.md")
+	writeSkillDoc(t, skillDoc, "# editable\n\nInitial.\n")
+	agentsHomeSkills := filepath.Join(agentsHome, "skills")
+	if err := os.MkdirAll(agentsHomeSkills, 0o500); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(agentsHomeSkills, 0o700)
+	})
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{
+		"AGENTS_HOME": agentsHome,
+	})
+
+	response, err := service.UpsertCustomSkill("workspace_agents_skills::editable", "", "# editable\n\nUpdated.\n")
+	if err != nil {
+		t.Fatalf("update selected skill: %v", err)
+	}
+
+	if response.Created || response.SkillID != "workspace_agents_skills::editable" {
+		t.Fatalf("expected workspace skill update, got %#v", response)
+	}
+	if content := readFile(t, skillDoc); content != "# editable\n\nUpdated.\n" {
+		t.Fatalf("expected updated content, got %q", content)
+	}
+}
+
 func TestServiceUpsertRejectsCreateCollisionsWithoutOverwrite(t *testing.T) {
 	t.Parallel()
 
