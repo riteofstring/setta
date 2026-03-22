@@ -88,7 +88,7 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 		ServerMode:         serverMode,
 	})
 	if err != nil {
-		return err
+		return addExpandedLocalHomeWorkspaceHint(err, workspaceRoot)
 	}
 	if len(sessions) == 0 {
 		return fmt.Errorf("No matching Setta sessions found.")
@@ -111,7 +111,7 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 			SSHArgs:            strings.TrimSpace(parsed.sshArgs),
 			RemoteCommand:      strings.TrimSpace(parsed.remoteCommand),
 		}); err != nil {
-			return err
+			return addExpandedLocalHomeWorkspaceHint(err, workspaceRoot)
 		}
 		_, _ = fmt.Fprintf(stdout, "Stopped session %s.\n", session.ID)
 	}

@@ -165,6 +165,38 @@ func TestRunConnectRejectsMultipleSessionsWithoutSelector(t *testing.T) {
 	}
 }
 
+func TestRunConnectAddsHintForLocallyExpandedRemoteWorkspaceError(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(homeDir) == "" {
+		t.Skip("missing local home directory for expanded-home hint test")
+	}
+
+	repoRoot := testRepoRootForSettacli(t)
+	t.Setenv("SETTA_SSH_BIN", writeSettacliWorkspaceResolutionFailingSSHWrapper(t, repoRoot, "remote workspace missing"))
+
+	stdout, stderr, err := runCLIWithOSEnv(
+		t.TempDir(),
+		"connect", "user@host",
+		"--workspace", filepath.Join(homeDir, "repo"),
+		"--print-only",
+	)
+	if err == nil {
+		t.Fatal("expected remote workspace resolution failure")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(err.Error(), "expanded '~'") {
+		t.Fatalf("expected expanded-home hint, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "--workspace") {
+		t.Fatalf("expected workspace flag hint, got %q", err.Error())
+	}
+}
+
 func TestRunConnectDetachCreatesTunnelMetadata(t *testing.T) {
 	repoRoot := testRepoRootForSettacli(t)
 	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
@@ -846,6 +878,24 @@ func addSettacliBrowserWrapperToPath(t *testing.T, browserLogPath string) {
 		return
 	}
 	t.Setenv("PATH", wrapperDir+string(os.PathListSeparator)+existingPath)
+}
+
+func writeSettacliWorkspaceResolutionFailingSSHWrapper(t *testing.T, repoRoot string, message string) string {
+	t.Helper()
+
+	wrapperPath := filepath.Join(t.TempDir(), "ssh-failing-wrapper.sh")
+	script := "#!/bin/sh\n" +
+		"case \"$*\" in\n" +
+		"  *\"pwd -P\"*)\n" +
+		"    printf '%s\\n' '" + strings.ReplaceAll(message, "'", `'"'"'`) + "' >&2\n" +
+		"    exit 1\n" +
+		"    ;;\n" +
+		"esac\n" +
+		"exec \"" + filepath.Join(repoRoot, "scripts", "test", "ssh") + "\" \"$@\"\n"
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write failing ssh wrapper: %v", err)
+	}
+	return wrapperPath
 }
 
 func stopSettacliProcessIfRunning(t *testing.T, pid int) {

@@ -99,7 +99,7 @@ func runConnect(args []string, global globalFlags, stdout io.Writer, stderr io.W
 		RemoteCommand:      strings.TrimSpace(parsed.remoteCommand),
 	})
 	if err != nil {
-		return err
+		return addExpandedLocalHomeWorkspaceHint(err, workspaceRoot)
 	}
 
 	if parsed.verbose {

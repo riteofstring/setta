@@ -345,6 +345,38 @@ func TestRunStopRemoteAcceptsWorkspaceShortAlias(t *testing.T) {
 	}
 }
 
+func TestRunStopRemoteAddsHintForLocallyExpandedRemoteWorkspaceError(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(homeDir) == "" {
+		t.Skip("missing local home directory for expanded-home hint test")
+	}
+
+	repoRoot := testRepoRootForSettacli(t)
+	t.Setenv("SETTA_SSH_BIN", writeSettacliWorkspaceResolutionFailingSSHWrapper(t, repoRoot, "remote workspace missing"))
+
+	stdout, stderr, err := runCLIWithOSEnv(
+		t.TempDir(),
+		"stop", "user@host",
+		"--workspace", filepath.Join(homeDir, "repo"),
+		"--latest",
+	)
+	if err == nil {
+		t.Fatal("expected remote workspace resolution failure")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(err.Error(), "expanded '~'") {
+		t.Fatalf("expected expanded-home hint, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "--workspace") {
+		t.Fatalf("expected workspace flag hint, got %q", err.Error())
+	}
+}
+
 func TestRunStopRemoteForwardsLauncherServerMode(t *testing.T) {
 	repoRoot := testRepoRootForSettacli(t)
 	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
