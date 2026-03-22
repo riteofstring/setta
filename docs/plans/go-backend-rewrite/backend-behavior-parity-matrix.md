@@ -189,6 +189,22 @@ Last audited: `2026-03-23`
   `ide_cli.start.auto_open_message_suppresses_manual_tunnel_text` rows
   remained the correct terminal `Proved` dispositions for those stale
   backlog clues.
+- Follow-up in this pass on `fa91649d6e`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/start/test_startup_helpers.py::{test_is_loopback_host,test_warn_if_public_host_no_auth_emits_warning_for_public_host,test_warn_if_public_host_no_auth_is_silent_for_loopback}`
+  against `cmd/setta-server/startup.go::{isLoopbackHost,emitShareStartupOutput,emitAppStartupOutput}`,
+  the packaged CLI docs in `docs/reference/setta-cli-commands.md`, and the
+  focused Go proof in `TestIsLoopbackHostMatchesSourceContract`,
+  `TestEmitShareStartupOutputWarnsForPublicHostAndPrintsURL`,
+  `TestEmitShareStartupOutputFallsBackWhenBrowserOpenFails`,
+  `TestEmitAppStartupOutputWarnsForPublicHostAndPrintsURL`, and
+  `TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails`; no new
+  implementation gap was found, and the existing
+  `startup_helpers.loopback_host_detection_and_public_host_warning_contract`
+  row remained the correct terminal `Proved` disposition for those stale
+  backlog clues.
 - Follow-up in this pass on `271f05e8c`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
   `internal/projectstate`
