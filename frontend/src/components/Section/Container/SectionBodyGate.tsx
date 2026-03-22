@@ -186,20 +186,8 @@ export const SectionBodyGate = React.memo(function SectionBodyGate({
     return null;
   }
 
-  if (
-    status.resolvedMode === "preview" &&
-    isTier1DenseParamSectionType(status.sectionTypeName)
-  ) {
-    return (
-      <Tier1DenseParamSectionPreview
-        sectionId={sectionId}
-        sectionTypeName={status.sectionTypeName}
-      />
-    );
-  }
-
   if (owner.kind === "canvas") {
-    return (
+    const sectionArea = (
       <SectionAreaSwitch
         sectionId={sectionId}
         sectionTypeName={status.sectionTypeName}
@@ -208,6 +196,20 @@ export const SectionBodyGate = React.memo(function SectionBodyGate({
         isUserView={owner.isUserView}
       />
     );
+
+    if (isTier1DenseParamSectionType(status.sectionTypeName)) {
+      return (
+        <Tier1DenseParamSectionPreview
+          sectionId={sectionId}
+          isActiveSection={status.isActiveSection}
+          showPreview={status.resolvedMode === "preview"}
+        >
+          {sectionArea}
+        </Tier1DenseParamSectionPreview>
+      );
+    }
+
+    return sectionArea;
   }
 
   return (

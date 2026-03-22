@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ChatWindowModeEnum,
@@ -96,17 +97,24 @@ vi.mock("./SectionAreaSwitch", () => ({
 
 vi.mock("../Layouts/Tier1DenseParamSectionPreview", () => ({
   Tier1DenseParamSectionPreview: ({
+    children,
     sectionId,
-    sectionTypeName,
+    isActiveSection,
+    showPreview,
   }: {
+    children: ReactNode;
     sectionId: string;
-    sectionTypeName: string;
+    isActiveSection: boolean;
+    showPreview: boolean;
   }) => (
     <div
       data-testid="mock-tier1-preview"
       data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-    />
+      data-is-active={isActiveSection ? "true" : "false"}
+      data-show-preview={showPreview ? "true" : "false"}
+    >
+      {children}
+    </div>
   ),
 }));
 
@@ -268,7 +276,8 @@ describe("SectionBodyGate", () => {
     );
 
     expect(markup).toContain('data-testid="mock-tier1-preview"');
-    expect(markup).not.toContain('data-testid="mock-area-switch"');
+    expect(markup).toContain('data-show-preview="true"');
+    expect(markup).toContain('data-testid="mock-area-switch"');
   });
 
   it("exposes resolved status for tests and future render-mode work", () => {
