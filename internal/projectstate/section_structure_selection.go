@@ -60,6 +60,9 @@ func (r *Runtime) GroupSections(
 		if err := document.GroupSections(projectID, input, settings); err != nil {
 			return document, err
 		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterStructuralMutation(ctx, &document, projectID); err != nil {
+			return document, err
+		}
 		return document, nil
 	})
 }
@@ -168,6 +171,9 @@ func (r *Runtime) UngroupGroups(
 	}
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.UngroupGroups(projectID, input); err != nil {
+			return document, err
+		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterStructuralMutation(ctx, &document, projectID); err != nil {
 			return document, err
 		}
 		return document, nil

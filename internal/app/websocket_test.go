@@ -2466,6 +2466,142 @@ func TestAppSetStateMachineSectionSettingsRouteBroadcastsProjectStateUpdate(t *t
 	}
 }
 
+func TestAppChildSectionIncrementerRoutesBroadcastProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, listRootID := websocketIncrementerTestProject(t)
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed incrementer project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	createRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteCreateChildSectionsViaIncrementer,
+		strings.NewReader(`{"projectConfigId":"project-alpha","calledBy":"`+listRootID+`","implType":"Callable","numChildren":1,"frontendOpId":"incrementer-op-create"}`),
+	)
+	if err != nil {
+		t.Fatalf("new incrementer create request: %v", err)
+	}
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.AddCookie(authCookie)
+
+	createResponse, err := http.DefaultClient.Do(createRequest)
+	if err != nil {
+		t.Fatalf("post incrementer create: %v", err)
+	}
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected 200 from incrementer create, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+
+	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var createContent realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(createEnvelope.Content, &createContent); err != nil {
+		t.Fatalf("decode incrementer create project state update: %v", err)
+	}
+	if createContent.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", createContent.ProjectState.ProjectConfig.ID)
+	}
+	createCompleted := false
+	for _, completedOpID := range createContent.CompletedOpIDs {
+		if completedOpID == "incrementer-op-create" {
+			createCompleted = true
+			break
+		}
+	}
+	if !createCompleted {
+		t.Fatalf("expected completed incrementer create op in websocket update, got %#v", createContent.CompletedOpIDs)
+	}
+	childCountAfterCreate := 0
+	for _, parent := range createContent.ProjectState.ParentSectionMap {
+		if parent != nil && *parent == listRootID {
+			childCountAfterCreate++
+		}
+	}
+	if childCountAfterCreate != 1 {
+		t.Fatalf("expected one live child after incrementer create, got %d in %#v", childCountAfterCreate, createContent.ProjectState.ParentSectionMap)
+	}
+
+	deleteRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteDeleteChildSectionsViaDecrementer,
+		strings.NewReader(`{"projectConfigId":"project-alpha","calledBy":"`+listRootID+`","numChildren":1,"frontendOpId":"incrementer-op-delete"}`),
+	)
+	if err != nil {
+		t.Fatalf("new incrementer delete request: %v", err)
+	}
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteRequest.AddCookie(authCookie)
+
+	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
+	if err != nil {
+		t.Fatalf("post incrementer delete: %v", err)
+	}
+	defer deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteResponse.Body)
+		t.Fatalf("expected 200 from incrementer delete, got %d with body %q", deleteResponse.StatusCode, string(body))
+	}
+
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var deleteContent realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deleteContent); err != nil {
+		t.Fatalf("decode incrementer delete project state update: %v", err)
+	}
+	deleteCompleted := false
+	for _, completedOpID := range deleteContent.CompletedOpIDs {
+		if completedOpID == "incrementer-op-delete" {
+			deleteCompleted = true
+			break
+		}
+	}
+	if !deleteCompleted {
+		t.Fatalf("expected completed incrementer delete op in websocket update, got %#v", deleteContent.CompletedOpIDs)
+	}
+	childCountAfterDelete := 0
+	for _, parent := range deleteContent.ProjectState.ParentSectionMap {
+		if parent != nil && *parent == listRootID {
+			childCountAfterDelete++
+		}
+	}
+	if childCountAfterDelete != 0 {
+		t.Fatalf("expected no live children after incrementer delete, got %d in %#v", childCountAfterDelete, deleteContent.ProjectState.ParentSectionMap)
+	}
+}
+
 func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -2576,6 +2712,25 @@ func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.
 	if project.IsEditingViewMode {
 		t.Fatal("expected persisted project state to exit view editing mode")
 	}
+}
+
+func websocketIncrementerTestProject(t *testing.T) (projectstate.Project, string) {
+	t.Helper()
+
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+	project := projectstate.Project{
+		ID:                   "project-alpha",
+		Name:                 "Alpha",
+		ProjectChatWindowing: &defaultWindowing,
+	}
+	result, err := project.CreateTopLevelSection(
+		projectstate.CreateTopLevelSectionInput{ImplType: "ListRoot"},
+		projectstate.DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create list root project fixture: %v", err)
+	}
+	return project, result.SectionID
 }
 
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {

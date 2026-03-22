@@ -2827,6 +2827,11 @@ func createChildSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
 		if err != nil {
@@ -2834,7 +2839,7 @@ func createChildSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			return
 		}
 
-		_, result, err := deps.ProjectState.CreateChildSections(
+		snapshot, result, err := runtime.CreateChildSections(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.CreateChildSectionsInput{
@@ -2847,6 +2852,10 @@ func createChildSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 		)
 		if err != nil {
 			writeChildSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
@@ -2870,6 +2879,11 @@ func createChildSectionsViaIncrementerHandler(deps ProjectRouteDependencies) htt
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
 		if err != nil {
@@ -2877,7 +2891,7 @@ func createChildSectionsViaIncrementerHandler(deps ProjectRouteDependencies) htt
 			return
 		}
 
-		_, result, err := deps.ProjectState.CreateChildSectionsViaIncrementer(
+		snapshot, result, err := runtime.CreateChildSectionsViaIncrementer(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.CreateChildSectionsViaIncrementerInput{
@@ -2889,6 +2903,10 @@ func createChildSectionsViaIncrementerHandler(deps ProjectRouteDependencies) htt
 		)
 		if err != nil {
 			writeChildSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
@@ -2912,8 +2930,13 @@ func deleteChildSectionsViaDecrementerHandler(deps ProjectRouteDependencies) htt
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		_, result, err := deps.ProjectState.DeleteChildSectionsViaDecrementer(
+		snapshot, result, err := runtime.DeleteChildSectionsViaDecrementer(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.DeleteChildSectionsViaDecrementerInput{
@@ -2923,6 +2946,10 @@ func deleteChildSectionsViaDecrementerHandler(deps ProjectRouteDependencies) htt
 		)
 		if err != nil {
 			writeChildSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, result)

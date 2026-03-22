@@ -3,6 +3,7 @@ package projectstate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -744,6 +745,208 @@ func TestRuntimeCreateProjectRunsPythonCodegenSectionReconcilerWhenConfigured(t 
 	if !strings.Contains(string(impl.Payload), `python||meta=false`) {
 		t.Fatalf("expected reconciled generated python payload, got %q", string(impl.Payload))
 	}
+}
+
+func TestRuntimeCreateTopLevelSectionReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": testRuntimeStructuralMutationPythonProject(),
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: testRuntimeStructuralMutationPythonGeneratedSectionReconciler(),
+	})
+
+	snapshot, result, err := runtime.CreateTopLevelSection(
+		context.Background(),
+		"project-alpha",
+		CreateTopLevelSectionInput{ImplType: "Callable"},
+		DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create top-level section through runtime: %v", err)
+	}
+	if strings.TrimSpace(result.SectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", result)
+	}
+
+	project, err := snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("lookup mutated project: %v", err)
+	}
+	if _, ok := project.Sections[result.SectionID]; !ok {
+		t.Fatalf("expected created section %q in project snapshot", result.SectionID)
+	}
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after structural mutation, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `section-count=1`) {
+		t.Fatalf("expected generated python payload to include structural section count, got %q", string(impl.Payload))
+	}
+}
+
+func TestRuntimeCreateChildSectionsViaIncrementerReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": testRuntimeStructuralMutationPythonProject(),
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: testRuntimeStructuralMutationPythonGeneratedSectionReconciler(),
+	})
+
+	_, parentResult, err := runtime.CreateTopLevelSection(
+		context.Background(),
+		"project-alpha",
+		CreateTopLevelSectionInput{ImplType: "ListRoot"},
+		DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("seed list root through runtime: %v", err)
+	}
+
+	snapshot, result, err := runtime.CreateChildSectionsViaIncrementer(
+		context.Background(),
+		"project-alpha",
+		CreateChildSectionsViaIncrementerInput{
+			CalledBy:    parentResult.SectionID,
+			ImplType:    "Callable",
+			NumChildren: 1,
+		},
+		DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create child sections via incrementer through runtime: %v", err)
+	}
+	if len(result.SectionIDs) != 1 {
+		t.Fatalf("expected one created child id, got %#v", result.SectionIDs)
+	}
+
+	project, err := snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("lookup mutated project: %v", err)
+	}
+	if _, ok := project.Sections[result.SectionIDs[0]]; !ok {
+		t.Fatalf("expected created child section %q in project snapshot", result.SectionIDs[0])
+	}
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after incrementer mutation, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `section-count=2`) {
+		t.Fatalf("expected generated python payload to include updated section count, got %q", string(impl.Payload))
+	}
+}
+
+func testRuntimeStructuralMutationPythonProject() Project {
+	defaultWindowing := DefaultProjectChatWindowingState()
+	return Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []ProjectCodegenTarget{
+			{Language: string(CodeLanguagePython)},
+		},
+		ProjectChatWindowing: &defaultWindowing,
+	}
+}
+
+func testRuntimeStructuralMutationPythonGeneratedSectionReconciler() PythonCodegenSectionReconciler {
+	return PythonCodegenSectionReconcilerFunc(func(_ context.Context, project *Project) error {
+		if project == nil {
+			return ErrProjectNotFound
+		}
+		if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+			return err
+		}
+
+		sectionCount := 0
+		for sectionID := range project.Sections {
+			if sectionID == GeneratedPythonCodeSectionID || sectionID == GeneratedPythonMetadataSectionID {
+				continue
+			}
+			sectionCount++
+		}
+
+		var bindingPayload any
+		if project.GeneratedCodeBinding != nil {
+			bindingPayload = map[string]any{
+				"canonical_path": project.GeneratedCodeBinding.Path,
+				"access_mode":    string(project.GeneratedCodeBinding.AccessMode),
+				"autoBinding":    false,
+			}
+		}
+		payload, err := marshalProjectObject(map[string]any{
+			"id":              GeneratedPythonCodeImplID,
+			"type":            "GenPythonCode",
+			"code":            fmt.Sprintf("section-count=%d", sectionCount),
+			"codeFileBinding": bindingPayload,
+		})
+		if err != nil {
+			return err
+		}
+
+		if project.SectionVariantMap == nil {
+			project.SectionVariantMap = map[string]string{}
+		}
+		project.SectionVariantMap[GeneratedPythonCodeSectionID] = GeneratedPythonCodeVariantID
+
+		if project.Sections == nil {
+			project.Sections = map[string]Section{}
+		}
+		project.Sections[GeneratedPythonCodeSectionID] = Section{
+			ID:               GeneratedPythonCodeSectionID,
+			Name:             GeneratedPythonCodeSectionName,
+			VariantIDs:       []string{GeneratedPythonCodeVariantID},
+			DefaultVariantID: GeneratedPythonCodeVariantID,
+		}
+
+		if project.SectionVariants == nil {
+			project.SectionVariants = map[string]SectionVariant{}
+		}
+		project.SectionVariants[GeneratedPythonCodeVariantID] = SectionVariant{
+			ID:     GeneratedPythonCodeVariantID,
+			ImplID: GeneratedPythonCodeImplID,
+		}
+
+		if project.SectionImpls == nil {
+			project.SectionImpls = map[string]SectionImpl{}
+		}
+		project.SectionImpls[GeneratedPythonCodeImplID] = SectionImpl{
+			ID:      GeneratedPythonCodeImplID,
+			Kind:    SectionKindGenerated,
+			Payload: payload,
+			Generated: &GeneratedSectionImpl{
+				Kind: GeneratedSectionKindPythonCode,
+			},
+		}
+
+		if project.TopLevelSections == nil {
+			project.TopLevelSections = map[string]TopLevelSectionLayout{}
+		}
+		project.TopLevelSections[GeneratedPythonCodeSectionID] = TopLevelSectionLayout{}
+		if !containsTopLevelSectionID(project.TopLevelSectionIDs, GeneratedPythonCodeSectionID) {
+			project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, GeneratedPythonCodeSectionID)
+		}
+
+		return nil
+	})
 }
 
 func openTestRuntime(t *testing.T, store *Store) *Runtime {

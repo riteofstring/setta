@@ -53,6 +53,9 @@ func (r *Runtime) DeleteSections(
 		if mutationErr != nil {
 			return document, mutationErr
 		}
+		if mutationErr = r.reconcileProjectPythonGeneratedSectionsAfterStructuralMutation(ctx, &document, projectID); mutationErr != nil {
+			return document, mutationErr
+		}
 		return document, nil
 	})
 	if err != nil {
