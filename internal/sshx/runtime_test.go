@@ -276,6 +276,37 @@ func TestServiceDeleteRemoteWorkspaceSessionDeletesSession(t *testing.T) {
 	}
 }
 
+func TestServiceDeleteRemoteWorkspaceSessionReturnsRemoteRollbackOnFailure(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := writeSSHDeleteSessionFailingWrapper(t, filepath.Join(repoRoot, "scripts", "test", "ssh"))
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	err = service.DeleteRemoteWorkspaceSession(DeleteRemoteWorkspaceSessionInput{
+		SSHTarget:     "user@host",
+		Workspace:     "/remote/workspace",
+		SessionID:     session.ID,
+		RemoteCommand: "setta",
+	})
+	requireSSHErrorCode(t, err, "RemoteRollback")
+	if !strings.Contains(err.Error(), session.ID) {
+		t.Fatalf("expected session id in rollback failure, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("expected delete failure detail, got %q", err.Error())
+	}
+}
+
 func TestServicePrepareConnectWorkspaceSessionDoesNotCreateTunnelMetadata(t *testing.T) {
 	repoRoot := testRepoRoot(t)
 	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
@@ -308,6 +339,119 @@ func TestServicePrepareConnectWorkspaceSessionDoesNotCreateTunnelMetadata(t *tes
 		t.Fatal("expected bootstrap token")
 	}
 	assertNoTunnelMetadata(t, runtimeRoot)
+}
+
+func TestServicePrepareConnectWorkspaceSessionPreservesOmittedSettaFilesLocationForProfile(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+		SessionID: session.ID,
+		Profile:   "dev",
+	})
+	if err != nil {
+		t.Fatalf("prepare connect workspace session with profile: %v", err)
+	}
+
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "--profile dev status --list-sessions --json --workspace /remote/workspace --server-mode ide") {
+		t.Fatalf("expected profile forwarding in list command, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, "--profile dev status --connect-info --json --workspace /remote/workspace --session "+session.ID) {
+		t.Fatalf("expected profile forwarding in connect-info command, got %q", commandLog)
+	}
+	if strings.Contains(commandLog, "--setta-files-location auto") {
+		t.Fatalf("did not expect auto setta-files location with explicit profile, got %q", commandLog)
+	}
+}
+
+func TestServicePrepareConnectWorkspaceSessionDefaultsToAutoWithoutProfileAndRequestsIDEServerMode(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+		SessionID: session.ID,
+	})
+	if err != nil {
+		t.Fatalf("prepare connect workspace session: %v", err)
+	}
+
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "setta --setta-files-location auto status --list-sessions --json --workspace /remote/workspace --server-mode ide") {
+		t.Fatalf("expected auto location and ide server-mode in list command, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, "setta --setta-files-location auto status --connect-info --json --workspace /remote/workspace --session "+session.ID) {
+		t.Fatalf("expected auto location in connect-info command, got %q", commandLog)
+	}
+}
+
+func TestServicePrepareConnectWorkspaceSessionTreatsWhitespaceProfileAsOmitted(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+		SessionID: session.ID,
+		Profile:   "   ",
+	})
+	if err != nil {
+		t.Fatalf("prepare connect workspace session with whitespace profile: %v", err)
+	}
+
+	commandLog := readCommandLog(t, commandLogPath)
+	if strings.Contains(commandLog, "--profile") {
+		t.Fatalf("did not expect blank profile to be forwarded, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, "setta --setta-files-location auto status --list-sessions --json --workspace /remote/workspace --server-mode ide") {
+		t.Fatalf("expected whitespace profile to fall back to auto/ide list command, got %q", commandLog)
+	}
 }
 
 func TestServicePrepareConnectWorkspaceSessionRejectsMultipleSessionsWithoutSelector(t *testing.T) {
@@ -638,6 +782,24 @@ func writeSSHSleepWrapper(t *testing.T, sleepDuration time.Duration) string {
 	script := fmt.Sprintf("#!/bin/sh\nsleep %.3f\n", sleepDuration.Seconds())
 	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
 		t.Fatalf("write ssh sleep wrapper: %v", err)
+	}
+	return wrapperPath
+}
+
+func writeSSHDeleteSessionFailingWrapper(t *testing.T, stubPath string) string {
+	t.Helper()
+
+	wrapperPath := filepath.Join(t.TempDir(), "ssh-delete-session-fail.sh")
+	script := "#!/bin/sh\n" +
+		"case \"$*\" in\n" +
+		"  *\"status --delete-session\"*)\n" +
+		"    printf '%s\\n' 'permission denied' >&2\n" +
+		"    exit 1\n" +
+		"    ;;\n" +
+		"esac\n" +
+		"exec " + shellQuote(stubPath) + " \"$@\"\n"
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write ssh delete-session failing wrapper: %v", err)
 	}
 	return wrapperPath
 }
