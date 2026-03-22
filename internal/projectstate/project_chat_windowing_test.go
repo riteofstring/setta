@@ -29,12 +29,10 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 						SectionIDOrNull:  stringPointer(" section-a "),
 						Mode:             ChatWindowModeSection,
 						Title:            stringPointer(" Section "),
-						ChatID:           stringPointer("drop-me"),
 						NormalizedBounds: NormalizedFloatingWindowBounds{},
 					},
 					"window-b": {
-						Mode:   ChatWindowModeGitGraph,
-						ChatID: stringPointer("drop-me"),
+						ChatID: stringPointer(" chat-window "),
 					},
 					"window-missing": {
 						SurfaceKind:     WindowSpaceSurfaceKindSection,
@@ -148,9 +146,6 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 	if spaceSectionWindow.SectionIDOrNull == nil || *spaceSectionWindow.SectionIDOrNull != "section-a" {
 		t.Fatalf("expected trimmed window space section binding section-a, got %#v", spaceSectionWindow.SectionIDOrNull)
 	}
-	if spaceSectionWindow.ChatID != nil {
-		t.Fatalf("expected section window-space chat id to be cleared, got %#v", spaceSectionWindow.ChatID)
-	}
 	if spaceSectionWindow.Title != nil {
 		t.Fatalf("expected section-owned window-space title to be cleared, got %#v", spaceSectionWindow.Title)
 	}
@@ -162,8 +157,11 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 	if projectChatWindow.SurfaceKind != WindowSpaceSurfaceKindProjectChat {
 		t.Fatalf("expected default project_chat surface kind, got %q", projectChatWindow.SurfaceKind)
 	}
-	if projectChatWindow.ChatID != nil {
-		t.Fatalf("expected git graph window-space chat id to be cleared, got %#v", projectChatWindow.ChatID)
+	if projectChatWindow.Mode != ChatWindowModeProjectAI {
+		t.Fatalf("expected default window-space mode project_ai_mode, got %q", projectChatWindow.Mode)
+	}
+	if projectChatWindow.ChatID == nil || *projectChatWindow.ChatID != "chat-window" {
+		t.Fatalf("expected trimmed project-chat window-space chat id chat-window, got %#v", projectChatWindow.ChatID)
 	}
 	if _, ok := space.WindowsByID["window-missing"]; ok {
 		t.Fatal("expected missing section window to be dropped")
@@ -398,6 +396,25 @@ func TestProjectNormalizedRejectsInvalidWindowSpaceOwnerModes(t *testing.T) {
 				Mode:        ChatWindowModeSection,
 			},
 			expectedText: "Project-chat window-space windows cannot use section_mode.",
+		},
+		{
+			name: "section_mode_with_chat_id",
+			window: WindowSpaceWindow{
+				SurfaceKind:     WindowSpaceSurfaceKindSection,
+				SectionIDOrNull: stringPointer("section-a"),
+				Mode:            ChatWindowModeSection,
+				ChatID:          stringPointer("stale-chat"),
+			},
+			expectedText: "Window-space windows must use project_ai_mode to bind chatId.",
+		},
+		{
+			name: "project_chat_git_graph_mode_with_chat_id",
+			window: WindowSpaceWindow{
+				SurfaceKind: WindowSpaceSurfaceKindProjectChat,
+				Mode:        ChatWindowModeGitGraph,
+				ChatID:      stringPointer("stale-chat"),
+			},
+			expectedText: "Window-space windows must use project_ai_mode to bind chatId.",
 		},
 	}
 

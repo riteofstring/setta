@@ -502,7 +502,7 @@ func TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner(t *testing.T) {
 			message: "Project-chat window-space windows cannot use section_mode.",
 		},
 		{
-			name: "non project ai chat id",
+			name: "section mode chat id",
 			state: WindowSpaceState{
 				WindowsByID: map[string]WindowSpaceWindow{
 					"window-a": {
@@ -510,6 +510,20 @@ func TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner(t *testing.T) {
 						SectionIDOrNull: stringPointer("section-a"),
 						Mode:            ChatWindowModeSection,
 						ChatID:          stringPointer("stale-chat"),
+					},
+				},
+				Order: []string{"window-a"},
+			},
+			message: "Window-space windows must use project_ai_mode to bind chatId.",
+		},
+		{
+			name: "project chat git graph chat id",
+			state: WindowSpaceState{
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-a": {
+						SurfaceKind: WindowSpaceSurfaceKindProjectChat,
+						Mode:        ChatWindowModeGitGraph,
+						ChatID:      stringPointer("stale-chat"),
 					},
 				},
 				Order: []string{"window-a"},

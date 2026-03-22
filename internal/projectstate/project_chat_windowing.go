@@ -320,11 +320,9 @@ func normalizeWindowSpaces(
 				nextWindow.SurfaceKind,
 				nextWindow.Mode,
 				nextWindow.SectionIDOrNull,
+				nextWindow.ChatID,
 			); err != nil {
 				return nil, err
-			}
-			if nextWindow.Mode != ChatWindowModeProjectAI {
-				nextWindow.ChatID = nil
 			}
 			if nextWindow.SurfaceKind == WindowSpaceSurfaceKindSection {
 				if nextWindow.SectionIDOrNull == nil {
@@ -532,6 +530,7 @@ func validateWindowSpaceWindowOwnerOnLoad(
 	surfaceKind WindowSpaceSurfaceKind,
 	mode ChatWindowMode,
 	sectionID *string,
+	chatID *string,
 ) error {
 	if surfaceKind == WindowSpaceSurfaceKindSection && sectionID == nil {
 		return fmt.Errorf("Section window-space windows require sectionIdOrNull.")
@@ -544,6 +543,9 @@ func validateWindowSpaceWindowOwnerOnLoad(
 	}
 	if surfaceKind == WindowSpaceSurfaceKindProjectChat && mode == ChatWindowModeSection {
 		return fmt.Errorf("Project-chat window-space windows cannot use section_mode.")
+	}
+	if mode != ChatWindowModeProjectAI && chatID != nil {
+		return fmt.Errorf("Window-space windows must use project_ai_mode to bind chatId.")
 	}
 	return nil
 }

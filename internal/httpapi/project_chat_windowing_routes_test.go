@@ -338,6 +338,10 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"section","sectionIdOrNull":"section-a","mode":"section_mode","chatId":"stale-chat"}},"order":["window-a"]}}`,
 			expectedDetail: "Window-space windows must use project_ai_mode to bind chatId.",
 		},
+		{
+			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"project_chat","mode":"git_graph_mode","chatId":"stale-chat"}},"order":["window-a"]}}`,
+			expectedDetail: "Window-space windows must use project_ai_mode to bind chatId.",
+		},
 	} {
 		windowSpaceRequest := httptest.NewRequest(
 			http.MethodPost,
