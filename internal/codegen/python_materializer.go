@@ -381,9 +381,13 @@ func marshalGeneratedPythonSectionPayload(
 	binding *projectstate.CodeFileBinding,
 ) (projectstate.RawJSON, error) {
 	payload := map[string]any{
-		"id":   implID,
-		"type": sectionType,
-		"code": code,
+		"id":                        implID,
+		"type":                      sectionType,
+		"size":                      map[string]any{"width": 500.0, "height": 150.0},
+		"children":                  []string{},
+		"code":                      code,
+		"codeFileBinding":           nil,
+		"attachedTerminalSectionId": nil,
 	}
 	if binding != nil {
 		payload["codeFileBinding"] = map[string]any{

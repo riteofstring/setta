@@ -9,6 +9,7 @@ import {
   getDisplayedSectionIdToChildren,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
+  getSectionDescendants,
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
@@ -945,6 +946,69 @@ describe("getDisplayedSectionIdToChildren", () => {
     expect(getDisplayedSectionIdToChildren(state)).toEqual({
       [parentSectionId]: [validChildId],
       [validChildId]: [],
+    });
+  });
+
+  it("treats malformed generated parent sections without children as childless", () => {
+    const sectionId = "generated-section";
+    const variantId = "generated-variant";
+    const implId = "generated-impl";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const generatedImpl = createCodeSectionImpl({
+      id: implId,
+      code: "print('generated')",
+      codeLanguage: "python",
+    });
+    const malformedGeneratedImpl = Object.fromEntries(
+      Object.entries({
+        ...generatedImpl,
+        type: SectionTypeEnum.GenPythonCode,
+      }).filter(([key]) => key !== "children"),
+    );
+
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        topLevelSections: {
+          [sectionId]: { ...layout },
+        },
+        sectionVariantMap: {
+          [sectionId]: variantId,
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: malformedGeneratedImpl,
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    expect(getDisplayedSectionIdToChildren(state)).toEqual({
+      [sectionId]: [],
+    });
+    expect(getSectionDescendants(sectionId, state)).toEqual([sectionId]);
+    expect(getCurrEffectiveSectionImpl(state, sectionId).size).toEqual({
+      width: 500,
+      height: 150,
     });
   });
 });

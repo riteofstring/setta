@@ -4,6 +4,7 @@ import {
   createTextBlockSection,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
   setOverviewTab,
 } from "../../helpers";
 
@@ -437,6 +438,7 @@ test("python code obj override persists through Run Instructions edits", async (
       paramName,
       paramValue,
     );
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await openCodegenAccordions(page);
     await page

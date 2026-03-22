@@ -40,10 +40,10 @@ import {
   route_delete_sections,
   route_group_sections,
   route_set_top_level_section_layout,
+  route_set_viewport,
   route_toggle_param_selected,
   route_ungroup_groups,
   route_unselect_all_params,
-  route_set_viewport,
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
@@ -75,6 +75,10 @@ const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
+const GENERATED_PYTHON_SECTION_DEFAULT_SIZE = {
+  width: 500,
+  height: 150,
+} as const;
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -103,6 +107,24 @@ function getEffectiveImpl<T extends object>(
   return effective;
 }
 
+function normalizeEffectiveSectionImpl(
+  impl: BaseSectionImplUnion,
+): BaseSectionImplUnion {
+  if (isBaseParentSectionImpl(impl) && !Array.isArray(impl.children)) {
+    impl.children = [];
+  }
+  if (
+    (impl.type === SectionTypeEnum.GenPythonCode ||
+      impl.type === SectionTypeEnum.GenPythonMetadata) &&
+    (!impl.size ||
+      impl.size.width === undefined ||
+      impl.size.height === undefined)
+  ) {
+    impl.size = { ...GENERATED_PYTHON_SECTION_DEFAULT_SIZE };
+  }
+  return impl;
+}
+
 function getEffectiveSectionImplIfPresent(
   projectState: ProjectStateSingleConfig,
   sectionId: string,
@@ -123,7 +145,7 @@ function getEffectiveSectionImplIfPresent(
   if (!core) {
     return null;
   }
-  return getEffectiveImpl(impl, core, variant);
+  return normalizeEffectiveSectionImpl(getEffectiveImpl(impl, core, variant));
 }
 
 type ChatSectionImpl = Extract<
@@ -354,7 +376,9 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   }
   const childIds =
     childIdsOverride ??
-    (isBaseParentSectionImpl(impl) ? impl.children : [attachedTerminalId]);
+    (isBaseParentSectionImpl(impl)
+      ? getSectionImplChildren(impl)
+      : [attachedTerminalId]);
   const candidateChildId =
     childIds.length > 0 ? childIds[0] : attachedTerminalId;
   const isEmbeddedCandidate =
@@ -481,7 +505,9 @@ export function getCurrEffectiveSectionImpl(
   const variant = getCurrSectionVariant(p, sectionId, preview);
   const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
-  return getEffectiveImpl(baseImpl, core, variant);
+  return normalizeEffectiveSectionImpl(
+    getEffectiveImpl(baseImpl, core, variant),
+  );
 }
 
 export function getCurrEffectiveSectionImplIfPresent(
@@ -508,7 +534,9 @@ export function getCurrEffectiveSectionImplIfPresent(
   if (!core) {
     return null;
   }
-  return getEffectiveImpl(baseImpl, core, variant);
+  return normalizeEffectiveSectionImpl(
+    getEffectiveImpl(baseImpl, core, variant),
+  );
 }
 
 export function getCurrEffectiveSectionImplWithTypeGuard<T>(
@@ -973,12 +1001,21 @@ export function getSectionDescendants(
     if (currId) {
       const impl = getCurrEffectiveSectionImpl(state, currId);
       if (isBaseParentSectionImpl(impl)) {
-        ids.push(...impl.children);
+        ids.push(...getSectionImplChildren(impl));
       }
     }
     idx += 1;
   }
   return ids;
+}
+
+export function getSectionImplChildren(
+  sectionImpl: BaseSectionImplUnion,
+): Array<string> {
+  if (!isBaseParentSectionImpl(sectionImpl)) {
+    return [];
+  }
+  return Array.isArray(sectionImpl.children) ? sectionImpl.children : [];
 }
 
 export function manualDndChildrenReset() {
@@ -1348,7 +1385,7 @@ function getDisplayedSectionIdToChildrenHelper(
   }
   if (isBaseParentSectionImpl(sectionImpl)) {
     const displayedChildren: string[] = [];
-    for (const childId of sectionImpl.children) {
+    for (const childId of getSectionImplChildren(sectionImpl)) {
       const childImpl = getEffectiveSectionImplIfPresent(state, childId);
       if (!childImpl) {
         continue;

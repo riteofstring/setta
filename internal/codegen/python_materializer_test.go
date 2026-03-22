@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -117,6 +118,14 @@ func TestPythonMaterializerReconcileProjectPythonGeneratedSections(t *testing.T)
 	if strings.Contains(string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload), `import math`) {
 		t.Fatalf("expected generated body only in payload, got %q", string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload))
 	}
+	assertGeneratedSectionPayloadChildrenEmpty(
+		t,
+		project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload,
+	)
+	assertGeneratedSectionPayloadChildrenEmpty(
+		t,
+		project.SectionImpls[projectstate.GeneratedPythonMetadataImplID].Payload,
+	)
 	if !project.ViewModes["focus"].VisibilityBySectionID[projectstate.GeneratedPythonMetadataSectionID] {
 		t.Fatal("expected metadata section visibility in view mode")
 	}
@@ -285,6 +294,32 @@ func pythonMaterializerTestDocument(project projectstate.Project) projectstate.D
 		Projects: map[string]projectstate.Project{
 			project.ID: project,
 		},
+	}
+}
+
+func assertGeneratedSectionPayloadChildrenEmpty(
+	t *testing.T,
+	payload projectstate.RawJSON,
+) {
+	t.Helper()
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode generated section payload: %v", err)
+	}
+	children, ok := decoded["children"].([]any)
+	if !ok {
+		t.Fatalf("expected generated section payload children array, got %#v", decoded["children"])
+	}
+	if len(children) != 0 {
+		t.Fatalf("expected generated section payload children to be empty, got %#v", children)
+	}
+	size, ok := decoded["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated section payload size object, got %#v", decoded["size"])
+	}
+	if size["width"] != 500.0 || size["height"] != 150.0 {
+		t.Fatalf("expected generated section payload size 500x150, got %#v", size)
 	}
 }
 
