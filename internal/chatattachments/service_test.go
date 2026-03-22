@@ -392,6 +392,69 @@ func TestBuildPayloadPrefersExplicitMimeAndFallsBackToKnownTextExtensions(t *tes
 	}
 }
 
+func TestBuildPayloadBuildsMissingPlaceholderForMissingAndOutsideArtifactPaths(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "outside.txt"), []byte("secret"), 0o644); err != nil {
+		t.Fatalf("write outside-artifacts attachment: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: root,
+		ProjectState:   projectRuntime,
+		Sessions: staticSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	payload, err := service.BuildPayload(BuildPayloadRequest{
+		Messages: []map[string]any{
+			{
+				"attachments": []any{
+					map[string]any{"id": "artifacts/missing.txt", "name": "missing.txt", "mimeType": "text/plain", "size": 10},
+					map[string]any{"id": "outside.txt", "name": "outside.txt", "mimeType": "text/plain", "size": 6},
+				},
+			},
+		},
+		ProjectConfigID:     "project-alpha",
+		IncludeText:         true,
+		IncludeTextNoImages: true,
+	})
+	if err != nil {
+		t.Fatalf("build payload: %v", err)
+	}
+	for _, text := range []string{payload.AttachmentText, payload.AttachmentTextNoImages} {
+		if !strings.Contains(text, "[Attachment missing: missing.txt]") {
+			t.Fatalf("expected missing attachment placeholder, got %q", text)
+		}
+		if !strings.Contains(text, "[Attachment missing: outside.txt]") {
+			t.Fatalf("expected outside-artifacts placeholder, got %q", text)
+		}
+		if strings.Contains(text, "secret") {
+			t.Fatalf("expected outside-artifacts contents to stay hidden, got %q", text)
+		}
+	}
+}
+
 func TestBuildContentDispositionEncodesUnicodeFilename(t *testing.T) {
 	t.Parallel()
 
@@ -542,9 +605,12 @@ func newChatAttachmentTestDeploymentRuntime(t *testing.T) (string, *deployments.
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:                   "project-alpha",
-				Name:                 "Alpha",
-				ProjectChatWindowing: func() *projectstate.ProjectChatWindowingState { state := projectstate.DefaultProjectChatWindowingState(); return &state }(),
+				ID:   "project-alpha",
+				Name: "Alpha",
+				ProjectChatWindowing: func() *projectstate.ProjectChatWindowingState {
+					state := projectstate.DefaultProjectChatWindowingState()
+					return &state
+				}(),
 			},
 		},
 	}
