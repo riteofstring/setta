@@ -41,18 +41,19 @@ That means:
   - removed generated `effective_impls.py`
   - removed the dead Python generators that existed only to support those files
 - Low-value tests that only pinned generated type inventories or specific generated names have already been removed.
+- `project_config.py` has been reduced substantially:
+  - most nested project-state data models now come from `go_shared_types.py`
+  - the handwritten remainder is mainly Python-side defaults and codegen-policy resolution logic
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
 - `artifact.py`
-- `binary_content.py`
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
 - `chat_toolkit.py`
 - `dependency_key.py`
 - `dependency_value.py`
-- `edges.py`
 - `id.py`
 - `listener.py`
 - `project_config.py`
@@ -61,6 +62,7 @@ Current handwritten files in `backend/setta/types/`:
 Working assumption for the next passes:
 - `id.py` is likely truly Python-only.
 - parts of `listener.py` are likely truly Python-only.
+- the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
 - every other file must justify itself as Python-only or move toward Go ownership.
 
 ## What Is Still Wrong
@@ -98,15 +100,16 @@ But it still discovers through the `frontendbindings` surface, plus enum fallbac
 The remaining handwritten Python files are much smaller and clearer than before, but several still look like shared contract families rather than Python-only helpers.
 
 The main candidates are:
-- `project_config.py`
 - `artifact.py`
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
 - `dependency_key.py`
 - `dependency_value.py`
-- `edges.py`
 - `websocket.py`
+
+Secondary candidate:
+- the remaining local wrapper content in `project_config.py`, if more of its defaults can move cleanly onto Go-owned models without adding duplicate Go definitions
 
 Those files should either:
 - disappear because the Python package no longer needs them, or
@@ -187,15 +190,14 @@ Guardrail:
 
 ### Phase 3: Move the remaining shared Python families to Go ownership
 Primary targets:
-- `project_config.py`
 - `artifact.py`
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
 - `dependency_key.py`
 - `dependency_value.py`
-- `edges.py`
 - `websocket.py`
+- any remaining reducible wrapper content in `project_config.py`
 
 Work:
 - find the real Go owner package for each family

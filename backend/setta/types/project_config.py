@@ -1,26 +1,26 @@
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.generated.go_shared_types import (
     CodeObjType,
+    CodeObjValueRepresentationMode,
     Edge,
+    ProjectCodegenLanguage,
+    SectionCodegenMode,
+    SectionRepresentationMode,
     SectionType,
-    StateMachineCountOperator,
-    StateMachineSourceFilterType,
-    StateMachineTargetActionType,
-    StateMachineThreadStrategy,
-    WindowSpaceSurfaceKind,
+    StateMachineEdge,
+    TopLevelSectionLayout,
+    ViewMode as ViewModeConfig,
+    WatchCodeFolder,
+    WatchCodeRegistryEntry,
+    WindowSpaceConfig,
+    AgenticEdge,
 )
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-
-class Position(BaseModel):
-    x: float = 0
-    y: float = 0
 
 
 class Viewport(BaseModel, extra="forbid"):
@@ -40,195 +40,6 @@ class Viewport(BaseModel, extra="forbid"):
     )
 
 
-class ViewportBounds(BaseModel, extra="forbid"):
-    """Visible canvas bounds in flow coordinates."""
-
-    x: float = 0
-    y: float = 0
-    w: float = 0
-    h: float = 0
-
-
-class TopLevelSectionLayout(Position, extra="forbid"):
-    zIndex: int = 0
-    w: float | None = None
-    h: float | None = None
-
-
-class ViewModeConfig(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    sortIndex: int = 0
-    isUserFacing: bool = False
-    isTab: bool = False
-    visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
-    viewport: Viewport | None = Field(default_factory=Viewport)
-    viewportInitialized: bool = False
-    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
-
-
-class AgenticEdgeKind(str, Enum):
-    chat_chat = "chat_chat"
-    section_chat = "section_chat"
-    chat_section = "chat_section"
-
-
-class AgenticEdgeContextMode(str, Enum):
-    reference_only = "reference_only"
-    inline_text = "inline_text"
-    summary = "summary"
-
-
-class AgenticEdge(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    sourceSectionId: ID
-    targetSectionId: ID
-    kind: AgenticEdgeKind
-    contextMode: AgenticEdgeContextMode = AgenticEdgeContextMode.reference_only
-    style: dict[str, str | int | float] | None = None
-    hidden: bool = False
-    zIndex: int = 0
-    selected: bool = False
-
-
-class WindowSpaceWindowMode(str, Enum):
-    project_ai_mode = "project_ai_mode"
-    section_mode = "section_mode"
-    git_graph_mode = "git_graph_mode"
-
-
-def _enum_value(value: object) -> object:
-    return getattr(value, "value", value)
-
-
-def validate_window_space_window_owner(
-    *,
-    surface_kind: object,
-    mode: object,
-    section_id: ID | None,
-    chat_id: ID | None,
-) -> None:
-    surface_kind_value = _enum_value(surface_kind)
-    mode_value = _enum_value(mode)
-    if surface_kind_value == "section" and section_id is None:
-        raise ValueError("Section window-space windows require sectionIdOrNull.")
-    if surface_kind_value == "project_chat" and section_id is not None:
-        raise ValueError(
-            "Project-chat window-space windows cannot carry sectionIdOrNull."
-        )
-    if surface_kind_value == "section" and mode_value == "git_graph_mode":
-        raise ValueError("Section window-space windows cannot use git_graph_mode.")
-    if surface_kind_value == "project_chat" and mode_value == "section_mode":
-        raise ValueError("Project-chat window-space windows cannot use section_mode.")
-    if mode_value != "project_ai_mode" and chat_id is not None:
-        raise ValueError(
-            "Window-space windows must use project_ai_mode to bind chatId."
-        )
-
-
-class NormalizedFloatingWindowBounds(BaseModel, extra="forbid"):
-    x: float = Field(default=0.0, ge=0.0, le=1.0)
-    y: float = Field(default=0.0, ge=0.0, le=1.0)
-    width: float = Field(default=1.0, gt=0.0, le=1.0)
-    height: float = Field(default=1.0, gt=0.0, le=1.0)
-
-
-class WindowSpaceWindow(BaseModel, extra="forbid"):
-    surfaceKind: WindowSpaceSurfaceKind = WindowSpaceSurfaceKind.project_chat
-    sectionIdOrNull: ID | None = None
-    mode: WindowSpaceWindowMode = WindowSpaceWindowMode.project_ai_mode
-    title: str | None = None
-    chatId: ID | None = None
-    embeddedGitPaneVisible: bool = False
-    zIndex: int = 0
-    normalizedBounds: NormalizedFloatingWindowBounds = Field(
-        default_factory=NormalizedFloatingWindowBounds
-    )
-
-    @model_validator(mode="after")
-    def _validate_owner(self):
-        validate_window_space_window_owner(
-            surface_kind=self.surfaceKind,
-            mode=self.mode,
-            section_id=self.sectionIdOrNull,
-            chat_id=self.chatId,
-        )
-        return self
-
-
-class WindowSpaceState(BaseModel, extra="forbid"):
-    windowsById: dict[ID, WindowSpaceWindow] = Field(default_factory=dict)
-    order: list[ID] = Field(default_factory=list)
-
-
-class WindowSpaceConfig(WindowSpaceState, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    sortIndex: int = 0
-
-
-class StateMachineSourceFilter(BaseModel, extra="forbid"):
-    type: StateMachineSourceFilterType = StateMachineSourceFilterType.run_completed
-    signalName: str | None = None
-    payloadField: str | None = None
-    equals: str | None = None
-
-
-class StateMachineSourceActivationCountCondition(BaseModel, extra="forbid"):
-    operator: StateMachineCountOperator = StateMachineCountOperator.eq
-    value: int
-
-
-class StateMachineTargetAction(BaseModel, extra="forbid"):
-    type: StateMachineTargetActionType = StateMachineTargetActionType.send_prompt
-    promptTemplateId: ID | None = None
-    promptSectionId: ID | None = None
-    inlinePrompt: str | None = None
-    promptInputs: dict[str, str] = Field(default_factory=dict)
-    threadStrategy: StateMachineThreadStrategy = (
-        StateMachineThreadStrategy.continue_current_thread
-    )
-    stopIfRunning: bool = False
-    engineConfigId: ID | None = None
-    agentProfileId: ID | None = None
-    permissionMode: str | None = None
-    searchEnabled: bool | None = None
-
-
-class StateMachineEdge(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    machineGroupId: str
-    sourceSectionId: ID
-    sourcePortId: str
-    targetSectionId: ID
-    targetPortId: str
-    sourceFilter: StateMachineSourceFilter | None = None
-    sourceActivationCountCondition: (
-        StateMachineSourceActivationCountCondition | None
-    ) = None
-    targetAction: StateMachineTargetAction | None = None
-    style: dict[str, str | int | float] | None = None
-    hidden: bool = False
-    zIndex: int = 0
-    selected: bool = False
-
-
-class ProjectCodegenLanguage(str, Enum):
-    python = "python"
-
-
-class SectionCodegenMode(str, Enum):
-    inherit = "inherit"
-    include = "include"
-    exclude = "exclude"
-
-
-class SectionRepresentationMode(str, Enum):
-    expression = "expression"
-    file_path = "file_path"
-    file_read = "file_read"
-
-
 class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
@@ -237,27 +48,6 @@ class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
 class SectionCodegenOverride(BaseModel, extra="forbid"):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
-
-
-class WatchCodeCallableKind(str, Enum):
-    function = "function"
-    async_function = "async_function"
-    class_init = "class_init"
-
-
-class WatchCodeFolder(BaseModel, extra="forbid"):
-    path: str
-    recursive: bool = True
-
-
-class WatchCodeRegistryEntry(BaseModel, extra="forbid"):
-    callableName: str
-    kind: WatchCodeCallableKind
-    signatureHash: str
-    bodyHash: str
-    sourcePath: str
-    sectionIds: list[ID] = Field(default_factory=list)
-    sectionsCount: int = 0
 
 
 def default_section_allowlist() -> list[SectionType]:
@@ -328,14 +118,6 @@ class SectionCodegenPolicy(BaseModel, extra="forbid"):
 class ResolvedSectionCodegenPolicy:
     include_in_codegen: bool
     representation: SectionRepresentationMode
-
-
-class CodeObjValueRepresentationMode(str, Enum):
-    expression = "expression"
-    json_parsed = "json_parsed"
-    string = "string"
-    file_path = "file_path"
-    file_read = "file_read"
 
 
 class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):

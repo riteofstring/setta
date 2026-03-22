@@ -57,11 +57,6 @@ class ListRootViewMode(str, Enum):
     kanban = "kanban"
 
 
-class WindowSpaceSurfaceKind(str, Enum):
-    project_chat = "project_chat"
-    section = "section"
-
-
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
@@ -91,30 +86,6 @@ class StateMachineGateType(str, Enum):
     AND = "AND"
     OR = "OR"
     XOR = "XOR"
-
-
-class StateMachineTargetActionType(str, Enum):
-    send_prompt = "send_prompt"
-    reset_thread = "reset_thread"
-
-
-class StateMachineThreadStrategy(str, Enum):
-    continue_current_thread = "continue_current_thread"
-    new_thread_before_send = "new_thread_before_send"
-
-
-class StateMachineSourceFilterType(str, Enum):
-    run_completed = "run_completed"
-    run_failed = "run_failed"
-    signal = "signal"
-
-
-class StateMachineCountOperator(str, Enum):
-    lt = "lt"
-    lte = "lte"
-    eq = "eq"
-    gte = "gte"
-    gt = "gt"
 
 
 class TextBlockDisplayMode(str, Enum):
@@ -172,6 +143,30 @@ class RunSnapshotMode(str, Enum):
     never = "never"
     ephemeral = "ephemeral"
     always = "always"
+
+
+class ProjectCodegenLanguage(str, Enum):
+    python = "python"
+
+
+class SectionCodegenMode(str, Enum):
+    inherit = "inherit"
+    include = "include"
+    exclude = "exclude"
+
+
+class SectionRepresentationMode(str, Enum):
+    expression = "expression"
+    file_path = "file_path"
+    file_read = "file_read"
+
+
+class CodeObjValueRepresentationMode(str, Enum):
+    expression = "expression"
+    json_parsed = "json_parsed"
+    string = "string"
+    file_path = "file_path"
+    file_read = "file_read"
 
 
 class SectionType(str, Enum):
@@ -313,9 +308,35 @@ class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
     data: bool = True
 
 
+class Viewport(SettaSharedTypeModel):
+    x: float
+    y: float
+    zoom: float
+
+
+class TopLevelSectionLayout(SettaSharedTypeModel):
+    x: float
+    y: float
+    zIndex: int
+    w: float | None = None
+    h: float | None = None
+
+
 class EdgePort(SettaSharedTypeModel):
     id: str
     accessor: str
+
+
+class ViewMode(SettaSharedTypeModel):
+    id: str
+    name: str
+    sortIndex: int
+    isUserFacing: bool
+    isTab: bool
+    visibilityBySectionId: dict[str, bool]
+    viewport: Viewport | None = None
+    viewportInitialized: bool
+    topLevelSections: dict[str, TopLevelSectionLayout]
 
 
 class Edge(SettaSharedTypeModel):
@@ -334,6 +355,101 @@ class Edge(SettaSharedTypeModel):
     zIndex: int
     data: Any
     selected: bool
+
+
+class AgenticEdge(SettaSharedTypeModel):
+    id: str
+    sourceSectionId: str
+    targetSectionId: str
+    kind: str
+    contextMode: str
+    style: Any
+    hidden: bool
+    zIndex: int
+    selected: bool
+
+
+class NormalizedFloatingWindowBounds(SettaSharedTypeModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class WindowSpaceWindow(SettaSharedTypeModel):
+    surfaceKind: str
+    sectionIdOrNull: str | None = None
+    mode: str
+    title: str | None = None
+    chatId: str | None = None
+    embeddedGitPaneVisible: bool
+    zIndex: int
+    normalizedBounds: NormalizedFloatingWindowBounds
+
+
+class WindowSpaceConfig(SettaSharedTypeModel):
+    windowsById: dict[str, WindowSpaceWindow]
+    order: list[str]
+    id: str
+    name: str
+    sortIndex: int
+
+
+class StateMachineSourceFilter(SettaSharedTypeModel):
+    type: str
+    signalName: str | None = None
+    payloadField: str | None = None
+    equals: str | None = None
+
+
+class StateMachineSourceActivationCountCondition(SettaSharedTypeModel):
+    operator: str
+    value: int
+
+
+class StateMachineTargetAction(SettaSharedTypeModel):
+    type: str
+    promptTemplateId: str | None = None
+    promptSectionId: str | None = None
+    inlinePrompt: str | None = None
+    promptInputs: dict[str, str]
+    threadStrategy: str
+    stopIfRunning: bool
+    engineConfigId: str | None = None
+    agentProfileId: str | None = None
+    permissionMode: str | None = None
+    searchEnabled: bool | None = None
+
+
+class StateMachineEdge(SettaSharedTypeModel):
+    id: str
+    machineGroupId: str
+    sourceSectionId: str
+    sourcePortId: str
+    targetSectionId: str
+    targetPortId: str
+    sourceFilter: StateMachineSourceFilter | None = None
+    sourceActivationCountCondition: StateMachineSourceActivationCountCondition | None = None
+    targetAction: StateMachineTargetAction | None = None
+    style: Any
+    hidden: bool
+    zIndex: int
+    selected: bool
+
+
+class WatchCodeFolder(SettaSharedTypeModel):
+    path: str
+    recursive: bool
+
+
+class WatchCodeRegistryEntry(SettaSharedTypeModel):
+    callableName: str
+    kind: str
+    signatureHash: str
+    bodyHash: str
+    sourcePath: str
+    sectionIds: list[str]
+    sectionsCount: int
 
 
 class LLMConfig(SettaSharedTypeModel):
