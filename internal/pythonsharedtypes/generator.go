@@ -207,6 +207,12 @@ func buildModelSpec(spec contractSpec) (modelSpec, error) {
 				err,
 			)
 		}
+		if fieldAllowsMissing(field) && defaultExpr == "" {
+			if !strings.Contains(typeExpr, " | None") {
+				typeExpr += " | None"
+			}
+			defaultExpr = "None"
+		}
 		model.Fields = append(model.Fields, fieldSpec{
 			Name:        jsonName,
 			TypeExpr:    typeExpr,
@@ -241,6 +247,20 @@ func fieldJSONName(field reflect.StructField) (string, error) {
 		return "", fmt.Errorf("missing json field name")
 	}
 	return name, nil
+}
+
+func fieldAllowsMissing(field reflect.StructField) bool {
+	tag := strings.TrimSpace(field.Tag.Get("json"))
+	if tag == "" {
+		return false
+	}
+	parts := strings.Split(tag, ",")
+	for _, part := range parts[1:] {
+		if strings.TrimSpace(part) == "omitempty" {
+			return true
+		}
+	}
+	return false
 }
 
 func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {

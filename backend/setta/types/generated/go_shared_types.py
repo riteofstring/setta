@@ -317,7 +317,7 @@ class Viewport(SettaSharedTypeModel):
 class TopLevelSectionLayout(SettaSharedTypeModel):
     x: float
     y: float
-    zIndex: int
+    zIndex: int | None = None
     w: float | None = None
     h: float | None = None
 
@@ -331,12 +331,12 @@ class ViewMode(SettaSharedTypeModel):
     id: str
     name: str
     sortIndex: int
-    isUserFacing: bool
-    isTab: bool
-    visibilityBySectionId: dict[str, bool]
+    isUserFacing: bool | None = None
+    isTab: bool | None = None
+    visibilityBySectionId: dict[str, bool] | None = None
     viewport: Viewport | None = None
-    viewportInitialized: bool
-    topLevelSections: dict[str, TopLevelSectionLayout]
+    viewportInitialized: bool | None = None
+    topLevelSections: dict[str, TopLevelSectionLayout] | None = None
 
 
 class Edge(SettaSharedTypeModel):
@@ -347,14 +347,14 @@ class Edge(SettaSharedTypeModel):
     targetSectionId: str
     targetVariantId: str
     targetPortId: str
-    type: str
+    type: str | None = None
     label: str | None = None
-    style: Any
-    animated: bool
-    hidden: bool
-    zIndex: int
-    data: Any
-    selected: bool
+    style: Any | None = None
+    animated: bool | None = None
+    hidden: bool | None = None
+    zIndex: int | None = None
+    data: Any | None = None
+    selected: bool | None = None
 
 
 class AgenticEdge(SettaSharedTypeModel):
@@ -362,11 +362,11 @@ class AgenticEdge(SettaSharedTypeModel):
     sourceSectionId: str
     targetSectionId: str
     kind: str
-    contextMode: str
-    style: Any
-    hidden: bool
-    zIndex: int
-    selected: bool
+    contextMode: str | None = None
+    style: Any | None = None
+    hidden: bool | None = None
+    zIndex: int | None = None
+    selected: bool | None = None
 
 
 class NormalizedFloatingWindowBounds(SettaSharedTypeModel):
@@ -377,22 +377,22 @@ class NormalizedFloatingWindowBounds(SettaSharedTypeModel):
 
 
 class WindowSpaceWindow(SettaSharedTypeModel):
-    surfaceKind: str
+    surfaceKind: str | None = None
     sectionIdOrNull: str | None = None
-    mode: str
+    mode: str | None = None
     title: str | None = None
     chatId: str | None = None
-    embeddedGitPaneVisible: bool
-    zIndex: int
-    normalizedBounds: NormalizedFloatingWindowBounds
+    embeddedGitPaneVisible: bool | None = None
+    zIndex: int | None = None
+    normalizedBounds: NormalizedFloatingWindowBounds | None = None
 
 
 class WindowSpaceConfig(SettaSharedTypeModel):
     windowsById: dict[str, WindowSpaceWindow]
     order: list[str]
-    id: str
-    name: str
-    sortIndex: int
+    id: str | None = None
+    name: str | None = None
+    sortIndex: int | None = None
 
 
 class StateMachineSourceFilter(SettaSharedTypeModel):
@@ -412,9 +412,9 @@ class StateMachineTargetAction(SettaSharedTypeModel):
     promptTemplateId: str | None = None
     promptSectionId: str | None = None
     inlinePrompt: str | None = None
-    promptInputs: dict[str, str]
+    promptInputs: dict[str, str] | None = None
     threadStrategy: str
-    stopIfRunning: bool
+    stopIfRunning: bool | None = None
     engineConfigId: str | None = None
     agentProfileId: str | None = None
     permissionMode: str | None = None
@@ -431,10 +431,10 @@ class StateMachineEdge(SettaSharedTypeModel):
     sourceFilter: StateMachineSourceFilter | None = None
     sourceActivationCountCondition: StateMachineSourceActivationCountCondition | None = None
     targetAction: StateMachineTargetAction | None = None
-    style: Any
-    hidden: bool
-    zIndex: int
-    selected: bool
+    style: Any | None = None
+    hidden: bool | None = None
+    zIndex: int | None = None
+    selected: bool | None = None
 
 
 class WatchCodeFolder(SettaSharedTypeModel):
@@ -448,8 +448,8 @@ class WatchCodeRegistryEntry(SettaSharedTypeModel):
     signatureHash: str
     bodyHash: str
     sourcePath: str
-    sectionIds: list[str]
-    sectionsCount: int
+    sectionIds: list[str] | None = None
+    sectionsCount: int | None = None
 
 
 class LLMConfig(SettaSharedTypeModel):
