@@ -5085,6 +5085,76 @@ func TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState(t *tes
 	}
 }
 
+func TestRegisterProjectRoutesSectionStructureMutationsAreBlockedInDeploymentModes(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			baselineProject := sectionStructureRouteTestProject(t)
+			for _, requestSpec := range []struct {
+				name  string
+				route string
+				body  string
+			}{
+				{
+					name:  "group_sections",
+					route: RouteGroupSections,
+					body:  `{"projectConfigId":"project-alpha","sectionIds":["alpha-section","beta-section"]}`,
+				},
+				{
+					name:  "ungroup_groups",
+					route: RouteUngroupGroups,
+					body:  `{"projectConfigId":"project-alpha","groupIds":["top-group"]}`,
+				},
+			} {
+				t.Run(requestSpec.name, func(t *testing.T) {
+					deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+						Mode: mode,
+						Document: projectstate.Document{
+							SchemaVersion:    projectstate.CurrentSchemaVersion,
+							DefaultProjectID: "project-alpha",
+							Projects: map[string]projectstate.Project{
+								"project-alpha": baselineProject,
+							},
+						},
+						Policy: map[string]any{
+							"allowLayoutChanges": true,
+						},
+					})
+					if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+						t.Fatalf("create deployment session: %v", err)
+					}
+
+					handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s in %s mode, got %d with body %q", requestSpec.route, mode, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+						t.Fatalf("expected mode_forbidden for %s in %s mode, got %q", requestSpec.route, mode, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+						t.Fatalf("expected deployment-mode denial detail for %s in %s mode, got %q", requestSpec.route, mode, response.Body.String())
+					}
+
+					overlay, err := deploymentRuntime.Overlay("share-a")
+					if err != nil {
+						t.Fatalf("deployment overlay: %v", err)
+					}
+					overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+					if len(overlayProject.Sections) != len(baselineProject.Sections) {
+						t.Fatalf("expected rejected %s mutation to preserve overlay section count %d, got %d", requestSpec.route, len(baselineProject.Sections), len(overlayProject.Sections))
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesMoveSectionsPersistsLatestState(t *testing.T) {
 	t.Parallel()
 
