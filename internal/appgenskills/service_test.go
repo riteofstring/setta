@@ -231,6 +231,74 @@ func TestServiceListReturnsEmptyDescriptionForInvalidUTF8AndNonWritableSkill(t *
 	}
 }
 
+func TestServiceListMarksReadOnlySkillDocEditableWhenDirectoryReplaceable(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	skillDoc := filepath.Join(workspaceRoot, ".agents", "skills", "read-only", "SKILL.md")
+	writeSkillDoc(t, skillDoc, "# Read Only\n\nLocked.\n")
+	if err := os.Chmod(skillDoc, 0o444); err != nil {
+		t.Fatalf("chmod skill doc: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(skillDoc, 0o644)
+	})
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{})
+
+	rows, err := service.List()
+	if err != nil {
+		t.Fatalf("list skills: %v", err)
+	}
+
+	rowByID := make(map[string]SkillEntry, len(rows))
+	for _, row := range rows {
+		rowByID[row.SkillID] = row
+	}
+	row := rowByID["workspace_agents_skills::read-only"]
+	if !row.IsEditable || row.EditabilityReason != nil {
+		t.Fatalf("expected read-only doc to stay editable when directory is replaceable, got %#v", row)
+	}
+}
+
+func TestServiceListUsesFirstUsefulDescriptionLine(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "streamed-description", "SKILL.md"), "# Streamed Description\n\nRead only first useful line.\nMore content.\n")
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{})
+
+	rows, err := service.List()
+	if err != nil {
+		t.Fatalf("list skills: %v", err)
+	}
+
+	rowByID := make(map[string]SkillEntry, len(rows))
+	for _, row := range rows {
+		rowByID[row.SkillID] = row
+	}
+	if rowByID["workspace_agents_skills::streamed-description"].Description != "Read only first useful line." {
+		t.Fatalf("expected first useful description line, got %#v", rowByID["workspace_agents_skills::streamed-description"])
+	}
+}
+
 func TestServiceResolveSkillsResponseReportsMissingCreateRootWithoutProbingWrites(t *testing.T) {
 	t.Parallel()
 
@@ -367,6 +435,45 @@ func TestServiceReadContentRejectsTraversalAndInvalidUTF8(t *testing.T) {
 	}
 	if !errors.As(err, &invalidErr) || invalidErr.Error() != "invalid UTF-8" {
 		t.Fatalf("expected invalid UTF-8 error, got %v", err)
+	}
+}
+
+func TestServiceReadContentReturnsInvalidWhenStatDenied(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	skillDir := filepath.Join(workspaceRoot, ".agents", "skills", "permission-denied")
+	writeSkillDoc(t, filepath.Join(skillDir, "SKILL.md"), "# Permission Denied\n\nBody.\n")
+	if err := os.Chmod(skillDir, 0o000); err != nil {
+		t.Fatalf("chmod skill dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(skillDir, 0o755)
+	})
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{})
+
+	_, err := service.ReadContent("workspace_agents_skills::permission-denied")
+	if err == nil {
+		t.Fatal("expected permission-denied error")
+	}
+	var invalidErr *InvalidError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("expected invalid error, got %T", err)
+	}
+	if !strings.Contains(strings.ToLower(invalidErr.Error()), "permission denied") {
+		t.Fatalf("expected permission denied detail, got %q", invalidErr.Error())
 	}
 }
 
