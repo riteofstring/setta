@@ -225,8 +225,12 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
+	generatedInputs, err := p.collectManualRunGeneratedInputs(target.Project, hasOverrides(request))
+	if err != nil {
+		return Plan{}, err
+	}
 
-	snapshotDir, copiedPaths, err := p.writeSnapshot(codeSections, resolvedMode)
+	snapshotDir, copiedPaths, err := p.writeSnapshot(append(codeSections, generatedInputs...), resolvedMode)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -433,6 +437,16 @@ func (p *Planner) collectGeneratedEntryInputs(
 		content:   metadataContent,
 	})
 	return inputs, nil
+}
+
+func (p *Planner) collectManualRunGeneratedInputs(project projectstate.Project, overridesApplied bool) ([]codeSectionInput, error) {
+	if !project.HasPythonCodegenTarget() {
+		return nil, nil
+	}
+	return p.collectGeneratedEntryInputs(project, projectstate.ResolvedGeneratedEntry{
+		CodeBinding:     project.GeneratedCodeBinding,
+		MetadataBinding: project.GeneratedMetadataBinding,
+	}, overridesApplied)
 }
 
 func (p *Planner) renderGeneratedEntryInputs(project projectstate.Project) ([]codeSectionInput, error) {

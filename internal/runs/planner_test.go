@@ -254,6 +254,79 @@ func TestPlannerPlanSnapshotsAllManualCodeSections(t *testing.T) {
 	}
 }
 
+func TestPlannerPlanSnapshotsManualCodeWithGeneratedBindingsUnderExplicitSnapshotRoot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryPlannerTestFixture(t)
+	shareSnapshotRoot := filepath.Join(t.TempDir(), "share_runs", "session-absolute")
+
+	planner, err := NewPlanner(PlannerOptions{
+		ProjectState:   fixture.runtime,
+		SettaFilesRoot: fixture.settaFilesRoot,
+		RuntimeRoot:    fixture.runtimeRoot,
+		SnapshotRoot:   shareSnapshotRoot,
+		Now: func() time.Time {
+			return time.Date(2026, time.March, 6, 12, 34, 56, 123000000, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new planner: %v", err)
+	}
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "code-section",
+		RunSnapshotMode: RunSnapshotModeEphemeral,
+	})
+	if err != nil {
+		t.Fatalf("plan manual snapshot run: %v", err)
+	}
+
+	if plan.TargetKind != projectstate.RunTargetKindManualCode {
+		t.Fatalf("expected manual code target kind, got %q", plan.TargetKind)
+	}
+	if !filepath.IsAbs(plan.SnapshotDirectory) {
+		t.Fatalf("expected absolute snapshot directory, got %q", plan.SnapshotDirectory)
+	}
+	if !strings.HasPrefix(plan.SnapshotDirectory, shareSnapshotRoot+string(os.PathSeparator)) {
+		t.Fatalf("expected snapshot directory under explicit snapshot root %q, got %q", shareSnapshotRoot, plan.SnapshotDirectory)
+	}
+
+	snapshotPythonPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.pythonPath))
+	snapshotGeneratedPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.generatedPath))
+	snapshotMetadataPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.generatedMetaPath))
+
+	if plan.EntryPath != snapshotPythonPath {
+		t.Fatalf("expected snapshot entry path %q, got %q", snapshotPythonPath, plan.EntryPath)
+	}
+	pythonPath, err := exec.LookPath("python3")
+	if err != nil {
+		pythonPath, err = exec.LookPath("python")
+	}
+	if err != nil {
+		t.Fatalf("resolve python executable: %v", err)
+	}
+	expectedCommand := shellQuote(pythonPath) + " " + shellQuote(snapshotPythonPath)
+	if plan.Command != expectedCommand {
+		t.Fatalf("expected command %q, got %q", expectedCommand, plan.Command)
+	}
+
+	if got, err := os.ReadFile(snapshotGeneratedPath); err != nil {
+		t.Fatalf("read generated snapshot file: %v", err)
+	} else if want, err := os.ReadFile(fixture.generatedPath); err != nil {
+		t.Fatalf("read generated source file: %v", err)
+	} else if string(got) != string(want) {
+		t.Fatalf("expected generated snapshot content %q, got %q", string(want), string(got))
+	}
+	if got, err := os.ReadFile(snapshotMetadataPath); err != nil {
+		t.Fatalf("read metadata snapshot file: %v", err)
+	} else if want, err := os.ReadFile(fixture.generatedMetaPath); err != nil {
+		t.Fatalf("read metadata source file: %v", err)
+	} else if string(got) != string(want) {
+		t.Fatalf("expected metadata snapshot content %q, got %q", string(want), string(got))
+	}
+}
+
 func TestPlannerPlanAppliesSectionVariantOverridesWithoutMutatingBaseState(t *testing.T) {
 	t.Parallel()
 
@@ -508,6 +581,44 @@ func TestPlannerPlanSnapshotsGeneratedEntryFromOverrideState(t *testing.T) {
 	project := snapshot.Document.Projects["project-alpha"]
 	if got := payloadValueString(t, project, "params-section", "param-text"); got != "base-value" {
 		t.Fatalf("expected live project param value to remain base-value, got %q", got)
+	}
+}
+
+func TestPlannerPlanSnapshotsOverrideRenderedGeneratedBindingsForManualCodeRuns(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryParamOverridePlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID: "project-alpha",
+		SectionID: "code-section",
+		ParamOverrides: map[string]string{
+			"params-section:param-text": "override-value",
+		},
+	})
+	if err != nil {
+		t.Fatalf("plan manual run with overrides: %v", err)
+	}
+
+	snapshotGeneratedPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.generatedPath))
+	got, err := os.ReadFile(snapshotGeneratedPath)
+	if err != nil {
+		t.Fatalf("read snapshot generated file: %v", err)
+	}
+	if !strings.Contains(string(got), "override-value") {
+		t.Fatalf("expected manual-run generated snapshot to contain override value, got:\n%s", string(got))
+	}
+
+	diskGenerated, err := os.ReadFile(fixture.generatedPath)
+	if err != nil {
+		t.Fatalf("read disk generated file: %v", err)
+	}
+	if !strings.Contains(string(diskGenerated), "base-value") {
+		t.Fatalf("expected disk generated code to keep base value, got:\n%s", string(diskGenerated))
+	}
+	if strings.Contains(string(diskGenerated), "override-value") {
+		t.Fatalf("did not expect disk generated code to be mutated:\n%s", string(diskGenerated))
 	}
 }
 
