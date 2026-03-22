@@ -120,6 +120,22 @@ Last audited: `2026-03-23`
   `TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName`,
   `TestRegisterStatusRoutesReturnsAuthRefreshStatus`, and
   `TestAppServesStatusMetaRoutes`.
+- Follow-up in this pass on `3bfff0950a`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/utils/test_init_status.py::{test_snapshot_includes_auth_refresh_window,test_snapshot_reads_active_worktree_name,test_auth_refresh_status_includes_refresh_window}`
+  against `internal/httpapi/status_routes.go`, the live callers in
+  `frontend/src/components/Pages/GlobalWrapper.tsx` and
+  `frontend/src/state/actions/websocketReceive.ts`, and the focused Go proof
+  in `TestRegisterStatusRoutesReturnsBackendInitStatus`,
+  `TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName`,
+  `TestRegisterStatusRoutesReturnsAuthRefreshStatus`, and
+  `TestAppServesStatusMetaRoutes`; no new implementation gap was found, and
+  the existing `status_meta.backend_init.read_optionally_exposes_worktree_name_when_available`
+  and `status_meta.auth_refresh.read_exposes_cookie_window_for_websocket_recovery`
+  rows remained the correct terminal `Proved` dispositions for those stale
+  backlog clues.
 - Follow-up in this pass on `271f05e8c`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
   `internal/projectstate`
