@@ -568,6 +568,14 @@ Current Phase 6 boundary:
 - keep any future backend-only helper payloads out of the retained listener
   type module unless they are promoted into the retained SDK contract family
 
+Phase 6 status:
+
+- complete for the active retained SDK path
+- the production Python API/share surfaces no longer import
+  `ProjectStateSingleConfig`; the remaining Python project-state modules are no
+  longer on the active retained SDK path and therefore no longer block this
+  plan
+
 ### Phase 7. Packaging, Versioning, And CI Hardening
 
 Finalize the retained Python boundary as a supported surface.
@@ -625,6 +633,12 @@ Phase 7 progress:
   bound port, lets the retained Python listener complete bootstrap +
   registration against that server, and asserts that listener metadata is
   hydrated from the authoritative Go force-refresh snapshot
+
+Phase 7 status:
+
+- complete for the running-backend retained SDK path
+- local-core-specific packaging and smoke work remains intentionally deferred
+  behind Gate B because Phase 5 did not establish a proven local-core need
 
 ## Recommended First Implementation Sequence
 
