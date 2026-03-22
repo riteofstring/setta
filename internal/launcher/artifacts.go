@@ -1,6 +1,8 @@
 package launcher
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,6 +21,8 @@ const (
 	launcherArtifactSettaFilesDir   = "setta_files"
 	launcherArtifactRuntimeDir      = "runtime"
 )
+
+var defaultMacOSIconFileName = "Setta.icns"
 
 type LauncherArtifactError struct {
 	Message string
@@ -283,7 +287,7 @@ func installMacOSArtifacts(context launcherArtifactContext) (map[string]string, 
 	launcherBinaryPath := filepath.Join(appMacOSDir, "setta-launcher")
 	infoPlistPath := filepath.Join(appContentsDir, "Info.plist")
 
-	iconFileName, err := copyOptionalMacOSIcon(context.Options["icon_path"], appResourcesDir)
+	iconFileName, err := copyMacOSIcon(context.Options["icon_path"], appResourcesDir, context.TargetCommand)
 	if err != nil {
 		return nil, err
 	}
@@ -735,10 +739,10 @@ func buildMacOSInfoPlist(iconFileName string) (string, error) {
 	builder.WriteString("  <dict>\n")
 	writePlistString := func(key string, value string) {
 		builder.WriteString("    <key>")
-		builder.WriteString(key)
+		builder.WriteString(escapeXMLText(key))
 		builder.WriteString("</key>\n")
 		builder.WriteString("    <string>")
-		builder.WriteString(value)
+		builder.WriteString(escapeXMLText(value))
 		builder.WriteString("</string>\n")
 	}
 	writePlistString("CFBundleDisplayName", "Setta")
@@ -757,14 +761,10 @@ func buildMacOSInfoPlist(iconFileName string) (string, error) {
 	return builder.String(), nil
 }
 
-func copyOptionalMacOSIcon(sourcePath string, destinationDir string) (string, error) {
-	trimmedSourcePath := strings.TrimSpace(sourcePath)
-	if trimmedSourcePath == "" {
-		return "", nil
-	}
-	resolvedSourcePath, err := resolvePathLoose(trimmedSourcePath)
+func copyMacOSIcon(sourcePath string, destinationDir string, targetCommand []string) (string, error) {
+	resolvedSourcePath, err := resolveMacOSIconSourcePath(sourcePath, targetCommand)
 	if err != nil {
-		return "", &LauncherArtifactError{Message: fmt.Sprintf("resolve icon_path: %v", err)}
+		return "", err
 	}
 	if strings.ToLower(filepath.Ext(resolvedSourcePath)) != ".icns" {
 		return "", &LauncherArtifactError{Message: "Artifact option `icon_path` must point to a .icns file."}
@@ -773,12 +773,69 @@ func copyOptionalMacOSIcon(sourcePath string, destinationDir string) (string, er
 	if err != nil || info == nil || !info.Mode().IsRegular() {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Icon file does not exist: %s", resolvedSourcePath)}
 	}
-	iconFileName := filepath.Base(resolvedSourcePath)
+	iconFileName, err := validateFileNameComponent("icon_path", filepath.Base(resolvedSourcePath))
+	if err != nil {
+		return "", err
+	}
 	destinationPath := filepath.Join(destinationDir, iconFileName)
 	if err := copyArtifactFile(resolvedSourcePath, destinationPath, 0o644); err != nil {
 		return "", err
 	}
 	return iconFileName, nil
+}
+
+func resolveMacOSIconSourcePath(sourcePath string, targetCommand []string) (string, error) {
+	trimmedSourcePath := strings.TrimSpace(sourcePath)
+	if trimmedSourcePath == "" {
+		return resolveBundledMacOSIconPath(targetCommand)
+	}
+	resolvedSourcePath, err := resolvePathLoose(trimmedSourcePath)
+	if err != nil {
+		return "", &LauncherArtifactError{Message: fmt.Sprintf("resolve icon_path: %v", err)}
+	}
+	return resolvedSourcePath, nil
+}
+
+func resolveBundledMacOSIconPath(targetCommand []string) (string, error) {
+	for _, candidatePath := range bundledMacOSIconCandidates(targetCommand) {
+		info, err := os.Stat(candidatePath)
+		if err == nil && info.Mode().IsRegular() {
+			return candidatePath, nil
+		}
+	}
+	return "", &LauncherArtifactError{Message: fmt.Sprintf("Bundled launcher icon is missing: %s", defaultMacOSIconFileName)}
+}
+
+func bundledMacOSIconCandidates(targetCommand []string) []string {
+	candidates := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	appendCandidate := func(candidatePath string) {
+		if strings.TrimSpace(candidatePath) == "" {
+			return
+		}
+		if _, ok := seen[candidatePath]; ok {
+			return
+		}
+		seen[candidatePath] = struct{}{}
+		candidates = append(candidates, candidatePath)
+	}
+
+	if len(targetCommand) > 0 {
+		if resolvedExecutablePath, err := resolvePathLoose(targetCommand[0]); err == nil {
+			for parentDir := filepath.Dir(resolvedExecutablePath); ; parentDir = filepath.Dir(parentDir) {
+				appendCandidate(filepath.Join(parentDir, "launcher_artifacts", "assets", defaultMacOSIconFileName))
+				nextParent := filepath.Dir(parentDir)
+				if nextParent == parentDir {
+					break
+				}
+			}
+		}
+	}
+
+	if _, currentFilePath, _, ok := runtime.Caller(0); ok {
+		appendCandidate(filepath.Join(filepath.Dir(currentFilePath), "..", "..", "backend", "setta", "launcher_artifacts", "assets", defaultMacOSIconFileName))
+	}
+	return candidates
 }
 
 func resolveOptionalLinuxIconPath(rawValue string) (string, error) {
@@ -948,6 +1005,11 @@ func validateFileNameComponent(optionKey string, rawValue string) (string, error
 	if normalizedValue == "" {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must be non-empty.", optionKey)}
 	}
+	for _, char := range normalizedValue {
+		if char < 0x20 || char == 0x7f {
+			return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must not contain control characters.", optionKey)}
+		}
+	}
 	if normalizedValue == "." || normalizedValue == ".." {
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must not contain parent/self references.", optionKey)}
 	}
@@ -958,6 +1020,12 @@ func validateFileNameComponent(optionKey string, rawValue string) (string, error
 		return "", &LauncherArtifactError{Message: fmt.Sprintf("Artifact option `%s` must be a file name, not a path.", optionKey)}
 	}
 	return normalizedValue, nil
+}
+
+func escapeXMLText(rawValue string) string {
+	var buffer bytes.Buffer
+	_ = xml.EscapeText(&buffer, []byte(rawValue))
+	return buffer.String()
 }
 
 func shellArrayLiteral(parts []string) string {
