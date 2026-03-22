@@ -1,10 +1,10 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
 } from "../helpers";
 
 function normalizePathForComparison(value: string): string {
@@ -63,24 +63,19 @@ test("browser path overlay snaps visible on blur (no blank flash)", async ({
       );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.5,
-          y: viewportBounds.y + viewportBounds.h * 0.22,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.5,
+        y: viewportBounds.y + viewportBounds.h * 0.22,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     try {
       const sectionNode = page.locator(

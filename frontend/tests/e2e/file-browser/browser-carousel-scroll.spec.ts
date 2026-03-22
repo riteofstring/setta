@@ -3,10 +3,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const SELECT_ALL_SHORTCUT =
@@ -95,24 +95,19 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
       );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const parentDir = await fs.mkdtemp(
       path.join(workspaceRoot, "setta-carousel-scroll-"),
