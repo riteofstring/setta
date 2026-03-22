@@ -302,6 +302,30 @@ Last audited: `2026-03-23`
   `TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads`,
   `TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner`, and
   `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies`.
+- Follow-up in this pass on `c43122c0c`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remained stale/non-reproducible saved
+  suite output rather than a live Go implementation gap; this pass also
+  re-audited the stale workspace-launch route queue slice and confirmed those
+  source clues were already terminal `Intentional divergence`/`Proved` rows
+  backed directly by `TestRegisterWorkspaceLaunchRoutesRequiresIntentToken`,
+  `TestAppIDEModeRejectsWorkspaceLaunchWithoutIntentTokenOverHTTP`,
+  `TestLoadRejectsInvalidRuntimeRootWithTypedCode`,
+  `TestLoadRejectsRuntimeRootMatchingWorkspace`,
+  `TestValidateSettaHomeNameRejectsNonstandardLeaf`,
+  `TestRegisterWorkspaceLaunchRoutesLaunchUsesStoredRequestFromIntent`,
+  `TestRunLaunchEmitsTypedJSONConfigErrors`,
+  `TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches`,
+  `TestLoadIDELaunchConfigUsesProfileRuntimeSettaHomeWhenLookupHomeProvided`,
+  `TestLoadIDELaunchConfigIgnoresAmbientSettaEnvOverrides`,
+  `TestLocalLaunchServiceNonProfileLaunchIgnoresAmbientProfileEnv`,
+  `TestLocalLaunchServiceWhitespaceProfileIsTreatedAsOmitted`,
+  `TestLocalLaunchServiceTrimsWhitespaceOptionalPathInputs`,
+  `TestNormalizeSettaFilesLocationForLaunchMatchesSharedLaunchCases`,
+  `TestLocalLaunchServiceKeepsExplicitGlobalSettaFilesLocation`,
+  `TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRoot`,
+  `TestRunLaunchReturnsNilSettaFilesLocationForExplicitRoot`, and
+  `TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation`.
 - Follow-up in this pass on `d78af87d3`: the regenerated backlog still
   exposed no live `## Critical Backend Suite Failures` section, so this pass
   stayed on bounded UI-setting helper parity by adding direct realtime-hub
