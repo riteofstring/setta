@@ -80,18 +80,45 @@ Verification:
 
 ## Batch 4: Retained Python Boundary Audit
 
-- [ ] Freeze the intentional keep-list from `CURRENT.md`.
-- [ ] Re-check imports rooted at:
+- [x] Freeze the intentional keep-list from `CURRENT.md`.
+- [x] Re-check imports rooted at:
   - `backend/setta/__main__.py`
   - `backend/setta/entrypoint.py`
   - `backend/setta/api/*`
   - `backend/setta/share/listener_runtime.py`
   - `backend/setta/mcp/tool_metadata.py`
-- [ ] Classify the remaining `backend/setta/**/*.py` tree into:
+- [x] Classify the remaining `backend/setta/**/*.py` tree into:
   - retained boundary
   - retained support module
   - explicit asset/process boundary
   - deletion candidate
+
+Audit snapshot:
+
+- 74 local Python modules are still reachable from the explicit retained
+  boundary import closure.
+- Keep outside that closure for non-deletion reasons:
+  - explicit process boundaries:
+    - `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
+    - `backend/setta/share/deployment_listener_process.py`
+  - dynamic/package support:
+    - `backend/setta/logging/filters.py`
+    - `backend/setta/sdk_contracts/__init__.py`
+  - active repo tooling support:
+    - `backend/setta/utils/format_code.py`
+- Next deletion-review queue:
+  - `backend/setta/code_gen/python/value_helpers.py`
+  - `backend/setta/code_gen/value_mode.py`
+  - `backend/setta/secrets/password_store.py`
+  - `backend/setta/types/core.py`
+  - `backend/setta/types/dropzone.py`
+  - `backend/setta/types/generated/effective_impls.py`
+  - `backend/setta/types/generated/impl_args_as_typed_dicts.py`
+  - `backend/setta/types/generated/impl_field_literals.py`
+  - `backend/setta/types/generated/shared_modifier.py`
+  - `backend/setta/types/hierarchy_traversal.py`
+  - `backend/setta/utils/errors.py`
+  - `backend/setta/utils/utils.py`
 
 Verification:
 
@@ -107,6 +134,22 @@ Verification:
   - replacement owner or no-replacement justification
   - proof tests
   - decision
+- [x] First bounded deletion batch:
+  - file set:
+    - `backend/setta/utils/errors.py`
+  - classification:
+    - dead reference tail
+  - current caller evidence:
+    - no non-doc import/use hits for `setta.utils.errors`,
+      `InvalidProjectName`, `InvalidSectionName`, or `InvalidParamName`
+  - replacement owner:
+    - active name-validation errors already live in Go under
+      `internal/projectstate/*NameError`
+  - proof tests:
+    - existing Go name-validation and route tests under `internal/projectstate`
+      and `internal/httpapi`
+  - decision:
+    - delete now
 - [ ] Delete Python tests only when they either:
   - prove a dead path, or
   - have clear Go/frontend replacement coverage

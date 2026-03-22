@@ -58,7 +58,7 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 
 ### Errors and API Responses
 
-- `InvalidProjectName` is raised for violations.
+- Go raises `projectstate.InvalidProjectNameError` for violations.
 - Project rename/create routes translate this to HTTP 422 in
   `internal/httpapi/project_shell_routes.go`.
 
@@ -77,7 +77,7 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 
 ### Errors and API Responses
 
-- `InvalidViewModeName` is raised for violations.
+- Go raises `projectstate.InvalidViewModeNameError` for violations.
 - View mode rename routes translate this to HTTP 422 in
   `internal/httpapi/project_routes.go`.
 
@@ -98,7 +98,7 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 
 ### Errors and API Responses
 
-- `InvalidWindowSpaceName` is raised for violations.
+- Go raises `projectstate.InvalidWindowSpaceNameError` for violations.
 - Window-space rename/create routes translate this to HTTP 422 in
   `internal/httpapi/project_routes.go`.
 
@@ -138,7 +138,7 @@ against the same rules and reports errors as:
 
 ### Errors and API Responses
 
-- `InvalidSectionName` is raised for violations.
+- Go raises `projectstate.InvalidSectionNameError` for violations.
 - Section rename routes translate this to HTTP 422 in
   `internal/httpapi/project_routes.go`.
 
@@ -169,7 +169,8 @@ that param hierarchy. The check is exact-match after trimming.
 
 ### Errors and API Responses
 
-- `InvalidParamName` is raised for violations.
+- Param-name validation failures surface from the Go validation path and map to
+  HTTP 422 on rename routes in `internal/httpapi/project_routes.go`.
 - Param rename routes translate this to HTTP 422 in
   `internal/httpapi/project_routes.go`.
 
