@@ -2,11 +2,8 @@ import asyncio
 
 import pytest
 from setta.api.listener import (
-    ListenerDependencyMetadata,
-    ListenerRuntimeState,
     SettaListener,
 )
-from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.core import Core, Variant
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -29,6 +26,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointResult,
 )
 
+from tests.helpers.listener_runtime_state import build_listener_runtime_state
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -69,13 +67,7 @@ def _build_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
 
 def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
     listener = SettaListener(project_name=project_state.projectConfig.name)
-    dependency_graph = DependencyGraph(project_state)
-    listener._runtime_state = ListenerRuntimeState(
-        dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
-            dependency_graph
-        ),
-        dependency_graph=dependency_graph,
-    )
+    listener._runtime_state = build_listener_runtime_state(project_state)
     listener._project_config_id = project_state.projectConfig.id
     listener._is_registered = True
     return listener

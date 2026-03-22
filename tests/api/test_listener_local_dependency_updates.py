@@ -41,6 +41,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointResult,
 )
 
+from tests.helpers.listener_runtime_state import build_listener_runtime_state
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -118,7 +119,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
         refreshed_state = project_state.model_copy(deep=True)
         set_chat_section_state(refreshed_state, section_id, second_state)
-        runtime_state = listener._build_runtime_state(refreshed_state)
+        runtime_state = build_listener_runtime_state(refreshed_state)
         dependency_entry = runtime_state.dependency_metadata.entry_for_key(
             SectionDependencyKey(sectionId=section_id)
         )
@@ -216,7 +217,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
     async def _noop(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._is_registered = True

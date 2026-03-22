@@ -19,10 +19,15 @@ from setta.types.listener import (
     ListenerDependencyCatalogEntry,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
+    ListenerSnapshot,
 )
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from tests.helpers.listener_runtime_state import (
+    build_listener_dependency_cache,
+    build_listener_runtime_state,
+)
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from watchfiles import Change
 
@@ -123,11 +128,9 @@ class TestSettaListenerHotReload:
         listener: SettaListener,
         project_state: ProjectStateSingleConfig,
     ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         dependency_metadata = runtime_state.dependency_metadata
-        dependency_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
+        dependency_cache = build_listener_dependency_cache(listener, runtime_state)
         return (
             ListenerDependencyCatalog(
                 entries=[
@@ -195,9 +198,11 @@ class TestSettaListenerHotReload:
                     )
                 )
                 await listener._refresh_from_snapshot(
-                    project_state,
-                    dependency_catalog=dependency_catalog,
-                    dependency_values=dependency_values,
+                    ListenerSnapshot(
+                        projectConfigId=project_state.projectConfig.id,
+                        dependencyCatalog=dependency_catalog,
+                        dependencyValues=dependency_values,
+                    )
                 )
                 await asyncio.sleep(0)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))

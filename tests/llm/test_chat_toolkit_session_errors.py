@@ -32,6 +32,7 @@ from setta.types.llm_config import LLMConfig
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatSectionImpl, ChatSectionState
+from tests.helpers.listener_runtime_state import build_listener_runtime_state
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -72,7 +73,7 @@ def _build_listener_context(
     router_caller: Callable[[str, object], Awaitable[object]],
 ) -> ListenerCallbackContext:
     listener = SettaListener(project_name=project_state.projectConfig.name)
-    listener._runtime_state = listener._build_runtime_state(project_state)
+    listener._runtime_state = build_listener_runtime_state(project_state)
     listener._project_config_id = project_state.projectConfig.id
     listener._is_registered = True
     listener._router_endpoint_api = RouterEndpointAPI(router_caller)

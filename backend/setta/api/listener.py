@@ -76,7 +76,6 @@ from setta.types.project_config import (
     CodeObjValueRepresentationMode,
     SectionRepresentationMode,
 )
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.types.websocket import (
@@ -1479,17 +1478,6 @@ class SettaListener:
                 },
             )
 
-    def _build_runtime_state(
-        self, project_state: ProjectStateSingleConfig
-    ) -> ListenerRuntimeState:
-        dep_graph = DependencyGraph(project_state)
-        return ListenerRuntimeState(
-            dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
-                dep_graph
-            ),
-            dependency_graph=dep_graph,
-        )
-
     def _build_dependency_cache_from_snapshot_values(
         self,
         dependency_values: ListenerRenderedDependencyValues | None,
@@ -1533,181 +1521,6 @@ class SettaListener:
                 )
                 continue
         return values_by_name, resolved_dependency_keys
-
-    def _build_dependency_cache_from_runtime_state(
-        self,
-        runtime_state: ListenerRuntimeState,
-    ) -> dict[str, Any]:
-        def unexpected_dependency_lookup(dep_key: BaseDependencyKeyUnion) -> str:
-            raise ValueError(
-                f"Unexpected dependency lookup while rendering direct listener value for {dep_key!r}"
-            )
-
-        value_codec = PythonValueCodec(
-            runtime_state.dependency_graph,
-            unexpected_dependency_lookup,
-            mode=PythonValueMode.LIVE_RUNTIME,
-        )
-        values_by_key: dict[BaseDependencyKeyUnion, Any] = {}
-        values_by_name: dict[str, Any] = {}
-        for name in runtime_state.dependency_metadata.names():
-            dep_key = runtime_state.dependency_metadata.dependency_key(name)
-            value = self._build_cached_dependency_value(
-                runtime_state,
-                dep_key,
-                value_codec=value_codec,
-                values_by_key=values_by_key,
-            )
-            if value is _UNAVAILABLE:
-                continue
-            values_by_name[name] = value
-        return values_by_name
-
-    def _build_cached_dependency_value(
-        self,
-        runtime_state: ListenerRuntimeState,
-        dep_key: BaseDependencyKeyUnion,
-        *,
-        value_codec: PythonValueCodec,
-        values_by_key: dict[BaseDependencyKeyUnion, Any],
-    ) -> Any:
-        if dep_key in values_by_key:
-            return values_by_key[dep_key]
-        node = runtime_state.dependency_graph.graph.get(dep_key)
-        if node is None:
-            return _UNAVAILABLE
-        if not getattr(node, "include_in_codegen", True):
-            return _UNAVAILABLE
-        if isinstance(node, ParamNode):
-            value = self._build_cached_param_node_value(
-                runtime_state,
-                node,
-                value_codec=value_codec,
-                values_by_key=values_by_key,
-            )
-        elif isinstance(node, SectionNode):
-            value = self._build_cached_section_node_value(
-                runtime_state,
-                node,
-                value_codec=value_codec,
-                values_by_key=values_by_key,
-            )
-        else:
-            return _UNAVAILABLE
-        if value is _UNAVAILABLE:
-            return _UNAVAILABLE
-        values_by_key[dep_key] = value
-        return value
-
-    def _build_cached_param_node_value(
-        self,
-        runtime_state: ListenerRuntimeState,
-        node: ParamNode,
-        *,
-        value_codec: PythonValueCodec,
-        values_by_key: dict[BaseDependencyKeyUnion, Any],
-    ) -> Any:
-        if node.type is CodeObjType.NestedParam:
-            return self._build_cached_mapping_value(
-                runtime_state,
-                node.deps,
-                value_codec=value_codec,
-                values_by_key=values_by_key,
-            )
-        if node.type is CodeObjType.PasswordParam:
-            if node.code_obj_impl_id is None or not node.has_secret:
-                return ""
-            return runtime_state.dependency_graph.password_secrets.get(
-                str(node.code_obj_impl_id),
-                "",
-            )
-        if node.deps:
-            return _UNAVAILABLE
-        return self._build_cached_direct_node_value(node, value_codec=value_codec)
-
-    def _build_cached_section_node_value(
-        self,
-        runtime_state: ListenerRuntimeState,
-        node: SectionNode,
-        *,
-        value_codec: PythonValueCodec,
-        values_by_key: dict[BaseDependencyKeyUnion, Any],
-    ) -> Any:
-        if node.type in {SectionType.Dict, SectionType.Group}:
-            return self._build_cached_mapping_value(
-                runtime_state,
-                node.deps,
-                value_codec=value_codec,
-                values_by_key=values_by_key,
-            )
-        if node.type is SectionType.ListRoot:
-            items: list[Any] = []
-            for child_dep_key, is_used in node.deps.items():
-                if not is_used:
-                    continue
-                child_value = self._build_cached_dependency_value(
-                    runtime_state,
-                    child_dep_key,
-                    value_codec=value_codec,
-                    values_by_key=values_by_key,
-                )
-                if child_value is _UNAVAILABLE:
-                    return _UNAVAILABLE
-                items.append(child_value)
-            return items
-        if node.type is SectionType.Callable:
-            return _UNAVAILABLE
-        return self._build_cached_direct_node_value(node, value_codec=value_codec)
-
-    def _build_cached_mapping_value(
-        self,
-        runtime_state: ListenerRuntimeState,
-        deps: dict[BaseDependencyKeyUnion, bool],
-        *,
-        value_codec: PythonValueCodec,
-        values_by_key: dict[BaseDependencyKeyUnion, Any],
-    ) -> Any:
-        payload: dict[str, Any] = {}
-        for child_dep_key, is_used in deps.items():
-            if not is_used:
-                continue
-            child_node = runtime_state.dependency_graph.graph.get(child_dep_key)
-            if child_node is None:
-                return _UNAVAILABLE
-            if not getattr(child_node, "include_in_codegen", True):
-                continue
-            child_value = self._build_cached_dependency_value(
-                runtime_state,
-                child_dep_key,
-                value_codec=value_codec,
-                values_by_key=values_by_key,
-            )
-            if child_value is _UNAVAILABLE:
-                return _UNAVAILABLE
-            payload[child_node.name] = child_value
-        return payload
-
-    def _build_cached_direct_node_value(
-        self,
-        node: Node,
-        *,
-        value_codec: PythonValueCodec,
-    ) -> Any:
-        try:
-            expression = self._render_direct_node_expression(
-                node, value_codec=value_codec
-            )
-        except Exception:
-            return _UNAVAILABLE
-        if not expression:
-            return None
-        try:
-            return self._evaluate_expression(
-                dependency=node.full_path_name,
-                expression=expression,
-            )
-        except Exception:
-            return _UNAVAILABLE
 
     async def _invoke_callback(
         self,

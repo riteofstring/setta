@@ -5,7 +5,7 @@ import json
 import logging
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from setta.api.listener import (
@@ -61,6 +61,10 @@ from setta.types.websocket import (
 )
 
 from tests.helpers.binary_frames import encode_binary_frame
+from tests.helpers.listener_runtime_state import (
+    build_listener_dependency_cache,
+    build_listener_runtime_state,
+)
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 if TYPE_CHECKING:
@@ -97,11 +101,9 @@ def _build_authoritative_snapshot_payload(
     listener: SettaListener,
     project_state: ProjectStateSingleConfig,
 ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     dependency_metadata = runtime_state.dependency_metadata
-    dependency_cache = listener._build_dependency_cache_from_runtime_state(
-        runtime_state
-    )
+    dependency_cache = build_listener_dependency_cache(listener, runtime_state)
     catalog_entries: list[ListenerDependencyCatalogEntry] = []
     value_entries: list[ListenerRenderedDependencyValue] = []
     for dependency_name in dependency_metadata.names():
@@ -356,7 +358,7 @@ class TestSettaListenerRealtimeIntegration:
             sent_payloads.append(payload)
 
         listener._send_websocket_payload = capture
-        listener._runtime_state = listener._build_runtime_state(project_state)
+        listener._runtime_state = build_listener_runtime_state(project_state)
         listener._project_config_id = project_state.projectConfig.id
         listener._is_registered = True
 
@@ -394,7 +396,7 @@ class TestSettaListenerRealtimeIntegration:
     ) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        listener._runtime_state = listener._build_runtime_state(project_state)
+        listener._runtime_state = build_listener_runtime_state(project_state)
         listener._project_config_id = project_state.projectConfig.id
         listener._is_registered = True
 
@@ -1335,7 +1337,7 @@ class TestSettaListenerBootstrapFailure:
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         dependency_catalog = ListenerDependencyCatalog(
             entries=[
                 ListenerDependencyCatalogEntry(
@@ -1386,7 +1388,7 @@ class TestSettaListenerBootstrapFailure:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
         project_state = self._build_project_state()
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
         dependency_catalog = ListenerDependencyCatalog(
             entries=[
@@ -1442,7 +1444,7 @@ class TestSettaListenerBootstrapFailure:
         listener = SettaListener(project_name=project_state.projectConfig.name)
         callback_calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
 
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         section_key = create_dep_key(sectionId=section_id)
         count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         section_name = runtime_state.dependency_metadata.dependency_name(section_key)
@@ -1490,12 +1492,6 @@ class TestSettaListenerBootstrapFailure:
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        listener._build_runtime_state = MagicMock(
-            return_value=ListenerRuntimeState(
-                dependency_metadata=runtime_state.dependency_metadata,
-                dependency_graph=_GraphlessDependencyGraph(),
-            )
-        )
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(
@@ -1526,7 +1522,7 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         listener._runtime_state = runtime_state
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = {"Welcome": "Hello"}
@@ -1660,10 +1656,8 @@ class TestSettaListenerBootstrapFailure:
             ID("project-composite")
         )
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
+        runtime_state = build_listener_runtime_state(project_state)
+        initial_cache = build_listener_dependency_cache(listener, runtime_state)
         section_key = create_dep_key(sectionId=section_id)
         count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         section_name = runtime_state.dependency_metadata.dependency_name(section_key)
@@ -1740,10 +1734,8 @@ class TestSettaListenerBootstrapFailure:
             ID("project-composite-parent")
         )
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
+        runtime_state = build_listener_runtime_state(project_state)
+        initial_cache = build_listener_dependency_cache(listener, runtime_state)
         section_key = create_dep_key(sectionId=section_id)
         count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         section_name = runtime_state.dependency_metadata.dependency_name(section_key)
@@ -1809,10 +1801,8 @@ class TestSettaListenerBootstrapFailure:
             ID("project-runtime-composite")
         )
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
+        runtime_state = build_listener_runtime_state(project_state)
+        initial_cache = build_listener_dependency_cache(listener, runtime_state)
         section_key = create_dep_key(sectionId=section_id)
         count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         section_name = runtime_state.dependency_metadata.dependency_name(section_key)
@@ -1877,10 +1867,8 @@ class TestSettaListenerBootstrapFailure:
             ID("project-runtime-composite-parent")
         )
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
+        runtime_state = build_listener_runtime_state(project_state)
+        initial_cache = build_listener_dependency_cache(listener, runtime_state)
         section_key = create_dep_key(sectionId=section_id)
         count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
         section_name = runtime_state.dependency_metadata.dependency_name(section_key)
@@ -1947,7 +1935,7 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
 
         await listener._replay_cached_snapshot()
@@ -1965,7 +1953,7 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        runtime_state = listener._build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
         listener._latest_dependency_snapshot_values = ListenerRenderedDependencyValues(
@@ -1976,13 +1964,6 @@ class TestSettaListenerBootstrapFailure:
                 )
             ]
         )
-        listener._build_runtime_state = MagicMock(
-            return_value=ListenerRuntimeState(
-                dependency_metadata=runtime_state.dependency_metadata,
-                dependency_graph=_GraphlessDependencyGraph(),
-            )
-        )
-
         await listener._replay_cached_snapshot()
 
         assert listener._runtime_state is not None

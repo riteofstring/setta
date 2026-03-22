@@ -29,11 +29,13 @@ from setta.types.listener import (
     ListenerDependencyCatalogEntry,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
+    ListenerSnapshot,
 )
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DictSectionImpl
 from setta.types.websocket import WebsocketMsgListenerRegister
+from tests.helpers.listener_runtime_state import build_listener_runtime_state
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -151,7 +153,7 @@ async def test_listener_register_accepts_dep_ids() -> None:
         sent_payloads.append(payload)
 
     listener._send_websocket_payload = capture
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
@@ -160,9 +162,7 @@ async def test_listener_register_accepts_dep_ids() -> None:
     await listener._send_listener_register()
 
     assert len(sent_payloads) == 1
-    parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
-        sent_payloads[0]
-    )
+    parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent_payloads[0])
     assert isinstance(parsed_message, WebsocketMsgListenerRegister)
     content = parsed_message.content
 
@@ -194,7 +194,7 @@ def test_listener_context_exposes_id_helpers() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
@@ -226,7 +226,7 @@ def test_callback_state_uses_cached_value() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -251,7 +251,7 @@ def test_callback_state_fails_closed_when_cache_misses() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -265,7 +265,9 @@ def test_callback_state_fails_closed_when_cache_misses() -> None:
         _ = getattr(state, dependency_name)
 
 
-def test_listener_context_values_by_id_uses_cached_values_without_runtime_instance() -> None:
+def test_listener_context_values_by_id_uses_cached_values_without_runtime_instance() -> (
+    None
+):
     project_state, section_id, param_id = build_project_state("7")
     listener = SettaListener(project_name=project_state.projectConfig.name)
 
@@ -275,7 +277,7 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
@@ -298,7 +300,7 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
@@ -310,7 +312,9 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
         ctx.values.by_id(section_id, param_id)
 
 
-def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency() -> None:
+def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency() -> (
+    None
+):
     project_state, section_id, param_id = build_project_state("9")
     listener = SettaListener(project_name=project_state.projectConfig.name)
 
@@ -320,7 +324,7 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
     def on_param(_state, _ctx) -> None:
         return None
 
-    runtime_state = listener._build_runtime_state(project_state)
+    runtime_state = build_listener_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -371,18 +375,19 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
     )
 
     await listener._process_snapshot(
-        project_state,
-        refresh_kind="force_refresh",
-        dependency_catalog=catalog,
-        dependency_values=ListenerRenderedDependencyValues(
-            entries=[
-                ListenerRenderedDependencyValue(
-                    dependencyKey=dependency_key,
-                    renderedValue="11",
-                )
-            ]
+        ListenerSnapshot(
+            projectConfigId=project_state.projectConfig.id,
+            dependencyCatalog=catalog,
+            dependencyValues=ListenerRenderedDependencyValues(
+                entries=[
+                    ListenerRenderedDependencyValue(
+                        dependencyKey=dependency_key,
+                        renderedValue="11",
+                    )
+                ]
+            ),
         ),
-        share_session_id=None,
+        refresh_kind="force_refresh",
     )
     await asyncio.sleep(0)
 
@@ -423,7 +428,7 @@ def test_metadata_backed_callback_state_uses_go_password_snapshot_values() -> No
             entries=[
                 ListenerRenderedDependencyValue(
                     dependencyKey=dependency_key,
-                    renderedValue="\"top-secret\"",
+                    renderedValue='"top-secret"',
                 )
             ]
         ),

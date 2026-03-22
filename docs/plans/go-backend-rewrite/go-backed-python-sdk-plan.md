@@ -458,11 +458,18 @@ Phase 4 progress:
   Go-owned contract shape for active websocket payloads, even where the Python
   side still needs handwritten wrapper models for dependency-key/value-bearing
   payloads
+- the active listener runtime no longer ships the project-state reconstruction
+  helpers that were only needed for test/fallback paths; that logic now lives
+  under `tests/helpers/` instead of the retained production SDK surface
 
-Remaining Phase 4 work:
+Phase 4 status:
 
-- remove test-only and fallback-only dependency-graph reconstruction helpers
-  once the remaining realtime path no longer needs them
+- complete
+
+Phase 5 note:
+
+- no proven local-Go-core gap has been established yet, so Phase 5 remains
+  intentionally deferred behind Gate B
 
 ### Phase 5. Introduce A Narrow Local Go Core Only For Proven Gaps
 

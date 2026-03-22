@@ -1,10 +1,6 @@
 import pytest
 
-from setta.api.listener import (
-    ListenerDependencyIds,
-    ListenerDependencyMetadata,
-    ListenerRuntimeState,
-)
+from setta.api.listener import ListenerDependencyIds
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.core import Core, Variant
@@ -25,21 +21,10 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockSectionImpl,
 )
+from tests.helpers.listener_runtime_state import build_listener_runtime_state
 from tests.helpers.project_state_mutations import add_kwarg
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from tests.helpers.project_state_sections import create_top_level_section
-
-
-def _build_runtime_state(
-    project_state: ProjectStateSingleConfig,
-) -> ListenerRuntimeState:
-    dependency_graph = DependencyGraph(project_state)
-    return ListenerRuntimeState(
-        dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
-            dependency_graph
-        ),
-        dependency_graph=dependency_graph,
-    )
 
 
 def _build_project_state_with_duplicate_sections():
@@ -172,7 +157,7 @@ class TestListenerDependencyIds:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
         project_state, ids = _build_project_state_with_duplicate_sections()
-        runtime_state = _build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         self.ids_helper = ListenerDependencyIds(runtime_state.dependency_metadata)
         self.ids = ids
 
@@ -188,7 +173,7 @@ class TestListenerDependencyIds:
 
     def test_resolve_payload_maps_param_dependency(self) -> None:
         project_state, section_id, kwarg_id = _build_project_state_with_params()
-        runtime_state = _build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         dependency_name = _find_param_dependency_name(
             runtime_state.dependency_graph, kwarg_id
         )
@@ -210,7 +195,7 @@ class TestListenerDependencyIds:
             control_code_obj_type=CodeObjType.TextParam,
         )
         control_param_id = get_meta_control_param_id(project_state, section_id)
-        runtime_state = _build_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state(project_state)
         ids_helper = ListenerDependencyIds(runtime_state.dependency_metadata)
         dependency_name = runtime_state.dependency_graph.graph[
             create_dep_key(sectionId=section_id)
