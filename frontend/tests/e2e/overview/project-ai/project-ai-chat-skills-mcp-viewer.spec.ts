@@ -1434,9 +1434,11 @@ test("custom slash commands preserve attachments on submit", async ({
   await ensureAppReady(page);
   let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
     null;
+  let engineCleanup = async () => {};
 
   try {
     projectContext = await openIsolatedProject(page);
+    engineCleanup = await ensureManagedChatEngine(page);
     const projectChatSurface = await openSlashCommandsViewer(page);
 
     await projectChatSurface
@@ -1459,15 +1461,16 @@ test("custom slash commands preserve attachments on submit", async ({
     await closeSkillsMcpViewer(page);
 
     const activeProjectChatSurface = await getVisibleProjectChatSurface(page);
-    await activeProjectChatSurface
+    const fileInput = activeProjectChatSurface
       .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
+      .first();
+    await expect(fileInput).not.toBeDisabled();
+    await fileInput.setInputFiles({
         name: "notes.txt",
         mimeType: "text/plain",
         buffer: Buffer.from("release notes"),
       });
-    await expect(page.getByText("notes.txt")).toBeVisible();
+    await expect(activeProjectChatSurface.getByText("notes.txt")).toBeVisible();
 
     const requestPromise = page.waitForRequest(
       (request) =>
@@ -1497,6 +1500,7 @@ test("custom slash commands preserve attachments on submit", async ({
     expect(payload.message?.attachments).toHaveLength(1);
     expect(payload.message?.attachments?.[0]?.name).toBe("notes.txt");
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
