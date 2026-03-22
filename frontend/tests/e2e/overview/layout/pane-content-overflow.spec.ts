@@ -1,19 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   openOverviewMoreDestination,
-  postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../../helpers";
 
 const OVERFLOW_TOLERANCE_PX = 6;
 const MIN_CONTENT_INSET_PX = 4;
-
-type CreateTopLevelSectionResponse = {
-  sectionId?: string;
-};
 
 async function assertPaneHasNoRightBleed(
   page: Page,
@@ -54,19 +49,14 @@ async function assertPaneHasNoRightBleed(
 
 async function createCallableSectionAndFocus(page: Page): Promise<void> {
   const projectConfigId = await getCurrentProjectConfigId(page);
-  const created = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Callable",
-    },
-  );
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Callable",
+  });
   const sectionId = created?.sectionId;
   if (!sectionId) {
     throw new Error("Failed to create callable section for overflow test.");
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
 
   await page.evaluate(async (targetSectionId: string) => {
     const { applyActiveSectionChange } = await import(

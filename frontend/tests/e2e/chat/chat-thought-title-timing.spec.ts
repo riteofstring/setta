@@ -6,7 +6,7 @@ import {
   emitChatStreamDelta,
   ensureAppReady,
   openIsolatedProject,
-  postBackend,
+  setChatSectionChatId,
   setChatSectionState,
 } from "../helpers";
 
@@ -39,7 +39,7 @@ test.describe.serial("chat thought title timing", () => {
         temporary: false,
       };
 
-      await postBackend(page, "/setChatSectionChatId", {
+      await setChatSectionChatId(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         chatId,

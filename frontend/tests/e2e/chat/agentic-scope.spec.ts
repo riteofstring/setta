@@ -6,8 +6,8 @@ import {
   emitChatStreamDelta,
   ensureAppReady,
   openIsolatedProject,
-  postBackend,
   seedLocalStorage,
+  setChatSectionChatId,
 } from "../helpers";
 
 async function seedScopeViolationEdges(
@@ -70,7 +70,7 @@ test.describe.serial("agentic scope", () => {
       );
       const chatId = `chat-scope-${Date.now()}`;
 
-      await postBackend(page, "/setChatSectionChatId", {
+      await setChatSectionChatId(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: chatSectionId,
         chatId,
@@ -209,7 +209,7 @@ test.describe.serial("agentic scope", () => {
       );
       const chatId = `chat-cross-${Date.now()}`;
 
-      await postBackend(page, "/setChatSectionChatId", {
+      await setChatSectionChatId(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: chatSectionId,
         chatId,

@@ -1,33 +1,24 @@
 import { expect, Locator, test } from "@playwright/test";
 import {
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   openProjectAiSettingsPopover,
   postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
   setOverviewTab,
 } from "../../helpers";
 
-type CreateTopLevelSectionResponse = {
-  sectionId?: string;
-};
-
 async function focusCallableSection(page: import("@playwright/test").Page) {
   const projectConfigId = await getCurrentProjectConfigId(page);
-  const created = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Callable",
-    },
-  );
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Callable",
+  });
   const sectionId = created?.sectionId;
   if (!sectionId) {
     throw new Error("Failed to create callable section for pane-scroll test.");
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
 
   await page.evaluate(async (targetSectionId: string) => {
     const { applyActiveSectionChange } = await import(

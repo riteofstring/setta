@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  ensureAppReady,
   createCallableSection,
+  ensureAppReady,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
+  setCallableFromFrontend,
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
@@ -13,17 +13,19 @@ const CALLABLE_NAME = "sorted";
 test("callable params render after set_callable", async ({ page }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
-  const sectionId = await createCallableSection(page, projectContext.projectConfigId);
+  const sectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
 
   try {
-    const setCallableResponse = await postBackend(page, "/setCallable", {
+    const setCallableResponse = await setCallableFromFrontend(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
     await expect(setCallableResponse).toMatchObject({ lspStatus: "matched" });
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
@@ -41,9 +43,7 @@ test("callable params render after set_callable", async ({ page }) => {
     await expect
       .poll(async () => {
         return await page.evaluate((id) => {
-          const param = document.querySelector(
-            `[id^="ParamContainer-${id}-"]`,
-          );
+          const param = document.querySelector(`[id^="ParamContainer-${id}-"]`);
           if (!param) {
             return false;
           }

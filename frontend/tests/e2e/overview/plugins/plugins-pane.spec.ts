@@ -5,17 +5,13 @@ import path from "path";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   openOverviewMoreDestination,
   postBackend,
-  refreshProjectStateFromBackend,
   setOverviewTab,
 } from "../../helpers";
-
-type CreateTopLevelSectionResponse = {
-  sectionId: string;
-};
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 
@@ -201,31 +197,26 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     );
   }
 
-  const created = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId: projectContext.projectConfigId,
-      implType: "Plugin",
-      controlCodeObjType: null,
-      implOverrides: {
-        type: "Plugin",
-        pluginId: "setta-fixture-frontend",
-        kind: "fixture-card",
-        data: {
-          text: "hello plugin",
-        },
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId: projectContext.projectConfigId,
+    implType: "Plugin",
+    controlCodeObjType: null,
+    implOverrides: {
+      type: "Plugin",
+      pluginId: "setta-fixture-frontend",
+      kind: "fixture-card",
+      data: {
+        text: "hello plugin",
       },
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.45,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
-      },
-      topLevelSections: null,
-      viewportBounds,
     },
-  );
+    position: {
+      x: viewportBounds.x + viewportBounds.w * 0.45,
+      y: viewportBounds.y + viewportBounds.h * 0.25,
+    },
+    topLevelSections: null,
+    viewportBounds,
+  });
   expect(created?.sectionId).toBeTruthy();
-  await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
   await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
   await expect(page.getByText("fixture:hello plugin")).toBeVisible();
@@ -1417,9 +1408,9 @@ test("plugins pane supports live programmatic restart action", async ({
     await restartButton.click();
 
     await expect.poll(() => restartRequestCount).toBe(1);
-    await expect.poll(() => runtimeRequestCount).toBe(
-      runtimeCountBeforeRestart + 1,
-    );
+    await expect
+      .poll(() => runtimeRequestCount)
+      .toBe(runtimeCountBeforeRestart + 1);
     await expect(
       page.getByText("Restart request accepted.").first(),
     ).toBeVisible();

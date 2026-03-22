@@ -9,6 +9,7 @@ import {
   postBackend,
   refreshProjectStateFromBackend,
   seedLocalStorage,
+  setCallableFromFrontend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -318,16 +319,12 @@ test.describe.serial("section style colors", () => {
         page,
         projectContext.projectConfigId,
       );
-      await postBackend(page, "/setCallable", {
+      await setCallableFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         callableName: "sorted",
         refetchParams: true,
       });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();

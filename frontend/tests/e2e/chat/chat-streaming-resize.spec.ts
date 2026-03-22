@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   emitChatStreamDelta,
   ensureAppReady,
-  refreshProjectStateFromBackend,
+  setChatSectionChatId,
+  setChatSectionState as setChatSectionStateFromFrontend,
 } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -51,7 +52,7 @@ test("chat streaming stays visible during resize", async ({ page }) => {
       "__pw_chat_stream_resize__",
     );
     const chatId = `chat-stream-${Date.now()}`;
-    await postBackend(page, "/setChatSectionChatId", {
+    await setChatSectionChatId(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -160,7 +161,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       "__pw_chat_stream_markdown__",
     );
     const chatId = `chat-stream-markdown-${Date.now()}`;
-    await postBackend(page, "/setChatSectionChatId", {
+    await setChatSectionChatId(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -260,7 +261,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
       "__pw_reasoning_width__",
     );
     const chatId = `chat-reasoning-${Date.now()}`;
-    await postBackend(page, "/setChatSectionChatId", {
+    await setChatSectionChatId(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -437,7 +438,7 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       "__pw_reasoning_summary_expand__",
     );
     const chatId = `chat-reasoning-summary-${Date.now()}`;
-    await postBackend(page, "/setChatSectionChatId", {
+    await setChatSectionChatId(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -735,6 +736,5 @@ async function setChatSectionState(
     state: Record<string, unknown>;
   },
 ): Promise<void> {
-  await postBackend(page, "/setChatSectionState", payload);
-  await refreshProjectStateFromBackend(page, payload.projectConfigId);
+  await setChatSectionStateFromFrontend(page, payload);
 }

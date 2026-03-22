@@ -680,22 +680,14 @@ export async function createChatSection(
   baseName: string,
 ): Promise<{ sectionId: string; sectionName: string }> {
   const sectionName = `${baseName}-${Date.now()}`;
-  const created = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Chat",
-    },
-  );
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Chat",
+    name: sectionName,
+  });
   if (!created?.sectionId) {
     throw new Error("Missing sectionId when creating chat section.");
   }
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId: created.sectionId,
-    name: sectionName,
-  });
   return { sectionId: created.sectionId, sectionName };
 }
 
@@ -705,22 +697,14 @@ export async function createTextBlockSection(
   baseName: string,
 ): Promise<{ sectionId: string; sectionName: string }> {
   const sectionName = `${baseName}-${Date.now()}`;
-  const created = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "TextBlock",
-    },
-  );
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "TextBlock",
+    name: sectionName,
+  });
   if (!created?.sectionId) {
     throw new Error("Missing sectionId when creating text block section.");
   }
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId: created.sectionId,
-    name: sectionName,
-  });
   return { sectionId: created.sectionId, sectionName };
 }
 
@@ -732,11 +716,72 @@ export async function setChatSectionState(
     state: Record<string, unknown>;
   },
 ): Promise<void> {
-  await postBackend(page, "/setChatSectionState", {
-    ...payload,
-    state: payload.state,
-  });
-  await refreshProjectStateFromBackend(page, payload.projectConfigId);
+  await page.evaluate(async (input) => {
+    const {
+      getCurrProjectConfigId,
+      processProjectStateUpdateFromBackend,
+      setCurrEffectiveSectionImplValue,
+    } = await import("/src/state/actions/sectionInfos");
+    const { useProjectState } = await import("/src/state/definitions");
+    const { route_get_latest_project_state, route_set_chat_section_state } =
+      await import("/src/utils/generatedEndpoints");
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while setting chat section state: expected ${input.projectConfigId}.`,
+      );
+    }
+    const hasSection =
+      useProjectState.getState().projectConfig.sectionVariantMap[
+        input.sectionId
+      ] !== undefined;
+    if (hasSection) {
+      useProjectState.setState((state) => {
+        const nextStatePatch: Record<string, unknown> = {};
+        for (const key of [
+          "messages",
+          "inputText",
+          "waitingForResponse",
+          "toolCallArguments",
+          "activeBranchId",
+          "branches",
+        ]) {
+          if (key in input.state) {
+            nextStatePatch[key] = input.state[key];
+          }
+        }
+        setCurrEffectiveSectionImplValue<"ChatSection">(
+          state,
+          input.sectionId,
+          nextStatePatch as never,
+        );
+      });
+    }
+    const response = await route_set_chat_section_state({
+      projectConfigId: input.projectConfigId,
+      sectionId: input.sectionId,
+      state: input.state,
+      frontendOpId: null,
+    });
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to persist chat section state for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    if (!hasSection) {
+      const latestProjectStateResponse = await route_get_latest_project_state({
+        projectConfigId: input.projectConfigId,
+      });
+      if (
+        latestProjectStateResponse.status !== 200 ||
+        !latestProjectStateResponse.data
+      ) {
+        throw new Error(
+          `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    }
+  }, payload);
 }
 
 export async function stopLatestProjectChat(
@@ -820,24 +865,176 @@ export async function createCallableSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-  const response = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Callable",
-      viewportBounds,
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Callable",
+  });
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating callable section.");
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return response.sectionId;
+}
+
+export async function createTopLevelSectionFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    implType: string;
+    controlCodeObjType?: string | null;
+    implOverrides?: Record<string, unknown> | null;
+    position?: { x: number; y: number } | null;
+    name?: string | null;
+    topLevelSections?: Record<string, unknown> | null;
+    viewportBounds?: { x: number; y: number; w: number; h: number } | null;
+  },
+): Promise<CreateSectionResponse | null> {
+  return await page.evaluate(async (input) => {
+    const { res200 } = await import("/src/utils/endpointUtils");
+    const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
+      await import("/src/state/actions/sectionInfos");
+    const { route_create_top_level_section, route_get_latest_project_state } =
+      await import("/src/utils/generatedEndpoints");
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while creating section: expected ${input.projectConfigId}.`,
+      );
+    }
+    const created = await route_create_top_level_section({
+      projectConfigId: input.projectConfigId,
+      implType: input.implType,
+      controlCodeObjType: input.controlCodeObjType ?? null,
+      implOverrides: input.implOverrides ?? null,
+      position: input.position ?? null,
+      name: input.name ?? null,
+      topLevelSections: input.topLevelSections ?? null,
+      viewportBounds: input.viewportBounds ?? null,
+    });
+    if (!res200(created)) {
+      throw new Error(
+        `Failed to create section (${input.implType}) for ${input.projectConfigId}: ${created.status}`,
+      );
+    }
+    const latestProjectStateResponse = await route_get_latest_project_state({
+      projectConfigId: input.projectConfigId,
+    });
+    if (!res200(latestProjectStateResponse)) {
+      throw new Error(
+        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    return created.data;
+  }, payload);
+}
+
+export async function setCallableFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    callableName: string;
+    refetchParams: boolean;
+  },
+): Promise<Record<string, unknown> | null> {
+  return await page.evaluate(async (input) => {
+    const { res200 } = await import("/src/utils/endpointUtils");
+    const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
+      await import("/src/state/actions/sectionInfos");
+    const { route_get_latest_project_state, route_set_callable } = await import(
+      "/src/utils/generatedEndpoints"
+    );
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while setting callable: expected ${input.projectConfigId}.`,
+      );
+    }
+    const response = await route_set_callable({
+      projectConfigId: input.projectConfigId,
+      sectionId: input.sectionId,
+      callableName: input.callableName,
+      refetchParams: input.refetchParams,
+      frontendOpId: null,
+    });
+    if (!res200(response)) {
+      throw new Error(
+        `Failed to set callable for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    const latestProjectStateResponse = await route_get_latest_project_state({
+      projectConfigId: input.projectConfigId,
+    });
+    if (!res200(latestProjectStateResponse)) {
+      throw new Error(
+        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    return (response.data as Record<string, unknown> | null) ?? null;
+  }, payload);
+}
+
+export async function setChatSectionChatId(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    chatId: string | null;
+  },
+): Promise<void> {
+  await page.evaluate(async (input) => {
+    const {
+      getCurrProjectConfigId,
+      processProjectStateUpdateFromBackend,
+      setCurrEffectiveSectionImplValue,
+    } = await import("/src/state/actions/sectionInfos");
+    const { useProjectState } = await import("/src/state/definitions");
+    const { route_get_latest_project_state, route_set_chat_section_chat_id } =
+      await import("/src/utils/generatedEndpoints");
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while setting chat id: expected ${input.projectConfigId}.`,
+      );
+    }
+    const hasSection =
+      useProjectState.getState().projectConfig.sectionVariantMap[
+        input.sectionId
+      ] !== undefined;
+    if (hasSection) {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"ChatSection">(
+          state,
+          input.sectionId,
+          {
+            chatId: input.chatId,
+          },
+        );
+      });
+    }
+    const response = await route_set_chat_section_chat_id({
+      projectConfigId: input.projectConfigId,
+      sectionId: input.sectionId,
+      chatId: input.chatId,
+    });
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to persist chat id for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    if (!hasSection) {
+      const latestProjectStateResponse = await route_get_latest_project_state({
+        projectConfigId: input.projectConfigId,
+      });
+      if (
+        latestProjectStateResponse.status !== 200 ||
+        !latestProjectStateResponse.data
+      ) {
+        throw new Error(
+          `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    }
+  }, payload);
 }
 
 export async function getViewportBoundsForPlacement(page: Page): Promise<{
@@ -988,6 +1185,8 @@ export async function refreshProjectStateFromBackend(
   page: Page,
   projectConfigId: string,
 ): Promise<void> {
+  // Test-only escape hatch for deliberate out-of-band backend mutations.
+  // Prefer browser-side frontend actions or pre-navigation seeding instead.
   await page.evaluate(async (targetProjectConfigId) => {
     const { processProjectStateUpdateFromBackend } = await import(
       "/src/state/actions/sectionInfos.ts"

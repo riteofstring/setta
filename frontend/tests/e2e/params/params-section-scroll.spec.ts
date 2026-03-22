@@ -5,7 +5,7 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
+  setCallableFromFrontend,
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
@@ -20,13 +20,12 @@ test("params area uses section scroll and removes pinned resize handles", async 
   const minParamsHeight = 38;
 
   try {
-    await postBackend(page, "/setCallable", {
+    await setCallableFromFrontend(page, {
       projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
@@ -65,13 +64,12 @@ test("unpinned area keeps its minimum height when pinned params are present", as
   const minUnpinnedHeight = 36;
 
   try {
-    await postBackend(page, "/setCallable", {
+    await setCallableFromFrontend(page, {
       projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
-    await refreshProjectStateFromBackend(page, projectConfigId);
 
     const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
@@ -113,9 +111,7 @@ test("unpinned area keeps its minimum height when pinned params are present", as
     }
 
     await sectionNode.hover();
-    const handle = sectionNode.locator(
-      ".section-resize-handle-bottom-right",
-    );
+    const handle = sectionNode.locator(".section-resize-handle-bottom-right");
     await expect(handle).toHaveCount(1);
 
     const box = await handle.boundingBox();

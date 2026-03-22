@@ -2,15 +2,11 @@ import { expect, test } from "@playwright/test";
 import path from "path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
 } from "../../helpers";
-
-type CreateTopLevelSectionResponse = {
-  sectionId?: string;
-};
 
 test("plugin-not-installed fallback uses canonical scope wording", async ({
   page,
@@ -23,25 +19,20 @@ test("plugin-not-installed fallback uses canonical scope wording", async ({
       throw new Error("Unable to resolve viewport bounds for plugin section.");
     }
 
-    const created = await postBackend<CreateTopLevelSectionResponse>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Plugin",
-        implOverrides: {
-          type: "Plugin",
-          pluginId: "missing.plugin",
-          kind: "missing-kind",
-          data: {
-            text: "fallback wording",
-          },
+    const created = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Plugin",
+      implOverrides: {
+        type: "Plugin",
+        pluginId: "missing.plugin",
+        kind: "missing-kind",
+        data: {
+          text: "fallback wording",
         },
-        viewportBounds,
       },
-    );
+      viewportBounds,
+    });
     expect(created?.sectionId).toBeTruthy();
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
     await expect(
@@ -79,25 +70,20 @@ test("plugin-kind-missing fallback uses explicit section kind wording", async ({
       throw new Error("Unable to resolve viewport bounds for plugin section.");
     }
 
-    const created = await postBackend<CreateTopLevelSectionResponse>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Plugin",
-        implOverrides: {
-          type: "Plugin",
-          pluginId: "setta-fixture-frontend",
-          kind: "missing-fixture-kind",
-          data: {
-            text: "missing kind fallback wording",
-          },
+    const created = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Plugin",
+      implOverrides: {
+        type: "Plugin",
+        pluginId: "setta-fixture-frontend",
+        kind: "missing-fixture-kind",
+        data: {
+          text: "missing kind fallback wording",
         },
-        viewportBounds,
       },
-    );
+      viewportBounds,
+    });
     expect(created?.sectionId).toBeTruthy();
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
     await expect(
@@ -140,25 +126,20 @@ test("plugin fallback reason updates reactively when plugin state changes", asyn
       throw new Error("Unable to resolve viewport bounds for plugin section.");
     }
 
-    const created = await postBackend<CreateTopLevelSectionResponse>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Plugin",
-        implOverrides: {
-          type: "Plugin",
-          pluginId: "setta-fixture-frontend",
-          kind: "missing-reactive-kind",
-          data: {
-            text: "reactive fallback wording",
-          },
+    const created = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Plugin",
+      implOverrides: {
+        type: "Plugin",
+        pluginId: "setta-fixture-frontend",
+        kind: "missing-reactive-kind",
+        data: {
+          text: "reactive fallback wording",
         },
-        viewportBounds,
       },
-    );
+      viewportBounds,
+    });
     expect(created?.sectionId).toBeTruthy();
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect(
       page.getByText(
@@ -166,8 +147,12 @@ test("plugin fallback reason updates reactively when plugin state changes", asyn
       ),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Open Plugins", exact: true }).click();
-    await expect(page.getByText("Plugin Runtime", { exact: true })).toBeVisible();
+    await page
+      .getByRole("button", { name: "Open Plugins", exact: true })
+      .click();
+    await expect(
+      page.getByText("Plugin Runtime", { exact: true }),
+    ).toBeVisible();
     const pluginCard = page
       .locator("article")
       .filter({
@@ -178,7 +163,9 @@ test("plugin fallback reason updates reactively when plugin state changes", asyn
       })
       .first();
     await expect(pluginCard).toBeVisible();
-    await pluginCard.getByRole("button", { name: "Disable", exact: true }).click();
+    await pluginCard
+      .getByRole("button", { name: "Disable", exact: true })
+      .click();
     await expect(page.getByText("Disable plugin completed.")).toBeVisible();
     await expect(
       page.getByText("Plugin is installed but currently disabled."),
