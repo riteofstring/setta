@@ -16,7 +16,8 @@ Both values live on `BaseSectionImpl` and therefore apply to every section type.
 
 Relevant generated/state surfaces:
 
-- `backend/setta/types/section_impls.py`
+- `internal/projectstate/layout_presentation.go`
+- `internal/frontendbindings/project_state_support.go`
 - `backend/setta/types/generated/shared_modifier.py`
 - `frontend/src/utils/generatedTypes.ts`
 
@@ -31,9 +32,8 @@ Both routes are write routes guarded by deployment layout policy:
 
 Backend wiring:
 
-- `backend/setta/routers/project_manager.py`
-- `backend/setta/project_state/base_project_manager.py`
-- `backend/setta/types/helpers_lvl2.py`
+- `internal/httpapi/project_routes.go`
+- `internal/projectstate/layout_presentation.go`
 
 Frontend helpers:
 
@@ -101,7 +101,8 @@ Default tag categories come from `SettingsGUI.sectionTagColorChoices`:
 - Purple `#a855f7`
 - Slate `#64748b`
 
-Defined in `backend/setta/types/settings_state.py`.
+Defined in `internal/settingsstate/defaults.json` and embedded by
+`internal/settingsstate/defaults.go`.
 
 ## Tests and perf guardrails
 
@@ -115,4 +116,3 @@ Coverage includes:
 Performance report:
 
 - `perf/reports/frontend/2026-02-11_section-style-color-picker-commit.md`
-
