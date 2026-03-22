@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `d73f55aa86`
+- Target head: `3ab9f6c470`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -857,6 +857,36 @@ Last audited: `2026-03-23`
   `TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails`,
   `TestRenderLocalStartupMessageRemoteSession`, and
   `TestRenderLocalStartupMessageAutoOpenSuppressesManualTunnelText`.
+- Follow-up in this pass on `3ab9f6c470`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  re-read
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/start/test_startup_helpers.py::{test_parse_deployment_version,test_resolve_share_deployment_root_uses_explicit_root,test_resolve_share_deployment_root_rejects_mixed_args,test_resolve_share_deployment_root_requires_project_name,test_resolve_share_deployment_root_requires_version_or_latest,test_resolve_share_deployment_root_latest_selects_highest,test_resolve_share_deployment_root_version_selects_path,test_resolve_share_deployment_root_rejects_invalid_version,test_is_loopback_host,test_warn_if_public_host_no_auth_emits_warning_for_public_host,test_warn_if_public_host_no_auth_is_silent_for_loopback}`
+  against `internal/settacmd/share.go`,
+  `internal/settacmd/deployment_command.go`,
+  `internal/deployments/catalog.go`,
+  `cmd/setta-server/startup.go`, and the packaged CLI docs in
+  `docs/reference/setta-cli-commands.md`, then reran the focused Go proof
+  slice backed directly by
+  `TestParseDeploymentVersionAcceptsZeroAndRejectsInvalidValues`,
+  `TestResolveShareDeploymentRootUsesExplicitRoot`,
+  `TestResolveShareDeploymentRootRejectsMissingSelectionInputs`,
+  `TestResolveShareDeploymentRootSelectsLatestVersionFromCatalog`,
+  `TestResolveShareDeploymentRootSelectsRequestedVersionFromCatalog`,
+  `TestResolveShareDeploymentRootAcceptsVersionZeroFromCatalog`,
+  `TestRunShareRejectsInvalidVersionFormat`,
+  `TestIsLoopbackHostMatchesSourceContract`,
+  `TestEmitShareStartupOutputWarnsForPublicHostAndPrintsURL`,
+  `TestEmitShareStartupOutputFallsBackWhenBrowserOpenFails`,
+  `TestEmitAppStartupOutputWarnsForPublicHostAndPrintsURL`, and
+  `TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails`; no new Go gap was
+  found, so those source clues remain correctly discharged by the existing
+  terminal
+  `deployment_cli.share.deployment_root_helper_preserves_explicit_root_selector_validation_latest_lookup_and_zero_version_support`
+  and
+  `startup_helpers.loopback_host_detection_and_public_host_warning_contract`
+  rows.
 - Follow-up in this pass on `557c9c4de5`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` passed cleanly again, so
   `critical_backend_suite::go_test_all` remains stale saved-suite output on
