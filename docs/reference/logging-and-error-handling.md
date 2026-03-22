@@ -38,7 +38,7 @@ There are two parallel outputs:
 - Shipped backend runtime: the packaged Go CLI/server owns the main backend
   logging path.
 - Listener scripts: `backend/setta/api/listener.py` uses
-  `configure_listener_logging()` (same format, no uvicorn access logger).
+  `configure_listener_logging()` (same format, access logger disabled).
 
 ### Formatting
 
@@ -183,15 +183,10 @@ global handling:
 
 ## HTTP Error Handling
 
-The legacy top-level Python FastAPI app in `backend/setta/server.py` used shared
+The legacy top-level Python HTTP app in `backend/setta/server.py` used shared
 exception handlers, but that module has been removed as part of the Go rewrite.
-Do not treat a Python-wide HTTP error handler as the active backend source of
-truth now.
-
-For retained Python FastAPI or Starlette surfaces, either:
-
-- rely on that surface's own explicitly registered handlers, or
-- translate/log errors locally where that surface expects it.
+There is no current retained Python HTTP surface that owns backend-wide error
+handling now.
 
 The active main backend HTTP error handling now lives in the Go runtime.
 

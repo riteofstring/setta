@@ -4,7 +4,7 @@
 
 - `cmd/` contains the active Go entrypoints (`setta`, `setta-server`, generators, test seeders).
 - `internal/` contains the Go-owned backend runtime, transports, services, project state, frontend binding generation, and related tests.
-- `backend/setta/` is the retained Python package boundary that still ships to PyPI: thin entrypoint wrappers, the public Python SDK under `backend/setta/api/`, generated Python types/codegen helpers, and packaged assets/binaries.
+- `backend/setta/` is the retained Python source/package boundary: thin wheel entrypoint wrappers, repo/sdist Python SDK files under `backend/setta/api/`, generated Python types/codegen helpers, and packaged assets/binaries.
 - `frontend/` contains the React/Vite UI; place components and stores in `src/`, shared templates in `generation/`, and static assets under `public/`.
 - `setta_files/` stores runtime metadata created by the app; it is gitignored and should not be committed. Keep only canonical fixtures under version control elsewhere and wipe local noise before committing.
 - Root scripts such as `build.sh`, `build_and_upload.sh`, and `format_code.sh` orchestrate packaging, publishing, and formatting; keep them executable after edits.
@@ -90,7 +90,7 @@
 
 ## Environment & Tooling
 
-- Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --extra source --extra dev --extra gemini` and activates the venv.
+- Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --extra source --extra dev` and activates the venv.
 - `dev_install.sh` is the default Go-first local setup: ensure the pinned repo-local Go toolchain is available, install frontend deps, install agent sidecars, then clean build artifacts.
 - `dev_install_python.sh` is the opt-in setup for repo-local Python tooling and the retained Python/package boundary; source it if you want the venv to stay active: `. ./dev_install_python.sh`.
 - `frontend/backendStart.sh` is the source/dev launcher for the Go-backed local backend flow; keep custom flags documented in the script header when extending it.

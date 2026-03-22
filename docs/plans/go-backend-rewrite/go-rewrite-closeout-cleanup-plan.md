@@ -1,6 +1,6 @@
 # Go Rewrite Closeout Cleanup Plan
 
-Last updated: `2026-03-23`
+Last updated: `2026-03-24`
 
 Purpose: clean up repo guidance, docs, and developer script surfaces now that
 the backend rewrite is effectively complete and Go owns the active backend
@@ -14,14 +14,11 @@ retained boundaries.
 - The retained packaged Python boundary is intentionally narrow:
   `python -m setta`, `backend/setta/entrypoint.py`, `backend/setta/__main__.py`,
   and the public Python SDK/listener surfaces under `backend/setta/api/*`.
-- The repo guidance is still mixed. Current examples:
-  - `AGENTS.md` still describes `backend/setta/routers/*`, FastAPI router
-    organization, and `frontend/backendStart.sh` as a bridge to a Python
-    server.
-  - `README.md` is currently empty even though packaging metadata points at it
-    as the project readme.
-  - several docs still reference deleted or no-longer-primary Python backend
-    files even when the active owner now lives under `internal/*`.
+- The repo guidance can drift even after the main cleanup passes land.
+  Search-driven audits still need to re-check packaging metadata, bootstrap
+  scripts, and high-traffic reference docs against the live Go-owned runtime
+  and the explicit retained Python boundaries instead of assuming older cleanup
+  notes are still current.
 - The dev/build scripts are already mostly Go-first, but the documentation and
   help surface does not yet explain the boundary cleanly:
   - default dev loop: Go-first

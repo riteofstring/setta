@@ -69,7 +69,7 @@ Use these first for day-to-day work.
 - `./init_env.sh`
   - Creates/updates the Python environment.
   - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync` with
-    explicit `source`, `dev`, and `gemini` extras for repo workflows.
+    explicit `source` and `dev` extras for repo workflows.
 
 ## Layer 2: Repo `scripts/` helpers
 

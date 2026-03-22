@@ -255,6 +255,9 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     source_requires = {
         line for line in requires_lines if "extra == 'source'" in line
     }
+    dev_requires = {
+        line for line in requires_lines if "extra == 'dev'" in line
+    }
 
     assert default_requires == {
         "Requires-Dist: claude-agent-sdk==0.1.21",
@@ -269,9 +272,26 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     assert "Requires-Dist: litellm==1.80.15" not in default_requires
 
     assert "Provides-Extra: source" in metadata
-    assert "Requires-Dist: click==8.2.1; extra == 'source'" in source_requires
-    assert "Requires-Dist: fastapi==0.115.12; extra == 'source'" in source_requires
-    assert "Requires-Dist: mcp==1.25.0; extra == 'source'" in source_requires
+    assert "Provides-Extra: dev" in metadata
+    assert source_requires == {
+        "Requires-Dist: requests==2.32.4; extra == 'source'",
+        "Requires-Dist: websockets==15.0.1; extra == 'source'",
+        "Requires-Dist: psutil==7.0.0; extra == 'source'",
+        "Requires-Dist: mcp==1.25.0; extra == 'source'",
+        "Requires-Dist: pydantic==2.11.5; extra == 'source'",
+        "Requires-Dist: watchfiles==0.24.0; extra == 'source'",
+    }
+    assert dev_requires == {
+        "Requires-Dist: build==1.0.3; extra == 'dev'",
+        "Requires-Dist: pip-audit==2.9.0; extra == 'dev'",
+        "Requires-Dist: pyyaml==6.0.2; extra == 'dev'",
+        "Requires-Dist: pytest==8.3.3; extra == 'dev'",
+        "Requires-Dist: pytest-asyncio==0.23.8; extra == 'dev'",
+        "Requires-Dist: pytest-xdist==3.6.1; extra == 'dev'",
+        "Requires-Dist: python-dotenv==1.1.0; extra == 'dev'",
+        "Requires-Dist: twine==6.1.0; extra == 'dev'",
+        "Requires-Dist: watchdog==6.0.0; extra == 'dev'",
+    }
 
 
 def test_wheel_installs_and_runs_real_packaged_entrypoint_modules(

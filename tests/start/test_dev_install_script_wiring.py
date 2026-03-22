@@ -20,7 +20,7 @@ def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     return env
 
 
-def test_init_env_installs_explicit_source_dev_and_gemini_extras(
+def test_init_env_installs_explicit_source_and_dev_extras(
     tmp_path: Path,
 ) -> None:
     # Repo-local setup should name the broader source/dev extras explicitly
@@ -57,7 +57,7 @@ echo "uv $*" >> "{command_log}"
 
     assert result.returncode == 0, result.stderr
     assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "uv sync --extra source --extra dev --extra gemini --python 3.13",
+        "uv sync --extra source --extra dev --python 3.13",
         "activate",
     ]
 

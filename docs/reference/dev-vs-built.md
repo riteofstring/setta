@@ -31,11 +31,13 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Installed `setta` and `python -m setta` still enter through the retained
   Python package boundary, but that wrapper dispatches into the packaged Go
   binaries.
+- The retained Python SDK modules remain part of the repo/sdist source boundary,
+  not the slim wheel-based packaged-user install path.
 - Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
 - `dev_install.sh`: install the default Go-first local dev deps (ensure the pinned Go toolchain is available, then install frontend deps, sidecars, and clean build artifacts).
-- `dev_install_python.sh`: opt into the repo-local Python `source`, `dev`, and `gemini` extras, then run the default Go-first dev install.
+- `dev_install_python.sh`: opt into the repo-local Python `source` and `dev` extras, then run the default Go-first dev install.
 - `build.sh`: build the frontend bundle, stage built assets, build packaged Go binaries, then package the wheel through `./scripts/build_python_distribution_with_go_binaries.sh`.
 - `verify_install.sh`: dedicated sdist-completeness smoke (runs the full `./build.sh` path, installs the resulting sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to catch missing packaged-source files or other sdist-only packaging regressions.
