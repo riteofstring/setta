@@ -26,55 +26,24 @@ from setta.types.chat_messages import (
 )
 from setta.types.chat_stream_events import MessageFinalizedEvent
 from setta.types.chat_toolkit import ChatSendEvent
-from setta.types.core import Core, Variant
 from setta.types.id import ID
+from setta.types.listener import ListenerDependencyCatalog
 from setta.types.llm_config import LLMConfig
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import ChatSectionImpl, ChatSectionState
-from tests.helpers.listener_runtime_state import build_listener_runtime_state
-from tests.helpers.project_state_core import compute_initial_nonPresetImpls
-
-
-def _build_chat_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
-    section_impl = ChatSectionImpl(
-        id=ID(f"{project_config_id}-chat-impl"),
-        name="Chat Section",
-        chatId=ID(f"{project_config_id}-chat-id"),
-    )
-    section_variant = Variant(
-        id=ID(f"{project_config_id}-chat-variant"),
-        name="Chat Variant",
-        impl=section_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-    )
-    section_core = Core(
-        id=ID(f"{project_config_id}-chat"),
-        name="Chat Section",
-        variants=[section_variant.id],
-        defaultVariant=section_variant.id,
-    )
-    project_config = ProjectConfig(
-        id=project_config_id,
-        name=f"Project {project_config_id}",
-        sectionVariantMap={section_core.id: section_variant.id},
-        topLevelSections={section_core.id: TopLevelSectionLayout()},
-    )
-    return ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={section_core.id: section_core},
-        sectionImpls={section_impl.id: section_impl},
-        sectionVariants={section_variant.id: section_variant},
-    )
+from setta.types.section_impls import ChatSectionState
+from tests.helpers.listener_runtime_state import (
+    build_listener_runtime_state_from_catalog,
+)
 
 
 def _build_listener_context(
-    project_state: ProjectStateSingleConfig,
+    project_config_id: ID,
     router_caller: Callable[[str, object], Awaitable[object]],
 ) -> ListenerCallbackContext:
-    listener = SettaListener(project_name=project_state.projectConfig.name)
-    listener._runtime_state = build_listener_runtime_state(project_state)
-    listener._project_config_id = project_state.projectConfig.id
+    listener = SettaListener(project_name=f"Project {project_config_id}")
+    listener._runtime_state = build_listener_runtime_state_from_catalog(
+        ListenerDependencyCatalog(entries=[])
+    )
+    listener._project_config_id = project_config_id
     listener._is_registered = True
     listener._router_endpoint_api = RouterEndpointAPI(router_caller)
 
@@ -296,8 +265,8 @@ class TestChatSessionOpenFromEvent:
                 return chat_entry.model_dump(mode="json")
             raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-        project_state = _build_chat_project_state(ID("proj-chat-system"))
-        ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-system")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
         event = ChatSendEvent(
             sectionId=section_id,
@@ -344,8 +313,8 @@ class TestChatSessionOpenFromEvent:
                 return chat_entry.model_dump(mode="json")
             raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-        project_state = _build_chat_project_state(ID("proj-chat-attachments"))
-        ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-attachments")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
         attachment = ChatFileAttachment(
             id="artifacts/notes.txt",
@@ -402,8 +371,8 @@ class TestChatSessionOpenFromEvent:
                 return chat_entry.model_dump(mode="json")
             raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-        project_state = _build_chat_project_state(ID("proj-chat-assistant"))
-        ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-assistant")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
         event = ChatSendEvent(
             sectionId=section_id,
@@ -430,8 +399,8 @@ class TestChatSessionOpenFromEvent:
         async def router_caller(endpoint_name: str, _payload: object) -> object:
             raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-        project_state = _build_chat_project_state(ID("proj-chat-tool"))
-        ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-tool")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
         event = ChatSendEvent(
             sectionId=section_id,
