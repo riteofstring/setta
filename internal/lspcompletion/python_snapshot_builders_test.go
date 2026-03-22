@@ -97,6 +97,37 @@ func TestBuildPythonTextFieldSnapshotRequestRendersEditedParamValue(t *testing.T
 	}
 }
 
+// Callable search-field completion should use the typed text as a standalone
+// expression so attribute access like "str." stays valid Python for the LSP.
+func TestBuildPythonTextFieldSnapshotRequestTreatsCallableSearchAsStandaloneExpression(t *testing.T) {
+	t.Parallel()
+
+	project := completionTestProject(t)
+	fullText := "str."
+	request, ok, err := BuildPythonTextFieldSnapshotRequest(
+		project,
+		map[string]string{},
+		"callable-section",
+		"",
+		fullText,
+		len(fullText),
+	)
+	if err != nil {
+		t.Fatalf("build callable search completion request: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected callable search completion request")
+	}
+	expectedSuffix := "\n" + fullText
+	if len(request.Content) < len(expectedSuffix) || request.Content[len(request.Content)-len(expectedSuffix):] != expectedSuffix {
+		t.Fatalf("expected callable search suffix %q, got tail %q", expectedSuffix, request.Content[maxInt(0, len(request.Content)-len(expectedSuffix)):])
+	}
+	absolutePosition := lineColToPosition(request.Content, request.Line, request.Character)
+	if absolutePosition != len(request.Content) {
+		t.Fatalf("expected callable search cursor at end of snapshot, got %d of %d", absolutePosition, len(request.Content))
+	}
+}
+
 // Output accessor completion should append the current accessor text to the
 // generated state path for the source section.
 func TestBuildPythonOutputAccessorSnapshotRequestUsesGeneratedStatePath(t *testing.T) {

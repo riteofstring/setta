@@ -174,6 +174,45 @@ func TestSessionFixtureServerSignatureHelp(t *testing.T) {
 	}
 }
 
+// The repo-local current-process basedpyright session should provide ordinary
+// builtin member completions so higher-level completion routes can rely on it.
+func TestCurrentProcessPythonSessionCompletesBuiltinMemberAccess(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	session, err := NewCurrentProcessPythonSession(CurrentProcessPythonSessionOptions{
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new current-process python session: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	defer func() {
+		if err := session.Close(context.Background()); err != nil {
+			t.Fatalf("close session: %v", err)
+		}
+	}()
+
+	documentPath := filepath.Join(workspaceRoot, "builtin_completion.py")
+	content := "str."
+	if err := statefs.AtomicWriteFile(documentPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("seed builtin completion document: %v", err)
+	}
+	if err := session.OpenDocument(ctx, documentPath, "python", content, nil); err != nil {
+		t.Fatalf("open document: %v (stderr: %s)", err, session.stderr.String())
+	}
+
+	result, err := session.Completion(ctx, documentPath, 0, len(content))
+	if err != nil {
+		t.Fatalf("complete builtin member access: %v (stderr: %s)", err, session.stderr.String())
+	}
+	if len(result.Items) == 0 {
+		t.Fatal("expected builtin member completions for str.")
+	}
+}
+
 // Request timeouts must fail cleanly so a hung language server does not wedge
 // later slices that depend on completion and diagnostics calls.
 func TestSessionCompletionTimeout(t *testing.T) {

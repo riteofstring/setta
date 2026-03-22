@@ -61,9 +61,31 @@ func BuildPythonTextFieldSnapshotRequest(
 		return SnapshotRequest{}, ok, err
 	}
 
-	depKey := codegen.PythonSectionDependencyKey(sectionID)
-	if strings.TrimSpace(paramInfoID) != "" {
-		depKey = codegen.PythonCodeObjectDependencyKey(sectionID, paramInfoID)
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	trimmedParamInfoID := strings.TrimSpace(paramInfoID)
+	if trimmedParamInfoID == "" {
+		_, _, impl, err := context.project.ResolveSection(trimmedSectionID)
+		if err != nil {
+			return SnapshotRequest{}, false, err
+		}
+		if impl.Kind == projectstate.SectionKind("callable") {
+			renderer := context.newRenderer()
+			renderer.GenerateCode()
+			content := renderer.Code + "\n" + fullText
+			line, character := positionToLineCol(content, len(renderer.Code)+1+position)
+			return SnapshotRequest{
+				RelativePath: context.generatedCodeRelativePath(),
+				LanguageID:   "python",
+				Content:      content,
+				Line:         line,
+				Character:    character,
+			}, true, nil
+		}
+	}
+
+	depKey := codegen.PythonSectionDependencyKey(trimmedSectionID)
+	if trimmedParamInfoID != "" {
+		depKey = codegen.PythonCodeObjectDependencyKey(trimmedSectionID, trimmedParamInfoID)
 	}
 	if err := codegen.SetPythonDependencyValue(context.graph, depKey, fullText); err != nil {
 		return SnapshotRequest{}, false, err

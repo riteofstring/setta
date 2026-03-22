@@ -21,7 +21,7 @@ import (
 
 const (
 	defaultShutdownTimeout = 3 * time.Second
-	defaultRequestTimeout  = 5 * time.Second
+	defaultRequestTimeout  = 15 * time.Second
 )
 
 var (
@@ -249,6 +249,10 @@ func (s *Session) Start(ctx context.Context) error {
 
 	var initializeResult map[string]any
 	if err := s.callStarted(ctx, "initialize", initializeParams, &initializeResult); err != nil {
+		_ = s.Close(context.Background())
+		return err
+	}
+	if err := s.notify("initialized", map[string]any{}); err != nil {
 		_ = s.Close(context.Background())
 		return err
 	}
