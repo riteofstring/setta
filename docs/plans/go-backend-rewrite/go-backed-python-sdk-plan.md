@@ -542,17 +542,21 @@ Phase 6 progress:
 - the retained Python listener boundary no longer hand-maintains the generic
   init, error, register-ack, frontend-emit, and router-endpoint envelope DTOs
   that already exist in the generated SDK contract module
-- those generic listener payloads now import the generated contract types
-  directly through `backend/setta/types/listener.py`, leaving only the
-  dependency-bearing listener payload wrappers handwritten
-- the handwritten listener DTOs that remain are the ones that still need either
-  dependency-key/value union handling or Python-only binary payload attachment
+- the retained Python listener boundary now also imports the generated
+  dependency catalog, rendered-value, snapshot, force-refresh, register, and
+  outer realtime/dependency-event contract types directly through
+  `backend/setta/types/listener.py`
+- the handwritten listener DTOs that remain are now limited to the nested
+  binary-bearing realtime/dependency entry wrappers and the backend-only helper
+  payloads that are outside the generated retained-SDK contract family
 
 Current Phase 6 boundary:
 
-- keep the dependency-bearing listener payload wrappers handwritten until the
-  generated contract path can cover their nested dependency-union behavior and
-  binary payload state without regressing websocket round-tripping
+- keep the nested `ListenerRealtimeDelta` and `DependencyEvent` payload
+  wrappers handwritten until the generated contract path can carry Python-only
+  binary payload attachment without regressing websocket round-tripping
+- keep backend-only helper payloads such as realtime UI-change and coverage
+  snapshots handwritten unless they become part of the retained SDK contract
 
 ### Phase 7. Packaging, Versioning, And CI Hardening
 
