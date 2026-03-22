@@ -10623,6 +10623,103 @@ func TestRegisterProjectRoutesChildDefaultsMutationsRejectInvalidInputs(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesChildDefaultsRemainIDEOnlyInDeployment(t *testing.T) {
+	t.Parallel()
+
+	assertChildDefaultsPreserved := func(t *testing.T, project projectstate.Project) {
+		t.Helper()
+
+		groupVariantID := project.SectionVariantMap["group-section"]
+		groupPayload, err := project.EffectiveSectionPayload("group-section", groupVariantID)
+		if err != nil {
+			t.Fatalf("effective section payload group-section: %v", err)
+		}
+		if got := groupPayload["defaultChildSectionType"]; got != "Callable" {
+			t.Fatalf("expected group default child Callable, got %#v", got)
+		}
+
+		listRootVariantID := project.SectionVariantMap["list-root-section"]
+		listRootPayload, err := project.EffectiveSectionPayload("list-root-section", listRootVariantID)
+		if err != nil {
+			t.Fatalf("effective section payload list-root-section: %v", err)
+		}
+		if got := listRootPayload["defaultChildSectionType"]; got != "Callable" {
+			t.Fatalf("expected list-root default child Callable, got %#v", got)
+		}
+		if got := listRootPayload["viewMode"]; got != "default" {
+			t.Fatalf("expected list-root viewMode default, got %#v", got)
+		}
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			for _, requestSpec := range []struct {
+				name  string
+				route string
+				body  string
+			}{
+				{
+					name:  "set_parent_default_child_section_type_group",
+					route: RouteSetParentDefaultChildSectionType,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"group-section","defaultChildSectionType":"Dict"}`,
+				},
+				{
+					name:  "set_parent_default_child_section_type_list_root",
+					route: RouteSetParentDefaultChildSectionType,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"list-root-section","defaultChildSectionType":"TextBlock"}`,
+				},
+				{
+					name:  "set_list_root_view_mode",
+					route: RouteSetListRootViewMode,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"list-root-section","viewMode":"task_list"}`,
+				},
+			} {
+				t.Run(requestSpec.name, func(t *testing.T) {
+					deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+						Mode: mode,
+						Document: projectstate.Document{
+							SchemaVersion:    projectstate.CurrentSchemaVersion,
+							DefaultProjectID: "project-alpha",
+							Projects: map[string]projectstate.Project{
+								"project-alpha": childDefaultsRouteTestProject(t),
+							},
+						},
+						Policy: map[string]any{
+							"allowLayoutChanges": true,
+						},
+					})
+					if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+						t.Fatalf("create deployment session: %v", err)
+					}
+
+					handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("%s %s: expected 403, got %d with body %q", mode, requestSpec.route, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+						t.Fatalf("%s %s: expected mode_forbidden response, got %q", mode, requestSpec.route, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+						t.Fatalf("%s %s: expected deployment-mode denial detail, got %q", mode, requestSpec.route, response.Body.String())
+					}
+
+					overlay, err := deploymentRuntime.Overlay("share-a")
+					if err != nil {
+						t.Fatalf("deployment overlay: %v", err)
+					}
+					assertChildDefaultsPreserved(t, overlay.Snapshot().Document.Projects["project-alpha"])
+					assertChildDefaultsPreserved(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"])
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
