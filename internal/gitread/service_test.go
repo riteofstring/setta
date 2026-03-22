@@ -86,6 +86,70 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 	}
 }
 
+func TestParsePorcelainStatusHandlesRenameAndCopy(t *testing.T) {
+	t.Parallel()
+
+	output := strings.Join([]string{
+		"# branch.oid abc123",
+		"# branch.head main",
+		"2 R. N... 100644 100644 100644 a b R100 new.txt",
+		"old.txt",
+		"2 C. N... 100644 100644 100644 a b C100 copy.txt",
+		"source.txt",
+		"? loose.txt",
+		"",
+	}, "\x00")
+
+	entries := parsePorcelainStatus(output)
+	if len(entries) != 3 {
+		t.Fatalf("expected three parsed entries, got %#v", entries)
+	}
+
+	if entries[0].Kind != "staged" || entries[0].Path != "new.txt" || entries[0].OldPath == nil || *entries[0].OldPath != "old.txt" {
+		t.Fatalf("unexpected rename entry %#v", entries[0])
+	}
+	if entries[1].Kind != "staged" || entries[1].Path != "copy.txt" || entries[1].OldPath == nil || *entries[1].OldPath != "source.txt" {
+		t.Fatalf("unexpected copy entry %#v", entries[1])
+	}
+	if entries[2].Kind != "untracked" || entries[2].Path != "loose.txt" {
+		t.Fatalf("unexpected untracked entry %#v", entries[2])
+	}
+}
+
+func TestTrimToLastCompleteNULRecordDiscardsPartialTail(t *testing.T) {
+	t.Parallel()
+
+	trimmed := trimToLastCompleteNULRecord("?? a.txt\x00 M b.txt\x00?? partial")
+	if trimmed != "?? a.txt\x00 M b.txt\x00" {
+		t.Fatalf("unexpected trimmed output %q", trimmed)
+	}
+}
+
+func TestParsePorcelainHeadBranchParsesNormalAndDetachedStates(t *testing.T) {
+	t.Parallel()
+
+	if branch := parsePorcelainHeadBranch("# branch.oid abc123\x00# branch.head main\x00"); branch != "main" {
+		t.Fatalf("expected attached branch main, got %q", branch)
+	}
+	if branch := parsePorcelainHeadBranch("# branch.oid (initial)\x00# branch.head feature/new\x00"); branch != "feature/new" {
+		t.Fatalf("expected initial branch feature/new, got %q", branch)
+	}
+	if branch := parsePorcelainHeadBranch("# branch.head (detached)\x00"); branch != "" {
+		t.Fatalf("expected detached branch to map to empty string, got %q", branch)
+	}
+}
+
+func TestParsePorcelainHeadCommitParsesOIDAndInitialState(t *testing.T) {
+	t.Parallel()
+
+	if headCommit := parsePorcelainHeadCommit("# branch.oid abc123\x00# branch.head main\x00"); headCommit != "abc123" {
+		t.Fatalf("expected head commit abc123, got %q", headCommit)
+	}
+	if headCommit := parsePorcelainHeadCommit("# branch.oid (initial)\x00"); headCommit != "" {
+		t.Fatalf("expected initial branch.oid to map to empty string, got %q", headCommit)
+	}
+}
+
 func TestServiceStatusSetsTruncationFlagForLargeOutput(t *testing.T) {
 	statusOutput := buildLargeGitStatusOutput(40000)
 	service := newScriptedGitService(t, statusOutput, "", strings.Repeat("a", 40))
@@ -105,6 +169,93 @@ func TestServiceStatusSetsTruncationFlagForLargeOutput(t *testing.T) {
 	}
 	if len(response.Entries) == 0 {
 		t.Fatalf("expected partial status entries to survive truncation, got %#v", response)
+	}
+}
+
+func TestServiceStatusParsesHeadMetadataFromPorcelainV2WithoutExtraRevParse(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	headCommit := strings.Repeat("a", 40)
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    printf 'unexpected rev-parse invocation\\n' >&2",
+		"    exit 1",
+		"    ;;",
+		"  status)",
+		"    printf '# branch.oid " + headCommit + "\\0# branch.head main\\0? tracked.txt\\0'",
+		"    exit 0",
+		"    ;;",
+		"  worktree)",
+		"    printf 'worktree " + workspaceRoot + "\\0HEAD " + headCommit + "\\0branch refs/heads/main\\0\\0'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if response.Repo.HeadBranch == nil || *response.Repo.HeadBranch != "main" {
+		t.Fatalf("expected head branch main, got %#v", response.Repo.HeadBranch)
+	}
+	if response.Repo.HeadCommit == nil || *response.Repo.HeadCommit != headCommit {
+		t.Fatalf("expected head commit %q, got %#v", headCommit, response.Repo.HeadCommit)
+	}
+	if len(response.Entries) != 1 || response.Entries[0].Path != "tracked.txt" {
+		t.Fatalf("expected tracked status entry, got %#v", response.Entries)
+	}
+}
+
+func TestServiceStatusTrimsPartialTrailingRecordWhenStatusOutputEndsMidToken(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	headCommit := "abc123"
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    exit 1",
+		"    ;;",
+		"  status)",
+		"    printf '# branch.oid " + headCommit + "\\0# branch.head main\\0'",
+		"    printf '1 .M N... 100644 100644 100644 a b tracked.txt\\0? complete.txt\\0? partial'",
+		"    exit 0",
+		"    ;;",
+		"  worktree)",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if response.Repo.HeadBranch == nil || *response.Repo.HeadBranch != "main" {
+		t.Fatalf("expected head branch main, got %#v", response.Repo.HeadBranch)
+	}
+	if response.Repo.HeadCommit == nil || *response.Repo.HeadCommit != headCommit {
+		t.Fatalf("expected head commit %q, got %#v", headCommit, response.Repo.HeadCommit)
+	}
+	if len(response.Entries) != 2 {
+		t.Fatalf("expected only complete status entries, got %#v", response.Entries)
+	}
+	paths := []string{response.Entries[0].Path, response.Entries[1].Path}
+	if !(paths[0] == "tracked.txt" && paths[1] == "complete.txt") && !(paths[0] == "complete.txt" && paths[1] == "tracked.txt") {
+		t.Fatalf("unexpected complete status paths %#v", paths)
 	}
 }
 
@@ -246,6 +397,54 @@ func TestServiceStatusReturnsTypedWorktrees(t *testing.T) {
 	}
 	if !foundCurrent || !foundExtra {
 		t.Fatalf("expected current and extra worktrees, got %#v", response.Worktrees)
+	}
+}
+
+func TestServiceStatusKeepsPrimaryStatusWhenWorktreeListingFails(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	headCommit := "abc123"
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    exit 1",
+		"    ;;",
+		"  status)",
+		"    printf '# branch.oid " + headCommit + "\\0# branch.head main\\0'",
+		"    printf '1 .M N... 100644 100644 100644 a b tracked.txt\\0'",
+		"    exit 0",
+		"    ;;",
+		"  worktree)",
+		"    printf 'worktree failed\\n' >&2",
+		"    exit 1",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if response.Repo.HeadBranch == nil || *response.Repo.HeadBranch != "main" {
+		t.Fatalf("expected head branch main, got %#v", response.Repo.HeadBranch)
+	}
+	if response.Repo.HeadCommit == nil || *response.Repo.HeadCommit != headCommit {
+		t.Fatalf("expected head commit %q, got %#v", headCommit, response.Repo.HeadCommit)
+	}
+	if len(response.Entries) != 1 || response.Entries[0].Path != "tracked.txt" {
+		t.Fatalf("expected tracked status entry, got %#v", response.Entries)
+	}
+	if len(response.Worktrees) != 0 {
+		t.Fatalf("expected empty worktrees on worktree-list failure, got %#v", response.Worktrees)
+	}
+	if response.IsTruncated {
+		t.Fatalf("expected non-truncated status response, got %#v", response)
 	}
 }
 
