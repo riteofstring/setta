@@ -1108,9 +1108,9 @@ const (
 	ChatRoleTool      ChatRole = "tool"
 )
 
-type ChatPermissionMode string
+type ChatPermissionMode = projectstate.ChatPermissionMode
 
-type ChatDictationMode string
+type ChatDictationMode = projectstate.ChatDictationMode
 
 type JSONValue struct{}
 
@@ -1142,9 +1142,9 @@ type ToolChatMessage struct{}
 
 type BaseChatMessageUnion struct{}
 
-type ChatSectionBranch struct{}
+type ChatSectionBranch = projectstate.ChatSectionBranch
 
-type ChatSectionState struct{}
+type ChatSectionState = projectstate.ChatSectionState
 
 type UserDefaultChatSectionImpl struct{}
 
