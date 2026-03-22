@@ -638,6 +638,22 @@ Last audited: `2026-03-23`
   `TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy`,
   and
   `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies`.
+- Follow-up in this pass on `95b0b3371`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/routers/test_share_deployments.py::{test_publish_share_deployment_writes_manifest_and_policy,test_publish_share_deployment_uses_latest_manager_state,test_publish_share_deployment_uses_in_memory_json_sources,test_publish_share_deployment_supports_yaml_json_sources,test_publish_share_deployment_supports_toml_json_sources,test_publish_share_deployment_rebases_paths,test_list_versions_and_latest}`,
+  confirming those clues were already terminal explicit `Proved` rows
+  backed directly by
+  `TestSharePublisherPublishWritesManifestPolicyProjectAndStripsPasswords`,
+  `TestSharePublisherUsesLatestRuntimeSnapshotNotPersistedStore`,
+  `TestSharePublisherWritesStructuredDataAndSupportsFormats`,
+  `TestSharePublisherRebasesPathsAndCopiesFiles`,
+  `TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersions`,
+  `TestCatalogListReturnsNewestFirstByCreatedAt`,
+  `TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries`, and
+  `TestCatalogLatestUsesHighestVersionRootAsSourceOfTruth`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
