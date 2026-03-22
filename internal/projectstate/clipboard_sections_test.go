@@ -224,6 +224,184 @@ func TestDocumentPasteSectionsPreservesCopiedDescendantActiveVariants(t *testing
 	}
 }
 
+func TestDocumentPasteSectionsRemapsAttachedTerminalForCopiedBaseCodeSections(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		source     Project
+		rootID     string
+		rootType   string
+		assertImpl func(t *testing.T, project Project, rootID string, attachedTerminalID string)
+	}{
+		{
+			name:     "code",
+			source:   newClipboardCodeSectionWithAttachedTerminalProject(t),
+			rootID:   "code-section",
+			rootType: "Code",
+			assertImpl: func(t *testing.T, project Project, rootID string, attachedTerminalID string) {
+				t.Helper()
+				_, _, impl, err := project.ResolveSection(rootID)
+				if err != nil {
+					t.Fatalf("resolve pasted code section: %v", err)
+				}
+				if impl.Code == nil {
+					t.Fatalf("expected pasted code impl, got %#v", impl)
+				}
+				if impl.Code.AttachedTerminalSectionID != attachedTerminalID {
+					t.Fatalf("expected pasted code attached terminal id %q, got %q", attachedTerminalID, impl.Code.AttachedTerminalSectionID)
+				}
+			},
+		},
+		{
+			name:     "generated python code",
+			source:   newClipboardGeneratedPythonSectionWithAttachedTerminalProject(t),
+			rootID:   "generated-section",
+			rootType: "GenPythonCode",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			clipboard, err := testCase.source.prepareSectionsForCopy([]string{testCase.rootID})
+			if err != nil {
+				t.Fatalf("prepareSectionsForCopy: %v", err)
+			}
+
+			document := newClipboardPasteTargetDocument()
+			if err := document.PasteSections("project-target", PasteSectionsInput{
+				Data:     clipboard.Data,
+				Position: Position{X: 240, Y: 160},
+				AsRef:    false,
+			}); err != nil {
+				t.Fatalf("PasteSections returned error: %v", err)
+			}
+
+			targetProject := document.Projects["project-target"]
+			pastedRootID := onlyTopLevelPastedSectionID(t, targetProject)
+			pastedVariantID := targetProject.SectionVariantMap[pastedRootID]
+			pastedPayload, err := targetProject.EffectiveSectionPayload(pastedRootID, pastedVariantID)
+			if err != nil {
+				t.Fatalf("resolve pasted payload: %v", err)
+			}
+			if got := payloadStringField(pastedPayload, "type"); got != testCase.rootType {
+				t.Fatalf("expected pasted root type %q, got %q", testCase.rootType, got)
+			}
+
+			childIDs := payloadStringArrayField(pastedPayload, "children")
+			if len(childIDs) != 1 {
+				t.Fatalf("expected one pasted terminal child, got %#v", childIDs)
+			}
+			attachedTerminalID := payloadStringField(pastedPayload, "attachedTerminalSectionId")
+			if attachedTerminalID == "" {
+				t.Fatalf("expected pasted attached terminal id, got payload %#v", pastedPayload)
+			}
+			if attachedTerminalID != childIDs[0] {
+				t.Fatalf("expected pasted attached terminal id %q to match child id, got %q", childIDs[0], attachedTerminalID)
+			}
+			if attachedTerminalID == "terminal-section" {
+				t.Fatalf("expected pasted attached terminal id to be remapped, got %q", attachedTerminalID)
+			}
+			if got := targetProject.Sections[attachedTerminalID].ParentSectionID; got != pastedRootID {
+				t.Fatalf("expected pasted terminal parent %q, got %q", pastedRootID, got)
+			}
+
+			if testCase.assertImpl != nil {
+				testCase.assertImpl(t, targetProject, pastedRootID, attachedTerminalID)
+			}
+		})
+	}
+}
+
+func TestDocumentPasteSectionsClearsMissingAttachedTerminalForCopiedBaseCodeSections(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		source     Project
+		rootID     string
+		rootType   string
+		assertImpl func(t *testing.T, project Project, rootID string)
+	}{
+		{
+			name:     "code",
+			source:   newClipboardCodeSectionWithMissingAttachedTerminalProject(t),
+			rootID:   "code-section",
+			rootType: "Code",
+			assertImpl: func(t *testing.T, project Project, rootID string) {
+				t.Helper()
+				_, _, impl, err := project.ResolveSection(rootID)
+				if err != nil {
+					t.Fatalf("resolve pasted code section: %v", err)
+				}
+				if impl.Code == nil {
+					t.Fatalf("expected pasted code impl, got %#v", impl)
+				}
+				if impl.Code.AttachedTerminalSectionID != "" {
+					t.Fatalf("expected pasted code attached terminal id to clear, got %q", impl.Code.AttachedTerminalSectionID)
+				}
+				if len(impl.Code.Children) != 0 {
+					t.Fatalf("expected pasted code children to stay empty, got %#v", impl.Code.Children)
+				}
+			},
+		},
+		{
+			name:     "generated python code",
+			source:   newClipboardGeneratedPythonSectionWithMissingAttachedTerminalProject(t),
+			rootID:   "generated-section",
+			rootType: "GenPythonCode",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			clipboard, err := testCase.source.prepareSectionsForCopy([]string{testCase.rootID})
+			if err != nil {
+				t.Fatalf("prepareSectionsForCopy: %v", err)
+			}
+
+			document := newClipboardPasteTargetDocument()
+			if err := document.PasteSections("project-target", PasteSectionsInput{
+				Data:     clipboard.Data,
+				Position: Position{X: 240, Y: 160},
+				AsRef:    false,
+			}); err != nil {
+				t.Fatalf("PasteSections returned error: %v", err)
+			}
+
+			targetProject := document.Projects["project-target"]
+			if len(targetProject.Sections) != 1 {
+				t.Fatalf("expected one pasted section when attachment target is missing, got %#v", targetProject.Sections)
+			}
+			pastedRootID := onlyTopLevelPastedSectionID(t, targetProject)
+			pastedVariantID := targetProject.SectionVariantMap[pastedRootID]
+			pastedPayload, err := targetProject.EffectiveSectionPayload(pastedRootID, pastedVariantID)
+			if err != nil {
+				t.Fatalf("resolve pasted payload: %v", err)
+			}
+			if got := payloadStringField(pastedPayload, "type"); got != testCase.rootType {
+				t.Fatalf("expected pasted root type %q, got %q", testCase.rootType, got)
+			}
+			if attachedTerminalID := payloadStringField(pastedPayload, "attachedTerminalSectionId"); attachedTerminalID != "" {
+				t.Fatalf("expected pasted attached terminal id to clear, got %q", attachedTerminalID)
+			}
+			if childIDs := payloadStringArrayField(pastedPayload, "children"); len(childIDs) != 0 {
+				t.Fatalf("expected pasted children to stay empty, got %#v", childIDs)
+			}
+
+			if testCase.assertImpl != nil {
+				testCase.assertImpl(t, targetProject, pastedRootID)
+			}
+		})
+	}
+}
+
 func clipboardVariantPreservationSourceProject(t *testing.T) Project {
 	t.Helper()
 
@@ -298,6 +476,251 @@ func clipboardVariantPreservationSourceProject(t *testing.T) Project {
 	}).Normalized()
 	if err != nil {
 		t.Fatalf("normalize clipboard variant-preservation source project: %v", err)
+	}
+	return project
+}
+
+func newClipboardPasteTargetDocument() Document {
+	return Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-target",
+		Projects: map[string]Project{
+			"project-target": {
+				ID:   "project-target",
+				Name: "Target",
+			},
+		},
+	}
+}
+
+func onlyTopLevelPastedSectionID(t *testing.T, project Project) string {
+	t.Helper()
+
+	if len(project.TopLevelSectionIDs) != 1 {
+		t.Fatalf("expected one pasted top-level section id, got %#v", project.TopLevelSectionIDs)
+	}
+	sectionID := project.TopLevelSectionIDs[0]
+	if _, ok := project.TopLevelSections[sectionID]; !ok {
+		t.Fatalf("expected pasted top-level layout for %q, got %#v", sectionID, project.TopLevelSections)
+	}
+	return sectionID
+}
+
+func newClipboardCodeSectionWithAttachedTerminalProject(t *testing.T) Project {
+	t.Helper()
+
+	project, err := (Project{
+		ID:                 "project-source",
+		Name:               "Source",
+		TopLevelSectionIDs: []string{"code-section"},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"code-section": {X: 20, Y: 40, ZIndex: 0},
+		},
+		SectionVariantMap: map[string]string{
+			"code-section":     "code-variant",
+			"terminal-section": "terminal-variant",
+		},
+		Sections: map[string]Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"terminal-section": {
+				ID:               "terminal-section",
+				Name:             "Terminal",
+				ParentSectionID:  "code-section",
+				VariantIDs:       []string{"terminal-variant"},
+				DefaultVariantID: "terminal-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"code-variant":     {ID: "code-variant", ImplID: "code-impl"},
+			"terminal-variant": {ID: "terminal-variant", ImplID: "terminal-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{
+					Language:                  CodeLanguagePython,
+					AttachedTerminalSectionID: "terminal-section",
+					Children:                  []string{"terminal-section"},
+				},
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":                        "code-impl",
+					"type":                      "Code",
+					"codeLanguage":              "python",
+					"children":                  []string{"terminal-section"},
+					"attachedTerminalSectionId": "terminal-section",
+				}),
+			},
+			"terminal-impl": {
+				ID:       "terminal-impl",
+				Kind:     SectionKindTerminal,
+				Terminal: &TerminalSectionImpl{},
+				Payload:  mustMarshalProjectObject(map[string]any{"id": "terminal-impl", "type": "Terminal"}),
+			},
+		},
+	}).Normalized()
+	if err != nil {
+		t.Fatalf("normalize clipboard code source project: %v", err)
+	}
+	return project
+}
+
+func newClipboardGeneratedPythonSectionWithAttachedTerminalProject(t *testing.T) Project {
+	t.Helper()
+
+	project, err := (Project{
+		ID:                 "project-source",
+		Name:               "Source",
+		TopLevelSectionIDs: []string{"generated-section"},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"generated-section": {X: 20, Y: 40, ZIndex: 0},
+		},
+		SectionVariantMap: map[string]string{
+			"generated-section": "generated-variant",
+			"terminal-section":  "terminal-variant",
+		},
+		Sections: map[string]Section{
+			"generated-section": {
+				ID:               "generated-section",
+				Name:             "Generated Python Code",
+				VariantIDs:       []string{"generated-variant"},
+				DefaultVariantID: "generated-variant",
+			},
+			"terminal-section": {
+				ID:               "terminal-section",
+				Name:             "Terminal",
+				ParentSectionID:  "generated-section",
+				VariantIDs:       []string{"terminal-variant"},
+				DefaultVariantID: "terminal-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"generated-variant": {ID: "generated-variant", ImplID: "generated-impl"},
+			"terminal-variant":  {ID: "terminal-variant", ImplID: "terminal-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"generated-impl": {
+				ID:   "generated-impl",
+				Kind: SectionKindGenerated,
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonCode,
+				},
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":                        "generated-impl",
+					"type":                      "GenPythonCode",
+					"children":                  []string{"terminal-section"},
+					"attachedTerminalSectionId": "terminal-section",
+				}),
+			},
+			"terminal-impl": {
+				ID:       "terminal-impl",
+				Kind:     SectionKindTerminal,
+				Terminal: &TerminalSectionImpl{},
+				Payload:  mustMarshalProjectObject(map[string]any{"id": "terminal-impl", "type": "Terminal"}),
+			},
+		},
+	}).Normalized()
+	if err != nil {
+		t.Fatalf("normalize clipboard generated source project: %v", err)
+	}
+	return project
+}
+
+func newClipboardCodeSectionWithMissingAttachedTerminalProject(t *testing.T) Project {
+	t.Helper()
+
+	project, err := (Project{
+		ID:                 "project-source",
+		Name:               "Source",
+		TopLevelSectionIDs: []string{"code-section"},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"code-section": {X: 20, Y: 40, ZIndex: 0},
+		},
+		SectionVariantMap: map[string]string{
+			"code-section": "code-variant",
+		},
+		Sections: map[string]Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"code-variant": {ID: "code-variant", ImplID: "code-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{
+					Language:                  CodeLanguagePython,
+					AttachedTerminalSectionID: "missing-terminal",
+				},
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":                        "code-impl",
+					"type":                      "Code",
+					"codeLanguage":              "python",
+					"children":                  []string{},
+					"attachedTerminalSectionId": "missing-terminal",
+				}),
+			},
+		},
+	}).Normalized()
+	if err != nil {
+		t.Fatalf("normalize clipboard code missing-terminal source project: %v", err)
+	}
+	return project
+}
+
+func newClipboardGeneratedPythonSectionWithMissingAttachedTerminalProject(t *testing.T) Project {
+	t.Helper()
+
+	project, err := (Project{
+		ID:                 "project-source",
+		Name:               "Source",
+		TopLevelSectionIDs: []string{"generated-section"},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"generated-section": {X: 20, Y: 40, ZIndex: 0},
+		},
+		SectionVariantMap: map[string]string{
+			"generated-section": "generated-variant",
+		},
+		Sections: map[string]Section{
+			"generated-section": {
+				ID:               "generated-section",
+				Name:             "Generated Python Code",
+				VariantIDs:       []string{"generated-variant"},
+				DefaultVariantID: "generated-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"generated-variant": {ID: "generated-variant", ImplID: "generated-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"generated-impl": {
+				ID:   "generated-impl",
+				Kind: SectionKindGenerated,
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonCode,
+				},
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":                        "generated-impl",
+					"type":                      "GenPythonCode",
+					"children":                  []string{},
+					"attachedTerminalSectionId": "missing-terminal",
+				}),
+			},
+		},
+	}).Normalized()
+	if err != nil {
+		t.Fatalf("normalize clipboard generated missing-terminal source project: %v", err)
 	}
 	return project
 }
