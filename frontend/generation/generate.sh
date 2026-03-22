@@ -22,7 +22,6 @@ python -m generation.generate_shared_modifier
 python -m generation.generate_impl_field_literals
 python -m generation.generate_args_as_typed_dicts
 python -m generation.generate_unions unions
-python -m generation.generate_effective_impls
 python -m generation.generate_unions websocket_unions
 bash ./generation/generate_go_frontend_bindings.sh
 bash ./generation/generate_go_python_types.sh
