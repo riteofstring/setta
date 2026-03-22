@@ -4,6 +4,7 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type ImplType = "Code" | "Group";
@@ -73,7 +74,9 @@ test("ui-only selection drag grouping includes the full selected set in browser 
       y: 70,
     });
 
-    expect(draggedIds).toEqual([firstSectionId, secondSectionId]);
+    expect([...draggedIds].sort()).toEqual(
+      [firstSectionId, secondSectionId].sort(),
+    );
 
     const afterPositions = await readNodePositions(page, [
       firstSectionId,
@@ -127,6 +130,7 @@ async function createTopLevelSection(
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -146,6 +150,7 @@ async function placeSections(
       },
     });
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function setFrontendActiveIds(

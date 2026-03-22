@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/realtime"
 )
@@ -277,6 +279,17 @@ func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 			writeError(w, r, routeErr.Status, routeErr.Code, routeErr.Message)
 			return
 		}
+		linkedProjectIDs := []string(nil)
+		if projectState != nil {
+			linkedProjectIDs, err = linkedPromptTemplateProjectIDs(
+				projectState.Snapshot().Document,
+				template.ID,
+			)
+			if err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
 		if _, err := store.Get(template.ID); err != nil {
 			if writePromptTemplateStoreError(w, r, err) {
 				return
@@ -288,13 +301,15 @@ func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		projectSnapshot := projectstate.Snapshot{}
 		if projectState != nil {
-			if _, _, err := projectState.RefreshLinkedPromptSectionsForTemplate(
+			projectSnapshot, _, err = projectState.RefreshLinkedPromptSectionsForTemplate(
 				r.Context(),
 				template.ID,
 				template.Template,
 				projectstate.PromptFormat(template.Format),
-			); err != nil {
+			)
+			if err != nil {
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 				return
 			}
@@ -306,6 +321,16 @@ func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 			}
 		}
 		if err := broadcastPromptTemplatesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if err := broadcastLinkedPromptTemplateProjectStateUpdates(
+			r.Context(),
+			deps.WebsocketHub,
+			projectState,
+			projectSnapshot,
+			linkedProjectIDs,
+		); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -405,6 +430,85 @@ func broadcastPromptTemplatesUpdated(
 		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
 	)
 	return err
+}
+
+func linkedPromptTemplateProjectIDs(
+	document projectstate.Document,
+	templateID string,
+) ([]string, error) {
+	normalizedTemplateID := strings.TrimSpace(templateID)
+	if normalizedTemplateID == "" || len(document.Projects) == 0 {
+		return nil, nil
+	}
+
+	projectIDs := make([]string, 0, len(document.Projects))
+	for projectID := range document.Projects {
+		projectIDs = append(projectIDs, projectID)
+	}
+	sort.Strings(projectIDs)
+
+	linkedProjectIDs := make([]string, 0)
+	for _, projectID := range projectIDs {
+		project := document.Projects[projectID]
+		sectionIDs := make([]string, 0, len(project.Sections))
+		for sectionID := range project.Sections {
+			sectionIDs = append(sectionIDs, sectionID)
+		}
+		sort.Strings(sectionIDs)
+
+		for _, sectionID := range sectionIDs {
+			source, err := project.PromptSectionSource(sectionID)
+			if err != nil {
+				if errors.Is(err, projectstate.ErrPromptSectionRequired) {
+					continue
+				}
+				return nil, err
+			}
+			if source.PromptTemplateID == nil || *source.PromptTemplateID != normalizedTemplateID {
+				continue
+			}
+			linkedProjectIDs = append(linkedProjectIDs, projectID)
+			break
+		}
+	}
+
+	return linkedProjectIDs, nil
+}
+
+func broadcastLinkedPromptTemplateProjectStateUpdates(
+	ctx context.Context,
+	websocketHub *realtime.WebsocketHub,
+	projectState *projectstate.Runtime,
+	snapshot projectstate.Snapshot,
+	projectIDs []string,
+) error {
+	if websocketHub == nil || projectState == nil || len(projectIDs) == 0 {
+		return nil
+	}
+
+	status := projectState.FrontendOpStatus()
+	for _, projectID := range projectIDs {
+		projectStateView, err := projectview.SingleConfigByProjectID(
+			snapshot.Document,
+			projectID,
+		)
+		if err != nil {
+			return err
+		}
+		if _, err := websocketHub.BroadcastJSON(
+			ctx,
+			realtime.NewProjectStateUpdateMessage(realtime.ProjectStateUpdateContent{
+				ProjectState:   projectStateView,
+				CompletedOpIDs: status.Completed,
+				PendingOpIDs:   status.Pending,
+			}),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func buildCreatedPromptTemplate(payload createPromptTemplateRequest) (prompttemplates.Template, *promptTemplateRouteError) {

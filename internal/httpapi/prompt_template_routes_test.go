@@ -14,7 +14,9 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
+	"setta/internal/realtime"
 )
 
 func TestRegisterPromptTemplateRoutesListsTemplates(t *testing.T) {
@@ -394,6 +396,108 @@ func TestRegisterPromptTemplateRoutesUpdateRefreshesLinkedPromptSections(t *test
 	}
 }
 
+func TestRegisterPromptTemplateRoutesUpdateBroadcastsLinkedPromptProjectState(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-1",
+		Name:     "Greeting",
+		Template: "Old {{ name }}",
+		Format:   prompttemplates.FormatJinja,
+	}); err != nil {
+		t.Fatalf("save template: %v", err)
+	}
+	projectRuntime := newPromptTemplateRouteLinkedPromptSectionRuntimeWithState(
+		t,
+		"template-1",
+		"Old {{ name }}",
+		map[string]string{"name": "Ada"},
+	)
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	handler := newPromptTemplateRouteTestHandlerWithProjectStateAndHub(
+		t,
+		config.ModeIDE,
+		store,
+		projectRuntime,
+		websocketHub,
+	)
+
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	response := performPromptTemplateRouteJSONRequest(
+		t,
+		handler,
+		http.MethodPost,
+		RouteUpdatePromptTemplate,
+		map[string]any{
+			"template": map[string]any{
+				"id":       "template-1",
+				"name":     "Greeting",
+				"template": "Hello {{ name }}",
+				"format":   "Jinja",
+			},
+		},
+	)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var projectUpdate realtime.ProjectStateUpdateContent
+	foundProjectUpdate := false
+	foundPromptTemplatesUpdated := false
+	for range 2 {
+		envelope := readTranscriptionProfileRouteTestEnvelope(t, websocketClient)
+		switch envelope.MessageType {
+		case realtime.MessageTypeUpdateFrontendProjectState:
+			foundProjectUpdate = true
+			if err := json.Unmarshal(envelope.Content, &projectUpdate); err != nil {
+				t.Fatalf("decode project state update: %v", err)
+			}
+		case realtime.MessageTypePromptTemplatesUpdated:
+			foundPromptTemplatesUpdated = true
+		default:
+			t.Fatalf("unexpected websocket message type %q", envelope.MessageType)
+		}
+	}
+
+	if !foundProjectUpdate {
+		t.Fatal("expected linked prompt project state update broadcast")
+	}
+	if !foundPromptTemplatesUpdated {
+		t.Fatal("expected prompt templates updated broadcast")
+	}
+	if projectUpdate.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf(
+			"expected project-alpha project update, got %q",
+			projectUpdate.ProjectState.ProjectConfig.ID,
+		)
+	}
+
+	promptVariantID := projectUpdate.ProjectState.ProjectConfig.SectionVariantMap["prompt-section"]
+	if promptVariantID == "" {
+		t.Fatalf("expected prompt-section variant mapping, got %#v", projectUpdate.ProjectState.ProjectConfig.SectionVariantMap)
+	}
+	promptPayload := promptTemplateRouteEffectivePromptPayloadFromView(
+		t,
+		projectUpdate.ProjectState,
+		"prompt-section",
+		promptVariantID,
+	)
+	if got := promptPayload["renderedText"]; got != "Hello Ada" {
+		t.Fatalf("expected websocket renderedText Hello Ada, got %#v", got)
+	}
+	if value, ok := promptPayload["renderError"]; !ok || value != nil {
+		t.Fatalf("expected websocket renderError to clear, got %#v", promptPayload["renderError"])
+	}
+}
+
 func TestRegisterPromptTemplateRoutesReturnsNotFoundForUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -725,7 +829,14 @@ func newPromptTemplateRouteTestHandler(
 ) http.Handler {
 	t.Helper()
 
-	return newPromptTemplateRouteTestHandlerWithProjectState(t, mode, store, nil, deploymentRuntimes...)
+	return newPromptTemplateRouteTestHandlerWithProjectStateAndHub(
+		t,
+		mode,
+		store,
+		nil,
+		nil,
+		deploymentRuntimes...,
+	)
 }
 
 func newPromptTemplateRouteTestHandlerWithProjectState(
@@ -733,6 +844,26 @@ func newPromptTemplateRouteTestHandlerWithProjectState(
 	mode config.Mode,
 	store *prompttemplates.Store,
 	projectRuntime *projectstate.Runtime,
+	deploymentRuntimes ...*deployments.Runtime,
+) http.Handler {
+	t.Helper()
+
+	return newPromptTemplateRouteTestHandlerWithProjectStateAndHub(
+		t,
+		mode,
+		store,
+		projectRuntime,
+		nil,
+		deploymentRuntimes...,
+	)
+}
+
+func newPromptTemplateRouteTestHandlerWithProjectStateAndHub(
+	t *testing.T,
+	mode config.Mode,
+	store *prompttemplates.Store,
+	projectRuntime *projectstate.Runtime,
+	websocketHub *realtime.WebsocketHub,
 	deploymentRuntimes ...*deployments.Runtime,
 ) http.Handler {
 	t.Helper()
@@ -757,6 +888,7 @@ func newPromptTemplateRouteTestHandlerWithProjectState(
 				Templates:    store,
 				ProjectState: projectRuntime,
 				Deployment:   deploymentRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				t.Fatalf("register prompt template routes: %v", err)
 			}
@@ -906,6 +1038,41 @@ func promptTemplateRoutePromptPayload(t *testing.T, raw projectstate.RawJSON) ma
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("decode prompt payload: %v", err)
 	}
+	return payload
+}
+
+func promptTemplateRouteEffectivePromptPayloadFromView(
+	t *testing.T,
+	view projectview.SingleConfig,
+	sectionID string,
+	variantID string,
+) map[string]any {
+	t.Helper()
+
+	payload := map[string]any{}
+	section := view.Sections[sectionID]
+	variant := view.SectionVariants[variantID]
+	if variant.Impl == "" {
+		t.Fatalf("expected section variant impl for %q, got %#v", sectionID, variant)
+	}
+
+	for _, raw := range []projectstate.RawJSON{
+		view.SectionImpls[variant.Impl],
+		projectstate.RawJSON(section.SharedModifier),
+		projectstate.RawJSON(variant.Modifier),
+	} {
+		if len(raw) == 0 {
+			continue
+		}
+		decoded := map[string]any{}
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			t.Fatalf("decode effective prompt payload fragment: %v", err)
+		}
+		for key, value := range decoded {
+			payload[key] = value
+		}
+	}
+
 	return payload
 }
 

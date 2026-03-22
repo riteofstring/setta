@@ -4,6 +4,7 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type ImplType = "Group" | "Code";
@@ -35,6 +36,7 @@ test("marquee selection includes nested group children", async ({ page }) => {
       newIndex: 0,
       positionsById: null,
     });
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect
       .poll(async () => {
@@ -245,6 +247,7 @@ async function createTopLevelSection(
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -264,6 +267,7 @@ async function placeSections(
       },
     });
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function readFrontendActiveIds(page: Page): Promise<string[]> {

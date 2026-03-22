@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import { ensureAppReady, refreshProjectStateFromBackend } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const TEST_IMAGE_PATH = "pw_image.png";
+const TEST_IMAGE_PATH = "artifacts/pw_image.png";
 const ONE_BY_ONE_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Yp0oL0AAAAASUVORK5CYII=";
 
@@ -89,6 +89,7 @@ async function createImageSection(
     sectionId,
     name: sectionName,
   });
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -103,6 +104,7 @@ async function setImagePath(
     sectionId,
     imagePath,
   });
+  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function uploadTestPng(page: Page): Promise<BinaryContentRef> {

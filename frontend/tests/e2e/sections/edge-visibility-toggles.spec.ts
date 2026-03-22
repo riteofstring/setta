@@ -7,9 +7,15 @@ import {
   loadProjectConfig,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type CreateSectionResponse = { sectionId?: string };
+type SetCallableResponse = {
+  callableId?: string | null;
+  lspStatus?: string | null;
+};
+const TARGET_CALLABLE = "sorted";
 
 async function createChatSection(
   page: Page,
@@ -32,6 +38,7 @@ async function createChatSection(
   if (!sectionId) {
     throw new Error("Missing sectionId when creating chat section.");
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -41,12 +48,24 @@ async function setCallable(
   sectionId: string,
   callableName: string,
 ): Promise<void> {
-  await postBackend(page, "/setCallable", {
-    projectConfigId,
-    sectionId,
-    callableName,
-    refetchParams: true,
-  });
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await postBackend<SetCallableResponse>(page, "/setCallable", {
+      projectConfigId,
+      sectionId,
+      callableName,
+      refetchParams: true,
+    });
+    if (response?.lspStatus === "matched" && response.callableId) {
+      await refreshProjectStateFromBackend(page, projectConfigId);
+      return;
+    }
+    if (attempt < 7) {
+      await page.waitForTimeout(500);
+    }
+  }
+  throw new Error(
+    `setCallable did not resolve ${callableName} for ${sectionId} in ${projectConfigId}.`,
+  );
 }
 
 async function getParamIds(
@@ -89,8 +108,8 @@ test.describe.serial("edge visibility toggles", () => {
       const sectionB = await createCallableSection(page, projectConfigId);
       const chatSection = await createChatSection(page, projectConfigId);
 
-      await setCallable(page, projectConfigId, sectionA, "sorted");
-      await setCallable(page, projectConfigId, sectionB, "sorted");
+      await setCallable(page, projectConfigId, sectionA, TARGET_CALLABLE);
+      await setCallable(page, projectConfigId, sectionB, TARGET_CALLABLE);
 
       const [aParam] = await getParamIds(page, sectionA, 1);
       const [bParam] = await getParamIds(page, sectionB, 1);
@@ -132,6 +151,7 @@ test.describe.serial("edge visibility toggles", () => {
         targetSectionId: sectionB,
         kind: "chat_section",
       });
+      await refreshProjectStateFromBackend(page, projectConfigId);
 
       await page.getByRole("button", { name: "fit view" }).click();
 
@@ -187,4 +207,3 @@ test.describe.serial("edge visibility toggles", () => {
     }
   });
 });
-

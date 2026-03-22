@@ -4,6 +4,7 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type TopLevelSectionLayout = { x: number; y: number; zIndex?: number };
@@ -70,6 +71,7 @@ test("group section children can move via UI drag-and-drop", async ({
       newIndex: 1,
       positionsById: null,
     });
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await expect
       .poll(async () => {
@@ -337,6 +339,7 @@ async function placeSections(
       },
     });
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function createTopLevelSection(
@@ -357,6 +360,7 @@ async function createTopLevelSection(
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 

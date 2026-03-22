@@ -5,6 +5,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type CreateSectionResponse = { sectionId?: string };
@@ -31,6 +32,7 @@ async function createTopLevelSection(
   if (!sectionId) {
     throw new Error(`Missing sectionId when creating section type ${implType}.`);
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -92,4 +94,3 @@ test.describe.serial("agentic handles", () => {
     }
   });
 });
-
