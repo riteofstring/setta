@@ -172,6 +172,86 @@ func TestServiceStatusSetsTruncationFlagForLargeOutput(t *testing.T) {
 	}
 }
 
+func TestServiceRunGitTruncatesStdoutAtRequestedCap(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  status)",
+		"    i=0",
+		"    while [ \"$i\" -lt 200 ]; do",
+		"      printf '?? untracked-%03d.txt\\0' \"$i\"",
+		"      i=$((i + 1))",
+		"    done",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	result, err := service.runGit(
+		context.Background(),
+		workspaceRoot,
+		[]string{"status"},
+		statusTimeout,
+		64,
+		maxCommandErrBytes,
+	)
+	if err != nil {
+		t.Fatalf("run git: %v", err)
+	}
+	if !result.stdoutTruncated {
+		t.Fatalf("expected stdout truncation, got %#v", result)
+	}
+	if len([]byte(result.stdout)) > 64 {
+		t.Fatalf("expected capped stdout length <= 64, got %d", len([]byte(result.stdout)))
+	}
+	if result.timedOut {
+		t.Fatalf("expected truncation cancel, not timeout: %#v", result)
+	}
+}
+
+func TestServiceRunGitTruncatesStderrAtRequestedCap(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  definitely-not-a-command)",
+		"    i=0",
+		"    while [ \"$i\" -lt 100 ]; do",
+		"      printf 'fatal: definitely-not-a-command line %03d\\n' \"$i\" >&2",
+		"      i=$((i + 1))",
+		"    done",
+		"    exit 1",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	result, err := service.runGit(
+		context.Background(),
+		workspaceRoot,
+		[]string{"definitely-not-a-command"},
+		statusTimeout,
+		64,
+		24,
+	)
+	if err != nil {
+		t.Fatalf("run git: %v", err)
+	}
+	if !result.stderrTruncated {
+		t.Fatalf("expected stderr truncation, got %#v", result)
+	}
+	if len([]byte(result.stderr)) > 24 {
+		t.Fatalf("expected capped stderr length <= 24, got %d", len([]byte(result.stderr)))
+	}
+	if result.timedOut {
+		t.Fatalf("expected truncation cancel, not timeout: %#v", result)
+	}
+}
+
 func TestServiceStatusParsesHeadMetadataFromPorcelainV2WithoutExtraRevParse(t *testing.T) {
 	t.Parallel()
 
