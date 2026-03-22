@@ -2,6 +2,7 @@
 set -uo pipefail
 
 run_backend=1
+run_go=1
 run_frontend=1
 run_playwright=1
 
@@ -10,7 +11,7 @@ usage() {
 Usage: ./t.sh [--b | --f] [--all]
 
 Options:
-  --b              Run backend pytest only.
+  --b              Run Go tests + retained Python pytest only.
   --f              Run frontend Vitest + Playwright only.
   --all            Enable opt-in external agent integration tests.
   -h, --help       Show this help.
@@ -21,12 +22,14 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --b)
       run_backend=1
+      run_go=1
       run_frontend=0
       run_playwright=0
       shift
       ;;
     --f)
       run_backend=0
+      run_go=0
       run_frontend=1
       run_playwright=1
       shift
@@ -138,6 +141,9 @@ exec > >(tee -a "${LOG_FILE}") 2>&1
 
 status=0
 
+if [[ "${run_go}" -eq 1 ]]; then
+  ./scripts/run_go_tests.sh || status=1
+fi
 if [[ "${run_backend}" -eq 1 ]]; then
   ./scripts/run_backend_tests.sh || status=1
 fi

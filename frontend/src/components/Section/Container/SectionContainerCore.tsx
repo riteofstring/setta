@@ -1,3 +1,4 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -13,7 +14,7 @@ import {
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { getSectionStylePreviewColorKey } from "utils/constants";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
@@ -32,17 +33,6 @@ type SectionContainerCoreProps = {
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
-};
-
-type SectionContainerCoreStaticContentProps = {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  isUserView: boolean;
-  hideAgenticEdgeHandles: boolean;
-  isAttachedTerminalChild: boolean;
-  isInOtherProjectConfigs: boolean;
-  positionAndSizeLocked: boolean;
-  hasSectionStyleTheme: boolean;
 };
 
 function _SectionContainerCore({
@@ -118,6 +108,9 @@ function _SectionContainerCore({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -146,6 +139,30 @@ function _SectionContainerCore({
     aiHighlightClassName,
     scopeHighlightClassName,
   });
+  const sectionShellStyle = viewportInteractionActive
+    ? ({
+        ...sectionStyleVars,
+        willChange: "transform",
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+        isolation: "isolate",
+      } as React.CSSProperties)
+    : sectionStyleVars;
+  const shouldRenderSharedChatHandles =
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const isWorkflowOnlyNodeSection =
+    sectionTypeName === SectionTypeEnum.StateMachineStart ||
+    sectionTypeName === SectionTypeEnum.StateMachineGate ||
+    sectionTypeName === SectionTypeEnum.StateMachineEnd;
+  const shouldRenderChatSharedHandles =
+    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
+  const shouldRenderAgenticEdgeHandles =
+    shouldRenderSharedChatHandles &&
+    !shouldRenderChatSharedHandles &&
+    !isWorkflowOnlyNodeSection;
+  const shouldRenderStateMachineEdgeHandles =
+    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
+
   return (
     <section
       className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
@@ -154,74 +171,30 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      style={sectionStyleVars}
+      style={sectionShellStyle}
     >
-      <SectionContainerCoreStaticContent
+      {shouldRenderChatSharedHandles ? (
+        <ChatSharedEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderAgenticEdgeHandles ? (
+        <AgenticEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderStateMachineEdgeHandles ? (
+        <StateMachineEdgeHandles isUserView={isUserView} />
+      ) : null}
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
+      <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        isUserView={isUserView}
-        hideAgenticEdgeHandles={hideAgenticEdgeHandles}
-        isAttachedTerminalChild={isAttachedTerminalChild}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
+        hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
     </section>
   );
 }
-
-const SectionContainerCoreStaticContent = React.memo(
-  function SectionContainerCoreStaticContent({
-    sectionId,
-    sectionTypeName,
-    isUserView,
-    hideAgenticEdgeHandles,
-    isAttachedTerminalChild,
-    isInOtherProjectConfigs,
-    positionAndSizeLocked,
-    hasSectionStyleTheme,
-  }: SectionContainerCoreStaticContentProps) {
-    const shouldRenderSharedChatHandles =
-      !hideAgenticEdgeHandles && !isAttachedTerminalChild;
-    const isWorkflowOnlyNodeSection =
-      sectionTypeName === SectionTypeEnum.StateMachineStart ||
-      sectionTypeName === SectionTypeEnum.StateMachineGate ||
-      sectionTypeName === SectionTypeEnum.StateMachineEnd;
-    const shouldRenderChatSharedHandles =
-      shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
-    const shouldRenderAgenticEdgeHandles =
-      shouldRenderSharedChatHandles &&
-      !shouldRenderChatSharedHandles &&
-      !isWorkflowOnlyNodeSection;
-    const shouldRenderStateMachineEdgeHandles =
-      shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
-
-    return (
-      <>
-        {shouldRenderChatSharedHandles ? (
-          <ChatSharedEdgeHandles isUserView={isUserView} />
-        ) : null}
-        {shouldRenderAgenticEdgeHandles ? (
-          <AgenticEdgeHandles isUserView={isUserView} />
-        ) : null}
-        {shouldRenderStateMachineEdgeHandles ? (
-          <StateMachineEdgeHandles isUserView={isUserView} />
-        ) : null}
-        <MinimizedDataEdgeHandles sectionId={sectionId} />
-        <SectionContainerCoreResizable
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          positionAndSizeLocked={positionAndSizeLocked}
-          hideHeader={isAttachedTerminalChild}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      </>
-    );
-  },
-);
-
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
   (p, n) => p.isUserView === n.isUserView,
