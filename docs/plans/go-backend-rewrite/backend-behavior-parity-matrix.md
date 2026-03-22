@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `3ab9f6c470`
+- Target head: `0ac1877324`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -94,6 +94,27 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `0ac1877324`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/routers/test_multipart_route_limits.py::{test_binary_upload_accepts_payload_above_starlette_default_part_size,test_append_transcription_audio_accepts_large_json_audio_payload,test_append_transcription_audio_openapi_declares_json_request_body,test_append_transcription_audio_rejects_unauthorized_before_decode,test_append_transcription_audio_rejects_oversized_payload_before_decode}`
+  against `internal/httpapi/{binary_routes.go,ai_transcription_routes.go}`,
+  the live callers in `frontend/src/utils/binaryUpload.ts` and
+  `frontend/src/state/actions/ai.ts`, and the focused Go proof in
+  `TestRegisterBinaryRoutesAcceptPayloadAboveLegacyMultipartPartSize`,
+  `TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload`,
+  `TestCurrentEndpointsKeepAppendTranscriptionAudioJSONRequestContract`,
+  `TestCurrentEndpointContractManifest`,
+  `TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled`,
+  and `TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode`;
+  no new implementation gap was found, and the existing
+  `binary.upload.multipart_part_size_override_accepts_above_starlette_default`,
+  `transcription_sessions.append.json_transport_accepts_large_payload_and_declares_json_request_body`,
+  `transcription_sessions.append.auth_precedes_pcm_decode`, and
+  `transcription_sessions.append.oversized_audio_maps_413_typed` rows
+  remained the correct terminal `Proved` dispositions for those stale
+  backlog clues.
 - Follow-up in this pass on `45d434b53`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
   `internal/statemachineruns`
