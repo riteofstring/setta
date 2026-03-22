@@ -33,8 +33,12 @@ Use `go-rewrite-closeout-cleanup-plan.md` for the narrative plan and
   rewrite-closeout docs.
 - [x] Make the backend/package split explicit in
   `AGENTS.md`.
-- [ ] Decide whether a permanent architecture/reference doc is needed once the
+- [x] Decide whether a permanent architecture/reference doc is needed once the
   merge is close.
+  - decision:
+    - no extra pre-merge architecture doc is needed; `README.md`,
+      `AGENTS.md`, `docs/README.md`, and the plans folder map now cover the
+      contributor-facing layout
 
 Verification:
 
@@ -125,7 +129,7 @@ Verification:
 
 ## Batch 5: Dead Python And Test Deletion
 
-- [ ] Delete bounded Python clusters only with a deletion ledger:
+- [x] Delete bounded Python clusters only with a deletion ledger:
   - file set
   - classification
   - current caller evidence
@@ -202,9 +206,12 @@ Verification:
       `./scripts/go.sh test ./internal/projectstate ./internal/httpapi -run 'Dropzone|ParamValue|PasswordParam' -count=1`
   - decision:
     - delete now
-- [ ] Delete Python tests only when they either:
+- [x] Delete Python tests only when they either:
   - prove a dead path, or
   - have clear Go/frontend replacement coverage
+  - current status:
+    - no additional Python test deletion queue remains after the surviving-suite
+      scan; future deletions should keep using this bar
 - [x] Keep tests that still prove the Python SDK, wheel boundary, or
   listener authoring/client surface.
   - listener/package surface:
@@ -276,12 +283,12 @@ Verification:
 
 ## Final Merge Gate
 
-- [ ] Front-door docs present the repo in current-state terms with an explicit
+- [x] Front-door docs present the repo in current-state terms with an explicit
   backend/package split.
-- [ ] Top-level branch-only clutter is gone or explicitly justified.
-- [ ] High-traffic docs no longer imply Python/FastAPI owns the active backend
+- [x] Top-level branch-only clutter is gone or explicitly justified.
+- [x] High-traffic docs no longer imply Python/FastAPI owns the active backend
   runtime.
-- [ ] Remaining Python code is either intentional package/tooling surface or
+- [x] Remaining Python code is either intentional package/tooling surface or
   backed by a
   deletion-proof ledger.
-- [ ] Packaging/install smoke still passes at the Go/Python package boundary.
+- [x] Packaging/install smoke still passes at the Go/Python package boundary.
