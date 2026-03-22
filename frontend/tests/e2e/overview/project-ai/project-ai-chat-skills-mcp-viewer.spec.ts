@@ -500,99 +500,106 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
-  const projectChatSurface = await openSlashCommandsViewer(page);
+  try {
+    const projectChatSurface = await openSlashCommandsViewer(page);
 
-  await expect(
-    projectChatSurface.getByTestId("project-chat-slash-commands-view"),
-  ).toBeVisible();
-  await expect(
-    projectChatSurface.getByTestId("skills-mcp-slash-commands-content"),
-  ).toBeVisible();
-  await expect(page.getByTestId("project-chat-mcp-content")).toHaveCount(0);
-  await expect(page.getByTestId("project-chat-skills-content")).toHaveCount(0);
-  await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
-  await expect(
-    projectChatSurface.getByTestId("project-chat-aux-tab-slash-commands"),
-  ).toHaveAttribute("aria-current", "page");
-  await expect(projectChatSurface.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
-  const slashCommandRows = projectChatSurface.getByTestId(
-    "skills-mcp-slash-command",
-  );
-  await expect(slashCommandRows.first()).toBeVisible();
-  await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
-  const slashListPane = projectChatSurface.getByTestId(
-    "skills-mcp-slash-list-pane",
-  );
-  await expect(slashListPane).toBeVisible();
-  await expect(slashListPane).toHaveCSS("overflow-y", "auto");
-  await expect(slashListPane).toHaveCSS("border-top-width", "0px");
-  await expect(page.getByTestId("skills-mcp-slash-resize-handle")).toHaveCount(
-    0,
-  );
-  const customCommandInput = projectChatSurface.getByTestId(
-    "project-chat-custom-slash-command-input",
-  );
-  const customPromptInput = projectChatSurface.getByTestId(
-    "project-chat-custom-slash-prompt-input",
-  );
-  const customAddButton = projectChatSurface.getByTestId(
-    "project-chat-custom-slash-add",
-  );
-  await customCommandInput.fill("/project-status");
-  await customPromptInput.fill("Summarize project health and open risks.");
-  await expect
-    .poll(async () => await customAddButton.isEnabled(), { timeout: 10_000 })
-    .toBe(true);
-  await customAddButton.click();
-  await expect(
-    projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
-      hasText: "/project-status",
-    }),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const raw = window.localStorage.getItem("setta_data");
-        if (!raw) {
-          return null;
-        }
-        const parsed = JSON.parse(raw);
-        const byProject =
-          parsed?.state?.customProjectChatSlashCommandsByProjectConfigId;
-        if (!byProject || typeof byProject !== "object") {
-          return null;
-        }
-        return Object.values(byProject)
-          .flatMap((value) => (Array.isArray(value) ? value : []))
-          .map((entry) => entry.command)
-          .filter((entry) => typeof entry === "string");
+    await expect(
+      projectChatSurface.getByTestId("project-chat-slash-commands-view"),
+    ).toBeVisible();
+    await expect(
+      projectChatSurface.getByTestId("skills-mcp-slash-commands-content"),
+    ).toBeVisible();
+    await expect(page.getByTestId("project-chat-mcp-content")).toHaveCount(0);
+    await expect(page.getByTestId("project-chat-skills-content")).toHaveCount(0);
+    await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
+    await expect(
+      projectChatSurface.getByTestId("project-chat-aux-tab-slash-commands"),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(projectChatSurface.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
+    const slashCommandRows = projectChatSurface.getByTestId(
+      "skills-mcp-slash-command",
+    );
+    await expect(slashCommandRows.first()).toBeVisible();
+    await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
+    const slashListPane = projectChatSurface.getByTestId(
+      "skills-mcp-slash-list-pane",
+    );
+    await expect(slashListPane).toBeVisible();
+    await expect(slashListPane).toHaveCSS("overflow-y", "auto");
+    await expect(slashListPane).toHaveCSS("border-top-width", "0px");
+    await expect(page.getByTestId("skills-mcp-slash-resize-handle")).toHaveCount(
+      0,
+    );
+    const customCommandInput = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-command-input",
+    );
+    const customPromptInput = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-prompt-input",
+    );
+    const customAddButton = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-add",
+    );
+    await customCommandInput.fill("/project-status");
+    await customPromptInput.fill("Summarize project health and open risks.");
+    await expect
+      .poll(async () => await customAddButton.isEnabled(), { timeout: 10_000 })
+      .toBe(true);
+    await customAddButton.click();
+    await expect(
+      projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
+        hasText: "/project-status",
       }),
-    )
-    .toContain("/project-status");
-  await customCommandInput.fill("/new");
-  await customPromptInput.fill("this should collide");
-  await expect(customAddButton).toBeDisabled();
-  await projectChatSurface
-    .getByTestId("project-chat-custom-slash-remove")
-    .filter({ hasText: "Remove" })
-    .first()
-    .click();
-  await expect(
-    projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
-      hasText: "/project-status",
-    }),
-  ).toHaveCount(0);
-  await expect(
-    projectChatSurface.getByText(
-      "Agent-native slash commands apply to external agents.",
-    ),
-  ).toBeVisible();
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const raw = window.localStorage.getItem("setta_data");
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw);
+          const byProject =
+            parsed?.state?.customProjectChatSlashCommandsByProjectConfigId;
+          if (!byProject || typeof byProject !== "object") {
+            return null;
+          }
+          return Object.values(byProject)
+            .flatMap((value) => (Array.isArray(value) ? value : []))
+            .map((entry) => entry.command)
+            .filter((entry) => typeof entry === "string");
+        }),
+      )
+      .toContain("/project-status");
+    await customCommandInput.fill("/new");
+    await customPromptInput.fill("this should collide");
+    await expect(customAddButton).toBeDisabled();
+    await projectChatSurface
+      .getByTestId("project-chat-custom-slash-remove")
+      .filter({ hasText: "Remove" })
+      .first()
+      .click();
+    await expect(
+      projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
+        hasText: "/project-status",
+      }),
+    ).toHaveCount(0);
+    await expect(
+      projectChatSurface.getByText(
+        "Agent-native slash commands apply to external agents.",
+      ),
+    ).toBeVisible();
 
-  await closeSkillsMcpViewer(page);
-  await expect(
-    page.getByTestId("project-chat-slash-commands-view"),
-  ).toHaveCount(0);
+    await closeSkillsMcpViewer(page);
+    await expect(
+      page.getByTestId("project-chat-slash-commands-view"),
+    ).toHaveCount(0);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("project ai chat keeps custom slash commands available without engine configs", async ({
@@ -722,6 +729,61 @@ test("project ai chat only fetches agent runs for slash commands", async ({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-setta-e2e",
+          name: "Setta LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "e2e-llm",
+          externalAgentConfigId: null,
+          defaults: {},
+        },
+        {
+          id: "engine-external-e2e",
+          name: "Codex",
+          engineType: "external_agent",
+          settaLlmConfigId: null,
+          externalAgentConfigId: "external-codex",
+          defaults: {},
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "e2e-llm": {
+            id: "e2e-llm",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "e2e-llm",
+        codexMcpImportedAt: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
     });
   });
   await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
