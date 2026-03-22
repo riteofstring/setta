@@ -544,7 +544,7 @@ func addSettingsSection(
 		"configLanguage":    "json",
 		"isJsonSource":      true,
 		"jsonSourceKeys":    []string{sectionName},
-		"size":              map[string]any{"width": settingsSectionWidth},
+		"size":              map[string]any{"width": settingsSectionWidth, "height": "auto"},
 		"topLevelParamId":   rootCodeObjID,
 		"codeObjVariantMap": codeObjVariantMap,
 	})

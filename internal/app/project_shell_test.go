@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1086,6 +1087,9 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 	languageServerCodeObj := settingsProjectPersistedCodeObjByName(t, settingsProject.CodeObjs, "languageServer")
 	languageServerCodeObj.DisplayName = ""
 	settingsProject.CodeObjs[languageServerCodeObj.ID] = languageServerCodeObj
+	if err := removeSettingsProjectSectionAutoHeight(&settingsProject, "gui"); err != nil {
+		t.Fatalf("remove settings gui auto height: %v", err)
+	}
 
 	if err := removeSettingsProjectCodeObjectByID(
 		&settingsProject,
@@ -1147,6 +1151,7 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 			"renameRefactorMode": "Rename Refactor Mode",
 		},
 	)
+	assertSettingsProjectRouteSectionAutoHeight(t, loadSettingsPayload, "gui")
 
 	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
 	if err != nil {
@@ -1178,6 +1183,7 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 			"renameRefactorMode": "Rename Refactor Mode",
 		},
 	)
+	assertSettingsProjectRouteSectionAutoHeight(t, latestStatePayload.ProjectState, "gui")
 
 	repairedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
 	if err != nil {
@@ -1200,6 +1206,7 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 			"renameRefactorMode": "Rename Refactor Mode",
 		},
 	)
+	assertSettingsProjectPersistedSectionAutoHeight(t, repairedProject, "gui")
 }
 
 func TestAppSettingsProjectLoadRoutesRepairMissingVisibleSectionLayoutWithoutPersistingDocument(
@@ -2048,6 +2055,41 @@ func removeSettingsProjectCodeObjectByID(
 	return nil
 }
 
+func removeSettingsProjectSectionAutoHeight(
+	project *projectstate.Project,
+	sectionName string,
+) error {
+	sectionID := ""
+	for candidateID, section := range project.Sections {
+		if section.Name == sectionName {
+			sectionID = candidateID
+			break
+		}
+	}
+	if sectionID == "" {
+		return fmt.Errorf("missing settings section %q", sectionName)
+	}
+	variantID := project.SectionVariantMap[sectionID]
+	implID := project.SectionVariants[variantID].ImplID
+	sectionImpl := project.SectionImpls[implID]
+	var payload map[string]any
+	if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
+		return err
+	}
+	size, ok := payload["size"].(map[string]any)
+	if !ok {
+		return errors.New("settings section payload missing size")
+	}
+	delete(size, "height")
+	encodedPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	sectionImpl.Payload = encodedPayload
+	project.SectionImpls[implID] = sectionImpl
+	return nil
+}
+
 func assertSettingsProjectPersistedParamImplMappingContract(
 	t *testing.T,
 	project projectstate.Project,
@@ -2288,6 +2330,9 @@ func assertSettingsProjectRouteBootstrapMetadataContract(
 		if width != 550 {
 			t.Fatalf("expected settings route payload section %q width 550, got %v", section.Name, width)
 		}
+		if got := size["height"]; got != "auto" {
+			t.Fatalf("expected settings route payload section %q height auto, got %#v", section.Name, got)
+		}
 	}
 
 	expectedDisplayNames := map[string]string{
@@ -2378,6 +2423,60 @@ func assertSettingsProjectPersistedCodeObjDisplayNames(
 		if codeObj.DisplayName != expectedDisplayName {
 			t.Fatalf("expected persisted code object %q display name %q, got %q", codeObjName, expectedDisplayName, codeObj.DisplayName)
 		}
+	}
+}
+
+func assertSettingsProjectRouteSectionAutoHeight(
+	t *testing.T,
+	payload projectview.SingleConfig,
+	sectionName string,
+) {
+	t.Helper()
+	section := settingsPayloadSectionByName(t, payload.Sections, sectionName)
+	variantID := payload.ProjectConfig.SectionVariantMap[section.ID]
+	variant, ok := payload.SectionVariants[variantID]
+	if !ok {
+		t.Fatalf("expected route section variant %q for %q", variantID, sectionName)
+	}
+	sectionImplPayload := settingsPayloadSectionImplByID(t, payload, variant.Impl)
+	size, ok := sectionImplPayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected route section %q size payload", sectionName)
+	}
+	if got := size["height"]; got != "auto" {
+		t.Fatalf("expected route section %q height auto, got %#v", sectionName, got)
+	}
+}
+
+func assertSettingsProjectPersistedSectionAutoHeight(
+	t *testing.T,
+	project projectstate.Project,
+	sectionName string,
+) {
+	t.Helper()
+	sectionID := ""
+	for candidateID, section := range project.Sections {
+		if section.Name == sectionName {
+			sectionID = candidateID
+			break
+		}
+	}
+	if sectionID == "" {
+		t.Fatalf("expected persisted settings section %q", sectionName)
+	}
+	variantID := project.SectionVariantMap[sectionID]
+	implID := project.SectionVariants[variantID].ImplID
+	sectionImpl := project.SectionImpls[implID]
+	var payload map[string]any
+	if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
+		t.Fatalf("decode persisted settings section %q impl: %v", sectionName, err)
+	}
+	size, ok := payload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted settings section %q size payload", sectionName)
+	}
+	if got := size["height"]; got != "auto" {
+		t.Fatalf("expected persisted settings section %q height auto, got %#v", sectionName, got)
 	}
 }
 

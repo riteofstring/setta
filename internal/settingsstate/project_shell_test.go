@@ -317,6 +317,84 @@ func TestRefreshProjectRuntimeFromSettingsRepairsLegacyQuotedDropdownChoices(t *
 	}
 }
 
+func TestRefreshProjectRuntimeFromSettingsRepairsLegacyMissingSectionAutoHeight(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		implID := settingsSectionImplID("gui")
+		impl := project.SectionImpls[implID]
+		impl.Payload = projectstate.RawJSON(`{
+			"id":"` + implID + `",
+			"type":"Dict",
+			"configLanguage":"json",
+			"isJsonSource":true,
+			"jsonSourceKeys":["gui"],
+			"size":{"width":550},
+			"topLevelParamId":"settings-codeobj__gui__gui",
+			"codeObjVariantMap":{}
+		}`)
+		project.SectionImpls[implID] = impl
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed legacy settings section size payload: %v", err)
+	}
+
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("refresh settings project runtime: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+
+	sectionImpl, ok := project.SectionImpls[settingsSectionImplID("gui")]
+	if !ok {
+		t.Fatalf("expected repaired gui section impl")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
+		t.Fatalf("decode repaired gui section impl: %v", err)
+	}
+	size, ok := payload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected repaired gui size payload, got %#v", payload["size"])
+	}
+	if got := size["height"]; got != "auto" {
+		t.Fatalf("expected repaired gui height auto, got %#v", got)
+	}
+}
+
 func TestRefreshProjectRuntimeFromSettingsPreservesExistingDisplayNamesAndBackfillsNewCodeObjs(t *testing.T) {
 	t.Parallel()
 
@@ -948,6 +1026,9 @@ func assertSettingsProjectBootstrapMetadataContract(
 		}
 		if width != settingsSectionWidth {
 			t.Fatalf("expected settings section %q width %v, got %v", sectionName, settingsSectionWidth, width)
+		}
+		if got := size["height"]; got != "auto" {
+			t.Fatalf("expected settings section %q height auto, got %#v", sectionName, got)
 		}
 	}
 
