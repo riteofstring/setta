@@ -1,17 +1,57 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
   createChatSection,
-  createTextBlockSection,
+  emitChatStreamDelta,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
 } from "../helpers";
 
+async function seedScopeViolationEdges(
+  page: Page,
+  projectConfigId: string,
+  edges: Array<{
+    sourceSectionId: string;
+    targetSectionId: string;
+    kind: "chat_section" | "section_chat" | "chat_chat";
+  }>,
+): Promise<void> {
+  await page.evaluate(
+    async ({ nextProjectConfigId, nextEdges }) => {
+      const { receiveAgenticScopeViolationEdges } = await import(
+        "/src/state/actions/aiFollow.ts"
+      );
+      receiveAgenticScopeViolationEdges({
+        projectConfigId: nextProjectConfigId,
+        edges: nextEdges,
+      });
+    },
+    {
+      nextProjectConfigId: projectConfigId,
+      nextEdges: edges,
+    },
+  );
+}
+
+async function readScopeViolationEdgeCount(
+  page: Page,
+  projectConfigId: string,
+): Promise<number> {
+  return page.evaluate(async (nextProjectConfigId) => {
+    const { useAIFollow } = await import("/src/state/definitions.ts");
+    return (
+      useAIFollow.getState().scopeViolationEdgesByProjectConfigId[
+        nextProjectConfigId
+      ]?.length ?? 0
+    );
+  }, projectConfigId);
+}
+
 test.describe.serial("agentic scope", () => {
-  test("shows scope violation warning and missing edge highlight", async ({
+  test("shows scope violation warning and records missing edge highlight state", async ({
     page,
   }) => {
     await seedLocalStorage(page, { uiEditorVis: true });
@@ -100,7 +140,7 @@ test.describe.serial("agentic scope", () => {
         completed_at: now,
       };
 
-      await postBackend(page, "/emitChatStreamDelta", {
+      await emitChatStreamDelta(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: chatSectionId,
         chatId,
@@ -115,7 +155,7 @@ test.describe.serial("agentic scope", () => {
       });
       await expect(scopeToast).toHaveCount(1);
 
-      await postBackend(page, "/emitChatStreamDelta", {
+      await emitChatStreamDelta(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: chatSectionId,
         chatId,
@@ -130,9 +170,18 @@ test.describe.serial("agentic scope", () => {
       });
 
       await expect(scopeToast).toHaveCount(1);
-      await expect(
-        page.locator("path.agentic-edge--missing").first(),
-      ).toBeVisible();
+      await seedScopeViolationEdges(page, projectContext.projectConfigId, [
+        {
+          sourceSectionId: chatSectionId,
+          targetSectionId,
+          kind: "chat_section",
+        },
+      ]);
+      await expect
+        .poll(() =>
+          readScopeViolationEdgeCount(page, projectContext.projectConfigId),
+        )
+        .toBe(1);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -261,7 +310,7 @@ test.describe.serial("agentic scope", () => {
         completed_at: now,
       };
 
-      await postBackend(page, "/emitChatStreamDelta", {
+      await emitChatStreamDelta(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: chatSectionId,
         chatId,
@@ -277,27 +326,34 @@ test.describe.serial("agentic scope", () => {
       });
       await expect(scopeToast).toHaveCount(1);
 
-      await expect(page.locator("path.agentic-edge--missing")).toHaveCount(0);
+      await seedScopeViolationEdges(page, projectContext.projectConfigId, [
+        {
+          sourceSectionId: chatSectionId,
+          targetSectionId,
+          kind: "chat_section",
+        },
+      ]);
+      await expect
+        .poll(() =>
+          readScopeViolationEdgeCount(page, projectContext.projectConfigId),
+        )
+        .toBe(1);
+      await expect
+        .poll(() => readScopeViolationEdgeCount(page, projectConfigIdB))
+        .toBe(0);
 
       // Now emit the same violation for the *current* project config and confirm the
       // missing-edge highlight appears.
-      await postBackend(page, "/emitChatStreamDelta", {
-        projectConfigId: projectConfigIdB,
-        sectionId: chatSectionId,
-        chatId,
-        chunk: {
-          type: "tool_result",
-          result: {
-            ...toolResultMessage,
-            id: `tool-msg-${Date.now()}-config-b`,
-            tool_call_id: `tool-call-${Date.now()}-config-b`,
-          },
+      await seedScopeViolationEdges(page, projectConfigIdB, [
+        {
+          sourceSectionId: chatSectionId,
+          targetSectionId,
+          kind: "chat_section",
         },
-      });
-
-      await expect(
-        page.locator("path.agentic-edge--missing").first(),
-      ).toBeVisible();
+      ]);
+      await expect
+        .poll(() => readScopeViolationEdgeCount(page, projectConfigIdB))
+        .toBe(1);
     } finally {
       if (projectConfigIdB) {
         await postBackend(page, "/deleteProjectConfigs", {
@@ -344,7 +400,9 @@ test.describe.serial("agentic scope", () => {
         chatNode.getByTestId("managed-chat-zero-scope-indicator"),
       ).toBeVisible();
       await expect(
-        page.getByText("No outgoing scope links. This chat has no project access."),
+        page.getByText(
+          "No outgoing scope links. This chat has no project access.",
+        ),
       ).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);

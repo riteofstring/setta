@@ -342,7 +342,9 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   );
   await clickDom(
     page
-      .locator('[data-testid="project-chat-settings-open-project-settings"]:visible')
+      .locator(
+        '[data-testid="project-chat-settings-open-project-settings"]:visible',
+      )
       .first(),
   );
 }
@@ -720,6 +722,7 @@ export async function setChatSectionState(
   },
 ): Promise<void> {
   await postBackend(page, "/setChatSectionState", payload);
+  await refreshProjectStateFromBackend(page, payload.projectConfigId);
 }
 
 export async function stopLatestProjectChat(
@@ -947,6 +950,46 @@ export async function postBackend<T>(
     return null;
   }
   return JSON.parse(text) as T;
+}
+
+export async function emitChatStreamDelta(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId?: string;
+    chatId: string;
+    chunk: unknown;
+  },
+): Promise<void> {
+  await page.evaluate(async (message) => {
+    const { receiveLLMResponseChunk } = await import(
+      "/src/state/actions/ai.ts"
+    );
+    receiveLLMResponseChunk(message);
+  }, payload);
+}
+
+export async function refreshProjectStateFromBackend(
+  page: Page,
+  projectConfigId: string,
+): Promise<void> {
+  await page.evaluate(async (targetProjectConfigId) => {
+    const { processProjectStateUpdateFromBackend } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    const { route_get_latest_project_state } = await import(
+      "/src/utils/generatedEndpoints.ts"
+    );
+    const response = await route_get_latest_project_state({
+      projectConfigId: targetProjectConfigId,
+    });
+    if (response.status !== 200 || !response.data) {
+      throw new Error(
+        `Failed to refresh project state for ${targetProjectConfigId}: ${response.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(response.data);
+  }, projectConfigId);
 }
 
 async function getBackend<T>(page: Page, path: string): Promise<T | null> {

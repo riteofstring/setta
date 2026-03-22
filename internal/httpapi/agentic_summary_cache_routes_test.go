@@ -196,10 +196,10 @@ func agenticSummaryCacheRouteTestDocument() projectstate.Document {
 		CodeObjImpls:      map[string]projectstate.CodeObjectImpl{},
 		AgenticEdges: []projectstate.AgenticEdge{
 			{
-				ID:              "source-to-chat",
-				SourceSectionID: "source-section",
-				TargetSectionID: "chat-section",
-				Kind:            "section_chat",
+				ID:              "chat-to-source",
+				SourceSectionID: "chat-section",
+				TargetSectionID: "source-section",
+				Kind:            "chat_section",
 				ContextMode:     "summary",
 			},
 		},

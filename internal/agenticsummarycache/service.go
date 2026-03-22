@@ -34,7 +34,7 @@ const (
 	socialSectionType     = "Social"
 	browserSectionType    = "Browser"
 	summaryContextMode    = "summary"
-	sectionChatEdgeKind   = "section_chat"
+	chatSectionEdgeKind   = "chat_section"
 )
 
 var (
@@ -376,7 +376,10 @@ func resolveSummarySectionIDs(project projectstate.Project, chatSectionID string
 	edges := append([]projectstate.AgenticEdge(nil), project.AgenticEdges...)
 	sort.Slice(edges, func(i int, j int) bool {
 		if edges[i].SourceSectionID == edges[j].SourceSectionID {
-			return edges[i].ContextMode < edges[j].ContextMode
+			if edges[i].TargetSectionID == edges[j].TargetSectionID {
+				return edges[i].ContextMode < edges[j].ContextMode
+			}
+			return edges[i].TargetSectionID < edges[j].TargetSectionID
 		}
 		return edges[i].SourceSectionID < edges[j].SourceSectionID
 	})
@@ -384,27 +387,27 @@ func resolveSummarySectionIDs(project projectstate.Project, chatSectionID string
 	seen := map[string]struct{}{}
 	sectionIDs := make([]string, 0)
 	for _, edge := range edges {
-		if strings.TrimSpace(edge.Kind) != sectionChatEdgeKind {
+		if strings.TrimSpace(edge.Kind) != chatSectionEdgeKind {
 			continue
 		}
-		if strings.TrimSpace(edge.TargetSectionID) != chatSectionID {
+		if strings.TrimSpace(edge.SourceSectionID) != chatSectionID {
 			continue
 		}
 		if strings.TrimSpace(edge.ContextMode) != summaryContextMode {
 			continue
 		}
-		sourceSectionID := strings.TrimSpace(edge.SourceSectionID)
-		if sourceSectionID == "" {
+		targetSectionID := strings.TrimSpace(edge.TargetSectionID)
+		if targetSectionID == "" {
 			continue
 		}
-		if _, ok := project.Sections[sourceSectionID]; !ok {
+		if _, ok := project.Sections[targetSectionID]; !ok {
 			continue
 		}
-		if _, seenSource := seen[sourceSectionID]; seenSource {
+		if _, seenTarget := seen[targetSectionID]; seenTarget {
 			continue
 		}
-		seen[sourceSectionID] = struct{}{}
-		sectionIDs = append(sectionIDs, sourceSectionID)
+		seen[targetSectionID] = struct{}{}
+		sectionIDs = append(sectionIDs, targetSectionID)
 	}
 	return sectionIDs
 }

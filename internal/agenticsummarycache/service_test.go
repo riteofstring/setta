@@ -37,7 +37,7 @@ func TestServiceBuildStatusForChatRespectsGenerationCap(t *testing.T) {
 	for index := 0; index < 8; index++ {
 		sectionID := summaryCacheTextSectionID(index)
 		project = addSummaryCacheTextSection(project, sectionID, "hello")
-		project.AgenticEdges = append(project.AgenticEdges, summaryCacheTestEdge(sectionID, "chat-section"))
+		project.AgenticEdges = append(project.AgenticEdges, summaryCacheTestEdge("chat-section", sectionID))
 	}
 
 	status, err := service.BuildStatusForChat(project, "chat-section")
@@ -70,8 +70,8 @@ func TestServiceBuildStatusForChatReportsCachedAndEmptySources(t *testing.T) {
 	project = addSummaryCacheTextSection(project, "cached-section", "hello cached")
 	project = addSummaryCacheTextSection(project, "empty-section", "")
 	project.AgenticEdges = append(project.AgenticEdges,
-		summaryCacheTestEdge("cached-section", "chat-section"),
-		summaryCacheTestEdge("empty-section", "chat-section"),
+		summaryCacheTestEdge("chat-section", "cached-section"),
+		summaryCacheTestEdge("chat-section", "empty-section"),
 	)
 
 	cachedSource, err := buildSectionSummarySource(project, "cached-section")
@@ -111,8 +111,8 @@ func TestServiceBuildStatusForChatDedupesDuplicateSummaryEdges(t *testing.T) {
 	project := newSummaryCacheTestProject()
 	project = addSummaryCacheTextSection(project, "source-section", "hello")
 	project.AgenticEdges = append(project.AgenticEdges,
-		summaryCacheTestEdge("source-section", "chat-section"),
-		summaryCacheTestEdge("source-section", "chat-section"),
+		summaryCacheTestEdge("chat-section", "source-section"),
+		summaryCacheTestEdge("chat-section", "source-section"),
 	)
 
 	status, err := service.BuildStatusForChat(project, "chat-section")
@@ -282,12 +282,12 @@ func addSummaryCacheSection(project projectstate.Project, sectionID string, sect
 	return project
 }
 
-func summaryCacheTestEdge(sourceSectionID string, chatSectionID string) projectstate.AgenticEdge {
+func summaryCacheTestEdge(chatSectionID string, targetSectionID string) projectstate.AgenticEdge {
 	return projectstate.AgenticEdge{
-		ID:              sourceSectionID + "-to-" + chatSectionID,
-		SourceSectionID: sourceSectionID,
-		TargetSectionID: chatSectionID,
-		Kind:            "section_chat",
+		ID:              chatSectionID + "-to-" + targetSectionID,
+		SourceSectionID: chatSectionID,
+		TargetSectionID: targetSectionID,
+		Kind:            "chat_section",
 		ContextMode:     "summary",
 	}
 }

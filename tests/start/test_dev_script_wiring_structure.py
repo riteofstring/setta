@@ -173,7 +173,6 @@ def test_playwright_runner_overwrites_seeded_project_state_with_go_runtime_shape
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
         encoding="utf-8"
     )
-    assert "_seed_minimal_setta_files(setta_root)" in script
     assert "./scripts/go.sh run ./cmd/setta-seed-playwright-workspace" in script
     assert '--setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"' in script
 
@@ -199,6 +198,7 @@ def test_playwright_runner_builds_current_go_cli_binary_by_default() -> None:
     assert "./cmd/setta-server" in script
     assert 'export SETTA_GO_CLI_BIN="${current_setta_go_bin}"' in script
     assert 'export SETTA_SERVER_BIN="${current_setta_server_bin}"' in script
+    assert '"${SETTA_GO_CLI_BIN}" --host "${SETTA_HOST}" --port "${SETTA_PORT}"' in script
 
 
 def test_plugin_fixture_link_script_defaults_to_no_rescan_and_unlink_wrapper_removed() -> None:

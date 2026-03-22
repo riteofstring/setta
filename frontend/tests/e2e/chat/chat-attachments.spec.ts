@@ -183,8 +183,7 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing managed engine config id.");
       }
 
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await syncManagedAIFrontendState(page);
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, engineName);
@@ -326,8 +325,7 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing managed engine config id.");
       }
 
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await syncManagedAIFrontendState(page);
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, engineName);
@@ -454,8 +452,7 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing managed engine config id.");
       }
 
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await syncManagedAIFrontendState(page);
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, engineName);
@@ -602,8 +599,7 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing managed engine config id.");
       }
 
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await syncManagedAIFrontendState(page);
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, engineName);
@@ -767,8 +763,7 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing managed engine config id.");
       }
 
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await syncManagedAIFrontendState(page);
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, engineName);
@@ -1077,6 +1072,7 @@ async function setOverviewTab(page: Page, tabName: string): Promise<void> {
 }
 
 async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
+  await collapseSidePanesForWindowInteraction(page);
   const surfaceCandidates = [
     page.getByTestId("project-chat-maximized-window").first(),
     page.getByTestId("project-chat-floating-window").first(),
@@ -1103,6 +1099,18 @@ async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
   throw new Error("No visible project chat surface found.");
 }
 
+async function collapseSidePanesForWindowInteraction(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    useLocalStorage.setState({
+      overviewVis: false,
+      uiEditorVis: false,
+    });
+  });
+}
+
 async function selectProjectAiEngine(
   page: Page,
   engineQuery: string,
@@ -1116,6 +1124,17 @@ async function selectProjectAiEngine(
   await engineInput.fill(engineQuery);
   await engineInput.press("Enter");
   await expect(engineInput).toHaveValue(engineQuery);
+}
+
+async function syncManagedAIFrontendState(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } = await import(
+      "/src/state/actions/ai.ts"
+    );
+    await loadLLMConfig();
+    await loadLLMApiKeys();
+    await loadEngineConfigs(true);
+  });
 }
 
 async function postBackend<T>(

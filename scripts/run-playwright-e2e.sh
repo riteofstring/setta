@@ -292,17 +292,6 @@ seed_workspace() {
     log "Seeding minimal setta_files into ${SETTA_WORKSPACE_ROOT}."
     (
       cd "${ROOT_DIR}"
-      source "./activate.sh"
-      SETTA_WORKSPACE_ROOT="${SETTA_WORKSPACE_ROOT}" "${PYTHON_BIN}" - <<'PY'
-import os
-from pathlib import Path
-
-from tests.utils.manager_fixture import _seed_minimal_setta_files
-
-workspace = Path(os.environ["SETTA_WORKSPACE_ROOT"])
-setta_root = workspace / "setta_files"
-_seed_minimal_setta_files(setta_root)
-PY
       ./scripts/go.sh run ./cmd/setta-seed-playwright-workspace \
         --setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"
     ) >"${LOG_DIR}/seed.log" 2>&1
@@ -669,7 +658,7 @@ start_backend() {
         SETTA_DEV_MODE=\"true\" \
         SETTA_DEV_FRONTEND_PORT=\"${SETTA_DEV_FRONTEND_PORT}\" \
         SETTA_NO_OPEN=1 \
-        setta --host \"${SETTA_HOST}\" --port \"${SETTA_PORT}\" --no-open --log-level info
+        \"${SETTA_GO_CLI_BIN}\" --host \"${SETTA_HOST}\" --port \"${SETTA_PORT}\" --no-open --log-level info
     " >"${LOG_DIR}/backend.log" 2>&1 &
   else
     (
@@ -683,7 +672,7 @@ start_backend() {
         SETTA_DEV_MODE="true" \
         SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT}" \
         SETTA_NO_OPEN=1 \
-        setta --host "${SETTA_HOST}" --port "${SETTA_PORT}" --no-open --log-level info \
+        "${SETTA_GO_CLI_BIN}" --host "${SETTA_HOST}" --port "${SETTA_PORT}" --no-open --log-level info \
           >"${LOG_DIR}/backend.log" 2>&1
     ) &
   fi

@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import {
+  emitChatStreamDelta,
+  ensureAppReady,
+  refreshProjectStateFromBackend,
+} from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -173,7 +177,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       },
     });
 
-    await postBackend(page, "/emitChatStreamDelta", {
+    await emitChatStreamDelta(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -188,7 +192,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
         },
       },
     });
-    await postBackend(page, "/emitChatStreamDelta", {
+    await emitChatStreamDelta(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -732,4 +736,5 @@ async function setChatSectionState(
   },
 ): Promise<void> {
   await postBackend(page, "/setChatSectionState", payload);
+  await refreshProjectStateFromBackend(page, payload.projectConfigId);
 }
