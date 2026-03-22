@@ -53,12 +53,12 @@ var (
 	ErrAppGenerationImageAttachmentRequired  = errors.New("json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.")
 )
 
-type ChatPermissionMode string
+type ChatPermissionMode = projectstate.ChatPermissionMode
 
 const (
-	ChatPermissionModeMinimal          ChatPermissionMode = "minimal"
-	ChatPermissionModeYolo             ChatPermissionMode = "yolo"
-	ChatPermissionModeConfigTomlCustom ChatPermissionMode = "config_toml_custom"
+	ChatPermissionModeMinimal          = projectstate.ChatPermissionModeMinimal
+	ChatPermissionModeYolo             = projectstate.ChatPermissionModeYOLO
+	ChatPermissionModeConfigTomlCustom = projectstate.ChatPermissionModeConfigTomlCustom
 )
 
 type Executor interface {

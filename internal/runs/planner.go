@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"setta/internal/codegen"
+	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
@@ -40,12 +41,12 @@ var (
 	ErrDuplicateSnapshotFileName        = fmt.Errorf("runs: duplicate snapshot file name")
 )
 
-type RunSnapshotMode string
+type RunSnapshotMode = deployments.RunSnapshotMode
 
 const (
-	RunSnapshotModeNever     RunSnapshotMode = "never"
-	RunSnapshotModeEphemeral RunSnapshotMode = "ephemeral"
-	RunSnapshotModeAlways    RunSnapshotMode = "always"
+	RunSnapshotModeNever     = deployments.RunSnapshotModeNever
+	RunSnapshotModeEphemeral = deployments.RunSnapshotModeEphemeral
+	RunSnapshotModeAlways    = deployments.RunSnapshotModeAlways
 )
 
 type PlannerOptions struct {
