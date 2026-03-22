@@ -12,7 +12,7 @@ import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
-from setta.types.core import Core, Variant
+from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
@@ -21,14 +21,7 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import TextBlockSectionImpl
-from tests.helpers.listener_runtime_state import (
-    build_listener_dependency_cache,
-    build_listener_runtime_state,
-)
-from tests.helpers.project_state_core import compute_initial_nonPresetImpls
+from setta.types.section_impls import SectionType
 from watchfiles import Change
 
 if TYPE_CHECKING:
@@ -50,37 +43,6 @@ class TestSettaListenerHotReload:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
         self._mtime_offset = 1.0
-
-    def _build_project_state(self) -> ProjectStateSingleConfig:
-        section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
-            name="Welcome",
-            text="Hello",
-        )
-        section_variant = Variant(
-            id=ID("section-variant"),
-            name="Welcome Variant",
-            impl=section_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-        )
-        section_core = Core(
-            id=ID("section-welcome"),
-            name="Welcome",
-            variants=[section_variant.id],
-            defaultVariant=section_variant.id,
-        )
-        project_config = ProjectConfig(
-            id=ID("project-1"),
-            name="Demo Project",
-            sectionVariantMap={section_core.id: section_variant.id},
-            topLevelSections={section_core.id: TopLevelSectionLayout()},
-        )
-        return ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section_core.id: section_core},
-            sectionImpls={section_impl.id: section_impl},
-            sectionVariants={section_variant.id: section_variant},
-        )
 
     @staticmethod
     def _bump_mtime(module_path: Path, offset: float) -> None:
@@ -125,50 +87,32 @@ class TestSettaListenerHotReload:
 
     def _build_authoritative_snapshot_payload(
         self,
-        listener: SettaListener,
-        project_state: ProjectStateSingleConfig,
     ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
-        runtime_state = build_listener_runtime_state(project_state)
-        dependency_metadata = runtime_state.dependency_metadata
-        dependency_cache = build_listener_dependency_cache(listener, runtime_state)
+        dependency_key = create_dep_key(sectionId=ID("section-welcome"))
         return (
             ListenerDependencyCatalog(
                 entries=[
                     ListenerDependencyCatalogEntry(
-                        dependencyKey=entry.dependencyKey,
-                        name=entry.name,
-                        fullPathName=entry.fullPathName,
-                        dependencies=list(entry.dependencies),
-                        sectionType=entry.sectionType,
-                        codeObjType=entry.codeObjType,
-                        controlCodeObjId=entry.controlCodeObjId,
-                        controlCodeObjType=entry.controlCodeObjType,
-                        sectionRepresentation=entry.sectionRepresentation,
-                        controlValueRepresentation=entry.controlValueRepresentation,
-                        valueRepresentation=entry.valueRepresentation,
+                        dependencyKey=dependency_key,
+                        name="Welcome",
+                        fullPathName="Welcome",
+                        sectionType=SectionType.TextBlock,
                     )
-                    for entry in [
-                        dependency_metadata.entry_for_name(name)
-                        for name in dependency_metadata.names()
-                    ]
                 ]
             ),
             ListenerRenderedDependencyValues(
                 entries=[
                     ListenerRenderedDependencyValue(
-                        dependencyKey=dependency_metadata.dependency_key(
-                            dependency_name
-                        ),
-                        renderedValue=repr(value),
+                        dependencyKey=dependency_key,
+                        renderedValue=repr("Hello"),
                     )
-                    for dependency_name, value in dependency_cache.items()
                 ]
             ),
         )
 
     async def test_reloader_cycles_update_callback_registration(self) -> None:
-        project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
+        project_config_id = ID("project-1")
+        listener = SettaListener(project_name="Demo Project")
         self._init_listener_invocations(listener)
         websocket = _StubWebsocket()
         listener._websocket = cast("ClientConnection", websocket)
@@ -192,14 +136,11 @@ class TestSettaListenerHotReload:
                 await reloader.reload_now(reload_module=False)
 
                 dependency_catalog, dependency_values = (
-                    self._build_authoritative_snapshot_payload(
-                        listener,
-                        project_state,
-                    )
+                    self._build_authoritative_snapshot_payload()
                 )
                 await listener._refresh_from_snapshot(
                     ListenerSnapshot(
-                        projectConfigId=project_state.projectConfig.id,
+                        projectConfigId=project_config_id,
                         dependencyCatalog=dependency_catalog,
                         dependencyValues=dependency_values,
                     )
