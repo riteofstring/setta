@@ -600,6 +600,16 @@ func TestLoadExplicitLocalLocationCanCreateRoot(t *testing.T) {
 	if _, err := os.Stat(expectedLocalRoot); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected explicit local root to remain absent until caller creates it, stat err=%v", err)
 	}
+	if err := os.MkdirAll(cfg.Paths.SettaFilesRoot, 0o755); err != nil {
+		t.Fatalf("mkdir explicit local root: %v", err)
+	}
+	rootInfo, err := os.Stat(expectedLocalRoot)
+	if err != nil {
+		t.Fatalf("stat explicit local root after create: %v", err)
+	}
+	if !rootInfo.IsDir() {
+		t.Fatalf("expected explicit local root %q to be a directory after caller creation", expectedLocalRoot)
+	}
 }
 
 func TestLoadExplicitGlobalLocationCanCreateRoot(t *testing.T) {
@@ -641,6 +651,19 @@ func TestLoadExplicitGlobalLocationCanCreateRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, "setta_files")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected workspace local root to stay absent when global location is explicit, stat err=%v", err)
+	}
+	if err := os.MkdirAll(cfg.Paths.SettaFilesRoot, 0o755); err != nil {
+		t.Fatalf("mkdir explicit global root: %v", err)
+	}
+	rootInfo, err := os.Stat(expectedGlobalRoot)
+	if err != nil {
+		t.Fatalf("stat explicit global root after create: %v", err)
+	}
+	if !rootInfo.IsDir() {
+		t.Fatalf("expected explicit global root %q to be a directory after caller creation", expectedGlobalRoot)
+	}
+	if _, err := os.Stat(filepath.Join(workspaceRoot, "setta_files")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace local root to remain absent after explicit global root creation, stat err=%v", err)
 	}
 }
 
