@@ -742,6 +742,16 @@ Last audited: `2026-03-23`
   `TestParseRemoteSessionListRejectsInvalidServerMode`,
   `TestServiceListRemoteWorkspaceSessionsForwardsProfileAndServerMode`, and
   `TestLocalLaunchServiceReturnsRemoteRollbackFailedWithTunnelDetail`.
+- Follow-up in this pass on `167554326f`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/start/test_start_status.py::test_status_list_sessions_requires_json`,
+  confirming that clue was already a terminal explicit `Proved` row backed
+  directly by `TestRunStatusValidationRejectsInvalidCommandShapes` and the
+  live packaged `setta status --list-sessions --json` contract documented in
+  `docs/reference/setta-cli-commands.md`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
