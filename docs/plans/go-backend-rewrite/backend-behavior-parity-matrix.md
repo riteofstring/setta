@@ -622,6 +622,22 @@ Last audited: `2026-03-23`
   `TestLocalLaunchServiceExplicitRootWithAutoDropsLocationAndForwardsWorkspaceValidation`,
   `TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRoot`,
   and `TestRegisterWorkspaceLaunchRoutesSkipsDeploymentModes`.
+- Follow-up in this pass on `ea6c190f9`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/routers/test_share_policy_routes.py::{test_view_mode_routes_blocked_when_variant_changes_allowed,test_layout_routes_blocked_when_layout_changes_allowed,test_window_space_routes_reject_invalid_window_owners,test_terminal_routes_require_share_session_id}`,
+  confirming those clues were already terminal explicit `Proved` rows
+  backed directly by
+  `TestRegisterProjectRoutesViewModeMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesSectionStructureMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesSectionDataIDEMutationsAreBlockedInDeploymentModes`,
+  `TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads`,
+  `TestRegisterProjectRoutesWindowSpaceRoutesReturn404And422Mappings`,
+  `TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy`,
+  and
+  `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
