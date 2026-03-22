@@ -1665,9 +1665,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterDetachedRunRoutes(r, httpapi.DetachedRunRouteDependencies{
-				ModePolicy: modePolicy,
-				Planner:    runPlanner,
-				Runs:       detachedRunManager,
+				ModePolicy:   modePolicy,
+				Planner:      runPlanner,
+				Runs:         detachedRunManager,
+				ProjectState: projectRuntime,
 			}); err != nil {
 				panic(err)
 			}

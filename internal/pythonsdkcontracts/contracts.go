@@ -19,11 +19,12 @@ type RunnerSummaryParam struct {
 }
 
 type RunnerSummarySection struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	DisplayName *string                `json:"displayName,omitempty"`
-	Variants    []RunnerSummaryVariant `json:"variants" py_default:"factory:list"`
-	Params      []RunnerSummaryParam   `json:"params" py_default:"factory:list"`
+	ID             string                 `json:"id"`
+	Name           string                 `json:"name"`
+	DisplayName    *string                `json:"displayName,omitempty"`
+	SupportsParams bool                   `json:"supportsParams" py_default:"False"`
+	Variants       []RunnerSummaryVariant `json:"variants" py_default:"factory:list"`
+	Params         []RunnerSummaryParam   `json:"params" py_default:"factory:list"`
 }
 
 type RunnerSummarySnapshot struct {

@@ -9,4 +9,5 @@ class Route(str, Enum):
     RUN_DETACHED = "/runDetached"
     GET_RUN_STATUS = "/getRunStatus"
     CANCEL_RUN = "/cancelRun"
+    GET_RUNNER_SUMMARY = "/getRunnerSummary"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"

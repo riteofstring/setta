@@ -4,175 +4,88 @@ from types import SimpleNamespace
 
 import pytest
 import requests
-
 import setta.api.runner as runner_mod
 from setta.api.runner import RunOverride, RunPlan, SettaRunner
 from setta.auth.cookies import auth_cookie_name
-from setta.sessions.registry import SessionRegistry
+from setta.sdk_contracts.generated import (
+    RunnerSummaryParam,
+    RunnerSummarySection,
+    RunnerSummarySnapshot,
+    RunnerSummaryVariant,
+)
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
+from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
-from setta.types.code_obj_impls import NestedParamCodeObjImpl, TextParamCodeObjImpl
-from setta.types.core import Core, Variant
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
+from setta.types.project_config import ProjectConfig
 from setta.utils.constants import C
-from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
-def _build_project_state() -> ProjectStateSingleConfig:
-    section_impl = TextBlockSectionImpl(
-        id=ID("section-impl"),
-        name="Welcome",
-        text="Hello",
-    )
-    section_variant = Variant(
-        id=ID("section-variant"),
-        name="Welcome Variant",
-        impl=section_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-    )
-    section_core = Core(
-        id=ID("section-welcome"),
-        name="Welcome",
-        variants=[section_variant.id],
-        defaultVariant=section_variant.id,
-    )
-    project_config = ProjectConfig(
-        id=ID("project-1"),
-        name="Demo Project",
-        sectionVariantMap={section_core.id: section_variant.id},
-        topLevelSections={section_core.id: TopLevelSectionLayout()},
-    )
-    return ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={section_core.id: section_core},
-        sectionImpls={section_impl.id: section_impl},
-        sectionVariants={section_variant.id: section_variant},
+def _build_project_summary_snapshot() -> RunnerSummarySnapshot:
+    return RunnerSummarySnapshot(
+        projectConfigId="project-1",
+        sections=[
+            RunnerSummarySection(
+                id="section-welcome",
+                name="Welcome",
+                supportsParams=False,
+                variants=[
+                    RunnerSummaryVariant(
+                        id="section-variant",
+                        name="Welcome Variant",
+                    )
+                ],
+            )
+        ],
     )
 
 
-def _build_summary_lookup_project_state() -> ProjectStateSingleConfig:
-    root_impl = NestedParamCodeObjImpl(
-        id=ID("training-root-impl"),
-        children=[ID("lr-param")],
-    )
-    root_variant = Variant(
-        id=ID("training-root-variant"),
-        impl=root_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(root_impl),
-    )
-    root_core = Core(
-        id=ID("training-root"),
-        name="training_root",
-        displayName="Training Root",
-        variants=[root_variant.id],
-        defaultVariant=root_variant.id,
-    )
-    param_impl = TextParamCodeObjImpl(
-        id=ID("lr-param-impl"),
-        coreNameEditable=True,
-        value="0.001",
-    )
-    param_variant = Variant(
-        id=ID("lr-param-variant"),
-        impl=param_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
-    )
-    param_core = Core(
-        id=ID("lr-param"),
-        name="learning_rate",
-        displayName="Learning Rate",
-        variants=[param_variant.id],
-        defaultVariant=param_variant.id,
-    )
-    training_impl = DictSectionImpl(
-        id=ID("training-impl"),
-        topLevelParamId=root_core.id,
-        codeObjVariantMap={
-            root_core.id: root_variant.id,
-            param_core.id: param_variant.id,
-        },
-        pinnedParams=[param_core.id],
-        selectedParams=[],
-    )
-    training_variant_base = Variant(
-        id=ID("training-variant-base"),
-        name="Baseline",
-        impl=training_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(training_impl),
-    )
-    training_variant_accurate = Variant(
-        id=ID("training-variant-accurate"),
-        name="High Accuracy",
-        impl=training_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(training_impl),
-    )
-    training_core = Core(
-        id=ID("training-section"),
-        name="Training",
-        displayName="Training Settings",
-        variants=[training_variant_base.id, training_variant_accurate.id],
-        defaultVariant=training_variant_base.id,
-    )
-    notes_impl = TextBlockSectionImpl(
-        id=ID("notes-impl"),
-        text="Operator notes",
-    )
-    notes_variant = Variant(
-        id=ID("notes-variant"),
-        name="Notes Variant",
-        impl=notes_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(notes_impl),
-    )
-    notes_core = Core(
-        id=ID("notes-section"),
-        name="Notes",
-        displayName="Overview Notes",
-        variants=[notes_variant.id],
-        defaultVariant=notes_variant.id,
-    )
-    project_config = ProjectConfig(
-        id=ID("project-1"),
-        name="Project Alpha",
-        sectionVariantMap={
-            training_core.id: training_variant_base.id,
-            notes_core.id: notes_variant.id,
-        },
-        topLevelSections={
-            training_core.id: TopLevelSectionLayout(),
-            notes_core.id: TopLevelSectionLayout(),
-        },
-    )
-    return ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={
-            training_core.id: training_core,
-            notes_core.id: notes_core,
-        },
-        sectionImpls={
-            training_impl.id: training_impl,
-            notes_impl.id: notes_impl,
-        },
-        sectionVariants={
-            training_variant_base.id: training_variant_base,
-            training_variant_accurate.id: training_variant_accurate,
-            notes_variant.id: notes_variant,
-        },
-        codeObjs={
-            root_core.id: root_core,
-            param_core.id: param_core,
-        },
-        codeObjImpls={
-            root_impl.id: root_impl,
-            param_impl.id: param_impl,
-        },
-        codeObjVariants={
-            root_variant.id: root_variant,
-            param_variant.id: param_variant,
-        },
+def _build_summary_lookup_snapshot() -> RunnerSummarySnapshot:
+    return RunnerSummarySnapshot(
+        projectConfigId="project-1",
+        sections=[
+            RunnerSummarySection(
+                id="training-section",
+                name="Training",
+                displayName="Training Settings",
+                supportsParams=True,
+                variants=[
+                    RunnerSummaryVariant(
+                        id="training-variant-base",
+                        name="Baseline",
+                    ),
+                    RunnerSummaryVariant(
+                        id="training-variant-accurate",
+                        name="High Accuracy",
+                    ),
+                ],
+                params=[
+                    RunnerSummaryParam(
+                        id="lr-param",
+                        name="learning_rate",
+                        displayName="Learning Rate",
+                    ),
+                    RunnerSummaryParam(
+                        id="training-root",
+                        name="training_root",
+                        displayName="Training Root",
+                    ),
+                ],
+            ),
+            RunnerSummarySection(
+                id="notes-section",
+                name="Notes",
+                displayName="Overview Notes",
+                supportsParams=False,
+                variants=[
+                    RunnerSummaryVariant(
+                        id="notes-variant",
+                        name="Notes Variant",
+                    )
+                ],
+            ),
+        ],
     )
 
 
@@ -211,29 +124,29 @@ def test_summary_loads_latest_project_state_for_default_config(
     monkeypatch,
 ) -> None:
     runner = SettaRunner(base_url="http://example.com")
-    project_state = _build_project_state()
+    summary_snapshot = _build_project_summary_snapshot()
     observed_requests: list[tuple[runner_mod.Route, dict]] = []
 
     def post(route: runner_mod.Route, payload: dict) -> dict:
         observed_requests.append((route, payload))
-        return {"projectState": project_state.model_dump(mode="json")}
+        return summary_snapshot.model_dump(mode="json")
 
     monkeypatch.setattr(runner, "_post", post)
     monkeypatch.setattr(
         runner,
         "_resolve_project_config_id",
-        lambda _ref: project_state.projectConfig.id,
+        lambda _ref: ID(summary_snapshot.projectConfigId),
     )
 
-    # Runner summary should fetch the latest project state for the resolved
-    # default project config and then expose that state through RunnerSummary.
+    # Runner summary should fetch the narrow Go-owned runner snapshot for the
+    # resolved default project config and expose that through RunnerSummary.
     summary = runner.summary()
 
     assert summary.section("Welcome").id == ID("section-welcome")
     assert observed_requests == [
         (
-            runner_mod.Route.GET_LATEST_PROJECT_STATE,
-            {"projectConfigId": project_state.projectConfig.id},
+            runner_mod.Route.GET_RUNNER_SUMMARY,
+            {"projectConfigId": ID(summary_snapshot.projectConfigId)},
         )
     ]
 
@@ -242,19 +155,17 @@ def test_summary_section_lookup_accepts_display_names_and_variant_names(
     monkeypatch,
 ) -> None:
     runner = SettaRunner(base_url="http://example.com")
-    project_state = _build_summary_lookup_project_state()
+    summary_snapshot = _build_summary_lookup_snapshot()
 
     monkeypatch.setattr(
         runner,
         "_post",
-        lambda _route, _payload: {
-            "projectState": project_state.model_dump(mode="json")
-        },
+        lambda _route, _payload: summary_snapshot.model_dump(mode="json"),
     )
     monkeypatch.setattr(
         runner,
         "_resolve_project_config_id",
-        lambda _ref: project_state.projectConfig.id,
+        lambda _ref: ID(summary_snapshot.projectConfigId),
     )
 
     # Runner summary should resolve the same section by core name, display name,
@@ -276,19 +187,17 @@ def test_summary_params_by_name_accepts_display_names_and_fails_closed(
     monkeypatch,
 ) -> None:
     runner = SettaRunner(base_url="http://example.com")
-    project_state = _build_summary_lookup_project_state()
+    summary_snapshot = _build_summary_lookup_snapshot()
 
     monkeypatch.setattr(
         runner,
         "_post",
-        lambda _route, _payload: {
-            "projectState": project_state.model_dump(mode="json")
-        },
+        lambda _route, _payload: summary_snapshot.model_dump(mode="json"),
     )
     monkeypatch.setattr(
         runner,
         "_resolve_project_config_id",
-        lambda _ref: project_state.projectConfig.id,
+        lambda _ref: ID(summary_snapshot.projectConfigId),
     )
 
     # Param lookup should resolve both core and display names while rejecting
@@ -475,12 +384,16 @@ def test_resolve_auth_headers_uses_explicit_auth_headers_without_other_lookup(
     monkeypatch.setattr(
         runner_mod,
         "load_current_session_secret",
-        lambda: (_ for _ in ()).throw(AssertionError("unexpected current session lookup")),
+        lambda: (_ for _ in ()).throw(
+            AssertionError("unexpected current session lookup")
+        ),
     )
     monkeypatch.setattr(
         runner_mod,
         "resolve_sessions_root",
-        lambda _root: (_ for _ in ()).throw(AssertionError("unexpected workspace session lookup")),
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError("unexpected workspace session lookup")
+        ),
     )
 
     # Explicit auth_headers should short-circuit bootstrap, current-session,
@@ -577,13 +490,13 @@ def test_run_detached_resolves_entry_section_name_via_summary(
     monkeypatch,
 ) -> None:
     runner = SettaRunner(base_url="http://example.com", auth_headers={"Cookie": "x=y"})
-    project_state = _build_project_state()
+    summary_snapshot = _build_project_summary_snapshot()
     observed_requests: list[tuple[runner_mod.Route, dict]] = []
 
     def post(route: runner_mod.Route, payload: dict) -> dict:
         observed_requests.append((route, payload))
-        if route is runner_mod.Route.GET_LATEST_PROJECT_STATE:
-            return {"projectState": project_state.model_dump(mode="json")}
+        if route is runner_mod.Route.GET_RUNNER_SUMMARY:
+            return summary_snapshot.model_dump(mode="json")
         if route is runner_mod.Route.RUN_DETACHED:
             return {"runId": "run-1", "status": "queued"}
         raise AssertionError(f"unexpected route {route}")
@@ -592,7 +505,7 @@ def test_run_detached_resolves_entry_section_name_via_summary(
     monkeypatch.setattr(
         runner,
         "_resolve_project_config_id",
-        lambda _ref: project_state.projectConfig.id,
+        lambda _ref: ID(summary_snapshot.projectConfigId),
     )
 
     # Detached runs should resolve an entry section name through RunnerSummary
@@ -602,13 +515,13 @@ def test_run_detached_resolves_entry_section_name_via_summary(
     assert response.runId == "run-1"
     assert observed_requests == [
         (
-            runner_mod.Route.GET_LATEST_PROJECT_STATE,
-            {"projectConfigId": project_state.projectConfig.id},
+            runner_mod.Route.GET_RUNNER_SUMMARY,
+            {"projectConfigId": ID(summary_snapshot.projectConfigId)},
         ),
         (
             runner_mod.Route.RUN_DETACHED,
             {
-                "projectConfigId": project_state.projectConfig.id,
+                "projectConfigId": ID(summary_snapshot.projectConfigId),
                 "entrySectionId": ID("section-welcome"),
                 "runSnapshotMode": None,
                 "sectionVariantOverrides": {},
@@ -623,7 +536,7 @@ def test_run_detached_encodes_param_overrides_from_dependency_keys(
     monkeypatch,
 ) -> None:
     runner = SettaRunner(base_url="http://example.com", auth_headers={"Cookie": "x=y"})
-    project_state = _build_project_state()
+    summary_snapshot = _build_project_summary_snapshot()
     observed_requests: list[tuple[runner_mod.Route, dict]] = []
     param_key = SectionParamDependencyKey(
         sectionId=ID("section-a"),
@@ -638,7 +551,7 @@ def test_run_detached_encodes_param_overrides_from_dependency_keys(
     monkeypatch.setattr(
         runner,
         "_resolve_project_config_id",
-        lambda _ref: project_state.projectConfig.id,
+        lambda _ref: ID(summary_snapshot.projectConfigId),
     )
 
     # Detached runs should translate dependency-key param overrides into the
@@ -652,7 +565,7 @@ def test_run_detached_encodes_param_overrides_from_dependency_keys(
         (
             runner_mod.Route.RUN_DETACHED,
             {
-                "projectConfigId": project_state.projectConfig.id,
+                "projectConfigId": ID(summary_snapshot.projectConfigId),
                 "entrySectionId": None,
                 "runSnapshotMode": None,
                 "sectionVariantOverrides": {},

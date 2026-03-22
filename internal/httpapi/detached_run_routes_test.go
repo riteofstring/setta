@@ -18,6 +18,7 @@ import (
 	"setta/internal/detachedruns"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/runs"
 )
 
@@ -257,10 +258,46 @@ func TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey(t *testing.T) {
 	}
 }
 
+func TestRegisterDetachedRunRoutesReturnsRunnerSummarySnapshot(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	fixture := newHTTPTestDetachedRunFixture(t, "print('detached-route')\n", "run-summary")
+	handler := newHTTPTestDetachedRunHandler(t, authService, modes.NewPolicy(config.ModeIDE), fixture)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetRunnerSummary, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload pythonsdkcontracts.RunnerSummarySnapshot
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode runner summary snapshot: %v", err)
+	}
+	if payload.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha, got %#v", payload.ProjectConfigID)
+	}
+	if len(payload.Sections) != 2 {
+		t.Fatalf("expected two sections, got %#v", payload.Sections)
+	}
+	if payload.Sections[0].Name != "Runner" || payload.Sections[1].Name != "Globals" {
+		t.Fatalf("unexpected section ordering %#v", payload.Sections)
+	}
+	if len(payload.Sections[1].Params) != 1 || payload.Sections[1].Params[0].Name != "text_param" {
+		t.Fatalf("expected Globals param summary, got %#v", payload.Sections[1].Params)
+	}
+}
+
 type httpTestDetachedRunFixture struct {
-	manager *detachedruns.Manager
-	planner *runs.Planner
-	runID   string
+	manager      *detachedruns.Manager
+	planner      *runs.Planner
+	projectState *projectstate.Runtime
+	runID        string
 }
 
 func newHTTPTestDetachedRunHandler(
@@ -278,9 +315,10 @@ func newHTTPTestDetachedRunHandler(
 		ModePolicy: modePolicy,
 		Register: func(r chi.Router) {
 			if err := RegisterDetachedRunRoutes(r, DetachedRunRouteDependencies{
-				ModePolicy: modePolicy,
-				Planner:    fixture.planner,
-				Runs:       fixture.manager,
+				ModePolicy:   modePolicy,
+				Planner:      fixture.planner,
+				Runs:         fixture.manager,
+				ProjectState: fixture.projectState,
 			}); err != nil {
 				t.Fatalf("register detached run routes: %v", err)
 			}
@@ -420,9 +458,10 @@ func newHTTPTestDetachedRunFixture(t *testing.T, script string, runID string) ht
 	}
 
 	return httpTestDetachedRunFixture{
-		manager: manager,
-		planner: planner,
-		runID:   runID,
+		manager:      manager,
+		planner:      planner,
+		projectState: projectRuntime,
+		runID:        runID,
 	}
 }
 

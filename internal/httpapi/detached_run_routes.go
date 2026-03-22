@@ -16,11 +16,13 @@ import (
 const RouteRunDetached = "/runDetached"
 const RouteGetRunStatus = "/getRunStatus"
 const RouteCancelRun = "/cancelRun"
+const RouteGetRunnerSummary = "/getRunnerSummary"
 
 type DetachedRunRouteDependencies struct {
-	ModePolicy modes.Policy
-	Planner    *runs.Planner
-	Runs       *detachedruns.Manager
+	ModePolicy   modes.Policy
+	Planner      *runs.Planner
+	Runs         *detachedruns.Manager
+	ProjectState *projectstate.Runtime
 }
 
 type RunDetachedRequest struct {
@@ -45,6 +47,10 @@ type CancelRunRequest struct {
 	RunID string `json:"runId"`
 }
 
+type GetRunnerSummaryRequest struct {
+	ProjectID string `json:"projectConfigId"`
+}
+
 func RegisterDetachedRunRoutes(router chi.Router, deps DetachedRunRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -55,10 +61,14 @@ func RegisterDetachedRunRoutes(router chi.Router, deps DetachedRunRouteDependenc
 	if deps.Runs == nil {
 		return fmt.Errorf("detached run manager is required")
 	}
+	if deps.ModePolicy.IsIDE() && deps.ProjectState == nil {
+		return fmt.Errorf("project state runtime is required in ide mode")
+	}
 
 	router.Post(RouteRunDetached, runDetachedHandler(deps))
 	router.Post(RouteGetRunStatus, getRunStatusHandler(deps))
 	router.Post(RouteCancelRun, cancelRunHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetRunnerSummary, getRunnerSummaryHandler(deps))
 	return nil
 }
 
@@ -178,6 +188,33 @@ func cancelRunHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, run)
+	}
+}
+
+func getRunnerSummaryHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeStrictJSONBody[GetRunnerSummaryRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := deps.ProjectState.RunnerSummarySnapshot(payload.ProjectID)
+		if err != nil {
+			switch {
+			case errors.Is(err, projectstate.ErrProjectIDRequired), errors.Is(err, projectstate.ErrProjectNotFound):
+				writeDetail(w, http.StatusBadRequest, normalizeRunRequestDetail(err))
+			default:
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			}
+			return
+		}
+
+		writeJSON(w, http.StatusOK, snapshot)
 	}
 }
 

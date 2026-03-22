@@ -384,6 +384,23 @@ Success condition:
 - `SettaRunner` remains pleasant to use, but it no longer depends on Python
   project-state ownership
 
+Execution artifact:
+
+- `internal/projectstate/runner_summary_snapshot.go`
+- `internal/httpapi/detached_run_routes.go`
+- `backend/setta/api/runner.py`
+- `tests/api/test_runner.py`
+
+Phase 3 verdict:
+
+- `SettaRunner.summary()` now consumes a narrow Go-owned runner snapshot
+  contract instead of `ProjectStateSingleConfig`
+- detached-run entry section name resolution now uses the same runner snapshot
+  path rather than a full latest-project-state fetch
+- Python retained the lookup ergonomics (`RunnerSummary`, `ParamLookup`,
+  `VariantLookup`, `RunPlan`) while Go now owns the canonical summary
+  materialization
+
 ### Phase 4. Finish The Listener Boundary Migration
 
 This phase should build directly on

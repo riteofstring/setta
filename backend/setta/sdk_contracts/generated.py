@@ -32,6 +32,7 @@ class RunnerSummarySection(SettaSDKContractBaseModel):
     id: str
     name: str
     displayName: str | None = None
+    supportsParams: bool = False
     variants: list[RunnerSummaryVariant] = Field(default_factory=list)
     params: list[RunnerSummaryParam] = Field(default_factory=list)
 

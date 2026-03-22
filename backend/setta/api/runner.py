@@ -12,15 +12,13 @@ from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_nam
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
+from setta.sdk_contracts.generated import RunnerSummarySection, RunnerSummarySnapshot
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
-from setta.types.section_impls import BaseSectionWithParamsImpl
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
@@ -47,25 +45,26 @@ class SectionSummary:
 class ParamLookup:
     def __init__(
         self,
-        project_state: ProjectStateSingleConfig,
+        summary_snapshot: RunnerSummarySnapshot,
         section_name_map: dict[str, ID],
     ) -> None:
-        self._project_state = project_state
+        self._sections_by_id = {
+            ID(section.id): section for section in summary_snapshot.sections
+        }
         self._section_name_map = section_name_map
 
     def by_name(self, section_name: str, param_name: str) -> SectionParamDependencyKey:
         section_id = self._section_name_map.get(section_name, section_name)
-        if section_id not in self._project_state.sections:
+        section = self._sections_by_id.get(ID(section_id))
+        if section is None:
             raise KeyError(f"Unknown section: {section_name}")
-        section_impl = get_curr_effective_section_impl(self._project_state, section_id)
-        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+        if not section.supportsParams:
             raise KeyError(f"Section {section_name!r} has no params")
-        for param_id in section_impl.codeObjVariantMap.keys():
-            core = self._project_state.codeObjs[param_id]
-            if param_name in (core.name, core.displayName):
+        for param in section.params:
+            if param_name in (param.name, param.displayName):
                 return SectionParamDependencyKey(
-                    sectionId=section_id,
-                    codeObjId=param_id,
+                    sectionId=ID(section.id),
+                    codeObjId=ID(param.id),
                 )
         raise KeyError(
             f"Unknown param name {param_name!r} for section {section_name!r}"
@@ -73,27 +72,29 @@ class ParamLookup:
 
 
 class RunnerSummary:
-    def __init__(self, project_state: ProjectStateSingleConfig) -> None:
-        self._project_state = project_state
+    def __init__(self, summary_snapshot: RunnerSummarySnapshot) -> None:
+        self._sections_by_id: dict[ID, RunnerSummarySection] = {
+            ID(section.id): section for section in summary_snapshot.sections
+        }
         self._section_name_map: dict[str, ID] = {}
-        for section_id, core in project_state.sections.items():
-            self._section_name_map[core.name] = section_id
-            if core.displayName:
-                self._section_name_map[core.displayName] = section_id
-        self.params = ParamLookup(project_state, self._section_name_map)
+        for section in summary_snapshot.sections:
+            section_id = ID(section.id)
+            self._section_name_map[section.name] = section_id
+            if section.displayName:
+                self._section_name_map[section.displayName] = section_id
+        self.params = ParamLookup(summary_snapshot, self._section_name_map)
 
     def section(self, name_or_id: str) -> SectionSummary:
         section_id = self._section_name_map.get(name_or_id, name_or_id)
-        if section_id not in self._project_state.sections:
+        section = self._sections_by_id.get(ID(section_id))
+        if section is None:
             raise KeyError(f"Unknown section: {name_or_id}")
-        core = self._project_state.sections[section_id]
         variants_by_name: dict[str, ID] = {}
-        for variant_id in core.variants:
-            variant = self._project_state.sectionVariants[variant_id]
-            variants_by_name[variant.name] = variant_id
+        for variant in section.variants:
+            variants_by_name[variant.name] = ID(variant.id)
         return SectionSummary(
-            id=section_id,
-            name=core.name,
+            id=ID(section.id),
+            name=section.name,
             variants=VariantLookup(variants_by_name),
         )
 
@@ -279,11 +280,10 @@ class SettaRunner:
     def summary(self) -> RunnerSummary:
         project_config_id = self._resolve_project_config_id(None)
         data = self._post(
-            Route.GET_LATEST_PROJECT_STATE,
-            {"projectConfigId": project_config_id},
+            Route.GET_RUNNER_SUMMARY, {"projectConfigId": project_config_id}
         )
-        project_state = ProjectStateSingleConfig(**data["projectState"])
-        return RunnerSummary(project_state)
+        summary_snapshot = RunnerSummarySnapshot(**data)
+        return RunnerSummary(summary_snapshot)
 
     def run_detached(
         self,
@@ -410,9 +410,7 @@ class SettaRunner:
                 else:
                     secret = secret_path.read_bytes()
                     token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
-                    cookie_header = (
-                        f"{auth_cookie_name(selected.id)}={token}"
-                    )
+                    cookie_header = f"{auth_cookie_name(selected.id)}={token}"
         if cookie_header is not None:
             return {"Cookie": cookie_header}
         raise ValueError(
