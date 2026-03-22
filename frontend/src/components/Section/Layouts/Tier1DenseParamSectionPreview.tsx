@@ -33,7 +33,6 @@ let previewCaptureQueueTail: Promise<void> = Promise.resolve();
 type Tier1DenseParamSectionPreviewProps = PropsWithChildren<{
   sectionId: string;
   isActiveSection: boolean;
-  shouldWarmPreview: boolean;
   showPreview: boolean;
 }>;
 
@@ -41,7 +40,6 @@ export const Tier1DenseParamSectionPreview = function Tier1DenseParamSectionPrev
   children,
   sectionId,
   isActiveSection,
-  shouldWarmPreview,
   showPreview,
 }: Tier1DenseParamSectionPreviewProps) {
   const liveBodyRootRef = useRef<HTMLDivElement | null>(null);
@@ -83,15 +81,14 @@ export const Tier1DenseParamSectionPreview = function Tier1DenseParamSectionPrev
   }, [isActiveSection]);
 
   useEffect(() => {
-    if (shouldWarmPreview && previewData === null) {
+    if (showPreview && previewData === null) {
       setNeedsCapture(true);
     }
-  }, [previewData, shouldWarmPreview]);
+  }, [previewData, showPreview]);
 
   useEffect(() => {
     if (
       !needsCapture ||
-      !shouldWarmPreview ||
       showPreview ||
       isActiveSection ||
       previewHost === null ||
@@ -138,14 +135,7 @@ export const Tier1DenseParamSectionPreview = function Tier1DenseParamSectionPrev
       cancelled = true;
       cancelIdleCapture();
     };
-  }, [
-    isActiveSection,
-    needsCapture,
-    previewHost,
-    sectionId,
-    shouldWarmPreview,
-    showPreview,
-  ]);
+  }, [isActiveSection, needsCapture, previewHost, sectionId, showPreview]);
 
   const shouldShowPreview =
     showPreview && !isActiveSection && previewData !== null && previewHost !== null;

@@ -34,16 +34,6 @@ test("settings tier1 preview mode uses image overlays without unmounting live bo
     { timeout: 20000 },
   );
 
-  const totalPreviewRoots = await page
-    .locator("[data-section-body-preview-root]")
-    .count();
-  const readyAfterWarmup = await page
-    .locator('[data-section-body-preview-status="ready"]')
-    .count();
-
-  expect(readyAfterWarmup).toBeGreaterThan(0);
-  expect(readyAfterWarmup).toBeLessThan(totalPreviewRoots * 0.65);
-
   await panCanvas(page, { deltaX: 140, deltaY: 60, keepMouseDown: true });
 
   await page.waitForFunction(
@@ -59,10 +49,6 @@ test("settings tier1 preview mode uses image overlays without unmounting live bo
   expect(
     await page.locator('[data-section-body-preview-overlay]').count(),
   ).toBeGreaterThan(0);
-
-  expect(
-    await page.locator('[data-section-body-preview-overlay]').count(),
-  ).toBeLessThan(totalPreviewRoots * 0.65);
 
   expect(
     await page.evaluate(() =>

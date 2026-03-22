@@ -30,8 +30,6 @@ export const SECTION_BODY_AUTO_MODE_THRESHOLDS = {
   previewMaxProjectedWidthPx: 320,
   previewMaxProjectedHeightPx: 220,
   previewFallbackMaxZoomWithoutMeasuredSize: 0.55,
-  previewWarmCooldownMs: 1500,
-  previewWarmNeighborhoodPaddingFraction: 0.15,
 } as const;
 
 function isPreviewEligibleFamily(family: SectionBodyFamily): boolean {
