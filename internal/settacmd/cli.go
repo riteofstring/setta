@@ -145,6 +145,8 @@ func Run(args []string, options RunOptions) error {
 		return runApp(remaining[1:], global, stdin, stdout, stderr, envLookup, cwd)
 	case "mcp":
 		return runMCP(remaining[1:], global, stdin, stdout, stderr, envLookup, now, cwd)
+	case "sdk-local-core":
+		return runSDKLocalCore(remaining[1:], stdin, stdout)
 	case "status", "auth", "tools", "api", "stop", "connect", "c":
 		return settacli.Run(args, settacli.RunOptions{
 			Stdout:    stdout,

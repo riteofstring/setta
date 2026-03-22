@@ -49,8 +49,10 @@ func contractListenerDependencyCatalog(catalog *realtime.ListenerDependencyCatal
 			Name:                       entry.Name,
 			FullPathName:               entry.FullPathName,
 			Dependencies:               clonedDependencies,
+			IncludeInCodegen:           entry.IncludeInCodegen,
 			SectionType:                stringPointerOrNil(entry.SectionType),
 			CodeObjType:                stringPointerOrNil(entry.CodeObjType),
+			PassingStyle:               stringPointerOrNil(entry.PassingStyle),
 			ControlCodeObjID:           stringPointerOrNil(entry.ControlCodeObjID),
 			ControlCodeObjType:         stringPointerOrNil(entry.ControlCodeObjType),
 			SectionRepresentation:      stringPointerOrNil(entry.SectionRepresentation),
@@ -122,9 +124,10 @@ func buildListenerDependencyCatalogFromGraph(graph *codegen.PythonDependencyGrap
 			continue
 		}
 		entry := realtime.ListenerDependencyCatalogEntry{
-			DependencyKey: canonicalListenerDependencyKey(key),
-			Name:          strings.TrimSpace(node.Base().Name),
-			FullPathName:  strings.TrimSpace(node.Base().FullPathName),
+			DependencyKey:    canonicalListenerDependencyKey(key),
+			Name:             strings.TrimSpace(node.Base().Name),
+			FullPathName:     strings.TrimSpace(node.Base().FullPathName),
+			IncludeInCodegen: node.Base().IncludeInCodegen,
 		}
 		dependencies := orderedListenerDependencyKeys(node.Base().Deps, node.Base().DepOrder)
 		if len(dependencies) > 0 {
@@ -148,6 +151,7 @@ func buildListenerDependencyCatalogFromGraph(graph *codegen.PythonDependencyGrap
 			entry.ControlValueRepresentation = strings.TrimSpace(string(typed.ControlValueRepresentation))
 		case *codegen.PythonParamNode:
 			entry.CodeObjType = strings.TrimSpace(typed.CodeObjectType)
+			entry.PassingStyle = strings.TrimSpace(typed.PassingStyle)
 			entry.ValueRepresentation = strings.TrimSpace(string(typed.ValueRepresentation))
 		}
 		entries = append(entries, entry)

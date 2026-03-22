@@ -157,8 +157,10 @@ type ListenerDependencyCatalogEntry struct {
 	Name                       string   `json:"name"`
 	FullPathName               string   `json:"fullPathName"`
 	Dependencies               []string `json:"dependencies,omitempty"`
+	IncludeInCodegen           bool     `json:"includeInCodegen"`
 	SectionType                string   `json:"sectionType,omitempty"`
 	CodeObjType                string   `json:"codeObjType,omitempty"`
+	PassingStyle               string   `json:"passingStyle,omitempty"`
 	ControlCodeObjID           string   `json:"controlCodeObjId,omitempty"`
 	ControlCodeObjType         string   `json:"controlCodeObjType,omitempty"`
 	SectionRepresentation      string   `json:"sectionRepresentation,omitempty"`
@@ -293,8 +295,10 @@ func (e ListenerDependencyCatalogEntry) MarshalJSON() ([]byte, error) {
 		Name                       string            `json:"name"`
 		FullPathName               string            `json:"fullPathName"`
 		Dependencies               []json.RawMessage `json:"dependencies,omitempty"`
+		IncludeInCodegen           bool              `json:"includeInCodegen"`
 		SectionType                string            `json:"sectionType,omitempty"`
 		CodeObjType                string            `json:"codeObjType,omitempty"`
+		PassingStyle               string            `json:"passingStyle,omitempty"`
 		ControlCodeObjID           string            `json:"controlCodeObjId,omitempty"`
 		ControlCodeObjType         string            `json:"controlCodeObjType,omitempty"`
 		SectionRepresentation      string            `json:"sectionRepresentation,omitempty"`
@@ -309,8 +313,10 @@ func (e ListenerDependencyCatalogEntry) MarshalJSON() ([]byte, error) {
 	payload.Name = e.Name
 	payload.FullPathName = e.FullPathName
 	payload.Dependencies = dependencies
+	payload.IncludeInCodegen = e.IncludeInCodegen
 	payload.SectionType = e.SectionType
 	payload.CodeObjType = e.CodeObjType
+	payload.PassingStyle = e.PassingStyle
 	payload.ControlCodeObjID = e.ControlCodeObjID
 	payload.ControlCodeObjType = e.ControlCodeObjType
 	payload.SectionRepresentation = e.SectionRepresentation
@@ -325,8 +331,10 @@ func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 		Name                       string            `json:"name"`
 		FullPathName               string            `json:"fullPathName"`
 		Dependencies               []json.RawMessage `json:"dependencies,omitempty"`
+		IncludeInCodegen           bool              `json:"includeInCodegen"`
 		SectionType                string            `json:"sectionType,omitempty"`
 		CodeObjType                string            `json:"codeObjType,omitempty"`
+		PassingStyle               string            `json:"passingStyle,omitempty"`
 		ControlCodeObjID           string            `json:"controlCodeObjId,omitempty"`
 		ControlCodeObjType         string            `json:"controlCodeObjType,omitempty"`
 		SectionRepresentation      string            `json:"sectionRepresentation,omitempty"`
@@ -354,8 +362,10 @@ func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 	e.Name = payload.Name
 	e.FullPathName = payload.FullPathName
 	e.Dependencies = dependencies
+	e.IncludeInCodegen = payload.IncludeInCodegen
 	e.SectionType = payload.SectionType
 	e.CodeObjType = payload.CodeObjType
+	e.PassingStyle = payload.PassingStyle
 	e.ControlCodeObjID = payload.ControlCodeObjID
 	e.ControlCodeObjType = payload.ControlCodeObjType
 	e.SectionRepresentation = payload.SectionRepresentation
@@ -485,8 +495,10 @@ func realtimeListenerDependencyCatalogFromContract(catalog pythonsdkcontracts.Li
 			Name:                       entry.Name,
 			FullPathName:               entry.FullPathName,
 			Dependencies:               append([]string(nil), entry.Dependencies...),
+			IncludeInCodegen:           entry.IncludeInCodegen,
 			SectionType:                stringValue(entry.SectionType),
 			CodeObjType:                stringValue(entry.CodeObjType),
+			PassingStyle:               stringValue(entry.PassingStyle),
 			ControlCodeObjID:           stringValue(entry.ControlCodeObjID),
 			ControlCodeObjType:         stringValue(entry.ControlCodeObjType),
 			SectionRepresentation:      stringValue(entry.SectionRepresentation),
@@ -505,8 +517,10 @@ func contractListenerDependencyCatalogFromRealtime(catalog ListenerDependencyCat
 			Name:                       entry.Name,
 			FullPathName:               entry.FullPathName,
 			Dependencies:               append([]string(nil), entry.Dependencies...),
+			IncludeInCodegen:           entry.IncludeInCodegen,
 			SectionType:                stringPointer(entry.SectionType),
 			CodeObjType:                stringPointer(entry.CodeObjType),
+			PassingStyle:               stringPointer(entry.PassingStyle),
 			ControlCodeObjID:           stringPointer(entry.ControlCodeObjID),
 			ControlCodeObjType:         stringPointer(entry.ControlCodeObjType),
 			SectionRepresentation:      stringPointer(entry.SectionRepresentation),
