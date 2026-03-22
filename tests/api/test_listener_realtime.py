@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from dataclasses import dataclass
 import io
 import json
 import logging
@@ -28,7 +29,6 @@ from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
 from setta.types.listener import (
     DependencyEvent,
@@ -50,7 +50,7 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
+from setta.types.section_impls import DictSectionImpl, SectionType
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -66,6 +66,7 @@ from tests.helpers.listener_runtime_state import (
     build_listener_dependency_catalog_from_graph,
     build_listener_dependency_metadata_from_graph,
     build_listener_runtime_state,
+    build_listener_runtime_state_from_catalog,
 )
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
@@ -95,14 +96,84 @@ class _GraphlessDependencyGraph:
         )
 
 
+@dataclass(slots=True)
+class _TextListenerFixture:
+    projectConfig: SimpleNamespace
+    sections: dict[ID, None]
+    text: str
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        project_config_id: ID,
+        project_name: str,
+        section_id: ID,
+        text: str,
+    ) -> "_TextListenerFixture":
+        return cls(
+            projectConfig=SimpleNamespace(
+                id=project_config_id,
+                name=project_name,
+            ),
+            sections={section_id: None},
+            text=text,
+        )
+
+    def model_copy(self, *, _deep: bool = False) -> "_TextListenerFixture":
+        return _TextListenerFixture(
+            projectConfig=SimpleNamespace(
+                id=self.projectConfig.id,
+                name=self.projectConfig.name,
+            ),
+            sections=dict(self.sections),
+            text=self.text,
+        )
+
+
 def _attach_stub_websocket(listener: SettaListener, websocket: _StubWebsocket) -> None:
     listener._websocket = cast("ClientConnection", websocket)
 
 
+def _build_text_dependency_catalog(
+    project_state: _TextListenerFixture,
+) -> ListenerDependencyCatalog:
+    section_id = next(iter(project_state.sections))
+    return ListenerDependencyCatalog(
+        entries=[
+            ListenerDependencyCatalogEntry(
+                dependencyKey=create_dep_key(sectionId=section_id),
+                name="Welcome",
+                fullPathName="Welcome",
+                sectionType=SectionType.TextBlock,
+            )
+        ]
+    )
+
+
+def _build_text_dependency_values(
+    project_state: _TextListenerFixture,
+) -> ListenerRenderedDependencyValues:
+    section_id = next(iter(project_state.sections))
+    return ListenerRenderedDependencyValues(
+        entries=[
+            ListenerRenderedDependencyValue(
+                dependencyKey=create_dep_key(sectionId=section_id),
+                renderedValue=repr(project_state.text),
+            )
+        ]
+    )
+
+
 def _build_authoritative_snapshot_payload(
     listener: SettaListener,
-    project_state: ProjectStateSingleConfig,
+    project_state: ProjectStateSingleConfig | _TextListenerFixture,
 ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
+    if isinstance(project_state, _TextListenerFixture):
+        return (
+            _build_text_dependency_catalog(project_state),
+            _build_text_dependency_values(project_state),
+        )
     runtime_state = build_listener_runtime_state(project_state)
     dependency_metadata = runtime_state.dependency_metadata
     dependency_cache = build_listener_dependency_cache(listener, runtime_state)
@@ -141,7 +212,7 @@ def _build_authoritative_snapshot_payload(
 
 async def _refresh_from_authoritative_snapshot(
     listener: SettaListener,
-    project_state: ProjectStateSingleConfig,
+    project_state: ProjectStateSingleConfig | _TextListenerFixture,
 ) -> None:
     snapshot = _build_authoritative_listener_snapshot(listener, project_state)
     await listener._refresh_from_snapshot(snapshot)
@@ -149,7 +220,7 @@ async def _refresh_from_authoritative_snapshot(
 
 async def _process_authoritative_snapshot(
     listener: SettaListener,
-    project_state: ProjectStateSingleConfig,
+    project_state: ProjectStateSingleConfig | _TextListenerFixture,
     *,
     refresh_kind: str,
     share_session_id: str | None,
@@ -164,7 +235,7 @@ async def _process_authoritative_snapshot(
 
 def _build_authoritative_listener_snapshot(
     listener: SettaListener,
-    project_state: ProjectStateSingleConfig,
+    project_state: ProjectStateSingleConfig | _TextListenerFixture,
     *,
     share_session_id: str | None = None,
 ) -> ListenerSnapshot:
@@ -182,7 +253,7 @@ def _build_authoritative_listener_snapshot(
 
 def _build_force_refresh_content(
     listener: SettaListener,
-    project_state: ProjectStateSingleConfig,
+    project_state: ProjectStateSingleConfig | _TextListenerFixture,
     *,
     share_session_id: str | None = None,
 ) -> ListenerForceRefreshContent:
@@ -297,52 +368,20 @@ def _build_nested_controls_project_state(
 
 @pytest.mark.asyncio
 class TestSettaListenerRealtimeIntegration:
-    def _build_project_state(self) -> ProjectStateSingleConfig:
-        section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
-            name="Welcome",
+    def _build_project_state(self) -> _TextListenerFixture:
+        return _TextListenerFixture.create(
+            project_config_id=ID("project-1"),
+            project_name="Demo Project",
+            section_id=ID("section-welcome"),
             text="Hello",
-        )
-        section_variant = Variant(
-            id=ID("section-variant"),
-            name="Welcome Variant",
-            impl=section_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-        )
-        section_core = Core(
-            id=ID("section-welcome"),
-            name="Welcome",
-            variants=[section_variant.id],
-            defaultVariant=section_variant.id,
-        )
-        project_config = ProjectConfig(
-            id=ID("project-1"),
-            name="Demo Project",
-            sectionVariantMap={section_core.id: section_variant.id},
-            topLevelSections={section_core.id: TopLevelSectionLayout()},
-        )
-        return ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section_core.id: section_core},
-            sectionImpls={section_impl.id: section_impl},
-            sectionVariants={section_variant.id: section_variant},
         )
 
     def _set_snapshot_section_text(
         self,
-        project_state: ProjectStateSingleConfig,
+        project_state: _TextListenerFixture,
         text: str,
     ) -> None:
-        section_id = next(iter(project_state.sections))
-        impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            TextBlockSectionImpl,
-        )
-        section_impl = project_state.sectionImpls[impl.id]
-        if not isinstance(section_impl, TextBlockSectionImpl):
-            raise AssertionError("Snapshot fixture expected TextBlockSectionImpl")
-        section_impl.text = text
+        project_state.text = text
 
     def _get_structured_dependency(
         self, spec: ListenerCallbackSpec
@@ -360,7 +399,9 @@ class TestSettaListenerRealtimeIntegration:
             sent_payloads.append(payload)
 
         listener._send_websocket_payload = capture
-        listener._runtime_state = build_listener_runtime_state(project_state)
+        listener._runtime_state = build_listener_runtime_state_from_catalog(
+            _build_text_dependency_catalog(project_state)
+        )
         listener._project_config_id = project_state.projectConfig.id
         listener._is_registered = True
 
@@ -398,7 +439,9 @@ class TestSettaListenerRealtimeIntegration:
     ) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        listener._runtime_state = build_listener_runtime_state(project_state)
+        listener._runtime_state = build_listener_runtime_state_from_catalog(
+            _build_text_dependency_catalog(project_state)
+        )
         listener._project_config_id = project_state.projectConfig.id
         listener._is_registered = True
 
@@ -1292,35 +1335,12 @@ class TestSettaListenerRealtimeIntegration:
 
 @pytest.mark.asyncio
 class TestSettaListenerBootstrapFailure:
-    def _build_project_state(self) -> ProjectStateSingleConfig:
-        section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
-            name="Welcome",
+    def _build_project_state(self) -> _TextListenerFixture:
+        return _TextListenerFixture.create(
+            project_config_id=ID("project-fail"),
+            project_name="Demo Project",
+            section_id=ID("section-welcome"),
             text="Hello",
-        )
-        section_variant = Variant(
-            id=ID("section-variant"),
-            name="Variant",
-            impl=section_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-        )
-        section_core = Core(
-            id=ID("section-welcome"),
-            name="Welcome",
-            variants=[section_variant.id],
-            defaultVariant=section_variant.id,
-        )
-        project_config = ProjectConfig(
-            id=ID("project-fail"),
-            name="Demo Project",
-            sectionVariantMap={section_core.id: section_variant.id},
-            topLevelSections={section_core.id: TopLevelSectionLayout()},
-        )
-        return ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section_core.id: section_core},
-            sectionImpls={section_impl.id: section_impl},
-            sectionVariants={section_variant.id: section_variant},
         )
 
     async def test_bootstrap_registers_fail_closed_when_snapshot_values_are_missing(
@@ -1340,28 +1360,7 @@ class TestSettaListenerBootstrapFailure:
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        runtime_state = build_listener_runtime_state(project_state)
-        dependency_catalog = ListenerDependencyCatalog(
-            entries=[
-                ListenerDependencyCatalogEntry(
-                    dependencyKey=entry.dependencyKey,
-                    name=entry.name,
-                    fullPathName=entry.fullPathName,
-                    dependencies=list(entry.dependencies),
-                    sectionType=entry.sectionType,
-                    codeObjType=entry.codeObjType,
-                    controlCodeObjId=entry.controlCodeObjId,
-                    controlCodeObjType=entry.controlCodeObjType,
-                    sectionRepresentation=entry.sectionRepresentation,
-                    controlValueRepresentation=entry.controlValueRepresentation,
-                    valueRepresentation=entry.valueRepresentation,
-                )
-                for entry in [
-                    runtime_state.dependency_metadata.entry_for_name(name)
-                    for name in runtime_state.dependency_metadata.names()
-                ]
-            ]
-        )
+        dependency_catalog = _build_text_dependency_catalog(project_state)
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(
@@ -1391,21 +1390,8 @@ class TestSettaListenerBootstrapFailure:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
         project_state = self._build_project_state()
-        runtime_state = build_listener_runtime_state(project_state)
-        dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
-        dependency_catalog = ListenerDependencyCatalog(
-            entries=[
-                ListenerDependencyCatalogEntry(
-                    dependencyKey=dependency_entry.dependencyKey,
-                    name=dependency_entry.name,
-                    fullPathName=dependency_entry.fullPathName,
-                    dependencies=list(dependency_entry.dependencies),
-                    sectionType=dependency_entry.sectionType,
-                    codeObjType=dependency_entry.codeObjType,
-                    controlCodeObjId=dependency_entry.controlCodeObjId,
-                )
-            ]
-        )
+        dependency_catalog = _build_text_dependency_catalog(project_state)
+        dependency_entry = dependency_catalog.entries[0]
         dependency_values = ListenerRenderedDependencyValues(
             entries=[
                 ListenerRenderedDependencyValue(
@@ -1525,7 +1511,9 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        runtime_state = build_listener_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state_from_catalog(
+            _build_text_dependency_catalog(project_state)
+        )
         listener._runtime_state = runtime_state
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = {"Welcome": "Hello"}
@@ -1941,7 +1929,9 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        runtime_state = build_listener_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state_from_catalog(
+            _build_text_dependency_catalog(project_state)
+        )
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
         listener._latest_dependency_catalog = runtime_state.dependency_catalog
 
@@ -1960,7 +1950,9 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        runtime_state = build_listener_runtime_state(project_state)
+        runtime_state = build_listener_runtime_state_from_catalog(
+            _build_text_dependency_catalog(project_state)
+        )
         dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
         listener._latest_dependency_catalog = runtime_state.dependency_catalog
