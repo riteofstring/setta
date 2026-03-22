@@ -145,6 +145,68 @@ func TestServiceConnectWorkspaceSessionStartsRemoteSettaWhenNoSessionExists(t *t
 	waitForProcessExit(t, readPIDFile(t, pidFile))
 }
 
+func TestServicePrepareConnectWorkspaceSessionLatestSelectsNewestSessionAfterStartWait(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	startMarker := filepath.Join(t.TempDir(), "remote-started.txt")
+	older := createSSHStubSessionWithModeAt(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		string(RemoteServerModeIDE),
+		time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+	)
+	newer := createSSHStubSessionWithModeAt(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		string(RemoteServerModeIDE),
+		time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC),
+	)
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, "")
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+	t.Setenv("SETTA_SSH_STUB_START_MARKER_FILE", startMarker)
+	t.Setenv("SETTA_SSH_STUB_NO_SESSIONS_BEFORE_START", "1")
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	result, err := service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+		Latest:    true,
+		Timeout:   5 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("prepare connect workspace session with latest selection: %v", err)
+	}
+	if !result.StartedNew {
+		t.Fatal("expected prepare-connect to start remote Setta when no sessions were visible initially")
+	}
+	if result.InitialSessionCount != 0 {
+		t.Fatalf("expected initial session count 0 after wait path, got %d", result.InitialSessionCount)
+	}
+	if _, err := os.Stat(startMarker); err != nil {
+		t.Fatalf("expected remote start marker to exist: %v", err)
+	}
+	if result.Session.ID != newer.ID {
+		t.Fatalf("expected newest session id %q after wait, got %q (older session was %q)", newer.ID, result.Session.ID, older.ID)
+	}
+
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "status --connect-info --json --workspace /remote/workspace --session "+newer.ID) {
+		t.Fatalf("expected connect-info lookup for newest session %q, got %q", newer.ID, commandLog)
+	}
+}
+
 func TestServiceRollbackRemoteWorkspaceLaunchDeletesRemoteSessionAndTunnel(t *testing.T) {
 	repoRoot := testRepoRoot(t)
 	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
@@ -582,6 +644,90 @@ func TestServiceStartRemoteSettaUsesUniqueNohupLogFile(t *testing.T) {
 	}
 }
 
+func TestServiceStartRemoteSettaThreadsGlobalSettaFilesLocationIntoRemoteLogsDir(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, "")
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	if err := service.startRemoteSetta(
+		"user@host",
+		nil,
+		"bash",
+		"/remote/workspace",
+		"setta",
+		"",
+		SSHCommandPrefix(true, stubPath),
+		"global",
+		"",
+		"",
+	); err != nil {
+		t.Fatalf("start remote setta with global state: %v", err)
+	}
+
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "mkdir -p /tmp &&") {
+		t.Fatalf("expected global logs dir creation under /tmp, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, "> /tmp/nohup-") {
+		t.Fatalf("expected nohup log file under /tmp for global state, got %q", commandLog)
+	}
+}
+
+func TestServiceWaitForRemoteSessionsTimeoutIncludesResolvedRemoteLogsDir(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	if err := os.MkdirAll(sessionsRoot, 0o755); err != nil {
+		t.Fatalf("create empty sessions root: %v", err)
+	}
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, "")
+	currentTime := time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+		Now: func() time.Time {
+			return currentTime
+		},
+		Sleep: func(duration time.Duration) {
+			currentTime = currentTime.Add(duration)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.waitForRemoteSessions(
+		"user@host",
+		nil,
+		"bash",
+		"/remote/workspace",
+		"setta",
+		"",
+		SSHCommandPrefix(true, stubPath),
+		time.Second,
+		"global",
+		"",
+		"",
+		RemoteServerModeIDE,
+	)
+	requireSSHErrorCode(t, err, "RemoteLaunchTimeout")
+	if err.Error() != "Timed out waiting for remote Setta session to start. Check logs under: /tmp" {
+		t.Fatalf("unexpected timeout error %q", err.Error())
+	}
+}
+
 func TestServiceStartRemoteSettaPropagatesSshMissing(t *testing.T) {
 	service, err := NewService(ServiceOptions{
 		RuntimeRoot: t.TempDir(),
@@ -666,9 +812,17 @@ func createSSHStubSession(t *testing.T, sessionsRoot string, workspaceRoot strin
 
 func createSSHStubSessionWithMode(t *testing.T, sessionsRoot string, workspaceRoot string, serverMode string) auth.SessionMetadata {
 	t.Helper()
+	return createSSHStubSessionWithModeAt(t, sessionsRoot, workspaceRoot, serverMode, time.Now().UTC())
+}
+
+func createSSHStubSessionWithModeAt(t *testing.T, sessionsRoot string, workspaceRoot string, serverMode string, startedAt time.Time) auth.SessionMetadata {
+	t.Helper()
 
 	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
 		SessionsRoot: sessionsRoot,
+		Now: func() time.Time {
+			return startedAt
+		},
 	})
 	if err != nil {
 		t.Fatalf("new session registry: %v", err)
