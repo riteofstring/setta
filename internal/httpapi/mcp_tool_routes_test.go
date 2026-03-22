@@ -367,6 +367,75 @@ func TestMCPToolCallRouteReportStateMachineSignalUsesBodyRunContext(t *testing.T
 	}
 }
 
+func TestMCPToolCallRouteReportStateMachineSignalForwardsShareSessionID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	provider := &routeStateMachineRunProvider{
+		report: map[string]any{
+			"status":          "ok",
+			"machineRunId":    "machine-1",
+			"childRunId":      "child-run-1",
+			"sourceSectionId": "chat-section",
+			"signalName":      "merge_decision",
+		},
+	}
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		SectionNames:     routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:   diagnostics,
+		StateMachineRuns: provider,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"report_state_machine_signal",
+		"arguments":{
+			"signalName":"merge_decision",
+			"sectionId":"chat-section",
+			"payload":{"decision":"retry"}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"runId":"child-run-1",
+			"shareSessionId":"share-session-a",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected report_state_machine_signal success, got %#v", payload.StructuredContent)
+	}
+	if provider.shareSessionID == nil || *provider.shareSessionID != "share-session-a" {
+		t.Fatalf("expected share-session-a share session id, got %#v", provider.shareSessionID)
+	}
+}
+
 func TestMCPToolCallRouteReportStateMachineSignalRequiresActiveChildRun(t *testing.T) {
 	t.Parallel()
 
@@ -5720,6 +5789,71 @@ func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	docs := mustStructuredListForRoute(t, docsResult["docs"])
 	if len(docs) != 4 {
 		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+}
+
+func TestMCPToolCallRouteReturnsStructuredToolErrorsWithHTTP200(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	invalidResponse := postMCPToolRoute(t, handler, `{
+		"tool":"search_mcp_tools",
+		"arguments":{"query":"   "}
+	}`)
+	if invalidResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", invalidResponse.Code, invalidResponse.Body.String())
+	}
+	invalidPayload := decodeCallToolRouteResult(t, invalidResponse.Body.Bytes())
+	if !invalidPayload.IsError {
+		t.Fatalf("expected blank search_mcp_tools call to fail, got %#v", invalidPayload.StructuredContent)
+	}
+	invalidStructured := mustStructuredMapForRoute(t, invalidPayload.StructuredContent)
+	if invalidStructured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", invalidStructured["code"])
+	}
+
+	internalResponse := postMCPToolRoute(t, handler, `{
+		"tool":"getInstalledPythonPackages",
+		"arguments":{}
+	}`)
+	if internalResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", internalResponse.Code, internalResponse.Body.String())
+	}
+	internalPayload := decodeCallToolRouteResult(t, internalResponse.Body.Bytes())
+	if !internalPayload.IsError {
+		t.Fatalf("expected getInstalledPythonPackages without runtime to fail, got %#v", internalPayload.StructuredContent)
+	}
+	internalStructured := mustStructuredMapForRoute(t, internalPayload.StructuredContent)
+	if internalStructured["code"] != "internal_error" {
+		t.Fatalf("expected internal_error code, got %#v", internalStructured["code"])
 	}
 }
 

@@ -55,7 +55,7 @@ func newReportStateMachineSignalHandler(runtime stateMachineRunProvider) tools.H
 			firstNonEmptyOptionalString(sectionID, contextSectionID),
 			signalName,
 			payload,
-			nil,
+			optionalStringPointer(invocation.AgenticContext.ShareSessionID),
 		)
 		if err != nil {
 			return nil, stateMachineSignalToolError(err)

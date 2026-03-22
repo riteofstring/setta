@@ -144,6 +144,53 @@ func TestServerReportStateMachineSignalUsesScopedRunContext(t *testing.T) {
 	}
 }
 
+func TestServerReportStateMachineSignalForwardsShareSessionID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	provider := &recordingStateMachineRunProvider{}
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		LSPDiagnostics:   openScopedTestLSPDiagnosticsRegistry(),
+		StateMachineRuns: provider,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"shareSessionId":  "share-session-a",
+			"runId":           "child-run-1",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "report_state_machine_signal",
+		Arguments: map[string]any{
+			"signalName": "merge_decision",
+			"sectionId":  "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call report_state_machine_signal: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected report_state_machine_signal success, got %#v", result.StructuredContent)
+	}
+	if provider.shareSessionID == nil || *provider.shareSessionID != "share-session-a" {
+		t.Fatalf("expected share-session-a share session id, got %#v", provider.shareSessionID)
+	}
+}
+
 func TestServerReportStateMachineSignalRequiresActiveChildRun(t *testing.T) {
 	t.Parallel()
 

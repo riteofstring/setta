@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -323,6 +324,190 @@ func TestMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	}
 	if revealService.input.ShareSessionID != "share-session-1" {
 		t.Fatalf("expected share session id to be forwarded, got %q", revealService.input.ShareSessionID)
+	}
+}
+
+func TestMCPToolCallRouteRevealUISettingTrimsFrontendAffinityToken(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	revealService := &routeRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-trimmed-affinity",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:    workspaceRoot,
+		ProjectState:     projectRuntime,
+		SectionNames:     routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:   diagnostics,
+		UISettingReveals: revealService,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"reveal_ui_setting",
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.show_param_display_names"},
+		"agenticContext":{"projectConfigId":"project-alpha","shareSessionId":"share-session-1","chatId":"chat-1","sectionId":"chat-section","frontendAffinityToken":"  frontend-token  "}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", payload.StructuredContent)
+	}
+	if revealService.input.FrontendAffinityToken != "frontend-token" {
+		t.Fatalf("expected trimmed frontend affinity token, got %q", revealService.input.FrontendAffinityToken)
+	}
+}
+
+func TestMCPToolCallRouteRevealUISettingIgnoresBlankFrontendAffinityToken(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	revealService := &routeRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-blank-affinity",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:    workspaceRoot,
+		ProjectState:     projectRuntime,
+		SectionNames:     routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:   diagnostics,
+		UISettingReveals: revealService,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"reveal_ui_setting",
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.show_param_display_names"},
+		"agenticContext":{"projectConfigId":"project-alpha","shareSessionId":"share-session-1","chatId":"chat-1","sectionId":"chat-section","frontendAffinityToken":"   "}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", payload.StructuredContent)
+	}
+	if revealService.input.FrontendAffinityToken != "" {
+		t.Fatalf("expected blank frontend affinity token to be ignored, got %q", revealService.input.FrontendAffinityToken)
+	}
+}
+
+func TestMCPToolCallRouteGetUISettingRejectsProjectArgumentMismatch(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"get_ui_setting_value",
+		"arguments":{"projectConfigId":"project-beta","settingId":"core.watch_code.enabled"},
+		"agenticContext":{"projectConfigId":"project-alpha","chatId":"chat-1","sectionId":"chat-section","allowUnscoped":true}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatalf("expected get_ui_setting_value mismatch to fail, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
+	}
+	message, _ := structured["message"].(string)
+	if !strings.Contains(message, "projectConfigId argument") || !strings.Contains(message, "does not match agentic context projectConfigId") {
+		t.Fatalf("expected project mismatch message, got %#v", structured["message"])
 	}
 }
 
