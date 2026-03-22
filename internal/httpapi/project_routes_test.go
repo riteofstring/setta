@@ -6502,6 +6502,139 @@ func TestRegisterProjectRoutesDeleteSectionsRejectsDeploymentStructuralChanges(t
 	}
 }
 
+func TestRegisterProjectRoutesRenameAndCodeBindingRoutesRemainIDEOnlyInDeployment(t *testing.T) {
+	t.Parallel()
+
+	assertCodeObjectNamesPreserved := func(t *testing.T, project projectstate.Project) {
+		t.Helper()
+
+		sharedChild, ok := project.CodeObjs["shared-child"]
+		if !ok {
+			t.Fatalf("expected shared-child code object, got %#v", project.CodeObjs)
+		}
+		if sharedChild.Name != "child" {
+			t.Fatalf("expected shared-child name child, got %#v", sharedChild)
+		}
+		if sharedChild.DisplayName != "" {
+			t.Fatalf("expected shared-child display name to stay empty, got %#v", sharedChild)
+		}
+	}
+
+	assertSectionRenameAndBindingPreserved := func(t *testing.T, project projectstate.Project) {
+		t.Helper()
+
+		codeSection, ok := project.Sections["code-section"]
+		if !ok {
+			t.Fatalf("expected code-section, got %#v", project.Sections)
+		}
+		if codeSection.Name != "Code Section" {
+			t.Fatalf("expected code-section name Code Section, got %#v", codeSection)
+		}
+
+		_, _, impl, err := project.ResolveSection("code-section")
+		if err != nil {
+			t.Fatalf("resolve code-section: %v", err)
+		}
+		if impl.Code == nil || impl.Code.Binding == nil {
+			t.Fatalf("expected code-section binding to remain present, got %#v", impl.Code)
+		}
+		if impl.Code.Binding.Path != "pkg/original.py" {
+			t.Fatalf("expected code-section binding path pkg/original.py, got %#v", impl.Code.Binding)
+		}
+		if impl.Code.Binding.AccessMode != projectstate.CodeFileAccessModeReadWrite {
+			t.Fatalf("expected code-section binding access mode read_write, got %#v", impl.Code.Binding)
+		}
+	}
+
+	testCases := []struct {
+		name            string
+		project         func(*testing.T) projectstate.Project
+		route           string
+		body            string
+		assertPreserved func(*testing.T, projectstate.Project)
+	}{
+		{
+			name:            "set_code_obj_name",
+			project:         passwordParamRouteTestProject,
+			route:           RouteSetCodeObjName,
+			body:            `{"projectConfigId":"project-alpha","codeObjId":"shared-child","name":"renamed_key","frontendOpId":"frontend-op-code-obj-name"}`,
+			assertPreserved: assertCodeObjectNamesPreserved,
+		},
+		{
+			name:            "set_code_obj_display_name",
+			project:         passwordParamRouteTestProject,
+			route:           RouteSetCodeObjDisplayName,
+			body:            `{"projectConfigId":"project-alpha","codeObjId":"shared-child","displayName":"Renamed Key","frontendOpId":"frontend-op-code-obj-display"}`,
+			assertPreserved: assertCodeObjectNamesPreserved,
+		},
+		{
+			name:            "set_code_file_binding",
+			project:         codeFileBindingRouteTestProject,
+			route:           RouteSetCodeFileBinding,
+			body:            `{"projectConfigId":"project-alpha","sectionId":"code-section","binding":{"canonical_path":"pkg/renamed.py","access_mode":"read_only"}}`,
+			assertPreserved: assertSectionRenameAndBindingPreserved,
+		},
+		{
+			name:            "set_section_name",
+			project:         codeFileBindingRouteTestProject,
+			route:           RouteSetSectionName,
+			body:            `{"projectConfigId":"project-alpha","sectionId":"code-section","name":"Renamed Section","frontendOpId":"frontend-op-section-name"}`,
+			assertPreserved: assertSectionRenameAndBindingPreserved,
+		},
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			for _, tc := range testCases {
+				t.Run(tc.name, func(t *testing.T) {
+					deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+						Mode: mode,
+						Document: projectstate.Document{
+							SchemaVersion:    projectstate.CurrentSchemaVersion,
+							DefaultProjectID: "project-alpha",
+							Projects: map[string]projectstate.Project{
+								"project-alpha": tc.project(t),
+							},
+						},
+						Policy: map[string]any{
+							"allowLayoutChanges":  true,
+							"allowParamChanges":   true,
+							"allowVariantChanges": true,
+							"allowRun":            true,
+						},
+					})
+					if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+						t.Fatalf("create deployment session: %v", err)
+					}
+
+					handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+					request := httptest.NewRequest(http.MethodPost, "/api"+tc.route, strings.NewReader(tc.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s in %s mode, got %d with body %q", tc.route, mode, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+						t.Fatalf("expected mode_forbidden for %s in %s mode, got %q", tc.route, mode, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+						t.Fatalf("expected deployment-mode denial detail for %s in %s mode, got %q", tc.route, mode, response.Body.String())
+					}
+
+					overlay, err := deploymentRuntime.Overlay("share-a")
+					if err != nil {
+						t.Fatalf("deployment overlay: %v", err)
+					}
+					tc.assertPreserved(t, overlay.Snapshot().Document.Projects["project-alpha"])
+					tc.assertPreserved(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"])
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
