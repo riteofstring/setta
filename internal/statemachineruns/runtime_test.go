@@ -29,6 +29,9 @@ func (s *recordingManagedChatStarter) StartChat(request managedchat.StartChatReq
 	index := s.calls
 	s.calls++
 	chatID := s.nextChatID(index)
+	if request.ChatID != nil && strings.TrimSpace(*request.ChatID) != "" {
+		chatID = strings.TrimSpace(*request.ChatID)
+	}
 	runID := s.nextRunID(index)
 	run := agentruns.NewRun(nil, map[string]any{
 		"runType":         managedchat.RunTypeManagedChat,
@@ -209,6 +212,77 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 		"start_edge_actions_dispatched",
 	}) {
 		t.Fatalf("expected start dispatch event sequence, got %#v", got)
+	}
+}
+
+func TestRuntimeStartRunResetThreadClearsChatAndStopsRunningRun(t *testing.T) {
+	t.Parallel()
+
+	project := stateMachineRuntimeTestProject(t)
+	project.StateMachineEdges[0].TargetAction = &projectstate.StateMachineTargetAction{
+		Type:          projectstate.StateMachineTargetActionTypeResetThread,
+		StopIfRunning: true,
+	}
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		project,
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+
+	if _, err := fixture.projectRuntime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", stringPointer("chat-reset-target")); err != nil {
+		t.Fatalf("seed chat-section chat id: %v", err)
+	}
+	existingRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-reset-target",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+	}, testNow())
+	existingRun.ID = "existing-chat-run"
+	existingRun.Status = agentruns.RunStatusRunning
+	if err := fixture.runs.Save(existingRun); err != nil {
+		t.Fatalf("save running chat run: %v", err)
+	}
+
+	run, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+	if got := fixture.managedStopper.stopped; !slices.Equal(got, []string{"existing-chat-run"}) {
+		t.Fatalf("expected running chat cancellation for reset_thread, got %#v", got)
+	}
+	chatID, err := fixture.projectRuntime.ChatSectionChatID("project-alpha", "chat-section")
+	if err != nil {
+		t.Fatalf("ChatSectionChatID returned error: %v", err)
+	}
+	if chatID != nil {
+		t.Fatalf("expected cleared chat-section chat id, got %#v", chatID)
+	}
+	if got := outputListOfMaps(run, outputKeyDispatchedStartActions); len(got) != 1 {
+		t.Fatalf("expected one reset_thread dispatched action, got %#v", got)
+	} else if !slices.Equal(eventTypes(run), []string{
+		"run_started",
+		"graph_resolved",
+		"start_edges_activated",
+		"start_edge_action_reset",
+		"start_edge_actions_dispatched",
+	}) {
+		t.Fatalf("expected reset_thread start events, got %#v", eventTypes(run))
+	} else {
+		if len(got[0]) != 5 {
+			t.Fatalf("expected five reset_thread action fields, got %#v", got[0])
+		}
+		if got[0]["edgeId"] != "edge-start-chat" || got[0]["actionType"] != "reset_thread" || got[0]["targetSectionId"] != "chat-section" {
+			t.Fatalf("unexpected reset_thread action identity, got %#v", got[0])
+		}
+		if got[0]["clearedChatId"] != "chat-reset-target" || got[0]["stoppedRunId"] != "existing-chat-run" {
+			t.Fatalf("unexpected reset_thread action metadata, got %#v", got[0])
+		}
+	}
+	if got := outputMap(run, outputKeyOwnedChatBindings); len(got) != 0 {
+		t.Fatalf("expected no owned chat binding after reset_thread, got %#v", got)
 	}
 }
 
@@ -706,6 +780,75 @@ func TestRuntimeResetMachineClearsOwnedChatBinding(t *testing.T) {
 	}
 	if chatID != nil {
 		t.Fatalf("expected cleared chat binding, got %#v", chatID)
+	}
+}
+
+func TestRuntimeResetMachinePreservesContinueCurrentThreadBinding(t *testing.T) {
+	t.Parallel()
+
+	project := stateMachineRuntimeTestProject(t)
+	project.StateMachineEdges[0].TargetAction.ThreadStrategy = projectstate.StateMachineThreadStrategyContinueCurrentThread
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		project,
+		nil,
+		[]string{"chat-continue-current"},
+		[]string{"child-run-1"},
+	)
+
+	if _, err := fixture.projectRuntime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", stringPointer("chat-continue-current")); err != nil {
+		t.Fatalf("seed chat-section chat id: %v", err)
+	}
+	if _, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil); err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	resetRun, err := fixture.runtime.ResetMachine("project-alpha", "workflow-a", nil)
+	if err != nil {
+		t.Fatalf("ResetMachine returned error: %v", err)
+	}
+	if resetRun == nil {
+		t.Fatal("expected reset parent run")
+	}
+	chatID, err := fixture.projectRuntime.ChatSectionChatID("project-alpha", "chat-section")
+	if err != nil {
+		t.Fatalf("ChatSectionChatID returned error: %v", err)
+	}
+	if chatID == nil || *chatID != "chat-continue-current" {
+		t.Fatalf("expected continue-current-thread binding to survive reset, got %#v", chatID)
+	}
+	if got := outputMap(*resetRun, outputKeyOwnedChatBindings); len(got) != 0 {
+		t.Fatalf("expected no owned chat binding for continue_current_thread reuse, got %#v", got)
+	}
+}
+
+func TestRuntimeResetMachinePreservesManualChatSwitchAfterOwnedThread(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRuntimeFixture(t)
+	if _, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil); err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+	if _, err := fixture.projectRuntime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", stringPointer("manual-chat")); err != nil {
+		t.Fatalf("switch chat-section chat id manually: %v", err)
+	}
+
+	resetRun, err := fixture.runtime.ResetMachine("project-alpha", "workflow-a", nil)
+	if err != nil {
+		t.Fatalf("ResetMachine returned error: %v", err)
+	}
+	if resetRun == nil {
+		t.Fatal("expected reset parent run")
+	}
+	if got := fixture.managedStopper.stopped; !slices.Equal(got, []string{"child-run-1"}) {
+		t.Fatalf("expected active child run cancellation during reset, got %#v", got)
+	}
+	chatID, err := fixture.projectRuntime.ChatSectionChatID("project-alpha", "chat-section")
+	if err != nil {
+		t.Fatalf("ChatSectionChatID returned error: %v", err)
+	}
+	if chatID == nil || *chatID != "manual-chat" {
+		t.Fatalf("expected manual chat switch to survive reset, got %#v", chatID)
 	}
 }
 

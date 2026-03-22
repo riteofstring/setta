@@ -1202,7 +1202,15 @@ func (r *Runtime) dispatchChatEdge(
 		return nil, err
 	}
 	if targetAction.Type == projectstate.StateMachineTargetActionTypeResetThread {
-		if currentChatID != nil && r.stopChatIfRunning(*currentChatID, projectConfigID) != nil {
+		var stoppedRunID any
+		var clearedChatID any
+		if currentChatID != nil {
+			clearedChatID = *currentChatID
+		}
+		if currentChatID != nil && targetAction.StopIfRunning {
+			if stoppedRun := r.stopChatIfRunning(*currentChatID, projectConfigID); stoppedRun != nil {
+				stoppedRunID = stoppedRun.ID
+			}
 		}
 		if _, err := projectRuntime.SetChatSectionChatID(r.baseContext, projectConfigID, edge.TargetSectionID, nil); err != nil {
 			return nil, err
@@ -1212,7 +1220,8 @@ func (r *Runtime) dispatchChatEdge(
 			"edgeId":          edge.ID,
 			"actionType":      string(targetAction.Type),
 			"targetSectionId": edge.TargetSectionID,
-			"threadStrategy":  string(targetAction.ThreadStrategy),
+			"clearedChatId":   clearedChatID,
+			"stoppedRunId":    stoppedRunID,
 		}, nil
 	}
 	dispatch, err := r.dispatchChatEdgeWithCurrentChatID(projectRuntime, run, graph, edge, targetSection, projectConfigID, shareSessionID, currentChatID)
