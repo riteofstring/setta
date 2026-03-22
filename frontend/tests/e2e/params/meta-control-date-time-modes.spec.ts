@@ -4,6 +4,7 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -141,10 +142,9 @@ test("meta control time defaults to display and can switch to input mode", async
       paramInfoId,
       value: "13:45",
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
     await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
@@ -158,6 +158,7 @@ test("meta control time defaults to display and can switch to input mode", async
         timeDisplayFormat: "twelve_hour",
       },
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
 
     const timeInput = sectionNode.locator('input[type="time"]');
     await expect(timeInput).toBeVisible();
@@ -172,6 +173,7 @@ test("meta control time defaults to display and can switch to input mode", async
         timeDisplayFormat: "twelve_hour",
       },
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
     await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
     await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
 
@@ -184,6 +186,7 @@ test("meta control time defaults to display and can switch to input mode", async
         timeDisplayFormat: "twelve_hour",
       },
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
     await expect(timeInput).toBeVisible();
     await expect(timeInput).toHaveValue("13:45");
   } finally {
@@ -237,10 +240,9 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
       paramInfoId,
       value: '["2026-02-01","2026-02-03"]',
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
     await expect(
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
@@ -261,6 +263,7 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
         dateCalendarWeekStart: "monday",
       },
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
     await expect(sectionNode.locator('input[type="text"]')).toBeVisible();
     await expect(
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
@@ -276,6 +279,7 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
         dateCalendarWeekStart: "monday",
       },
     });
+    await refreshProjectStateFromBackend(page, context.projectConfigId);
     await expect(
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
     ).toBeVisible();

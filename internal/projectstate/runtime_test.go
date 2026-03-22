@@ -334,6 +334,98 @@ func TestRuntimeMutateAndSavePersistsLatestQueuedMutation(t *testing.T) {
 	}
 }
 
+func TestRuntimeMutateAndSavePreservesPasswordSecretStoreAcrossMutations(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	secrets := NewMemoryPasswordSecretStore()
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PasswordSecrets: secrets,
+	})
+
+	var projectID string
+	var sectionID string
+	var paramID string
+	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		createdProjectID, _, err := document.CreateProject("bg-blue-500/60 dark:bg-blue-600/30")
+		if err != nil {
+			return document, err
+		}
+		projectID = createdProjectID
+		return document, nil
+	}); err != nil {
+		t.Fatalf("create project through runtime: %v", err)
+	}
+
+	snapshot, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		project, err := document.ProjectByID(projectID)
+		if err != nil {
+			return document, err
+		}
+
+		createdSection, err := project.CreateTopLevelSection(
+			CreateTopLevelSectionInput{ImplType: "Dict"},
+			DefaultStructuralMutationSettings(),
+		)
+		if err != nil {
+			return document, err
+		}
+		sectionID = createdSection.SectionID
+
+		addedParam, err := project.AddKwarg(createdSection.SectionID)
+		if err != nil {
+			return document, err
+		}
+		paramID = addedParam.CodeObjID
+		if err := project.SetCodeObjectName(addedParam.CodeObjID, "secret_value"); err != nil {
+			return document, err
+		}
+		if err := project.SetSectionCodeObjectValue(
+			createdSection.SectionID,
+			addedParam.CodeObjID,
+			"open-sesame",
+		); err != nil {
+			return document, err
+		}
+		if err := project.ChangeParamImpl(
+			createdSection.SectionID,
+			addedParam.CodeObjID,
+			"PasswordParam",
+		); err != nil {
+			return document, err
+		}
+
+		document.Projects[projectID] = project
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("change dict param to password through runtime: %v", err)
+	}
+
+	project, err := snapshot.Document.ProjectByID(projectID)
+	if err != nil {
+		t.Fatalf("project by id after password mutation: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject(sectionID, paramID)
+	if err != nil {
+		t.Fatalf("resolve password param after runtime mutation: %v", err)
+	}
+	if paramImpl.Type != "PasswordParam" {
+		t.Fatalf("expected PasswordParam impl after runtime mutation, got %q", paramImpl.Type)
+	}
+	if !payloadBoolField(paramPayload, "hasSecret") {
+		t.Fatalf("expected password param hasSecret true after runtime mutation, got %#v", paramPayload)
+	}
+
+	secret, err := secrets.Get(paramImpl.ID)
+	if err != nil {
+		t.Fatalf("read password secret after runtime mutation: %v", err)
+	}
+	if secret != "open-sesame" {
+		t.Fatalf("expected migrated password secret open-sesame, got %q", secret)
+	}
+}
+
 func TestRuntimeSaveRunsAfterSaveHookWithLatestSnapshot(t *testing.T) {
 	t.Parallel()
 

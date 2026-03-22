@@ -79,6 +79,7 @@ func NewDocument() Document {
 
 func (d Document) Clone() Document {
 	cloned := d
+	cloned.passwordSecrets = d.passwordSecrets
 	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
 	if d.AppDefinition != nil {
 		appDefinition := d.AppDefinition.Clone()

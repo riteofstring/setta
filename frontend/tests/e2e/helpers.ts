@@ -1028,6 +1028,7 @@ export async function createCallableSection(
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating callable section.");
   }
+  await refreshProjectStateFromBackend(page, projectConfigId);
   return response.sectionId;
 }
 

@@ -5,6 +5,7 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 type CreateSectionResponse = { sectionId?: string };
@@ -44,6 +45,7 @@ async function addSingleKwargAndReturnId(
   sectionId: string,
 ): Promise<string> {
   await postBackend(page, "/addKwarg", { projectConfigId, sectionId });
+  await refreshProjectStateFromBackend(page, projectConfigId);
 
   const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
   const paramContainer = sectionNode.locator(
@@ -85,6 +87,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
         edgeInputParams: [paramId],
       });
+      await refreshProjectStateFromBackend(page, projectConfigId);
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       const handle = page.locator(
@@ -140,6 +143,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
         edgeInputParams: [paramId],
       });
+      await refreshProjectStateFromBackend(page, projectConfigId);
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       const edgeRow = sectionNode.locator(
@@ -216,6 +220,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
         edgeInputParams: [paramId],
       });
+      await refreshProjectStateFromBackend(page, projectConfigId);
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       const edgeRow = sectionNode.locator(

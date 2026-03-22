@@ -1,29 +1,31 @@
 import { expect, test } from "@playwright/test";
 import {
+  cleanupIsolatedProject,
   ensureAppReady,
   createCallableSection,
-  getCurrentProjectConfigId,
+  openIsolatedProject,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
 
 test("callable params render after set_callable", async ({ page }) => {
   await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const sectionId = await createCallableSection(page, projectConfigId);
+  const projectContext = await openIsolatedProject(page);
+  const sectionId = await createCallableSection(page, projectContext.projectConfigId);
 
   try {
-    await postBackend(page, "/setCallable", {
-      projectConfigId,
+    const setCallableResponse = await postBackend(page, "/setCallable", {
+      projectConfigId: projectContext.projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
+    await expect(setCallableResponse).toMatchObject({ lspStatus: "matched" });
+    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
     const paramContainer = sectionNode.locator(
@@ -62,8 +64,9 @@ test("callable params render after set_callable", async ({ page }) => {
       .toBe(true);
   } finally {
     await postBackend(page, "/deleteSections", {
-      projectConfigId,
+      projectConfigId: projectContext.projectConfigId,
       sectionIds: [sectionId],
     });
+    await cleanupIsolatedProject(page, projectContext);
   }
 });

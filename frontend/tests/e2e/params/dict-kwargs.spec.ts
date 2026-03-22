@@ -4,6 +4,7 @@ import {
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   postBackend,
+  refreshProjectStateFromBackend,
 } from "../helpers";
 
 test("dict kwargs render after add_kwarg", async ({ page }) => {
@@ -32,10 +33,9 @@ test("dict kwargs render after add_kwarg", async ({ page }) => {
       projectConfigId,
       sectionId,
     });
+    await refreshProjectStateFromBackend(page, projectConfigId);
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
     const paramContainer = sectionNode.locator(
