@@ -205,6 +205,7 @@ test("project ai shows styled empty state when no threads exist", async ({
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
+    const projectChatSurface = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(
       threadsPanel.getByTestId("project-chat-threads-empty-state"),
@@ -217,11 +218,7 @@ test("project ai shows styled empty state when no threads exist", async ({
     );
     await expect(startNewThreadButton).toBeVisible();
     await startNewThreadButton.click();
-    await expect(
-      (await getVisibleProjectChatSurface(page)).getByPlaceholder(
-        "Type a message...",
-      ),
-    ).toBeVisible();
+    await expect(projectChatSurface.getByTestId("chat-input-textarea")).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
