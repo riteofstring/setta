@@ -14,7 +14,6 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     SettaListener,
 )
-from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.types.binary_content import BinaryContentRef
 from setta.types.code_obj_impls import (
     CodeObjType,
@@ -66,8 +65,6 @@ from tests.helpers.listener_runtime_state import (
 )
 from tests.helpers.listener_runtime_state_graph import (
     build_listener_dependency_cache,
-    build_listener_dependency_catalog_from_graph,
-    build_listener_dependency_metadata_from_graph,
     build_listener_runtime_state,
 )
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
@@ -1168,27 +1165,6 @@ class TestSettaListenerRealtimeIntegration:
                 (state.section__switch, ctx.changed["section__switch"])
             )
 
-        slider_node = ParamNode(
-            id=PARAM_SLIDER_ID,
-            name="slider",
-            full_path_name="section__slider",
-            type=CodeObjType.SliderParam,
-            isTopLevel=True,
-            value=LiteralDependencyValue("1"),
-            deps={},
-            passing_style=ParameterPassingStyle.DEFAULT,
-        )
-        switch_node = ParamNode(
-            id=PARAM_SWITCH_ID,
-            name="switch",
-            full_path_name="section__switch",
-            type=CodeObjType.SwitchParam,
-            isTopLevel=True,
-            value=LiteralDependencyValue("false"),
-            deps={},
-            passing_style=ParameterPassingStyle.DEFAULT,
-        )
-
         slider_key = create_dep_key(
             sectionId=SECTION_ONE_ID,
             codeObjId=PARAM_SLIDER_ID,
@@ -1197,27 +1173,30 @@ class TestSettaListenerRealtimeIntegration:
             sectionId=SECTION_ONE_ID,
             codeObjId=PARAM_SWITCH_ID,
         )
-        graph = {
-            slider_key: slider_node,
-            switch_key: switch_node,
-        }
-
-        dep_graph = cast(
-            "DependencyGraph",
-            SimpleNamespace(
-                graph=graph,
-                full_path_name_to_dep_key={
-                    slider_node.full_path_name: slider_key,
-                    switch_node.full_path_name: switch_key,
-                },
-            ),
+        catalog = ListenerDependencyCatalog(
+            entries=[
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=slider_key,
+                    name="slider",
+                    fullPathName="section__slider",
+                    codeObjType=CodeObjType.SliderParam,
+                    passingStyle=ParameterPassingStyle.DEFAULT,
+                    valueRepresentation=CodeObjValueRepresentationMode.expression,
+                ),
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=switch_key,
+                    name="switch",
+                    fullPathName="section__switch",
+                    codeObjType=CodeObjType.SwitchParam,
+                    passingStyle=ParameterPassingStyle.DEFAULT,
+                    valueRepresentation=CodeObjValueRepresentationMode.expression,
+                ),
+            ]
         )
         listener._runtime_state = ListenerTestRuntimeState(
-            dependency_metadata=build_listener_dependency_metadata_from_graph(
-                dep_graph
-            ),
-            dependency_catalog=build_listener_dependency_catalog_from_graph(dep_graph),
-            dependency_graph=dep_graph,
+            dependency_metadata=ListenerDependencyMetadata.from_catalog(catalog),
+            dependency_catalog=catalog,
+            dependency_graph=_GraphlessDependencyGraph(),
         )
         listener._project_config_id = PROJECT_TYPED_ID
         listener._dependency_cache = {
