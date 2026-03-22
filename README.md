@@ -59,6 +59,13 @@ package is Go:
 
 ## Docs
 
-- [docs/README.md](/Users/kevin/Documents/AppDevelopment/setta.go-rewrite/docs/README.md)
-- [CURRENT.md](/Users/kevin/Documents/AppDevelopment/setta.go-rewrite/docs/plans/go-backend-rewrite/CURRENT.md)
-- [go-rewrite-closeout-cleanup-plan.md](/Users/kevin/Documents/AppDevelopment/setta.go-rewrite/docs/plans/go-backend-rewrite/go-rewrite-closeout-cleanup-plan.md)
+- [Docs overview](docs/README.md)
+- [Dev quickstart](docs/guides/dev-quickstart.md)
+- [Dev scripts](docs/guides/dev-scripts.md)
+- [Dev vs built runtime](docs/reference/dev-vs-built.md)
+- [Merge-readiness cleanup checklist](docs/plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md)
+
+Rewrite/parity cleanup work lives under
+[`docs/plans/go-backend-rewrite/`](docs/plans/go-backend-rewrite/README.md);
+that doc set is for merge-prep and retained-boundary work, not the default
+contributor entrypoint.

@@ -1,5 +1,10 @@
 # Docs Overview
 
+Start with the Guides and Reference sections for normal contributor work.
+The Go rewrite doc set under `plans/go-backend-rewrite/` is now mainly for
+merge cleanup, parity tracking, and retained Python boundary work rather than
+the general project entrypoint.
+
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
@@ -72,16 +77,19 @@
 - `notes/setta-assessment.md` – product/market assessment and positioning notes.
 
 ## Plans
-- `plans/go-backend-rewrite/README.md` – index for the Go backend rewrite planning docs.
-- `plans/go-backend-rewrite/CURRENT.md` – entrypoint for the current live rewrite docs, retained Python boundaries, and task routing.
-- `plans/go-backend-rewrite/go-rewrite-closeout-cleanup-plan.md` – cleanup plan for repo guidance, docs, AGENTS, and dev/build script surfaces after the Go backend rewrite.
+- `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
+- `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
+- `plans/ralph-mode.md` – planning notes for ralph mode.
+- `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
+
+## Merge Cleanup / Rewrite Closeout
+- `plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md` – concrete merge-prep checklist for front-door docs, stale references, dead-code review, and retained Python boundary cleanup.
+- `plans/go-backend-rewrite/README.md` – map for the rewrite/cleanup doc set.
+- `plans/go-backend-rewrite/CURRENT.md` – task router for parity, retained Python boundaries, and post-rewrite cleanup work.
+- `plans/go-backend-rewrite/go-rewrite-closeout-cleanup-plan.md` – narrative cleanup plan for repo guidance, docs, AGENTS, and dev/build script surfaces.
 - `plans/go-backend-rewrite/go-backend-rewrite-plan.md` – clean-break defaults and port-vs-redesign decisions for the rewrite.
 - `plans/go-backend-rewrite/testing-strategy.md` – rewrite-wide testing strategy, coverage expectations, harness model, and cross-platform testing rules.
 - `plans/go-backend-rewrite/backend-gap-closure-plan.md` – current parity-gap closure workflow and executable verification loop.
 - `plans/go-backend-rewrite/backend-behavior-parity-matrix.md` – current behavior-level parity ledger and dispositions.
 - `plans/go-backend-rewrite/unused-python-deletion-plan.md` – cleanup plan for deleting superseded Python runtime code while preserving explicit retained boundaries.
 - `plans/go-backend-rewrite/archive/README.md` – historical phase docs, spikes, and older rewrite snapshots.
-- `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
-- `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
-- `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
-- `plans/ralph-mode.md` – planning notes for ralph mode.

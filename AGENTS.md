@@ -1,5 +1,11 @@
 # Repository Guidelines
 
+## Current Ownership Model
+
+- Treat the Go code under `cmd/` and `internal/` as the canonical backend runtime.
+- Treat `backend/setta/` as a narrow retained Python package/SDK boundary, not as the default backend owner.
+- If a Python file outside the retained boundary looks unused, prove the surviving caller/replacement owner and then delete it instead of re-growing Python runtime ownership.
+
 ## Project Structure & Module Organization
 
 - `cmd/` contains the active Go entrypoints (`setta`, `setta-server`, generators, test seeders).

@@ -2,6 +2,8 @@
 
 Last updated: `2026-03-24`
 
+Execution tracker: `merge-readiness-cleanup-checklist.md`
+
 Purpose: clean up repo guidance, docs, and developer script surfaces now that
 the backend rewrite is effectively complete and Go owns the active backend
 runtime, while the packaged Python entrypoint and Python SDK remain intentional

@@ -2,10 +2,9 @@
 
 This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher to the
-packaged Go binary for the current shipped command surface. The old
-source-only Python `backend/setta/start.py` CLI has been removed. Root help,
-bare `setta plugins` / `setta plugins lock` navigation, and invalid root argv
-all resolve through the packaged Go CLI boundary.
+packaged Go binary for the current shipped command surface. Root help, bare
+`setta plugins` / `setta plugins lock` navigation, and invalid root argv all
+resolve through that packaged Go CLI boundary.
 Inside a source checkout, that same retained Python wrapper detects the repo
 root and dispatches into `./scripts/go.sh run ./cmd/setta` instead of a
 packaged binary.

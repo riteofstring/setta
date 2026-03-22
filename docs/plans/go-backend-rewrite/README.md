@@ -8,6 +8,8 @@ Use this file only as the folder map.
 
 - `CURRENT.md`
   - entrypoint, read order, retained Python boundaries, task loop
+- `merge-readiness-cleanup-checklist.md`
+  - concrete execution checklist for merge-prep cleanup batches
 - `go-rewrite-closeout-cleanup-plan.md`
   - repo/docs/script cleanup plan now that the active backend runtime is Go
     owned and the retained Python boundary is explicit

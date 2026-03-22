@@ -183,12 +183,10 @@ global handling:
 
 ## HTTP Error Handling
 
-The legacy top-level Python HTTP app in `backend/setta/server.py` used shared
-exception handlers, but that module has been removed as part of the Go rewrite.
-There is no current retained Python HTTP surface that owns backend-wide error
-handling now.
+There is no retained Python HTTP server surface that owns backend-wide error
+handling.
 
-The active main backend HTTP error handling now lives in the Go runtime.
+The active main backend HTTP error handling lives in the Go runtime.
 
 ## Websocket Error Handling
 
