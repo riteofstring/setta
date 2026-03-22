@@ -122,6 +122,7 @@ func TestBuildRunnerSummarySnapshotReturnsRunnerFacingLookupData(t *testing.T) {
 				Variants: []pythonsdkcontracts.RunnerSummaryVariant{
 					{ID: "notes-variant", Name: "Notes Variant"},
 				},
+				Params: []pythonsdkcontracts.RunnerSummaryParam{},
 			},
 			{
 				ID:             "training-section",

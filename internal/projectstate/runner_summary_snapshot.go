@@ -42,6 +42,7 @@ func BuildRunnerSummarySnapshot(document Document, projectID string) (pythonsdkc
 			Name:        section.Name,
 			DisplayName: trimmedStringPointer(section.DisplayName),
 			Variants:    variants,
+			Params:      []pythonsdkcontracts.RunnerSummaryParam{},
 		}
 		sectionType := payloadStringField(payload, "type")
 		if sectionType == "" {

@@ -600,6 +600,11 @@ Phase 7 progress:
   `.github/workflows/ci.yml`, so drift between `internal/pythonsdkcontracts`
   and the checked-in generated Python contract module fails in the default CI
   path instead of only during local focused testing
+- `internal/app` now includes a live Python-to-Go integration test for the
+  running-backend SDK path: it starts a real Go app server, runs the retained
+  Python `SettaRunner` against that server, and verifies runner summary lookups
+  across the actual auth, metadata, and runner-summary routes instead of
+  relying only on unit-level monkeypatch coverage
 
 ## Recommended First Implementation Sequence
 
