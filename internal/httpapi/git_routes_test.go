@@ -570,6 +570,17 @@ func TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff(t *testing.T) 
 		t.Fatalf("unexpected invalid revision response %q", logResponse.Body.String())
 	}
 
+	nulLogRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitLog, strings.NewReader("{\"rev\":\"HEAD\\u0000evil\",\"allRefs\":false,\"offset\":0,\"pageSize\":20}"))
+	nulLogRequest.Header.Set("Content-Type", "application/json")
+	nulLogResponse := httptest.NewRecorder()
+	handler.ServeHTTP(nulLogResponse, nulLogRequest)
+	if nulLogResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected NUL revision 400, got %d with body %q", nulLogResponse.Code, nulLogResponse.Body.String())
+	}
+	if !strings.Contains(nulLogResponse.Body.String(), "Invalid revision.") {
+		t.Fatalf("unexpected NUL revision response %q", nulLogResponse.Body.String())
+	}
+
 	commitDiffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"`+headHash+`","path":"missing.txt"}`))
 	commitDiffRequest.Header.Set("Content-Type", "application/json")
 	commitDiffResponse := httptest.NewRecorder()
@@ -580,6 +591,36 @@ func TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff(t *testing.T) 
 	if !strings.Contains(commitDiffResponse.Body.String(), "File is not part of this commit diff.") {
 		t.Fatalf("unexpected missing commit diff response %q", commitDiffResponse.Body.String())
 	}
+}
+
+func TestRegisterGitRoutesPreserveLogSubjectsContainingASCIIFieldSeparators(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	specialSubject := "subject-with-\x1f-unit-and-\x1e-record"
+	writeGitRouteFile(t, filepath.Join(repoRoot, "separator-subject.txt"), "separator\n")
+	runGitRouteCommand(t, repoRoot, "add", "separator-subject.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", specialSubject)
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+	logRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitLog, strings.NewReader(`{"rev":"HEAD","allRefs":false,"offset":0,"pageSize":20}`))
+	logRequest.Header.Set("Content-Type", "application/json")
+	logResponse := httptest.NewRecorder()
+	handler.ServeHTTP(logResponse, logRequest)
+	if logResponse.Code != http.StatusOK {
+		t.Fatalf("expected log 200, got %d with body %q", logResponse.Code, logResponse.Body.String())
+	}
+
+	var logPayload gitread.LogResponse
+	if err := json.Unmarshal(logResponse.Body.Bytes(), &logPayload); err != nil {
+		t.Fatalf("decode log payload: %v", err)
+	}
+	for _, commit := range logPayload.Commits {
+		if commit.Subject == specialSubject {
+			return
+		}
+	}
+	t.Fatalf("expected subject %q in log payload %#v", specialSubject, logPayload.Commits)
 }
 
 func TestRegisterGitRoutesRejectRepoEscapePathsAndInvalidCommitHashes(t *testing.T) {

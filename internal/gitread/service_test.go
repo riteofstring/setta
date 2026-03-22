@@ -878,6 +878,82 @@ func TestServiceLogPaginatesAndPreservesDecorations(t *testing.T) {
 	}
 }
 
+func TestServiceLogFallsBackWhenDecorateAtomIsUnexpanded(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	headHash := strings.Repeat("a", 40)
+	logOutputPath := filepath.Join(t.TempDir(), "log.out")
+	if err := os.WriteFile(
+		logOutputPath,
+		[]byte(headHash+"\x00\x00A\x00a@example.com\x001700000000\x00subject\x00%(decorate:prefix=,suffix=,separator=\x1d)\x00"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write log output: %v", err)
+	}
+	refsPath := filepath.Join(t.TempDir(), "refs.out")
+	if err := os.WriteFile(
+		refsPath,
+		[]byte(
+			headHash+"\x00\x00refs/heads/main\x00\x00\n"+
+				headHash+"\x00\x00refs/tags/release,1\x00\x00\n",
+		),
+		0o644,
+	); err != nil {
+		t.Fatalf("write refs output: %v", err)
+	}
+
+	service := newCustomGitReadService(t, workspaceRoot, []string{
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--abbrev-ref\" ]; then",
+		"      printf 'main\\n" + headHash + "\\n'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--verify\" ]; then",
+		"      printf '%s\\n' '" + headHash + "'",
+		"      exit 0",
+		"    fi",
+		"    ;;",
+		"  log)",
+		"    cat '" + logOutputPath + "'",
+		"    exit 0",
+		"    ;;",
+		"  for-each-ref)",
+		"    cat '" + refsPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+	})
+
+	response, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   0,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("log decorations fallback: %v", err)
+	}
+	if len(response.Commits) != 1 {
+		t.Fatalf("expected one commit, got %#v", response.Commits)
+	}
+	decorations := response.Commits[0].Decorations
+	if !containsString(decorations, "HEAD -> main") || !containsString(decorations, "main") || !containsString(decorations, "tag: release,1") {
+		t.Fatalf("expected fallback decorations, got %#v", decorations)
+	}
+	for _, decoration := range decorations {
+		if strings.HasPrefix(decoration, "%(decorate:prefix=,suffix=,separator=") {
+			t.Fatalf("expected unexpanded decorate atom to be replaced, got %#v", decorations)
+		}
+	}
+}
+
 func TestServiceLogRejectsInvalidRevision(t *testing.T) {
 	t.Parallel()
 
@@ -887,19 +963,36 @@ func TestServiceLogRejectsInvalidRevision(t *testing.T) {
 		t.Fatalf("new service: %v", err)
 	}
 
-	_, err = service.Log(context.Background(), LogRequest{
-		Rev:      "does-not-exist",
-		AllRefs:  false,
-		Offset:   0,
-		PageSize: 20,
-	})
-
-	var serviceErr *Error
-	if !errors.As(err, &serviceErr) {
-		t.Fatalf("expected gitread error, got %v", err)
+	testCases := []struct {
+		name            string
+		rev             string
+		expectedMessage string
+	}{
+		{name: "unknown", rev: "does-not-exist", expectedMessage: "Invalid revision: does-not-exist"},
+		{name: "option_like", rev: "-n1", expectedMessage: "Invalid revision."},
+		{name: "contains_nul", rev: "HEAD\x00evil", expectedMessage: "Invalid revision."},
 	}
-	if serviceErr.Kind != ErrorInvalidRevision || serviceErr.Message != "Invalid revision: does-not-exist" {
-		t.Fatalf("unexpected revision error %#v", serviceErr)
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := service.Log(context.Background(), LogRequest{
+				Rev:      testCase.rev,
+				AllRefs:  false,
+				Offset:   0,
+				PageSize: 20,
+			})
+
+			var serviceErr *Error
+			if !errors.As(err, &serviceErr) {
+				t.Fatalf("expected gitread error, got %v", err)
+			}
+			if serviceErr.Kind != ErrorInvalidRevision || serviceErr.Message != testCase.expectedMessage {
+				t.Fatalf("unexpected revision error %#v", serviceErr)
+			}
+		})
 	}
 }
 
