@@ -1,10 +1,63 @@
-from setta.api.listener import _hosts_equivalent
+import setta.api.listener as listener_mod
+from setta.api.listener import SettaListener
+from setta.auth.cookies import auth_cookie_name
+from setta.sessions.registry import SessionMetadata
+from setta.types.id import ID
 
 
-def test_hosts_equivalent_treats_loopback_values_as_equivalent() -> None:
-    assert _hosts_equivalent("localhost", "127.0.0.1")
-    assert _hosts_equivalent("localhost", "::1")
-    assert _hosts_equivalent("127.0.0.1", "::1")
-    assert _hosts_equivalent("127.0.0.1", "127.0.0.1")
-    assert not _hosts_equivalent("example.com", "127.0.0.1")
+def test_resolve_auth_headers_treats_loopback_values_as_equivalent(
+    monkeypatch,
+) -> None:
+    session_metadata = SessionMetadata(
+        id="sess-1",
+        workspacePath="/tmp/workspace",
+        workspacePathCanonical="/tmp/workspace",
+        host="127.0.0.1",
+        port=8000,
+        pid=123,
+        secretPath="/tmp/secret",
+        serverMode="ide",
+    )
+    monkeypatch.setattr(
+        listener_mod,
+        "load_current_session_secret",
+        lambda: (session_metadata, b"secret"),
+    )
+    monkeypatch.setattr(
+        listener_mod.AUTH_COOKIE_MANAGER,
+        "mint",
+        lambda _session_id, _secret: "cookie-value",
+    )
 
+    listener = SettaListener(project_config_id=ID("proj-1"), host="localhost", port=8000)
+
+    assert listener._resolve_auth_headers() == {
+        "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value"
+    }
+
+
+def test_resolve_auth_headers_rejects_non_loopback_host_mismatch(monkeypatch) -> None:
+    session_metadata = SessionMetadata(
+        id="sess-1",
+        workspacePath="/tmp/workspace",
+        workspacePathCanonical="/tmp/workspace",
+        host="example.com",
+        port=8000,
+        pid=123,
+        secretPath="/tmp/secret",
+        serverMode="ide",
+    )
+    monkeypatch.setattr(
+        listener_mod,
+        "load_current_session_secret",
+        lambda: (session_metadata, b"secret"),
+    )
+    monkeypatch.setattr(
+        listener_mod.AUTH_COOKIE_MANAGER,
+        "mint",
+        lambda _session_id, _secret: "cookie-value",
+    )
+
+    listener = SettaListener(project_config_id=ID("proj-1"), host="127.0.0.1", port=8000)
+
+    assert listener._resolve_auth_headers() is None

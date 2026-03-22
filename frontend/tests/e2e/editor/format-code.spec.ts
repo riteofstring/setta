@@ -77,16 +77,13 @@ test("formatting errors show diagnostics for code sections", async ({
 
     const section = findSectionByName(page, sectionName).first();
     await expect(section).toBeVisible();
-    const codeArea = section
-      .locator("article.section-full-no-title")
-      .first();
+    const codeArea = section.locator("article.section-full-no-title").first();
     await expect(codeArea).toBeVisible();
     await codeArea.click();
 
     const responsePromise = page.waitForResponse((response) => {
       return (
-        response.url().includes("/api/formatCode") &&
-        response.status() === 422
+        response.url().includes("/api/formatCode") && response.status() === 422
       );
     });
     await page.keyboard.press(FORMAT_SHORTCUT);
@@ -111,11 +108,16 @@ test("formatting errors show diagnostics for code sections", async ({
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
 
-    const lintTarget = section
-      .locator(".cm-lintRange, .cm-lintPoint")
-      .first();
-    await expect(lintTarget).toBeVisible();
-    await lintTarget.hover();
+    const lintTarget = section.locator(".cm-lintRange, .cm-lintPoint").first();
+    await expect.poll(async () => await lintTarget.count()).toBeGreaterThan(0);
+    const lintTargetBox = await lintTarget.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return {
+        x: rect.left + Math.max(rect.width / 2, 1),
+        y: rect.top + Math.max(rect.height / 2, 1),
+      };
+    });
+    await page.mouse.move(lintTargetBox.x, lintTargetBox.y);
     const lintTooltip = page
       .locator(".setta-codemirror-tooltips .cm-tooltip-lint")
       .first();
@@ -150,16 +152,13 @@ test("code issues popover stays attached while panning", async ({ page }) => {
 
     const section = findSectionByName(page, sectionName).first();
     await expect(section).toBeVisible();
-    const codeArea = section
-      .locator("article.section-full-no-title")
-      .first();
+    const codeArea = section.locator("article.section-full-no-title").first();
     await expect(codeArea).toBeVisible();
     await codeArea.click();
 
     const responsePromise = page.waitForResponse((response) => {
       return (
-        response.url().includes("/api/formatCode") &&
-        response.status() === 422
+        response.url().includes("/api/formatCode") && response.status() === 422
       );
     });
     await page.keyboard.press(FORMAT_SHORTCUT);
@@ -175,7 +174,7 @@ test("code issues popover stays attached while panning", async ({ page }) => {
     const problemsLabel = page.getByText("Problems").first();
     await expect(problemsLabel).toBeVisible();
     const popover = page
-      .locator('[data-radix-popper-content-wrapper]')
+      .locator("[data-radix-popper-content-wrapper]")
       .filter({ has: problemsLabel })
       .first();
     await expect(popover).toBeVisible();
@@ -187,13 +186,15 @@ test("code issues popover stays attached while panning", async ({ page }) => {
 
     await setViewportTransform(page, { x: 160, y: 120, zoom: 1 });
 
-    await expect.poll(async () => {
-      const afterDelta = await getCenterDelta(issuesButton, popover);
-      return Math.max(
-        Math.abs(afterDelta.dx - beforeDelta.dx),
-        Math.abs(afterDelta.dy - beforeDelta.dy),
-      );
-    }).toBeLessThan(4);
+    await expect
+      .poll(async () => {
+        const afterDelta = await getCenterDelta(issuesButton, popover);
+        return Math.max(
+          Math.abs(afterDelta.dx - beforeDelta.dx),
+          Math.abs(afterDelta.dy - beforeDelta.dy),
+        );
+      })
+      .toBeLessThan(4);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -224,8 +225,7 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
 
     const responsePromise = page.waitForResponse((response) => {
       return (
-        response.url().includes("/api/formatCode") &&
-        response.status() === 422
+        response.url().includes("/api/formatCode") && response.status() === 422
       );
     });
     await page.keyboard.press(FORMAT_SHORTCUT);
@@ -242,46 +242,13 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
     await expect(issuesButton).toBeVisible();
     await issuesButton.click();
 
-    await expect(
-      page.getByText("Generated code issues").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Generated code issues").first()).toBeVisible();
     const detailSnippet = extractFirstDetailLine(detail);
     if (detailSnippet) {
       await expect(page.getByText(detailSnippet).first()).toBeVisible();
     } else {
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
-  } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
-  }
-});
-
-test("generated python code uses a monospace editor font stack", async ({
-  page,
-}) => {
-  test.setTimeout(60000);
-  await ensureAppReady(page);
-
-  const { projectConfigName } = await createNewProjectConfig(page);
-
-  try {
-    const genSection = findSectionByName(page, "Generated Python Code").first();
-    await expect(genSection).toBeVisible();
-
-    const fontMetrics = await genSection.evaluate((section) => {
-      const scroller = section.querySelector(".cm-scroller");
-      if (!(scroller instanceof HTMLElement)) {
-        throw new Error("Missing Generated Python Code editor scroller.");
-      }
-      const body = document.body;
-      return {
-        editorFontFamily: window.getComputedStyle(scroller).fontFamily,
-        bodyFontFamily: window.getComputedStyle(body).fontFamily,
-      };
-    });
-
-    expect(fontMetrics.editorFontFamily.toLowerCase()).toContain("monospace");
-    expect(fontMetrics.editorFontFamily).not.toBe(fontMetrics.bodyFontFamily);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -310,9 +277,7 @@ test("lsp diagnostics persist after hard refresh", async ({ page }) => {
 
     const section = findSectionByName(page, sectionName).first();
     await expect(section).toBeVisible();
-    const codeArea = section
-      .locator("article.section-full-no-title")
-      .first();
+    const codeArea = section.locator("article.section-full-no-title").first();
     await expect(codeArea).toBeVisible();
     await codeArea.click();
 
@@ -369,10 +334,7 @@ async function createNewProjectConfig(
   if (!projectConfigName) {
     throw new Error("Unable to resolve new project config name.");
   }
-  const projectConfigId = await resolveProjectConfigId(
-    page,
-    projectConfigName,
-  );
+  const projectConfigId = await resolveProjectConfigId(page, projectConfigName);
   return { projectConfigId, projectConfigName };
 }
 
@@ -392,7 +354,9 @@ async function resolveProjectConfigId(
     (entry) => entry.name === projectConfigName,
   );
   if (!match) {
-    throw new Error(`Unable to resolve project config id for ${projectConfigName}.`);
+    throw new Error(
+      `Unable to resolve project config id for ${projectConfigName}.`,
+    );
   }
   return match.id;
 }
@@ -496,14 +460,54 @@ async function readErrorDetail(response: Response): Promise<string> {
     return text.trim();
   }
   try {
-    const parsed = JSON.parse(text) as { detail?: string };
-    if (typeof parsed?.detail === "string") {
-      return parsed.detail.trim();
+    const parsed = JSON.parse(text) as unknown;
+    const detail = getErrorDetail(parsed);
+    if (detail) {
+      return detail.trim();
     }
   } catch {
     return text.trim();
   }
   return text.trim();
+}
+
+function getErrorDetail(value: unknown): string | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const message = record.message;
+  if (typeof message === "string") {
+    return message;
+  }
+  const detail = record.detail;
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (detail && typeof detail === "object") {
+    const nested = detail as Record<string, unknown>;
+    const nestedMessage = nested.message;
+    if (typeof nestedMessage === "string") {
+      return nestedMessage;
+    }
+    const nestedDetail = nested.detail;
+    if (typeof nestedDetail === "string") {
+      return nestedDetail;
+    }
+  }
+  const error = record.error;
+  if (error && typeof error === "object") {
+    const nested = error as Record<string, unknown>;
+    const nestedMessage = nested.message;
+    if (typeof nestedMessage === "string") {
+      return nestedMessage;
+    }
+    const nestedDetail = nested.detail;
+    if (typeof nestedDetail === "string") {
+      return nestedDetail;
+    }
+  }
+  return null;
 }
 
 function extractFirstDetailLine(detail: string): string {

@@ -1,7 +1,6 @@
 from typing import Annotated
 
-from pydantic import Field, TypeAdapter
-
+from pydantic import Field
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -16,5 +15,3 @@ BaseChatMessageUnion = (
 BaseChatMessageUnionWithDiscriminator = Annotated[
     BaseChatMessageUnion, Field(discriminator="role")
 ]
-
-BaseChatMessageTypeAdapter = TypeAdapter(BaseChatMessageUnionWithDiscriminator)
