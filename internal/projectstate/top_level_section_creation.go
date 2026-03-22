@@ -78,7 +78,7 @@ func (r *Runtime) CreateTopLevelSection(
 	}
 
 	var result CreateTopLevelSectionResult
-	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
+	snapshot, err := r.MutateAndPersistLater(ctx, func(document Document) (Document, error) {
 		var mutationErr error
 		result, mutationErr = document.CreateTopLevelSection(projectID, input, settings)
 		if mutationErr != nil {

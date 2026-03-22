@@ -52,7 +52,7 @@ func (d *Document) SetTopLevelSectionLayout(projectID string, topLevelSections m
 }
 
 func (r *Runtime) SetTopLevelSectionLayout(ctx context.Context, projectID string, topLevelSections map[string]TopLevelSectionLayout) (Snapshot, error) {
-	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+	return r.MutateAndPersistLater(ctx, func(document Document) (Document, error) {
 		if err := document.SetTopLevelSectionLayout(projectID, topLevelSections); err != nil {
 			return Document{}, err
 		}

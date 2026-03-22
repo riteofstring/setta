@@ -44,7 +44,7 @@ func (d *Document) SetActiveIDs(projectID string, activeIDs []string) error {
 }
 
 func (r *Runtime) SetActiveIDs(ctx context.Context, projectID string, activeIDs []string) (Snapshot, error) {
-	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+	return r.MutateAndPersistLater(ctx, func(document Document) (Document, error) {
 		if err := document.SetActiveIDs(projectID, activeIDs); err != nil {
 			return Document{}, err
 		}

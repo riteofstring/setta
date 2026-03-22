@@ -12,21 +12,19 @@ import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   route_create_top_level_section,
-  route_get_latest_project_state,
   route_set_section_name,
 } from "utils/generatedEndpoints";
 import {
   CodeFileAccessModeEnum,
-  type CreateTopLevelSectionResponse,
   CreateTopLevelSectionRequestInput,
   Position,
-  type ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
   TopLevelSectionLayout,
   ViewportBounds,
+  type CreateTopLevelSectionResponse,
 } from "utils/generatedTypes";
 import { validateSectionNameInput } from "utils/nameValidation";
 import {
@@ -38,7 +36,6 @@ import {
   createTopLevelSectionLayoutDict,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  processProjectStateUpdateFromBackend,
 } from "../sectionInfos";
 import { goToSection } from "./sectionPositions";
 
@@ -62,8 +59,6 @@ type SmartPlacementContext = {
 
 type CreateTopLevelSectionRouteResponse =
   ResponseDataAndStatus<CreateTopLevelSectionResponse>;
-type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
 
 export async function createTopLevelSectionWithResult({
   implType,
@@ -101,14 +96,6 @@ export async function createTopLevelSectionWithResult({
   if (!res200(res)) {
     return null;
   }
-  const latestProjectStateResponse: LatestProjectStateRouteResponse =
-    await route_get_latest_project_state({
-      projectConfigId: getCurrProjectConfigId(),
-    });
-  if (!res200(latestProjectStateResponse)) {
-    return null;
-  }
-  processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
   const { sectionId, panTo, metaControlParamId } = res.data;
   if (panTo) {
     const currentZoom = useReactFlow.getState().transform[2];

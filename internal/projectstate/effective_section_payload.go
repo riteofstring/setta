@@ -61,7 +61,9 @@ func sectionImplPayloadObject(impl SectionImpl) (map[string]any, error) {
 		return nil, err
 	}
 	defaults := sectionImplPayloadDefaults(payload, impl)
-	return mergeProjectObjects(defaults, payload), nil
+	merged := mergeProjectObjects(defaults, payload)
+	normalizeSectionImplPayloadCollections(merged)
+	return merged, nil
 }
 
 func rawSectionImplPayloadObject(impl SectionImpl) (map[string]any, error) {
@@ -141,6 +143,17 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 	}
 
 	return defaults
+}
+
+func normalizeSectionImplPayloadCollections(payload map[string]any) {
+	sectionType := payloadStringField(payload, "type")
+	switch sectionType {
+	case "Code", "GenPythonCode", "GenPythonMetadata", "Group", "ListRoot":
+		children, ok := payload["children"].([]any)
+		if !ok || children == nil {
+			payload["children"] = []any{}
+		}
+	}
 }
 
 func rawObjectFromProjectPayload(raw RawJSON) (map[string]any, error) {

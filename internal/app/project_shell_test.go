@@ -2811,13 +2811,10 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open persisted project store: %v", err)
 	}
-	persistedDocument, err := persistedStore.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted document after create: %v", err)
-	}
-
+	var persistedDocument projectstate.Document
+	currentDocument := app.ProjectStates().Main().Snapshot().Document
 	createdProjectID := ""
-	for projectID, project := range persistedDocument.Projects {
+	for projectID, project := range currentDocument.Projects {
 		if project.Name == createdName {
 			createdProjectID = projectID
 			if len(project.ViewModes) != 1 {
@@ -2827,7 +2824,7 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 		}
 	}
 	if createdProjectID == "" {
-		t.Fatalf("expected created project in %#v", persistedDocument.Projects)
+		t.Fatalf("expected created project in %#v", currentDocument.Projects)
 	}
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -3008,21 +3005,32 @@ func TestAppCreateProjectConfigRouteIgnoresLSPInitializationFailure(t *testing.T
 	if err != nil {
 		t.Fatalf("open persisted project store: %v", err)
 	}
-	persistedDocument, err := persistedStore.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted document after create: %v", err)
-	}
+	var persistedDocument projectstate.Document
 
 	foundCreatedProject := false
-	for _, project := range persistedDocument.Projects {
+	for _, project := range app.ProjectStates().Main().Snapshot().Document.Projects {
 		if project.Name == createdName {
 			foundCreatedProject = true
 			break
 		}
 	}
 	if !foundCreatedProject {
-		t.Fatalf("expected created project %q in %#v", createdName, persistedDocument.Projects)
+		t.Fatalf("expected created project %q in %#v", createdName, app.ProjectStates().Main().Snapshot().Document.Projects)
 	}
+
+	if err := app.ProjectStates().Main().Close(); err != nil {
+		t.Fatalf("close main project runtime: %v", err)
+	}
+	persistedDocument, err = persistedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document after close: %v", err)
+	}
+	for _, project := range persistedDocument.Projects {
+		if project.Name == createdName {
+			return
+		}
+	}
+	t.Fatalf("expected persisted created project %q in %#v", createdName, persistedDocument.Projects)
 }
 
 func TestAppProjectRuntimeCreateProjectDefaultScaffold(t *testing.T) {

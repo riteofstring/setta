@@ -73,7 +73,7 @@ func (r *Runtime) CreateChildSections(
 	}
 
 	var result CreateChildSectionsResult
-	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
+	snapshot, err := r.MutateAndPersistLater(ctx, func(document Document) (Document, error) {
 		var mutationErr error
 		result, mutationErr = document.CreateChildSections(projectID, input, settings)
 		if mutationErr != nil {

@@ -3839,7 +3839,13 @@ func createTopLevelSectionHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 
-		_, result, err := deps.ProjectState.CreateTopLevelSection(
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, result, err := runtime.CreateTopLevelSection(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.CreateTopLevelSectionInput{
@@ -3855,6 +3861,10 @@ func createTopLevelSectionHandler(deps ProjectRouteDependencies) http.HandlerFun
 		)
 		if err != nil {
 			writeCreateTopLevelSectionError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, result)

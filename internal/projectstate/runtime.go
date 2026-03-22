@@ -55,6 +55,15 @@ type Runtime struct {
 	current  Document
 	revision uint64
 
+	persistStateMu            sync.Mutex
+	persistExecMu             sync.Mutex
+	persistRunning            bool
+	pendingPersist            *scheduledPersist
+	persistWG                 sync.WaitGroup
+	persistedRevision         uint64
+	deferredPersistErr        error
+	deferredPersistErrVersion uint64
+
 	frontendOpsMu        sync.RWMutex
 	pendingFrontendOps   map[string]struct{}
 	completedFrontendOps []string
@@ -263,7 +272,7 @@ func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 		run: func(state *runtimeState) (Snapshot, error) {
 			recordRuntimeHistoryState(state, state.current)
 			snapshot := snapshotFromState(*state)
-			return snapshot, r.persistSnapshot(ctx, snapshot)
+			return snapshot, r.persistSnapshotSync(ctx, snapshot)
 		},
 		frontendOpID: frontendOpIDFromContext(ctx),
 	})
@@ -291,7 +300,7 @@ func (r *Runtime) MutateAndSave(ctx context.Context, mutate Mutation) (Snapshot,
 
 			recordRuntimeHistoryState(state, state.current)
 			snapshot := snapshotFromState(*state)
-			return snapshot, r.persistSnapshot(ctx, snapshot)
+			return snapshot, r.persistSnapshotSync(ctx, snapshot)
 		},
 	})
 }
@@ -309,7 +318,8 @@ func (r *Runtime) Close() error {
 	r.submitMu.Unlock()
 
 	<-r.done
-	return nil
+	r.persistWG.Wait()
+	return r.deferredPersistError()
 }
 
 func (r *Runtime) submit(op operation) (Snapshot, error) {

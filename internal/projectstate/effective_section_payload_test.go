@@ -289,3 +289,28 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 		t.Fatalf("expected group children empty array, got %#v", groupPayload["children"])
 	}
 }
+
+func TestSectionImplPayloadNormalizesNullChildrenToEmptyArray(t *testing.T) {
+	t.Parallel()
+
+	payload, err := SectionImplPayload(SectionImpl{
+		ID:      "list-root-impl",
+		Kind:    SectionKind("frontend"),
+		Payload: mustMarshalProjectObject(map[string]any{"id": "list-root-impl", "type": "ListRoot", "children": nil}),
+	})
+	if err != nil {
+		t.Fatalf("section impl payload: %v", err)
+	}
+
+	object, err := rawObjectFromProjectPayload(payload)
+	if err != nil {
+		t.Fatalf("decode normalized payload: %v", err)
+	}
+	children, ok := object["children"].([]any)
+	if !ok {
+		t.Fatalf("expected normalized children array, got %#v", object["children"])
+	}
+	if len(children) != 0 {
+		t.Fatalf("expected normalized children to be empty, got %#v", children)
+	}
+}

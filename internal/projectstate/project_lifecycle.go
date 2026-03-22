@@ -316,7 +316,7 @@ func (r *Runtime) CreateProject(ctx context.Context, previewImgColor string) (Sn
 		createdProjectID string
 		createdName      string
 	)
-	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
+	snapshot, err := r.MutateAndPersistLater(ctx, func(document Document) (Document, error) {
 		projectID, projectName, err := document.CreateProject(previewImgColor)
 		if err != nil {
 			return Document{}, err

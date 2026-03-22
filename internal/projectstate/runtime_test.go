@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -425,6 +426,170 @@ func TestRuntimeMutateAndSavePreservesPasswordSecretStoreAcrossMutations(t *test
 	}
 	if secret != "open-sesame" {
 		t.Fatalf("expected migrated password secret open-sesame, got %q", secret)
+	}
+}
+
+func TestRuntimeMutateAndPersistLaterReturnsBeforeSaveHooksFinish(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	runtime, err := OpenRuntimeWithOptions(context.Background(), store, RuntimeOptions{
+		BeforeSave: func(context.Context, Snapshot) error {
+			select {
+			case <-started:
+			default:
+				close(started)
+			}
+			<-release
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("open runtime: %v", err)
+	}
+
+	done := make(chan Snapshot, 1)
+	errs := make(chan error, 1)
+	go func() {
+		snapshot, mutateErr := runtime.MutateAndPersistLater(context.Background(), func(document Document) (Document, error) {
+			document.Projects["project-alpha"] = Project{
+				ID:   "project-alpha",
+				Name: "Alpha",
+			}
+			document.DefaultProjectID = "project-alpha"
+			return document, nil
+		})
+		if mutateErr != nil {
+			errs <- mutateErr
+			return
+		}
+		done <- snapshot
+	}()
+
+	var snapshot Snapshot
+	select {
+	case err := <-errs:
+		t.Fatalf("mutate and persist later: %v", err)
+	case snapshot = <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected deferred mutation to return before background persistence completed")
+	}
+	if snapshot.Revision != 2 {
+		t.Fatalf("expected revision 2 after deferred mutation, got %d", snapshot.Revision)
+	}
+
+	select {
+	case <-started:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected background persistence to start")
+	}
+
+	loadedBeforeRelease, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load document before releasing save: %v", err)
+	}
+	if _, ok := loadedBeforeRelease.Projects["project-alpha"]; ok {
+		t.Fatal("expected deferred mutation not to persist before save hooks finish")
+	}
+
+	close(release)
+	if err := runtime.Close(); err != nil {
+		t.Fatalf("close runtime: %v", err)
+	}
+
+	loadedAfterClose, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load document after deferred persistence: %v", err)
+	}
+	if _, ok := loadedAfterClose.Projects["project-alpha"]; !ok {
+		t.Fatal("expected deferred mutation to persist before runtime close completes")
+	}
+}
+
+func TestRuntimeMutateAndPersistLaterCoalescesPendingSnapshots(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	started := make(chan struct{})
+	release := make(chan struct{})
+	afterSaveNames := []string{}
+	var afterSaveMu sync.Mutex
+
+	runtime, err := OpenRuntimeWithOptions(context.Background(), store, RuntimeOptions{
+		BeforeSave: func(_ context.Context, snapshot Snapshot) error {
+			if snapshot.Revision != 2 {
+				return nil
+			}
+			select {
+			case <-started:
+			default:
+				close(started)
+			}
+			<-release
+			return nil
+		},
+		AfterSave: func(_ context.Context, snapshot Snapshot) error {
+			afterSaveMu.Lock()
+			defer afterSaveMu.Unlock()
+			afterSaveNames = append(afterSaveNames, snapshot.Document.Projects["project-alpha"].Name)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("open runtime: %v", err)
+	}
+
+	mutateProjectName := func(name string) error {
+		_, mutateErr := runtime.MutateAndPersistLater(context.Background(), func(document Document) (Document, error) {
+			document.Projects["project-alpha"] = Project{
+				ID:   "project-alpha",
+				Name: name,
+			}
+			document.DefaultProjectID = "project-alpha"
+			return document, nil
+		})
+		return mutateErr
+	}
+
+	if err := mutateProjectName("First"); err != nil {
+		t.Fatalf("queue first deferred mutation: %v", err)
+	}
+	select {
+	case <-started:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected first deferred persistence to start")
+	}
+	if err := mutateProjectName("Second"); err != nil {
+		t.Fatalf("queue second deferred mutation: %v", err)
+	}
+	if err := mutateProjectName("Third"); err != nil {
+		t.Fatalf("queue third deferred mutation: %v", err)
+	}
+
+	close(release)
+	if err := runtime.Close(); err != nil {
+		t.Fatalf("close runtime: %v", err)
+	}
+
+	loaded, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document: %v", err)
+	}
+	if got := loaded.Projects["project-alpha"].Name; got != "Third" {
+		t.Fatalf("expected latest deferred mutation to persist, got %q", got)
+	}
+
+	afterSaveMu.Lock()
+	names := append([]string(nil), afterSaveNames...)
+	afterSaveMu.Unlock()
+	if len(names) != 2 {
+		t.Fatalf("expected two persisted snapshots (initial blocked save and latest pending save), got %#v", names)
+	}
+	if names[0] != "First" || names[1] != "Third" {
+		t.Fatalf("expected deferred persistence to skip the intermediate snapshot, got %#v", names)
 	}
 }
 

@@ -2600,6 +2600,128 @@ func TestAppChildSectionIncrementerRoutesBroadcastProjectStateUpdate(t *testing.
 	if childCountAfterDelete != 0 {
 		t.Fatalf("expected no live children after incrementer delete, got %d in %#v", childCountAfterDelete, deleteContent.ProjectState.ParentSectionMap)
 	}
+	listRootVariantID, ok := project.SectionVariantMap[listRootID]
+	if !ok {
+		t.Fatalf("expected list root variant for %q", listRootID)
+	}
+	listRootVariant, ok := project.SectionVariants[listRootVariantID]
+	if !ok {
+		t.Fatalf("expected list root variant %q", listRootVariantID)
+	}
+	listRootPayload, ok := deleteContent.ProjectState.SectionImpls[listRootVariant.ImplID]
+	if !ok {
+		t.Fatalf("expected list root impl payload %q after delete", listRootVariant.ImplID)
+	}
+	var listRootPayloadObject map[string]any
+	if err := json.Unmarshal(listRootPayload, &listRootPayloadObject); err != nil {
+		t.Fatalf("decode list root payload after delete: %v", err)
+	}
+	children, ok := listRootPayloadObject["children"].([]any)
+	if !ok {
+		t.Fatalf("expected list root children array after delete, got %#v", listRootPayloadObject["children"])
+	}
+	if len(children) != 0 {
+		t.Fatalf("expected list root children to be empty after delete, got %#v", children)
+	}
+}
+
+func TestAppCreateTopLevelSectionRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:                   "project-alpha",
+			Name:                 "Alpha",
+			ProjectChatWindowing: &defaultWindowing,
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteCreateTopLevelSection,
+		strings.NewReader(`{"projectConfigId":"project-alpha","implType":"Callable","frontendOpId":"create-top-level-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create top-level section request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post create top-level section: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200 from create top-level section, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var createResult projectstate.CreateTopLevelSectionResult
+	if err := json.NewDecoder(response.Body).Decode(&createResult); err != nil {
+		t.Fatalf("decode create top-level section response: %v", err)
+	}
+	if strings.TrimSpace(createResult.SectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", createResult)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if _, ok := content.ProjectState.Sections[createResult.SectionID]; !ok {
+		t.Fatalf("expected websocket update to include created section %q", createResult.SectionID)
+	}
+	completedCreateOp := false
+	for _, completedOpID := range content.CompletedOpIDs {
+		if completedOpID == "create-top-level-op" {
+			completedCreateOp = true
+			break
+		}
+	}
+	if !completedCreateOp {
+		t.Fatalf("expected completed create op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+	if len(content.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending op ids after create, got %#v", content.PendingOpIDs)
+	}
 }
 
 func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.T) {

@@ -548,7 +548,7 @@ func TestServiceSaveProjectPersistsCurrentRuntimeAndRunsHook(t *testing.T) {
 	}
 }
 
-func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *testing.T) {
+func TestServiceCreateProjectConfigSeedsSingleViewModeAndFlushesPersistenceOnRuntimeClose(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -593,6 +593,22 @@ func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *
 		t.Fatalf("expected metadata hook once, got %d", hookCalls)
 	}
 
+	snapshot := projectRuntime.Snapshot()
+	if len(snapshot.Document.Projects) != 1 {
+		t.Fatalf("expected one in-memory project after create, got %#v", snapshot.Document.Projects)
+	}
+	project := snapshot.Document.Projects[snapshot.Document.DefaultProjectID]
+	if project.Name != createdName {
+		t.Fatalf("expected in-memory project name %q, got %q", createdName, project.Name)
+	}
+	if len(project.ViewModes) != 1 {
+		t.Fatalf("expected one initial in-memory view mode, got %#v", project.ViewModes)
+	}
+
+	if err := projectRuntime.Close(); err != nil {
+		t.Fatalf("close project runtime: %v", err)
+	}
+
 	reloaded, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatalf("reload store: %v", err)
@@ -600,24 +616,24 @@ func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *
 	if len(reloaded.Projects) != 1 {
 		t.Fatalf("expected one persisted project, got %#v", reloaded.Projects)
 	}
-	project := reloaded.Projects[reloaded.DefaultProjectID]
-	if project.Name != createdName {
-		t.Fatalf("expected persisted project name %q, got %q", createdName, project.Name)
+	persistedProject := reloaded.Projects[reloaded.DefaultProjectID]
+	if persistedProject.Name != createdName {
+		t.Fatalf("expected persisted project name %q, got %q", createdName, persistedProject.Name)
 	}
-	if len(project.ViewModes) != 1 {
-		t.Fatalf("expected one initial view mode, got %#v", project.ViewModes)
+	if len(persistedProject.ViewModes) != 1 {
+		t.Fatalf("expected one initial view mode, got %#v", persistedProject.ViewModes)
 	}
-	if project.ProjectChatWindowing == nil {
+	if persistedProject.ProjectChatWindowing == nil {
 		t.Fatal("expected persisted project chat windowing state")
 	}
-	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
-		t.Fatalf("expected no created project chat windows, got %#v", project.ProjectChatWindowing.InstancesByID)
+	if len(persistedProject.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected no created project chat windows, got %#v", persistedProject.ProjectChatWindowing.InstancesByID)
 	}
-	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{}) {
-		t.Fatalf("expected empty created project chat window order, got %#v", project.ProjectChatWindowing.Order)
+	if !reflect.DeepEqual(persistedProject.ProjectChatWindowing.Order, []string{}) {
+		t.Fatalf("expected empty created project chat window order, got %#v", persistedProject.ProjectChatWindowing.Order)
 	}
-	if project.ProjectChatWindowing.NextInstanceNumber != 1 {
-		t.Fatalf("expected next instance number 1, got %d", project.ProjectChatWindowing.NextInstanceNumber)
+	if persistedProject.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected next instance number 1, got %d", persistedProject.ProjectChatWindowing.NextInstanceNumber)
 	}
 }
 
