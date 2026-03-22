@@ -41,6 +41,7 @@ const (
 	outputKeyActivatedEdgeIDs          = "activatedEdgeIds"
 	outputKeyEdgeActivationCounts      = "edgeActivationCountsByEdgeId"
 	outputKeySourceActivationCounts    = "sourceActivationCountsBySectionId"
+	outputKeyStartOutgoingTargetIDs    = "startOutgoingTargetSectionIds"
 	outputKeyProcessedChildTerminalIDs = "processedChildTerminalRunIds"
 	outputKeyDispatchedStartActions    = "dispatchedStartEdgeActions"
 	outputKeyDispatchedEdgeActions     = "dispatchedEdgeActions"
@@ -48,6 +49,7 @@ const (
 	outputKeyGateIncomingEdgeIDs       = "gateIncomingEdgeIdsBySectionId"
 	outputKeyGateInputEdgeIDs          = "gateInputEdgeIdsBySectionId"
 	outputKeyGateStatuses              = "gateStatusBySectionId"
+	outputKeyFiredGateSectionIDs       = "firedGateSectionIds"
 	outputKeyReachedEndSectionIDs      = "reachedEndSectionIds"
 	outputKeySignalEvents              = "signalEvents"
 	outputKeyProcessedSignalEventIDs   = "processedSignalEventIds"
@@ -1159,6 +1161,7 @@ func (r *Runtime) activateGateIfReady(
 		return nil, nil
 	}
 	setGateStatus(run, gateSectionID, "satisfied")
+	appendFiredGateSectionID(run, gateSectionID)
 	r.appendEvent(run, "gate_satisfied", map[string]any{
 		"gateSectionId": gateSectionID,
 		"edgeIds":       activatedEdgeIDs,
@@ -1632,6 +1635,7 @@ func (r *Runtime) ensureRunOutputsInitialized(run *agentruns.Run, graph graph) {
 		outputKeyActivatedEdgeIDs:          []any{},
 		outputKeyEdgeActivationCounts:      map[string]any{},
 		outputKeySourceActivationCounts:    map[string]any{},
+		outputKeyStartOutgoingTargetIDs:    targetSectionIDs(r.outgoingEdges(graph, graph.StartSectionID)),
 		outputKeyProcessedChildTerminalIDs: []any{},
 		outputKeyDispatchedStartActions:    []any{},
 		outputKeyDispatchedEdgeActions:     []any{},
@@ -1639,6 +1643,7 @@ func (r *Runtime) ensureRunOutputsInitialized(run *agentruns.Run, graph graph) {
 		outputKeyGateIncomingEdgeIDs:       r.buildGateIncomingEdgeIDsBySectionID(graph),
 		outputKeyGateInputEdgeIDs:          map[string]any{},
 		outputKeyGateStatuses:              map[string]any{},
+		outputKeyFiredGateSectionIDs:       []any{},
 		outputKeyReachedEndSectionIDs:      []any{},
 		outputKeySignalEvents:              []any{},
 		outputKeyProcessedSignalEventIDs:   []any{},
@@ -1715,6 +1720,7 @@ func (r *Runtime) clearMachineRunState(run *agentruns.Run) {
 	run.Outputs[outputKeyOwnedChatBindings] = map[string]any{}
 	run.Outputs[outputKeyGateInputEdgeIDs] = map[string]any{}
 	run.Outputs[outputKeyGateStatuses] = map[string]any{}
+	run.Outputs[outputKeyFiredGateSectionIDs] = []any{}
 	run.Outputs[outputKeyReachedEndSectionIDs] = []any{}
 	run.Outputs[outputKeySignalEvents] = []any{}
 	run.Outputs[outputKeyProcessedSignalEventIDs] = []any{}
@@ -1791,6 +1797,14 @@ func (r *Runtime) incrementEdgeActivationCount(run *agentruns.Run, edgeID string
 	counts := outputIntMap(*run, outputKeyEdgeActivationCounts)
 	counts[edgeID] = counts[edgeID] + 1
 	run.Outputs[outputKeyEdgeActivationCounts] = intMapToAny(counts)
+}
+
+func appendFiredGateSectionID(run *agentruns.Run, gateSectionID string) {
+	firedGateSectionIDs := outputStringList(*run, outputKeyFiredGateSectionIDs)
+	if containsString(firedGateSectionIDs, gateSectionID) {
+		return
+	}
+	run.Outputs[outputKeyFiredGateSectionIDs] = append(stringSliceToAny(firedGateSectionIDs), gateSectionID)
 }
 
 func (r *Runtime) edgeActivationCount(run agentruns.Run, edgeID string) int {
