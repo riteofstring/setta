@@ -1413,6 +1413,45 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 }
 
+func TestServerToolCatalogOmitsLegacyInvokeLinkedChatTool(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "invoke_linked_chat" {
+			t.Fatalf("did not expect legacy invoke_linked_chat tool in live catalog: %#v", tool)
+		}
+	}
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "list_mcp_tools",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call list_mcp_tools: %v", err)
+	}
+	payload, ok := result.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured list payload, got %#v", result.StructuredContent)
+	}
+	rawNames, ok := payload["tools"].([]any)
+	if !ok {
+		t.Fatalf("expected tool list array, got %#v", payload["tools"])
+	}
+	for _, rawName := range rawNames {
+		if name, ok := rawName.(string); ok && name == "invoke_linked_chat" {
+			t.Fatalf("did not expect invoke_linked_chat in list_mcp_tools payload: %#v", rawNames)
+		}
+	}
+}
+
 func TestServerDiscoverableToolsHaveExplicitAccessMetadata(t *testing.T) {
 	t.Parallel()
 
