@@ -27,8 +27,9 @@ from setta.types.listener import (
     ListenerRouterEndpointResultContent,
     ListenerSnapshot,
 )
+from setta.types.generated.go_shared_types import SectionType
 from setta.types.project_config import SectionRepresentationMode
-from setta.types.section_impls import ChatSectionState, SectionType
+from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,

@@ -52,6 +52,9 @@ from tests.helpers.settings_models import (
     SettingsShortcuts,
     get_default_language_server_settings,
 )
+from setta.types.generated.go_shared_types import CodeObjType, SectionType
+
+
 class SettingsState(BaseModel, extra="forbid"):
     """Application settings state including all user defaults."""
 
@@ -185,10 +188,6 @@ class SettingsState(BaseModel, extra="forbid"):
     timeParamCodeObjDefault: UserDefaultTimeParamCodeObjImpl = Field(
         default_factory=UserDefaultTimeParamCodeObjImpl
     )
-
-
-from setta.types.code_obj_impls import CodeObjType
-from setta.types.section_impls import SectionType
 
 
 def get_user_default_section_from_settings(settings: SettingsState, type: SectionType):

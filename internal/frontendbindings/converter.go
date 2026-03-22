@@ -203,6 +203,35 @@ func writeTSNamedMergeEntries(builder *strings.Builder, entryIndent string, fiel
 	}
 }
 
+func EnumValuesForType(t reflect.Type) ([]EnumValue, bool, error) {
+	t = canonicalFrontendBindingType(t)
+	if t == nil {
+		return nil, false, nil
+	}
+
+	converter := newTypeConverter()
+	if values, ok := converter.stringEnums[t]; ok {
+		return append([]EnumValue(nil), values...), true, nil
+	}
+
+	values, ok, err := stringenumvalues.Default().Values(t)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	enumValues := make([]EnumValue, 0, len(values))
+	for _, value := range values {
+		enumValues = append(enumValues, EnumValue{
+			Name:  value.Name,
+			Value: value.Value,
+		})
+	}
+	return enumValues, true, nil
+}
+
 var metaControlSizingPolicyByTypeDefaults = []tsNamedLiteralObject{
 	{
 		Name: "CodeCallable",

@@ -2,7 +2,6 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from setta.types.code_obj_impls import ColorPickerChoice
 from setta.types.generated.go_shared_types import RunSnapshotMode
 
 # Test helper copy of the former backend settings models.
@@ -20,6 +19,11 @@ META_CONTROL_DROPZONE_MIN_HEIGHT = 120
 META_CONTROL_DEFAULT_MIN_WIDTH = DEFAULT_MIN_WIDTH
 META_CONTROL_DROPZONE_MIN_WIDTH = 240
 UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36
+
+
+class ColorPickerChoice(BaseModel):
+    color: str
+    description: str
 
 
 class BackgroundVariant(str, Enum):

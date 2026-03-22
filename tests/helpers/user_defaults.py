@@ -6,51 +6,50 @@ from pydantic import BaseModel, Field
 
 # Section type imports
 from setta.types.artifact import DrawAreaLayer
-from setta.types.generated.go_shared_types import DrawAreaBrushShape, DrawAreaMode
-
-# Code object type imports
-from setta.types.code_obj_impls import (
+from setta.types.generated.go_shared_types import (
     ButtonActionMode,
-    ColorPickerChoice,
+    BrowserAreaViewMode,
+    ChatDictationMode,
+    ChatPermissionMode,
+    CodeLanguage,
     DateCalendarWeekStart,
     DateControlMode,
     DateDisplayFormat,
     DateSelectionMode,
     DropzoneMode,
     HttpRequestMethod,
+    ListRootViewMode,
     ParamNameType,
+    PromptFormat,
+    SectionType,
+    SpreadsheetGridDensity,
+    StateMachineGateType,
+    TaskBoardViewMode,
     TextParamInputUIType,
+    TextBlockDisplayMode,
+    TextBlockFormat,
     TimeControlMode,
     TimeDisplayFont,
     TimeDisplayFormat,
+    DrawAreaBrushShape,
+    DrawAreaMode,
 )
 from setta.types.chat_messages import BaseChatMessageUnion
 from setta.types.edges import EdgePort
 from setta.types.id import ID, create_new_id
 from setta.types.section_impls import (
-    BrowserAreaViewMode,
     BrowserSavedSearch,
-    ChatDictationMode,
-    ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
-    CodeLanguage,
     CodeLanguageKey,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
-    ListRootViewMode,
-    PromptFormat,
     SectionSize,
-    SectionType,
-    SpreadsheetGridDensity,
-    StateMachineGateType,
     StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
-    TaskBoardViewMode,
-    TextBlockDisplayMode,
-    TextBlockFormat,
 )
+from tests.helpers.settings_models import ColorPickerChoice
 
 
 class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):

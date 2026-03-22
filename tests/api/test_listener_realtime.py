@@ -15,13 +15,14 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.types.binary_content import BinaryContentRef
-from setta.types.code_obj_impls import (
-    CodeObjType,
-    ParameterPassingStyle,
-)
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
 from setta.types.dependency_key import BaseDependencyKeyUnion
+from setta.types.generated.go_shared_types import (
+    CodeObjType,
+    ParameterPassingStyle,
+    SectionType,
+)
 from setta.types.websocket import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -43,7 +44,6 @@ from setta.types.listener import (
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
 )
-from setta.types.section_impls import SectionType
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,

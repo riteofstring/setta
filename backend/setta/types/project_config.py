@@ -4,9 +4,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.generated.go_shared_types import (
+    CodeObjType,
+    SectionType,
     StateMachineCountOperator,
     StateMachineSourceFilterType,
     StateMachineTargetActionType,
@@ -14,7 +15,6 @@ from setta.types.generated.go_shared_types import (
     WindowSpaceSurfaceKind,
 )
 from setta.types.id import ID, create_new_id
-from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 

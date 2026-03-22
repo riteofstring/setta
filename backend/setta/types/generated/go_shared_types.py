@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class SettaSharedTypeModel(BaseModel):
@@ -79,9 +79,133 @@ class RunSnapshotMode(str, Enum):
     always = "always"
 
 
+class SectionType(str, Enum):
+    Callable = "Callable"
+    Dict = "Dict"
+    ListRoot = "ListRoot"
+    Group = "Group"
+    StateMachineStart = "StateMachineStart"
+    StateMachineGate = "StateMachineGate"
+    StateMachineEnd = "StateMachineEnd"
+    Image = "Image"
+    Chart = "Chart"
+    Draw = "Draw"
+    TextBlock = "TextBlock"
+    Prompt = "Prompt"
+    MetaControl = "MetaControl"
+    Social = "Social"
+    GlobalVariables = "GlobalVariables"
+    Code = "Code"
+    GenPythonCode = "GenPythonCode"
+    GenPythonMetadata = "GenPythonMetadata"
+    Terminal = "Terminal"
+    IFrame = "IFrame"
+    Chat = "Chat"
+    Browser = "Browser"
+    Plugin = "Plugin"
+    TaskBoard = "TaskBoard"
+    Spreadsheet = "Spreadsheet"
+
+
+class CodeObjType(str, Enum):
+    CodeCallable = "CodeCallable"
+    CodeParam = "CodeParam"
+    TextParam = "TextParam"
+    DateParam = "DateParam"
+    TimeParam = "TimeParam"
+    ButtonParam = "ButtonParam"
+    SliderParam = "SliderParam"
+    RotaryParam = "RotaryParam"
+    SwitchParam = "SwitchParam"
+    ColorPickerParam = "ColorPickerParam"
+    DropdownParam = "DropdownParam"
+    PasswordParam = "PasswordParam"
+    TextAreaParam = "TextAreaParam"
+    DropzoneParam = "DropzoneParam"
+    NestedParam = "NestedParam"
+
+
 class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
+
+
+class ParameterPassingStyle(str, Enum):
+    DEFAULT = "DEFAULT"
+    ARGS = "ARGS"
+    KWARGS = "KWARGS"
+    POSITIONAL_ONLY = "POSITIONAL_ONLY"
+    KEYWORD_ONLY = "KEYWORD_ONLY"
+
+
+class ParamNameType(str, Enum):
+    CODE = "CODE"
+    TEXT = "TEXT"
+
+
+class ButtonActionMode(str, Enum):
+    WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
+    HTTP_REQUEST = "HTTP_REQUEST"
+    SETTA_API = "SETTA_API"
+
+
+class HttpRequestMethod(str, Enum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
+
+
+class DropzoneMode(str, Enum):
+    STATEFUL = "STATEFUL"
+    STATELESS = "STATELESS"
+
+
+class TextParamInputUIType(str, Enum):
+    plain = "plain"
+    time = "time"
+    date = "date"
+
+
+class TimeDisplayFormat(str, Enum):
+    twenty_four_hour = "twenty_four_hour"
+    twelve_hour = "twelve_hour"
+
+
+class TimeControlMode(str, Enum):
+    input = "input"
+    display = "display"
+
+
+class TimeDisplayFont(str, Enum):
+    clock = "clock"
+    monospace = "monospace"
+    system = "system"
+
+
+class DateDisplayFormat(str, Enum):
+    iso = "iso"
+    us = "us"
+    eu = "eu"
+    long = "long"
+
+
+class DateControlMode(str, Enum):
+    input = "input"
+    calendar = "calendar"
+
+
+class DateSelectionMode(str, Enum):
+    single = "single"
+    multiple = "multiple"
+
+
+class DateCalendarWeekStart(str, Enum):
+    sunday = "sunday"
+    monday = "monday"
 
 
 class ListRootViewMode(str, Enum):
@@ -190,11 +314,6 @@ class LLMConfig(SettaSharedTypeModel):
     other_params: dict[str, Any] | None = None
     mcpServerIds: list[str] | None = None
     temporary: bool = False
-
-
-class TypeErrorIgnoreState(SettaSharedTypeModel):
-    callable: bool = False
-    params: dict[str, bool] = Field(default_factory=dict)
 
 
 class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):

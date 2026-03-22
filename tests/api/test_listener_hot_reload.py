@@ -21,7 +21,7 @@ from setta.types.listener import (
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
-from setta.types.section_impls import SectionType
+from setta.types.generated.go_shared_types import SectionType
 from watchfiles import Change
 
 if TYPE_CHECKING:

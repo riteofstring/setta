@@ -93,7 +93,25 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 		return contractSpec{}, false, err
 	}
 	if !ok || len(values) == 0 {
-		return contractSpec{}, false, nil
+		enumValues, enumOK, enumErr := frontendbindings.EnumValuesForType(t)
+		if enumErr != nil {
+			return contractSpec{}, false, enumErr
+		}
+		if !enumOK || len(enumValues) == 0 {
+			return contractSpec{}, false, nil
+		}
+		fallbackValues := make([]enumValueSpec, 0, len(enumValues))
+		for _, value := range enumValues {
+			fallbackValues = append(fallbackValues, enumValueSpec{
+				Name:  value.Name,
+				Value: value.Value,
+			})
+		}
+		return contractSpec{
+			Name:       t.Name(),
+			Kind:       contractKindEnum,
+			EnumValues: fallbackValues,
+		}, true, nil
 	}
 	enumValues := make([]enumValueSpec, 0, len(values))
 	for _, value := range values {
