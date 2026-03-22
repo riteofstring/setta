@@ -9722,6 +9722,190 @@ func TestRegisterProjectRoutesAgenticEdgesSupportDocumentedKindsAndContextModes(
 	}
 }
 
+func TestRegisterProjectRoutesAgenticEdgesAcceptLinkedChatTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": graphEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	engineConfigID := "engine-linked"
+	if _, err := projectRuntime.SetChatSectionSettings(context.Background(), "project-alpha", "chat-target", projectstate.ChatSectionSettings{
+		Managed:        true,
+		EngineConfigID: &engineConfigID,
+		PermissionMode: projectstate.ChatPermissionModeMinimal,
+		SearchEnabled:  true,
+		DictationMode:  projectstate.ChatDictationModeAuto,
+	}); err != nil {
+		t.Fatalf("seed linked chat target: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body any) *httptest.ResponseRecorder {
+		t.Helper()
+
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(mustMarshalProjectRouteRequest(t, body)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	createResponse := post(RouteCreateAgenticEdge, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sourceSectionId": "chat-source",
+		"targetSectionId": "chat-target",
+		"kind":            "chat_chat",
+	})
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 create-agentic-edge response, got %d with body %q", createResponse.Code, createResponse.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	targetModifier := decodeProjectRouteRawObject(t, project.Sections["chat-target"].SharedModifier)
+	if got := targetModifier["managed"]; got != true {
+		t.Fatalf("expected linked chat target to remain managed, got %#v", got)
+	}
+	if got := targetModifier["engineConfigId"]; got != "engine-linked" {
+		t.Fatalf("expected linked chat target to retain engineConfigId, got %#v", got)
+	}
+	if len(project.AgenticEdges) != 1 {
+		t.Fatalf("expected one created agentic edge, got %#v", project.AgenticEdges)
+	}
+
+	createdEdge := project.AgenticEdges[0]
+	updatedEdge := createdEdge
+	updatedEdge.Hidden = true
+	updateResponse := post(RouteUpdateAgenticEdge, UpdateAgenticEdgeRequest{
+		ProjectID: "project-alpha",
+		Edge:      updatedEdge,
+	})
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 update-agentic-edge response, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	replacementEdge := projectstate.AgenticEdge{
+		ID:              "edge-linked-replacement",
+		SourceSectionID: "chat-source",
+		TargetSectionID: "chat-target",
+		Kind:            "chat_chat",
+		ContextMode:     "reference_only",
+	}
+	setResponse := post(RouteSetAgenticEdges, SetAgenticEdgesRequest{
+		ProjectID: "project-alpha",
+		Edges:     []projectstate.AgenticEdge{replacementEdge},
+	})
+	if setResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 set-agentic-edges response, got %d with body %q", setResponse.Code, setResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if !reflect.DeepEqual(project.AgenticEdges, []projectstate.AgenticEdge{replacementEdge}) {
+		t.Fatalf("expected linked chat target edge set to roundtrip replacement, got %#v", project.AgenticEdges)
+	}
+}
+
+func TestRegisterProjectRoutesAgenticEdgesIgnoreInvalidLLMConfigForNonLinkedEdges(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": graphEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	workspaceRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "llm_config.json"), []byte(`{"configs":{"broken":[]}}`), 0o600); err != nil {
+		t.Fatalf("write invalid llm config: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	post := func(route string, body any) *httptest.ResponseRecorder {
+		t.Helper()
+
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(mustMarshalProjectRouteRequest(t, body)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	createResponse := post(RouteCreateAgenticEdge, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sourceSectionId": "chat-source",
+		"targetSectionId": "source-section",
+		"kind":            "chat_section",
+	})
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 create-agentic-edge response, got %d with body %q", createResponse.Code, createResponse.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.AgenticEdges) != 1 {
+		t.Fatalf("expected one created non-linked agentic edge, got %#v", project.AgenticEdges)
+	}
+
+	updatedEdge := project.AgenticEdges[0]
+	updatedEdge.Hidden = true
+	updateResponse := post(RouteUpdateAgenticEdge, UpdateAgenticEdgeRequest{
+		ProjectID: "project-alpha",
+		Edge:      updatedEdge,
+	})
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 update-agentic-edge response, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	replacementEdge := projectstate.AgenticEdge{
+		ID:              "edge-chat-section-replacement",
+		SourceSectionID: "chat-source",
+		TargetSectionID: "source-section",
+		Kind:            "chat_section",
+		ContextMode:     "reference_only",
+	}
+	setResponse := post(RouteSetAgenticEdges, SetAgenticEdgesRequest{
+		ProjectID: "project-alpha",
+		Edges:     []projectstate.AgenticEdge{replacementEdge},
+	})
+	if setResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 set-agentic-edges response, got %d with body %q", setResponse.Code, setResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if !reflect.DeepEqual(project.AgenticEdges, []projectstate.AgenticEdge{replacementEdge}) {
+		t.Fatalf("expected malformed llm config to stay irrelevant for non-linked agentic edges, got %#v", project.AgenticEdges)
+	}
+}
+
 func TestRegisterProjectRoutesAgenticEdgesRejectInvalidKindsAndMissingIDs(t *testing.T) {
 	t.Parallel()
 
