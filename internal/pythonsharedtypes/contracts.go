@@ -177,6 +177,12 @@ func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 
 func pythonSharedFieldDefaultsForType(t reflect.Type) map[string]string {
 	switch t.Name() {
+	case reflect.TypeOf(frontendbindings.Viewport{}).Name():
+		return map[string]string{
+			"x":    "0.0",
+			"y":    "0.0",
+			"zoom": "1.0",
+		}
 	case reflect.TypeOf(frontendbindings.LLMConfig{}).Name():
 		return map[string]string{
 			"temporary": "False",

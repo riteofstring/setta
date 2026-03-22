@@ -7,9 +7,9 @@ import (
 )
 
 type ListenerCoverageDependency struct {
-	Type      string `json:"type"`
-	SectionID string `json:"sectionId"`
-	CodeObjID string `json:"codeObjId,omitempty"`
+	Type      DependencyKeyType `json:"type"`
+	SectionID string            `json:"sectionId"`
+	CodeObjID string            `json:"codeObjId,omitempty"`
 }
 
 type ListenerCoverageSnapshot struct {

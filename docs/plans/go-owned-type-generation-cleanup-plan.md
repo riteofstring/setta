@@ -61,6 +61,16 @@ That means:
   - `LLMConfig -> llmconfig.Config`
   - `AllLLMConfigs -> llmconfig.AllConfigs`
 - `internal/frontendbindings/ai_endpoint_contracts.go` now uses the backend-owned `llmconfig.ManagedAPIKeysSnapshot` instead of a mirrored local struct.
+- the structured dependency wire family now has a real backend owner in `internal/realtime`:
+  - `DependencyKeyType`
+  - `SectionDependencyKey`
+  - `SectionParamDependencyKey`
+  - `DependencyValueType`
+  - `LiteralDependencyValue`
+  - `FileReadDependencyValue`
+  - `BinaryDependencyValue`
+- `internal/frontendbindings/contracts.go` now aliases those realtime-owned dependency enums and structs instead of repeating empty local placeholder structs for the concrete wire objects.
+- `project_config.py` no longer carries a handwritten `Viewport`; `go_shared_types.py` now provides that Go-owned model with the Python-side default values the SDK expects.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -80,6 +90,8 @@ Working assumption for the next passes:
 - `id.py` is likely truly Python-only.
 - parts of `listener.py` are likely truly Python-only.
 - the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
+- `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
+- `dependency_value.py` is smaller and narrower, but still needs a deliberate decision because the current frozen dataclass API is used directly in Python tests and runtime helpers.
 - every other file must justify itself as Python-only or move toward Go ownership.
 
 ## What Is Still Wrong
@@ -94,7 +106,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the artifact/binary leaf family, and the prompt-template / LLM-config family, but not yet for the chat, dependency, and larger external-agent settings families.
+This has improved for the project-state/view/windowing family, the artifact/binary leaf family, the prompt-template / LLM-config family, and the dependency wire family, but not yet for the chat and larger external-agent settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -131,12 +143,14 @@ The main candidates are:
 - `chat.py`
 - `chat_messages.py`
 - `chat_stream_events.py`
-- `dependency_key.py`
-- `dependency_value.py`
 - `websocket.py`
 
 Secondary candidate:
+- `dependency_value.py`, if the Python listener/runtime no longer needs the frozen dataclass constructor/equality behavior
 - the remaining local wrapper content in `project_config.py`, if more of its defaults can move cleanly onto Go-owned models without adding duplicate Go definitions
+
+Likely Python-only:
+- `dependency_key.py`, because the listener SDK currently uses those frozen dataclasses as hashable dictionary keys
 
 Those files should either:
 - disappear because the Python package no longer needs them, or

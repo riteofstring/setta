@@ -318,10 +318,7 @@ func (p *ListenerProducer) projectForScope(projectID string, shareSessionID stri
 }
 
 func marshalBinaryDependencyValue(ref binarypayload.ContentRef) (json.RawMessage, error) {
-	payload, err := json.Marshal(struct {
-		Type    string                   `json:"type"`
-		Payload binarypayload.ContentRef `json:"payload"`
-	}{
+	payload, err := json.Marshal(BinaryDependencyValue{
 		Type:    DependencyValueTypeBinary,
 		Payload: ref,
 	})

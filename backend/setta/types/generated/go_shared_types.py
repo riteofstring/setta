@@ -309,9 +309,9 @@ class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
 
 
 class Viewport(SettaSharedTypeModel):
-    x: float
-    y: float
-    zoom: float
+    x: float = 0.0
+    y: float = 0.0
+    zoom: float = 1.0
 
 
 class TopLevelSectionLayout(SettaSharedTypeModel):

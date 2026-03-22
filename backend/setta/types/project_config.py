@@ -14,6 +14,7 @@ from setta.types.generated.go_shared_types import (
     StateMachineEdge,
     TopLevelSectionLayout,
     ViewMode as ViewModeConfig,
+    Viewport,
     WatchCodeFolder,
     WatchCodeRegistryEntry,
     WindowSpaceConfig,
@@ -21,23 +22,6 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-
-class Viewport(BaseModel, extra="forbid"):
-    """Camera settings describing the canvas offset and zoom level."""
-
-    x: float = Field(
-        default=0.0,
-        description="Horizontal offset applied to the viewport origin.",
-    )
-    y: float = Field(
-        default=0.0,
-        description="Vertical offset applied to the viewport origin.",
-    )
-    zoom: float = Field(
-        default=1.0,
-        description="Scalar zoom level; greater than 1 zooms in, less than 1 zooms out.",
-    )
 
 
 class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):

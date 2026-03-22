@@ -4,6 +4,7 @@ import (
 	"time"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/realtime"
 )
 
 type BackendInitEvent struct {
@@ -610,34 +611,34 @@ type ListenerCoverageRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }
 
-type DependencyKeyType string
+type DependencyKeyType = realtime.DependencyKeyType
 
 const (
-	DependencyKeyTypeSection      DependencyKeyType = "Section"
-	DependencyKeyTypeSectionParam DependencyKeyType = "SectionParam"
+	DependencyKeyTypeSection      = realtime.DependencyKeyTypeSection
+	DependencyKeyTypeSectionParam = realtime.DependencyKeyTypeSectionParam
 )
 
-type SectionDependencyKey struct{}
+type SectionDependencyKey = realtime.SectionDependencyKey
 
-type SectionParamDependencyKey struct{}
+type SectionParamDependencyKey = realtime.SectionParamDependencyKey
 
 type BaseDependencyKeyUnion struct{}
 
-type DependencyValueType string
+type DependencyValueType = realtime.DependencyValueType
 
 const (
-	DependencyValueTypeLiteral  DependencyValueType = "Literal"
-	DependencyValueTypeBinary   DependencyValueType = "Binary"
-	DependencyValueTypeFileRead DependencyValueType = "FileRead"
+	DependencyValueTypeLiteral  = realtime.DependencyValueTypeLiteral
+	DependencyValueTypeBinary   = realtime.DependencyValueTypeBinary
+	DependencyValueTypeFileRead = realtime.DependencyValueTypeFileRead
 )
 
 type BinaryContentRef binarypayload.ContentRef
 
-type LiteralDependencyValue struct{}
+type LiteralDependencyValue = realtime.LiteralDependencyValue
 
-type FileReadDependencyValue struct{}
+type FileReadDependencyValue = realtime.FileReadDependencyValue
 
-type BinaryDependencyValue struct{}
+type BinaryDependencyValue = realtime.BinaryDependencyValue
 
 type BaseDependencyValueUnion struct{}
 

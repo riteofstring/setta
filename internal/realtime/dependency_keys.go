@@ -4,13 +4,50 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
+	binarypayload "setta/internal/binary"
 )
 
+type DependencyKeyType string
+
 const (
-	DependencyKeyTypeSection      = "Section"
-	DependencyKeyTypeSectionParam = "SectionParam"
-	DependencyValueTypeBinary     = "Binary"
+	DependencyKeyTypeSection      DependencyKeyType = "Section"
+	DependencyKeyTypeSectionParam DependencyKeyType = "SectionParam"
 )
+
+type SectionDependencyKey struct {
+	Type      DependencyKeyType `json:"type"`
+	SectionID string            `json:"sectionId"`
+}
+
+type SectionParamDependencyKey struct {
+	Type      DependencyKeyType `json:"type"`
+	SectionID string            `json:"sectionId"`
+	CodeObjID string            `json:"codeObjId"`
+}
+
+type DependencyValueType string
+
+const (
+	DependencyValueTypeLiteral  DependencyValueType = "Literal"
+	DependencyValueTypeBinary   DependencyValueType = "Binary"
+	DependencyValueTypeFileRead DependencyValueType = "FileRead"
+)
+
+type LiteralDependencyValue struct {
+	Type    DependencyValueType `json:"type"`
+	Payload string              `json:"payload"`
+}
+
+type FileReadDependencyValue struct {
+	Type    DependencyValueType `json:"type"`
+	Payload string              `json:"payload"`
+}
+
+type BinaryDependencyValue struct {
+	Type    DependencyValueType      `json:"type"`
+	Payload binarypayload.ContentRef `json:"payload"`
+}
 
 var (
 	ErrDependencyKeyTypeRequired      = errors.New("realtime: dependency key type is required")
@@ -22,13 +59,13 @@ var (
 )
 
 type dependencyKey struct {
-	Type      string `json:"type"`
-	SectionID string `json:"sectionId"`
-	CodeObjID string `json:"codeObjId"`
+	Type      DependencyKeyType `json:"type"`
+	SectionID string            `json:"sectionId"`
+	CodeObjID string            `json:"codeObjId"`
 }
 
 type dependencyValue struct {
-	Type string `json:"type"`
+	Type DependencyValueType `json:"type"`
 }
 
 func CanonicalDependencyKey(raw json.RawMessage) (string, error) {
@@ -37,7 +74,7 @@ func CanonicalDependencyKey(raw json.RawMessage) (string, error) {
 		return "", err
 	}
 
-	key.Type = strings.TrimSpace(key.Type)
+	key.Type = DependencyKeyType(strings.TrimSpace(string(key.Type)))
 	key.SectionID = strings.TrimSpace(key.SectionID)
 	key.CodeObjID = strings.TrimSpace(key.CodeObjID)
 
@@ -117,7 +154,22 @@ func structuredDependencyKeyJSON(value string) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	payload, err := json.Marshal(key)
+	var payload []byte
+	switch key.Type {
+	case DependencyKeyTypeSection:
+		payload, err = json.Marshal(SectionDependencyKey{
+			Type:      key.Type,
+			SectionID: key.SectionID,
+		})
+	case DependencyKeyTypeSectionParam:
+		payload, err = json.Marshal(SectionParamDependencyKey{
+			Type:      key.Type,
+			SectionID: key.SectionID,
+			CodeObjID: key.CodeObjID,
+		})
+	default:
+		err = ErrUnsupportedDependencyKeyType
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +201,7 @@ func DependencyValueIsBinary(raw json.RawMessage) (bool, error) {
 	if err := json.Unmarshal(raw, &value); err != nil {
 		return false, err
 	}
-	value.Type = strings.TrimSpace(value.Type)
+	value.Type = DependencyValueType(strings.TrimSpace(string(value.Type)))
 	if value.Type == "" {
 		return false, ErrDependencyValueTypeRequired
 	}
