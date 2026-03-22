@@ -985,6 +985,46 @@ func TestServiceStartChatContinueFromChatRejectsScriptableSourceHistory(t *testi
 	}
 }
 
+// Reusing an explicit managed chat id must also fail closed when that chat id
+// already belongs to the scriptable runtime.
+func TestServiceStartChatRejectsScriptableHistoryOnReusedChatID(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+	sourceRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         "scriptable_chat",
+		"chatId":          "chat-scriptable",
+		"projectConfigId": "project-alpha",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 17, 45, 0, 0, time.UTC))
+	sourceRun.Status = agentruns.RunStatusCompleted
+	finishedAt := time.Date(2026, 3, 8, 17, 45, 5, 0, time.UTC)
+	sourceRun.FinishedAt = &finishedAt
+	sourceRun.Outputs = map[string]any{
+		"messages": []any{
+			assistantMessage("scriptable-assistant", "Scriptable reply"),
+		},
+	}
+	saveManagedChatRun(t, fixture.runs, sourceRun)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		ChatID:          stringPtr("chat-scriptable"),
+		Message:         userMessage("new-user", "Reuse this chat."),
+		EngineConfigID:  "engine-managed",
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   true,
+	})
+	if !errors.Is(err, ErrChatEngineMismatch) {
+		t.Fatalf("expected ErrChatEngineMismatch, got %v", err)
+	}
+	if starter.lastInputs != nil {
+		t.Fatalf("expected managed starter not to be invoked, got %#v", starter.lastInputs)
+	}
+}
+
 // Branch-edit validation should fail before runtime start if the branch source
 // message cannot be found in the parent managed chat history.
 func TestServiceStartChatBranchEditMissingMessageReturnsNotFound(t *testing.T) {

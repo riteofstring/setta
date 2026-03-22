@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentruns"
+	"setta/internal/externalagents"
+	"setta/internal/managedchat"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/statemachineruns"
@@ -301,6 +303,10 @@ func writeStateMachineRunError(w http.ResponseWriter, r *http.Request, err error
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case errors.Is(err, agentruns.ErrRunNotFound):
 		writeError(w, r, http.StatusNotFound, "state_machine_run_not_found", "State machine run not found.")
+	case errors.Is(err, externalagents.ErrChatEngineMismatch), errors.Is(err, managedchat.ErrChatEngineMismatch):
+		writeError(w, r, http.StatusConflict, "chat_engine_mismatch", err.Error())
+	case errors.Is(err, externalagents.ErrChatProjectConfigMismatch), errors.Is(err, managedchat.ErrChatProjectConfigMismatch):
+		writeError(w, r, http.StatusConflict, "chat_project_config_mismatch", err.Error())
 	default:
 		return false
 	}

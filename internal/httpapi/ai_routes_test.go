@@ -691,6 +691,15 @@ func TestRegisterAIRoutesReturnsManagedChatIdentityMismatchErrors(t *testing.T) 
 	if err := fixture.store.Save(managedRun); err != nil {
 		t.Fatalf("save managed mismatch run: %v", err)
 	}
+	scriptableRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         "scriptable_chat",
+		"chatId":          "chat-managed-scriptable-conflict",
+		"projectConfigId": "project-alpha",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 2, 0, 0, time.UTC))
+	if err := fixture.store.Save(scriptableRun); err != nil {
+		t.Fatalf("save scriptable mismatch run: %v", err)
+	}
 
 	testCases := []struct {
 		name      string
@@ -701,6 +710,21 @@ func TestRegisterAIRoutesReturnsManagedChatIdentityMismatchErrors(t *testing.T) 
 			name: "engine mismatch",
 			body: `{
 				"chatId":"chat-managed-conflict",
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reuse chat"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantError: "chat_engine_mismatch",
+		},
+		{
+			name: "scriptable history mismatch",
+			body: `{
+				"chatId":"chat-managed-scriptable-conflict",
 				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reuse chat"}]},
 				"engineConfigId":"engine-managed",
 				"thinking":false,

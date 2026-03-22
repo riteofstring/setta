@@ -16,6 +16,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/config"
+	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -187,6 +188,120 @@ func TestRegisterStateMachineRunRoutesFailClosedWhenSignalTargetProfileBlocksWor
 	}
 	if !strings.Contains(payload.Error.Message, "profile-no-signal") || !strings.Contains(payload.Error.Message, "report_state_machine_signal") {
 		t.Fatalf("expected signal-tool validation detail, got %#v", payload)
+	}
+}
+
+func TestRegisterStateMachineRunRoutesRejectsScriptableHistoryOnReusedChatID(t *testing.T) {
+	t.Parallel()
+
+	project := stateMachineRunRouteSignalProject(t, nil)
+	project.StateMachineEdges[0].TargetAction.ThreadStrategy = projectstate.StateMachineThreadStrategyContinueCurrentThread
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	root := t.TempDir()
+	runs, err := agentruns.NewRunStore(root)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	managedService, engines, profiles, starter := newStateMachineRunRouteManagedService(t, projectRuntime, runs)
+
+	if _, err := projectRuntime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", stringPointer("chat-scriptable-history")); err != nil {
+		t.Fatalf("seed chat section chat id: %v", err)
+	}
+
+	scriptableRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         "scriptable_chat",
+		"chatId":          "chat-scriptable-history",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-scriptable",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 14, 18, 59, 0, 0, time.UTC))
+	scriptableRun.Status = agentruns.RunStatusCompleted
+	finishedAt := time.Date(2026, 3, 14, 18, 59, 5, 0, time.UTC)
+	scriptableRun.FinishedAt = &finishedAt
+	scriptableRun.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{
+				"id":   "assistant-scriptable",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{
+						"type": "text",
+						"text": "Scriptable reply",
+					},
+				},
+			},
+		},
+	}
+	if err := runs.Save(scriptableRun); err != nil {
+		t.Fatalf("save scriptable run: %v", err)
+	}
+
+	runtime, err := statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
+		Runs:     runs,
+		Engines:  engines,
+		Profiles: profiles,
+		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
+			return projectRuntime, nil
+		},
+		ManagedChats: managedService,
+		ManagedRuns:  &stateMachineRunRouteRunStopper{},
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 14, 19, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new workflow runtime: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(config.ModeIDE), info: RuntimeInfo{Mode: string(config.ModeIDE)}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			if err := RegisterStateMachineRunRoutes(r, StateMachineRunRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Runtime:    runtime,
+			}); err != nil {
+				t.Fatalf("register workflow routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := stateMachineRunRouteRequest(t, handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-signal",
+		StartSectionID:  stringPointer("start-section"),
+	}, http.StatusConflict)
+	stateMachineRouteErrorCode(t, response, "chat_engine_mismatch")
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Message != managedchat.ErrChatEngineMismatch.Error() {
+		t.Fatalf("expected chat engine mismatch detail, got %#v", payload)
+	}
+	if starter.lastInputs != nil {
+		t.Fatalf("expected managed run starter not to be invoked, got %#v", starter.lastInputs)
 	}
 }
 
@@ -376,6 +491,21 @@ func (s *stateMachineRunRouteManagedChatStarter) StartChat(request managedchat.S
 		ChatID: s.chatIDs[index],
 		Run:    run,
 	}, nil
+}
+
+type stateMachineRunRouteManagedRunStarter struct {
+	lastInputs map[string]any
+}
+
+func (s *stateMachineRunRouteManagedRunStarter) Disabled() bool {
+	return false
+}
+
+func (s *stateMachineRunRouteManagedRunStarter) StartRun(_ agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	s.lastInputs = cloneRouteAnyMap(inputs)
+	run := agentruns.NewRun(nil, inputs, time.Date(2026, 3, 14, 19, 0, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusRunning
+	return run, nil
 }
 
 type stateMachineRunRouteRunStopper struct {
@@ -662,6 +792,57 @@ func newStateMachineRouteTestRun(
 	run := agentruns.NewRun(nil, inputs, now)
 	run.ID = runID
 	return run
+}
+
+func newStateMachineRunRouteManagedService(
+	t *testing.T,
+	projectRuntime *projectstate.Runtime,
+	runs *agentruns.RunStore,
+) (*managedchat.Service, *agentruns.EngineStore, *agentprofiles.Store, *stateMachineRunRouteManagedRunStarter) {
+	t.Helper()
+
+	root := t.TempDir()
+	engines, err := agentruns.NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engines.Write([]agentruns.EngineConfig{{
+		ID:               "engine-managed",
+		Name:             "Managed Engine",
+		EngineType:       agentruns.EngineTypeSettaLLM,
+		SettaLLMConfigID: &managedConfigID,
+	}}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+	llmRuntime, err := llmconfig.NewRuntime(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			managedConfigID: {
+				ID:        managedConfigID,
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("new llm runtime: %v", err)
+	}
+	profiles := newStateMachineRunRouteAgentProfileStore(t, nil)
+	starter := &stateMachineRunRouteManagedRunStarter{}
+	service, err := managedchat.NewService(managedchat.ServiceOptions{
+		ProjectState: projectRuntime,
+		Runs:         runs,
+		Engines:      engines,
+		LLM:          llmRuntime,
+		Profiles:     profiles,
+		Starter:      starter,
+	})
+	if err != nil {
+		t.Fatalf("new managed chat service: %v", err)
+	}
+	return service, engines, profiles, starter
 }
 
 func newStateMachineRunRouteAgentProfileStore(t *testing.T, profiles []agentprofiles.Profile) *agentprofiles.Store {

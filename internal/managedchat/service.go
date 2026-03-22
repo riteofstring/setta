@@ -601,6 +601,16 @@ func (s *Service) ensureManagedChatIDCompatible(chatID string, projectConfigID s
 	if len(externalRuns) > 0 {
 		return nil, ErrChatEngineMismatch
 	}
+	scriptableRuns, err := s.runs.ListByMetadata(agentruns.RunFilter{
+		RunType: stringPtr(runTypeScriptable),
+		ChatID:  stringPtr(trimmedChatID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(scriptableRuns) > 0 {
+		return nil, ErrChatEngineMismatch
+	}
 	managedRuns, err := s.runs.ListByMetadata(agentruns.RunFilter{
 		RunType: stringPtr(RunTypeManagedChat),
 		ChatID:  stringPtr(trimmedChatID),
