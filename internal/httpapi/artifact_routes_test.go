@@ -518,6 +518,70 @@ func TestRegisterArtifactRoutesShareModeRejectsPolicyDenied(t *testing.T) {
 	}
 }
 
+func TestRegisterArtifactRoutesUpdateAppliesChatMimePolicyWithoutRestrictingGenericScope(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	uploadPolicies := &artifacts.UploadPolicies{
+		Chat: artifacts.ScopeUploadPolicy{
+			MaxFileBytes:        10,
+			MaxFileLabel:        "10 bytes",
+			AllowedMimePrefixes: []string{"text/"},
+		},
+		Generic: artifacts.ScopeUploadPolicy{
+			MaxFileBytes: 10,
+			MaxFileLabel: "10 bytes",
+		},
+	}
+	service, _, settaFilesRoot, binaryStore := newArtifactRouteServiceWithPolicies(t, uploadPolicies)
+	handler := newArtifactRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	imageRef, err := binaryStore.StoreBytes([]byte("12345"), "image/png", false)
+	if err != nil {
+		t.Fatalf("store image payload: %v", err)
+	}
+	imageValue, err := json.Marshal(imageRef)
+	if err != nil {
+		t.Fatalf("marshal image payload: %v", err)
+	}
+
+	disallowedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"File","id":"artifacts/image.png","value":`+string(imageValue)+`}],"uploadScope":"chat"}`))
+	disallowedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, disallowedRequest, authService)
+
+	disallowedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(disallowedResponse, disallowedRequest)
+	if disallowedResponse.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("expected 415, got %d with body %q", disallowedResponse.Code, disallowedResponse.Body.String())
+	}
+	var disallowedPayload errorResponse
+	if err := json.Unmarshal(disallowedResponse.Body.Bytes(), &disallowedPayload); err != nil {
+		t.Fatalf("decode disallowed mime error payload: %v", err)
+	}
+	if disallowedPayload.Error.Code != "artifact_mime_not_allowed" {
+		t.Fatalf("expected artifact_mime_not_allowed, got %#v", disallowedPayload)
+	}
+
+	allowedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"File","id":"artifacts/image.png","value":`+string(imageValue)+`}],"uploadScope":"generic"}`))
+	allowedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, allowedRequest, authService)
+
+	allowedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(allowedResponse, allowedRequest)
+	if allowedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", allowedResponse.Code, allowedResponse.Body.String())
+	}
+
+	artifactPath := filepath.Join(settaFilesRoot, "artifacts", "image.png")
+	payload, err := os.ReadFile(artifactPath)
+	if err != nil {
+		t.Fatalf("read generic-scope artifact payload: %v", err)
+	}
+	if string(payload) != "12345" {
+		t.Fatalf("expected generic-scope artifact bytes to persist, got %q", string(payload))
+	}
+}
+
 func TestRegisterArtifactRoutesMapUploadPolicyErrors(t *testing.T) {
 	t.Parallel()
 
