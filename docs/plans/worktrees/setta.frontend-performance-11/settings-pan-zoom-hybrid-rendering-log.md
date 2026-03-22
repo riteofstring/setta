@@ -2825,3 +2825,81 @@ Record:
     - benchmark data is still required before calling the overall hybrid-rendering plan complete
 - Next action:
   - Run the authoritative paired benchmark matrix for `settings` and `tier1Synthetic` on commit `afbfe7d1f`, then decide whether further locality/warm-pool narrowing is still required.
+
+## 2026-03-25 068
+
+- Item: Run the authoritative paired `settings` plus `tier1Synthetic` benchmark matrix for the queued image-preview path and decide whether Tier 1 is complete.
+- Status: `done`
+- Details:
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-image-preview-queue-rerun.md`
+  - Local artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-25_section-benchmark-tier1-image-preview-queue-rerun`
+  - Same paired benchmark harness was used again:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+    - `perf/scripts/sectionPanZoomBenchmarkReplay.js`
+    - `perf/scripts/summarizeSectionTopLevelGridBenchmarkTrace.js`
+  - Same paired browser/frontend targets:
+    - worktree browser CDP `http://127.0.0.1:9233`
+    - worktree frontend `http://127.0.0.1:3011`
+    - untouched `main` browser CDP `http://127.0.0.1:9309`
+    - untouched `main` frontend `http://127.0.0.1:3087`
+  - Canonical scenes were reinstalled into both state roots immediately before the rerun:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root ../setta/setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root ../setta/setta_files_dev`
+  - Paired totals versus untouched `main`:
+    - `settings`
+      - benchmark `Paint`:
+        - `83.025ms -> 434.401ms`
+      - benchmark `RunTask`:
+        - `34120.770ms -> 29680.224ms`
+      - benchmark `UpdateLayoutTree`:
+        - `525.004ms -> 493.593ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `16.993ms -> 762.591ms`
+      - benchmark `RunTask`:
+        - `15099.165ms -> 14109.314ms`
+      - benchmark `UpdateLayoutTree`:
+        - `19.599ms -> 20.719ms`
+  - Key slow-pan paint deltas versus untouched `main`:
+    - `settings`
+      - overview horizontal pan slow `Paint`:
+        - `0.000ms -> 42.497ms`
+      - overview vertical pan slow `Paint`:
+        - `0.000ms -> 57.981ms`
+    - `tier1Synthetic`
+      - overview horizontal pan slow `Paint`:
+        - `0.000ms -> 125.234ms`
+      - overview vertical pan slow `Paint`:
+        - `0.000ms -> 153.553ms`
+  - Worktree deltas versus the recalibrated retained baseline:
+    - `settings`
+      - benchmark `Paint`:
+        - `436.851ms -> 434.401ms`
+      - benchmark `RunTask`:
+        - `31132.744ms -> 29680.224ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.197ms -> 493.593ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `749.086ms -> 762.591ms`
+      - benchmark `RunTask`:
+        - `14593.848ms -> 14109.314ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.243ms -> 20.719ms`
+  - Focused verification captured alongside this checkpoint:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+      - `2` files passed
+      - `8` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+      - `1` test passed
+    - filtered `tsc` on the touched preview files returned no matching diagnostics
+  - Decision:
+    - keep the exact-image preview path and queued capture correction for product correctness
+    - reject this checkpoint as the performance-complete Tier 1 solution for the hybrid-rendering plan
+    - the queue helps the pending burst and improves some `RunTask`, but it does not materially collapse the motion-paint budget
+- Next action:
+  - Narrow Tier 1 preview locality and warm-surface scope so the overview canvas cannot accumulate so many ready image surfaces at once, then rerun the same paired benchmark matrix.

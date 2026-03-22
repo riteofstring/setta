@@ -1456,3 +1456,31 @@ These questions should be answered with traces and direct visual verification, n
 - Next keep/reject gate from here:
   - rerun the authoritative paired benchmark matrix for `settings` and `tier1Synthetic` against commit `afbfe7d1f`
   - decide whether serialized capture alone is sufficient, or whether Tier 1 still needs tighter capture locality / warm-pool limits before this branch can be treated as complete
+
+## 2026-03-25 Benchmark Gate Note
+
+- The authoritative paired matrix for the queued image-preview path is now recorded in:
+  - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-image-preview-queue-rerun.md`
+- Result:
+  - keep the faithful image-preview path as a product-correctness fix
+  - do not treat the queued-image checkpoint as the performance-complete Tier 1 solution
+- Why it is not complete:
+  - versus untouched `main`, the worktree still remains paint-heavy on both canonical scenes:
+    - `settings` benchmark `Paint`: `83.025ms -> 434.401ms`
+    - `tier1Synthetic` benchmark `Paint`: `16.993ms -> 762.591ms`
+  - the slow overview pans remain the clearest failure point:
+    - `settings` overview horizontal pan slow `Paint`: `0.000ms -> 42.497ms`
+    - `settings` overview vertical pan slow `Paint`: `0.000ms -> 57.981ms`
+    - `tier1Synthetic` overview horizontal pan slow `Paint`: `0.000ms -> 125.234ms`
+    - `tier1Synthetic` overview vertical pan slow `Paint`: `0.000ms -> 153.553ms`
+  - versus the recalibrated retained baseline, the queued-image path is effectively flat on the actual paint budget:
+    - `settings` benchmark `Paint`: `436.851ms -> 434.401ms`
+    - `tier1Synthetic` benchmark `Paint`: `749.086ms -> 762.591ms`
+- The best current read:
+  - serializing capture work reduces the worst all-at-once pending burst and helps `RunTask`
+  - but exact image overlays still leave Tier 1 overview motion far too paint-heavy to satisfy this plan
+- Next implementation direction:
+  - tighten preview locality instead of preview fidelity
+  - limit how many Tier 1 sections can become preview-ready or overlay-visible at once
+  - bias toward a small warm neighborhood instead of letting the whole overview canvas accumulate ready image surfaces
+  - rerun the same paired matrix after that locality narrowing
