@@ -339,12 +339,13 @@ def test_verify_install_still_smokes_the_built_sdist_through_build_sh() -> None:
 
     assert "./build.sh" in script
     assert 'uv pip install --force-reinstall "$filepath"' in script
-    assert "from setta.api.runner import SettaRunner" in script
-    assert "from setta.api.listener import SettaListener" in script
-    assert (
-        "from setta.api.runtime_compat import verify_running_backend_compatibility"
-        in script
-    )
+    assert "SETTA_INIT_ENV_NO_INSTALL_PROJECT=1" in script
+    assert "import setta" in script
+    assert '[sys.executable, "-m", "setta", "sdk-local-core"]' in script
+    assert '"commandName": "listener_render_realtime_dependency_values"' in script
+    assert 'assert handshake["protocolVersion"] == 1' in script
+    assert 'entry["dependencyKey"]["type"] == "SectionParam"' in script
+    assert 'entry["dependencyKey"]["type"] == "Section"' in script
 
 
 def test_build_and_upload_still_reuses_build_sh_before_publish() -> None:

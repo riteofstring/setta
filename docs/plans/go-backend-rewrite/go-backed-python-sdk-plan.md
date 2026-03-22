@@ -638,11 +638,12 @@ Phase 7 progress:
   retained Python runner and listener verify that against the local Python
   package version plus the generated contract-version constant before using the
   backend
-- `verify_install.sh` now smokes the installed retained SDK boundary after the
-  built sdist install by importing `SettaRunner`, `SettaListener`, the
-  runtime-compat verifier, and the generated contract-version constant from the
-  installed package instead of treating `uv pip install` success alone as
-  sufficient package smoke
+- `verify_install.sh` now performs a real packaged local-core smoke after the
+  built sdist install by starting `python -m setta sdk-local-core` from the
+  installed package, verifying the handshake payload, and exercising a real
+  realtime dependency render command over the actual stdio command/result
+  boundary instead of treating `uv pip install` success alone as sufficient
+  package smoke
 - `internal/app` now also includes a live `SettaListener` integration test for
   the running-backend SDK path: it starts a real Go websocket server on a real
   bound port, lets the retained Python listener complete bootstrap +
@@ -657,8 +658,7 @@ Phase 7 progress:
 Phase 7 status:
 
 - complete for the running-backend retained SDK path
-- local-core-specific release/install smoke still remains, but the protocol
-  handshake and a real retained-Python-to-Go subprocess test are now in place
+- complete for the local-core-specific release/install smoke path
 
 ## Recommended First Implementation Sequence
 
