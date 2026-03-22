@@ -1,24 +1,26 @@
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
-from setta.database.utils import create_new_id
-from setta.types.agentic_edges import AgenticEdge
-from setta.types.code_obj_impls import CodeObjType
-from setta.types.edges import Edge
-from setta.types.id import ID
-from setta.types.project_chat_windowing import validate_window_space_window_owner
-from setta.types.section_impls import SectionType
-from setta.types.state_machine_edges import StateMachineEdge
+from setta.types.generated.go_shared_types import (
+    CodeObjType,
+    CodeObjValueRepresentationMode,
+    Edge,
+    ProjectCodegenLanguage,
+    SectionCodegenMode,
+    SectionRepresentationMode,
+    SectionType,
+    StateMachineEdge,
+    TopLevelSectionLayout,
+    ViewMode as ViewModeConfig,
+    WatchCodeFolder,
+    WatchCodeRegistryEntry,
+    WindowSpaceConfig,
+    AgenticEdge,
+)
+from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-
-class Position(BaseModel):
-    x: float = 0
-    y: float = 0
 
 
 class Viewport(BaseModel, extra="forbid"):
@@ -38,101 +40,6 @@ class Viewport(BaseModel, extra="forbid"):
     )
 
 
-class ViewportBounds(BaseModel, extra="forbid"):
-    """Visible canvas bounds in flow coordinates."""
-
-    x: float = 0
-    y: float = 0
-    w: float = 0
-    h: float = 0
-
-
-class TopLevelSectionLayout(Position, extra="forbid"):
-    zIndex: int = 0
-    w: float | None = None
-    h: float | None = None
-
-
-class ViewModeConfig(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    sortIndex: int = 0
-    isUserFacing: bool = False
-    isTab: bool = False
-    visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
-    viewport: Viewport | None = Field(default_factory=Viewport)
-    viewportInitialized: bool = False
-    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
-
-
-class WindowSpaceSurfaceKind(str, Enum):
-    project_chat = "project_chat"
-    section = "section"
-
-
-class WindowSpaceWindowMode(str, Enum):
-    project_ai_mode = "project_ai_mode"
-    section_mode = "section_mode"
-    git_graph_mode = "git_graph_mode"
-
-
-class NormalizedFloatingWindowBounds(BaseModel, extra="forbid"):
-    x: float = Field(default=0.0, ge=0.0, le=1.0)
-    y: float = Field(default=0.0, ge=0.0, le=1.0)
-    width: float = Field(default=1.0, gt=0.0, le=1.0)
-    height: float = Field(default=1.0, gt=0.0, le=1.0)
-
-
-class WindowSpaceWindow(BaseModel, extra="forbid"):
-    surfaceKind: WindowSpaceSurfaceKind = WindowSpaceSurfaceKind.project_chat
-    sectionIdOrNull: ID | None = None
-    mode: WindowSpaceWindowMode = WindowSpaceWindowMode.project_ai_mode
-    title: str | None = None
-    chatId: ID | None = None
-    embeddedGitPaneVisible: bool = False
-    zIndex: int = 0
-    normalizedBounds: NormalizedFloatingWindowBounds = Field(
-        default_factory=NormalizedFloatingWindowBounds
-    )
-
-    @model_validator(mode="after")
-    def _validate_owner(self):
-        validate_window_space_window_owner(
-            surface_kind=self.surfaceKind,
-            mode=self.mode,
-            section_id=self.sectionIdOrNull,
-            chat_id=self.chatId,
-        )
-        return self
-
-
-class WindowSpaceState(BaseModel, extra="forbid"):
-    windowsById: dict[ID, WindowSpaceWindow] = Field(default_factory=dict)
-    order: list[ID] = Field(default_factory=list)
-
-
-class WindowSpaceConfig(WindowSpaceState, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    sortIndex: int = 0
-
-
-class ProjectCodegenLanguage(str, Enum):
-    python = "python"
-
-
-class SectionCodegenMode(str, Enum):
-    inherit = "inherit"
-    include = "include"
-    exclude = "exclude"
-
-
-class SectionRepresentationMode(str, Enum):
-    expression = "expression"
-    file_path = "file_path"
-    file_read = "file_read"
-
-
 class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
@@ -141,27 +48,6 @@ class SectionTypeCodegenPolicy(BaseModel, extra="forbid"):
 class SectionCodegenOverride(BaseModel, extra="forbid"):
     mode: SectionCodegenMode = SectionCodegenMode.inherit
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
-
-
-class WatchCodeCallableKind(str, Enum):
-    function = "function"
-    async_function = "async_function"
-    class_init = "class_init"
-
-
-class WatchCodeFolder(BaseModel, extra="forbid"):
-    path: str
-    recursive: bool = True
-
-
-class WatchCodeRegistryEntry(BaseModel, extra="forbid"):
-    callableName: str
-    kind: WatchCodeCallableKind
-    signatureHash: str
-    bodyHash: str
-    sourcePath: str
-    sectionIds: list[ID] = Field(default_factory=list)
-    sectionsCount: int = 0
 
 
 def default_section_allowlist() -> list[SectionType]:
@@ -232,14 +118,6 @@ class SectionCodegenPolicy(BaseModel, extra="forbid"):
 class ResolvedSectionCodegenPolicy:
     include_in_codegen: bool
     representation: SectionRepresentationMode
-
-
-class CodeObjValueRepresentationMode(str, Enum):
-    expression = "expression"
-    json_parsed = "json_parsed"
-    string = "string"
-    file_path = "file_path"
-    file_read = "file_read"
 
 
 class CodeObjTypeValuePolicy(BaseModel, extra="forbid"):
@@ -420,13 +298,6 @@ def get_section_codegen_policy(project_config: "ProjectConfig") -> SectionCodege
     return python_target.sectionPolicy
 
 
-def get_code_obj_value_policy(project_config: "ProjectConfig") -> CodeObjValuePolicy:
-    python_target = get_python_codegen_target(project_config)
-    if python_target is None:
-        return CodeObjValuePolicy()
-    return python_target.codeObjValuePolicy
-
-
 class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     language: Literal[ProjectCodegenLanguage.python] = ProjectCodegenLanguage.python
     genCodePrefix: str = ""
@@ -458,18 +329,6 @@ def default_codegen_targets() -> list[ProjectCodegenTarget]:
     return [ProjectCodegenPythonTarget()]
 
 
-def project_config_has_codegen_language(
-    project_config: "ProjectConfig",
-    language: ProjectCodegenLanguage | str,
-) -> bool:
-    language_value = (
-        language.value if isinstance(language, ProjectCodegenLanguage) else language
-    )
-    return any(
-        target.language == language_value for target in project_config.codegenTargets
-    )
-
-
 def get_python_codegen_target(
     project_config: "ProjectConfig",
 ) -> ProjectCodegenPythonTarget | None:
@@ -479,28 +338,6 @@ def get_python_codegen_target(
                 raise TypeError("Expected python codegen target.")
             return target
     return None
-
-
-def get_plugin_codegen_targets(
-    project_config: "ProjectConfig",
-) -> list[ProjectCodegenPluginTarget]:
-    targets: list[ProjectCodegenPluginTarget] = []
-    for target in project_config.codegenTargets:
-        if target.language == ProjectCodegenLanguage.python:
-            continue
-        if not isinstance(target, ProjectCodegenPluginTarget):
-            raise TypeError("Expected plugin codegen target.")
-        targets.append(target)
-    return targets
-
-
-def get_python_codegen_target_with_type_guard(
-    project_config: "ProjectConfig",
-) -> ProjectCodegenPythonTarget:
-    target = get_python_codegen_target(project_config)
-    if target is None:
-        raise KeyError("Project config missing python codegen target.")
-    return target
 
 
 class ProjectConfig(BaseModel, extra="forbid"):

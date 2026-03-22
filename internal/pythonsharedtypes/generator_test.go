@@ -1,0 +1,56 @@
+package pythonsharedtypes
+
+import (
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestBuild(t *testing.T) {
+	t.Helper()
+
+	types, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	for _, snippet := range []string{
+		"class SettaSharedTypeModel(BaseModel):",
+		"model_config = ConfigDict(extra=\"forbid\")",
+		"class Route(str, Enum):",
+	} {
+		if !strings.Contains(types.PythonModule, snippet) {
+			t.Fatalf("generated python shared types missing %q:\n%s", snippet, types.PythonModule)
+		}
+	}
+}
+
+func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
+	t.Helper()
+
+	type omitEmptyExample struct {
+		Name     string `json:"name"`
+		MimeType string `json:"mimeType,omitempty"`
+	}
+
+	model, err := buildModelSpec(contractSpec{
+		Name: "omitEmptyExample",
+		Kind: contractKindModel,
+		Type: reflect.TypeOf(omitEmptyExample{}),
+	})
+	if err != nil {
+		t.Fatalf("buildModelSpec(...) error = %v", err)
+	}
+
+	if len(model.Fields) != 2 {
+		t.Fatalf("field count = %d, want 2", len(model.Fields))
+	}
+	if model.Fields[1].Name != "mimeType" {
+		t.Fatalf("field[1].Name = %q, want %q", model.Fields[1].Name, "mimeType")
+	}
+	if model.Fields[1].TypeExpr != "str | None" {
+		t.Fatalf("field[1].TypeExpr = %q, want %q", model.Fields[1].TypeExpr, "str | None")
+	}
+	if model.Fields[1].DefaultExpr != "None" {
+		t.Fatalf("field[1].DefaultExpr = %q, want %q", model.Fields[1].DefaultExpr, "None")
+	}
+}

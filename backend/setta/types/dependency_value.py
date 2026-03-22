@@ -1,16 +1,9 @@
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from setta.types.binary_content import BinaryContentRef
-
-
-class DependencyValueType(str, Enum):
-    """Enumerates supported dependency payload encodings."""
-
-    Literal = "Literal"
-    Binary = "Binary"
-    FileRead = "FileRead"
+from pydantic import Field
+from setta.types.generated.go_shared_types import DependencyValueType
+from setta.types.generated.go_shared_types import BinaryContentRef
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,3 +34,12 @@ class BinaryDependencyValue(BaseDependencyValue):
     type: Literal[DependencyValueType.Binary] = field(
         default=DependencyValueType.Binary, init=False
     )
+
+
+BaseDependencyValueUnion = (
+    LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue
+)
+
+BaseDependencyValueUnionWithDiscriminator = Annotated[
+    BaseDependencyValueUnion, Field(discriminator="type")
+]
