@@ -2,8 +2,12 @@ package workspacelaunch
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -533,6 +537,306 @@ func TestIntentServiceConsumeIntentRevalidatesStoredPayload(t *testing.T) {
 	}
 	if intentErr.Message != "launchRequest.workspaceRoot is required." {
 		t.Fatalf("unexpected invalid stored payload message %#v", intentErr)
+	}
+}
+
+func TestIntentStoreConsumeOnceAndPruneExpiredTokens(t *testing.T) {
+	t.Parallel()
+
+	// The disk-backed store should return the stored payload once, then fail closed on
+	// replay, and pruning should remove expired records before they can be consumed again.
+	store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+	if err := store.create("token-1", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 120, 100); err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	stored, err := store.consumeOnce("token-1", "session-1", 110)
+	if err != nil {
+		t.Fatalf("consume token once: %v", err)
+	}
+	if stored.LaunchRequestPayload["workspaceRoot"] != "/tmp/workspace" || stored.ReturnURL != "http://localhost/home" {
+		t.Fatalf("unexpected stored intent %#v", stored)
+	}
+
+	_, err = store.consumeOnce("token-1", "session-1", 110)
+	if err == nil || err.Error() != "Launch intent token is missing or already consumed." {
+		t.Fatalf("expected consumed token failure, got %v", err)
+	}
+
+	if err := store.create("expired", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 99, 90); err != nil {
+		t.Fatalf("create expired token: %v", err)
+	}
+	pruneIntentStoreAt(t, store, 100)
+	_, err = store.consumeOnce("expired", "session-1", 100)
+	if err == nil || err.Error() != "Launch intent token is missing or already consumed." {
+		t.Fatalf("expected pruned token failure, got %v", err)
+	}
+}
+
+func TestIntentStoreRejectsSessionMismatchWithoutConsumingToken(t *testing.T) {
+	t.Parallel()
+
+	// A wrong session id must fail closed without consuming the stored token, so the
+	// original session can still consume it afterwards.
+	store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+	if err := store.create("token-1", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 200, 100); err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	_, err := store.consumeOnce("token-1", "session-2", 110)
+	if err == nil || err.Error() != "Launch intent token is bound to a different session." {
+		t.Fatalf("expected session-mismatch failure, got %v", err)
+	}
+
+	stored, err := store.consumeOnce("token-1", "session-1", 110)
+	if err != nil {
+		t.Fatalf("consume token with original session: %v", err)
+	}
+	if stored.LaunchRequestPayload["workspaceRoot"] != "/tmp/workspace" || stored.ReturnURL != "http://localhost/home" {
+		t.Fatalf("unexpected stored intent %#v", stored)
+	}
+}
+
+func TestIntentStorePersistsAcrossInstancesIgnoresStaleLockAndKeepsConsumeSingleUse(t *testing.T) {
+	t.Parallel()
+
+	// Persisted intents should survive a fresh store instance, a stale lock file should
+	// not block normal operations, and cross-instance consume must still be globally single-use.
+	storePath := filepath.Join(t.TempDir(), launchIntentStoreFileName)
+	lockPath := storePath + ".lock"
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
+		t.Fatalf("mkdir stale lock dir: %v", err)
+	}
+	if err := os.WriteFile(lockPath, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("write stale lock file: %v", err)
+	}
+
+	storeA := newIntentStoreForTest(storePath, defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+	storeB := newIntentStoreForTest(storePath, defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+	if err := storeA.create("token-1", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 200, 100); err != nil {
+		t.Fatalf("create persisted token: %v", err)
+	}
+
+	stored, err := storeB.consumeOnce("token-1", "session-1", 110)
+	if err != nil {
+		t.Fatalf("consume persisted token from second store: %v", err)
+	}
+	if stored.LaunchRequestPayload["workspaceRoot"] != "/tmp/workspace" || stored.ReturnURL != "http://localhost/home" {
+		t.Fatalf("unexpected stored intent %#v", stored)
+	}
+
+	if err := storeA.create("token-2", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 220, 120); err != nil {
+		t.Fatalf("create token for cross-instance consume: %v", err)
+	}
+
+	start := make(chan struct{})
+	results := make(chan string, 2)
+	consume := func(store *intentStore) {
+		<-start
+		if _, err := store.consumeOnce("token-2", "session-1", 130); err != nil {
+			results <- err.Error()
+			return
+		}
+		results <- "ok"
+	}
+
+	go consume(storeA)
+	go consume(storeB)
+	close(start)
+
+	resultA := <-results
+	resultB := <-results
+	resultSet := []string{resultA, resultB}
+	okCount := 0
+	missingCount := 0
+	for _, result := range resultSet {
+		switch result {
+		case "ok":
+			okCount++
+		case "Launch intent token is missing or already consumed.":
+			missingCount++
+		default:
+			t.Fatalf("unexpected concurrent consume result %q", result)
+		}
+	}
+	if okCount != 1 || missingCount != 1 {
+		t.Fatalf("expected one success and one consumed failure, got %#v", resultSet)
+	}
+}
+
+func TestIntentStoreMapsUnavailableReadAndLockParentFailures(t *testing.T) {
+	t.Parallel()
+
+	t.Run("lock parent failure stays unavailable", func(t *testing.T) {
+		t.Parallel()
+
+		lockParent := filepath.Join(t.TempDir(), "lock-parent-as-file")
+		if err := os.WriteFile(lockParent, []byte("not-a-directory"), 0o644); err != nil {
+			t.Fatalf("write lock-parent file: %v", err)
+		}
+		store := newIntentStoreForTest(filepath.Join(lockParent, launchIntentStoreFileName), defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+
+		err := store.create("token-1", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 120, 100)
+		var unavailableErr *IntentStoreUnavailableError
+		if !errors.As(err, &unavailableErr) {
+			t.Fatalf("expected unavailable error, got %v", err)
+		}
+		if !strings.Contains(unavailableErr.Message, "Failed creating launch-intent store directory") {
+			t.Fatalf("unexpected lock-parent error %#v", unavailableErr)
+		}
+	})
+
+	t.Run("read failures keep unavailable read wording", func(t *testing.T) {
+		t.Parallel()
+
+		storePath := filepath.Join(t.TempDir(), launchIntentStoreFileName)
+		if err := os.MkdirAll(storePath, 0o755); err != nil {
+			t.Fatalf("mkdir store path as directory: %v", err)
+		}
+		store := newIntentStoreForTest(storePath, defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+
+		err := store.create("token-1", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 120, 100)
+		var unavailableErr *IntentStoreUnavailableError
+		if !errors.As(err, &unavailableErr) {
+			t.Fatalf("expected unavailable error, got %v", err)
+		}
+		if !strings.Contains(unavailableErr.Message, "Failed reading launch-intent store") {
+			t.Fatalf("unexpected read-failure error %#v", unavailableErr)
+		}
+		if strings.Contains(unavailableErr.Message, "Failed acquiring launch-intent store lock") {
+			t.Fatalf("expected read failure wording to stay distinct, got %#v", unavailableErr)
+		}
+	})
+}
+
+func TestIntentStoreCapacityLimitsRecoverAfterPruneAndRemainSessionIsolated(t *testing.T) {
+	t.Parallel()
+
+	t.Run("per-session capacity recovers after prune", func(t *testing.T) {
+		t.Parallel()
+
+		store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), 1, 4)
+		if err := store.create("expired-token", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 100, 99); err != nil {
+			t.Fatalf("create expired token: %v", err)
+		}
+
+		err := store.create("fresh-token-before-prune", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 130, 99)
+		var capacityErr *IntentStoreCapacityError
+		if !errors.As(err, &capacityErr) || capacityErr.Message != "Launch intent session capacity exceeded." {
+			t.Fatalf("expected session-capacity error, got %v", err)
+		}
+
+		pruneIntentStoreAt(t, store, 101)
+		if err := store.create("fresh-token-after-prune", "session-1", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 131, 101); err != nil {
+			t.Fatalf("create token after prune: %v", err)
+		}
+		stored, err := store.consumeOnce("fresh-token-after-prune", "session-1", 102)
+		if err != nil {
+			t.Fatalf("consume token after prune: %v", err)
+		}
+		if stored.ReturnURL != "http://localhost/home" {
+			t.Fatalf("unexpected stored intent after prune %#v", stored)
+		}
+	})
+
+	t.Run("global capacity stays session isolated", func(t *testing.T) {
+		t.Parallel()
+
+		store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), 2, 3)
+		for _, create := range []struct {
+			token     string
+			sessionID string
+			exp       int64
+		}{
+			{token: "session-a-1", sessionID: "session-a", exp: 200},
+			{token: "session-a-2", sessionID: "session-a", exp: 201},
+			{token: "session-b-1", sessionID: "session-b", exp: 202},
+		} {
+			if err := store.create(create.token, create.sessionID, map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", create.exp, create.exp-100); err != nil {
+				t.Fatalf("seed token %s: %v", create.token, err)
+			}
+		}
+
+		err := store.create("session-c-1", "session-c", map[string]any{"workspaceRoot": "/tmp/workspace"}, "http://localhost/home", 203, 103)
+		var capacityErr *IntentStoreCapacityError
+		if !errors.As(err, &capacityErr) || capacityErr.Message != "Launch intent global capacity exceeded." {
+			t.Fatalf("expected global-capacity error, got %v", err)
+		}
+	})
+}
+
+func TestIntentStoreConcurrentCreateAndPruneDoNotRace(t *testing.T) {
+	t.Parallel()
+
+	// Concurrent create/prune operations used to raise runtime errors in the source
+	// store; the Go store should stay synchronized and finish without panics or write errors.
+	store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), 2000, 4000)
+	errCh := make(chan error, 8)
+	var wg sync.WaitGroup
+
+	createWorker := func(workerID int) {
+		defer wg.Done()
+		for idx := 0; idx < 120; idx++ {
+			now := int64(idx)
+			if err := store.create(
+				strconv.Itoa(workerID)+"-"+strconv.Itoa(idx),
+				"session-1",
+				map[string]any{"workspaceRoot": "/tmp/workspace"},
+				"http://localhost/home",
+				now+20,
+				now,
+			); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}
+
+	pruneWorker := func() {
+		defer wg.Done()
+		for idx := 0; idx < 240; idx++ {
+			if err := store.update(func(record map[string]StoredIntent) (map[string]StoredIntent, error) {
+				pruneIntents(record, int64(idx))
+				return record, nil
+			}); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}
+
+	for workerID := 0; workerID < 6; workerID++ {
+		wg.Add(1)
+		go createWorker(workerID)
+	}
+	for workerID := 0; workerID < 2; workerID++ {
+		wg.Add(1)
+		go pruneWorker()
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		t.Fatalf("concurrent create/prune: %v", err)
+	}
+}
+
+func newIntentStoreForTest(path string, maxPerSession int, maxTotal int) *intentStore {
+	return &intentStore{
+		path:          path,
+		maxPerSession: maxPerSession,
+		maxTotal:      maxTotal,
+	}
+}
+
+func pruneIntentStoreAt(t *testing.T, store *intentStore, now int64) {
+	t.Helper()
+
+	if err := store.update(func(record map[string]StoredIntent) (map[string]StoredIntent, error) {
+		pruneIntents(record, now)
+		return record, nil
+	}); err != nil {
+		t.Fatalf("prune intent store: %v", err)
 	}
 }
 
