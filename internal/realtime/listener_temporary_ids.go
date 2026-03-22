@@ -1,9 +1,7 @@
 package realtime
 
 import (
-	"encoding/json"
-
-	"setta/internal/projectview"
+	"setta/internal/pythonsdkcontracts"
 )
 
 type ListenerTemporaryIDStore interface {
@@ -102,87 +100,92 @@ func translateListenerForceRefreshContentToTemporary(
 	content ListenerForceRefreshContent,
 	store ListenerTemporaryIDStore,
 ) (ListenerForceRefreshContent, error) {
-	projectID, err := translateStringValueToTemporary(content.ProjectConfigID, store)
-	if err != nil {
-		return ListenerForceRefreshContent{}, err
-	}
-	projectState, err := translateListenerProjectStateToTemporary(content.ProjectState, store)
-	if err != nil {
-		return ListenerForceRefreshContent{}, err
-	}
-	dependencyCatalog, err := translateListenerDependencyCatalogToTemporary(content.DependencyCatalog, store)
-	if err != nil {
-		return ListenerForceRefreshContent{}, err
-	}
-	dependencyValues, err := translateListenerRenderedDependencyValuesToTemporary(content.DependencyValues, store)
+	snapshot, err := translateListenerSnapshotToTemporary(content.Snapshot, store)
 	if err != nil {
 		return ListenerForceRefreshContent{}, err
 	}
 	return ListenerForceRefreshContent{
+		CallID:      content.CallID,
+		Snapshot:    snapshot,
+		Sequence:    content.Sequence,
+		RefreshKind: content.RefreshKind,
+	}, nil
+}
+
+func translateListenerSnapshotToTemporary(
+	snapshot pythonsdkcontracts.ListenerSnapshot,
+	store ListenerTemporaryIDStore,
+) (pythonsdkcontracts.ListenerSnapshot, error) {
+	projectID, err := translateStringValueToTemporary(snapshot.ProjectConfigID, store)
+	if err != nil {
+		return pythonsdkcontracts.ListenerSnapshot{}, err
+	}
+	dependencyCatalog, err := translateContractListenerDependencyCatalogToTemporary(snapshot.DependencyCatalog, store)
+	if err != nil {
+		return pythonsdkcontracts.ListenerSnapshot{}, err
+	}
+	dependencyValues, err := translateContractListenerRenderedDependencyValuesToTemporary(snapshot.DependencyValues, store)
+	if err != nil {
+		return pythonsdkcontracts.ListenerSnapshot{}, err
+	}
+	return pythonsdkcontracts.ListenerSnapshot{
 		ProjectConfigID:   projectID,
-		ShareSessionID:    content.ShareSessionID,
-		CallID:            content.CallID,
-		ProjectState:      projectState,
+		ShareSessionID:    snapshot.ShareSessionID,
 		DependencyCatalog: dependencyCatalog,
 		DependencyValues:  dependencyValues,
 	}, nil
 }
 
-func translateListenerProjectStateToTemporary(raw json.RawMessage, store ListenerTemporaryIDStore) (json.RawMessage, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var view projectview.SingleConfig
-	if err := json.Unmarshal(raw, &view); err != nil {
-		return nil, err
-	}
-	projectID, err := translateStringValueToTemporary(view.ProjectConfig.ID, store)
-	if err != nil {
-		return nil, err
-	}
-	view.ProjectConfig.ID = projectID
-	encoded, err := json.Marshal(view)
-	if err != nil {
-		return nil, err
-	}
-	return json.RawMessage(encoded), nil
-}
-
-func translateListenerDependencyCatalogToTemporary(
-	catalog *ListenerDependencyCatalog,
+func translateContractListenerDependencyCatalogToTemporary(
+	catalog pythonsdkcontracts.ListenerDependencyCatalog,
 	store ListenerTemporaryIDStore,
-) (*ListenerDependencyCatalog, error) {
-	if catalog == nil {
-		return nil, nil
-	}
-	entries := make([]ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
+) (pythonsdkcontracts.ListenerDependencyCatalog, error) {
+	entries := make([]pythonsdkcontracts.ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
 	for _, entry := range catalog.Entries {
 		dependencyKey, err := translateCanonicalListenerDependencyKeyToTemporary(entry.DependencyKey, store)
 		if err != nil {
-			return nil, err
+			return pythonsdkcontracts.ListenerDependencyCatalog{}, err
 		}
 		cloned := entry
 		cloned.DependencyKey = dependencyKey
-		if entry.ControlCodeObjID != "" {
-			controlCodeObjID, err := translateStringValueToTemporary(entry.ControlCodeObjID, store)
+		if entry.ControlCodeObjID != nil && *entry.ControlCodeObjID != "" {
+			controlCodeObjID, err := translateStringValueToTemporary(*entry.ControlCodeObjID, store)
 			if err != nil {
-				return nil, err
+				return pythonsdkcontracts.ListenerDependencyCatalog{}, err
 			}
-			cloned.ControlCodeObjID = controlCodeObjID
+			cloned.ControlCodeObjID = &controlCodeObjID
 		}
 		if len(entry.Dependencies) > 0 {
 			cloned.Dependencies = make([]string, 0, len(entry.Dependencies))
 			for _, dependency := range entry.Dependencies {
 				translatedDependency, err := translateCanonicalListenerDependencyKeyToTemporary(dependency, store)
 				if err != nil {
-					return nil, err
+					return pythonsdkcontracts.ListenerDependencyCatalog{}, err
 				}
 				cloned.Dependencies = append(cloned.Dependencies, translatedDependency)
 			}
 		}
 		entries = append(entries, cloned)
 	}
-	return &ListenerDependencyCatalog{Entries: entries}, nil
+	return pythonsdkcontracts.ListenerDependencyCatalog{Entries: entries}, nil
+}
+
+func translateContractListenerRenderedDependencyValuesToTemporary(
+	values pythonsdkcontracts.ListenerRenderedDependencyValues,
+	store ListenerTemporaryIDStore,
+) (pythonsdkcontracts.ListenerRenderedDependencyValues, error) {
+	entries := make([]pythonsdkcontracts.ListenerRenderedDependencyValue, 0, len(values.Entries))
+	for _, entry := range values.Entries {
+		dependencyKey, err := translateCanonicalListenerDependencyKeyToTemporary(entry.DependencyKey, store)
+		if err != nil {
+			return pythonsdkcontracts.ListenerRenderedDependencyValues{}, err
+		}
+		entries = append(entries, pythonsdkcontracts.ListenerRenderedDependencyValue{
+			DependencyKey: dependencyKey,
+			RenderedValue: entry.RenderedValue,
+		})
+	}
+	return pythonsdkcontracts.ListenerRenderedDependencyValues{Entries: entries}, nil
 }
 
 func translateListenerRenderedDependencyValuesToTemporary(

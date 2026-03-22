@@ -2,8 +2,10 @@ package realtime
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"setta/internal/artifacts"
+	"setta/internal/pythonsdkcontracts"
 )
 
 const (
@@ -174,12 +176,10 @@ type ListenerRenderedDependencyValue struct {
 }
 
 type ListenerForceRefreshContent struct {
-	ProjectConfigID   string                            `json:"projectConfigId"`
-	ShareSessionID    string                            `json:"shareSessionId,omitempty"`
-	CallID            string                            `json:"callId,omitempty"`
-	ProjectState      json.RawMessage                   `json:"projectState,omitempty"`
-	DependencyCatalog *ListenerDependencyCatalog        `json:"dependencyCatalog,omitempty"`
-	DependencyValues  *ListenerRenderedDependencyValues `json:"dependencyValues,omitempty"`
+	CallID      string                              `json:"callId,omitempty"`
+	Snapshot    pythonsdkcontracts.ListenerSnapshot `json:"snapshot"`
+	Sequence    *uint64                             `json:"sequence,omitempty"`
+	RefreshKind string                              `json:"refreshKind,omitempty"`
 }
 
 type ListenerForceRefreshMessage struct {
@@ -396,6 +396,161 @@ func (e *ListenerRenderedDependencyValue) UnmarshalJSON(data []byte) error {
 	e.DependencyKey = dependencyKey
 	e.RenderedValue = payload.RenderedValue
 	return nil
+}
+
+func (c ListenerForceRefreshContent) MarshalJSON() ([]byte, error) {
+	snapshotPayload, err := marshalListenerSnapshotToWire(c.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		CallID      string          `json:"callId,omitempty"`
+		Snapshot    json.RawMessage `json:"snapshot"`
+		Sequence    *uint64         `json:"sequence,omitempty"`
+		RefreshKind string          `json:"refreshKind,omitempty"`
+	}
+	payload.CallID = c.CallID
+	payload.Snapshot = snapshotPayload
+	payload.Sequence = c.Sequence
+	payload.RefreshKind = c.RefreshKind
+	return json.Marshal(payload)
+}
+
+func (c *ListenerForceRefreshContent) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		CallID      string          `json:"callId,omitempty"`
+		Snapshot    json.RawMessage `json:"snapshot"`
+		Sequence    *uint64         `json:"sequence,omitempty"`
+		RefreshKind string          `json:"refreshKind,omitempty"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+	if len(payload.Snapshot) == 0 {
+		return fmt.Errorf("listener force refresh snapshot is required")
+	}
+	snapshot, err := unmarshalListenerSnapshotFromWire(payload.Snapshot)
+	if err != nil {
+		return err
+	}
+	c.CallID = payload.CallID
+	c.Snapshot = snapshot
+	c.Sequence = payload.Sequence
+	c.RefreshKind = payload.RefreshKind
+	return nil
+}
+
+func marshalListenerSnapshotToWire(snapshot pythonsdkcontracts.ListenerSnapshot) (json.RawMessage, error) {
+	var payload struct {
+		ProjectConfigID   string                           `json:"projectConfigId"`
+		ShareSessionID    *string                          `json:"shareSessionId,omitempty"`
+		DependencyCatalog ListenerDependencyCatalog        `json:"dependencyCatalog"`
+		DependencyValues  ListenerRenderedDependencyValues `json:"dependencyValues"`
+	}
+	payload.ProjectConfigID = snapshot.ProjectConfigID
+	payload.ShareSessionID = snapshot.ShareSessionID
+	payload.DependencyCatalog = realtimeListenerDependencyCatalogFromContract(snapshot.DependencyCatalog)
+	payload.DependencyValues = realtimeListenerRenderedDependencyValuesFromContract(snapshot.DependencyValues)
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(encoded), nil
+}
+
+func unmarshalListenerSnapshotFromWire(data json.RawMessage) (pythonsdkcontracts.ListenerSnapshot, error) {
+	var payload struct {
+		ProjectConfigID   string                           `json:"projectConfigId"`
+		ShareSessionID    *string                          `json:"shareSessionId,omitempty"`
+		DependencyCatalog ListenerDependencyCatalog        `json:"dependencyCatalog"`
+		DependencyValues  ListenerRenderedDependencyValues `json:"dependencyValues"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return pythonsdkcontracts.ListenerSnapshot{}, err
+	}
+	return pythonsdkcontracts.ListenerSnapshot{
+		ProjectConfigID:   payload.ProjectConfigID,
+		ShareSessionID:    payload.ShareSessionID,
+		DependencyCatalog: contractListenerDependencyCatalogFromRealtime(payload.DependencyCatalog),
+		DependencyValues:  contractListenerRenderedDependencyValuesFromRealtime(payload.DependencyValues),
+	}, nil
+}
+
+func realtimeListenerDependencyCatalogFromContract(catalog pythonsdkcontracts.ListenerDependencyCatalog) ListenerDependencyCatalog {
+	entries := make([]ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
+	for _, entry := range catalog.Entries {
+		entries = append(entries, ListenerDependencyCatalogEntry{
+			DependencyKey:              entry.DependencyKey,
+			Name:                       entry.Name,
+			FullPathName:               entry.FullPathName,
+			Dependencies:               append([]string(nil), entry.Dependencies...),
+			SectionType:                stringValue(entry.SectionType),
+			CodeObjType:                stringValue(entry.CodeObjType),
+			ControlCodeObjID:           stringValue(entry.ControlCodeObjID),
+			ControlCodeObjType:         stringValue(entry.ControlCodeObjType),
+			SectionRepresentation:      stringValue(entry.SectionRepresentation),
+			ControlValueRepresentation: stringValue(entry.ControlValueRepresentation),
+			ValueRepresentation:        stringValue(entry.ValueRepresentation),
+		})
+	}
+	return ListenerDependencyCatalog{Entries: entries}
+}
+
+func contractListenerDependencyCatalogFromRealtime(catalog ListenerDependencyCatalog) pythonsdkcontracts.ListenerDependencyCatalog {
+	entries := make([]pythonsdkcontracts.ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
+	for _, entry := range catalog.Entries {
+		entries = append(entries, pythonsdkcontracts.ListenerDependencyCatalogEntry{
+			DependencyKey:              entry.DependencyKey,
+			Name:                       entry.Name,
+			FullPathName:               entry.FullPathName,
+			Dependencies:               append([]string(nil), entry.Dependencies...),
+			SectionType:                stringPointer(entry.SectionType),
+			CodeObjType:                stringPointer(entry.CodeObjType),
+			ControlCodeObjID:           stringPointer(entry.ControlCodeObjID),
+			ControlCodeObjType:         stringPointer(entry.ControlCodeObjType),
+			SectionRepresentation:      stringPointer(entry.SectionRepresentation),
+			ControlValueRepresentation: stringPointer(entry.ControlValueRepresentation),
+			ValueRepresentation:        stringPointer(entry.ValueRepresentation),
+		})
+	}
+	return pythonsdkcontracts.ListenerDependencyCatalog{Entries: entries}
+}
+
+func realtimeListenerRenderedDependencyValuesFromContract(values pythonsdkcontracts.ListenerRenderedDependencyValues) ListenerRenderedDependencyValues {
+	entries := make([]ListenerRenderedDependencyValue, 0, len(values.Entries))
+	for _, entry := range values.Entries {
+		entries = append(entries, ListenerRenderedDependencyValue{
+			DependencyKey: entry.DependencyKey,
+			RenderedValue: entry.RenderedValue,
+		})
+	}
+	return ListenerRenderedDependencyValues{Entries: entries}
+}
+
+func contractListenerRenderedDependencyValuesFromRealtime(values ListenerRenderedDependencyValues) pythonsdkcontracts.ListenerRenderedDependencyValues {
+	entries := make([]pythonsdkcontracts.ListenerRenderedDependencyValue, 0, len(values.Entries))
+	for _, entry := range values.Entries {
+		entries = append(entries, pythonsdkcontracts.ListenerRenderedDependencyValue{
+			DependencyKey: entry.DependencyKey,
+			RenderedValue: entry.RenderedValue,
+		})
+	}
+	return pythonsdkcontracts.ListenerRenderedDependencyValues{Entries: entries}
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func stringPointer(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func NewListenerRealtimeEventMessage(content ListenerRealtimeEventContent) ListenerRealtimeEventMessage {

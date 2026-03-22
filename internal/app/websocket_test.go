@@ -24,12 +24,12 @@ import (
 	"setta/internal/config"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/httpapi"
+	"setta/internal/listenersnapshot"
 	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
@@ -3311,16 +3311,8 @@ func TestAppServesListenerForceRefreshRoute(t *testing.T) {
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener force refresh content: %v", err)
 	}
-	if content.ProjectConfigID != "project-alpha" {
-		t.Fatalf("expected project-alpha force refresh, got %q", content.ProjectConfigID)
-	}
-
-	var projectState projectview.SingleConfig
-	if err := json.Unmarshal(content.ProjectState, &projectState); err != nil {
-		t.Fatalf("decode listener force refresh project state: %v", err)
-	}
-	if projectState.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha project config, got %q", projectState.ProjectConfig.ID)
+	if content.Snapshot.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha force refresh, got %q", content.Snapshot.ProjectConfigID)
 	}
 }
 
@@ -3468,7 +3460,7 @@ func TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint(t *testing.T) {
 	if err := json.Unmarshal(initEnvelope.Content, &initContent); err != nil {
 		t.Fatalf("decode listener force refresh content: %v", err)
 	}
-	if initContent.ProjectConfigID != "project-alpha" {
+	if initContent.Snapshot.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected listener init to resolve project-alpha, got %#v", initContent)
 	}
 
@@ -3605,7 +3597,7 @@ func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
 	if err := json.Unmarshal(initEnvelope.Content, &initContent); err != nil {
 		t.Fatalf("decode listener init content: %v", err)
 	}
-	if initContent.ProjectConfigID != "project-alpha" {
+	if initContent.Snapshot.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected project-alpha listener init, got %#v", initContent)
 	}
 
@@ -4118,36 +4110,26 @@ func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefres
 	if err := json.Unmarshal(forceRefreshEnvelope.Content, &forceRefreshContent); err != nil {
 		t.Fatalf("decode listener force-refresh content: %v", err)
 	}
-	if forceRefreshContent.ProjectConfigID != "project-alpha" {
+	if forceRefreshContent.Snapshot.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected force refresh for project-alpha, got %#v", forceRefreshContent)
 	}
 	if forceRefreshContent.CallID != "call-set-chat-state" {
 		t.Fatalf("expected force refresh call id call-set-chat-state, got %#v", forceRefreshContent)
 	}
 
-	var refreshed projectview.SingleConfig
-	if err := json.Unmarshal(forceRefreshContent.ProjectState, &refreshed); err != nil {
-		t.Fatalf("decode refreshed project state: %v", err)
+	expectedSnapshot, err := listenersnapshot.BuildListenerSnapshotPayload(
+		app.ProjectStates().Main().Snapshot().Document,
+		"project-alpha",
+	)
+	if err != nil {
+		t.Fatalf("build expected listener snapshot: %v", err)
 	}
-	chatSection, ok := refreshed.Sections["chat-section"]
-	if !ok {
-		t.Fatalf("expected refreshed project state to include chat-section, got %#v", refreshed.Sections)
-	}
-	sharedModifier := mustStructuredMapValue(t, chatSection.SharedModifier)
-	if sharedModifier["inputText"] != "Draft input" || sharedModifier["waitingForResponse"] != true {
-		t.Fatalf("expected refreshed chat state to round-trip input/waiting fields, got %#v", sharedModifier)
-	}
-	toolCallArguments, ok := sharedModifier["toolCallArguments"].(map[string]any)
-	if !ok || toolCallArguments["tool-call-1"] != "{\"query\":\"hello\"}" {
-		t.Fatalf("expected refreshed toolCallArguments, got %#v", sharedModifier["toolCallArguments"])
-	}
-	branches, ok := sharedModifier["branches"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected refreshed branches map, got %#v", sharedModifier["branches"])
-	}
-	branch, ok := branches["branch-1"].(map[string]any)
-	if !ok || branch["createdAt"] != float64(42) {
-		t.Fatalf("expected refreshed branch-1 createdAt 42, got %#v", branches["branch-1"])
+	if canonicalAppJSONValue(t, forceRefreshContent.Snapshot) != canonicalAppJSONValue(t, expectedSnapshot) {
+		t.Fatalf(
+			"expected authoritative listener snapshot %s, got %s",
+			canonicalAppJSONValue(t, expectedSnapshot),
+			canonicalAppJSONValue(t, forceRefreshContent.Snapshot),
+		)
 	}
 }
 
@@ -4755,4 +4737,22 @@ func assertAppLSPDiagnosticsPayload(t *testing.T, payload projectstate.LSPDiagno
 	if sectionDiagnostics[0].Code != "fixture-ts" {
 		t.Fatalf("unexpected diagnostic code %#v", sectionDiagnostics[0].Code)
 	}
+}
+
+func canonicalAppJSONValue(t *testing.T, value any) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json value %#v: %v", value, err)
+	}
+	var decoded any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode json %q: %v", string(encoded), err)
+	}
+	normalized, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("re-encode json %q: %v", string(encoded), err)
+	}
+	return string(normalized)
 }

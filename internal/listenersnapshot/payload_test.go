@@ -52,10 +52,6 @@ func TestBuildListenerSnapshotPayloadIncludesRenderedDependencyValues(t *testing
 	if err != nil {
 		t.Fatalf("build listener snapshot payload: %v", err)
 	}
-	if payload.DependencyValues == nil {
-		t.Fatal("expected dependency values in listener snapshot payload")
-	}
-
 	for _, entry := range payload.DependencyValues.Entries {
 		if entry.DependencyKey != created.SectionID {
 			continue

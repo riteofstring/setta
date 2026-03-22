@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from setta.api.listener import (
     ListenerCallbackSpec,
     ListenerDependencyMetadata,
@@ -16,6 +15,7 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
+from setta.types.binary_content import BinaryContentRef
 from setta.types.code_obj_impls import (
     CodeObjType,
     CodeParamCodeObjImpl,
@@ -24,7 +24,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant
 from setta.types.dependency_key import create_dep_key
-from setta.types.binary_content import BinaryContentRef
 from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.websocket_unions import (
@@ -40,10 +39,11 @@ from setta.types.listener import (
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
-    ListenerRenderedDependencyValue,
-    ListenerRenderedDependencyValues,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+    ListenerSnapshot,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -58,6 +58,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRealtimeEvent,
 )
+
 from tests.helpers.binary_frames import encode_binary_frame
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
@@ -137,15 +138,8 @@ async def _refresh_from_authoritative_snapshot(
     listener: SettaListener,
     project_state: ProjectStateSingleConfig,
 ) -> None:
-    dependency_catalog, dependency_values = _build_authoritative_snapshot_payload(
-        listener,
-        project_state,
-    )
-    await listener._refresh_from_snapshot(
-        project_state,
-        dependency_catalog=dependency_catalog,
-        dependency_values=dependency_values,
-    )
+    snapshot = _build_authoritative_listener_snapshot(listener, project_state)
+    await listener._refresh_from_snapshot(snapshot)
 
 
 async def _process_authoritative_snapshot(
@@ -155,16 +149,29 @@ async def _process_authoritative_snapshot(
     refresh_kind: str,
     share_session_id: str | None,
 ) -> None:
+    snapshot = _build_authoritative_listener_snapshot(
+        listener,
+        project_state,
+        share_session_id=share_session_id,
+    )
+    await listener._process_snapshot(snapshot, refresh_kind=refresh_kind)
+
+
+def _build_authoritative_listener_snapshot(
+    listener: SettaListener,
+    project_state: ProjectStateSingleConfig,
+    *,
+    share_session_id: str | None = None,
+) -> ListenerSnapshot:
     dependency_catalog, dependency_values = _build_authoritative_snapshot_payload(
         listener,
         project_state,
     )
-    await listener._process_snapshot(
-        project_state,
-        refresh_kind=refresh_kind,
-        dependency_catalog=dependency_catalog,
-        dependency_values=dependency_values,
-        share_session_id=share_session_id,
+    return ListenerSnapshot(
+        projectConfigId=project_state.projectConfig.id,
+        shareSessionId=share_session_id,
+        dependencyCatalog=dependency_catalog,
+        dependencyValues=dependency_values,
     )
 
 
@@ -174,15 +181,12 @@ def _build_force_refresh_content(
     *,
     share_session_id: str | None = None,
 ) -> ListenerForceRefreshContent:
-    dependency_catalog, dependency_values = _build_authoritative_snapshot_payload(
-        listener,
-        project_state,
-    )
     return ListenerForceRefreshContent(
-        projectState=project_state,
-        dependencyCatalog=dependency_catalog,
-        dependencyValues=dependency_values,
-        shareSessionId=share_session_id,
+        snapshot=_build_authoritative_listener_snapshot(
+            listener,
+            project_state,
+            share_session_id=share_session_id,
+        )
     )
 
 
@@ -739,9 +743,7 @@ class TestSettaListenerRealtimeIntegration:
         await asyncio.sleep(0)
 
         action_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.function is on_action
+            spec for spec in listener._callbacks.values() if spec.function is on_action
         )
 
         await listener._handle_dependency_event(
@@ -933,9 +935,7 @@ class TestSettaListenerRealtimeIntegration:
         assert refresh_calls == [{}]
 
         refresh_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.function is on_refresh
+            spec for spec in listener._callbacks.values() if spec.function is on_refresh
         )
         assert refresh_spec.dependency_mode == ListenerDependencyMode.REFRESH_ONLY
 
@@ -1359,8 +1359,11 @@ class TestSettaListenerBootstrapFailure:
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(
-            project_state,
-            dependency_catalog=dependency_catalog,
+            ListenerSnapshot(
+                projectConfigId=project_state.projectConfig.id,
+                dependencyCatalog=dependency_catalog,
+                dependencyValues=ListenerRenderedDependencyValues(),
+            )
         )
         await asyncio.sleep(0)
 
@@ -1414,9 +1417,11 @@ class TestSettaListenerBootstrapFailure:
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(
-            project_state,
-            dependency_catalog=dependency_catalog,
-            dependency_values=dependency_values,
+            ListenerSnapshot(
+                projectConfigId=project_state.projectConfig.id,
+                dependencyCatalog=dependency_catalog,
+                dependencyValues=dependency_values,
+            )
         )
         await asyncio.sleep(0)
 
@@ -1425,9 +1430,7 @@ class TestSettaListenerBootstrapFailure:
         assert listener._registration_pending
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
-        assert callback_calls == [
-            ("From Go snapshot", {"Welcome": "From Go snapshot"})
-        ]
+        assert callback_calls == [("From Go snapshot", {"Welcome": "From Go snapshot"})]
 
     async def test_bootstrap_uses_authoritative_composite_cache_from_go_snapshot_values(
         self,
@@ -1495,22 +1498,24 @@ class TestSettaListenerBootstrapFailure:
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(
-            project_state,
-            dependency_catalog=dependency_catalog,
-            dependency_values=dependency_values,
+            ListenerSnapshot(
+                projectConfigId=project_state.projectConfig.id,
+                dependencyCatalog=dependency_catalog,
+                dependencyValues=dependency_values,
+            )
         )
         await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
         assert listener._dependency_cache[count_name] == 5
         assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {section_name: {"count": 5}})
-        ]
+        assert callback_calls == [({"count": 5}, {section_name: {"count": 5}})]
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
 
-    async def test_realtime_updates_cache_when_runtime_state_is_unavailable(self) -> None:
+    async def test_realtime_updates_cache_when_runtime_state_is_unavailable(
+        self,
+    ) -> None:
         listener = SettaListener(project_name="Demo Project")
         project_state = self._build_project_state()
 
@@ -1524,7 +1529,9 @@ class TestSettaListenerBootstrapFailure:
         listener._runtime_state = runtime_state
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = {"Welcome": "Hello"}
-        listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+        listener._refresh_callback_dependency_metadata(
+            runtime_state.dependency_metadata
+        )
 
         spec = next(iter(listener._callbacks.values()))
         dependency_key = spec.structured_dependencies[0]
@@ -1722,9 +1729,7 @@ class TestSettaListenerBootstrapFailure:
 
         assert listener._dependency_cache[count_name] == 5
         assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, 5)
-        ]
+        assert callback_calls == [({"count": 5}, {"count": 5}, 5)]
         assert listener._get_last_realtime_sequence() == 1
 
     async def test_realtime_triggers_composite_listener_from_authoritative_values_when_runtime_state_is_unavailable(
@@ -1793,9 +1798,7 @@ class TestSettaListenerBootstrapFailure:
         await listener._scheduler.flush(callback_spec.callback_id)
 
         assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, {"count": 5})
-        ]
+        assert callback_calls == [({"count": 5}, {"count": 5}, {"count": 5})]
         assert listener._get_last_realtime_sequence() == 1
 
     async def test_realtime_uses_authoritative_composite_values_when_runtime_state_exists(
@@ -1863,9 +1866,7 @@ class TestSettaListenerBootstrapFailure:
 
         assert listener._dependency_cache[count_name] == 5
         assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, 5)
-        ]
+        assert callback_calls == [({"count": 5}, {"count": 5}, 5)]
         assert listener._get_last_realtime_sequence() == 1
 
     async def test_realtime_triggers_composite_listener_from_authoritative_values_when_runtime_state_exists(
@@ -1931,9 +1932,7 @@ class TestSettaListenerBootstrapFailure:
         await listener._scheduler.flush(callback_spec.callback_id)
 
         assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, {"count": 5})
-        ]
+        assert callback_calls == [({"count": 5}, {"count": 5}, {"count": 5})]
         assert listener._get_last_realtime_sequence() == 1
 
     async def test_replay_cached_snapshot_fails_closed_without_latest_go_snapshot_values(
@@ -1967,7 +1966,6 @@ class TestSettaListenerBootstrapFailure:
 
         runtime_state = listener._build_runtime_state(project_state)
         dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
-        listener._latest_persisted_snapshot = project_state
         listener._latest_dependency_metadata = runtime_state.dependency_metadata
         listener._latest_dependency_snapshot_values = ListenerRenderedDependencyValues(
             entries=[

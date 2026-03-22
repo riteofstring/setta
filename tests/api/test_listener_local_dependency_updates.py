@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-
 from setta.api import SettaListener, dep_id
 from setta.api.listener import ListenerCallbackContext
 from setta.types.chat_messages import (
@@ -15,19 +14,20 @@ from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
-from setta.types.id import ID
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import set_chat_section_state
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
+    ListenerRealtimeDelta,
+    ListenerRealtimeEventContent,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerRouterEndpointResultContent,
-    ListenerRealtimeDelta,
-    ListenerRealtimeEventContent,
+    ListenerSnapshot,
 )
 from setta.types.project_config import (
     ProjectConfig,
@@ -40,6 +40,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
+
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -165,9 +166,11 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(
                 callId=message.content.callId,
-                projectState=refreshed_state,
-                dependencyCatalog=dependency_catalog,
-                dependencyValues=dependency_values,
+                snapshot=ListenerSnapshot(
+                    projectConfigId=refreshed_state.projectConfig.id,
+                    dependencyCatalog=dependency_catalog,
+                    dependencyValues=dependency_values,
+                ),
             )
         )
 

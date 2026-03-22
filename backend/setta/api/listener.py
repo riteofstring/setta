@@ -70,6 +70,7 @@ from setta.types.listener import (
     ListenerRegisterContent,
     ListenerRenderedDependencyValues,
     ListenerRouterEndpointCallContent,
+    ListenerSnapshot,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -187,6 +188,7 @@ class ListenerDependencyMetadataEntry:
     controlValueRepresentation: CodeObjValueRepresentationMode | None = None
     valueRepresentation: CodeObjValueRepresentationMode | None = None
 
+
 class ListenerDependencyMetadata:
     def __init__(self, entries: Sequence[ListenerDependencyMetadataEntry]) -> None:
         by_key: dict[BaseDependencyKeyUnion, ListenerDependencyMetadataEntry] = {}
@@ -268,13 +270,39 @@ class ListenerDependencyMetadata:
                     name=entry.name,
                     fullPathName=entry.fullPathName,
                     dependencies=tuple(entry.dependencies),
-                    sectionType=entry.sectionType,
-                    codeObjType=entry.codeObjType,
+                    sectionType=(
+                        None
+                        if entry.sectionType is None
+                        else SectionType(entry.sectionType)
+                    ),
+                    codeObjType=(
+                        None
+                        if entry.codeObjType is None
+                        else CodeObjType(entry.codeObjType)
+                    ),
                     controlCodeObjId=entry.controlCodeObjId,
-                    controlCodeObjType=entry.controlCodeObjType,
-                    sectionRepresentation=entry.sectionRepresentation,
-                    controlValueRepresentation=entry.controlValueRepresentation,
-                    valueRepresentation=entry.valueRepresentation,
+                    controlCodeObjType=(
+                        None
+                        if entry.controlCodeObjType is None
+                        else CodeObjType(entry.controlCodeObjType)
+                    ),
+                    sectionRepresentation=(
+                        None
+                        if entry.sectionRepresentation is None
+                        else SectionRepresentationMode(entry.sectionRepresentation)
+                    ),
+                    controlValueRepresentation=(
+                        None
+                        if entry.controlValueRepresentation is None
+                        else CodeObjValueRepresentationMode(
+                            entry.controlValueRepresentation
+                        )
+                    ),
+                    valueRepresentation=(
+                        None
+                        if entry.valueRepresentation is None
+                        else CodeObjValueRepresentationMode(entry.valueRepresentation)
+                    ),
                 )
                 for entry in catalog.entries
             ]
@@ -393,24 +421,16 @@ class ListenerDependencyValues:
         dependency_metadata: ListenerDependencyMetadata | None = None,
         state: Any = _MISSING,
         *,
-        dependency_metadata_resolver: Callable[
-            [], ListenerDependencyMetadata | None
-        ]
+        dependency_metadata_resolver: Callable[[], ListenerDependencyMetadata | None]
         | None = None,
         value_resolver: Callable[[str], Any] | None = None,
         state_resolver: Callable[[], Any] | None = None,
     ) -> None:
-        if (
-            dependency_metadata_resolver is not None
-            and dependency_metadata is not None
-        ):
+        if dependency_metadata_resolver is not None and dependency_metadata is not None:
             raise ValueError(
                 "ListenerDependencyValues accepts either dependency_metadata or dependency_metadata_resolver"
             )
-        if (
-            dependency_metadata_resolver is None
-            and dependency_metadata is None
-        ):
+        if dependency_metadata_resolver is None and dependency_metadata is None:
             raise ValueError(
                 "ListenerDependencyValues requires dependency_metadata or dependency_metadata_resolver"
             )
@@ -465,9 +485,7 @@ class _ListenerCallbackStateView:
     def __init__(
         self,
         *,
-        dependency_metadata_resolver: Callable[
-            [], ListenerDependencyMetadata | None
-        ],
+        dependency_metadata_resolver: Callable[[], ListenerDependencyMetadata | None],
         value_resolver: Callable[[str], Any],
         log_identifier: str,
     ) -> None:
@@ -563,7 +581,6 @@ class SettaListener:
         self._websocket: "ClientConnection | None" = None
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
-        self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
         self._latest_dependency_metadata: ListenerDependencyMetadata | None = None
         self._latest_dependency_snapshot_values: (
             ListenerRenderedDependencyValues | None
@@ -734,11 +751,10 @@ class SettaListener:
         if session_info is None:
             return None
         session_metadata, secret = session_info
-        if (
-            session_metadata.host != self._host
-            and not {session_metadata.host, self._host}
-            <= {"127.0.0.1", "localhost", "::1"}
-        ):
+        if session_metadata.host != self._host and not {
+            session_metadata.host,
+            self._host,
+        } <= {"127.0.0.1", "localhost", "::1"}:
             return None
         if session_metadata.port != self._port:
             return None
@@ -1354,39 +1370,31 @@ class SettaListener:
 
     async def _refresh_from_snapshot(
         self,
-        project_state: ProjectStateSingleConfig,
+        snapshot: ListenerSnapshot,
         *,
-        dependency_catalog: ListenerDependencyCatalog | None = None,
-        dependency_values: ListenerRenderedDependencyValues | None = None,
-        share_session_id: str | None = None,
+        refresh_kind: Literal["bootstrap", "force_refresh"] | None = None,
     ) -> None:
         """Refresh listener state from a snapshot delivered over the websocket."""
-        self._latest_persisted_snapshot = project_state
-        refresh_kind: Literal["bootstrap", "force_refresh"]
         if self._runtime_state is None:
-            refresh_kind = "bootstrap"
+            resolved_refresh_kind: Literal["bootstrap", "force_refresh"] = "bootstrap"
         else:
-            refresh_kind = "force_refresh"
+            resolved_refresh_kind = "force_refresh"
+        if refresh_kind is not None:
+            resolved_refresh_kind = refresh_kind
         await self._process_snapshot(
-            project_state,
-            refresh_kind=refresh_kind,
-            dependency_catalog=dependency_catalog,
-            dependency_values=dependency_values,
-            share_session_id=share_session_id,
+            snapshot,
+            refresh_kind=resolved_refresh_kind,
         )
 
     async def _process_snapshot(
         self,
-        project_state: ProjectStateSingleConfig,
+        snapshot: ListenerSnapshot,
         *,
         refresh_kind: Literal["bootstrap", "force_refresh"],
-        dependency_catalog: ListenerDependencyCatalog | None = None,
-        dependency_values: ListenerRenderedDependencyValues | None = None,
-        share_session_id: str | None,
     ) -> None:
-        self._validate_sequence_session_id(share_session_id)
+        self._validate_sequence_session_id(snapshot.shareSessionId)
         self._reset_realtime_sequence()
-        incoming_project_id = project_state.projectConfig.id
+        incoming_project_id = snapshot.projectConfigId
         if self._project_config_id is None:
             self._project_config_id = incoming_project_id
         elif incoming_project_id != self._project_config_id:
@@ -1398,49 +1406,21 @@ class SettaListener:
             )
             self._project_config_id = incoming_project_id
 
-        if dependency_catalog is not None:
-            dependency_metadata = ListenerDependencyMetadata.from_catalog(
-                dependency_catalog
-            )
-        elif self._latest_dependency_metadata is not None:
-            dependency_metadata = self._latest_dependency_metadata
-        else:
-            current_runtime_state = self._runtime_state
-            if current_runtime_state is None:
-                dependency_metadata = None
-            else:
-                dependency_metadata = current_runtime_state.dependency_metadata
-        if dependency_metadata is None:
-            logger.warning(
-                (
-                    "Listener %s skipped %s snapshot because authoritative "
-                    "dependency metadata is unavailable"
-                ),
-                self._log_identifier,
-                refresh_kind,
-            )
-            return
         runtime_state = ListenerRuntimeState(
-            dependency_metadata=dependency_metadata,
+            dependency_metadata=ListenerDependencyMetadata.from_catalog(
+                snapshot.dependencyCatalog
+            ),
         )
-        self._latest_dependency_snapshot_values = dependency_values
+        self._latest_dependency_snapshot_values = snapshot.dependencyValues
         previous_cache = dict(self._dependency_cache)
         (
             rendered_snapshot_values,
             _rendered_snapshot_value_keys,
         ) = self._build_dependency_cache_from_snapshot_values(
-            dependency_values,
+            snapshot.dependencyValues,
             runtime_state.dependency_metadata,
         )
         updated_cache = dict(rendered_snapshot_values)
-        if dependency_values is None:
-            logger.warning(
-                (
-                    "Listener %s received no authoritative snapshot values; "
-                    "leaving dependency cache on the fail-closed path"
-                ),
-                self._log_identifier,
-            )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
@@ -1714,7 +1694,9 @@ class SettaListener:
         value_codec: PythonValueCodec,
     ) -> Any:
         try:
-            expression = self._render_direct_node_expression(node, value_codec=value_codec)
+            expression = self._render_direct_node_expression(
+                node, value_codec=value_codec
+            )
         except Exception:
             return _UNAVAILABLE
         if not expression:
@@ -1979,35 +1961,16 @@ class SettaListener:
 
     async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
-        self._validate_sequence_session_id(content.shareSessionId)
         completed = False
         try:
-            project_state = content.projectState
-            if project_state is not None:
-                await self._refresh_from_snapshot(
-                    project_state,
-                    dependency_catalog=content.dependencyCatalog,
-                    dependency_values=content.dependencyValues,
-                    share_session_id=content.shareSessionId,
-                )
-                completed = True
-                return
-            project_state = self._latest_persisted_snapshot
-            if project_state is None:
-                logger.warning(
-                    "Listener %s received force refresh without cached project state",
-                    self._log_identifier,
-                )
-                self._reset_realtime_sequence()
-                completed = True
-                return
-
-            await self._process_snapshot(
-                project_state,
-                refresh_kind="force_refresh",
-                dependency_catalog=content.dependencyCatalog,
-                dependency_values=content.dependencyValues,
-                share_session_id=content.shareSessionId,
+            refresh_kind: Literal["bootstrap", "force_refresh"] | None = None
+            if content.refreshKind == "bootstrap":
+                refresh_kind = "bootstrap"
+            elif content.refreshKind == "force_refresh":
+                refresh_kind = "force_refresh"
+            await self._refresh_from_snapshot(
+                content.snapshot,
+                refresh_kind=refresh_kind,
             )
             completed = True
         finally:
@@ -2212,8 +2175,7 @@ class SettaListener:
                 control_code_obj_id=entry.controlCodeObjId,
                 control_value_representation=entry.controlValueRepresentation,
                 representation=(
-                    entry.sectionRepresentation
-                    or SectionRepresentationMode.expression
+                    entry.sectionRepresentation or SectionRepresentationMode.expression
                 ),
             )
         return None
@@ -2233,6 +2195,7 @@ class SettaListener:
         node = self._build_metadata_direct_node(entry, value)
         if node is None:
             return _UNAVAILABLE
+
         def unexpected_metadata_dependency_lookup(
             dep_key: BaseDependencyKeyUnion,
         ) -> str:
@@ -2345,19 +2308,19 @@ class SettaListener:
         runtime_state: ListenerRuntimeState,
         *,
         value_resolver: Callable[[str], Any] | None = None,
-        dependency_metadata_resolver: Callable[
-            [], ListenerDependencyMetadata | None
-        ]
+        dependency_metadata_resolver: Callable[[], ListenerDependencyMetadata | None]
         | None = None,
     ) -> Any:
         if dependency_metadata_resolver is None:
 
             def dependency_metadata_resolver() -> ListenerDependencyMetadata:
                 return runtime_state.dependency_metadata
+
         if value_resolver is None:
 
             def value_resolver(dependency_name: str) -> Any:
                 return self._dependency_cache.get(dependency_name, _MISSING)
+
         return _ListenerCallbackStateView(
             dependency_metadata_resolver=dependency_metadata_resolver,
             value_resolver=value_resolver,

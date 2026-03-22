@@ -426,6 +426,40 @@ Success condition:
 - `SettaListener` remains a Python authoring API, but it is no longer a second
   owner of listener-visible backend semantics
 
+Execution artifact (current slice):
+
+- `internal/listenersnapshot/payload.go`
+- `internal/realtime/listener_messages.go`
+- `internal/realtime/listener_broadcaster.go`
+- `internal/realtime/listener_temporary_ids.go`
+- `internal/wsapi/routes.go`
+- `internal/httpapi/listener_routes.go`
+- `backend/setta/types/listener.py`
+- `backend/setta/api/listener.py`
+- `tests/api/test_listener_realtime.py`
+- `tests/api/test_listener_router_endpoint_calls.py`
+- `tests/api/test_listener_local_dependency_updates.py`
+
+Phase 4 progress:
+
+- listener bootstrap and force-refresh websocket payloads now carry the
+  Go-owned `ListenerSnapshot` contract instead of a Python-owned
+  `ProjectStateSingleConfig`
+- the active retained Python listener path no longer caches or replays a full
+  Python project-state snapshot
+- listener snapshot metadata/value hydration now rebuilds runtime state from the
+  Go-owned snapshot contract and uses metadata-backed cache refresh only
+- the old top-level `projectState` / `dependencyCatalog` / `dependencyValues`
+  force-refresh envelope has been deleted in favor of `content.snapshot`
+
+Remaining Phase 4 work:
+
+- move the retained Python listener realtime/dependency-event DTOs onto the
+  generated contract layer so the active listener path stops depending on
+  handwritten listener transport models there too
+- remove test-only and fallback-only dependency-graph reconstruction helpers
+  once the remaining realtime path no longer needs them
+
 ### Phase 5. Introduce A Narrow Local Go Core Only For Proven Gaps
 
 After phases 1 through 4, re-evaluate what canonical local logic is still

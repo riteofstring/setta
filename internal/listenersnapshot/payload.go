@@ -1,7 +1,6 @@
 package listenersnapshot
 
 import (
-	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
@@ -9,25 +8,17 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 )
 
-type ListenerSnapshotPayload struct {
-	ProjectState      json.RawMessage
-	DependencyCatalog *realtime.ListenerDependencyCatalog
-	DependencyValues  *realtime.ListenerRenderedDependencyValues
-}
+type ListenerSnapshotPayload = pythonsdkcontracts.ListenerSnapshot
 
 func BuildListenerSnapshotPayload(document projectstate.Document, projectID string) (ListenerSnapshotPayload, error) {
 	projectStateView, err := projectview.SingleConfigByProjectID(document, projectID)
 	if err != nil {
 		return ListenerSnapshotPayload{}, err
 	}
-	projectStatePayload, err := json.Marshal(projectStateView)
-	if err != nil {
-		return ListenerSnapshotPayload{}, err
-	}
-
 	project, err := document.ProjectByID(projectID)
 	if err != nil {
 		return ListenerSnapshotPayload{}, err
@@ -40,10 +31,56 @@ func BuildListenerSnapshotPayload(document projectstate.Document, projectID stri
 	dependencyValues := buildListenerRenderedDependencyValuesFromGraph(graph)
 
 	return ListenerSnapshotPayload{
-		ProjectState:      projectStatePayload,
-		DependencyCatalog: dependencyCatalog,
-		DependencyValues:  dependencyValues,
+		ProjectConfigID:   projectStateView.ProjectConfig.ID,
+		DependencyCatalog: contractListenerDependencyCatalog(dependencyCatalog),
+		DependencyValues:  contractListenerRenderedDependencyValues(dependencyValues),
 	}, nil
+}
+
+func contractListenerDependencyCatalog(catalog *realtime.ListenerDependencyCatalog) pythonsdkcontracts.ListenerDependencyCatalog {
+	if catalog == nil {
+		return pythonsdkcontracts.ListenerDependencyCatalog{}
+	}
+	entries := make([]pythonsdkcontracts.ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
+	for _, entry := range catalog.Entries {
+		clonedDependencies := append([]string(nil), entry.Dependencies...)
+		entries = append(entries, pythonsdkcontracts.ListenerDependencyCatalogEntry{
+			DependencyKey:              entry.DependencyKey,
+			Name:                       entry.Name,
+			FullPathName:               entry.FullPathName,
+			Dependencies:               clonedDependencies,
+			SectionType:                stringPointerOrNil(entry.SectionType),
+			CodeObjType:                stringPointerOrNil(entry.CodeObjType),
+			ControlCodeObjID:           stringPointerOrNil(entry.ControlCodeObjID),
+			ControlCodeObjType:         stringPointerOrNil(entry.ControlCodeObjType),
+			SectionRepresentation:      stringPointerOrNil(entry.SectionRepresentation),
+			ControlValueRepresentation: stringPointerOrNil(entry.ControlValueRepresentation),
+			ValueRepresentation:        stringPointerOrNil(entry.ValueRepresentation),
+		})
+	}
+	return pythonsdkcontracts.ListenerDependencyCatalog{Entries: entries}
+}
+
+func contractListenerRenderedDependencyValues(values *realtime.ListenerRenderedDependencyValues) pythonsdkcontracts.ListenerRenderedDependencyValues {
+	if values == nil {
+		return pythonsdkcontracts.ListenerRenderedDependencyValues{}
+	}
+	entries := make([]pythonsdkcontracts.ListenerRenderedDependencyValue, 0, len(values.Entries))
+	for _, entry := range values.Entries {
+		entries = append(entries, pythonsdkcontracts.ListenerRenderedDependencyValue{
+			DependencyKey: entry.DependencyKey,
+			RenderedValue: entry.RenderedValue,
+		})
+	}
+	return pythonsdkcontracts.ListenerRenderedDependencyValues{Entries: entries}
+}
+
+func stringPointerOrNil(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func BuildListenerDependencyCatalog(project projectstate.Project) (*realtime.ListenerDependencyCatalog, error) {

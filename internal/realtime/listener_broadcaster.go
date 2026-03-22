@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/coder/websocket"
+	"setta/internal/pythonsdkcontracts"
 )
 
 var (
@@ -64,9 +65,9 @@ type ForceRefreshParams struct {
 	ProjectID           string
 	ShareSessionID      string
 	CallID              string
-	ProjectState        json.RawMessage
-	DependencyCatalog   *ListenerDependencyCatalog
-	DependencyValues    *ListenerRenderedDependencyValues
+	Snapshot            pythonsdkcontracts.ListenerSnapshot
+	Sequence            *uint64
+	RefreshKind         string
 	TargetConnectionIDs []string
 }
 
@@ -306,12 +307,10 @@ func (b *ListenerBroadcaster) SendForceRefresh(ctx context.Context, params Force
 	return b.sendMessageToTargets(
 		ctx,
 		NewListenerForceRefreshMessage(ListenerForceRefreshContent{
-			ProjectConfigID:   params.ProjectID,
-			ShareSessionID:    params.ShareSessionID,
-			CallID:            params.CallID,
-			ProjectState:      cloneRawMessage(params.ProjectState),
-			DependencyCatalog: cloneListenerDependencyCatalog(params.DependencyCatalog),
-			DependencyValues:  cloneListenerRenderedDependencyValues(params.DependencyValues),
+			CallID:      params.CallID,
+			Snapshot:    cloneListenerSnapshot(params.Snapshot, params.ShareSessionID),
+			Sequence:    params.Sequence,
+			RefreshKind: params.RefreshKind,
 		}),
 		targetConnectionIDs,
 	)
@@ -515,6 +514,37 @@ func cloneListenerRenderedDependencyValues(values *ListenerRenderedDependencyVal
 		clonedEntries = append(clonedEntries, entry)
 	}
 	return &ListenerRenderedDependencyValues{Entries: clonedEntries}
+}
+
+func cloneListenerSnapshot(
+	snapshot pythonsdkcontracts.ListenerSnapshot,
+	shareSessionID string,
+) pythonsdkcontracts.ListenerSnapshot {
+	clonedCatalogEntries := make([]pythonsdkcontracts.ListenerDependencyCatalogEntry, 0, len(snapshot.DependencyCatalog.Entries))
+	for _, entry := range snapshot.DependencyCatalog.Entries {
+		clonedEntry := entry
+		clonedEntry.Dependencies = append([]string(nil), entry.Dependencies...)
+		clonedCatalogEntries = append(clonedCatalogEntries, clonedEntry)
+	}
+	clonedValueEntries := make([]pythonsdkcontracts.ListenerRenderedDependencyValue, 0, len(snapshot.DependencyValues.Entries))
+	for _, entry := range snapshot.DependencyValues.Entries {
+		clonedValueEntries = append(clonedValueEntries, entry)
+	}
+	cloned := pythonsdkcontracts.ListenerSnapshot{
+		ProjectConfigID: snapshot.ProjectConfigID,
+		ShareSessionID:  snapshot.ShareSessionID,
+		DependencyCatalog: pythonsdkcontracts.ListenerDependencyCatalog{
+			Entries: clonedCatalogEntries,
+		},
+		DependencyValues: pythonsdkcontracts.ListenerRenderedDependencyValues{
+			Entries: clonedValueEntries,
+		},
+	}
+	if strings.TrimSpace(shareSessionID) != "" {
+		shareSessionIDCopy := strings.TrimSpace(shareSessionID)
+		cloned.ShareSessionID = &shareSessionIDCopy
+	}
+	return cloned
 }
 
 func listenerRealtimeMatchDependencies(

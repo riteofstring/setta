@@ -96,11 +96,10 @@ func forceRefreshListenerHandler(deps ListenerRouteDependencies) http.HandlerFun
 		}
 
 		if _, err := deps.ListenerBroadcaster.SendForceRefresh(r.Context(), realtime.ForceRefreshParams{
-			ProjectID:         projectID,
-			ShareSessionID:    requestInfo.ShareSessionID,
-			ProjectState:      snapshotPayload.ProjectState,
-			DependencyCatalog: snapshotPayload.DependencyCatalog,
-			DependencyValues:  snapshotPayload.DependencyValues,
+			ProjectID:      projectID,
+			ShareSessionID: requestInfo.ShareSessionID,
+			Snapshot:       snapshotPayload,
+			RefreshKind:    "force_refresh",
 		}); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"setta/internal/pythonsdkcontracts"
 )
 
 func TestListenerBroadcasterEmitRealtimeDeltasRejectsEmptyDeltas(t *testing.T) {
@@ -511,11 +512,13 @@ func TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSeq
 		t.Fatalf("expected first realtime delta before force refresh (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
 	}
 
-	projectState := json.RawMessage(`{"projectId":"project-a","version":1}`)
+	snapshot := pythonsdkcontracts.ListenerSnapshot{
+		ProjectConfigID: "project-a",
+	}
 	delivered, err = broadcaster.SendForceRefresh(context.Background(), ForceRefreshParams{
 		ProjectID:      "project-a",
 		ShareSessionID: "session-a",
-		ProjectState:   projectState,
+		Snapshot:       snapshot,
 	})
 	if err != nil {
 		t.Fatalf("send force refresh: %v", err)
@@ -542,11 +545,11 @@ func TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSeq
 	}
 
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerA), "project-a", "session-a", 1, `"before-refresh"`)
-	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerA), "project-a", "session-a", projectState)
+	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerA), "project-a", "session-a", snapshot)
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerA), "project-a", "session-a", 1, `"after-refresh"`)
 
-	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerBootstrapOnly), "project-a", "session-a", projectState)
-	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerShared), "project-a", "session-a", projectState)
+	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerBootstrapOnly), "project-a", "session-a", snapshot)
+	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerShared), "project-a", "session-a", snapshot)
 }
 
 func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) {
@@ -564,28 +567,30 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 	recordBootstrapOnly(t, broadcaster, "listener-a", "project-a", "")
 
 	delivered, err := broadcaster.SendForceRefresh(context.Background(), ForceRefreshParams{
-		ProjectID:    "project-a",
-		ProjectState: json.RawMessage(`{"projectId":"project-a"}`),
-		DependencyCatalog: &ListenerDependencyCatalog{
-			Entries: []ListenerDependencyCatalogEntry{
-				{
-					DependencyKey:              "section-a.param-a",
-					Name:                       "paramA",
-					FullPathName:               "Section__param",
-					Dependencies:               []string{"section-a"},
-					CodeObjType:                "TextParam",
-					ValueRepresentation:        "string",
-					SectionRepresentation:      "expression",
-					ControlCodeObjType:         "SwitchParam",
-					ControlValueRepresentation: "expression",
+		ProjectID: "project-a",
+		Snapshot: pythonsdkcontracts.ListenerSnapshot{
+			ProjectConfigID: "project-a",
+			DependencyCatalog: pythonsdkcontracts.ListenerDependencyCatalog{
+				Entries: []pythonsdkcontracts.ListenerDependencyCatalogEntry{
+					{
+						DependencyKey:              "section-a.param-a",
+						Name:                       "paramA",
+						FullPathName:               "Section__param",
+						Dependencies:               []string{"section-a"},
+						CodeObjType:                testStringPointer("TextParam"),
+						ValueRepresentation:        testStringPointer("string"),
+						SectionRepresentation:      testStringPointer("expression"),
+						ControlCodeObjType:         testStringPointer("SwitchParam"),
+						ControlValueRepresentation: testStringPointer("expression"),
+					},
 				},
 			},
-		},
-		DependencyValues: &ListenerRenderedDependencyValues{
-			Entries: []ListenerRenderedDependencyValue{
-				{
-					DependencyKey: "section-a.param-a",
-					RenderedValue: "'value-a'",
+			DependencyValues: pythonsdkcontracts.ListenerRenderedDependencyValues{
+				Entries: []pythonsdkcontracts.ListenerRenderedDependencyValue{
+					{
+						DependencyKey: "section-a.param-a",
+						RenderedValue: "'value-a'",
+					},
 				},
 			},
 		},
@@ -598,13 +603,10 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 	}
 
 	content := decodeListenerForceRefreshContent(t, readEnvelope(t, listener))
-	if content.DependencyCatalog == nil {
-		t.Fatal("expected dependency catalog in listener force refresh")
+	if len(content.Snapshot.DependencyCatalog.Entries) != 1 {
+		t.Fatalf("expected 1 dependency catalog entry, got %d", len(content.Snapshot.DependencyCatalog.Entries))
 	}
-	if len(content.DependencyCatalog.Entries) != 1 {
-		t.Fatalf("expected 1 dependency catalog entry, got %d", len(content.DependencyCatalog.Entries))
-	}
-	entry := content.DependencyCatalog.Entries[0]
+	entry := content.Snapshot.DependencyCatalog.Entries[0]
 	if entry.DependencyKey != "section-a.param-a" {
 		t.Fatalf("expected dependency key section-a.param-a, got %q", entry.DependencyKey)
 	}
@@ -617,28 +619,25 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 	if len(entry.Dependencies) != 1 || entry.Dependencies[0] != "section-a" {
 		t.Fatalf("expected dependency edges [section-a], got %#v", entry.Dependencies)
 	}
-	if entry.CodeObjType != "TextParam" {
-		t.Fatalf("expected dependency code obj type TextParam, got %q", entry.CodeObjType)
+	if derefString(entry.CodeObjType) != "TextParam" {
+		t.Fatalf("expected dependency code obj type TextParam, got %q", derefString(entry.CodeObjType))
 	}
-	if entry.ValueRepresentation != "string" {
-		t.Fatalf("expected dependency value representation string, got %q", entry.ValueRepresentation)
+	if derefString(entry.ValueRepresentation) != "string" {
+		t.Fatalf("expected dependency value representation string, got %q", derefString(entry.ValueRepresentation))
 	}
-	if entry.SectionRepresentation != "expression" {
-		t.Fatalf("expected dependency section representation expression, got %q", entry.SectionRepresentation)
+	if derefString(entry.SectionRepresentation) != "expression" {
+		t.Fatalf("expected dependency section representation expression, got %q", derefString(entry.SectionRepresentation))
 	}
-	if entry.ControlCodeObjType != "SwitchParam" {
-		t.Fatalf("expected dependency control code obj type SwitchParam, got %q", entry.ControlCodeObjType)
+	if derefString(entry.ControlCodeObjType) != "SwitchParam" {
+		t.Fatalf("expected dependency control code obj type SwitchParam, got %q", derefString(entry.ControlCodeObjType))
 	}
-	if entry.ControlValueRepresentation != "expression" {
-		t.Fatalf("expected dependency control value representation expression, got %q", entry.ControlValueRepresentation)
+	if derefString(entry.ControlValueRepresentation) != "expression" {
+		t.Fatalf("expected dependency control value representation expression, got %q", derefString(entry.ControlValueRepresentation))
 	}
-	if content.DependencyValues == nil {
-		t.Fatal("expected dependency values in listener force refresh")
+	if len(content.Snapshot.DependencyValues.Entries) != 1 {
+		t.Fatalf("expected 1 dependency value entry, got %d", len(content.Snapshot.DependencyValues.Entries))
 	}
-	if len(content.DependencyValues.Entries) != 1 {
-		t.Fatalf("expected 1 dependency value entry, got %d", len(content.DependencyValues.Entries))
-	}
-	valueEntry := content.DependencyValues.Entries[0]
+	valueEntry := content.Snapshot.DependencyValues.Entries[0]
 	if valueEntry.DependencyKey != "section-a.param-a" {
 		t.Fatalf("expected dependency value key section-a.param-a, got %q", valueEntry.DependencyKey)
 	}
@@ -799,7 +798,7 @@ func assertListenerForceRefreshMessage(
 	envelope hubMessageEnvelope,
 	projectID string,
 	shareSessionID string,
-	projectState json.RawMessage,
+	expectedSnapshot pythonsdkcontracts.ListenerSnapshot,
 ) {
 	t.Helper()
 
@@ -808,14 +807,25 @@ func assertListenerForceRefreshMessage(
 	}
 
 	content := decodeListenerForceRefreshContent(t, envelope)
-	if content.ProjectConfigID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
+	if content.Snapshot.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.Snapshot.ProjectConfigID)
 	}
-	if content.ShareSessionID != shareSessionID {
-		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	actualShareSessionID := ""
+	if content.Snapshot.ShareSessionID != nil {
+		actualShareSessionID = *content.Snapshot.ShareSessionID
 	}
-	if string(content.ProjectState) != string(projectState) {
-		t.Fatalf("expected project state %s, got %s", string(projectState), string(content.ProjectState))
+	if actualShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, actualShareSessionID)
+	}
+	if shareSessionID == "" {
+		expectedSnapshot.ShareSessionID = nil
+	} else {
+		shareSessionIDCopy := shareSessionID
+		expectedSnapshot.ShareSessionID = &shareSessionIDCopy
+	}
+	expectedSnapshot = normalizeTestListenerSnapshot(expectedSnapshot)
+	if canonicalJSONValue(t, content.Snapshot) != canonicalJSONValue(t, expectedSnapshot) {
+		t.Fatalf("expected snapshot %s, got %s", canonicalJSONValue(t, expectedSnapshot), canonicalJSONValue(t, content.Snapshot))
 	}
 }
 
@@ -830,6 +840,47 @@ func decodeListenerForceRefreshContent(
 		t.Fatalf("decode listener force refresh content: %v", err)
 	}
 	return content
+}
+
+func canonicalJSONValue(t *testing.T, value any) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json value %#v: %v", value, err)
+	}
+	var decoded any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode json %q: %v", string(encoded), err)
+	}
+	normalized, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("re-encode json %q: %v", string(encoded), err)
+	}
+	return string(normalized)
+}
+
+func testStringPointer(value string) *string {
+	return &value
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func normalizeTestListenerSnapshot(
+	snapshot pythonsdkcontracts.ListenerSnapshot,
+) pythonsdkcontracts.ListenerSnapshot {
+	if snapshot.DependencyCatalog.Entries == nil {
+		snapshot.DependencyCatalog.Entries = []pythonsdkcontracts.ListenerDependencyCatalogEntry{}
+	}
+	if snapshot.DependencyValues.Entries == nil {
+		snapshot.DependencyValues.Entries = []pythonsdkcontracts.ListenerRenderedDependencyValue{}
+	}
+	return snapshot
 }
 
 func assertListenerDependencyEventMessage(

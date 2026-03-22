@@ -862,9 +862,8 @@ func handleListenerInit(
 	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
 		ProjectID:           projectID,
 		ShareSessionID:      requestInfo.ShareSessionID,
-		ProjectState:        snapshotPayload.ProjectState,
-		DependencyCatalog:   snapshotPayload.DependencyCatalog,
-		DependencyValues:    snapshotPayload.DependencyValues,
+		Snapshot:            snapshotPayload,
+		RefreshKind:         "bootstrap",
 		TargetConnectionIDs: []string{connectionID},
 	})
 	return err
@@ -1168,12 +1167,11 @@ func sendListenerEndpointForceRefresh(
 	}
 
 	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
-		ProjectID:         projectID,
-		ShareSessionID:    requestInfo.ShareSessionID,
-		CallID:            strings.TrimSpace(callID),
-		ProjectState:      snapshotPayload.ProjectState,
-		DependencyCatalog: snapshotPayload.DependencyCatalog,
-		DependencyValues:  snapshotPayload.DependencyValues,
+		ProjectID:      projectID,
+		ShareSessionID: requestInfo.ShareSessionID,
+		CallID:         strings.TrimSpace(callID),
+		Snapshot:       snapshotPayload,
+		RefreshKind:    "force_refresh",
 	})
 	return err
 }

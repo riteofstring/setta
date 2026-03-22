@@ -13,9 +13,12 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.id import ID
 from setta.types.listener import (
+    ListenerDependencyCatalog,
     ListenerErrorContent,
     ListenerForceRefreshContent,
+    ListenerRenderedDependencyValues,
     ListenerRouterEndpointResultContent,
+    ListenerSnapshot,
 )
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
@@ -25,6 +28,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
+
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
@@ -219,7 +223,11 @@ class TestListenerRouterEndpointCall:
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(
                 callId=parsed_message.content.callId,
-                projectState=project_state,
+                snapshot=ListenerSnapshot(
+                    projectConfigId=project_state.projectConfig.id,
+                    dependencyCatalog=ListenerDependencyCatalog(entries=[]),
+                    dependencyValues=ListenerRenderedDependencyValues(entries=[]),
+                ),
             )
         )
 

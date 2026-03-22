@@ -26,11 +26,12 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/listenersnapshot"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
@@ -1384,22 +1385,11 @@ func TestRegisterRoutesListenerInitAcceptsTemporaryProjectIDAndTranslatesForceRe
 	}
 
 	forceRefresh := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
-	if forceRefresh.ProjectConfigID != temporaryProjectID {
-		t.Fatalf("expected temporary project id %q, got %q", temporaryProjectID, forceRefresh.ProjectConfigID)
-	}
-	var projectState struct {
-		ProjectConfig struct {
-			ID string `json:"id"`
-		} `json:"projectConfig"`
-	}
-	if err := json.Unmarshal(forceRefresh.ProjectState, &projectState); err != nil {
-		t.Fatalf("decode temporary force refresh project state: %v", err)
-	}
-	if projectState.ProjectConfig.ID != temporaryProjectID {
-		t.Fatalf("expected temporary project state id %q, got %q", temporaryProjectID, projectState.ProjectConfig.ID)
+	if forceRefresh.Snapshot.ProjectConfigID != temporaryProjectID {
+		t.Fatalf("expected temporary project id %q, got %q", temporaryProjectID, forceRefresh.Snapshot.ProjectConfigID)
 	}
 	foundCatalogEntry := false
-	for _, entry := range forceRefresh.DependencyCatalog.Entries {
+	for _, entry := range forceRefresh.Snapshot.DependencyCatalog.Entries {
 		if entry.DependencyKey != temporarySectionID {
 			continue
 		}
@@ -1407,10 +1397,10 @@ func TestRegisterRoutesListenerInitAcceptsTemporaryProjectIDAndTranslatesForceRe
 		break
 	}
 	if !foundCatalogEntry {
-		t.Fatalf("expected temporary dependency catalog entry for %q, got %#v", temporarySectionID, forceRefresh.DependencyCatalog.Entries)
+		t.Fatalf("expected temporary dependency catalog entry for %q, got %#v", temporarySectionID, forceRefresh.Snapshot.DependencyCatalog.Entries)
 	}
 	foundRenderedValue := false
-	for _, entry := range forceRefresh.DependencyValues.Entries {
+	for _, entry := range forceRefresh.Snapshot.DependencyValues.Entries {
 		if entry.DependencyKey != temporarySectionID {
 			continue
 		}
@@ -1418,7 +1408,7 @@ func TestRegisterRoutesListenerInitAcceptsTemporaryProjectIDAndTranslatesForceRe
 		break
 	}
 	if !foundRenderedValue {
-		t.Fatalf("expected temporary dependency value entry for %q, got %#v", temporarySectionID, forceRefresh.DependencyValues.Entries)
+		t.Fatalf("expected temporary dependency value entry for %q, got %#v", temporarySectionID, forceRefresh.Snapshot.DependencyValues.Entries)
 	}
 }
 
@@ -1454,12 +1444,9 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 	}
 
 	content := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
-	if content.DependencyCatalog == nil {
-		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
-	}
 	expectedName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", sectionID, "")
 	foundCatalog := false
-	for _, entry := range content.DependencyCatalog.Entries {
+	for _, entry := range content.Snapshot.DependencyCatalog.Entries {
 		if entry.DependencyKey != sectionID {
 			continue
 		}
@@ -1473,10 +1460,7 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 		t.Fatalf("expected dependency catalog to include section %q", sectionID)
 	}
 
-	if content.DependencyValues == nil {
-		t.Fatal("expected dependency values in listener bootstrap force refresh")
-	}
-	for _, entry := range content.DependencyValues.Entries {
+	for _, entry := range content.Snapshot.DependencyValues.Entries {
 		if entry.DependencyKey != sectionID {
 			continue
 		}
@@ -1525,10 +1509,6 @@ func TestRegisterRoutesListenerInitCatalogIncludesSectionAndParamEntries(t *test
 	}
 
 	content := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
-	if content.DependencyCatalog == nil {
-		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
-	}
-
 	document := projectRuntime.Snapshot().Document
 	expectedEntries := map[string]string{
 		sectionID: routeListenerDependencyName(t, document, "project-a", sectionID, ""),
@@ -1540,7 +1520,7 @@ func TestRegisterRoutesListenerInitCatalogIncludesSectionAndParamEntries(t *test
 			addParamResult.CodeObjID,
 		),
 	}
-	for _, entry := range content.DependencyCatalog.Entries {
+	for _, entry := range content.Snapshot.DependencyCatalog.Entries {
 		expectedName, ok := expectedEntries[entry.DependencyKey]
 		if !ok {
 			continue
@@ -1683,12 +1663,8 @@ func TestRegisterRoutesListenerInitCatalogPreservesStableSanitizedSuffixes(t *te
 	}
 
 	content := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
-	if content.DependencyCatalog == nil {
-		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
-	}
-
 	fullPathNamesByKey := map[string]string{}
-	for _, entry := range content.DependencyCatalog.Entries {
+	for _, entry := range content.Snapshot.DependencyCatalog.Entries {
 		fullPathNamesByKey[entry.DependencyKey] = entry.FullPathName
 	}
 
@@ -4630,18 +4606,18 @@ func routeListenerDependencyName(
 	return node.Base().FullPathName
 }
 
-func routeProjectStatePayload(t *testing.T, document projectstate.Document, projectID string) json.RawMessage {
+func routeProjectStatePayload(
+	t *testing.T,
+	document projectstate.Document,
+	projectID string,
+) listenersnapshot.ListenerSnapshotPayload {
 	t.Helper()
 
-	view, err := projectview.SingleConfigByProjectID(document, projectID)
+	snapshot, err := listenersnapshot.BuildListenerSnapshotPayload(document, projectID)
 	if err != nil {
-		t.Fatalf("build route project state payload: %v", err)
+		t.Fatalf("build route listener snapshot payload: %v", err)
 	}
-	payload, err := json.Marshal(view)
-	if err != nil {
-		t.Fatalf("marshal route project state payload: %v", err)
-	}
-	return payload
+	return snapshot
 }
 
 func newRouteArtifactService(t *testing.T) (*artifacts.Service, string) {
@@ -5171,7 +5147,7 @@ func assertRouteListenerForceRefresh(
 	message routeMessageEnvelope,
 	projectID string,
 	shareSessionID string,
-	expectedProjectState json.RawMessage,
+	expectedSnapshot listenersnapshot.ListenerSnapshotPayload,
 ) {
 	t.Helper()
 
@@ -5180,14 +5156,25 @@ func assertRouteListenerForceRefresh(
 	}
 
 	content := decodeRouteListenerForceRefreshContent(t, message)
-	if content.ProjectConfigID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
+	if content.Snapshot.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.Snapshot.ProjectConfigID)
 	}
-	if content.ShareSessionID != shareSessionID {
-		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	actualShareSessionID := ""
+	if content.Snapshot.ShareSessionID != nil {
+		actualShareSessionID = *content.Snapshot.ShareSessionID
 	}
-	if canonicalJSON(t, content.ProjectState) != canonicalJSON(t, expectedProjectState) {
-		t.Fatalf("expected project state %s, got %s", string(expectedProjectState), string(content.ProjectState))
+	if actualShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, actualShareSessionID)
+	}
+	if shareSessionID == "" {
+		expectedSnapshot.ShareSessionID = nil
+	} else {
+		shareSessionIDCopy := shareSessionID
+		expectedSnapshot.ShareSessionID = &shareSessionIDCopy
+	}
+	expectedSnapshot = normalizeRouteListenerSnapshot(expectedSnapshot)
+	if canonicalJSONValue(t, content.Snapshot) != canonicalJSONValue(t, expectedSnapshot) {
+		t.Fatalf("expected snapshot %s, got %s", canonicalJSONValue(t, expectedSnapshot), canonicalJSONValue(t, content.Snapshot))
 	}
 }
 
@@ -5520,6 +5507,28 @@ func canonicalJSON(t *testing.T, value []byte) string {
 		t.Fatalf("re-encode json %q: %v", string(value), err)
 	}
 	return string(encoded)
+}
+
+func canonicalJSONValue(t *testing.T, value any) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json value %#v: %v", value, err)
+	}
+	return canonicalJSON(t, encoded)
+}
+
+func normalizeRouteListenerSnapshot(
+	snapshot listenersnapshot.ListenerSnapshotPayload,
+) listenersnapshot.ListenerSnapshotPayload {
+	if snapshot.DependencyCatalog.Entries == nil {
+		snapshot.DependencyCatalog.Entries = []pythonsdkcontracts.ListenerDependencyCatalogEntry{}
+	}
+	if snapshot.DependencyValues.Entries == nil {
+		snapshot.DependencyValues.Entries = []pythonsdkcontracts.ListenerRenderedDependencyValue{}
+	}
+	return snapshot
 }
 
 func compactJSON(t *testing.T, value []byte) string {
