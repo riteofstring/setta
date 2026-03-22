@@ -116,7 +116,7 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	setupRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteSetupLauncher,
-		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`"}`),
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","channel":"uv-tool","installSource":"uv-tool","openMode":"chrome-app","workspaceBehavior":"always-prompt","installArtifacts":false}`),
 	)
 	setupRequest.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(setupResponse, setupRequest)
@@ -131,6 +131,18 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	if !setupPayload.Ok || setupPayload.Installed == nil || !*setupPayload.Installed {
 		t.Fatalf("unexpected setup launcher payload %#v", setupPayload)
 	}
+	if setupPayload.Channel == nil || *setupPayload.Channel != "uv-tool" {
+		t.Fatalf("expected channel uv-tool, got %#v", setupPayload.Channel)
+	}
+	if setupPayload.OpenMode == nil || *setupPayload.OpenMode != string(launcher.LauncherOpenModeChromeApp) {
+		t.Fatalf("expected open mode chrome-app, got %#v", setupPayload.OpenMode)
+	}
+	if setupPayload.WorkspaceBehavior == nil || *setupPayload.WorkspaceBehavior != string(launcher.LauncherWorkspaceBehaviorAlwaysPrompt) {
+		t.Fatalf("expected workspace behavior always_prompt, got %#v", setupPayload.WorkspaceBehavior)
+	}
+	if setupPayload.UpdateCapability == nil || *setupPayload.UpdateCapability != string(launcher.LauncherUpdateCapabilityInApp) {
+		t.Fatalf("expected in-app update capability, got %#v", setupPayload.UpdateCapability)
+	}
 	if len(setupPayload.ManagedArtifacts) != 0 {
 		t.Fatalf("expected metadata-only install, got managed artifacts %#v", setupPayload.ManagedArtifacts)
 	}
@@ -139,9 +151,8 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	removeRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRemoveLauncher,
-		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`"}`),
+		nil,
 	)
-	removeRequest.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(removeResponse, removeRequest)
 	if removeResponse.Code != http.StatusOK {
 		t.Fatalf("expected remove launcher 200, got %d with body %q", removeResponse.Code, removeResponse.Body.String())
