@@ -31,6 +31,20 @@ func TestManagementServiceCollectStatusReportsNotInstalled(t *testing.T) {
 	}
 }
 
+func TestManagementServiceResolveTargetCommandCanonicalizesExecutablePath(t *testing.T) {
+	t.Parallel()
+
+	executableDir := filepath.Join(t.TempDir(), "bin")
+	resolvedExecutable := writeTestExecutable(t, executableDir, "setta")
+	unresolvedExecutable := filepath.Join(executableDir, "..", filepath.Base(executableDir), "setta")
+
+	service := newTestManagementService(t, unresolvedExecutable, "1.2.3", nil)
+
+	if !reflect.DeepEqual(service.ResolveTargetCommand(), []string{resolvedExecutable}) {
+		t.Fatalf("expected canonical target command [%q], got %#v", resolvedExecutable, service.ResolveTargetCommand())
+	}
+}
+
 func TestManagementServiceSetupDefaultsFreshInstallToMetadataOnly(t *testing.T) {
 	t.Parallel()
 
