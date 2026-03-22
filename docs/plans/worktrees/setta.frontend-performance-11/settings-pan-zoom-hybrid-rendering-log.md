@@ -2981,3 +2981,82 @@ Record:
       - filtered `tsc` on `SectionBodyGate`, `Tier1DenseParamSectionPreview`, and `settings-pan-zoom-preview` returned no matching diagnostics
 - Next action:
   - Keep the faithful queued-image checkpoint as the live branch state and pursue a lower-churn follow-up that separates preview retention from overlay visibility before the next paired benchmark rerun.
+
+## 2026-03-25 070
+
+- Item: Benchmark the widened local warm-pool follow-up, record the reject, and restore the queued-image checkpoint as the live branch state.
+- Status: `done`
+- Details:
+  - Probe commit under test:
+    - `f627e4848` `Stabilize local Tier 1 image previews across pan sessions`
+  - Recorded report:
+    - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-local-warm-pool-rerun.md`
+  - Artifact root:
+    - `perf/reports/frontend/artifacts/2026-03-25_section-benchmark-tier1-local-warm-pool-rerun`
+  - Same paired benchmark harness and browser/frontend targets were used again:
+    - `perf/scripts/runSectionBenchmarkViaCdp.js`
+    - worktree browser CDP `http://127.0.0.1:9233`
+    - worktree frontend `http://127.0.0.1:3011`
+    - untouched `main` browser CDP `http://127.0.0.1:9309`
+    - untouched `main` frontend `http://127.0.0.1:3087`
+  - Canonical scenes were reinstalled immediately before the rerun:
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py settings --state-root ../setta/setta_files_dev`
+    - `source activate.sh && python perf/scripts/installSectionBenchmarkScene.py tier1Synthetic --state-root ../setta/setta_files_dev`
+  - Focused verification on the widened local warm-pool probe before the benchmark write-up:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionBodyModePolicy.test.ts src/components/Section/Container/SectionBodyGate.test.tsx src/components/Section/Layouts/Tier1DenseParamSectionPreview.test.tsx`
+      - `3` files passed
+      - `18` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-pan-zoom-preview.spec.ts`
+      - `1` test passed twice after the widened local pool landed
+    - filtered `tsc` on `SectionBodyGate`, `Tier1DenseParamSectionPreview`, `sectionBodyModePolicy`, and `settings-pan-zoom-preview` returned no matching diagnostics
+    - fresh sub-agent CDP visual check:
+      - `/settings` `All Settings`
+      - `/benchmark-tier1`
+      - no old simplified placeholder fallback observed
+      - no obvious hitching in the short sanity pass
+      - visible preview set still read as broad rather than clearly localized
+  - Paired benchmark totals versus untouched `main`:
+    - `settings`
+      - benchmark `Paint`:
+        - `102.157ms -> 558.527ms`
+      - benchmark `RunTask`:
+        - `40245.969ms -> 39356.489ms`
+      - benchmark `UpdateLayoutTree`:
+        - `637.577ms -> 626.431ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `35.487ms -> 1384.112ms`
+      - benchmark `RunTask`:
+        - `28674.555ms -> 28370.467ms`
+      - benchmark `UpdateLayoutTree`:
+        - `37.028ms -> 34.342ms`
+  - Immediate deltas versus the retained queued-image checkpoint:
+    - `settings`
+      - benchmark `Paint`:
+        - `434.401ms -> 558.527ms`
+      - benchmark `RunTask`:
+        - `29680.224ms -> 39356.489ms`
+      - benchmark `UpdateLayoutTree`:
+        - `493.593ms -> 626.431ms`
+    - `tier1Synthetic`
+      - benchmark `Paint`:
+        - `762.591ms -> 1384.112ms`
+      - benchmark `RunTask`:
+        - `14109.314ms -> 28370.467ms`
+      - benchmark `UpdateLayoutTree`:
+        - `20.719ms -> 34.342ms`
+      - overview vertical pan slow `Paint`:
+        - `153.553ms -> 230.265ms`
+      - detail-to-overview zoom slow `Paint`:
+        - `39.140ms -> 104.422ms`
+  - Decision:
+    - reject the widened local warm-pool probe
+    - it kept fidelity intact and improved test stability, but it materially worsened the benchmark paint and task budget
+  - Branch-state correction after the reject:
+    - rejected code probe reverted as:
+      - `c37cdc24e` `Revert "Stabilize local Tier 1 image previews across pan sessions"`
+    - live branch state restored to the prior faithful queued-image checkpoint
+- Next action:
+  - Keep the faithful queued-image checkpoint as the live branch state and only retry this line after a narrower retention policy can guarantee nearby preview availability without broadening retained or visible image surfaces this much.

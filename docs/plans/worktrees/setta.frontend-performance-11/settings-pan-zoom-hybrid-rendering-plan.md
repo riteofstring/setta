@@ -1513,3 +1513,34 @@ These questions should be answered with traces and direct visual verification, n
   - keep overlay visibility local, but stop forcing high-turnover cache eviction
   - separate preview retention policy from overlay visibility policy
   - prefer a stable warm pool or other low-churn retention strategy before running the next paired matrix
+
+## 2026-03-25 Local Warm-Pool Probe Gate Note
+
+- The widened local warm/visible pool follow-up rerun is now recorded in:
+  - `perf/reports/frontend/2026-03-25_section-benchmark-tier1-local-warm-pool-rerun.md`
+- Probe sequence now committed:
+  - experimental keep/reject probe:
+    - `f627e4848` `Stabilize local Tier 1 image previews across pan sessions`
+  - branch-state correction after the reject:
+    - `c37cdc24e` `Revert "Stabilize local Tier 1 image previews across pan sessions"`
+- Result:
+  - reject the widened local warm-pool probe
+  - keep the faithful queued-image checkpoint as the live branch state
+- Why the widened local warm-pool probe was rejected:
+  - fresh sub-agent CDP sanity checks kept the product-fidelity requirement intact:
+    - no old simplified placeholder fallback reappeared on `/settings` or `/benchmark-tier1`
+  - but the authoritative paired matrix regressed sharply both versus untouched `main` and versus the retained queued-image checkpoint:
+    - `settings` benchmark `Paint`: `102.157ms -> 558.527ms` versus untouched `main`
+    - `tier1Synthetic` benchmark `Paint`: `35.487ms -> 1384.112ms` versus untouched `main`
+    - `settings` benchmark `Paint`: `434.401ms -> 558.527ms` versus the retained queued-image checkpoint
+    - `tier1Synthetic` benchmark `Paint`: `762.591ms -> 1384.112ms` versus the retained queued-image checkpoint
+    - `tier1Synthetic` benchmark `RunTask`: `14109.314ms -> 28370.467ms` versus the retained queued-image checkpoint
+- Fresh sub-agent CDP read:
+  - quick sanity pass on `/settings` and `/benchmark-tier1` saw no obvious simplified-placeholder fallback and no obvious hitching in the short pass
+  - the visible preview set still read as broad rather than clearly localized, which matches the benchmark regression direction
+- Best current read:
+  - widening the local warm/visible surface stabilized the test path, but it reintroduced too many active image surfaces and pushed paint/task cost back up
+- Next implementation direction:
+  - do not keep a broad local warm/visible surface
+  - if this line continues, find a way to guarantee local preview availability without broadening retained or visible image surfaces this much
+  - rerun the same paired matrix only after that narrower retention strategy exists
