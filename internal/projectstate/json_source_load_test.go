@@ -78,6 +78,76 @@ func TestDocumentLoadAllJSONSourceVariantsFromDiskRefreshesSharedPairsIntoDistin
 	assertJSONSourceTreeHasFreshValue(t, project, peerMap, payloadStringField(peerPayload, "topLevelParamId"))
 }
 
+func TestDocumentLoadAllJSONSourceVariantsFromDiskSupportsStructuredDataFormats(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		variant string
+		content string
+	}{
+		{
+			name:    "yaml",
+			variant: "data/source.yaml",
+			content: "alpha:\n  fresh: 2\n",
+		},
+		{
+			name:    "toml",
+			variant: "data/source.toml",
+			content: "alpha = { fresh = 2 }\n",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			workspaceRoot := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+				t.Fatalf("mkdir data: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(workspaceRoot, tc.variant), []byte(tc.content), 0o644); err != nil {
+				t.Fatalf("write structured data payload: %v", err)
+			}
+
+			document := jsonSourceSharedLoadTestDocumentForPath(t, false, tc.variant)
+			if err := document.LoadAllJSONSourceVariantsFromDisk(workspaceRoot); err != nil {
+				t.Fatalf("LoadAllJSONSourceVariantsFromDisk returned error: %v", err)
+			}
+
+			project := document.Projects["project-alpha"]
+			targetPayload, err := project.EffectiveSectionPayload("json-section-a", "json-variant-a")
+			if err != nil {
+				t.Fatalf("effective target payload after structured-data load: %v", err)
+			}
+			peerPayload, err := project.EffectiveSectionPayload("json-section-b", "json-variant-b")
+			if err != nil {
+				t.Fatalf("effective peer payload after structured-data load: %v", err)
+			}
+			if payloadBoolField(targetPayload, "jsonSourceMissing") {
+				t.Fatal("expected target variant missing flag cleared")
+			}
+			if payloadBoolField(peerPayload, "jsonSourceMissing") {
+				t.Fatal("expected peer variant missing flag cleared")
+			}
+
+			assertJSONSourceTreeHasFreshValue(
+				t,
+				project,
+				payloadStringMapField(targetPayload, "codeObjVariantMap"),
+				payloadStringField(targetPayload, "topLevelParamId"),
+			)
+			assertJSONSourceTreeHasFreshValue(
+				t,
+				project,
+				payloadStringMapField(peerPayload, "codeObjVariantMap"),
+				payloadStringField(peerPayload, "topLevelParamId"),
+			)
+		})
+	}
+}
+
 func TestDocumentReloadJSONSourceBindingsFromDiskRefreshesRequestedBindingsOnly(t *testing.T) {
 	t.Parallel()
 
@@ -285,6 +355,12 @@ func assertJSONSourceTreeHasFreshValue(t *testing.T, project Project, codeObjVar
 func jsonSourceSharedLoadTestDocument(t *testing.T, jsonSourceMissing bool) Document {
 	t.Helper()
 
+	return jsonSourceSharedLoadTestDocumentForPath(t, jsonSourceMissing, "data/source.json")
+}
+
+func jsonSourceSharedLoadTestDocumentForPath(t *testing.T, jsonSourceMissing bool, variantPath string) Document {
+	t.Helper()
+
 	project, err := Project{
 		ID:   "project-alpha",
 		Name: "Project Alpha",
@@ -313,12 +389,12 @@ func jsonSourceSharedLoadTestDocument(t *testing.T, jsonSourceMissing bool) Docu
 		SectionVariants: map[string]SectionVariant{
 			"json-variant-a": {
 				ID:     "json-variant-a",
-				Name:   "data/source.json",
+				Name:   variantPath,
 				ImplID: "json-impl-a",
 			},
 			"json-variant-b": {
 				ID:     "json-variant-b",
-				Name:   "data/source.json",
+				Name:   variantPath,
 				ImplID: "json-impl-b",
 			},
 		},

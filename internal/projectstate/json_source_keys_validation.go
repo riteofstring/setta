@@ -356,6 +356,9 @@ func jsonSourceValueFromYAMLNode(node *yaml.Node) (JSONSourceValue, error) {
 		}
 		return jsonSourceValueFromYAMLNode(node.Content[0])
 	case yaml.MappingNode:
+		if node.Tag != "" && node.Tag != "!!map" {
+			return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got yaml tag %s", node.Tag)
+		}
 		object := JSONSourceObject{
 			Entries: make([]JSONSourceObjectEntry, 0, len(node.Content)/2),
 		}
@@ -376,6 +379,9 @@ func jsonSourceValueFromYAMLNode(node *yaml.Node) (JSONSourceValue, error) {
 		}
 		return JSONSourceValue{Object: &object}, nil
 	case yaml.SequenceNode:
+		if node.Tag != "" && node.Tag != "!!seq" {
+			return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got yaml tag %s", node.Tag)
+		}
 		elements := make([]string, 0, len(node.Content))
 		for _, child := range node.Content {
 			value, err := jsonSourceValueFromYAMLNode(child)
@@ -390,11 +396,7 @@ func jsonSourceValueFromYAMLNode(node *yaml.Node) (JSONSourceValue, error) {
 		if err := node.Decode(&scalar); err != nil {
 			return JSONSourceValue{}, err
 		}
-		bytes, err := json.Marshal(scalar)
-		if err != nil {
-			return JSONSourceValue{}, err
-		}
-		return JSONSourceValue{Serialized: string(bytes)}, nil
+		return jsonSourceScalarToJSONValue(scalar)
 	}
 }
 
@@ -426,10 +428,19 @@ func jsonSourceValueFromGeneric(value any) (JSONSourceValue, error) {
 		}
 		return JSONSourceValue{Serialized: "[" + strings.Join(elements, ",") + "]"}, nil
 	default:
+		return jsonSourceScalarToJSONValue(typed)
+	}
+}
+
+func jsonSourceScalarToJSONValue(value any) (JSONSourceValue, error) {
+	switch typed := value.(type) {
+	case nil, string, bool, float32, float64, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		bytes, err := json.Marshal(typed)
 		if err != nil {
 			return JSONSourceValue{}, err
 		}
 		return JSONSourceValue{Serialized: string(bytes)}, nil
+	default:
+		return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got %T", value)
 	}
 }

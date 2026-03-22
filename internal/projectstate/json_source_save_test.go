@@ -77,6 +77,77 @@ func TestSaveJSONSourceFilesSameKeyPathLastWriteWins(t *testing.T) {
 	}
 }
 
+func TestSaveJSONSourceFilesWritesStructuredDataFormatsAndPreservesChildOrder(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		variant      string
+		firstNeedle  string
+		secondNeedle string
+	}{
+		{
+			name:         "json",
+			variant:      "data/source.json",
+			firstNeedle:  "\"second_key\"",
+			secondNeedle: "\"first_key\"",
+		},
+		{
+			name:         "yaml",
+			variant:      "data/source.yaml",
+			firstNeedle:  "second_key:",
+			secondNeedle: "first_key:",
+		},
+		{
+			name:         "toml",
+			variant:      "data/source.toml",
+			firstNeedle:  "second_key",
+			secondNeedle: "first_key",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			workspaceRoot := t.TempDir()
+			document := jsonSourceSaveTestDocumentForPath(
+				t,
+				[]string{},
+				[]jsonSourceSaveLeaf{
+					{Name: "second_key", Value: "2"},
+					{Name: "first_key", Value: "1"},
+				},
+				tc.variant,
+			)
+
+			if err := SaveJSONSourceFiles(document, workspaceRoot); err != nil {
+				t.Fatalf("SaveJSONSourceFiles returned error: %v", err)
+			}
+
+			path := filepath.Join(workspaceRoot, tc.variant)
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read saved structured data file: %v", err)
+			}
+			text := string(content)
+			if strings.Index(text, tc.firstNeedle) >= strings.Index(text, tc.secondNeedle) {
+				t.Fatalf("expected %q before %q in %s output, got %q", tc.firstNeedle, tc.secondNeedle, tc.name, text)
+			}
+
+			payload, exists, err := readOrderedJSONSourceObject(path)
+			if err != nil {
+				t.Fatalf("read back saved structured data payload: %v", err)
+			}
+			if !exists {
+				t.Fatal("expected saved structured data payload to exist")
+			}
+			assertJSONSourceEntryOrder(t, payload, []string{"second_key", "first_key"})
+		})
+	}
+}
+
 func TestDocumentClearJSONSourceValuesForPersistenceBlanksLeafValues(t *testing.T) {
 	t.Parallel()
 
@@ -131,11 +202,11 @@ func TestApplyJSONSourceFileUpdatesRejectsNonDictConflicts(t *testing.T) {
 	t.Parallel()
 
 	_, err := applyJSONSourceFileUpdates(
-		map[string]any{"alpha": float64(1)},
+		mustOrderedJSONSourceObject(t, `{"alpha":1}`),
 		[]jsonSourceFileUpdate{
 			{
 				KeyPath: []string{"alpha", "beta"},
-				Subtree: map[string]any{"gamma": float64(2)},
+				Subtree: mustOrderedJSONSourceObject(t, `{"gamma":2}`),
 			},
 		},
 	)
@@ -151,23 +222,15 @@ func TestApplyJSONSourceFileUpdatesRootUpdateCanBeOverriddenByNestedUpdate(t *te
 	t.Parallel()
 
 	updated, err := applyJSONSourceFileUpdates(
-		map[string]any{
-			"app": map[string]any{
-				"name":  "Setta",
-				"debug": true,
-			},
-			"legacy": map[string]any{"enabled": true},
-		},
+		mustOrderedJSONSourceObject(t, `{"app":{"name":"Setta","debug":true},"legacy":{"enabled":true}}`),
 		[]jsonSourceFileUpdate{
 			{
 				KeyPath: nil,
-				Subtree: map[string]any{
-					"app": map[string]any{"name": "Setta"},
-				},
+				Subtree: mustOrderedJSONSourceObject(t, `{"app":{"name":"Setta"}}`),
 			},
 			{
 				KeyPath: []string{"app"},
-				Subtree: map[string]any{"debug": false},
+				Subtree: mustOrderedJSONSourceObject(t, `{"debug":false}`),
 			},
 		},
 	)
@@ -178,7 +241,7 @@ func TestApplyJSONSourceFileUpdatesRootUpdateCanBeOverriddenByNestedUpdate(t *te
 	want := map[string]any{
 		"app": map[string]any{"debug": false},
 	}
-	if !reflect.DeepEqual(updated, want) {
+	if !reflect.DeepEqual(mustJSONSourceObjectAsMap(t, updated), want) {
 		t.Fatalf("expected nested override to replace root subtree, got %#v", updated)
 	}
 }
@@ -187,21 +250,11 @@ func TestApplyJSONSourceFileUpdatesNestedUpdateReplacesTargetSubtree(t *testing.
 	t.Parallel()
 
 	updated, err := applyJSONSourceFileUpdates(
-		map[string]any{
-			"features": map[string]any{
-				"flags": map[string]any{
-					"newUI":    true,
-					"betaMode": false,
-				},
-				"rollouts": map[string]any{
-					"search": map[string]any{"percentage": float64(25)},
-				},
-			},
-		},
+		mustOrderedJSONSourceObject(t, `{"features":{"flags":{"newUI":true,"betaMode":false},"rollouts":{"search":{"percentage":25}}}}`),
 		[]jsonSourceFileUpdate{
 			{
 				KeyPath: []string{"features", "flags"},
-				Subtree: map[string]any{"newUI": true},
+				Subtree: mustOrderedJSONSourceObject(t, `{"newUI":true}`),
 			},
 		},
 	)
@@ -209,7 +262,7 @@ func TestApplyJSONSourceFileUpdatesNestedUpdateReplacesTargetSubtree(t *testing.
 		t.Fatalf("applyJSONSourceFileUpdates returned error: %v", err)
 	}
 
-	features := updated["features"].(map[string]any)
+	features := mustJSONSourceObjectAsMap(t, updated)["features"].(map[string]any)
 	if !reflect.DeepEqual(features["flags"], map[string]any{"newUI": true}) {
 		t.Fatalf("expected nested update to replace flags subtree, got %#v", features["flags"])
 	}
@@ -219,6 +272,12 @@ func TestApplyJSONSourceFileUpdatesNestedUpdateReplacesTargetSubtree(t *testing.
 }
 
 func jsonSourceSaveTestDocument(t *testing.T, keyPath []string, leaves []jsonSourceSaveLeaf) Document {
+	t.Helper()
+
+	return jsonSourceSaveTestDocumentForPath(t, keyPath, leaves, "data/source.json")
+}
+
+func jsonSourceSaveTestDocumentForPath(t *testing.T, keyPath []string, leaves []jsonSourceSaveLeaf, variantPath string) Document {
 	t.Helper()
 
 	rootChildren := make([]string, 0, len(leaves))
@@ -304,7 +363,7 @@ func jsonSourceSaveTestDocument(t *testing.T, keyPath []string, leaves []jsonSou
 		SectionVariants: map[string]SectionVariant{
 			"json-variant": {
 				ID:     "json-variant",
-				Name:   "data/source.json",
+				Name:   variantPath,
 				ImplID: "json-impl",
 			},
 		},
@@ -720,4 +779,37 @@ func jsonSourceSaveSameKeyPathTestDocument(t *testing.T) Document {
 type jsonSourceSaveLeaf struct {
 	Name  string
 	Value string
+}
+
+func assertJSONSourceEntryOrder(t *testing.T, payload JSONSourceObject, want []string) {
+	t.Helper()
+
+	if len(payload.Entries) != len(want) {
+		t.Fatalf("expected %d ordered entries, got %#v", len(want), payload.Entries)
+	}
+	for index, key := range want {
+		if payload.Entries[index].Key != key {
+			t.Fatalf("expected entry %d to be %q, got %#v", index, key, payload.Entries)
+		}
+	}
+}
+
+func mustOrderedJSONSourceObject(t *testing.T, raw string) JSONSourceObject {
+	t.Helper()
+
+	payload, err := decodeOrderedJSONObjectFromJSON([]byte(raw))
+	if err != nil {
+		t.Fatalf("decode ordered json source object: %v", err)
+	}
+	return payload
+}
+
+func mustJSONSourceObjectAsMap(t *testing.T, payload JSONSourceObject) map[string]any {
+	t.Helper()
+
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(payload.serialize()), &decoded); err != nil {
+		t.Fatalf("decode serialized json source object: %v", err)
+	}
+	return decoded
 }

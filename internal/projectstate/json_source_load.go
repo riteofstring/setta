@@ -1,7 +1,6 @@
 package projectstate
 
 import (
-	"os"
 	"sort"
 	"strings"
 
@@ -96,15 +95,11 @@ func loadJSONSourceObjectFromDisk(path string, jsonSourceKeys []string) (*JSONSo
 	if strings.TrimSpace(path) == "" {
 		return &JSONSourceObject{}, true
 	}
-	content, err := os.ReadFile(path)
+	payload, exists, err := readOrderedJSONSourceObject(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return &JSONSourceObject{}, true
-		}
 		return &JSONSourceObject{}, true
 	}
-	payload, err := decodeOrderedJSONObjectFromJSON(content)
-	if err != nil {
+	if !exists {
 		return &JSONSourceObject{}, true
 	}
 	current := &payload
