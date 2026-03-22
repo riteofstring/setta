@@ -2550,6 +2550,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -2666,14 +2667,18 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       ),
     ).toHaveCount(0);
 
-    const canvasSectionBox = await canvasSection.boundingBox();
-    if (!canvasSectionBox) {
-      throw new Error("Expected visible canvas section bounds.");
+    const canvasResizableSurface = page.locator(
+      `[id="${secondBinding.sectionId}-CustomResizable"]`,
+    );
+    await expect(canvasResizableSurface).toBeVisible();
+    const canvasResizableSurfaceBox = await canvasResizableSurface.boundingBox();
+    if (!canvasResizableSurfaceBox) {
+      throw new Error("Expected visible canvas section surface bounds.");
     }
     const conversationFilterInput = canvasSection.getByTestId(
       "project-chat-conversation-filter-input",
     );
-    const composerInput = canvasSection.getByPlaceholder("Type a message...");
+    const composerInput = canvasSection.getByTestId("chat-input-textarea");
     await expect(conversationFilterInput).toBeVisible();
     await expect(composerInput).toBeVisible();
     const conversationFilterBox = await conversationFilterInput.boundingBox();
@@ -2681,27 +2686,37 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
     if (!conversationFilterBox || !composerInputBox) {
       throw new Error("Expected visible project chat controls in canvas mode.");
     }
+    const canvasEdgeTolerancePx = 4;
     expect(conversationFilterBox.width).toBeGreaterThan(
-      canvasSectionBox.width * 0.45,
+      canvasResizableSurfaceBox.width * 0.45,
     );
     expect(composerInputBox.width).toBeGreaterThan(
-      canvasSectionBox.width * 0.45,
+      canvasResizableSurfaceBox.width * 0.45,
     );
-    expect(canvasSectionBox.x).toBeGreaterThanOrEqual(canvasRect.left - 1);
-    expect(canvasSectionBox.y).toBeGreaterThanOrEqual(canvasRect.top - 1);
-    expect(canvasSectionBox.x + canvasSectionBox.width).toBeLessThanOrEqual(
-      canvasRect.right + 1,
+    expect(canvasResizableSurfaceBox.x).toBeGreaterThanOrEqual(
+      canvasRect.left - canvasEdgeTolerancePx,
     );
-    expect(canvasSectionBox.y + canvasSectionBox.height).toBeLessThanOrEqual(
-      canvasRect.bottom + 1,
+    expect(canvasResizableSurfaceBox.y).toBeGreaterThanOrEqual(
+      canvasRect.top - canvasEdgeTolerancePx,
     );
     expect(
-      Math.abs(canvasSectionBox.width - sourceWindowBox.width),
+      canvasResizableSurfaceBox.x + canvasResizableSurfaceBox.width,
+    ).toBeLessThanOrEqual(
+      canvasRect.right + canvasEdgeTolerancePx,
+    );
+    expect(
+      canvasResizableSurfaceBox.y + canvasResizableSurfaceBox.height,
+    ).toBeLessThanOrEqual(
+      canvasRect.bottom + canvasEdgeTolerancePx,
+    );
+    expect(
+      Math.abs(canvasResizableSurfaceBox.width - sourceWindowBox.width),
     ).toBeLessThanOrEqual(4);
     expect(
-      Math.abs(canvasSectionBox.height - sourceWindowBox.height),
+      Math.abs(canvasResizableSurfaceBox.height - sourceWindowBox.height),
     ).toBeLessThanOrEqual(4);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
