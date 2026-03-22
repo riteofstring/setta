@@ -559,6 +559,19 @@ func (s *Service) StopChat(chatID string) (StopResult, error) {
 	if err != nil {
 		return StopResult{}, err
 	}
+	if stoppedMessageID == nil && s.live != nil {
+		liveState, err := s.live.GetLiveChatState(stoppedRun.ID)
+		if err != nil {
+			return StopResult{}, err
+		}
+		if liveState != nil {
+			inputMessages, err := parseInputMessages(stoppedRun)
+			if err != nil {
+				return StopResult{}, err
+			}
+			stoppedMessageID = resolveLatestAssistantMessageIDFromMessages(inputMessages, liveState.Messages)
+		}
+	}
 	return StopResult{
 		AlreadyStopped:   false,
 		StoppedRunID:     &stoppedRunID,
@@ -792,6 +805,10 @@ func resolveLatestAssistantMessageID(run agentruns.Run) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return resolveLatestAssistantMessageIDFromMessages(inputMessages, outputMessages), nil
+}
+
+func resolveLatestAssistantMessageIDFromMessages(inputMessages []map[string]any, candidateMessages []map[string]any) *string {
 	inputIDs := make(map[string]struct{}, len(inputMessages))
 	for _, message := range inputMessages {
 		id, err := messageID(message)
@@ -800,8 +817,8 @@ func resolveLatestAssistantMessageID(run agentruns.Run) (*string, error) {
 		}
 		inputIDs[id] = struct{}{}
 	}
-	for index := len(outputMessages) - 1; index >= 0; index-- {
-		message := outputMessages[index]
+	for index := len(candidateMessages) - 1; index >= 0; index-- {
+		message := candidateMessages[index]
 		role, err := messageRole(message)
 		if err != nil || role != "assistant" {
 			continue
@@ -813,9 +830,9 @@ func resolveLatestAssistantMessageID(run agentruns.Run) (*string, error) {
 		if _, ok := inputIDs[id]; ok {
 			continue
 		}
-		return stringPtr(id), nil
+		return stringPtr(id)
 	}
-	return nil, nil
+	return nil
 }
 
 func parseInputMessages(run agentruns.Run) ([]map[string]any, error) {

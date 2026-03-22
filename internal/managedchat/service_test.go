@@ -29,6 +29,20 @@ func (s *stubLiveChatStateProvider) GetLiveChatState(runID string) (*ChatState, 
 	return s.state.Clone(), nil
 }
 
+type stubRunStopper struct {
+	run       agentruns.Run
+	err       error
+	lastRunID string
+}
+
+func (s *stubRunStopper) StopRun(runID string) (agentruns.Run, error) {
+	s.lastRunID = runID
+	if s.err != nil {
+		return agentruns.Run{}, s.err
+	}
+	return s.run.Clone(), nil
+}
+
 type managedChatFixture struct {
 	service *Service
 	runs    *agentruns.RunStore
@@ -653,6 +667,56 @@ func TestServiceStopChatCancelsLatestRunningRun(t *testing.T) {
 	}
 }
 
+// Stop should still surface the interrupted assistant message id when the run
+// is cancelled before the executor has persisted its partial output.
+func TestServiceStopChatFallsBackToLiveStateWhenPersistedOutputsLag(t *testing.T) {
+	t.Parallel()
+
+	live := &stubLiveChatStateProvider{
+		state: &ChatState{
+			Messages: []map[string]any{
+				userMessage("user-1", "Hello"),
+				assistantMessage("assistant-live", "Partial reply"),
+			},
+		},
+	}
+	fixture := newManagedChatFixture(t, live)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-stop-live",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 14, 30, 0, 0, time.UTC),
+			status:          agentruns.RunStatusRunning,
+			inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+	fixture.service.stopper = &stubRunStopper{
+		run: agentruns.Run{
+			ID:        run.ID,
+			Inputs:    cloneAnyMap(run.Inputs),
+			Status:    agentruns.RunStatusCancelled,
+			StartedAt: run.StartedAt,
+		},
+	}
+
+	result, err := fixture.service.StopChat("chat-stop-live")
+	if err != nil {
+		t.Fatalf("stop chat: %v", err)
+	}
+	if result.AlreadyStopped {
+		t.Fatalf("expected active stop result, got %#v", result)
+	}
+	if result.StoppedMessageID == nil || *result.StoppedMessageID != "assistant-live" {
+		t.Fatalf("expected live assistant output id, got %#v", result.StoppedMessageID)
+	}
+	if live.lastRunID != run.ID {
+		t.Fatalf("expected live state lookup for run %q, got %q", run.ID, live.lastRunID)
+	}
+}
+
 // Historical assistant messages copied into run inputs must not be reported as
 // the newly interrupted assistant message when a running chat is cancelled.
 func TestServiceStopChatIgnoresHistoricalAssistantInputs(t *testing.T) {
@@ -673,6 +737,52 @@ func TestServiceStopChatIgnoresHistoricalAssistantInputs(t *testing.T) {
 	saveManagedChatRun(t, fixture.runs, run)
 
 	result, err := fixture.service.StopChat("chat-stop-historical")
+	if err != nil {
+		t.Fatalf("stop chat: %v", err)
+	}
+	if result.AlreadyStopped {
+		t.Fatalf("expected active stop result, got %#v", result)
+	}
+	if result.StoppedMessageID != nil {
+		t.Fatalf("expected no newly stopped assistant message id, got %#v", result.StoppedMessageID)
+	}
+}
+
+// Live-state fallback must preserve the same historical-message filtering as
+// persisted outputs so a copied assistant turn is never misreported as new.
+func TestServiceStopChatLiveFallbackIgnoresHistoricalAssistantInputs(t *testing.T) {
+	t.Parallel()
+
+	live := &stubLiveChatStateProvider{
+		state: &ChatState{
+			Messages: []map[string]any{
+				assistantMessage("assistant-old", "Completed reply"),
+			},
+		},
+	}
+	fixture := newManagedChatFixture(t, live)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-stop-live-historical",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 15, 30, 0, 0, time.UTC),
+			status:          agentruns.RunStatusRunning,
+			inputMessages:   []map[string]any{assistantMessage("assistant-old", "Completed reply")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+	fixture.service.stopper = &stubRunStopper{
+		run: agentruns.Run{
+			ID:        run.ID,
+			Inputs:    cloneAnyMap(run.Inputs),
+			Status:    agentruns.RunStatusCancelled,
+			StartedAt: run.StartedAt,
+		},
+	}
+
+	result, err := fixture.service.StopChat("chat-stop-live-historical")
 	if err != nil {
 		t.Fatalf("stop chat: %v", err)
 	}
