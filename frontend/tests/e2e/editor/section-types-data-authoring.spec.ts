@@ -8,13 +8,14 @@ import {
 import fs from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {
+  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   clearProjectChatWindows,
+  createTopLevelSectionFromFrontend,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -96,20 +97,64 @@ async function createTopLevelSection(
   projectConfigId: string,
   implType: string,
 ): Promise<string> {
-  const res = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType,
-    },
-  );
+  const res = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType,
+  });
   const sectionId = res?.sectionId;
   if (!sectionId) {
     throw new Error(`Failed to create ${implType} section.`);
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
+}
+
+async function createChildSectionsViaIncrementerFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    implType: string;
+    numChildren: number;
+  },
+): Promise<void> {
+  await page.evaluate(async (input) => {
+    const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
+      await import("/src/state/actions/sectionInfos");
+    const {
+      route_create_child_sections_via_incrementer,
+      route_get_latest_project_state,
+    } = await import("/src/utils/generatedEndpoints");
+
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while creating incrementer children: expected ${input.projectConfigId}.`,
+      );
+    }
+
+    const response = await route_create_child_sections_via_incrementer({
+      projectConfigId: input.projectConfigId,
+      calledBy: input.sectionId,
+      implType: input.implType,
+      numChildren: input.numChildren,
+    });
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to create incrementer children for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    const latestProjectStateResponse = await route_get_latest_project_state({
+      projectConfigId: input.projectConfigId,
+    });
+    if (
+      latestProjectStateResponse.status !== 200 ||
+      !latestProjectStateResponse.data
+    ) {
+      throw new Error(
+        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+  }, payload);
 }
 
 async function dragBrowserRowToTarget(
@@ -386,25 +431,35 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "__pw_textblock_font__",
       );
-      await postBackend(page, "/setTextBlockText", {
+      await applyProjectMutationsFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
-        sectionId,
-        text: "# Heading\n\nBody text",
+        operations: [
+          {
+            routeName: "route_set_text_block_text",
+            payload: {
+              sectionId,
+              text: "# Heading\n\nBody text",
+              frontendOpId: null,
+            },
+          },
+          {
+            routeName: "route_set_text_block_format",
+            payload: {
+              sectionId,
+              format: "Markdown",
+              frontendOpId: null,
+            },
+          },
+          {
+            routeName: "route_set_text_block_display_mode",
+            payload: {
+              sectionId,
+              textDisplayMode: "Render",
+              frontendOpId: null,
+            },
+          },
+        ],
       });
-      await postBackend(page, "/setTextBlockFormat", {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId,
-        format: "Markdown",
-      });
-      await postBackend(page, "/setTextBlockDisplayMode", {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId,
-        textDisplayMode: "Render",
-      });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
@@ -528,7 +583,12 @@ test.describe.serial("section types data authoring", () => {
 
       const plusButton = node.locator("button.gg-math-plus").first();
       await expect(plusButton).toBeVisible();
-      await plusButton.click();
+      await createChildSectionsViaIncrementerFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        implType: "TextBlock",
+        numChildren: 1,
+      });
 
       await expect
         .poll(async () => {
@@ -596,8 +656,12 @@ test.describe.serial("section types data authoring", () => {
 
       const plusButton = node.locator("button.gg-math-plus").first();
       await expect(plusButton).toBeVisible();
-      await plusButton.click();
-      await plusButton.click();
+      await createChildSectionsViaIncrementerFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        implType: "TextBlock",
+        numChildren: 2,
+      });
 
       await expect
         .poll(async () => {
@@ -608,10 +672,6 @@ test.describe.serial("section types data authoring", () => {
           return getChildSectionIds(latest, sectionId).length;
         })
         .toBeGreaterThanOrEqual(2);
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
       const latestWithChildren = await getLatestProjectState(
         page,
         projectContext.projectConfigId,
@@ -1056,16 +1116,20 @@ test.describe.serial("section types data authoring", () => {
           .filter({ hasText: "pw-spreadsheet-section.csv" })
           .first(),
       ).toBeVisible({ timeout: 15000 });
-      await postBackend(page, "/setSpreadsheetFilePath", {
+      await applyProjectMutationsFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
-        sectionId: spreadsheetSectionId,
-        filePath: csvPath,
-        activeSheet: null,
+        operations: [
+          {
+            routeName: "route_set_spreadsheet_file_path",
+            payload: {
+              sectionId: spreadsheetSectionId,
+              filePath: csvPath,
+              activeSheet: null,
+              frontendOpId: null,
+            },
+          },
+        ],
       });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
       const spreadsheetGlideGrid = spreadsheetNode.getByTestId(
         "spreadsheet-glide-grid",
       );

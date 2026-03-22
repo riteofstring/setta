@@ -98,16 +98,26 @@ type FrontendHydratableRouteName =
   | "route_create_agentic_edge"
   | "route_create_child_sections"
   | "route_create_edge"
+  | "route_create_state_machine_edge"
   | "route_create_top_level_section"
+  | "route_delete_state_machine_edges"
   | "route_move_sections"
   | "route_set_callable"
   | "route_set_code_file_binding"
   | "route_set_code_obj_name"
+  | "route_set_image_area_image_path"
   | "route_set_param_entered_value"
+  | "route_set_prompt_template"
+  | "route_set_section_name"
   | "route_set_section_edge_inputs"
   | "route_set_section_edge_outputs"
   | "route_set_section_pinned_params"
   | "route_set_section_sizes"
+  | "route_set_spreadsheet_file_path"
+  | "route_set_state_machine_section_settings"
+  | "route_set_text_block_display_mode"
+  | "route_set_text_block_format"
+  | "route_set_text_block_text"
   | "route_toggle_minimized"
   | "route_update_param_impl_config";
 type FrontendHydratableRouteOperation = {
@@ -1214,6 +1224,52 @@ export async function setCodeObjNameFromFrontend(
         payload: {
           codeObjId: payload.codeObjId,
           name: payload.name,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setSectionNameFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    name: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_section_name",
+        payload: {
+          sectionId: payload.sectionId,
+          name: payload.name,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+export async function setImageAreaImagePathFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    imagePath: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_image_area_image_path",
+        payload: {
+          sectionId: payload.sectionId,
+          imagePath: payload.imagePath,
           frontendOpId: null,
         },
       },

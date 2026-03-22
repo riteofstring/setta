@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
-  refreshProjectStateFromBackend,
+  setSectionSizesFromFrontend,
 } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -139,18 +140,13 @@ async function createCodeSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const response = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Code",
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Code",
+  });
   if (!response?.sectionId) {
     throw new Error("Missing code section id.");
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return response.sectionId;
 }
 
@@ -160,13 +156,12 @@ async function setSectionSize(
   sectionId: string,
   size: { width: number; height: number | "auto" },
 ): Promise<void> {
-  await postBackend(page, "/setSectionSizes", {
+  await setSectionSizesFromFrontend(page, {
     projectConfigId,
     sectionSizes: {
       [sectionId]: size,
     },
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function postBackend<T>(

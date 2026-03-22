@@ -1,11 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   createTextBlockSection,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
+  setCodeObjNameFromFrontend,
   setOverviewTab,
+  setParamEnteredValueFromFrontend,
+  setSectionNameFromFrontend,
 } from "../../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -142,31 +145,27 @@ async function createMetaControlCodeParamSection(
   paramName: string,
   value: string,
 ): Promise<{ sectionId: string; paramInfoId: string }> {
-  const response = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "MetaControl",
-      controlCodeObjType: "CodeParam",
-    },
-  );
+  const response = (await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "MetaControl",
+    controlCodeObjType: "CodeParam",
+  })) as CreateTopLevelSectionResponse | null;
   const sectionId = response?.sectionId;
   const paramInfoId = response?.metaControlParamId;
   if (!sectionId || !paramInfoId) {
     throw new Error("Missing meta control section or param id.");
   }
-  await postBackend(page, "/setSectionName", {
+  await setSectionNameFromFrontend(page, {
     projectConfigId,
     sectionId,
     name: sectionName,
   });
-  await postBackend(page, "/setCodeObjName", {
+  await setCodeObjNameFromFrontend(page, {
     projectConfigId,
     codeObjId: paramInfoId,
     name: paramName,
   });
-  await postBackend(page, "/setParamEnteredValue", {
+  await setParamEnteredValueFromFrontend(page, {
     projectConfigId,
     sectionId,
     paramInfoId,
@@ -438,7 +437,6 @@ test("python code obj override persists through Run Instructions edits", async (
       paramName,
       paramValue,
     );
-    await refreshProjectStateFromBackend(page, projectContext.projectConfigId);
 
     await openCodegenAccordions(page);
     await page

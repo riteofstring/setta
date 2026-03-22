@@ -1,12 +1,15 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import * as http from "node:http";
 import {
+  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   ensureManagedChatEngine,
   openIsolatedProject,
   openOverviewMoreDestination,
   postBackend,
+  setSectionNameFromFrontend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -357,13 +360,10 @@ test.describe.serial("state machine sections", () => {
       if (!temporaryGateToEndEdgeId) {
         throw new Error("Missing temporary gate-to-end workflow edge.");
       }
-      await postBackend(page, "/deleteStateMachineEdges", {
-        projectConfigId: projectContext.projectConfigId,
-        edgeIds: [temporaryGateToEndEdgeId],
-      });
-      await refreshProjectStateFromBackend(
+      await deleteStateMachineEdgesFromFrontend(
         page,
         projectContext.projectConfigId,
+        [temporaryGateToEndEdgeId],
       );
       await expect
         .poll(
@@ -627,7 +627,6 @@ test.describe.serial("state machine sections", () => {
 
       await selectStateMachineEdge(
         page,
-        projectContext.projectConfigId,
         gateToChatEdge.id,
       );
       await expect(inspector).toBeVisible();
@@ -674,13 +673,10 @@ test.describe.serial("state machine sections", () => {
       )
         .map((edge) => edge.id)
         .filter((edgeId): edgeId is string => edgeId !== null);
-      await postBackend(page, "/deleteStateMachineEdges", {
-        projectConfigId: projectContext.projectConfigId,
-        edgeIds: currentWorkflowEdgeIds,
-      });
-      await refreshProjectStateFromBackend(
+      await deleteStateMachineEdgesFromFrontend(
         page,
         projectContext.projectConfigId,
+        currentWorkflowEdgeIds,
       );
       await expect
         .poll(
@@ -902,13 +898,10 @@ test.describe.serial("state machine sections", () => {
         );
       }
 
-      await postBackend(page, "/deleteStateMachineEdges", {
-        projectConfigId: projectContext.projectConfigId,
-        edgeIds: [startToChatEdgeId],
-      });
-      await refreshProjectStateFromBackend(
+      await deleteStateMachineEdgesFromFrontend(
         page,
         projectContext.projectConfigId,
+        [startToChatEdgeId],
       );
       await createStateMachineEdge(page, projectContext.projectConfigId, {
         machineGroupId: "workflow-main",
@@ -978,24 +971,16 @@ test.describe.serial("state machine sections", () => {
           maxIterations: null,
         },
       );
-      await postBackend(page, "/setSectionName", {
+      await setSectionNameFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: promptSectionId,
         name: "Greeting Prompt",
       });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
-      await postBackend(page, "/setPromptTemplate", {
+      await setPromptTemplateFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId: promptSectionId,
         template: "Hi my name is {{ name }}. What's your name?",
       });
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       await createStateMachineEdge(page, projectContext.projectConfigId, {
         machineGroupId: "workflow-prompt-section",
@@ -1034,7 +1019,6 @@ test.describe.serial("state machine sections", () => {
 
       await selectStateMachineEdge(
         page,
-        projectContext.projectConfigId,
         startToChatEdgeId,
       );
       const inspector = page.getByTestId("workflow-edge-inspector");
@@ -1188,7 +1172,6 @@ test.describe.serial("state machine sections", () => {
 
       await selectStateMachineEdge(
         page,
-        projectContext.projectConfigId,
         gateToEndEdgeId,
       );
       const inspector = page.getByTestId("workflow-edge-inspector");
@@ -2093,19 +2076,14 @@ async function createTopLevelSection(
     | "StateMachineEnd",
   position: { x: number; y: number },
 ): Promise<string> {
-  const response = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType,
-      position,
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType,
+    position,
+  });
   if (!response?.sectionId) {
     throw new Error(`Missing sectionId when creating ${implType}.`);
   }
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return response.sectionId;
 }
 
@@ -2120,14 +2098,21 @@ async function setStateMachineSectionSettings(
     maxIterations?: number | null;
   },
 ): Promise<void> {
-  await postBackend(page, "/setStateMachineSectionSettings", {
+  await applyProjectMutationsFromFrontend(page, {
     projectConfigId,
-    sectionId,
-    machineGroupId: payload.machineGroupId,
-    label: payload.label,
-    gateType: payload.gateType,
+    operations: [
+      {
+        routeName: "route_set_state_machine_section_settings",
+        payload: {
+          sectionId,
+          machineGroupId: payload.machineGroupId,
+          label: payload.label,
+          gateType: payload.gateType,
+          frontendOpId: null,
+        },
+      },
+    ],
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function createStateMachineEdge(
@@ -2164,41 +2149,63 @@ async function createStateMachineEdge(
     } | null;
   },
 ): Promise<void> {
-  await postBackend(page, "/createStateMachineEdge", {
+  await applyProjectMutationsFromFrontend(page, {
     projectConfigId,
-    ...payload,
+    operations: [
+      {
+        routeName: "route_create_state_machine_edge",
+        payload: {
+          ...payload,
+          frontendOpId: null,
+        },
+      },
+    ],
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
-async function refreshProjectStateFromBackend(
+async function deleteStateMachineEdgesFromFrontend(
   page: Page,
   projectConfigId: string,
+  edgeIds: string[],
 ): Promise<void> {
-  await page.evaluate(
-    async ({ projectConfigId: currentProjectConfigId }) => {
-      const { route_get_latest_project_state } = await import(
-        "/src/utils/generatedEndpoints.ts"
-      );
-      const response = await route_get_latest_project_state({
-        projectConfigId: currentProjectConfigId,
-      });
-      if (
-        !response.hasResponse ||
-        response.status !== 200 ||
-        response.data === undefined
-      ) {
-        throw new Error(
-          `Failed to refresh latest project state (${response.status}).`,
-        );
-      }
-      const { processProjectStateUpdateFromBackend } = await import(
-        "/src/state/actions/sectionInfos.ts"
-      );
-      processProjectStateUpdateFromBackend(response.data);
-    },
-    { projectConfigId },
-  );
+  if (edgeIds.length === 0) {
+    return;
+  }
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId,
+    operations: [
+      {
+        routeName: "route_delete_state_machine_edges",
+        payload: {
+          edgeIds,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+async function setPromptTemplateFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    template: string;
+  },
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: payload.projectConfigId,
+    operations: [
+      {
+        routeName: "route_set_prompt_template",
+        payload: {
+          sectionId: payload.sectionId,
+          template: payload.template,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
 }
 
 async function getSectionIds(
@@ -2441,10 +2448,25 @@ async function readStateMachineEdge(
 
 async function selectStateMachineEdge(
   page: Page,
-  projectConfigId: string,
   edgeId: string,
 ): Promise<void> {
-  await refreshProjectStateFromBackend(page, projectConfigId);
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate(
+          async ({ workflowEdgeId }) => {
+            const { useProjectState } = await import("/src/state/definitions.ts");
+            return useProjectState
+              .getState()
+              .projectConfig.stateMachineEdges.some(
+                (edge) => edge.id === workflowEdgeId,
+              );
+          },
+          { workflowEdgeId: edgeId },
+        ),
+      { timeout: 8000 },
+    )
+    .toBe(true);
   await page.evaluate(
     async ({ workflowEdgeId }) => {
       const { useProjectState } = await import("/src/state/definitions.ts");

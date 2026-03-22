@@ -2,11 +2,10 @@ import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   clearProjectChatWindows,
+  createTopLevelSectionFromFrontend,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
-  postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -96,21 +95,13 @@ test.describe.serial("section config accordion hierarchy", () => {
 
     try {
       await clearProjectChatWindows(page);
-      const created = await postBackend<{ sectionId?: string }>(
-        page,
-        "/createTopLevelSection",
-        {
-          projectConfigId: projectContext.projectConfigId,
-          implType: "Terminal",
-        },
-      );
+      const created = await createTopLevelSectionFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Terminal",
+      });
       if (!created?.sectionId) {
         throw new Error("Missing sectionId when creating terminal section.");
       }
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       const node = page.locator(
         `.react-flow__node[data-id="${created.sectionId}"]`,
@@ -161,21 +152,13 @@ test.describe.serial("section config accordion hierarchy", () => {
         projectContext.projectConfigId,
         "__pw_section_config_switch_text_block__",
       );
-      const terminal = await postBackend<{ sectionId?: string }>(
-        page,
-        "/createTopLevelSection",
-        {
-          projectConfigId: projectContext.projectConfigId,
-          implType: "Terminal",
-        },
-      );
+      const terminal = await createTopLevelSectionFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Terminal",
+      });
       if (!terminal?.sectionId) {
         throw new Error("Missing sectionId when creating terminal section.");
       }
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       const textBlockNode = page.locator(
         `.react-flow__node[data-id="${textBlock.sectionId}"]`,

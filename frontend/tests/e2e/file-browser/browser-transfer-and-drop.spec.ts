@@ -3,11 +3,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
-  refreshProjectStateFromBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -582,23 +582,15 @@ test.describe.serial("file browser transfer and drag/drop", () => {
           "Unable to resolve viewport bounds for section placement.",
         );
       }
-      const browserSection = await postBackend<{ sectionId?: string }>(
-        page,
-        "/createTopLevelSection",
-        {
-          projectConfigId: projectContext.projectConfigId,
-          implType: "Browser",
-          viewportBounds,
-        },
-      );
+      const browserSection = await createTopLevelSectionFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Browser",
+        viewportBounds,
+      });
       const sectionId = browserSection?.sectionId;
       if (!sectionId) {
         throw new Error("Missing sectionId when creating browser section.");
       }
-      await refreshProjectStateFromBackend(
-        page,
-        projectContext.projectConfigId,
-      );
 
       const sectionNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,

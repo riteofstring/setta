@@ -1,5 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { ensureAppReady, refreshProjectStateFromBackend } from "../helpers";
+import {
+  createTopLevelSectionFromFrontend,
+  ensureAppReady,
+  setImageAreaImagePathFromFrontend,
+  setSectionNameFromFrontend,
+} from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -72,24 +77,19 @@ async function createImageSection(
     }
   }
 
-  const created = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Image",
-    },
-  );
+  const created = (await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Image",
+  })) as CreateTopLevelSectionResponse | null;
   const sectionId = created?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating image section.");
   }
-  await postBackend(page, "/setSectionName", {
+  await setSectionNameFromFrontend(page, {
     projectConfigId,
     sectionId,
     name: sectionName,
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
   return sectionId;
 }
 
@@ -99,12 +99,11 @@ async function setImagePath(
   sectionId: string,
   imagePath: string,
 ): Promise<void> {
-  await postBackend(page, "/setImageAreaImagePath", {
+  await setImageAreaImagePathFromFrontend(page, {
     projectConfigId,
     sectionId,
     imagePath,
   });
-  await refreshProjectStateFromBackend(page, projectConfigId);
 }
 
 async function uploadTestPng(page: Page): Promise<BinaryContentRef> {

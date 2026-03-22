@@ -1,8 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ensureAppReady,
+  moveSectionsFromFrontend,
   postBackend,
-  refreshProjectStateFromBackend,
 } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -3347,8 +3347,7 @@ async function moveSectionsViaBackend(
     positionsById: Record<string, { x: number; y: number }> | null;
   },
 ): Promise<void> {
-  await postBackend(page, "/moveSections", payload);
-  await refreshProjectStateFromBackend(page, payload.projectConfigId);
+  await moveSectionsFromFrontend(page, payload);
 }
 
 async function createNewProjectConfig(
