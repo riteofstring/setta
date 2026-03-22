@@ -105,19 +105,18 @@ Audit snapshot:
   - dynamic/package support:
     - `backend/setta/logging/filters.py`
     - `backend/setta/sdk_contracts/__init__.py`
+    - `backend/setta/code_gen/python/value_helpers.py`
+    - `backend/setta/secrets/password_store.py`
   - active repo tooling support:
     - `backend/setta/utils/format_code.py`
+  - generation/test support:
+    - `backend/setta/types/core.py`
+    - `backend/setta/types/generated/effective_impls.py`
+    - `backend/setta/types/generated/impl_args_as_typed_dicts.py`
+    - `backend/setta/types/generated/impl_field_literals.py`
+    - `backend/setta/types/generated/shared_modifier.py`
 - Next deletion-review queue:
-  - `backend/setta/code_gen/python/value_helpers.py`
-  - `backend/setta/secrets/password_store.py`
-  - `backend/setta/types/core.py`
   - `backend/setta/types/dropzone.py`
-  - `backend/setta/types/generated/effective_impls.py`
-  - `backend/setta/types/generated/impl_args_as_typed_dicts.py`
-  - `backend/setta/types/generated/impl_field_literals.py`
-  - `backend/setta/types/generated/shared_modifier.py`
-  - `backend/setta/types/hierarchy_traversal.py`
-  - `backend/setta/utils/utils.py`
 
 Verification:
 
@@ -164,6 +163,25 @@ Verification:
   - proof tests:
     - no runtime/test surface imports the enum; deletion verified by repo-wide
       search plus script/CLI smoke from Batch 6
+  - decision:
+    - delete now
+- [x] Third bounded deletion batch:
+  - file set:
+    - `backend/setta/types/hierarchy_traversal.py`
+    - `backend/setta/utils/utils.py`
+  - classification:
+    - dead traversal/helper tail
+  - current caller evidence:
+    - no repo import/use hits for `setta.types.hierarchy_traversal`,
+      `setta.utils.utils`, `build_project_sections_dir`,
+      `build_gen_code_path`, `replace_at_positions`, or `try_json`
+      outside the deleted files themselves
+  - replacement owner:
+    - no replacement needed; the pair no longer anchors an active package,
+      tooling, or test surface on this branch
+  - proof tests:
+    - `./scripts/go.sh test ./internal/codegen/... ./internal/runs/... -count=1`
+    - `source activate.sh && pytest tests/types/test_effective_impls.py -q`
   - decision:
     - delete now
 - [ ] Delete Python tests only when they either:
