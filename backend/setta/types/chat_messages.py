@@ -3,37 +3,46 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, Field, field_validator
-from setta.types.generated.go_shared_types import ChatRole
+from pydantic import Field, field_validator
+from setta.types.generated.go_shared_types import (
+    AssistantChatMessage as GoAssistantChatMessage,
+    ChatFileAttachment as GoChatFileAttachment,
+    ChatRole,
+    MessageImageURL as GoMessageImageURL,
+    MessageImageURLContent as GoMessageImageURLContent,
+    MessageTextContent as GoMessageTextContent,
+    MessageThinkingContent as GoMessageThinkingContent,
+    SystemChatMessage as GoSystemChatMessage,
+    ToolCall as GoToolCall,
+    ToolCallFunction as GoToolCallFunction,
+    ToolChatMessage as GoToolChatMessage,
+    ToolReferenceContent as GoToolReferenceContent,
+    UserChatMessage as GoUserChatMessage,
+)
 from setta.types.id import create_new_id
 from setta.utils.timestamps import get_now_timestamp
 
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 
-class ChatFileAttachment(BaseModel):
-    id: str
-    name: str
-    mimeType: str | None = None
-    size: int | None = None
+class ChatFileAttachment(GoChatFileAttachment):
+    pass
 
 
-class MessageTextContent(BaseModel):
+class MessageTextContent(GoMessageTextContent):
     type: Literal["text"] = "text"
-    text: str
 
 
-class MessageImageUrl(BaseModel):
-    url: str
+class MessageImageUrl(GoMessageImageURL):
     detail: Literal["auto", "low", "high"] | None = None
 
 
-class MessageImageUrlContent(BaseModel):
+class MessageImageUrlContent(GoMessageImageURLContent):
     type: Literal["image_url"] = "image_url"
     image_url: MessageImageUrl
 
 
-class MessageThinkingContent(BaseModel):
+class MessageThinkingContent(GoMessageThinkingContent):
     type: Literal["thinking"] = "thinking"
     thinking: str = ""
     summary: str | None = ""
@@ -43,13 +52,11 @@ class MessageThinkingContent(BaseModel):
 MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent
 
 
-class ToolReferenceContent(BaseModel):
+class ToolReferenceContent(GoToolReferenceContent):
     type: Literal["tool_reference"] = "tool_reference"
-    tool_name: str
 
 
-class ToolCallFunction(BaseModel):
-    name: str
+class ToolCallFunction(GoToolCallFunction):
     arguments: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("arguments", mode="before")
@@ -65,17 +72,13 @@ class ToolCallFunction(BaseModel):
         return {}
 
 
-class ToolCall(BaseModel):
+class ToolCall(GoToolCall):
     id: str = Field(default_factory=create_new_id)
     type: Literal["function"] = "function"
     function: ToolCallFunction
 
 
-class BaseChatMessage(BaseModel):
-    id: str = Field(default_factory=create_new_id)
-    role: Any
-    createdAt: int = 0
-
+class _OpenAIMessageMixin:
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
         output.pop("id", None)
@@ -84,21 +87,24 @@ class BaseChatMessage(BaseModel):
         return output
 
 
-class ContentChatMessage(BaseChatMessage):
+class SystemChatMessage(GoSystemChatMessage, _OpenAIMessageMixin):
+    id: str = Field(default_factory=create_new_id)
+    role: Literal[ChatRole.system] = ChatRole.system
+    createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
     attachments: list[ChatFileAttachment] = Field(default_factory=list)
 
 
-class SystemChatMessage(ContentChatMessage):
-    role: Literal[ChatRole.system] = ChatRole.system
-
-
-class AssistantChatMessage(ContentChatMessage):
+class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
+    id: str = Field(default_factory=create_new_id)
     role: Literal[ChatRole.assistant] = ChatRole.assistant
+    createdAt: int = 0
+    content: list[MessageContent] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
     tool_calls: list[ToolCall] | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
-        output = super().to_openai_format()
+        output = _OpenAIMessageMixin.to_openai_format(self)
         tool_calls = output.get("tool_calls")
         if tool_calls:
             for call in tool_calls:
@@ -107,13 +113,18 @@ class AssistantChatMessage(ContentChatMessage):
         return output
 
 
-class UserChatMessage(ContentChatMessage):
+class UserChatMessage(GoUserChatMessage, _OpenAIMessageMixin):
+    id: str = Field(default_factory=create_new_id)
     role: Literal[ChatRole.user] = ChatRole.user
+    createdAt: int = 0
+    content: list[MessageContent] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
 
 
-class ToolChatMessage(BaseChatMessage):
+class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
+    id: str = Field(default_factory=create_new_id)
     role: Literal[ChatRole.tool] = ChatRole.tool
-    tool_call_id: str
+    createdAt: int = 0
     tool_name: str | None = None
     arguments: JSONValue = Field(default_factory=dict)
     result: JSONValue = None
@@ -125,7 +136,7 @@ class ToolChatMessage(BaseChatMessage):
     completed_at: datetime | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
-        output = super().to_openai_format()
+        output = _OpenAIMessageMixin.to_openai_format(self)
         output.pop("arguments", None)
         output.pop("result", None)
         output.pop("is_error", None)

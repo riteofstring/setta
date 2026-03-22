@@ -5,6 +5,7 @@ import (
 
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/scriptablechat"
 )
 
 type ProjectStateSingleConfig projectview.SingleConfig
@@ -1096,14 +1097,7 @@ type WatchCodeRegistryEntry = projectstate.WatchCodeRegistryEntry
 
 type CodeFileBinding = projectview.CodeFileBinding
 
-type ChatRole string
-
-const (
-	ChatRoleSystem    ChatRole = "system"
-	ChatRoleUser      ChatRole = "user"
-	ChatRoleAssistant ChatRole = "assistant"
-	ChatRoleTool      ChatRole = "tool"
-)
+type ChatRole = scriptablechat.ChatRole
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
 
@@ -1111,31 +1105,31 @@ type ChatDictationMode = projectstate.ChatDictationMode
 
 type JSONValue struct{}
 
-type ChatFileAttachment struct{}
+type ChatFileAttachment = scriptablechat.ChatFileAttachment
 
-type MessageTextContent struct{}
+type MessageTextContent = scriptablechat.MessageTextContent
 
-type MessageImageURL struct{}
+type MessageImageURL = scriptablechat.MessageImageURL
 
-type MessageImageURLContent struct{}
+type MessageImageURLContent = scriptablechat.MessageImageURLContent
 
-type MessageThinkingContent struct{}
+type MessageThinkingContent = scriptablechat.MessageThinkingContent
 
 type MessageContent struct{}
 
-type ToolReferenceContent struct{}
+type ToolReferenceContent = scriptablechat.ToolReferenceContent
 
-type ToolCallFunction struct{}
+type ToolCallFunction = scriptablechat.ToolCallFunction
 
-type ToolCall struct{}
+type ToolCall = scriptablechat.ToolCall
 
-type SystemChatMessage struct{}
+type SystemChatMessage = scriptablechat.SystemChatMessage
 
-type AssistantChatMessage struct{}
+type AssistantChatMessage = scriptablechat.AssistantChatMessage
 
-type UserChatMessage struct{}
+type UserChatMessage = scriptablechat.UserChatMessage
 
-type ToolChatMessage struct{}
+type ToolChatMessage = scriptablechat.ToolChatMessage
 
 type BaseChatMessageUnion struct{}
 

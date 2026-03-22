@@ -143,6 +143,13 @@ class ArtifactType(str, Enum):
     File = "File"
 
 
+class ChatRole(str, Enum):
+    system = "system"
+    user = "user"
+    assistant = "assistant"
+    tool = "tool"
+
+
 class PromptFormat(str, Enum):
     Jinja = "Jinja"
 
@@ -311,13 +318,6 @@ class DateSelectionMode(str, Enum):
 class DateCalendarWeekStart(str, Enum):
     sunday = "sunday"
     monday = "monday"
-
-
-class ChatRole(str, Enum):
-    system = "system"
-    user = "user"
-    assistant = "assistant"
-    tool = "tool"
 
 
 class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
@@ -545,6 +545,90 @@ class MessageStopEvent(SettaSharedTypeModel):
 class MessageFinalizedEvent(SettaSharedTypeModel):
     type: str
     message: dict[str, Any]
+
+
+class ChatFileAttachment(SettaSharedTypeModel):
+    id: str
+    name: str
+    mimeType: str | None = None
+    size: int | None = None
+
+
+class MessageTextContent(SettaSharedTypeModel):
+    type: str
+    text: str
+
+
+class MessageImageURL(SettaSharedTypeModel):
+    url: str
+    detail: str | None = None
+
+
+class MessageImageURLContent(SettaSharedTypeModel):
+    type: str
+    image_url: MessageImageURL
+
+
+class MessageThinkingContent(SettaSharedTypeModel):
+    type: str
+    thinking: str
+    summary: str | None = None
+    signature: str | None = None
+
+
+class ToolReferenceContent(SettaSharedTypeModel):
+    type: str
+    tool_name: str
+
+
+class ToolCallFunction(SettaSharedTypeModel):
+    name: str
+    arguments: dict[str, Any]
+
+
+class ToolCall(SettaSharedTypeModel):
+    id: str
+    type: str
+    function: ToolCallFunction
+
+
+class SystemChatMessage(SettaSharedTypeModel):
+    id: str
+    role: str
+    createdAt: int
+    content: list[dict[str, Any]]
+    attachments: list[ChatFileAttachment]
+
+
+class AssistantChatMessage(SettaSharedTypeModel):
+    id: str
+    role: str
+    createdAt: int
+    content: list[dict[str, Any]]
+    attachments: list[ChatFileAttachment]
+    tool_calls: list[ToolCall] | None = None
+
+
+class UserChatMessage(SettaSharedTypeModel):
+    id: str
+    role: str
+    createdAt: int
+    content: list[dict[str, Any]]
+    attachments: list[ChatFileAttachment]
+
+
+class ToolChatMessage(SettaSharedTypeModel):
+    id: str
+    role: str
+    createdAt: int
+    tool_call_id: str
+    tool_name: str | None = None
+    arguments: Any
+    result: Any
+    content: list[dict[str, Any]]
+    is_error: bool
+    started_at: datetime
+    completed_at: datetime | None = None
 
 
 class LLMConfig(SettaSharedTypeModel):

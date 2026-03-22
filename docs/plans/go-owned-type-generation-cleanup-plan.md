@@ -97,6 +97,23 @@ That means:
   - `Chat`, `ChatMetadata`, `ChatSectionBranch`, and `ChatSectionState` now subclass Go-generated base models and only keep the Python-side typed message fields / defaults.
 - `backend/setta/types/chat_stream_events.py` no longer hand-owns the streaming event field layouts:
   - the event classes now subclass Go-generated realtime event models and only keep the Python-side typed chat-message / preview-id wrappers.
+- `internal/scriptablechat` now owns the concrete chat-message schema family that used to live only in frontendbindings/Python:
+  - `ChatRole`
+  - `ChatFileAttachment`
+  - `MessageTextContent`
+  - `MessageImageURL`
+  - `MessageImageURLContent`
+  - `MessageThinkingContent`
+  - `ToolReferenceContent`
+  - `ToolCallFunction`
+  - `ToolCall`
+  - `SystemChatMessage`
+  - `AssistantChatMessage`
+  - `UserChatMessage`
+  - `ToolChatMessage`
+- `internal/frontendbindings/project_state_support.go` now points the detailed chat-message schema family at `internal/scriptablechat` instead of keeping local placeholder owners.
+- `backend/setta/types/chat_messages.py` no longer hand-owns the concrete chat-message field layouts:
+  - the Python classes now subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
 - `backend/setta/types/websocket.py` no longer owns the listener websocket message-type enum; it now reuses the Go-owned generated `ListenerMessageType`.
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 
@@ -118,11 +135,12 @@ Working assumption for the next passes:
 - `id.py` is likely truly Python-only.
 - most of `listener.py` is now clearly Python-only wrapper logic over generated SDK / Go-owned enums.
 - `chat.py` and `chat_stream_events.py` are now typed Python adapters over Go-owned generated models, not primary schema owners.
+- `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
 - `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
 - the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
 - `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
 - `dependency_value.py` is smaller and narrower, but still needs a deliberate decision because the current frozen dataclass API is used directly in Python tests and runtime helpers.
-- the main remaining shared-contract candidates are now `artifact.py` and `chat_messages.py`; everything else is either already Go-owned or needs a concrete Python-only justification.
+- the main remaining shared-contract candidate is now `artifact.py`; everything else is either already Go-owned or needs a concrete Python-only justification.
 
 ## What Is Still Wrong
 
@@ -136,7 +154,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the artifact/binary leaf family, the prompt-template / LLM-config family, the dependency wire family, and the streaming/listener enum family, but not yet for the artifact payload family, the detailed chat-message schema family, and the larger external-agent settings families.
+This has improved for the project-state/view/windowing family, the artifact/binary leaf family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, and the detailed chat-message schema family, but not yet for the artifact payload family and the larger external-agent settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -170,9 +188,8 @@ The prompt-format duplication has already been removed. The remaining work here 
 ### 5. A few handwritten Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before.
 
-The main candidates are now:
+The main candidate is now:
 - `artifact.py`
-- `chat_messages.py`
 
 Secondary candidates:
 - `dependency_value.py`, if the Python listener/runtime no longer needs the frozen dataclass constructor/equality behavior
@@ -180,6 +197,7 @@ Secondary candidates:
 
 Already narrowed to Python adapter layers:
 - `chat.py`
+- `chat_messages.py`
 - `chat_stream_events.py`
 - `listener.py`
 - `websocket.py`
