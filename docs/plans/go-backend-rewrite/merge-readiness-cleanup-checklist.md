@@ -205,8 +205,31 @@ Verification:
 - [ ] Delete Python tests only when they either:
   - prove a dead path, or
   - have clear Go/frontend replacement coverage
-- [ ] Keep tests that still prove the Python SDK, wheel boundary, or
+- [x] Keep tests that still prove the Python SDK, wheel boundary, or
   listener authoring/client surface.
+  - listener/package surface:
+    - `tests/api/*`
+    - `tests/share/test_listener_runtime.py`
+    - `tests/types/test_listener_binary_payload.py`
+  - package/auth/logging boundary:
+    - `tests/auth/*`
+    - `tests/logging/*`
+    - `tests/sessions/test_registry.py`
+    - `tests/utils/*`
+  - script/packaging/wiring boundary:
+    - `tests/start/*`
+  - Python SDK/chat-tooling/contracts:
+    - `tests/llm/*`
+    - `tests/types/test_chat_messages.py`
+    - `tests/types/test_code_obj_value_policy.py`
+    - `tests/types/test_effective_impls.py`
+    - `tests/types/test_sdk_contracts_generated.py`
+  - parity/governance helpers:
+    - `tests/agentic/test_opencode_question_*`
+    - `tests/skills/test_skill_docs.py`
+  - surviving-suite proof:
+    - import scan over `tests/` found no imports of deleted Python backend owners
+    - `source activate.sh && ./scripts/run_backend_tests.sh` passed (`580 passed`)
 
 Verification:
 
@@ -236,13 +259,15 @@ Verification:
 
 ## Batch 7: Rewrite Doc Rehoming And Archive Trim
 
-- [ ] Remove rewrite docs from default contributor paths once the replacement
+- [x] Remove rewrite docs from default contributor paths once the replacement
   guidance is stable.
-- [ ] Keep the archive intact until there is a clear rule for what is still
+- [x] Keep the archive intact until there is a clear rule for what is still
   historically useful.
-- [ ] Delete only obviously dead/empty rewrite-era docs after checking for
+- [x] Delete only obviously dead/empty rewrite-era docs after checking for
   references.
-- [ ] Leave `archive/` as history, not as the main entrypoint.
+  - result:
+    - `find docs/plans/go-backend-rewrite -type f -empty` returned no files
+- [x] Leave `archive/` as history, not as the main entrypoint.
 
 Verification:
 

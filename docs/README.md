@@ -84,12 +84,6 @@ entrypoint.
 
 ## Merge Cleanup / Rewrite Closeout
 - `plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md` – concrete merge-prep checklist for front-door docs, stale references, dead-code review, and Python package cleanup.
-- `plans/go-backend-rewrite/README.md` – map for the rewrite/cleanup doc set.
-- `plans/go-backend-rewrite/CURRENT.md` – task router for parity, Python package boundaries, and post-rewrite cleanup work.
-- `plans/go-backend-rewrite/go-rewrite-closeout-cleanup-plan.md` – narrative cleanup plan for repo guidance, docs, AGENTS, and dev/build script surfaces.
-- `plans/go-backend-rewrite/go-backend-rewrite-plan.md` – clean-break defaults and port-vs-redesign decisions for the rewrite.
-- `plans/go-backend-rewrite/testing-strategy.md` – rewrite-wide testing strategy, coverage expectations, harness model, and cross-platform testing rules.
-- `plans/go-backend-rewrite/backend-gap-closure-plan.md` – current parity-gap closure workflow and executable verification loop.
-- `plans/go-backend-rewrite/backend-behavior-parity-matrix.md` – current behavior-level parity ledger and dispositions.
-- `plans/go-backend-rewrite/unused-python-deletion-plan.md` – cleanup plan for deleting superseded Python runtime code while preserving explicit package boundaries.
+- `plans/go-backend-rewrite/README.md` – map for the active cleanup/parity docs and the historical archive.
+- `plans/go-backend-rewrite/CURRENT.md` – current task router for parity, Python package boundaries, and cleanup work.
 - `plans/go-backend-rewrite/archive/README.md` – historical phase docs, spikes, and older rewrite snapshots.
