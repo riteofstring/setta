@@ -92,6 +92,94 @@ func TestProjectReconnectEdgeClearsOldTargetAndWritesNewExpression(t *testing.T)
 	}
 }
 
+func TestProjectDeleteEdgesClearsTargetValue(t *testing.T) {
+	t.Parallel()
+
+	project := graphEdgeMutationTestProject(t)
+
+	created, err := project.CreateEdge(
+		Edge{
+			SourceSectionID: "source-section",
+			SourceVariantID: "source-variant",
+			SourcePortID:    "result",
+			TargetSectionID: "target-a",
+			TargetVariantID: "target-a-variant",
+			TargetPortID:    "input-a",
+		},
+		graphEdgeExpressionBuilder(),
+	)
+	if err != nil {
+		t.Fatalf("CreateEdge returned error: %v", err)
+	}
+	if err := project.SetSectionCodeObjectValue("target-a", "input-a", "connected"); err != nil {
+		t.Fatalf("SetSectionCodeObjectValue target-a/input-a: %v", err)
+	}
+
+	if err := project.DeleteEdges([]string{created.ID}); err != nil {
+		t.Fatalf("DeleteEdges returned error: %v", err)
+	}
+
+	targetPayload, _, _, _, err := project.ResolveSectionCodeObject("target-a", "input-a")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject target-a/input-a: %v", err)
+	}
+	if got := payloadRawStringField(targetPayload, "value"); got != "" {
+		t.Fatalf("expected DeleteEdges to clear target-a input value, got %q", got)
+	}
+}
+
+func TestProjectDeleteEdgesKeepsTargetValueWhenAnotherEdgeRemains(t *testing.T) {
+	t.Parallel()
+
+	project := graphEdgeMutationTestProject(t)
+
+	edgeA, err := project.CreateEdge(
+		Edge{
+			SourceSectionID: "source-section",
+			SourceVariantID: "source-variant",
+			SourcePortID:    "result",
+			TargetSectionID: "target-a",
+			TargetVariantID: "target-a-variant",
+			TargetPortID:    "input-a",
+		},
+		graphEdgeExpressionBuilder(),
+	)
+	if err != nil {
+		t.Fatalf("CreateEdge result->input-a returned error: %v", err)
+	}
+	if _, err := project.CreateEdge(
+		Edge{
+			SourceSectionID: "source-section",
+			SourceVariantID: "source-variant",
+			SourcePortID:    "summary",
+			TargetSectionID: "target-a",
+			TargetVariantID: "target-a-variant",
+			TargetPortID:    "input-a",
+		},
+		graphEdgeExpressionBuilder(),
+	); err != nil {
+		t.Fatalf("CreateEdge summary->input-a returned error: %v", err)
+	}
+	if err := project.SetSectionCodeObjectValue("target-a", "input-a", "connected"); err != nil {
+		t.Fatalf("SetSectionCodeObjectValue target-a/input-a: %v", err)
+	}
+
+	if err := project.DeleteEdges([]string{edgeA.ID}); err != nil {
+		t.Fatalf("DeleteEdges returned error: %v", err)
+	}
+
+	targetPayload, _, _, _, err := project.ResolveSectionCodeObject("target-a", "input-a")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject target-a/input-a: %v", err)
+	}
+	if got := payloadRawStringField(targetPayload, "value"); got != "connected" {
+		t.Fatalf("expected DeleteEdges to keep target-a input value while another edge remains, got %q", got)
+	}
+	if len(project.Edges) != 1 {
+		t.Fatalf("expected one remaining edge after delete, got %#v", project.Edges)
+	}
+}
+
 func TestProjectSetEdgesClearsRemovedTargetValues(t *testing.T) {
 	t.Parallel()
 
