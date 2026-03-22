@@ -298,6 +298,15 @@ Last audited: `2026-03-23`
   `tmp/backend-gap-hunt-candidates.md` source-test section against this
   matrix now leaves `0` tests without an exact terminal disposition, so the
   remaining queue on this head is stale wrapper output pending regeneration.
+- Follow-up in this pass on `e04eb633a`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so the current
+  saved `tmp/backend-gap-hunt-backend-suite.log` failures in `internal/app`,
+  `internal/projectstate`, `internal/settacli`, and `internal/sshx` remained
+  stale non-reproductions rather than a live Go implementation gap;
+  reconciling the regenerated `tmp/backend-gap-hunt-candidates.md`
+  source-test section against this matrix again leaves `0` tests without an
+  exact terminal disposition, so this batch is also stale wrapper output on
+  the current head.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
