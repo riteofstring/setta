@@ -11285,6 +11285,112 @@ func TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestSta
 	}
 }
 
+func TestRegisterProjectRoutesViewModeMutationsAreBlockedInDeploymentModes(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			baselineProject := viewModesRouteTestProject(t)
+			assertForbidden := func(t *testing.T, response *httptest.ResponseRecorder, route string) {
+				t.Helper()
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("%s %s: expected 403, got %d with body %q", mode, route, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+					t.Fatalf("%s %s: expected mode_forbidden response, got %q", mode, route, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+					t.Fatalf("%s %s: expected deployment-mode denial detail, got %q", mode, route, response.Body.String())
+				}
+			}
+
+			for _, requestSpec := range []struct {
+				name  string
+				route string
+				body  string
+			}{
+				{
+					name:  "create_view_mode",
+					route: RouteCreateViewMode,
+					body:  `{"projectConfigId":"project-alpha"}`,
+				},
+				{
+					name:  "toggle_is_editing_view_mode",
+					route: RouteToggleIsEditingViewMode,
+					body:  `{"projectConfigId":"project-alpha"}`,
+				},
+				{
+					name:  "toggle_view_mode_user_facing",
+					route: RouteToggleViewModeUserFacing,
+					body:  `{"projectConfigId":"project-alpha","viewModeId":"focus"}`,
+				},
+				{
+					name:  "toggle_view_mode_tab",
+					route: RouteToggleViewModeTab,
+					body:  `{"projectConfigId":"project-alpha","viewModeId":"focus"}`,
+				},
+				{
+					name:  "toggle_section_visibility",
+					route: RouteToggleSectionVisibility,
+					body:  `{"projectConfigId":"project-alpha","sectionIds":["moving-section"]}`,
+				},
+				{
+					name:  "set_view_mode_name",
+					route: RouteSetViewModeName,
+					body:  `{"projectConfigId":"project-alpha","viewModeId":"focus","name":"Viewer"}`,
+				},
+				{
+					name:  "delete_view_mode",
+					route: RouteDeleteViewMode,
+					body:  `{"projectConfigId":"project-alpha","viewModeId":"focus"}`,
+				},
+			} {
+				t.Run(requestSpec.name, func(t *testing.T) {
+					deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+						Mode: mode,
+						Document: projectstate.Document{
+							SchemaVersion:    projectstate.CurrentSchemaVersion,
+							DefaultProjectID: "project-alpha",
+							Projects: map[string]projectstate.Project{
+								"project-alpha": baselineProject,
+							},
+						},
+						Policy: map[string]any{
+							"allowVariantChanges": true,
+						},
+					})
+					if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+						t.Fatalf("create deployment session: %v", err)
+					}
+
+					handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					assertForbidden(t, response, requestSpec.route)
+
+					overlay, err := deploymentRuntime.Overlay("share-a")
+					if err != nil {
+						t.Fatalf("deployment overlay: %v", err)
+					}
+					overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+					if !reflect.DeepEqual(overlayProject.ViewModes, baselineProject.ViewModes) {
+						t.Fatalf("expected rejected %s mutation to preserve view modes, got %#v", requestSpec.route, overlayProject.ViewModes)
+					}
+					if overlayProject.ActiveViewModeID != baselineProject.ActiveViewModeID {
+						t.Fatalf("expected rejected %s mutation to preserve active view mode %q, got %q", requestSpec.route, baselineProject.ActiveViewModeID, overlayProject.ActiveViewModeID)
+					}
+					if overlayProject.IsEditingViewMode != baselineProject.IsEditingViewMode {
+						t.Fatalf("expected rejected %s mutation to preserve editing mode %v, got %v", requestSpec.route, baselineProject.IsEditingViewMode, overlayProject.IsEditingViewMode)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesAutoLayoutTopLevelSectionsPersistsLatestState(t *testing.T) {
 	t.Parallel()
 
