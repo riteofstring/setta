@@ -116,6 +116,23 @@ func authServiceCurrentSessionOrNil(authService *auth.Service) *auth.CurrentSess
 	return currentSession
 }
 
+func resolveSettaServerURL(
+	cfg config.Config,
+	currentSession *auth.CurrentSession,
+) string {
+	settaServerURL := mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port)
+	if settaServerURL != "" {
+		return settaServerURL
+	}
+	if currentSession == nil {
+		return ""
+	}
+	return mcpx.BuildSettaServerURL(
+		currentSession.Metadata.Host,
+		currentSession.Metadata.Port,
+	)
+}
+
 func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if logger == nil {
 		logger = observability.NewLogger(cfg.Server.LogLevel, os.Stderr)
@@ -219,6 +236,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginRouteService     httpapi.PluginRouteService
 		pythonPackages         *pythonenv.Runtime
 	)
+	currentSession := authServiceCurrentSessionOrNil(authService)
+	settaServerURL := resolveSettaServerURL(cfg, currentSession)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
 			RuntimeRoot: cfg.Paths.RuntimeRoot,
@@ -858,7 +877,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Configs:        externalConfigStore,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+			SettaServerURL: settaServerURL,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -877,7 +896,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		llmConfigs, err := llmconfig.Load(
 			llmconfig.Path(cfg.Paths.SettaFilesRoot),
 			llmconfig.LoadOptions{
-				SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+				SettaServerURL: settaServerURL,
 			},
 		)
 		if err != nil {
@@ -1126,7 +1145,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runtime:            externalAgentRuntime,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
-			CurrentSession:     authServiceCurrentSessionOrNil(authService),
+			CurrentSession:     currentSession,
 			AuthCookieBaseName: authService.AuthCookieBaseName(),
 			RuntimeRoot:        cfg.Paths.RuntimeRoot,
 			ProcessEnv:         llmconfig.CurrentProcessEnv(),
@@ -1139,8 +1158,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runs:               agentRunStore,
 			Runtime:            externalAgentRuntime,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
-			SettaServerURL:     mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
-			CurrentSession:     authServiceCurrentSessionOrNil(authService),
+			SettaServerURL:     settaServerURL,
+			CurrentSession:     currentSession,
 			AuthCookieBaseName: authService.AuthCookieBaseName(),
 			RuntimeRoot:        cfg.Paths.RuntimeRoot,
 			ProcessEnv:         llmconfig.CurrentProcessEnv(),
@@ -1154,8 +1173,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runtime:            externalAgentRuntime,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
-			SettaServerURL:     mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
-			CurrentSession:     authServiceCurrentSessionOrNil(authService),
+			SettaServerURL:     settaServerURL,
+			CurrentSession:     currentSession,
 			AuthCookieBaseName: authService.AuthCookieBaseName(),
 			RuntimeRoot:        cfg.Paths.RuntimeRoot,
 			ProcessEnv:         llmconfig.CurrentProcessEnv(),
@@ -2117,7 +2136,10 @@ func newInternalMCPClient(cfg config.Config, logger *slog.Logger, authService *a
 	serverConfigs, err := mcpx.LoadServerConfigs(
 		mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),
 		mcpx.LoadServerConfigsOptions{
-			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+			SettaServerURL: resolveSettaServerURL(
+				cfg,
+				authServiceCurrentSessionOrNil(authService),
+			),
 		},
 	)
 	if err != nil {
