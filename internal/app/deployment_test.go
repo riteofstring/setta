@@ -20,11 +20,13 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/pythonenv"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
@@ -68,6 +70,46 @@ func TestAppOpensDeploymentRuntimeForShareMode(t *testing.T) {
 	}
 	if !app.ShareSessions().HasSession("share-a") {
 		t.Fatal("expected share-session store to expose created deployment session")
+	}
+}
+
+func TestAppShareModeDoesNotSeedIDEFilesOrStartIDEOnlyClients(t *testing.T) {
+	t.Parallel()
+
+	cfg := testDeploymentConfig(t, config.ModeShare)
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.SettingsState() != nil {
+		t.Fatal("did not expect share mode to start settings state runtime")
+	}
+	if app.MCPClient() != nil {
+		t.Fatal("did not expect share mode to start MCP client")
+	}
+	if app.ManagedAgentRuntime() != nil {
+		t.Fatal("did not expect share mode to start managed agent runtime")
+	}
+
+	if _, err := os.Stat(cfg.Paths.SettaFilesRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected share mode to avoid creating workspace setta_files root, got err=%v", err)
+	}
+
+	for _, path := range []string{
+		filepath.Join(cfg.Paths.DeploymentRoot, settingsstate.DefaultFileName),
+		filepath.Join(cfg.Paths.DeploymentRoot, projectstate.SettingsFileName),
+		llmconfig.Path(cfg.Paths.DeploymentRoot),
+		filepath.Join(cfg.Paths.DeploymentRoot, "llm_config.example.json"),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("expected share deployment startup not to seed %q, got err=%v", path, err)
+		}
 	}
 }
 
