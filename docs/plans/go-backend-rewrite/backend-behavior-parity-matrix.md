@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `1e7366277`
+- Target head: `03f43be6b`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -291,6 +291,13 @@ Last audited: `2026-03-23`
   row, the top-level-section smart-layout row, and the state-machine reset,
   launch-snapshot, and gate-progress rows by tying those backlog source
   tests directly to the existing focused Go websocket/runtime proof.
+- Follow-up in this pass on `03f43be6b`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remained stale saved suite output
+  rather than a live Go implementation gap; reconciling the current
+  `tmp/backend-gap-hunt-candidates.md` source-test section against this
+  matrix now leaves `0` tests without an exact terminal disposition, so the
+  remaining queue on this head is stale wrapper output pending regeneration.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
