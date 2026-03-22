@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -86,6 +87,35 @@ func TestManagerStartRunPersistsStatusAndLogs(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "detached-helper") {
 		t.Fatalf("expected stdout log to include helper output, got %q", string(content))
+	}
+}
+
+func TestManagerStartRunPreservesFileSnapshotPath(t *testing.T) {
+	t.Parallel()
+
+	manager := newTestManager(t, "run-file-snapshot")
+	snapshotPath := filepath.Join(t.TempDir(), "snapshot.py")
+	if err := os.WriteFile(snapshotPath, []byte("print('detached')\n"), 0o644); err != nil {
+		t.Fatalf("write snapshot file: %v", err)
+	}
+
+	run, err := manager.StartRun(Spec{
+		Command:         testDetachedRunHelperCommand("print") + " " + strconv.Quote(snapshotPath),
+		SnapshotPath:    snapshotPath,
+		ProjectConfigID: "project-a",
+	})
+	if err != nil {
+		t.Fatalf("start detached run: %v", err)
+	}
+
+	status := waitForDetachedRunStatus(t, manager, run.RunID, func(run Run) bool {
+		return run.Status != StatusRunning
+	})
+	if status.ExitCode == nil || *status.ExitCode != 0 {
+		t.Fatalf("expected zero exit code, got %#v", status.ExitCode)
+	}
+	if status.SnapshotPath != snapshotPath {
+		t.Fatalf("expected snapshot path %q, got %q", snapshotPath, status.SnapshotPath)
 	}
 }
 
