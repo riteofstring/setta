@@ -18,7 +18,7 @@ Relevant generated/state surfaces:
 
 - `internal/projectstate/layout_presentation.go`
 - `internal/frontendbindings/project_state_support.go`
-- `backend/setta/types/generated/shared_modifier.py`
+- `backend/setta/types/section_impls.py`
 - `frontend/src/utils/generatedTypes.ts`
 
 ## Routes
