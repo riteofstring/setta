@@ -202,6 +202,76 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	})
 }
 
+func TestMCPToolCallRouteScopesCallsFromAgenticContextHeaders(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "example.txt"), []byte("alpha\nbeta\ngamma\n"), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, RouteMCPToolCall, strings.NewReader(`{
+		"tool":"get_latest_project_state_summary",
+		"arguments":{"projectConfigId":"project-alpha"}
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(mcpx.AgenticContextProjectConfigIDHeader, "project-alpha")
+	request.Header.Set(mcpx.AgenticContextChatIDHeader, "chat-1")
+	request.Header.Set(mcpx.AgenticContextSectionIDHeader, "chat-section")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected summary success, got %#v", payload.StructuredContent)
+	}
+	summary := mustStructuredMapForRoute(t, payload.StructuredContent)
+	projectConfig := mustStructuredMapForRoute(t, summary["projectConfig"])
+	sectionVariantMap := mustStructuredMapForRoute(t, projectConfig["sectionVariantMap"])
+	if _, ok := sectionVariantMap["blocked-section"]; ok {
+		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
+		t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["allowed-section"]; !ok {
+		t.Fatalf("expected allowed-section in scoped summary, got %#v", sectionVariantMap)
+	}
+}
+
 func TestMCPToolCallRouteReportStateMachineSignalUsesBodyRunContext(t *testing.T) {
 	t.Parallel()
 
