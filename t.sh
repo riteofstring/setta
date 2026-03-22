@@ -11,7 +11,7 @@ usage() {
 Usage: ./t.sh [--b | --f] [--all]
 
 Options:
-  --b              Run Go tests + retained Python pytest only.
+  --b              Run Go tests + Python pytest only.
   --f              Run frontend Vitest + Playwright only.
   --all            Enable opt-in external agent integration tests.
   -h, --help       Show this help.
