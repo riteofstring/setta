@@ -468,6 +468,52 @@ func TestRegisterLauncherManagementRoutesUpdateReportsInstallerManagedCapability
 	}
 }
 
+func TestRegisterLauncherManagementRoutesAreNotMountedOutsideIDE(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		mode   config.Mode
+		method string
+		path   string
+	}{
+		{name: "share_status", mode: config.ModeShare, method: http.MethodGet, path: "/api" + RouteGetLauncherStatus},
+		{name: "share_setup", mode: config.ModeShare, method: http.MethodPost, path: "/api" + RouteSetupLauncher},
+		{name: "share_repair", mode: config.ModeShare, method: http.MethodPost, path: "/api" + RouteRepairLauncher},
+		{name: "share_remove", mode: config.ModeShare, method: http.MethodPost, path: "/api" + RouteRemoveLauncher},
+		{name: "share_update", mode: config.ModeShare, method: http.MethodPost, path: "/api" + RouteUpdateLauncher},
+		{name: "app_status", mode: config.ModeApp, method: http.MethodGet, path: "/api" + RouteGetLauncherStatus},
+		{name: "app_setup", mode: config.ModeApp, method: http.MethodPost, path: "/api" + RouteSetupLauncher},
+		{name: "app_repair", mode: config.ModeApp, method: http.MethodPost, path: "/api" + RouteRepairLauncher},
+		{name: "app_remove", mode: config.ModeApp, method: http.MethodPost, path: "/api" + RouteRemoveLauncher},
+		{name: "app_update", mode: config.ModeApp, method: http.MethodPost, path: "/api" + RouteUpdateLauncher},
+		{name: "launcher_status", mode: config.ModeLauncher, method: http.MethodGet, path: "/api" + RouteGetLauncherStatus},
+		{name: "launcher_setup", mode: config.ModeLauncher, method: http.MethodPost, path: "/api" + RouteSetupLauncher},
+		{name: "launcher_repair", mode: config.ModeLauncher, method: http.MethodPost, path: "/api" + RouteRepairLauncher},
+		{name: "launcher_remove", mode: config.ModeLauncher, method: http.MethodPost, path: "/api" + RouteRemoveLauncher},
+		{name: "launcher_update", mode: config.ModeLauncher, method: http.MethodPost, path: "/api" + RouteUpdateLauncher},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			handler := newLauncherManagementRouteTestHandler(
+				t,
+				testCase.mode,
+				filepath.Join(t.TempDir(), ".setta"),
+				newLauncherManagementService(t),
+			)
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(testCase.method, testCase.path, nil)
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("expected launcher management route %s %s to be unmounted in mode %q, got %d", testCase.method, testCase.path, testCase.mode, response.Code)
+			}
+		})
+	}
+}
+
 func newLauncherManagementRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
