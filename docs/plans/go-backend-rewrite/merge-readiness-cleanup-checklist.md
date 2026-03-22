@@ -20,6 +20,9 @@ Use `go-rewrite-closeout-cleanup-plan.md` for the narrative plan and
   reachability, replacement ownership, or explicit no-replacement first.
 - Remove rewrite-only contributor clutter from the default path before pruning
   deep historical archives.
+- Compare candidate deletions against `main` first. Do not delete top-level
+  docs or repo workflow files that still exist on `main` unless the cleanup
+  explicitly replaces them.
 
 ## Batch 1: Front-Door Docs And Ownership Story
 
@@ -40,18 +43,16 @@ Verification:
 
 ## Batch 2: Top-Level Branch-Only File Cleanup
 
-- [x] Delete tracked empty branch-specific files:
-  - `branch_intent.md`
-  - `cumulative_review.md`
-- [x] Delete `useful_prompts.md` as branch/operator-only scratch material that
-  only referenced the removed branch-intent/review workflow.
+- [x] Compare top-level markdown files against `main` before deleting them.
+- [x] Keep `branch_intent.md`, `cumulative_review.md`, and `useful_prompts.md`
+  because they still exist on `main` and are outside this cleanup scope.
 - [x] Keep `CLAUDE.md` as a minimal pointer to `AGENTS.md`.
-- [x] Re-run `git ls-files '*.md'` and confirm the repo root only contains
-  durable contributor docs.
+- [x] Re-check the repo-root markdown inventory after restoring the main-owned
+  files.
 
 Verification:
 
-- `git ls-files branch_intent.md cumulative_review.md useful_prompts.md CLAUDE.md`
+- `git diff --name-status main...HEAD -- branch_intent.md cumulative_review.md useful_prompts.md CLAUDE.md`
 
 ## Batch 3: High-Traffic Stale-Doc Sweep
 
