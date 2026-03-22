@@ -5,8 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPORT_PATH="${ROOT_DIR}/tmp/backend-gap-hunt-candidates.md"
 BACKEND_SUITE_LOG_PATH="${ROOT_DIR}/tmp/backend-gap-hunt-backend-suite.log"
+DEFAULT_PARITY_LOG_PATH="${ROOT_DIR}/tmp/backend-gap-hunt-differential-parity.log"
+CORPUS_PARITY_LOG_PATH="${ROOT_DIR}/tmp/backend-gap-hunt-differential-parity-corpus.log"
 EMPTY_BACKLOG_EXIT_CODE=10
 BACKEND_SUITE_CMD='./scripts/go.sh test ./... -count=1'
+DEFAULT_PARITY_CMD='./scripts/run-backend-differential-parity.sh --baseline-ref main'
+CORPUS_PARITY_CMD='./scripts/run-backend-differential-parity.sh --baseline-ref main --manifest scripts/backend-differential-parity-corpus-scenarios.yaml'
 
 source "${ROOT_DIR}/activate.sh"
 
@@ -31,10 +35,53 @@ if [[ "${backend_suite_exit_code}" -ne 0 ]]; then
     printf '\n'
     printf 'Run: `%s`\n' "${BACKEND_SUITE_CMD}"
   } >> "${REPORT_PATH}"
-  exit 0
 fi
 
-rm -f "${BACKEND_SUITE_LOG_PATH}"
+set +e
+bash -lc "${DEFAULT_PARITY_CMD}" >"${DEFAULT_PARITY_LOG_PATH}" 2>&1
+default_parity_exit_code="$?"
+set -e
+
+if [[ "${default_parity_exit_code}" -ne 0 ]]; then
+  {
+    printf '\n## Critical Differential Parity Failures\n\n'
+    printf '%s\n' '- `critical_differential_parity::default_manifest` (area=`critical-differential-parity`, log=`tmp/backend-gap-hunt-differential-parity.log`)'
+    printf '\n'
+    printf 'Run: `%s`\n' "${DEFAULT_PARITY_CMD}"
+  } >> "${REPORT_PATH}"
+fi
+
+set +e
+bash -lc "${CORPUS_PARITY_CMD}" >"${CORPUS_PARITY_LOG_PATH}" 2>&1
+corpus_parity_exit_code="$?"
+set -e
+
+if [[ "${corpus_parity_exit_code}" -ne 0 ]]; then
+  if [[ "${default_parity_exit_code}" -eq 0 ]]; then
+    {
+      printf '\n## Critical Differential Parity Failures\n\n'
+    } >> "${REPORT_PATH}"
+  fi
+  {
+    printf '%s\n' '- `critical_differential_parity::corpus_manifest` (area=`critical-differential-parity`, log=`tmp/backend-gap-hunt-differential-parity-corpus.log`)'
+    printf '\n'
+    printf 'Run: `%s`\n' "${CORPUS_PARITY_CMD}"
+  } >> "${REPORT_PATH}"
+fi
+
+if [[ "${backend_suite_exit_code}" -eq 0 ]]; then
+  rm -f "${BACKEND_SUITE_LOG_PATH}"
+fi
+if [[ "${default_parity_exit_code}" -eq 0 ]]; then
+  rm -f "${DEFAULT_PARITY_LOG_PATH}"
+fi
+if [[ "${corpus_parity_exit_code}" -eq 0 ]]; then
+  rm -f "${CORPUS_PARITY_LOG_PATH}"
+fi
+
+if [[ "${backend_suite_exit_code}" -ne 0 ]] || [[ "${default_parity_exit_code}" -ne 0 ]] || [[ "${corpus_parity_exit_code}" -ne 0 ]]; then
+  exit 0
+fi
 
 if [[ "${miner_exit_code}" -eq "${EMPTY_BACKLOG_EXIT_CODE}" ]]; then
   exit "${EMPTY_BACKLOG_EXIT_CODE}"

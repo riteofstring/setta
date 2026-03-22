@@ -27,7 +27,10 @@ start by generating a deterministic candidate backlog with
 before falling back to ad hoc mining. The dedicated gap-hunt Codex wrapper now
 regenerates that backlog outside Codex before each fresh session batch so the
 agent can stay focused on confirming and fixing gaps instead of maintaining the
-queue.
+queue. That wrapper preflight now also reruns the full Go backend suite plus
+both required differential parity commands before it allows an empty-backlog
+stop, so `tmp/backend-gap-hunt-candidates.md` being empty by itself is not a
+completion signal.
 
 That backlog is no longer just "uncited source tests". It should represent
 Python source tests that still lack an explicit terminal disposition in the
@@ -38,6 +41,16 @@ matrix:
   `Intentional divergence`, or `Dormant / unproven caller`
 
 A bare citation does not remove a source test from the gap-hunt queue.
+
+Some source tests also require stricter proof than an ordinary `Proved` row.
+In particular, source tests that seed real repo `.env` provider keys and hit
+live provider hosts must not be discharged only by hermetic local-provider
+tests. Those rows now require executable live-provider proof plus an explicit
+`proof-mode=live-provider` marker when they stay `Proved`. The launcher
+open-workspace success source test now also requires stronger proof than fake
+launchers or mocked frontend routes alone; when it stays `Proved`, the row
+must cite real unmocked launcher/open-workspace proof with
+`proof-mode=launcher-unmocked-transport`.
 
 ## Default Loop
 

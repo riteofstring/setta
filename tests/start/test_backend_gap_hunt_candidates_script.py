@@ -647,6 +647,161 @@ def test_generate_report_accepts_justified_omission_rows_with_notes(
     assert report == []
 
 
+def test_generate_report_keeps_live_provider_rows_without_live_proof_mode(
+    tmp_path: Path,
+) -> None:
+    # Source tests that use real repo `.env` provider keys should not leave the
+    # backlog unless the matrix cites explicit live-provider proof.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "llm").mkdir(parents=True, exist_ok=True)
+    (
+        tests_root / "llm" / "test_llm_chat_manager_openai_integration.py"
+    ).write_text(
+        """class TestLLMChatManagerOpenAIIntegration:
+    async def test_gpt_4o_mini_chat_completion(self) -> None:
+        assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `managed_chat.outputs` | `tests/llm/test_llm_chat_manager_openai_integration.py::test_gpt_4o_mini_chat_completion` | `internal/agentruns/service.go` | `TestExecutorExecuteStreamsManagedChatAndReturnsOutputs` | `frontend/src/state/actions/ai.ts` | `Proved` | hermetic proof only |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert len(report) == 1
+    assert (
+        f"{report[0].source_test.path}::{report[0].source_test.name}"
+        == "tests/llm/test_llm_chat_manager_openai_integration.py::test_gpt_4o_mini_chat_completion"
+    )
+    assert report[0].reason == "proved_missing_live-provider_proof_mode"
+    assert report[0].rows == ("managed_chat.outputs:Proved",)
+
+
+def test_generate_report_accepts_live_provider_rows_with_live_proof_mode(
+    tmp_path: Path,
+) -> None:
+    # Explicit proof-mode markers let the loop distinguish real live-provider
+    # proof from ordinary hermetic replacement tests.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "llm").mkdir(parents=True, exist_ok=True)
+    (
+        tests_root / "llm" / "test_llm_chat_manager_openai_integration.py"
+    ).write_text(
+        """class TestLLMChatManagerOpenAIIntegration:
+    async def test_gpt_4o_mini_chat_completion(self) -> None:
+        assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `managed_chat.outputs` | `tests/llm/test_llm_chat_manager_openai_integration.py::test_gpt_4o_mini_chat_completion` | `internal/agentruns/service.go` | `live-provider`; `TestManagedChatOpenAILiveProviderParity` | `frontend/src/state/actions/ai.ts` | `Proved` | proof-mode=live-provider |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert report == []
+
+
+def test_generate_report_keeps_launcher_open_workspace_success_without_unmocked_transport_proof(
+    tmp_path: Path,
+) -> None:
+    # The launcher open-workspace success path should not drop out of the
+    # backlog when it is only backed by fake launchers or mocked transports.
+    repo_root_path = tmp_path / "workspace"
+    matrix_path = (
+        repo_root_path
+        / "docs"
+        / "plans"
+        / "go-backend-rewrite"
+        / "backend-behavior-parity-matrix.md"
+    )
+    tests_root = repo_root_path / "tests"
+
+    _init_git_repo(repo_root_path)
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    (tests_root / "routers").mkdir(parents=True, exist_ok=True)
+    (tests_root / "routers" / "test_launcher_home_routes.py").write_text(
+        """def test_open_launcher_workspace_returns_bootstrap_fragment() -> None:
+    assert True
+""",
+        encoding="utf-8",
+    )
+    baseline_ref = _commit_current_workspace(repo_root_path)
+    _write_matrix_with_baseline(
+        matrix_path,
+        baseline_ref,
+        f"""## Matrix
+
+| Row | Source (`{baseline_ref[:7]}`) | Go impl | Go tests | Transport / caller evidence | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `launcher_home.open_workspace.success` | `tests/routers/test_launcher_home_routes.py::test_open_launcher_workspace_returns_bootstrap_fragment` | `internal/launcher/open_workspace.go` | `TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState`; `TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment` | `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx` | `Proved` | fake-launcher route proof only |
+""",
+    )
+
+    module = _load_backend_gap_hunt_candidates_module()
+    report = module.generate_report(
+        repo_root_path=repo_root_path,
+        matrix_path=matrix_path,
+        tests_path=tests_root,
+    )
+
+    assert len(report) == 1
+    assert (
+        report[0].reason
+        == "proved_missing_launcher-unmocked-transport_proof_mode"
+    )
+    assert report[0].rows == ("launcher_home.open_workspace.success:Proved",)
+
+
 def test_script_returns_special_exit_code_when_source_test_backlog_is_empty(
     tmp_path: Path,
 ) -> None:

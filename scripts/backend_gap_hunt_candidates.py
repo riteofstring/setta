@@ -39,6 +39,7 @@ JUSTIFIED_OMISSION_STATUSES = {
     "Intentional divergence",
     "Dormant / unproven caller",
 }
+PROOF_MODE_PATTERN = re.compile(r"\bproof-mode=([a-z0-9_-]+)\b")
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,13 @@ class MatrixRow:
 
 
 @dataclass(frozen=True)
+class ProofRequirement:
+    path_glob: str
+    test_name_glob: str | None
+    required_proof_mode: str
+
+
+@dataclass(frozen=True)
 class SourceTestDispositionGap:
     source_test: SourceTest
     reason: str
@@ -67,6 +75,45 @@ class SourceTestDispositionGap:
 
 class SourceBaselineInventoryError(RuntimeError):
     pass
+
+
+STRICT_PROOF_REQUIREMENTS = (
+    # Source tests that seed real repo `.env` keys and hit live providers must
+    # not be "proved" only by hermetic local-provider tests.
+    ProofRequirement(
+        path_glob="tests/llm/test_llm_chat_manager_openai_integration.py",
+        test_name_glob=None,
+        required_proof_mode="live-provider",
+    ),
+    ProofRequirement(
+        path_glob="tests/llm/test_llm_chat_manager_anthropic_integration.py",
+        test_name_glob=None,
+        required_proof_mode="live-provider",
+    ),
+    ProofRequirement(
+        path_glob="tests/agentic/test_claude_sdk_adapter_integration.py",
+        test_name_glob=None,
+        required_proof_mode="live-provider",
+    ),
+    ProofRequirement(
+        path_glob="tests/agentic/test_opencode_sdk_adapter_integration.py",
+        test_name_glob=None,
+        required_proof_mode="live-provider",
+    ),
+    ProofRequirement(
+        path_glob="tests/agentic/test_codex_app_server_adapter_integration.py",
+        test_name_glob=None,
+        required_proof_mode="live-provider",
+    ),
+    # The launcher open-workspace success path is too easy to "prove" with
+    # fake launchers or mocked frontend responses while still missing the real
+    # browser-triggered runtime path.
+    ProofRequirement(
+        path_glob="tests/routers/test_launcher_home_routes.py",
+        test_name_glob="test_open_launcher_workspace_returns_bootstrap_fragment",
+        required_proof_mode="launcher-unmocked-transport",
+    ),
+)
 
 
 def repo_root() -> Path:
@@ -352,6 +399,27 @@ def row_has_written_justification(row: MatrixRow) -> bool:
     return row.notes.strip() not in {"", "-"}
 
 
+def row_declared_proof_modes(row: MatrixRow) -> set[str]:
+    declared: set[str] = set()
+    for text in (row.go_tests, row.notes):
+        for match in PROOF_MODE_PATTERN.finditer(text):
+            declared.add(match.group(1).strip())
+    return declared
+
+
+def required_proof_modes_for_test(source_test: SourceTest) -> tuple[str, ...]:
+    required: list[str] = []
+    for requirement in STRICT_PROOF_REQUIREMENTS:
+        if not fnmatch(source_test.path, requirement.path_glob):
+            continue
+        if requirement.test_name_glob is not None and not fnmatch(
+            source_test.name, requirement.test_name_glob
+        ):
+            continue
+        required.append(requirement.required_proof_mode)
+    return tuple(required)
+
+
 def describe_rows(rows: list[MatrixRow]) -> tuple[str, ...]:
     return tuple(
         f"{row.row_id}:{row.status}"
@@ -403,6 +471,20 @@ def disposition_gap_for_test(
             reason="justified_omission_missing_notes",
             rows=describe_rows(unjustified_omission_rows),
         )
+
+    for required_proof_mode in required_proof_modes_for_test(source_test):
+        proved_without_required_proof_mode = [
+            row
+            for row in rows
+            if row.status == "Proved"
+            and required_proof_mode not in row_declared_proof_modes(row)
+        ]
+        if proved_without_required_proof_mode:
+            return SourceTestDispositionGap(
+                source_test=source_test,
+                reason=f"proved_missing_{required_proof_mode}_proof_mode",
+                rows=describe_rows(proved_without_required_proof_mode),
+            )
 
     return None
 

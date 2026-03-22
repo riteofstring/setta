@@ -1,6 +1,8 @@
 Read `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix-plan.md`, `docs/plans/go-backend-rewrite/backend-gap-closure-plan.md`, and `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md`. Use `tmp/backend-gap-hunt-candidates.md` as the backlog for this loop. The outer wrapper regenerates it before each fresh session batch from the matrix's pinned source baseline, not from this branch's current `tests/` tree. Do not rerun the candidate miner inside Codex unless the developer explicitly asks for that.
 
-The backlog can contain both `## Critical Backend Suite Failures` and `## Source Tests Missing Explicit Parity Disposition`. Always fix `## Critical Backend Suite Failures` first. If `tmp/backend-gap-hunt-backend-suite.log` exists, read it before making changes.
+The backlog can contain `## Critical Backend Suite Failures`, `## Critical Differential Parity Failures`, and `## Source Tests Missing Explicit Parity Disposition`. Always fix the critical sections first. If `tmp/backend-gap-hunt-backend-suite.log`, `tmp/backend-gap-hunt-differential-parity.log`, or `tmp/backend-gap-hunt-differential-parity-corpus.log` exists, read the relevant log before making changes.
+
+Do not treat an empty source-test section as completion evidence. The loop is only done when the wrapper preflight exits with code `10`, which now means source-test backlog empty, full Go backend suite green, and both required differential parity commands green.
 
 Commit frequently.
 
@@ -12,7 +14,11 @@ For the backlog items you inspect this session:
 3. If there is no Go gap for a listed source test, do not remove it with a bare citation. Update `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md` so the test has an explicit disposition:
    - `Proved` with explicit Go/executable proof in the `Go tests` column
    - or a justified omission status such as `Retained Python boundary`, `Intentional divergence`, or `Dormant / unproven caller`, with a concrete justification in `Notes`
+   - source tests that use real repo `.env` provider keys and live provider hosts must not be closed by hermetic `httptest` or local fake-provider proof alone; if they remain `Proved`, add executable live-provider proof and mark the row with `proof-mode=live-provider`
+   - mocked `page.route(...)`, local fake launchers, or other stubbed backend responses do not close a real caller-backed launcher/open-workspace flow by themselves; use unmocked transport proof or a differential parity slice, and for the launcher open-workspace success source test mark that proof with `proof-mode=launcher-unmocked-transport`
 4. In all cases, update the matrix/docs in the same change so every inspected source-test clue has an explicit disposition, and fix any critical backend-suite failure or leave a concrete explanation backed by executable proof.
 5. Run the relevant targeted parity/tests for the touched slice. When you touched a failure surfaced by the preflight suite, rerun the full Go backend suite command from the backlog entry before declaring it fixed.
 
-Report the exact commands run, what gap was fixed or ruled out, which source tests gained explicit dispositions, and whether the full Go backend suite passed.
+Never add `proof-mode=live-provider` or `proof-mode=launcher-unmocked-transport` without actually running that proof in the current branch and reporting the exact command/result.
+
+Report the exact commands run, what gap was fixed or ruled out, which source tests gained explicit dispositions, and whether the full Go backend suite and both differential parity commands passed.
