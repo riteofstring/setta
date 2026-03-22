@@ -686,6 +686,27 @@ func TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode(t *testing.T)
 	}
 }
 
+func TestRegisterLauncherHomeRoutesDoesNotMountLegacyLauncherAppModeRoute(t *testing.T) {
+	t.Parallel()
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{})
+	handler := newLauncherHomeRouteTestHandler(
+		t,
+		config.ModeLauncher,
+		defaultSettaHome,
+		home,
+		newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, &httpAPICapturingLauncher{}),
+	)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/launcherAppMode", nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected legacy launcherAppMode route to remain absent, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
 func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSettaHome string, home *launcher.HomeService, openWorkspace *launcher.OpenWorkspaceService) http.Handler {
 	return newLauncherHomeRouteTestHandlerWithAuth(t, mode, defaultSettaHome, home, openWorkspace, nil)
 }
