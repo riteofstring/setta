@@ -550,6 +550,149 @@ class FileReadDependencyValue(SettaSharedTypeModel):
     payload: str
 
 
+class ListenerInitContent(SettaSharedTypeModel):
+    projectConfigId: str | None = None
+    projectName: str | None = None
+    useTemporaryIds: bool | None = None
+
+
+class ListenerInitMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerInitContent
+
+
+class ListenerErrorContent(SettaSharedTypeModel):
+    error: str
+    details: dict[str, Any] | None = None
+
+
+class ListenerErrorMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerErrorContent
+
+
+class ListenerRealtimeDelta(SettaSharedTypeModel):
+    dependency: str
+    value: Any
+
+
+class ListenerRegisterCallbackSpec(SettaSharedTypeModel):
+    dependencies: list[str]
+    dependencyMode: ListenerDependencyMode
+
+
+class ListenerRegisterContent(SettaSharedTypeModel):
+    projectConfigId: str | None = None
+    callbacks: dict[str, ListenerRegisterCallbackSpec]
+
+
+class ListenerRegisterMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerRegisterContent
+
+
+class ListenerRegisterAckStatus(SettaSharedTypeModel):
+    status: str
+    message: str | None = None
+
+
+class ListenerRegisterAckContent(SettaSharedTypeModel):
+    projectConfigId: str
+    shareSessionId: str | None = None
+    callbacks: dict[str, ListenerRegisterAckStatus]
+
+
+class ListenerRegisterAckMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerRegisterAckContent
+
+
+class ListenerRouterEndpointCallContent(SettaSharedTypeModel):
+    projectConfigId: str
+    callId: str
+    endpointName: str
+    payload: dict[str, Any]
+
+
+class ListenerRouterEndpointCallMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerRouterEndpointCallContent
+
+
+class ListenerRouterEndpointResultContent(SettaSharedTypeModel):
+    projectConfigId: str
+    callId: str
+    ok: bool
+    result: Any | None = None
+    error: str | None = None
+    details: dict[str, Any] | None = None
+
+
+class ListenerRouterEndpointResultMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerRouterEndpointResultContent
+
+
+class ListenerDependencyEvent(SettaSharedTypeModel):
+    dependencyKey: str
+    payload: Any | None = None
+    timestampMs: int
+
+
+class ListenerDependencyEventContent(SettaSharedTypeModel):
+    projectConfigId: str
+    shareSessionId: str | None = None
+    dependencyEvents: list[ListenerDependencyEvent]
+    sequence: int
+
+
+class ListenerDependencyEventMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerDependencyEventContent
+
+
+class ListenerDependencyCatalogEntry(SettaSharedTypeModel):
+    dependencyKey: str
+    name: str
+    fullPathName: str
+    dependencies: list[str] | None = None
+    includeInCodegen: bool
+    sectionType: str | None = None
+    codeObjType: str | None = None
+    passingStyle: str | None = None
+    controlCodeObjId: str | None = None
+    controlCodeObjType: str | None = None
+    sectionRepresentation: str | None = None
+    controlValueRepresentation: str | None = None
+    valueRepresentation: str | None = None
+
+
+class ListenerDependencyCatalog(SettaSharedTypeModel):
+    entries: list[ListenerDependencyCatalogEntry]
+
+
+class ListenerRenderedDependencyValue(SettaSharedTypeModel):
+    dependencyKey: str
+    renderedValue: str
+
+
+class ListenerRenderedDependencyValues(SettaSharedTypeModel):
+    entries: list[ListenerRenderedDependencyValue]
+
+
+class ListenerRealtimeEventContent(SettaSharedTypeModel):
+    projectConfigId: str
+    shareSessionId: str | None = None
+    deltas: list[ListenerRealtimeDelta]
+    dependencyValues: ListenerRenderedDependencyValues | None = None
+    sequence: int
+
+
+class ListenerRealtimeEventMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerRealtimeEventContent
+
+
 class MessageTextDelta(SettaSharedTypeModel):
     type: str
     index: int
@@ -648,6 +791,23 @@ class DrawAreaLayerItemTransformArtifact(SettaSharedTypeModel):
     type: ArtifactType
     id: str
     value: DrawAreaLayerItemTransform
+
+
+class RawArtifact(SettaSharedTypeModel):
+    type: ArtifactType
+    id: str
+    value: Any | None = None
+
+
+class ListenerFrontendEmitContent(SettaSharedTypeModel):
+    projectConfigId: str
+    dependencyValues: dict[str, Any] | None = None
+    artifactUpdates: list[RawArtifact] | None = None
+
+
+class ListenerFrontendEmitMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerFrontendEmitContent
 
 
 class ChartDataArtifact(SettaSharedTypeModel):
@@ -783,6 +943,25 @@ class ProjectCodegenPythonTarget(SettaSharedTypeModel):
 class ProjectCodegenPluginTarget(SettaSharedTypeModel):
     language: str
     options: dict[str, Any]
+
+
+class ListenerSnapshot(SettaSharedTypeModel):
+    projectConfigId: str
+    shareSessionId: str | None = None
+    dependencyCatalog: ListenerDependencyCatalog
+    dependencyValues: ListenerRenderedDependencyValues
+
+
+class ListenerForceRefreshContent(SettaSharedTypeModel):
+    callId: str | None = None
+    snapshot: ListenerSnapshot
+    sequence: int | None = None
+    refreshKind: str | None = None
+
+
+class ListenerForceRefreshMessage(SettaSharedTypeModel):
+    messageType: ListenerMessageType
+    content: ListenerForceRefreshContent
 
 
 class LLMConfig(SettaSharedTypeModel):

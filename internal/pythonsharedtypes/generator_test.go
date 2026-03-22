@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 )
 
@@ -39,7 +40,7 @@ func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
 		Name: "omitEmptyExample",
 		Kind: contractKindModel,
 		Type: reflect.TypeOf(omitEmptyExample{}),
-	})
+	}, map[string]struct{}{"omitEmptyExample": {}})
 	if err != nil {
 		t.Fatalf("buildModelSpec(...) error = %v", err)
 	}
@@ -119,5 +120,44 @@ func TestPythonTypeExprPreservesNamedStringEnumsForNestedOwnerFields(t *testing.
 	}
 	if typeExpr != "DependencyValueType" {
 		t.Fatalf("typeExpr = %q, want %q", typeExpr, "DependencyValueType")
+	}
+}
+
+func TestPythonTypeExprWithImportsUsesSDKContractModuleForExternalTypes(t *testing.T) {
+	t.Helper()
+
+	spec, err := pythonTypeExprWithImports(
+		reflect.TypeOf(pythonsdkcontracts.ListenerSnapshot{}),
+		"",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("pythonTypeExprWithImports(...) error = %v", err)
+	}
+	if spec.TypeExpr != "ListenerSnapshot" {
+		t.Fatalf("spec.TypeExpr = %q, want %q", spec.TypeExpr, "ListenerSnapshot")
+	}
+	importLine := "from setta.sdk_contracts.generated import ListenerSnapshot"
+	if _, ok := spec.Imports[importLine]; !ok {
+		t.Fatalf("expected import %q, got %#v", importLine, spec.Imports)
+	}
+}
+
+func TestPythonTypeExprWithImportsSkipsExternalImportWhenTypeIsGeneratedLocally(t *testing.T) {
+	t.Helper()
+
+	spec, err := pythonTypeExprWithImports(
+		reflect.TypeOf(pythonsdkcontracts.ListenerSnapshot{}),
+		"",
+		map[string]struct{}{"ListenerSnapshot": {}},
+	)
+	if err != nil {
+		t.Fatalf("pythonTypeExprWithImports(...) error = %v", err)
+	}
+	if spec.TypeExpr != "ListenerSnapshot" {
+		t.Fatalf("spec.TypeExpr = %q, want %q", spec.TypeExpr, "ListenerSnapshot")
+	}
+	if len(spec.Imports) != 0 {
+		t.Fatalf("expected no imports, got %#v", spec.Imports)
 	}
 }

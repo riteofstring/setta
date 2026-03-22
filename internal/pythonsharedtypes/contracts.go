@@ -171,7 +171,7 @@ func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 		Type:          t,
 		FieldDefaults: pythonSharedFieldDefaultsForType(t),
 	}
-	if _, err := buildModelSpec(spec); err != nil {
+	if _, err := buildModelSpec(spec, map[string]struct{}{spec.Name: {}}); err != nil {
 		return contractSpec{}, false
 	}
 	return spec, true

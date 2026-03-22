@@ -77,6 +77,7 @@ That means:
   - `internal/artifacts`
   - `internal/scriptablechat`
 - `internal/projectview`
+- `internal/pythonsdkcontracts` when those owner types are referenced by surviving shared models
 - the Python shared-type pipeline still prunes aggressively afterward, so widening owner-package discovery no longer requires hand-maintaining another allowlist just to keep the output small.
 - `internal/realtime` now owns typed listener/streaming enums instead of leaving those names implicit in plain string constants:
   - `StreamingEventType`
@@ -148,6 +149,11 @@ That means:
 - `internal/frontendbindings/project_state_support.go` now aliases that project-codegen family to `internal/projectview` instead of declaring local mirror structs/enums.
 - `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
   - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, validation, and policy-resolution helpers.
+- `backend/setta/types/websocket.py` no longer hand-owns the listener websocket envelope field layouts:
+  - the Python message classes now subclass Go-generated listener message models and only keep the Python-side typed content wrappers and discriminator literals.
+- the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
+  - if a referenced owner type is part of the shared discovered surface, it is generated locally
+  - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -169,6 +175,7 @@ Working assumption for the next passes:
 - `chat.py` and `chat_stream_events.py` are now typed Python adapters over Go-owned generated models, not primary schema owners.
 - `chat_messages.py` is now a typed Python adapter over Go-owned generated models, not the schema owner for the concrete message field layouts.
 - `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
+- `websocket.py` is now a very thin typed Python adapter over Go-owned listener message models plus Python-specific `TypeAdapter` glue.
 - the remaining handwritten part of `project_config.py` is now narrower Python-only policy/default glue over Go-generated project codegen and project-state models, not another large shared-model family.
 - `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
 - `dependency_value.py` is no longer a shared-schema owner; it is now only the Python discriminated-union layer over generated dependency-value models.

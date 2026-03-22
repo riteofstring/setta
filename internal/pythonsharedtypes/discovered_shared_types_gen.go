@@ -7,6 +7,7 @@ import (
 	artifacts "setta/internal/artifacts"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
+	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
 	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
 )
@@ -303,5 +304,27 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ShownParamIDDetails{}),
 		reflect.TypeOf(projectview.ProjectStateSummary{}),
 		reflect.TypeOf(projectview.ProjectStateItem{}),
+		reflect.TypeOf(pythonsdkcontracts.RunnerSummaryVariant{}),
+		reflect.TypeOf(pythonsdkcontracts.RunnerSummaryParam{}),
+		reflect.TypeOf(pythonsdkcontracts.RunnerSummarySection{}),
+		reflect.TypeOf(pythonsdkcontracts.RunnerSummarySnapshot{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerSnapshot{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerForceRefreshEvent{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerInitRequest{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerRegisterRequest{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerRegisterAckEvent{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerErrorEvent{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerFrontendEmitRequest{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerRouterEndpointCall{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerRouterEndpointResult{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerRealtimeEvent{}),
+		reflect.TypeOf(pythonsdkcontracts.ListenerDependencyEventEntry{}),
+		reflect.TypeOf(pythonsdkcontracts.RunningBackendVersionHandshake{}),
+		reflect.TypeOf(pythonsdkcontracts.LocalCoreVersionHandshake{}),
+		reflect.TypeOf(pythonsdkcontracts.LocalCoreCommandEnvelope{}),
+		reflect.TypeOf(pythonsdkcontracts.LocalCoreResultEnvelope{}),
+		reflect.TypeOf(pythonsdkcontracts.LocalCoreListenerRealtimeDelta{}),
+		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}),
+		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{}),
 	}
 }
