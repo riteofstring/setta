@@ -1,6 +1,13 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
-from setta.types.artifact import DrawAreaLayer, LineChartSettings, ScatterChartSettings
+from setta.types.agentic_edges import AgenticEdge
+from setta.types.artifact import (
+    DrawAreaBrushShape,
+    DrawAreaLayer,
+    DrawAreaMode,
+    LineChartSettings,
+    ScatterChartSettings,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -24,9 +31,19 @@ from setta.types.code_obj_impls import (
     TimeDisplayFont,
     TimeDisplayFormat,
 )
-from setta.types.edges import EdgePort
-from setta.types.generated.go_shared_types import DrawAreaBrushShape, DrawAreaMode
+from setta.types.edges import Edge, EdgePort
+from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
+from setta.types.project_config import (
+    ProjectCodegenPluginTarget,
+    ProjectCodegenPythonTarget,
+    TopLevelSectionLayout,
+    ViewModeConfig,
+    Viewport,
+    WatchCodeFolder,
+    WatchCodeRegistryEntry,
+    WindowSpaceConfig,
+)
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
@@ -51,6 +68,205 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TypeErrorIgnoreState,
 )
+from setta.types.state_machine_edges import StateMachineEdge
+
+
+class CoreArgs(TypedDict):
+    id: NotRequired[ID]
+    name: NotRequired[str]
+    displayName: NotRequired[str]
+    variants: NotRequired[list[ID]]
+    defaultVariant: NotRequired[ID | None]
+    sharedModifier: NotRequired[SharedModifier]
+    unsharedKeys: NotRequired[
+        list[
+            Literal[
+                "actionMode",
+                "activeBranchId",
+                "activeLayerIdx",
+                "activeSheet",
+                "agentProfileId",
+                "aspectRatio",
+                "aspectRatioExtraHeight",
+                "aspectRatioExtraWidth",
+                "attachedTerminalSectionId",
+                "autoReloadOnExternalChange",
+                "branches",
+                "brushColor",
+                "brushOpacity",
+                "brushShape",
+                "brushSize",
+                "callable",
+                "canvasMode",
+                "chartSettings",
+                "chatId",
+                "children",
+                "choices",
+                "code",
+                "codeFileBinding",
+                "codeLanguage",
+                "codeObjVariantMap",
+                "colorChoices",
+                "columnWidth",
+                "columns",
+                "configLanguage",
+                "coreNameEditable",
+                "coreNameType",
+                "data",
+                "dataPath",
+                "dateCalendarWeekStart",
+                "dateControlMode",
+                "dateDisplayFormat",
+                "dateIncludesTime",
+                "dateSelectionMode",
+                "defaultChildSectionType",
+                "defaultVal",
+                "density",
+                "description",
+                "diagnosticsIgnoreState",
+                "dictationMode",
+                "drawThrottleDelay",
+                "edgeInputParams",
+                "edgeOutputPorts",
+                "engineConfigId",
+                "eraserBrushSize",
+                "filePath",
+                "folder",
+                "format",
+                "gateType",
+                "hasSecret",
+                "headingAsSectionName",
+                "hideColumn",
+                "hideParams",
+                "hideUnpinnedParams",
+                "id",
+                "ignoreTypeErrors",
+                "imagePath",
+                "inputText",
+                "inputs",
+                "isFrozen",
+                "isHorizontalOrientation",
+                "isInOtherProjectConfigs",
+                "isJsonSource",
+                "isMinimized",
+                "isPreset",
+                "jsonSourceKeys",
+                "jsonSourceMissing",
+                "kind",
+                "label",
+                "layers",
+                "machineGroupId",
+                "managed",
+                "masterFontSizePx",
+                "max",
+                "maxAttachments",
+                "maxIterations",
+                "messages",
+                "metaControlParamId",
+                "metaControlStyle",
+                "min",
+                "missingVariables",
+                "mode",
+                "name",
+                "overflowMode",
+                "paramFilter",
+                "passingStyle",
+                "permissionMode",
+                "pinnedParams",
+                "placeholder",
+                "pluginId",
+                "positionAndSizeLocked",
+                "promptTemplateId",
+                "readOnly",
+                "renderError",
+                "renderedImagePath",
+                "renderedText",
+                "requestBody",
+                "requestHeaderKey",
+                "requestHeaderValue",
+                "requestMethod",
+                "requestUrl",
+                "savedSearches",
+                "schemaVersion",
+                "searchEnabled",
+                "selectedParams",
+                "showRowNumbers",
+                "showSectionTitle",
+                "size",
+                "step",
+                "styleColor",
+                "tagColor",
+                "tasks",
+                "template",
+                "text",
+                "textDisplayMode",
+                "thinking",
+                "timeControlMode",
+                "timeDisplayFont",
+                "timeDisplayFormat",
+                "timeDisplayScale",
+                "timeDisplayTransparent",
+                "toolCallArguments",
+                "topLevelParamId",
+                "transcriptionProfileId",
+                "type",
+                "typeAnnotation",
+                "typesColumnWidth",
+                "ui",
+                "uiType",
+                "url",
+                "value",
+                "viewMode",
+                "waitingForResponse",
+            ]
+        ]
+    ]
+
+
+class ProjectConfigArgs(TypedDict):
+    id: NotRequired[ID]
+    name: NotRequired[str]
+    showParamDisplayNames: NotRequired[bool]
+    allowJsonSourceKeyEdits: NotRequired[bool]
+    previewImgColor: NotRequired[str]
+    viewport: NotRequired[Viewport | None]
+    viewportInitialized: NotRequired[bool]
+    viewModes: NotRequired[dict[ID, ViewModeConfig]]
+    windowSpaces: NotRequired[dict[ID, WindowSpaceConfig]]
+    activeViewModeId: NotRequired[ID | None]
+    isEditingViewMode: NotRequired[bool]
+    codegenTargets: NotRequired[
+        list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
+    ]
+    entryCodeBlockId: NotRequired[ID | None]
+    topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
+    sectionVariantMap: NotRequired[dict[ID, ID]]
+    activeIds: NotRequired[list[ID]]
+    edges: NotRequired[list[Edge]]
+    agenticEdges: NotRequired[list[AgenticEdge]]
+    stateMachineEdges: NotRequired[list[StateMachineEdge]]
+    watchCodeEnabled: NotRequired[bool]
+    watchCodeFolders: NotRequired[list[WatchCodeFolder]]
+    watchCodeFiles: NotRequired[list[str]]
+    watchCodeRegistry: NotRequired[dict[str, WatchCodeRegistryEntry]]
+    watchCodeBaselineByPath: NotRequired[dict[str, list[str]]]
+
+
+class BaseSectionImplArgs(TypedDict):
+    type: NotRequired[Any]
+    id: NotRequired[ID]
+    name: NotRequired[str]
+    isFrozen: NotRequired[bool]
+    isInOtherProjectConfigs: NotRequired[bool]
+    tagColor: NotRequired[str | None]
+    styleColor: NotRequired[str | None]
+    size: NotRequired[SectionSize]
+    aspectRatio: NotRequired[bool | float]
+    aspectRatioExtraHeight: NotRequired[int]
+    aspectRatioExtraWidth: NotRequired[int]
+    isMinimized: NotRequired[bool]
+    positionAndSizeLocked: NotRequired[bool]
+    isPreset: NotRequired[bool]
 
 
 class BaseSectionImplArgsWithCallable(TypedDict):
@@ -68,6 +284,20 @@ class BaseSectionImplArgsWithCallable(TypedDict):
     isMinimized: NotRequired[bool | Callable[[bool], bool]]
     positionAndSizeLocked: NotRequired[bool | Callable[[bool], bool]]
     isPreset: NotRequired[bool | Callable[[bool], bool]]
+
+
+class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Any]
+    codeObjVariantMap: NotRequired[dict[ID, ID]]
+    hideUnpinnedParams: NotRequired[bool]
+    paramFilter: NotRequired[str]
+    columnWidth: NotRequired[float | None]
+    configLanguage: NotRequired[ConfigLanguage]
+    pinnedParams: NotRequired[list[ID]]
+    selectedParams: NotRequired[list[ID]]
+    ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
+    edgeInputParams: NotRequired[list[ID]]
+    edgeOutputPorts: NotRequired[list[EdgePort]]
 
 
 class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -92,13 +322,29 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ]
 
 
+class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Any]
+
+
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
+
+
+class BaseParentSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Any]
+    children: NotRequired[list[ID]]
 
 
 class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
+
+
+class BaseCodeSectionImplArgs(BaseParentSectionImplArgs):
+    type: NotRequired[Any]
+    code: NotRequired[str]
+    codeFileBinding: NotRequired[CodeFileBinding | None]
+    attachedTerminalSectionId: NotRequired[ID | None]
 
 
 class BaseCodeSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -112,12 +358,26 @@ class BaseCodeSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
     attachedTerminalSectionId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
 
 
+class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
+    type: NotRequired[Any]
+    topLevelParamId: NotRequired[ID | None]
+    isJsonSource: NotRequired[bool]
+    jsonSourceKeys: NotRequired[list[str]]
+    jsonSourceMissing: NotRequired[bool]
+
+
 class BaseDictSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     topLevelParamId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     isJsonSource: NotRequired[bool | Callable[[bool], bool]]
     jsonSourceKeys: NotRequired[list[str] | Callable[[list[str]], list[str]]]
     jsonSourceMissing: NotRequired[bool | Callable[[bool], bool]]
+
+
+class CallableSectionImplArgs(BaseSectionWithParamsImplArgs):
+    type: NotRequired[Literal[SectionType.Callable]]
+    callable: NotRequired[ID | None]
+    hideParams: NotRequired[bool]
 
 
 class CallableSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCallable):
@@ -129,11 +389,21 @@ class CallableSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCalla
     hideParams: NotRequired[bool | Callable[[bool], bool]]
 
 
+class DictSectionImplArgs(BaseDictSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Dict]]
+
+
 class DictSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Dict]
         | Callable[[Literal[SectionType.Dict]], Literal[SectionType.Dict]]
     ]
+
+
+class ListRootSectionImplArgs(BaseParentSectionImplArgs):
+    type: NotRequired[Literal[SectionType.ListRoot]]
+    defaultChildSectionType: NotRequired[SectionType]
+    viewMode: NotRequired[ListRootViewMode]
 
 
 class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -149,6 +419,13 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
     ]
 
 
+class GroupSectionImplArgs(BaseParentSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Group]]
+    isHorizontalOrientation: NotRequired[bool]
+    overflowMode: NotRequired[bool]
+    defaultChildSectionType: NotRequired[SectionType]
+
+
 class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Group]
@@ -159,6 +436,13 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     defaultChildSectionType: NotRequired[
         SectionType | Callable[[SectionType], SectionType]
     ]
+
+
+class StateMachineStartSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.StateMachineStart]]
+    machineGroupId: NotRequired[str]
+    label: NotRequired[str]
+    maxIterations: NotRequired[int | None]
 
 
 class StateMachineStartSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -172,6 +456,14 @@ class StateMachineStartSectionImplArgsWithCallable(BaseSectionImplArgsWithCallab
     machineGroupId: NotRequired[str | Callable[[str], str]]
     label: NotRequired[str | Callable[[str], str]]
     maxIterations: NotRequired[int | None | Callable[[int | None], int | None]]
+
+
+class StateMachineGateSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.StateMachineGate]]
+    machineGroupId: NotRequired[str]
+    gateType: NotRequired[StateMachineGateType]
+    label: NotRequired[str]
+    ui: NotRequired[StateMachineGateUiState]
 
 
 class StateMachineGateSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -193,6 +485,12 @@ class StateMachineGateSectionImplArgsWithCallable(BaseSectionImplArgsWithCallabl
     ]
 
 
+class StateMachineEndSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.StateMachineEnd]]
+    machineGroupId: NotRequired[str]
+    label: NotRequired[str]
+
+
 class StateMachineEndSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.StateMachineEnd]
@@ -204,12 +502,23 @@ class StateMachineEndSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable
     label: NotRequired[str | Callable[[str], str]]
 
 
+class ImageSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Image]]
+    imagePath: NotRequired[str]
+
+
 class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Image]
         | Callable[[Literal[SectionType.Image]], Literal[SectionType.Image]]
     ]
     imagePath: NotRequired[str | Callable[[str], str]]
+
+
+class ChartSectionImplArgs(BaseCanvasSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Chart]]
+    dataPath: NotRequired[str]
+    chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
 
 
 class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
@@ -226,6 +535,21 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
             LineChartSettings | ScatterChartSettings,
         ]
     ]
+
+
+class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Draw]]
+    layers: NotRequired[list[DrawAreaLayer]]
+    renderedImagePath: NotRequired[str | None]
+    activeLayerIdx: NotRequired[int]
+    brushColor: NotRequired[str]
+    brushSize: NotRequired[int]
+    brushShape: NotRequired[DrawAreaBrushShape]
+    brushOpacity: NotRequired[float]
+    eraserBrushSize: NotRequired[int]
+    drawThrottleDelay: NotRequired[int]
+    canvasMode: NotRequired[DrawAreaMode]
+    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
 class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
@@ -253,6 +577,16 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     ]
 
 
+class TextBlockSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.TextBlock]]
+    format: NotRequired[TextBlockFormat]
+    masterFontSizePx: NotRequired[float]
+    headingAsSectionName: NotRequired[bool]
+    metaControlStyle: NotRequired[bool]
+    textDisplayMode: NotRequired[TextBlockDisplayMode]
+    text: NotRequired[str]
+
+
 class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.TextBlock]
@@ -266,6 +600,17 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
+
+
+class PromptSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Prompt]]
+    promptTemplateId: NotRequired[ID | None]
+    template: NotRequired[str]
+    format: NotRequired[PromptFormat]
+    inputs: NotRequired[dict[str, str]]
+    renderedText: NotRequired[str]
+    missingVariables: NotRequired[list[str]]
+    renderError: NotRequired[str | None]
 
 
 class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -282,6 +627,13 @@ class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     renderError: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
+class MetaControlSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.MetaControl]]
+    metaControlParamId: NotRequired[ID | None]
+    codeObjVariantMap: NotRequired[dict[ID, ID]]
+    showSectionTitle: NotRequired[bool]
+
+
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.MetaControl]
@@ -294,12 +646,21 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     showSectionTitle: NotRequired[bool | Callable[[bool], bool]]
 
 
+class SocialSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Social]]
+    url: NotRequired[str]
+
+
 class SocialSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Social]
         | Callable[[Literal[SectionType.Social]], Literal[SectionType.Social]]
     ]
     url: NotRequired[str | Callable[[str], str]]
+
+
+class GlobalVariablesSectionImplArgs(BaseDictSectionImplArgs):
+    type: NotRequired[Literal[SectionType.GlobalVariables]]
 
 
 class GlobalVariablesSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCallable):
@@ -309,6 +670,12 @@ class GlobalVariablesSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCall
             [Literal[SectionType.GlobalVariables]], Literal[SectionType.GlobalVariables]
         ]
     ]
+
+
+class CodeSectionImplArgs(BaseCodeSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Code]]
+    codeLanguage: NotRequired[CodeLanguage | str]
+    diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
 
 
 class CodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
@@ -327,6 +694,10 @@ class CodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
     ]
 
 
+class GenPythonCodeSectionImplArgs(BaseCodeSectionImplArgs):
+    type: NotRequired[Literal[SectionType.GenPythonCode]]
+
+
 class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.GenPythonCode]
@@ -334,6 +705,10 @@ class GenPythonCodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallab
             [Literal[SectionType.GenPythonCode]], Literal[SectionType.GenPythonCode]
         ]
     ]
+
+
+class GenPythonMetadataSectionImplArgs(BaseCodeSectionImplArgs):
+    type: NotRequired[Literal[SectionType.GenPythonMetadata]]
 
 
 class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
@@ -346,6 +721,10 @@ class GenPythonMetadataSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCa
     ]
 
 
+class TerminalSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Terminal]]
+
+
 class TerminalSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Terminal]
@@ -353,11 +732,38 @@ class TerminalSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
 
 
+class IFrameSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.IFrame]]
+
+
 class IFrameSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.IFrame]
         | Callable[[Literal[SectionType.IFrame]], Literal[SectionType.IFrame]]
     ]
+
+
+class ChatSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Chat]]
+    managed: NotRequired[bool]
+    engineConfigId: NotRequired[ID | None]
+    transcriptionProfileId: NotRequired[ID | None]
+    agentProfileId: NotRequired[ID | None]
+    chatId: NotRequired[ID | None]
+    thinking: NotRequired[bool]
+    permissionMode: NotRequired[ChatPermissionMode]
+    searchEnabled: NotRequired[bool]
+    dictationMode: NotRequired[ChatDictationMode]
+    messages: NotRequired[
+        list[
+            SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
+        ]
+    ]
+    inputText: NotRequired[str]
+    waitingForResponse: NotRequired[bool]
+    toolCallArguments: NotRequired[dict[str, str]]
+    activeBranchId: NotRequired[ID | None]
+    branches: NotRequired[dict[ID, ChatSectionBranch]]
 
 
 class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -411,6 +817,16 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
 
 
+class BrowserSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Browser]]
+    folder: NotRequired[str]
+    hideColumn: NotRequired[bool]
+    columnWidth: NotRequired[float | None]
+    typesColumnWidth: NotRequired[float | None]
+    viewMode: NotRequired[BrowserAreaViewMode]
+    savedSearches: NotRequired[list[BrowserSavedSearch]]
+
+
 class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Browser]
@@ -429,6 +845,14 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
 
 
+class PluginSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Plugin]]
+    pluginId: NotRequired[str]
+    kind: NotRequired[str]
+    data: NotRequired[dict[str, Any]]
+    schemaVersion: NotRequired[int | None]
+
+
 class PluginSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Plugin]
@@ -438,6 +862,13 @@ class PluginSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     kind: NotRequired[str | Callable[[str], str]]
     data: NotRequired[dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]]]
     schemaVersion: NotRequired[int | None | Callable[[int | None], int | None]]
+
+
+class TaskBoardSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.TaskBoard]]
+    viewMode: NotRequired[TaskBoardViewMode]
+    columns: NotRequired[list[TaskBoardColumn]]
+    tasks: NotRequired[list[TaskBoardTask]]
 
 
 class TaskBoardSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -456,6 +887,16 @@ class TaskBoardSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
 
 
+class SpreadsheetSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Spreadsheet]]
+    filePath: NotRequired[str]
+    activeSheet: NotRequired[str | None]
+    readOnly: NotRequired[bool]
+    showRowNumbers: NotRequired[bool]
+    density: NotRequired[SpreadsheetGridDensity]
+    autoReloadOnExternalChange: NotRequired[bool]
+
+
 class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Spreadsheet]
@@ -472,12 +913,28 @@ class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     autoReloadOnExternalChange: NotRequired[bool | Callable[[bool], bool]]
 
 
+class BaseCodeObjImplArgs(TypedDict):
+    type: NotRequired[Any]
+    id: NotRequired[ID]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    isPreset: NotRequired[bool]
+
+
 class BaseCodeObjImplArgsWithCallable(TypedDict):
     type: NotRequired[Any | Callable[[Any], Any]]
     id: NotRequired[ID | Callable[[ID], ID]]
     name: NotRequired[str | Callable[[str], str]]
     description: NotRequired[str | Callable[[str], str]]
     isPreset: NotRequired[bool | Callable[[bool], bool]]
+
+
+class BaseParamCodeObjImplArgs(BaseCodeObjImplArgs):
+    type: NotRequired[Any]
+    coreNameType: NotRequired[ParamNameType]
+    coreNameEditable: NotRequired[bool]
+    passingStyle: NotRequired[ParameterPassingStyle]
+    typeAnnotation: NotRequired[str]
 
 
 class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
@@ -490,15 +947,30 @@ class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     typeAnnotation: NotRequired[str | Callable[[str], str]]
 
 
+class BaseChildlessCodeObjImplArgs(BaseParamCodeObjImplArgs):
+    type: NotRequired[Any]
+    defaultVal: NotRequired[str]
+    value: NotRequired[str]
+
+
 class BaseChildlessCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     defaultVal: NotRequired[str | Callable[[str], str]]
     value: NotRequired[str | Callable[[str], str]]
 
 
+class BaseParentCodeObjImplArgs(BaseCodeObjImplArgs):
+    type: NotRequired[Any]
+    children: NotRequired[list[ID]]
+
+
 class BaseParentCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
+
+
+class CodeCallableCodeObjImplArgs(BaseParentCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.CodeCallable]]
 
 
 class CodeCallableCodeObjImplArgsWithCallable(BaseParentCodeObjImplArgsWithCallable):
@@ -510,11 +982,20 @@ class CodeCallableCodeObjImplArgsWithCallable(BaseParentCodeObjImplArgsWithCalla
     ]
 
 
+class CodeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.CodeParam]]
+
+
 class CodeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.CodeParam]
         | Callable[[Literal[CodeObjType.CodeParam]], Literal[CodeObjType.CodeParam]]
     ]
+
+
+class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.TextParam]]
+    uiType: NotRequired[TextParamInputUIType]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -525,6 +1006,15 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     uiType: NotRequired[
         TextParamInputUIType | Callable[[TextParamInputUIType], TextParamInputUIType]
     ]
+
+
+class DateParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.DateParam]]
+    dateDisplayFormat: NotRequired[DateDisplayFormat]
+    dateControlMode: NotRequired[DateControlMode]
+    dateSelectionMode: NotRequired[DateSelectionMode]
+    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
+    dateIncludesTime: NotRequired[bool]
 
 
 class DateParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -547,6 +1037,15 @@ class DateParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
 
 
+class TimeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.TimeParam]]
+    timeControlMode: NotRequired[TimeControlMode]
+    timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    timeDisplayTransparent: NotRequired[bool]
+    timeDisplayScale: NotRequired[float]
+    timeDisplayFont: NotRequired[TimeDisplayFont]
+
+
 class TimeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.TimeParam]
@@ -563,6 +1062,17 @@ class TimeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     timeDisplayFont: NotRequired[
         TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
     ]
+
+
+class ButtonParamCodeObjImplArgs(BaseParamCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.ButtonParam]]
+    label: NotRequired[str]
+    actionMode: NotRequired[ButtonActionMode]
+    requestMethod: NotRequired[HttpRequestMethod]
+    requestUrl: NotRequired[str]
+    requestHeaderKey: NotRequired[str]
+    requestHeaderValue: NotRequired[str]
+    requestBody: NotRequired[str]
 
 
 class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
@@ -583,6 +1093,13 @@ class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallabl
     requestBody: NotRequired[str | Callable[[str], str]]
 
 
+class SliderParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.SliderParam]]
+    min: NotRequired[int]
+    max: NotRequired[int]
+    step: NotRequired[int]
+
+
 class SliderParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.SliderParam]
@@ -591,6 +1108,13 @@ class SliderParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
     min: NotRequired[int | Callable[[int], int]]
     max: NotRequired[int | Callable[[int], int]]
     step: NotRequired[int | Callable[[int], int]]
+
+
+class RotaryParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.RotaryParam]]
+    min: NotRequired[float]
+    max: NotRequired[float]
+    step: NotRequired[float]
 
 
 class RotaryParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -603,11 +1127,20 @@ class RotaryParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
     step: NotRequired[float | Callable[[float], float]]
 
 
+class SwitchParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.SwitchParam]]
+
+
 class SwitchParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.SwitchParam]
         | Callable[[Literal[CodeObjType.SwitchParam]], Literal[CodeObjType.SwitchParam]]
     ]
+
+
+class ColorPickerParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.ColorPickerParam]]
+    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
 class ColorPickerParamCodeObjImplArgsWithCallable(
@@ -626,6 +1159,11 @@ class ColorPickerParamCodeObjImplArgsWithCallable(
     ]
 
 
+class DropdownParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.DropdownParam]]
+    choices: NotRequired[list[str]]
+
+
 class DropdownParamCodeObjImplArgsWithCallable(
     BaseChildlessCodeObjImplArgsWithCallable
 ):
@@ -636,6 +1174,11 @@ class DropdownParamCodeObjImplArgsWithCallable(
         ]
     ]
     choices: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+
+
+class PasswordParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.PasswordParam]]
+    hasSecret: NotRequired[bool]
 
 
 class PasswordParamCodeObjImplArgsWithCallable(
@@ -650,6 +1193,10 @@ class PasswordParamCodeObjImplArgsWithCallable(
     hasSecret: NotRequired[bool | Callable[[bool], bool]]
 
 
+class TextAreaParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.TextAreaParam]]
+
+
 class TextAreaParamCodeObjImplArgsWithCallable(
     BaseChildlessCodeObjImplArgsWithCallable
 ):
@@ -659,6 +1206,13 @@ class TextAreaParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.TextAreaParam]], Literal[CodeObjType.TextAreaParam]
         ]
     ]
+
+
+class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.DropzoneParam]]
+    mode: NotRequired[DropzoneMode]
+    maxAttachments: NotRequired[int | None]
+    placeholder: NotRequired[str]
 
 
 class DropzoneParamCodeObjImplArgsWithCallable(
@@ -673,6 +1227,10 @@ class DropzoneParamCodeObjImplArgsWithCallable(
     mode: NotRequired[DropzoneMode | Callable[[DropzoneMode], DropzoneMode]]
     maxAttachments: NotRequired[int | None | Callable[[int | None], int | None]]
     placeholder: NotRequired[str | Callable[[str], str]]
+
+
+class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.NestedParam]]
 
 
 class NestedParamCodeObjImplArgsWithCallable(

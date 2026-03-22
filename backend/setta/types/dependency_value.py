@@ -1,8 +1,16 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Literal
 
 from setta.types.binary_content import BinaryContentRef
-from setta.types.generated.go_shared_types import DependencyValueType
+
+
+class DependencyValueType(str, Enum):
+    """Enumerates supported dependency payload encodings."""
+
+    Literal = "Literal"
+    Binary = "Binary"
+    FileRead = "FileRead"
 
 
 @dataclass(frozen=True, slots=True)
