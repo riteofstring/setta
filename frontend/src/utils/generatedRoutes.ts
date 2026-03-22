@@ -139,6 +139,7 @@ export const GoHTTPRoutes = {
   runCode: "/runCode",
   runDetached: "/runDetached",
   getRunStatus: "/getRunStatus",
+  getRunnerSummary: "/getRunnerSummary",
   cancelRun: "/cancelRun",
   getAttachmentDownloadUrl: "/getAttachmentDownloadUrl",
   getAttachmentDownloadUrls: "/getAttachmentDownloadUrls",
@@ -742,6 +743,9 @@ export const GoHTTPRouteHelpers = {
   },
   getRunStatus(): string {
     return GoHTTPRoutes.getRunStatus;
+  },
+  getRunnerSummary(): string {
+    return GoHTTPRoutes.getRunnerSummary;
   },
   cancelRun(): string {
     return GoHTTPRoutes.cancelRun;
@@ -1399,6 +1403,7 @@ export const RouteEnum = {
   RUN_CODE: "/runCode",
   RUN_DETACHED: "/runDetached",
   GET_RUN_STATUS: "/getRunStatus",
+  GET_RUNNER_SUMMARY: "/getRunnerSummary",
   CANCEL_RUN: "/cancelRun",
   GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
   GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",

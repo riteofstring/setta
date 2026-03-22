@@ -207,6 +207,10 @@ type CancelRunRequestInput struct {
 	RunID string `json:"runId"`
 }
 
+type GetRunnerSummaryRequestInput struct {
+	ProjectID string `json:"projectConfigId"`
+}
+
 type RunChainStepInput struct {
 	ID                     string           `json:"id"`
 	Name                   string           `json:"name"`

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"setta/internal/projectstate"
+	"setta/internal/stringenumvalues"
 )
 
 var timeType = reflect.TypeOf(time.Time{})
@@ -5627,6 +5628,23 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Name:       t.Name(),
 			Kind:       "enum",
 			EnumValues: values,
+		})
+		return nil
+	}
+	if values, ok, err := stringenumvalues.Default().Values(t); err != nil {
+		return err
+	} else if ok {
+		enumValues := make([]EnumValue, 0, len(values))
+		for _, value := range values {
+			enumValues = append(enumValues, EnumValue{
+				Name:  value.Name,
+				Value: value.Value,
+			})
+		}
+		c.declarations = append(c.declarations, TypeDeclaration{
+			Name:       t.Name(),
+			Kind:       "enum",
+			EnumValues: enumValues,
 		})
 		return nil
 	}

@@ -17,6 +17,18 @@ from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
+from setta.types.generated.go_shared_types import (
+    BrowserAreaViewMode,
+    BrowserSearchScope,
+    ChatDictationMode,
+    ChatPermissionMode,
+    ListRootViewMode,
+    SpreadsheetGridDensity,
+    StateMachineGateType,
+    TaskBoardViewMode,
+    TextBlockDisplayMode,
+    TextBlockFormat,
+)
 from setta.types.id import ID, create_new_id
 from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -95,56 +107,6 @@ class TypeErrorIgnoreState(BaseModel, extra="forbid"):
 class CodeSectionDiagnosticsIgnoreState(BaseModel, extra="forbid"):
     muted: bool = False
     suppressedCodes: list[str | int] = Field(default_factory=list)
-
-
-class TextBlockDisplayMode(str, Enum):
-    Render = "Render"
-    Edit = "Edit"
-
-
-class TextBlockFormat(str, Enum):
-    Plaintext = "Plaintext"
-    Markdown = "Markdown"
-
-
-class ListRootViewMode(str, Enum):
-    default = "default"
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class BrowserAreaViewMode(str, Enum):
-    list = "list"
-    thumbnail = "thumbnail"
-    carousel = "carousel"
-
-
-class BrowserSearchScope(str, Enum):
-    recursive = "recursive"
-    local = "local"
-
-
-class ChatPermissionMode(str, Enum):
-    minimal = "minimal"
-    yolo = "yolo"
-    config_toml_custom = "config_toml_custom"
-
-
-class ChatDictationMode(str, Enum):
-    auto = "auto"
-    browser = "browser"
-    provider = "provider"
-
-
-class TaskBoardViewMode(str, Enum):
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class StateMachineGateType(str, Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
 
 
 class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
@@ -516,11 +478,6 @@ class TaskBoardSectionImpl(BaseSectionImpl):
     viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
     columns: list[TaskBoardColumn] = Field(default_factory=list)
     tasks: list[TaskBoardTask] = Field(default_factory=list)
-
-
-class SpreadsheetGridDensity(str, Enum):
-    compact = "compact"
-    comfortable = "comfortable"
 
 
 class SpreadsheetSectionImpl(BaseSectionImpl):

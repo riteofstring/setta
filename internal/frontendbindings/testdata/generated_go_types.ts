@@ -592,7 +592,15 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
 export type AgentRunList = Array<AgentRun>;
 
 
-export type DetachedRunStatus = string;
+export const DetachedRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+  lost: "lost",
+} as const;
+export type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
 
 
 export type DetachedRun = {
@@ -7522,10 +7530,23 @@ export function createMCPRuntimeStatusRequestInput(options: Partial<MCPRuntimeSt
 }
 
 
-export type MCPTransport = string;
+export const MCPTransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+export type MCPTransport = ObjectValues<typeof MCPTransportEnum>;
 
 
-export type MCPRuntimeState = string;
+export const MCPRuntimeStateEnum = {
+  connected: "connected",
+  connecting: "connecting",
+  retrying: "retrying",
+  error: "error",
+  disabled: "disabled",
+  unknown: "unknown",
+} as const;
+export type MCPRuntimeState = ObjectValues<typeof MCPRuntimeStateEnum>;
 
 
 export type MCPServerRuntimeStatus = {
@@ -7894,6 +7915,55 @@ export type GetRunStatusRequestInput = {
 };
 export function createGetRunStatusRequestInput(options: Partial<GetRunStatusRequestInput> = {}): GetRunStatusRequestInput {
   return options as GetRunStatusRequestInput;
+}
+
+
+export type GetRunnerSummaryRequestInput = {
+  projectConfigId: string;
+};
+export function createGetRunnerSummaryRequestInput(options: Partial<GetRunnerSummaryRequestInput> = {}): GetRunnerSummaryRequestInput {
+  return options as GetRunnerSummaryRequestInput;
+}
+
+
+export type RunnerSummaryVariant = {
+  id: string;
+  name: string;
+};
+export function createRunnerSummaryVariant(options: Partial<RunnerSummaryVariant> = {}): RunnerSummaryVariant {
+  return options as RunnerSummaryVariant;
+}
+
+
+export type RunnerSummaryParam = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+};
+export function createRunnerSummaryParam(options: Partial<RunnerSummaryParam> = {}): RunnerSummaryParam {
+  return options as RunnerSummaryParam;
+}
+
+
+export type RunnerSummarySection = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  supportsParams: boolean;
+  variants: Array<RunnerSummaryVariant>;
+  params: Array<RunnerSummaryParam>;
+};
+export function createRunnerSummarySection(options: Partial<RunnerSummarySection> = {}): RunnerSummarySection {
+  return options as RunnerSummarySection;
+}
+
+
+export type RunnerSummarySnapshot = {
+  projectConfigId: string;
+  sections: Array<RunnerSummarySection>;
+};
+export function createRunnerSummarySnapshot(options: Partial<RunnerSummarySnapshot> = {}): RunnerSummarySnapshot {
+  return options as RunnerSummarySnapshot;
 }
 
 

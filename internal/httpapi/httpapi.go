@@ -26,6 +26,7 @@ import (
 
 const apiPrefix = "/api"
 const RouteAPIPrefix = apiPrefix
+const RouteSDKRuntimeHandshake = "/sdkRuntimeHandshake"
 
 type InfoService interface {
 	ServerMode(context.Context) string
@@ -147,7 +148,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 		r.Get("/runtimeInfo", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, deps.Info.RuntimeInfo(r.Context()))
 		})
-		r.Get("/sdkRuntimeHandshake", func(w http.ResponseWriter, r *http.Request) {
+		r.Get(RouteSDKRuntimeHandshake, func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, deps.Info.SDKRuntimeHandshake(r.Context()))
 		})
 		if deps.Register != nil {

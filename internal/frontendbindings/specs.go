@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"setta/internal/httpapi"
+	"setta/internal/pythonsdkcontracts"
 	"setta/internal/wsapi"
 )
 
@@ -706,6 +707,11 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "getRunStatus",
 					Path:     httpapi.RouteGetRunStatus,
 					EnumName: "GET_RUN_STATUS",
+				},
+				{
+					Name:     "getRunnerSummary",
+					Path:     httpapi.RouteGetRunnerSummary,
+					EnumName: "GET_RUNNER_SUMMARY",
 				},
 				{
 					Name:     "cancelRun",
@@ -2532,6 +2538,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getRunStatus",
 			RequestType:     reflect.TypeOf(GetRunStatusRequestInput{}),
 			ResponseType:    reflect.TypeOf(DetachedRun{}),
+		},
+		{
+			FunctionName:    "route_get_runner_summary",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getRunnerSummary",
+			RequestType:     reflect.TypeOf(GetRunnerSummaryRequestInput{}),
+			ResponseType:    reflect.TypeOf(pythonsdkcontracts.RunnerSummarySnapshot{}),
 		},
 		{
 			FunctionName:    "route_cancel_run",

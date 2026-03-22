@@ -690,7 +690,7 @@ class SettaListener:
     def websocket_endpoint(self) -> str:
         """Compute the websocket endpoint for the current listener configuration."""
         base = f"ws://{self._host}:{self._port}"
-        route = Route.WEBSOCKET_LISTENER.value.format(id=self._socket_id)
+        route = Route.WEBSOCKET_LISTENER.value.format(listenerID=self._socket_id)
         endpoint = f"{base}{route}"
         if self._share_session_id is None:
             return endpoint

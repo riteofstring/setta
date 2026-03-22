@@ -117,6 +117,7 @@ FileArtifact
 FileMapping
 FileReadDependencyValue
 FrontendWebsocketMsgUnion
+GroupSectionImpl
 HttpRequestMethod
 ImageArtifact
 ImageMapping
@@ -174,6 +175,7 @@ ProjectCodegenTarget
 ProjectConfig
 ProjectStateSingleConfig
 ProjectStateSingleConfigWithCompletedOpIds
+PromptSectionImpl
 PromptTemplate
 RenameRefactorMode
 RotaryParamCodeObjImpl
@@ -269,7 +271,9 @@ UserDefaultChatSectionImpl
 UserDefaultCodeParamCodeObjImpl
 UserDefaultCodeSectionImpl
 UserDefaultDictSectionImpl
+UserDefaultGroupSectionImpl
 UserDefaultListRootSectionImpl
+UserDefaultPromptSectionImpl
 UserDefaultSpreadsheetSectionImpl
 UserDefaultStateMachineEndSectionImpl
 UserDefaultStateMachineGateSectionImpl

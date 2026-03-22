@@ -791,6 +791,12 @@ export async function route_get_run_status(x: gt.GetRunStatusRequestInput): Prom
 }
 
 
+export async function route_get_runner_summary(x: gt.GetRunnerSummaryRequestInput): Promise<ResponseDataAndStatus<gt.RunnerSummarySnapshot>> {
+
+  return await post(GoHTTPRouteHelpers.getRunnerSummary(), x);
+}
+
+
 export async function route_cancel_run(x: gt.CancelRunRequestInput): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
 
   return await post(GoHTTPRouteHelpers.cancelRun(), x);

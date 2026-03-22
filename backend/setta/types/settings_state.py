@@ -1,7 +1,3 @@
-from enum import Enum
+from setta.types.generated.go_shared_types import RunSnapshotMode
 
-
-class RunSnapshotMode(str, Enum):
-    always = "always"
-    ephemeral = "ephemeral"
-    never = "never"
+__all__ = ["RunSnapshotMode"]

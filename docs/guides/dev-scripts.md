@@ -129,6 +129,8 @@ These are the underlying tasks used by the wrappers above.
   - Regenerates templates/types from `frontend/generation/`.
 - `pnpm -C frontend generate-go-frontend-bindings`
   - Regenerates only the canonical frontend route/type/endpoint files.
+- `pnpm -C frontend generate-go-python-types`
+  - Regenerates the Go-owned Python SDK/shared types, then runs the generated-type prune pass.
 - `pnpm gcf`
   - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
@@ -149,6 +151,8 @@ Useful when you need to debug a specific subsystem.
   - Template/type generation (used by `pnpm generate`).
 - `frontend/generation/generate_go_frontend_bindings.sh`
   - Direct frontend route/type/endpoint generation helper.
+- `frontend/generation/generate_go_python_types.sh`
+  - Direct Go-to-Python generation helper (SDK contracts + shared types + generated-type pruning).
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
 

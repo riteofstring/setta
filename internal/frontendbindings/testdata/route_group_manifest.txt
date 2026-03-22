@@ -110,6 +110,7 @@ GoHTTPRoutes.getPasswordParamValue path=/getPasswordParamValue enum=GET_PASSWORD
 GoHTTPRoutes.getPromptTemplate path=/getPromptTemplate enum=GET_PROMPT_TEMPLATE
 GoHTTPRoutes.getPromptTemplates path=/getPromptTemplates enum=GET_PROMPT_TEMPLATES
 GoHTTPRoutes.getRunStatus path=/getRunStatus enum=GET_RUN_STATUS
+GoHTTPRoutes.getRunnerSummary path=/getRunnerSummary enum=GET_RUNNER_SUMMARY
 GoHTTPRoutes.getServerMode path=/serverMode enum=GET_SERVER_MODE
 GoHTTPRoutes.getSettaHomeInfo path=/settaHomeInfo enum=GET_SETTA_HOME_INFO
 GoHTTPRoutes.getStateMachineRun path=/getStateMachineRun enum=GET_STATE_MACHINE_RUN

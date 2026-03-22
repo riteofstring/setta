@@ -108,6 +108,7 @@ route_get_password_param_value POST GoHTTPRoutes.getPasswordParamValue pathParam
 route_get_prompt_template POST GoHTTPRoutes.getPromptTemplate pathParams=- request=GetPromptTemplateRequestInput response=PromptTemplate binary=false
 route_get_prompt_templates GET GoHTTPRoutes.getPromptTemplates pathParams=- request=- response=PromptTemplateListResponse binary=false
 route_get_run_status POST GoHTTPRoutes.getRunStatus pathParams=- request=GetRunStatusRequestInput response=DetachedRun binary=false
+route_get_runner_summary POST GoHTTPRoutes.getRunnerSummary pathParams=- request=GetRunnerSummaryRequestInput response=RunnerSummarySnapshot binary=false
 route_get_server_mode GET GoHTTPRoutes.getServerMode pathParams=- request=- response=ServerModeResponse binary=false
 route_get_setta_home_info GET GoHTTPRoutes.getSettaHomeInfo pathParams=- request=- response=SettaHomeInfoResponse binary=false
 route_get_share_deployment_latest GET GoHTTPRoutes.shareDeploymentLatest pathParams=DeploymentNameRouteParams request=- response=ShareDeploymentMetadata binary=false

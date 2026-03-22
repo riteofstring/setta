@@ -1,4 +1,3 @@
-from enum import Enum
+from setta.types.generated.go_shared_types import PromptFormat
 
-class PromptFormat(str, Enum):
-    Jinja = "Jinja"
+__all__ = ["PromptFormat"]

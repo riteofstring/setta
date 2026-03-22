@@ -81,11 +81,6 @@ BaseSectionImplUnion = (
     | SpreadsheetSectionImpl
 )
 
-BaseSectionImplUnionWithDiscriminator = Annotated[
-    BaseSectionImplUnion, Field(discriminator="type")
-]
-
-
 BaseCodeObjImplUnion = (
     CodeCallableCodeObjImpl
     | CodeParamCodeObjImpl
@@ -103,11 +98,6 @@ BaseCodeObjImplUnion = (
     | DropzoneParamCodeObjImpl
     | NestedParamCodeObjImpl
 )
-
-BaseCodeObjImplUnionWithDiscriminator = Annotated[
-    BaseCodeObjImplUnion, Field(discriminator="type")
-]
-
 
 BaseArtifactUnion = (
     ImageArtifact
