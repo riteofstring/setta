@@ -189,9 +189,6 @@ class UsageCollector(ast.NodeVisitor):
                 self._imported_modules[local_name] = full_module
                 continue
 
-            # Treat direct imports as usage even when the current module only
-            # re-exports the imported symbol via __all__.
-            self._mark_used(module_name, alias.name)
             self._imported_names[local_name] = (module_name, alias.name)
 
     def visit_Name(self, node: ast.Name) -> None:
