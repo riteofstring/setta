@@ -1482,6 +1482,7 @@ test.describe.serial("chat composer controls", () => {
     let initialLLMConfig: LLMConfigPayload | null = null;
     let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let restoreCompletionGuard: (() => Promise<void>) | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
@@ -1503,6 +1504,10 @@ test.describe.serial("chat composer controls", () => {
     });
 
     try {
+      restoreCompletionGuard = await setCompletionGuardEnabledForTest(
+        page,
+        true,
+      );
       const llmConfigResponse = await page.request.get(
         `${backendOrigin}/api/llm/config`,
       );
@@ -1684,6 +1689,9 @@ test.describe.serial("chat composer controls", () => {
           apiKeys: initialAPIKeysSnapshot.apiKeys,
           expectedRevision: latestAPIKeysSnapshot.revision,
         }).catch(() => {});
+      }
+      if (restoreCompletionGuard) {
+        await restoreCompletionGuard().catch(() => {});
       }
       await providerServer.close();
       await engineCleanup();
@@ -2117,6 +2125,7 @@ test.describe.serial("chat composer controls", () => {
     let initialLLMConfig: LLMConfigPayload | null = null;
     let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let restoreCompletionGuard: (() => Promise<void>) | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
@@ -2138,6 +2147,10 @@ test.describe.serial("chat composer controls", () => {
     });
 
     try {
+      restoreCompletionGuard = await setCompletionGuardEnabledForTest(
+        page,
+        true,
+      );
       const llmConfigResponse = await page.request.get(
         `${backendOrigin}/api/llm/config`,
       );
@@ -2313,6 +2326,9 @@ test.describe.serial("chat composer controls", () => {
           apiKeys: initialAPIKeysSnapshot.apiKeys,
           expectedRevision: latestAPIKeysSnapshot.revision,
         }).catch(() => {});
+      }
+      if (restoreCompletionGuard) {
+        await restoreCompletionGuard().catch(() => {});
       }
       await providerServer.close();
       await engineCleanup();
@@ -3137,6 +3153,7 @@ test.describe.serial("chat composer controls", () => {
     let initialLLMConfig: LLMConfigPayload | null = null;
     let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let restoreCompletionGuard: (() => Promise<void>) | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
@@ -3158,6 +3175,10 @@ test.describe.serial("chat composer controls", () => {
     });
 
     try {
+      restoreCompletionGuard = await setCompletionGuardEnabledForTest(
+        page,
+        true,
+      );
       const llmConfigResponse = await page.request.get(
         `${backendOrigin}/api/llm/config`,
       );
@@ -3343,6 +3364,9 @@ test.describe.serial("chat composer controls", () => {
           apiKeys: initialAPIKeysSnapshot.apiKeys,
           expectedRevision: latestAPIKeysSnapshot.revision,
         }).catch(() => {});
+      }
+      if (restoreCompletionGuard) {
+        await restoreCompletionGuard().catch(() => {});
       }
       await providerServer.close();
       await engineCleanup();
@@ -4629,12 +4653,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: newChatId,
-          runId: `${newChatId}-run`,
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify(newChatId),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {
@@ -4778,12 +4797,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat",
-          runId: "pw-context-chat-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -4890,12 +4904,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat-large-window",
-          runId: "pw-context-chat-large-window-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat-large-window"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -5002,12 +5011,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat-missing-usage",
-          runId: "pw-context-chat-missing-usage-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat-missing-usage"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -5101,12 +5105,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat-partial-usage",
-          runId: "pw-context-chat-partial-usage-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat-partial-usage"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -5246,12 +5245,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-managed-unavailable-slash",
-          runId: "pw-managed-unavailable-slash-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-managed-unavailable-slash"),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {
@@ -5346,12 +5340,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: fakeChatId,
-          runId: `${fakeChatId}-run`,
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify(fakeChatId),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {
@@ -5558,6 +5547,8 @@ test.describe.serial("chat composer controls", () => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
     const engineCleanup = await ensureManagedChatEngine(page);
+    let createdExternalAgentConfigId: string | null = null;
+    let createdExternalEngineConfigId: string | null = null;
 
     const backendOrigin =
       process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -5573,44 +5564,47 @@ test.describe.serial("chat composer controls", () => {
     if (!activeEngineId) {
       throw new Error("Missing managed LLM engine config for history test.");
     }
-    const externalEngine =
-      engineConfigs.find((config) => config.engineType === "external_agent") ??
-      null;
-    if (!externalEngine?.externalAgentConfigId) {
+    const createdExternalAgentConfig = await postBackend<{ id: string }>(
+      page,
+      "/createExternalAgentConfig",
+      {
+        name: "Codex History E2E",
+        toolType: "codex",
+        runMode: "app_server",
+        envVarWhitelist: [],
+        workingDirStrategy: "project_root",
+      },
+    );
+    createdExternalAgentConfigId = createdExternalAgentConfig?.id ?? null;
+    if (!createdExternalAgentConfigId) {
       throw new Error(
-        "Missing external engine config for mixed-engine history test.",
+        "Missing external agent config id for mixed-engine history test.",
       );
     }
-    const externalAgentConfigsResponse = await page.request.get(
-      `${backendOrigin}/api/getExternalAgentConfigs`,
+    const createdExternalEngine = await postBackend<EngineConfigSummary>(
+      page,
+      "/createEngineConfig",
+      {
+        name: "Codex History E2E",
+        engineType: "external_agent",
+        externalAgentConfigId: createdExternalAgentConfigId,
+        defaults: {},
+      },
     );
-    expect(externalAgentConfigsResponse.ok()).toBe(true);
-    const externalAgentConfigs =
-      (await externalAgentConfigsResponse.json()) as Array<{
-        id: string;
-        toolType: "codex" | "claude_code" | "opencode";
-      }>;
-    const externalAgentConfig = externalAgentConfigs.find(
-      (config) => config.id === externalEngine.externalAgentConfigId,
-    );
-    if (!externalAgentConfig) {
+    createdExternalEngineConfigId = createdExternalEngine?.id ?? null;
+    if (!createdExternalEngineConfigId) {
       throw new Error(
-        "Missing external agent config for mixed-engine history test.",
+        "Missing external engine config id for mixed-engine history test.",
       );
     }
-    const externalBadgeTextByToolType: Record<
-      "codex" | "claude_code" | "opencode",
-      string
-    > = {
-      codex: "codex",
-      claude_code: "claude",
-      opencode: "opencode",
-    };
-    const expectedExternalBadgeText =
-      externalBadgeTextByToolType[externalAgentConfig.toolType];
-    if (!expectedExternalBadgeText) {
-      throw new Error("Unsupported external agent tool type for history test.");
-    }
+    await page.evaluate(async () => {
+      const { loadEngineConfigs, loadExternalAgentConfigs } = await import(
+        "/src/state/actions/ai.ts"
+      );
+      await loadExternalAgentConfigs(true);
+      await loadEngineConfigs(true);
+    });
+    const expectedExternalBadgeText = "codex";
 
     const matchingChatId = "chat-resume-match";
     const mismatchedChatId = "chat-resume-mismatch";
@@ -5677,7 +5671,7 @@ test.describe.serial("chat composer controls", () => {
               runType: "external_agent",
               projectConfigId: projectContext.projectConfigId,
               chatId: externalChatId,
-              engineConfigId: externalEngine.id,
+              engineConfigId: createdExternalEngineConfigId,
               messages: [
                 {
                   id: "msg-external",
@@ -5752,6 +5746,22 @@ test.describe.serial("chat composer controls", () => {
         externalThreadEntry.getByTestId("project-chat-thread-agent-badge"),
       ).toHaveText(new RegExp(expectedExternalBadgeText, "i"));
     } finally {
+      if (createdExternalEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdExternalEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (createdExternalAgentConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteExternalAgentConfig`, {
+            data: { configId: createdExternalAgentConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -6526,6 +6536,60 @@ async function postManagedAPIKeys(
     );
   }
   return JSON.parse(text) as ManagedAPIKeysSnapshot;
+}
+
+async function setCompletionGuardEnabledForTest(
+  page: Page,
+  enabled: boolean,
+): Promise<() => Promise<void>> {
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const loadResponse = await page.request.post(
+    `${backendOrigin}/api/loadSettings`,
+    { data: null },
+  );
+  const loadText = await loadResponse.text();
+  if (!loadResponse.ok()) {
+    const detail = loadText ? ` ${loadText}` : "";
+    throw new Error(
+      `Backend request failed (${loadResponse.status()}): /loadSettings${detail}`,
+    );
+  }
+  const initialSettings = JSON.parse(loadText) as Record<string, unknown>;
+  const initialBackend =
+    initialSettings.backend &&
+    typeof initialSettings.backend === "object" &&
+    !Array.isArray(initialSettings.backend)
+      ? (initialSettings.backend as Record<string, unknown>)
+      : {};
+  await saveSettingsForTest(page, {
+    ...initialSettings,
+    backend: {
+      ...initialBackend,
+      completionGuardEnabled: enabled,
+    },
+  });
+  return async () => {
+    await saveSettingsForTest(page, initialSettings);
+  };
+}
+
+async function saveSettingsForTest(
+  page: Page,
+  settings: Record<string, unknown>,
+): Promise<void> {
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const saveResponse = await page.request.post(`${backendOrigin}/api/saveSettings`, {
+    data: { settings },
+  });
+  const saveText = await saveResponse.text();
+  if (!saveResponse.ok()) {
+    const detail = saveText ? ` ${saveText}` : "";
+    throw new Error(
+      `Backend request failed (${saveResponse.status()}): /saveSettings${detail}`,
+    );
+  }
 }
 
 async function startManagedOpenAIResponsesThinkingServer(): Promise<ManagedOpenAIResponsesProviderServer> {
