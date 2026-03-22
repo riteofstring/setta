@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 )
 
 type recordingManagedChatStarter struct {
+	mu       sync.Mutex
 	chatIDs  []string
 	runIDs   []string
 	requests []managedchat.StartChatRequest
@@ -25,9 +27,11 @@ type recordingManagedChatStarter struct {
 }
 
 func (s *recordingManagedChatStarter) StartChat(request managedchat.StartChatRequest) (managedchat.StartChatResult, error) {
+	s.mu.Lock()
 	s.requests = append(s.requests, request)
 	index := s.calls
 	s.calls++
+	s.mu.Unlock()
 	chatID := s.nextChatID(index)
 	if request.ChatID != nil && strings.TrimSpace(*request.ChatID) != "" {
 		chatID = strings.TrimSpace(*request.ChatID)
@@ -73,11 +77,14 @@ func (s *recordingManagedChatStarter) nextRunID(index int) string {
 }
 
 type recordingRunStopper struct {
+	mu      sync.Mutex
 	stopped []string
 }
 
 func (s *recordingRunStopper) StopRun(runID string) (agentruns.Run, error) {
+	s.mu.Lock()
 	s.stopped = append(s.stopped, runID)
+	s.mu.Unlock()
 	run := agentruns.NewRun(nil, map[string]any{}, testNow())
 	run.ID = runID
 	run.Status = agentruns.RunStatusCancelled
@@ -432,6 +439,665 @@ func TestRuntimeHandleTerminalChildRunUpdateCompletesParentRun(t *testing.T) {
 	}
 }
 
+func TestRuntimeStartRunRejectsMachineGroupWithoutEndSection(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		startOnlyRuntimeTestProject(t),
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+
+	_, err := fixture.runtime.StartRun("project-alpha", "workflow-start-only", nil, nil)
+	if !errors.Is(err, ErrInvalidStateMachineInput) {
+		t.Fatalf("expected typed invalid workflow input, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "at least one End section") {
+		t.Fatalf("expected missing-end detail, got %v", err)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateWaitsForAllCompletedChildrenBeforeANDGateFires(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		gateRuntimeTestProject(t, "workflow-gate-and", projectstate.StateMachineGateTypeAND, []string{"chat-a", "chat-b"}, nil),
+		nil,
+		[]string{"chat-managed-1", "chat-managed-2"},
+		[]string{"child-run-1", "child-run-2"},
+	)
+
+	_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-and", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	firstChildRun := setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusCompleted)
+	waiting, err := fixture.runtime.HandleTerminalChildRunUpdate(firstChildRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if waiting == nil {
+		t.Fatal("expected updated parent run after first completion")
+	}
+	if waiting.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running parent run while AND gate waits, got %#v", waiting)
+	}
+	if got := outputMap(*waiting, outputKeyGateStatuses)["gate-section"]; got != "waiting" {
+		t.Fatalf("expected waiting gate status, got %#v", outputMap(*waiting, outputKeyGateStatuses))
+	}
+	if got := outputStringList(*waiting, outputKeyFiredGateSectionIDs); len(got) != 0 {
+		t.Fatalf("expected no fired gates after first completion, got %#v", got)
+	}
+	if got := outputStringList(*waiting, outputKeyReachedEndSectionIDs); len(got) != 0 {
+		t.Fatalf("expected no reached ends while gate waits, got %#v", got)
+	}
+
+	secondChildRun := setChildRunStatus(t, fixture, "child-run-2", agentruns.RunStatusCompleted)
+	completed, err := fixture.runtime.HandleTerminalChildRunUpdate(secondChildRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if completed == nil {
+		t.Fatal("expected updated parent run after second completion")
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed parent run after AND gate satisfaction, got %#v", completed)
+	}
+	if got := outputStringList(*completed, outputKeyProcessedChildTerminalIDs); !slices.Equal(got, []string{"child-run-1", "child-run-2"}) {
+		t.Fatalf("expected both processed child terminal ids, got %#v", got)
+	}
+	if got := outputStringList(*completed, outputKeyFiredGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+		t.Fatalf("expected fired gate-section output, got %#v", got)
+	}
+	if got := outputMap(*completed, outputKeyGateStatuses)["gate-section"]; got != "satisfied" {
+		t.Fatalf("expected satisfied gate status, got %#v", outputMap(*completed, outputKeyGateStatuses))
+	}
+	if got := outputStringList(*completed, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
+		t.Fatalf("expected end-section reached output, got %#v", got)
+	}
+	if got := eventTypes(*completed); !slices.Equal(got[len(got)-6:], []string{
+		"child_run_completed",
+		"child_run_edges_activated",
+		"gate_input_activated",
+		"gate_satisfied",
+		"end_reached",
+		"run_completed",
+	}) {
+		t.Fatalf("expected AND gate completion event tail, got %#v", got)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateTracksAllANDGateInputsForThreeChatCompletions(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		gateRuntimeTestProject(t, "workflow-gate-three", projectstate.StateMachineGateTypeAND, []string{"chat-a", "chat-b", "chat-c"}, nil),
+		nil,
+		[]string{"chat-managed-1", "chat-managed-2", "chat-managed-3"},
+		[]string{"child-run-1", "child-run-2", "child-run-3"},
+	)
+
+	_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-three", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	afterFirst, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusCompleted))
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if afterFirst == nil {
+		t.Fatal("expected updated parent run after first completion")
+	}
+	firstChildRun, err := fixture.runs.Load("child-run-1")
+	if err != nil {
+		t.Fatalf("load first child run: %v", err)
+	}
+	firstGateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(firstChildRun, inputKeyStateMachineTargetSection))
+	gateInputs, ok := rawOutputMap(*afterFirst, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
+	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), []string{firstGateEdgeID}) {
+		t.Fatalf("expected first gate input to track %s, got %#v", firstGateEdgeID, rawOutputMap(*afterFirst, outputKeyGateInputEdgeIDs))
+	}
+
+	afterSecond, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-2", agentruns.RunStatusCompleted))
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if afterSecond == nil {
+		t.Fatal("expected updated parent run after second completion")
+	}
+	secondChildRun, err := fixture.runs.Load("child-run-2")
+	if err != nil {
+		t.Fatalf("load second child run: %v", err)
+	}
+	secondGateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(secondChildRun, inputKeyStateMachineTargetSection))
+	gateInputs, ok = rawOutputMap(*afterSecond, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
+	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), []string{firstGateEdgeID, secondGateEdgeID}) {
+		t.Fatalf("expected first two gate inputs to be tracked, got %#v", rawOutputMap(*afterSecond, outputKeyGateInputEdgeIDs))
+	}
+
+	afterThird, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-3", agentruns.RunStatusCompleted))
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if afterThird == nil {
+		t.Fatal("expected updated parent run after third completion")
+	}
+	thirdChildRun, err := fixture.runs.Load("child-run-3")
+	if err != nil {
+		t.Fatalf("load third child run: %v", err)
+	}
+	thirdGateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(thirdChildRun, inputKeyStateMachineTargetSection))
+	gateInputs, ok = rawOutputMap(*afterThird, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
+	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), []string{firstGateEdgeID, secondGateEdgeID, thirdGateEdgeID}) {
+		t.Fatalf("expected all gate inputs to remain visible on completion, got %#v", rawOutputMap(*afterThird, outputKeyGateInputEdgeIDs))
+	}
+	if got := outputStringList(*afterThird, outputKeyFiredGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+		t.Fatalf("expected fired gate-section output, got %#v", got)
+	}
+	if got := outputMap(*afterThird, outputKeyGateStatuses)["gate-section"]; got != "satisfied" {
+		t.Fatalf("expected satisfied gate status, got %#v", outputMap(*afterThird, outputKeyGateStatuses))
+	}
+	if got := outputStringList(*afterThird, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
+		t.Fatalf("expected end-section reached output, got %#v", got)
+	}
+	if got := eventTypes(*afterThird); !slices.Equal(got[len(got)-6:], []string{
+		"child_run_completed",
+		"child_run_edges_activated",
+		"gate_input_activated",
+		"gate_satisfied",
+		"end_reached",
+		"run_completed",
+	}) {
+		t.Fatalf("expected three-input AND gate completion event tail, got %#v", got)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionBecomesImpossible(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		gateRuntimeTestProject(t, "workflow-gate-and-blocked", projectstate.StateMachineGateTypeAND, []string{"chat-a", "chat-b"}, nil),
+		nil,
+		[]string{"chat-managed-1", "chat-managed-2"},
+		[]string{"child-run-1", "child-run-2"},
+	)
+
+	_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-and-blocked", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	failedChildRun := setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusFailed)
+	latest, err := fixture.runtime.HandleTerminalChildRunUpdate(failedChildRun)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if latest == nil {
+		t.Fatal("expected updated parent run after failed child")
+	}
+	if latest.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed parent run after gate block, got %#v", latest)
+	}
+	if got := outputMap(*latest, outputKeyGateStatuses)["gate-section"]; got != "blocked" {
+		t.Fatalf("expected blocked gate status, got %#v", outputMap(*latest, outputKeyGateStatuses))
+	}
+	if got := outputStringList(*latest, outputKeyBlockedGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+		t.Fatalf("expected blocked gate output, got %#v", got)
+	}
+	blockedDetail, ok := outputMap(*latest, outputKeyBlockedGateDetailsByID)["gate-section"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected blocked gate detail, got %#v", outputMap(*latest, outputKeyBlockedGateDetailsByID))
+	}
+	if blockedDetail["gateType"] != string(projectstate.StateMachineGateTypeAND) {
+		t.Fatalf("expected AND gate detail, got %#v", blockedDetail)
+	}
+	if got := len(anySliceToStrings(blockedDetail["requiredEdgeIds"].([]any))); got != 2 {
+		t.Fatalf("expected two required edge ids, got %#v", blockedDetail)
+	}
+	if got := len(anySliceToStrings(blockedDetail["impossibleEdgeIds"].([]any))); got != 2 {
+		t.Fatalf("expected two impossible edge ids after cancellation, got %#v", blockedDetail)
+	}
+	if got := outputStringList(*latest, outputKeyActiveChildRunIDs); len(got) != 0 {
+		t.Fatalf("expected no active child runs after gate block, got %#v", got)
+	}
+	if got := outputStringList(*latest, outputKeyProcessedChildTerminalIDs); !slices.Equal(got, []string{"child-run-1"}) {
+		t.Fatalf("expected only the failed child to be marked processed, got %#v", got)
+	}
+	failureSummary, ok := latest.Outputs[outputKeyFailureSummary].(map[string]any)
+	if !ok {
+		t.Fatalf("expected failure summary, got %#v", latest.Outputs)
+	}
+	if failureSummary["reason"] != "run_blocked" {
+		t.Fatalf("expected run_blocked failure reason, got %#v", failureSummary)
+	}
+	if failureSummary["message"] != "Workflow blocked at gate gate-section." {
+		t.Fatalf("expected gate-blocked failure message, got %#v", failureSummary)
+	}
+	if details, ok := failureSummary["details"].(map[string]any); !ok || !slices.Equal(anySliceToStrings(details["gateSectionIds"].([]any)), []string{"gate-section"}) {
+		t.Fatalf("expected gateSectionIds in failure details, got %#v", failureSummary)
+	}
+	if got := fixture.managedStopper.stopped; !slices.Equal(got, []string{"child-run-2"}) {
+		t.Fatalf("expected running sibling child to be cancelled, got %#v", got)
+	}
+	if got := eventTypes(*latest); !slices.Equal(got[len(got)-5:], []string{
+		"child_run_failed",
+		"gate_blocked",
+		"child_runs_cancelled",
+		"run_blocked",
+		"run_failed",
+	}) {
+		t.Fatalf("expected blocked AND gate event tail, got %#v", got)
+	}
+	if gateBlockedPayload := latest.Events[len(latest.Events)-4].Payload; len(anySliceToStrings(gateBlockedPayload["impossibleEdgeIds"].([]any))) != 1 {
+		t.Fatalf("expected pre-cancellation gate_blocked event to record the single impossible edge, got %#v", gateBlockedPayload)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateBlocksORAndXORWhenAllMatchingOutputsAreExhausted(t *testing.T) {
+	t.Parallel()
+
+	for _, gateType := range []projectstate.StateMachineGateType{
+		projectstate.StateMachineGateTypeOR,
+		projectstate.StateMachineGateTypeXOR,
+	} {
+		t.Run(string(gateType), func(t *testing.T) {
+			fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+				t,
+				gateRuntimeTestProject(t, "workflow-gate-"+strings.ToLower(string(gateType)), gateType, []string{"chat-a", "chat-b"}, nil),
+				nil,
+				[]string{"chat-managed-1", "chat-managed-2"},
+				[]string{"child-run-1", "child-run-2"},
+			)
+
+			_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-"+strings.ToLower(string(gateType)), nil, nil)
+			if err != nil {
+				t.Fatalf("StartRun returned error: %v", err)
+			}
+
+			firstFailed := setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusFailed)
+			waiting, err := fixture.runtime.HandleTerminalChildRunUpdate(firstFailed)
+			if err != nil {
+				t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+			}
+			if waiting == nil {
+				t.Fatal("expected updated parent run after first failed child")
+			}
+			if waiting.Status != agentruns.RunStatusRunning {
+				t.Fatalf("expected workflow to keep running while one qualifying completion remains possible, got %#v", waiting)
+			}
+
+			secondFailed := setChildRunStatus(t, fixture, "child-run-2", agentruns.RunStatusFailed)
+			latest, err := fixture.runtime.HandleTerminalChildRunUpdate(secondFailed)
+			if err != nil {
+				t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+			}
+			if latest == nil {
+				t.Fatal("expected updated parent run after second failed child")
+			}
+			if latest.Status != agentruns.RunStatusFailed {
+				t.Fatalf("expected failed parent run after all matching outputs were exhausted, got %#v", latest)
+			}
+			if got := outputMap(*latest, outputKeyGateStatuses)["gate-section"]; got != "blocked" {
+				t.Fatalf("expected blocked gate status, got %#v", outputMap(*latest, outputKeyGateStatuses))
+			}
+			if got := outputStringList(*latest, outputKeyBlockedGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+				t.Fatalf("expected blocked gate output, got %#v", got)
+			}
+			blockedDetail, ok := outputMap(*latest, outputKeyBlockedGateDetailsByID)["gate-section"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected blocked gate detail, got %#v", outputMap(*latest, outputKeyBlockedGateDetailsByID))
+			}
+			if blockedDetail["gateType"] != string(gateType) {
+				t.Fatalf("expected %s gate detail, got %#v", gateType, blockedDetail)
+			}
+			if got := len(anySliceToStrings(blockedDetail["requiredEdgeIds"].([]any))); got != 2 {
+				t.Fatalf("expected two required edge ids, got %#v", blockedDetail)
+			}
+			if got := len(anySliceToStrings(blockedDetail["impossibleEdgeIds"].([]any))); got != 2 {
+				t.Fatalf("expected two impossible edge ids, got %#v", blockedDetail)
+			}
+			if got := outputStringList(*latest, outputKeyReachedEndSectionIDs); len(got) != 0 {
+				t.Fatalf("expected no reached ends for blocked workflow, got %#v", got)
+			}
+			if got := outputStringList(*latest, outputKeyActiveChildRunIDs); len(got) != 0 {
+				t.Fatalf("expected no active child runs after gate block, got %#v", got)
+			}
+			failureSummary, ok := latest.Outputs[outputKeyFailureSummary].(map[string]any)
+			if !ok {
+				t.Fatalf("expected failure summary, got %#v", latest.Outputs)
+			}
+			if failureSummary["reason"] != "run_blocked" {
+				t.Fatalf("expected run_blocked failure reason, got %#v", failureSummary)
+			}
+			if failureSummary["message"] != "Workflow blocked at gate gate-section." {
+				t.Fatalf("expected gate-blocked failure message, got %#v", failureSummary)
+			}
+			if got := eventTypes(*latest); !slices.Equal(got[len(got)-3:], []string{
+				"gate_blocked",
+				"run_blocked",
+				"run_failed",
+			}) {
+				t.Fatalf("expected blocked gate event tail, got %#v", got)
+			}
+		})
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateGateTypesORAndXORFireAfterSingleCompletion(t *testing.T) {
+	t.Parallel()
+
+	for _, gateType := range []projectstate.StateMachineGateType{
+		projectstate.StateMachineGateTypeOR,
+		projectstate.StateMachineGateTypeXOR,
+	} {
+		t.Run(string(gateType), func(t *testing.T) {
+			fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+				t,
+				gateRuntimeTestProject(t, "workflow-gate-fire-"+strings.ToLower(string(gateType)), gateType, []string{"chat-a", "chat-b"}, nil),
+				nil,
+				[]string{"chat-managed-1", "chat-managed-2"},
+				[]string{"child-run-1", "child-run-2"},
+			)
+
+			_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-fire-"+strings.ToLower(string(gateType)), nil, nil)
+			if err != nil {
+				t.Fatalf("StartRun returned error: %v", err)
+			}
+
+			firstCompleted := setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusCompleted)
+			latest, err := fixture.runtime.HandleTerminalChildRunUpdate(firstCompleted)
+			if err != nil {
+				t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+			}
+			if latest == nil {
+				t.Fatal("expected updated parent run after first completed child")
+			}
+			if latest.Status != agentruns.RunStatusCompleted {
+				t.Fatalf("expected completed parent run after single qualifying completion, got %#v", latest)
+			}
+			if got := outputStringList(*latest, outputKeyProcessedChildTerminalIDs); !slices.Equal(got, []string{"child-run-1"}) {
+				t.Fatalf("expected processed child-run-1 tracking, got %#v", got)
+			}
+			if got := outputStringList(*latest, outputKeyFiredGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+				t.Fatalf("expected fired gate-section output, got %#v", got)
+			}
+			if got := outputStringList(*latest, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
+				t.Fatalf("expected end-section reached output, got %#v", got)
+			}
+		})
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateKeepsGateToChatWorkflowRunningAfterGateFires(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		gateRuntimeTestProject(t, "workflow-gate-chat", projectstate.StateMachineGateTypeAND, []string{"chat-a"}, stringPointer("chat-b")),
+		nil,
+		[]string{"chat-managed-1", "chat-managed-2"},
+		[]string{"child-run-1", "child-run-2"},
+	)
+
+	_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-chat", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	firstCompleted := setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusCompleted)
+	latest, err := fixture.runtime.HandleTerminalChildRunUpdate(firstCompleted)
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if latest == nil {
+		t.Fatal("expected updated parent run after first completed child")
+	}
+	if latest.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running parent run after gate dispatches follow-up chat, got %#v", latest)
+	}
+	if got := outputStringList(*latest, outputKeyFiredGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+		t.Fatalf("expected fired gate-section output, got %#v", got)
+	}
+	if got := outputStringList(*latest, outputKeyBlockedGateSectionIDs); len(got) != 0 {
+		t.Fatalf("expected no blocked gates after gate-to-chat dispatch, got %#v", got)
+	}
+	if latest.Outputs[outputKeyFailureSummary] != nil {
+		t.Fatalf("expected no failure summary after gate-to-chat dispatch, got %#v", latest.Outputs)
+	}
+	if got := outputStringList(*latest, outputKeyActiveChildRunIDs); !slices.Equal(got, []string{"child-run-2"}) {
+		t.Fatalf("expected the follow-up chat run to stay active, got %#v", got)
+	}
+	secondChildRun, err := fixture.runs.Load("child-run-2")
+	if err != nil {
+		t.Fatalf("load follow-up child run: %v", err)
+	}
+	if runInputString(secondChildRun, inputKeyStateMachineTargetSection) != "chat-b" {
+		t.Fatalf("expected follow-up child run to target chat-b, got %#v", secondChildRun.Inputs)
+	}
+	eventTypes := eventTypes(*latest)
+	if containsString(eventTypes, "gate_blocked") || containsString(eventTypes, "run_blocked") || containsString(eventTypes, "run_failed") {
+		t.Fatalf("expected gate-to-chat workflow to keep running without blocked/failure events, got %#v", eventTypes)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateBranchesGateEdgesBySourceActivationCount(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		gateSourceCountLoopRuntimeTestProject(t),
+		nil,
+		[]string{
+			"chat-managed-1", "chat-managed-2", "chat-managed-3",
+			"chat-managed-4", "chat-managed-5", "chat-managed-6",
+			"chat-managed-7", "chat-managed-8", "chat-managed-9",
+		},
+		[]string{
+			"child-run-1", "child-run-2", "child-run-3",
+			"child-run-4", "child-run-5", "child-run-6",
+			"child-run-7", "child-run-8", "child-run-9",
+		},
+	)
+
+	started, err := fixture.runtime.StartRun("project-alpha", "workflow-source-count", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+	if got := outputIntMap(started, outputKeySourceActivationCounts); got["start-section"] != 1 {
+		t.Fatalf("expected start-section activation count 1 after launch, got %#v", got)
+	}
+	if len(fixture.managedStarter.requests) != 3 {
+		t.Fatalf("expected three initial managed chat requests, got %#v", fixture.managedStarter.requests)
+	}
+	for _, childRunID := range []string{"child-run-1", "child-run-2", "child-run-3"} {
+		childRun, err := fixture.runs.Load(childRunID)
+		if err != nil {
+			t.Fatalf("load initial child run %q: %v", childRunID, err)
+		}
+		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != 0 {
+			t.Fatalf("expected initial child run source activation count 0, got %#v", childRun.Inputs)
+		}
+	}
+
+	var afterFirstLoop *agentruns.Run
+	for _, childRunID := range []string{"child-run-1", "child-run-2", "child-run-3"} {
+		afterFirstLoop, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
+		if err != nil {
+			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+		}
+	}
+	if afterFirstLoop == nil {
+		t.Fatal("expected updated parent run after first loop")
+	}
+	if afterFirstLoop.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running parent run after first gate loop, got %#v", afterFirstLoop)
+	}
+	if got := outputIntMap(*afterFirstLoop, outputKeySourceActivationCounts); got["chat-a"] != 1 || got["chat-b"] != 1 || got["chat-c"] != 1 || got["gate-section"] != 1 {
+		t.Fatalf("expected first-loop source activation counts, got %#v", got)
+	}
+	if len(fixture.managedStarter.requests) != 6 {
+		t.Fatalf("expected six managed chat requests after first loop, got %#v", fixture.managedStarter.requests)
+	}
+	for _, childRunID := range []string{"child-run-4", "child-run-5", "child-run-6"} {
+		childRun, err := fixture.runs.Load(childRunID)
+		if err != nil {
+			t.Fatalf("load second-loop child run %q: %v", childRunID, err)
+		}
+		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != 0 {
+			t.Fatalf("expected first branched loop to see gate source activation count 0, got %#v", childRun.Inputs)
+		}
+	}
+
+	var afterSecondLoop *agentruns.Run
+	for _, childRunID := range []string{"child-run-4", "child-run-5", "child-run-6"} {
+		afterSecondLoop, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
+		if err != nil {
+			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+		}
+	}
+	if afterSecondLoop == nil {
+		t.Fatal("expected updated parent run after second loop")
+	}
+	if afterSecondLoop.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running parent run after second gate loop, got %#v", afterSecondLoop)
+	}
+	if got := outputIntMap(*afterSecondLoop, outputKeySourceActivationCounts); got["chat-a"] != 2 || got["chat-b"] != 2 || got["chat-c"] != 2 || got["gate-section"] != 2 {
+		t.Fatalf("expected second-loop source activation counts, got %#v", got)
+	}
+	if len(fixture.managedStarter.requests) != 9 {
+		t.Fatalf("expected nine managed chat requests after second loop, got %#v", fixture.managedStarter.requests)
+	}
+	for _, childRunID := range []string{"child-run-7", "child-run-8", "child-run-9"} {
+		childRun, err := fixture.runs.Load(childRunID)
+		if err != nil {
+			t.Fatalf("load third-loop child run %q: %v", childRunID, err)
+		}
+		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != 1 {
+			t.Fatalf("expected second branched loop to see gate source activation count 1, got %#v", childRun.Inputs)
+		}
+	}
+
+	var completed *agentruns.Run
+	for _, childRunID := range []string{"child-run-7", "child-run-8", "child-run-9"} {
+		completed, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
+		if err != nil {
+			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+		}
+	}
+	if completed == nil {
+		t.Fatal("expected completed parent run after third loop")
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed parent run after final gate branch, got %#v", completed)
+	}
+	if got := outputIntMap(*completed, outputKeySourceActivationCounts); got["chat-a"] != 3 || got["chat-b"] != 3 || got["chat-c"] != 3 || got["gate-section"] != 3 {
+		t.Fatalf("expected final source activation counts, got %#v", got)
+	}
+	if got := outputStringList(*completed, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
+		t.Fatalf("expected end-section reached output, got %#v", got)
+	}
+	if got := eventTypes(*completed); !slices.Equal(got[len(got)-2:], []string{"end_reached", "run_completed"}) {
+		t.Fatalf("expected final completion event tail, got %#v", got)
+	}
+}
+
+func TestRuntimeHandleTerminalChildRunUpdateUsesStartTimeGraphSnapshotAfterDraftEdit(t *testing.T) {
+	t.Parallel()
+
+	project := stateMachineRuntimeTestProject(t)
+	project.StateMachineEdges = []projectstate.StateMachineEdge{
+		{
+			ID:              "edge-start-chat",
+			MachineGroupID:  "workflow-a",
+			SourceSectionID: "start-section",
+			SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+			TargetSectionID: "chat-section",
+			TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+			TargetAction: &projectstate.StateMachineTargetAction{
+				Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+				InlinePrompt:   stringPointer("Review the draft."),
+				ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+			},
+		},
+		{
+			ID:              "edge-chat-end",
+			MachineGroupID:  "workflow-a",
+			SourceSectionID: "chat-section",
+			SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+			TargetSectionID: "end-section",
+			TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+			SourceFilter: &projectstate.StateMachineSourceFilter{
+				Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+			},
+		},
+	}
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		project,
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+
+	started, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	if _, err := fixture.projectRuntime.SetStateMachineEdges(context.Background(), "project-alpha", []projectstate.StateMachineEdge{
+		{
+			ID:              "edge-start-chat",
+			MachineGroupID:  "workflow-a",
+			SourceSectionID: "start-section",
+			SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+			TargetSectionID: "chat-section",
+			TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+			TargetAction: &projectstate.StateMachineTargetAction{
+				Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+				InlinePrompt:   stringPointer("Review the draft."),
+				ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+			},
+		},
+		{
+			ID:              "edge-chat-end",
+			MachineGroupID:  "workflow-a",
+			SourceSectionID: "chat-section",
+			SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+			TargetSectionID: "end-section",
+			TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+			SourceFilter: &projectstate.StateMachineSourceFilter{
+				Type: projectstate.StateMachineSourceFilterTypeRunFailed,
+			},
+		},
+	}, nil); err != nil {
+		t.Fatalf("edit workflow edges after start: %v", err)
+	}
+
+	completed, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusCompleted))
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if completed == nil {
+		t.Fatal("expected updated parent run after child completion")
+	}
+	if completed.ID != started.ID {
+		t.Fatalf("expected the started parent run to be updated, got %#v", completed)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed parent run after draft edit, got %#v", completed)
+	}
+	if got := outputStringList(*completed, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
+		t.Fatalf("expected end-section reached output from the launch-time graph snapshot, got %#v", got)
+	}
+}
+
 func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpChat(t *testing.T) {
 	t.Parallel()
 
@@ -563,8 +1229,14 @@ func TestRuntimeHandleTerminalChildRunUpdateRoutesFailedChildRunToEnd(t *testing
 func TestRuntimeHandleTerminalChildRunUpdateFailsStalledWhenFailedChildHasNoMatchingTransition(t *testing.T) {
 	t.Parallel()
 
-	fixture := newRuntimeFixture(t)
-	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil)
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		stalledRuntimeTestProject(t, "workflow-stalled-failed"),
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-stalled-failed", nil, nil)
 	if err != nil {
 		t.Fatalf("StartRun returned error: %v", err)
 	}
@@ -618,8 +1290,14 @@ func TestRuntimeHandleTerminalChildRunUpdateFailsStalledWhenFailedChildHasNoMatc
 func TestRuntimeHandleTerminalChildRunUpdateFailsStalledWhenCancelledChildHasNoMatchingTransition(t *testing.T) {
 	t.Parallel()
 
-	fixture := newRuntimeFixture(t)
-	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-a", nil, nil)
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		stalledRuntimeTestProject(t, "workflow-stalled-cancelled"),
+		nil,
+		[]string{"chat-managed-1"},
+		[]string{"child-run-1"},
+	)
+	parentRun, err := fixture.runtime.StartRun("project-alpha", "workflow-stalled-cancelled", nil, nil)
 	if err != nil {
 		t.Fatalf("StartRun returned error: %v", err)
 	}
@@ -1509,16 +2187,19 @@ func promptSectionStartRuntimeTestProject(
 		SectionVariantMap: map[string]string{
 			"start-section": "start-variant",
 			"chat-section":  "chat-variant",
+			"end-section":   "end-variant",
 			promptSectionID: "prompt-variant",
 		},
 		Sections: map[string]projectstate.Section{
 			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
 			"chat-section":  {ID: "chat-section", Name: "Review Chat", VariantIDs: []string{"chat-variant"}, DefaultVariantID: "chat-variant"},
+			"end-section":   {ID: "end-section", Name: "Done", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
 			promptSectionID: {ID: promptSectionID, Name: "Prompt Section", VariantIDs: []string{"prompt-variant"}, DefaultVariantID: "prompt-variant"},
 		},
 		SectionVariants: map[string]projectstate.SectionVariant{
 			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
 			"chat-variant":   {ID: "chat-variant", ImplID: "chat-impl"},
+			"end-variant":    {ID: "end-variant", ImplID: "end-impl"},
 			"prompt-variant": {ID: "prompt-variant", ImplID: "prompt-impl"},
 		},
 		SectionImpls: map[string]projectstate.SectionImpl{
@@ -1535,6 +2216,12 @@ func promptSectionStartRuntimeTestProject(
 				"permissionMode": "minimal",
 				"searchEnabled":  true,
 				"chatId":         nil,
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": "workflow-prompt-section",
+				"label":          "Done",
 			})},
 			"prompt-impl": {ID: "prompt-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
 				"id":               "prompt-impl",
@@ -1563,6 +2250,17 @@ func promptSectionStartRuntimeTestProject(
 					ThreadStrategy:  projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
 				},
 			},
+			{
+				ID:              "edge-chat-end",
+				MachineGroupID:  "workflow-prompt-section",
+				SourceSectionID: "chat-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
 		},
 	}.Normalized()
 	if err != nil {
@@ -1581,16 +2279,19 @@ func parallelStartRuntimeTestProject(t *testing.T) projectstate.Project {
 			"start-section": "start-variant",
 			"chat-a":        "chat-a-variant",
 			"chat-b":        "chat-b-variant",
+			"end-section":   "end-variant",
 		},
 		Sections: map[string]projectstate.Section{
 			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
 			"chat-a":        {ID: "chat-a", Name: "Chat A", VariantIDs: []string{"chat-a-variant"}, DefaultVariantID: "chat-a-variant"},
 			"chat-b":        {ID: "chat-b", Name: "Chat B", VariantIDs: []string{"chat-b-variant"}, DefaultVariantID: "chat-b-variant"},
+			"end-section":   {ID: "end-section", Name: "Done", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
 		},
 		SectionVariants: map[string]projectstate.SectionVariant{
 			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
 			"chat-a-variant": {ID: "chat-a-variant", ImplID: "chat-a-impl"},
 			"chat-b-variant": {ID: "chat-b-variant", ImplID: "chat-b-impl"},
+			"end-variant":    {ID: "end-variant", ImplID: "end-impl"},
 		},
 		SectionImpls: map[string]projectstate.SectionImpl{
 			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
@@ -1612,6 +2313,12 @@ func parallelStartRuntimeTestProject(t *testing.T) projectstate.Project {
 				"engineConfigId": "engine-managed",
 				"permissionMode": "minimal",
 				"searchEnabled":  true,
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": "workflow-parallel",
+				"label":          "Done",
 			})},
 		},
 		StateMachineEdges: []projectstate.StateMachineEdge{
@@ -1641,6 +2348,28 @@ func parallelStartRuntimeTestProject(t *testing.T) projectstate.Project {
 					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
 				},
 			},
+			{
+				ID:              "edge-chat-a-end",
+				MachineGroupID:  "workflow-parallel",
+				SourceSectionID: "chat-a",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+			{
+				ID:              "edge-chat-b-end",
+				MachineGroupID:  "workflow-parallel",
+				SourceSectionID: "chat-b",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
 		},
 	}.Normalized()
 	if err != nil {
@@ -1659,16 +2388,19 @@ func followUpChatRuntimeTestProject(t *testing.T) projectstate.Project {
 			"start-section": "start-variant",
 			"chat-a":        "chat-a-variant",
 			"chat-b":        "chat-b-variant",
+			"end-section":   "end-variant",
 		},
 		Sections: map[string]projectstate.Section{
 			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
 			"chat-a":        {ID: "chat-a", Name: "Chat A", VariantIDs: []string{"chat-a-variant"}, DefaultVariantID: "chat-a-variant"},
 			"chat-b":        {ID: "chat-b", Name: "Chat B", VariantIDs: []string{"chat-b-variant"}, DefaultVariantID: "chat-b-variant"},
+			"end-section":   {ID: "end-section", Name: "Done", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
 		},
 		SectionVariants: map[string]projectstate.SectionVariant{
 			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
 			"chat-a-variant": {ID: "chat-a-variant", ImplID: "chat-a-impl"},
 			"chat-b-variant": {ID: "chat-b-variant", ImplID: "chat-b-impl"},
+			"end-variant":    {ID: "end-variant", ImplID: "end-impl"},
 		},
 		SectionImpls: map[string]projectstate.SectionImpl{
 			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
@@ -1692,6 +2424,12 @@ func followUpChatRuntimeTestProject(t *testing.T) projectstate.Project {
 				"permissionMode": "minimal",
 				"searchEnabled":  true,
 				"chatId":         nil,
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": "workflow-follow-up",
+				"label":          "Done",
 			})},
 		},
 		StateMachineEdges: []projectstate.StateMachineEdge{
@@ -1724,10 +2462,555 @@ func followUpChatRuntimeTestProject(t *testing.T) projectstate.Project {
 					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
 				},
 			},
+			{
+				ID:              "edge-chat-b-end",
+				MachineGroupID:  "workflow-follow-up",
+				SourceSectionID: "chat-b",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
 		},
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize follow-up workflow project: %v", err)
+	}
+	return project
+}
+
+func startOnlyRuntimeTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant": {ID: "start-variant", ImplID: "start-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-start-only",
+				"label":          "Draft Start",
+			})},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize start-only workflow project: %v", err)
+	}
+	return project
+}
+
+func stalledRuntimeTestProject(t *testing.T, machineGroupID string) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-section":  "chat-variant",
+			"end-section":   "end-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-section":  {ID: "chat-section", Name: "Review Chat", VariantIDs: []string{"chat-variant"}, DefaultVariantID: "chat-variant"},
+			"end-section":   {ID: "end-section", Name: "Done", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant": {ID: "start-variant", ImplID: "start-impl"},
+			"chat-variant":  {ID: "chat-variant", ImplID: "chat-impl"},
+			"end-variant":   {ID: "end-variant", ImplID: "end-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": machineGroupID,
+				"label":          "Kickoff",
+			})},
+			"chat-impl": {ID: "chat-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": machineGroupID,
+				"label":          "Done",
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat",
+				MachineGroupID:  machineGroupID,
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review the draft."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize stalled workflow project: %v", err)
+	}
+	return project
+}
+
+func gateRuntimeTestProject(
+	t *testing.T,
+	machineGroupID string,
+	gateType projectstate.StateMachineGateType,
+	sourceChatSectionIDs []string,
+	gateTargetChatID *string,
+) projectstate.Project {
+	t.Helper()
+
+	sectionVariantMap := map[string]string{
+		"start-section": "start-variant",
+		"gate-section":  "gate-variant",
+		"end-section":   "end-variant",
+	}
+	sections := map[string]projectstate.Section{
+		"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+		"gate-section":  {ID: "gate-section", Name: "Gate Section", VariantIDs: []string{"gate-variant"}, DefaultVariantID: "gate-variant"},
+		"end-section":   {ID: "end-section", Name: "End Section", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+	}
+	sectionVariants := map[string]projectstate.SectionVariant{
+		"start-variant": {ID: "start-variant", ImplID: "start-impl"},
+		"gate-variant":  {ID: "gate-variant", ImplID: "gate-impl"},
+		"end-variant":   {ID: "end-variant", ImplID: "end-impl"},
+	}
+	sectionImpls := map[string]projectstate.SectionImpl{
+		"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+			"id":             "start-impl",
+			"type":           "StateMachineStart",
+			"machineGroupId": machineGroupID,
+			"label":          "Start",
+		})},
+		"gate-impl": {ID: "gate-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+			"id":             "gate-impl",
+			"type":           "StateMachineGate",
+			"machineGroupId": machineGroupID,
+			"label":          "gate-section",
+			"gateType":       string(gateType),
+		})},
+		"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+			"id":             "end-impl",
+			"type":           "StateMachineEnd",
+			"machineGroupId": machineGroupID,
+			"label":          "Done",
+		})},
+	}
+	edges := make([]projectstate.StateMachineEdge, 0, len(sourceChatSectionIDs)*2+2)
+	for index, sectionID := range sourceChatSectionIDs {
+		variantID := sectionID + "-variant"
+		implID := sectionID + "-impl"
+		sectionVariantMap[sectionID] = variantID
+		sections[sectionID] = projectstate.Section{
+			ID:               sectionID,
+			Name:             strings.ToUpper(sectionID),
+			VariantIDs:       []string{variantID},
+			DefaultVariantID: variantID,
+		}
+		sectionVariants[variantID] = projectstate.SectionVariant{ID: variantID, ImplID: implID}
+		sectionImpls[implID] = projectstate.SectionImpl{
+			ID:   implID,
+			Kind: projectstate.SectionKind("frontend"),
+			Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             implID,
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			}),
+		}
+		edges = append(edges,
+			projectstate.StateMachineEdge{
+				ID:              fmt.Sprintf("edge-start-%s", sectionID),
+				MachineGroupID:  machineGroupID,
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: sectionID,
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer(fmt.Sprintf("Review branch %d.", index+1)),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			projectstate.StateMachineEdge{
+				ID:              fmt.Sprintf("edge-%s-gate", sectionID),
+				MachineGroupID:  machineGroupID,
+				SourceSectionID: sectionID,
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "gate-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+		)
+	}
+	if gateTargetChatID != nil {
+		sectionID := strings.TrimSpace(*gateTargetChatID)
+		variantID := sectionID + "-variant"
+		implID := sectionID + "-impl"
+		sectionVariantMap[sectionID] = variantID
+		sections[sectionID] = projectstate.Section{
+			ID:               sectionID,
+			Name:             strings.ToUpper(sectionID),
+			VariantIDs:       []string{variantID},
+			DefaultVariantID: variantID,
+		}
+		sectionVariants[variantID] = projectstate.SectionVariant{ID: variantID, ImplID: implID}
+		sectionImpls[implID] = projectstate.SectionImpl{
+			ID:   implID,
+			Kind: projectstate.SectionKind("frontend"),
+			Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             implID,
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			}),
+		}
+		edges = append(edges,
+			projectstate.StateMachineEdge{
+				ID:              "edge-gate-chat-target",
+				MachineGroupID:  machineGroupID,
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: sectionID,
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Take the follow-up pass."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			projectstate.StateMachineEdge{
+				ID:              "edge-chat-target-end",
+				MachineGroupID:  machineGroupID,
+				SourceSectionID: sectionID,
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+		)
+	} else {
+		edges = append(edges, projectstate.StateMachineEdge{
+			ID:              "edge-gate-end",
+			MachineGroupID:  machineGroupID,
+			SourceSectionID: "gate-section",
+			SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+			TargetSectionID: "end-section",
+			TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+		})
+	}
+
+	project, err := projectstate.Project{
+		ID:                "project-alpha",
+		Name:              "Alpha",
+		SectionVariantMap: sectionVariantMap,
+		Sections:          sections,
+		SectionVariants:   sectionVariants,
+		SectionImpls:      sectionImpls,
+		StateMachineEdges: edges,
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize gate workflow project: %v", err)
+	}
+	return project
+}
+
+func gateSourceCountLoopRuntimeTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"gate-section":  "gate-variant",
+			"end-section":   "end-variant",
+			"chat-a":        "chat-a-variant",
+			"chat-b":        "chat-b-variant",
+			"chat-c":        "chat-c-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"gate-section":  {ID: "gate-section", Name: "Gate Section", VariantIDs: []string{"gate-variant"}, DefaultVariantID: "gate-variant"},
+			"end-section":   {ID: "end-section", Name: "End Section", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+			"chat-a":        {ID: "chat-a", Name: "Chat A", VariantIDs: []string{"chat-a-variant"}, DefaultVariantID: "chat-a-variant"},
+			"chat-b":        {ID: "chat-b", Name: "Chat B", VariantIDs: []string{"chat-b-variant"}, DefaultVariantID: "chat-b-variant"},
+			"chat-c":        {ID: "chat-c", Name: "Chat C", VariantIDs: []string{"chat-c-variant"}, DefaultVariantID: "chat-c-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant":  {ID: "start-variant", ImplID: "start-impl"},
+			"gate-variant":   {ID: "gate-variant", ImplID: "gate-impl"},
+			"end-variant":    {ID: "end-variant", ImplID: "end-impl"},
+			"chat-a-variant": {ID: "chat-a-variant", ImplID: "chat-a-impl"},
+			"chat-b-variant": {ID: "chat-b-variant", ImplID: "chat-b-impl"},
+			"chat-c-variant": {ID: "chat-c-variant", ImplID: "chat-c-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-source-count",
+				"label":          "Start",
+			})},
+			"gate-impl": {ID: "gate-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "gate-impl",
+				"type":           "StateMachineGate",
+				"machineGroupId": "workflow-source-count",
+				"label":          "gate-section",
+				"gateType":       string(projectstate.StateMachineGateTypeAND),
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": "workflow-source-count",
+				"label":          "Done",
+			})},
+			"chat-a-impl": {ID: "chat-a-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-a-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+			})},
+			"chat-b-impl": {ID: "chat-b-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-b-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+			})},
+			"chat-c-impl": {ID: "chat-c-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-c-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat-a",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-a",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review branch A."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-start-chat-b",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-b",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review branch B."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-start-chat-c",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-c",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review branch C."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-chat-a-gate",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "chat-a",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "gate-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+			{
+				ID:              "edge-chat-b-gate",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "chat-b",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "gate-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+			{
+				ID:              "edge-chat-c-gate",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "chat-c",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "gate-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+			{
+				ID:              "edge-gate-loop-a-first",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-a",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    0,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Retry branch A once."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-gate-loop-b-first",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-b",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    0,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Retry branch B once."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-gate-loop-c-first",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-c",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    0,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Retry branch C once."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-gate-loop-a-second",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-a",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    1,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Retry branch A twice."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-gate-loop-b-second",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-b",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    1,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Retry branch B twice."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-gate-loop-c-second",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-c",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    1,
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Retry branch C twice."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-gate-end",
+				MachineGroupID:  "workflow-source-count",
+				SourceSectionID: "gate-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceActivationCountCondition: &projectstate.StateMachineSourceActivationCountCondition{
+					Operator: projectstate.StateMachineCountOperatorEQ,
+					Value:    2,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize source-count workflow project: %v", err)
 	}
 	return project
 }
@@ -2229,6 +3512,54 @@ func sameStringMembers(got []string, want []string) bool {
 		}
 	}
 	return len(gotCounts) == 0
+}
+
+func setChildRunStatus(t *testing.T, fixture runtimeFixture, childRunID string, status agentruns.RunStatus) agentruns.Run {
+	t.Helper()
+
+	childRun, err := fixture.runs.Load(childRunID)
+	if err != nil {
+		t.Fatalf("load child run %q: %v", childRunID, err)
+	}
+	childRun.Status = status
+	if status != agentruns.RunStatusRunning {
+		finishedAt := testNow()
+		childRun.FinishedAt = &finishedAt
+	}
+	if err := fixture.runs.Save(childRun); err != nil {
+		t.Fatalf("save child run %q with status %q: %v", childRunID, status, err)
+	}
+	return childRun
+}
+
+func anySliceToStrings(values []any) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		entry, ok := value.(string)
+		if !ok {
+			continue
+		}
+		result = append(result, entry)
+	}
+	return result
+}
+
+func numericInputValue(t *testing.T, run agentruns.Run, key string) int {
+	t.Helper()
+
+	value, ok := run.Inputs[key]
+	if !ok {
+		t.Fatalf("expected input %q on run %#v", key, run.Inputs)
+	}
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case float64:
+		return int(typed)
+	default:
+		t.Fatalf("expected numeric input %q, got %#v", key, value)
+		return 0
+	}
 }
 
 func testNow() time.Time {

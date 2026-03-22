@@ -50,6 +50,8 @@ const (
 	outputKeyGateInputEdgeIDs          = "gateInputEdgeIdsBySectionId"
 	outputKeyGateStatuses              = "gateStatusBySectionId"
 	outputKeyFiredGateSectionIDs       = "firedGateSectionIds"
+	outputKeyBlockedGateSectionIDs     = "blockedGateSectionIds"
+	outputKeyBlockedGateDetailsByID    = "blockedGateDetailsBySectionId"
 	outputKeyReachedEndSectionIDs      = "reachedEndSectionIds"
 	outputKeySignalEvents              = "signalEvents"
 	outputKeyProcessedSignalEventIDs   = "processedSignalEventIds"
@@ -156,6 +158,14 @@ type resolvedSignalReportContext struct {
 	graph                 graph
 	sourceSectionID       string
 	sourceActivationCount int
+}
+
+type progressState struct {
+	possibleGateSectionIDs        map[string]struct{}
+	possibleChatSourceSectionIDs  map[string]struct{}
+	possibleEndSectionIDs         map[string]struct{}
+	blockedGateSectionIDs         map[string]struct{}
+	blockedGateDetailsBySectionID map[string]map[string]any
 }
 
 func NewRuntime(options RuntimeOptions) (*Runtime, error) {
@@ -501,7 +511,17 @@ func (r *Runtime) ReportSignal(
 	}
 	markSignalEventProcessed(&resolved.parentRun, signalEvent)
 	r.incrementSourceActivationCount(&resolved.parentRun, resolved.sourceSectionID)
-	r.refreshOutputs(&resolved.parentRun, resolved.graph)
+	progress := r.computeProgressState(resolved.parentRun, resolved.graph)
+	r.refreshOutputsWithProgress(&resolved.parentRun, resolved.graph, progress)
+	if resolved.parentRun.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
+		if err := r.blockRun(&resolved.parentRun, resolved.graph, progress, normalizedProjectID); err != nil {
+			return nil, err
+		}
+		r.refreshOutputs(&resolved.parentRun, resolved.graph)
+	} else if resolved.parentRun.Status == agentruns.RunStatusRunning && shouldFailAsStalled(resolved.parentRun, progress) {
+		r.failRun(&resolved.parentRun, "run_stalled", "Workflow has no active children, pending signals, or reachable next step.", map[string]any{})
+		r.refreshOutputs(&resolved.parentRun, resolved.graph)
+	}
 	if err := r.runs.Save(resolved.parentRun); err != nil {
 		return nil, err
 	}
@@ -597,8 +617,14 @@ func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentru
 		}
 	}
 	r.incrementSourceActivationCount(&parentRun, sourceSectionID)
-	r.refreshOutputs(&parentRun, graph)
-	if shouldFailAsStalledAfterTerminalChild(parentRun, childRun) {
+	progress := r.computeProgressState(parentRun, graph)
+	r.refreshOutputsWithProgress(&parentRun, graph, progress)
+	if parentRun.Status == agentruns.RunStatusRunning && len(progress.blockedGateSectionIDs) > 0 {
+		if err := r.blockRun(&parentRun, graph, progress, projectConfigID); err != nil {
+			return nil, err
+		}
+		r.refreshOutputs(&parentRun, graph)
+	} else if shouldFailAsStalled(parentRun, progress) {
 		r.failRun(&parentRun, "run_stalled", "Workflow has no active children, pending signals, or reachable next step.", map[string]any{})
 		r.refreshOutputs(&parentRun, graph)
 	}
@@ -766,6 +792,7 @@ func (r *Runtime) resolveGraph(
 
 	sections := map[string]graphSection{}
 	startSectionIDs := []string{}
+	endSectionCount := 0
 	for sectionID := range project.Sections {
 		section, err := buildGraphSection(project, sectionID)
 		if err != nil {
@@ -780,11 +807,21 @@ func (r *Runtime) resolveGraph(
 			if section.Kind == graphSectionKindStart {
 				startSectionIDs = append(startSectionIDs, sectionID)
 			}
+			if section.Kind == graphSectionKindEnd {
+				endSectionCount++
+			}
 		}
 	}
 	if len(startSectionIDs) == 0 {
 		return graph{}, nil, fmt.Errorf(
 			"%w: state machine group %s does not have a Start section",
+			ErrInvalidStateMachineInput,
+			machineGroupID,
+		)
+	}
+	if endSectionCount == 0 {
+		return graph{}, nil, fmt.Errorf(
+			"%w: state machine group %s must resolve to at least one End section",
 			ErrInvalidStateMachineInput,
 			machineGroupID,
 		)
@@ -1653,6 +1690,8 @@ func (r *Runtime) ensureRunOutputsInitialized(run *agentruns.Run, graph graph) {
 		outputKeyGateInputEdgeIDs:          map[string]any{},
 		outputKeyGateStatuses:              map[string]any{},
 		outputKeyFiredGateSectionIDs:       []any{},
+		outputKeyBlockedGateSectionIDs:     []any{},
+		outputKeyBlockedGateDetailsByID:    map[string]any{},
 		outputKeyReachedEndSectionIDs:      []any{},
 		outputKeySignalEvents:              []any{},
 		outputKeyProcessedSignalEventIDs:   []any{},
@@ -1686,22 +1725,47 @@ func (r *Runtime) buildGateIncomingEdgeIDsBySectionID(graph graph) map[string]an
 }
 
 func (r *Runtime) refreshOutputs(run *agentruns.Run, graph graph) {
+	r.refreshOutputsWithProgress(run, graph, r.computeProgressState(*run, graph))
+}
+
+func (r *Runtime) refreshOutputsWithProgress(run *agentruns.Run, graph graph, progress progressState) {
 	gateInputEdgeIDs := map[string]any{}
-	for sectionID, section := range graph.Sections {
-		if section.Kind != graphSectionKindGate {
-			continue
+	blockedGateSectionIDs := cloneStringSet(progress.blockedGateSectionIDs)
+	blockedGateDetailsBySectionID := cloneAnyMapMapValues(progress.blockedGateDetailsBySectionID)
+	if run.Status != agentruns.RunStatusRunning {
+		for _, sectionID := range runBlockedGateSectionIDs(*run) {
+			blockedGateSectionIDs[sectionID] = struct{}{}
 		}
+		for sectionID, detail := range runBlockedGateDetailsBySectionID(*run) {
+			if _, ok := blockedGateDetailsBySectionID[sectionID]; ok {
+				continue
+			}
+			blockedGateDetailsBySectionID[sectionID] = cloneAnyMap(detail)
+		}
+	}
+	firedGateSectionIDs := outputStringList(*run, outputKeyFiredGateSectionIDs)
+	for _, sectionID := range gateSectionIDs(graph) {
 		inputIDs := r.currentGateInputEdgeIDs(*run, graph, sectionID)
+		if run.Status == agentruns.RunStatusCompleted && containsString(firedGateSectionIDs, sectionID) {
+			inputIDs = r.latestSatisfiedGateInputEdgeIDs(*run, graph, sectionID)
+		}
 		values := make([]any, 0, len(inputIDs))
 		for _, inputID := range inputIDs {
 			values = append(values, inputID)
 		}
 		gateInputEdgeIDs[sectionID] = values
-		if _, ok := rawOutputMap(*run, outputKeyGateStatuses)[sectionID]; !ok {
+		switch {
+		case stringSetContains(blockedGateSectionIDs, sectionID):
+			setGateStatus(run, sectionID, "blocked")
+		case containsString(firedGateSectionIDs, sectionID):
+			setGateStatus(run, sectionID, "satisfied")
+		default:
 			setGateStatus(run, sectionID, "waiting")
 		}
 	}
 	run.Outputs[outputKeyGateInputEdgeIDs] = gateInputEdgeIDs
+	run.Outputs[outputKeyBlockedGateSectionIDs] = stringSliceToAny(orderedSetIntersection(gateSectionIDs(graph), blockedGateSectionIDs))
+	run.Outputs[outputKeyBlockedGateDetailsByID] = mapOfMapsToAny(blockedGateDetailsBySectionID)
 }
 
 func (r *Runtime) currentGateInputEdgeIDs(run agentruns.Run, graph graph, gateSectionID string) []string {
@@ -1710,6 +1774,22 @@ func (r *Runtime) currentGateInputEdgeIDs(run agentruns.Run, graph graph, gateSe
 	activated := make([]string, 0)
 	for _, edge := range incomingEdges {
 		if r.edgeActivationCount(run, edge.ID) > gateActivationCount {
+			activated = append(activated, edge.ID)
+		}
+	}
+	slices.Sort(activated)
+	return activated
+}
+
+func (r *Runtime) latestSatisfiedGateInputEdgeIDs(run agentruns.Run, graph graph, gateSectionID string) []string {
+	gateActivationCount := r.sourceActivationCount(run, gateSectionID)
+	if gateActivationCount <= 0 {
+		return []string{}
+	}
+	incomingEdges := r.incomingEdges(graph, gateSectionID)
+	activated := make([]string, 0, len(incomingEdges))
+	for _, edge := range incomingEdges {
+		if r.edgeActivationCount(run, edge.ID) >= gateActivationCount {
 			activated = append(activated, edge.ID)
 		}
 	}
@@ -1730,6 +1810,8 @@ func (r *Runtime) clearMachineRunState(run *agentruns.Run) {
 	run.Outputs[outputKeyGateInputEdgeIDs] = map[string]any{}
 	run.Outputs[outputKeyGateStatuses] = map[string]any{}
 	run.Outputs[outputKeyFiredGateSectionIDs] = []any{}
+	run.Outputs[outputKeyBlockedGateSectionIDs] = []any{}
+	run.Outputs[outputKeyBlockedGateDetailsByID] = map[string]any{}
 	run.Outputs[outputKeyReachedEndSectionIDs] = []any{}
 	run.Outputs[outputKeySignalEvents] = []any{}
 	run.Outputs[outputKeyProcessedSignalEventIDs] = []any{}
@@ -1937,14 +2019,20 @@ func hasUnprocessedSignalEvents(run agentruns.Run) bool {
 	return false
 }
 
-func shouldFailAsStalledAfterTerminalChild(parentRun agentruns.Run, childRun agentruns.Run) bool {
-	if childRun.Status != agentruns.RunStatusFailed && childRun.Status != agentruns.RunStatusCancelled {
-		return false
-	}
+func shouldFailAsStalled(parentRun agentruns.Run, progress progressState) bool {
 	if parentRun.Status != agentruns.RunStatusRunning {
 		return false
 	}
 	if len(outputStringList(parentRun, outputKeyActiveChildRunIDs)) > 0 {
+		return false
+	}
+	if len(progress.possibleGateSectionIDs) > 0 {
+		return false
+	}
+	if len(progress.possibleChatSourceSectionIDs) > 0 {
+		return false
+	}
+	if len(progress.possibleEndSectionIDs) > 0 {
 		return false
 	}
 	return !hasUnprocessedSignalEvents(parentRun)
@@ -1954,6 +2042,48 @@ func setGateStatus(run *agentruns.Run, sectionID string, status string) {
 	statuses := rawOutputMap(*run, outputKeyGateStatuses)
 	statuses[sectionID] = status
 	run.Outputs[outputKeyGateStatuses] = statuses
+}
+
+func (r *Runtime) blockRun(run *agentruns.Run, graph graph, progress progressState, projectConfigID string) error {
+	blockedGateSectionIDs := orderedSetIntersection(gateSectionIDs(graph), progress.blockedGateSectionIDs)
+	for _, gateSectionID := range blockedGateSectionIDs {
+		r.appendEvent(run, "gate_blocked", cloneAnyMap(progress.blockedGateDetailsBySectionID[gateSectionID]))
+	}
+	stoppedChildRunIDs, err := r.stopRunningChildRuns(run.Clone(), projectConfigID)
+	if err != nil {
+		return err
+	}
+	if len(stoppedChildRunIDs) > 0 {
+		r.appendEvent(run, "child_runs_cancelled", map[string]any{
+			"childRunIds": stoppedChildRunIDs,
+		})
+		for _, stoppedChildRunID := range stoppedChildRunIDs {
+			r.removeActiveChildRunID(run, stoppedChildRunID)
+		}
+	}
+	gateDetailsBySectionID := mapOfMapsToAny(progress.blockedGateDetailsBySectionID)
+	blockedGateLabels := make([]string, 0, len(blockedGateSectionIDs))
+	for _, gateSectionID := range blockedGateSectionIDs {
+		blockedGateLabels = append(blockedGateLabels, sectionDisplayLabel(graph, gateSectionID))
+	}
+	failureMessage := ""
+	switch len(blockedGateLabels) {
+	case 0:
+		failureMessage = "Workflow blocked."
+	case 1:
+		failureMessage = fmt.Sprintf("Workflow blocked at gate %s.", blockedGateLabels[0])
+	default:
+		failureMessage = fmt.Sprintf("Workflow blocked at %d gates: %s.", len(blockedGateLabels), strings.Join(blockedGateLabels, ", "))
+	}
+	r.appendEvent(run, "run_blocked", map[string]any{
+		"gateSectionIds":         stringSliceToAny(blockedGateSectionIDs),
+		"gateDetailsBySectionId": gateDetailsBySectionID,
+	})
+	r.failRun(run, "run_blocked", failureMessage, map[string]any{
+		"gateSectionIds":         stringSliceToAny(blockedGateSectionIDs),
+		"gateDetailsBySectionId": gateDetailsBySectionID,
+	})
+	return nil
 }
 
 func edgeMatchesChildTerminalRun(edge projectstate.StateMachineEdge, childRun agentruns.Run) bool {
@@ -1990,6 +2120,206 @@ func edgeMatchesSignalEvent(edge projectstate.StateMachineEdge, signalEvent map[
 		return false
 	}
 	return value == derefOptionalString(edge.SourceFilter.Equals)
+}
+
+func (r *Runtime) computeProgressState(run agentruns.Run, graph graph) progressState {
+	if run.Status == agentruns.RunStatusCompleted {
+		return progressState{
+			possibleGateSectionIDs:        map[string]struct{}{},
+			possibleChatSourceSectionIDs:  map[string]struct{}{},
+			possibleEndSectionIDs:         map[string]struct{}{},
+			blockedGateSectionIDs:         map[string]struct{}{},
+			blockedGateDetailsBySectionID: map[string]map[string]any{},
+		}
+	}
+	possibleChatSourceSectionIDs := r.initialPossibleChatSourceSectionIDs(run)
+	possibleGateSectionIDs := map[string]struct{}{}
+	possibleEndSectionIDs := map[string]struct{}{}
+	for {
+		nextPossibleGateSectionIDs := map[string]struct{}{}
+		for _, gateSectionID := range gateSectionIDs(graph) {
+			if r.gateCanSatisfyLater(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
+				nextPossibleGateSectionIDs[gateSectionID] = struct{}{}
+			}
+		}
+		nextPossibleChatSourceSectionIDs := cloneStringSet(possibleChatSourceSectionIDs)
+		nextPossibleEndSectionIDs := cloneStringSet(possibleEndSectionIDs)
+		for _, edge := range graph.Edges {
+			if !r.edgeSourceCanActivateLater(edge, graph, run, nextPossibleGateSectionIDs, possibleChatSourceSectionIDs) {
+				continue
+			}
+			targetSection, ok := graph.Sections[edge.TargetSectionID]
+			if !ok {
+				continue
+			}
+			switch targetSection.Kind {
+			case graphSectionKindChat:
+				nextPossibleChatSourceSectionIDs[edge.TargetSectionID] = struct{}{}
+			case graphSectionKindEnd:
+				nextPossibleEndSectionIDs[edge.TargetSectionID] = struct{}{}
+			}
+		}
+		if stringSetEquals(nextPossibleGateSectionIDs, possibleGateSectionIDs) &&
+			stringSetEquals(nextPossibleChatSourceSectionIDs, possibleChatSourceSectionIDs) &&
+			stringSetEquals(nextPossibleEndSectionIDs, possibleEndSectionIDs) {
+			break
+		}
+		possibleGateSectionIDs = nextPossibleGateSectionIDs
+		possibleChatSourceSectionIDs = nextPossibleChatSourceSectionIDs
+		possibleEndSectionIDs = nextPossibleEndSectionIDs
+	}
+	blockedGateSectionIDs := map[string]struct{}{}
+	blockedGateDetailsBySectionID := map[string]map[string]any{}
+	for _, gateSectionID := range gateSectionIDs(graph) {
+		if !r.gateIsRelevant(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
+			continue
+		}
+		if stringSetContains(possibleGateSectionIDs, gateSectionID) {
+			continue
+		}
+		blockedGateSectionIDs[gateSectionID] = struct{}{}
+		blockedGateDetailsBySectionID[gateSectionID] = r.buildBlockedGateDetail(gateSectionID, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs)
+	}
+	return progressState{
+		possibleGateSectionIDs:        possibleGateSectionIDs,
+		possibleChatSourceSectionIDs:  possibleChatSourceSectionIDs,
+		possibleEndSectionIDs:         possibleEndSectionIDs,
+		blockedGateSectionIDs:         blockedGateSectionIDs,
+		blockedGateDetailsBySectionID: blockedGateDetailsBySectionID,
+	}
+}
+
+func (r *Runtime) initialPossibleChatSourceSectionIDs(run agentruns.Run) map[string]struct{} {
+	possible := map[string]struct{}{}
+	for _, childRunID := range outputStringList(run, outputKeyActiveChildRunIDs) {
+		childRun, err := r.runs.Load(childRunID)
+		if err != nil {
+			continue
+		}
+		if childRun.Status != agentruns.RunStatusRunning {
+			continue
+		}
+		sourceSectionID := runInputString(childRun, inputKeyStateMachineTargetSection)
+		if sourceSectionID == "" {
+			continue
+		}
+		possible[sourceSectionID] = struct{}{}
+	}
+	return possible
+}
+
+func (r *Runtime) gateCanSatisfyLater(
+	gateSectionID string,
+	graph graph,
+	run agentruns.Run,
+	possibleGateSectionIDs map[string]struct{},
+	possibleChatSourceSectionIDs map[string]struct{},
+) bool {
+	gateSection, ok := graph.Sections[gateSectionID]
+	if !ok || gateSection.GateType == nil {
+		return false
+	}
+	incomingEdges := r.incomingEdges(graph, gateSectionID)
+	possibleEdgeCount := 0
+	gateActivationCount := r.sourceActivationCount(run, gateSectionID)
+	for _, edge := range incomingEdges {
+		if r.edgeActivationCount(run, edge.ID) > gateActivationCount {
+			possibleEdgeCount++
+			continue
+		}
+		if r.edgeSourceCanActivateLater(edge, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
+			possibleEdgeCount++
+			continue
+		}
+		if *gateSection.GateType == projectstate.StateMachineGateTypeAND {
+			return false
+		}
+	}
+	return possibleEdgeCount > 0
+}
+
+func (r *Runtime) gateIsRelevant(
+	gateSectionID string,
+	graph graph,
+	run agentruns.Run,
+	possibleGateSectionIDs map[string]struct{},
+	possibleChatSourceSectionIDs map[string]struct{},
+) bool {
+	gateActivationCount := r.sourceActivationCount(run, gateSectionID)
+	for _, edge := range r.incomingEdges(graph, gateSectionID) {
+		if r.edgeActivationCount(run, edge.ID) > gateActivationCount {
+			return true
+		}
+		sourceActivationCount := r.sourceActivationCount(run, edge.SourceSectionID)
+		if sourceActivationCount > gateActivationCount && matchesSourceActivationCountCondition(edge, sourceActivationCount-1) {
+			return true
+		}
+		if r.edgeSourceCanActivateLater(edge, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runtime) edgeSourceCanActivateLater(
+	edge projectstate.StateMachineEdge,
+	graph graph,
+	run agentruns.Run,
+	possibleGateSectionIDs map[string]struct{},
+	possibleChatSourceSectionIDs map[string]struct{},
+) bool {
+	sourceSection, ok := graph.Sections[edge.SourceSectionID]
+	if !ok {
+		return false
+	}
+	if sourceSection.Kind == graphSectionKindStart {
+		return false
+	}
+	sourceActivationCount := r.sourceActivationCount(run, edge.SourceSectionID)
+	if !matchesSourceActivationCountCondition(edge, sourceActivationCount) {
+		return false
+	}
+	switch sourceSection.Kind {
+	case graphSectionKindGate:
+		return stringSetContains(possibleGateSectionIDs, edge.SourceSectionID)
+	case graphSectionKindChat:
+		return stringSetContains(possibleChatSourceSectionIDs, edge.SourceSectionID)
+	default:
+		return false
+	}
+}
+
+func (r *Runtime) buildBlockedGateDetail(
+	gateSectionID string,
+	graph graph,
+	run agentruns.Run,
+	possibleGateSectionIDs map[string]struct{},
+	possibleChatSourceSectionIDs map[string]struct{},
+) map[string]any {
+	gateSection, ok := graph.Sections[gateSectionID]
+	if !ok || gateSection.GateType == nil {
+		return map[string]any{}
+	}
+	incomingEdges := r.incomingEdges(graph, gateSectionID)
+	activatedEdgeIDs := r.currentGateInputEdgeIDs(run, graph, gateSectionID)
+	requiredEdgeIDs := make([]string, 0, len(incomingEdges))
+	impossibleEdgeIDs := make([]string, 0, len(incomingEdges))
+	for _, edge := range incomingEdges {
+		if containsString(activatedEdgeIDs, edge.ID) {
+			continue
+		}
+		requiredEdgeIDs = append(requiredEdgeIDs, edge.ID)
+		if !r.edgeSourceCanActivateLater(edge, graph, run, possibleGateSectionIDs, possibleChatSourceSectionIDs) {
+			impossibleEdgeIDs = append(impossibleEdgeIDs, edge.ID)
+		}
+	}
+	return map[string]any{
+		"gateSectionId":     gateSectionID,
+		"gateType":          string(*gateSection.GateType),
+		"activatedEdgeIds":  stringSliceToAny(activatedEdgeIDs),
+		"requiredEdgeIds":   stringSliceToAny(requiredEdgeIDs),
+		"impossibleEdgeIds": stringSliceToAny(impossibleEdgeIDs),
+	}
 }
 
 func matchesSourceActivationCountCondition(edge projectstate.StateMachineEdge, sourceActivationCount int) bool {
@@ -2039,6 +2369,29 @@ func edgeIDs(edges []projectstate.StateMachineEdge) []any {
 		result = append(result, edge.ID)
 	}
 	return result
+}
+
+func gateSectionIDs(graph graph) []string {
+	result := make([]string, 0)
+	for sectionID, section := range graph.Sections {
+		if section.Kind != graphSectionKindGate {
+			continue
+		}
+		result = append(result, sectionID)
+	}
+	slices.Sort(result)
+	return result
+}
+
+func sectionDisplayLabel(graph graph, sectionID string) string {
+	section, ok := graph.Sections[sectionID]
+	if !ok {
+		return sectionID
+	}
+	if strings.TrimSpace(section.Label) != "" {
+		return strings.TrimSpace(section.Label)
+	}
+	return sectionID
 }
 
 func edgeActionEventType(graph graph, action map[string]any) string {
@@ -2207,6 +2560,14 @@ func listOfMapsToAny(input []map[string]any) []any {
 	return result
 }
 
+func mapOfMapsToAny(input map[string]map[string]any) map[string]any {
+	result := make(map[string]any, len(input))
+	for key, value := range input {
+		result[key] = cloneAnyMap(value)
+	}
+	return result
+}
+
 func intMapToAny(input map[string]int) map[string]any {
 	result := make(map[string]any, len(input))
 	for key, value := range input {
@@ -2244,6 +2605,100 @@ func cloneAnyMap(input map[string]any) map[string]any {
 
 func cloneAnyMapMap(input map[string]any) map[string]any {
 	return cloneAnyMap(input)
+}
+
+func cloneAnyMapMapValues(input map[string]map[string]any) map[string]map[string]any {
+	result := make(map[string]map[string]any, len(input))
+	for key, value := range input {
+		result[key] = cloneAnyMap(value)
+	}
+	return result
+}
+
+func cloneStringSet(input map[string]struct{}) map[string]struct{} {
+	result := make(map[string]struct{}, len(input))
+	for key := range input {
+		result[key] = struct{}{}
+	}
+	return result
+}
+
+func stringSetEquals(left map[string]struct{}, right map[string]struct{}) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key := range left {
+		if _, ok := right[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func stringSetContains(values map[string]struct{}, key string) bool {
+	_, ok := values[key]
+	return ok
+}
+
+func orderedSetIntersection(order []string, values map[string]struct{}) []string {
+	result := make([]string, 0, len(values))
+	for _, key := range order {
+		if !stringSetContains(values, key) {
+			continue
+		}
+		result = append(result, key)
+	}
+	return result
+}
+
+func runBlockedGateSectionIDs(run agentruns.Run) []string {
+	failureSummary := outputMap(run, outputKeyFailureSummary)
+	reason, _ := failureSummary["reason"].(string)
+	if reason != "run_blocked" {
+		return []string{}
+	}
+	details, _ := failureSummary["details"].(map[string]any)
+	if details == nil {
+		return []string{}
+	}
+	rawGateSectionIDs, _ := details["gateSectionIds"].([]any)
+	if rawGateSectionIDs == nil {
+		return []string{}
+	}
+	gateSectionIDs := make([]string, 0, len(rawGateSectionIDs))
+	for _, rawGateSectionID := range rawGateSectionIDs {
+		gateSectionID, ok := rawGateSectionID.(string)
+		if !ok || strings.TrimSpace(gateSectionID) == "" {
+			continue
+		}
+		gateSectionIDs = append(gateSectionIDs, strings.TrimSpace(gateSectionID))
+	}
+	return gateSectionIDs
+}
+
+func runBlockedGateDetailsBySectionID(run agentruns.Run) map[string]map[string]any {
+	failureSummary := outputMap(run, outputKeyFailureSummary)
+	reason, _ := failureSummary["reason"].(string)
+	if reason != "run_blocked" {
+		return map[string]map[string]any{}
+	}
+	details, _ := failureSummary["details"].(map[string]any)
+	if details == nil {
+		return map[string]map[string]any{}
+	}
+	rawGateDetails, _ := details["gateDetailsBySectionId"].(map[string]any)
+	if rawGateDetails == nil {
+		return map[string]map[string]any{}
+	}
+	gateDetails := make(map[string]map[string]any, len(rawGateDetails))
+	for sectionID, rawDetail := range rawGateDetails {
+		detail, ok := rawDetail.(map[string]any)
+		if !ok {
+			continue
+		}
+		gateDetails[sectionID] = cloneAnyMap(detail)
+	}
+	return gateDetails
 }
 
 func cloneStringMap(input map[string]string) map[string]string {
