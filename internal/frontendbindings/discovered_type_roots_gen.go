@@ -16,6 +16,7 @@ import (
 	httpapi "setta/internal/httpapi"
 	llmconfig "setta/internal/llmconfig"
 	lspcompletion "setta/internal/lspcompletion"
+	mcpx "setta/internal/mcpx"
 	projectshell "setta/internal/projectshell"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
@@ -236,17 +237,17 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(AppGenSkillContent{}),
 		reflect.TypeOf(UpsertAppGenCustomSkillRequestInput{}),
 		reflect.TypeOf(UpsertAppGenCustomSkillResponse{}),
-		reflect.TypeOf(MCPTransport("")),
-		reflect.TypeOf(MCPRuntimeState("")),
-		reflect.TypeOf(MCPServerRuntimeStatus{}),
-		reflect.TypeOf(MCPRuntimeStatusRequestInput{}),
-		reflect.TypeOf(MCPRuntimeStatusResponse{}),
+		reflect.TypeOf((*MCPTransport)(nil)).Elem(),
+		reflect.TypeOf((*MCPRuntimeState)(nil)).Elem(),
+		reflect.TypeOf((*MCPServerRuntimeStatus)(nil)).Elem(),
+		reflect.TypeOf((*MCPRuntimeStatusRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*MCPRuntimeStatusResponse)(nil)).Elem(),
 		reflect.TypeOf(GetPasswordParamValueRequestInput{}),
 		reflect.TypeOf(GetPasswordParamValueResponse{}),
-		reflect.TypeOf(GetAttachmentDownloadURLRequestInput{}),
-		reflect.TypeOf(GetAttachmentDownloadURLResponse{}),
-		reflect.TypeOf(GetAttachmentDownloadURLsRequestInput{}),
-		reflect.TypeOf(AttachmentDownloadURLEntry{}),
+		reflect.TypeOf((*GetAttachmentDownloadURLRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*GetAttachmentDownloadURLResponse)(nil)).Elem(),
+		reflect.TypeOf((*GetAttachmentDownloadURLsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*AttachmentDownloadURLEntry)(nil)).Elem(),
 		reflect.TypeOf(GetAttachmentDownloadURLsResponse(nil)),
 		reflect.TypeOf(ForceRefreshListenerRequestInput{}),
 		reflect.TypeOf(ListenerCoverageRequestInput{}),
@@ -779,6 +780,15 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*artifacts.ArtifactSaveResult)(nil)).Elem(): reflect.TypeOf((*ArtifactSaveResult)(nil)).Elem(),
 		reflect.TypeOf((*artifacts.DeleteRequestItem)(nil)).Elem(): reflect.TypeOf((*DeleteArtifactRequestItem)(nil)).Elem(),
 		reflect.TypeOf((*artifacts.DeleteRequest)(nil)).Elem(): reflect.TypeOf((*DeleteArtifactsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*mcpx.Transport)(nil)).Elem(): reflect.TypeOf((*MCPTransport)(nil)).Elem(),
+		reflect.TypeOf((*mcpx.RuntimeState)(nil)).Elem(): reflect.TypeOf((*MCPRuntimeState)(nil)).Elem(),
+		reflect.TypeOf((*mcpx.ServerRuntimeStatus)(nil)).Elem(): reflect.TypeOf((*MCPServerRuntimeStatus)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.MCPRuntimeStatusRequest)(nil)).Elem(): reflect.TypeOf((*MCPRuntimeStatusRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.MCPRuntimeStatusResponse)(nil)).Elem(): reflect.TypeOf((*MCPRuntimeStatusResponse)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.GetAttachmentDownloadURLRequest)(nil)).Elem(): reflect.TypeOf((*GetAttachmentDownloadURLRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.GetAttachmentDownloadURLResponse)(nil)).Elem(): reflect.TypeOf((*GetAttachmentDownloadURLResponse)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.GetAttachmentDownloadURLsRequest)(nil)).Elem(): reflect.TypeOf((*GetAttachmentDownloadURLsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.AttachmentDownloadURLEntry)(nil)).Elem(): reflect.TypeOf((*AttachmentDownloadURLEntry)(nil)).Elem(),
 		reflect.TypeOf((*binary.ContentRef)(nil)).Elem(): reflect.TypeOf((*BinaryContentRef)(nil)).Elem(),
 		reflect.TypeOf((*filebrowser.RootResponse)(nil)).Elem(): reflect.TypeOf((*FileBrowserRootResponse)(nil)).Elem(),
 		reflect.TypeOf((*filebrowser.FolderContentItemType)(nil)).Elem(): reflect.TypeOf((*FolderContentItemType)(nil)).Elem(),

@@ -4,6 +4,8 @@ import (
 	"time"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/httpapi"
+	"setta/internal/mcpx"
 	"setta/internal/realtime"
 )
 
@@ -524,51 +526,30 @@ type UpsertAppGenCustomSkillResponse struct {
 	SkillContent AppGenSkillContent `json:"skillContent"`
 }
 
-type MCPTransport string
+type MCPTransport mcpx.Transport
 
 const (
-	MCPTransportSSE            MCPTransport = "sse"
-	MCPTransportStreamableHTTP MCPTransport = "streamable_http"
-	MCPTransportStdio          MCPTransport = "stdio"
+	MCPTransportSSE            MCPTransport = MCPTransport(mcpx.TransportSSE)
+	MCPTransportStreamableHTTP MCPTransport = MCPTransport(mcpx.TransportStreamableHTTP)
+	MCPTransportStdio          MCPTransport = MCPTransport(mcpx.TransportStdio)
 )
 
-type MCPRuntimeState string
+type MCPRuntimeState mcpx.RuntimeState
 
 const (
-	MCPRuntimeStateConnected  MCPRuntimeState = "connected"
-	MCPRuntimeStateConnecting MCPRuntimeState = "connecting"
-	MCPRuntimeStateRetrying   MCPRuntimeState = "retrying"
-	MCPRuntimeStateError      MCPRuntimeState = "error"
-	MCPRuntimeStateDisabled   MCPRuntimeState = "disabled"
-	MCPRuntimeStateUnknown    MCPRuntimeState = "unknown"
+	MCPRuntimeStateConnected  MCPRuntimeState = MCPRuntimeState(mcpx.RuntimeStateConnected)
+	MCPRuntimeStateConnecting MCPRuntimeState = MCPRuntimeState(mcpx.RuntimeStateConnecting)
+	MCPRuntimeStateRetrying   MCPRuntimeState = MCPRuntimeState(mcpx.RuntimeStateRetrying)
+	MCPRuntimeStateError      MCPRuntimeState = MCPRuntimeState(mcpx.RuntimeStateError)
+	MCPRuntimeStateDisabled   MCPRuntimeState = MCPRuntimeState(mcpx.RuntimeStateDisabled)
+	MCPRuntimeStateUnknown    MCPRuntimeState = MCPRuntimeState(mcpx.RuntimeStateUnknown)
 )
 
-type MCPServerRuntimeStatus struct {
-	ServerID            string          `json:"serverId"`
-	Source              string          `json:"source"`
-	Transport           MCPTransport    `json:"transport"`
-	Endpoint            string          `json:"endpoint"`
-	State               MCPRuntimeState `json:"state"`
-	LastAttemptAt       *time.Time      `json:"lastAttemptAt"`
-	LastConnectedAt     *time.Time      `json:"lastConnectedAt"`
-	LastFailureAt       *time.Time      `json:"lastFailureAt"`
-	ConsecutiveFailures int             `json:"consecutiveFailures"`
-	LastError           *string         `json:"lastError"`
-	MissingEnvVar       *string         `json:"missingEnvVar"`
-	ToolCount           int             `json:"toolCount"`
-}
+type MCPServerRuntimeStatus mcpx.ServerRuntimeStatus
 
-type MCPRuntimeStatusRequestInput struct {
-	ChatID         *string `json:"chatId"`
-	EngineConfigID *string `json:"engineConfigId"`
-}
+type MCPRuntimeStatusRequestInput httpapi.MCPRuntimeStatusRequest
 
-type MCPRuntimeStatusResponse struct {
-	LLMConfigPath            string                   `json:"llmConfigPath"`
-	ActiveSettaFilesLocation string                   `json:"activeSettaFilesLocation"`
-	Servers                  []MCPServerRuntimeStatus `json:"servers"`
-	ExternalServers          []MCPServerRuntimeStatus `json:"externalServers"`
-}
+type MCPRuntimeStatusResponse httpapi.MCPRuntimeStatusResponse
 
 type GetPasswordParamValueRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
@@ -580,26 +561,13 @@ type GetPasswordParamValueResponse struct {
 	Value string `json:"value"`
 }
 
-type GetAttachmentDownloadURLRequestInput struct {
-	ArtifactID      string  `json:"artifactId"`
-	ProjectConfigID *string `json:"projectConfigId"`
-}
+type GetAttachmentDownloadURLRequestInput httpapi.GetAttachmentDownloadURLRequest
 
-type GetAttachmentDownloadURLResponse struct {
-	URL       string `json:"url"`
-	ExpiresAt int64  `json:"expiresAt"`
-}
+type GetAttachmentDownloadURLResponse httpapi.GetAttachmentDownloadURLResponse
 
-type GetAttachmentDownloadURLsRequestInput struct {
-	ArtifactIDs     []string `json:"artifactIds"`
-	ProjectConfigID *string  `json:"projectConfigId"`
-}
+type GetAttachmentDownloadURLsRequestInput httpapi.GetAttachmentDownloadURLsRequest
 
-type AttachmentDownloadURLEntry struct {
-	ArtifactID string `json:"artifactId"`
-	URL        string `json:"url"`
-	ExpiresAt  int64  `json:"expiresAt"`
-}
+type AttachmentDownloadURLEntry httpapi.AttachmentDownloadURLEntry
 
 type GetAttachmentDownloadURLsResponse []AttachmentDownloadURLEntry
 
