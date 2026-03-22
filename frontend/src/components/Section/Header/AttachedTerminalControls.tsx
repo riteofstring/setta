@@ -8,14 +8,26 @@ import {
   getCurrProjectConfigId,
   getEmbeddedAttachedTerminalForCodeSection,
   isBaseCodeSectionType,
+  processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_create_child_sections,
+  route_get_latest_project_state,
   route_toggle_minimized,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  type CreateChildSectionsResponse,
+  type ProjectStateSingleConfigWithCompletedOpIds,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
+
+type CreateChildSectionsRouteResponse =
+  ResponseDataAndStatus<CreateChildSectionsResponse>;
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
 
 export function AttachedTerminalControls({
   sectionId,
@@ -77,13 +89,7 @@ export function AttachedTerminalControls({
         return;
       }
       setIsCreatingTerminal(true);
-      void route_create_child_sections({
-        projectConfigId: getCurrProjectConfigId(),
-        parentId: sectionId,
-        implType: SectionTypeEnum.Terminal,
-        numChildren: 1,
-        startIdx: 0,
-      }).finally(() => {
+      void createAttachedTerminalAndRefreshProjectState(sectionId).finally(() => {
         setIsCreatingTerminal(false);
       });
       return;
@@ -122,4 +128,30 @@ export function AttachedTerminalControls({
       </button>
     </>
   );
+}
+
+async function createAttachedTerminalAndRefreshProjectState(
+  sectionId: string,
+): Promise<void> {
+  const projectConfigId = getCurrProjectConfigId();
+  const createResponse: CreateChildSectionsRouteResponse =
+    await route_create_child_sections({
+      projectConfigId,
+      parentId: sectionId,
+      implType: SectionTypeEnum.Terminal,
+      numChildren: 1,
+      startIdx: 0,
+    });
+  if (!res200(createResponse)) {
+    return;
+  }
+
+  const latestProjectStateResponse: LatestProjectStateRouteResponse =
+    await route_get_latest_project_state({
+      projectConfigId,
+    });
+  if (!res200(latestProjectStateResponse)) {
+    return;
+  }
+  processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
 }

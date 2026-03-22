@@ -8,32 +8,22 @@ import {
 import { createTheme } from "@uiw/codemirror-themes";
 import { useLocalStorage } from "state/definitions";
 
-const MONOSPACE_FONT_FAMILY =
-  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-
-type CodeMirrorStyleFontFamily = "inherit" | "monospace";
-
-type CodeMirrorStyleOptions = {
-  fontFamily?: CodeMirrorStyleFontFamily;
+const commonSettings = {
+  background: "#ffffff00",
+  gutterBackground: "#FFFFFF00",
+  // fontFamily:
+  //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
+  // gutterForeground: "#4D4D4C00",
+  gutterBorder: "#dddddd00",
 };
 
-function getCommonSettings(fontFamily: string) {
-  return {
-    background: "#ffffff00",
-    gutterBackground: "#FFFFFF00",
-    fontFamily,
-    // gutterForeground: "#4D4D4C00",
-    gutterBorder: "#dddddd00",
-  };
-}
-
-function boringTheme(darkMode: boolean, color: string, fontFamily: string) {
+function boringTheme(darkMode, color) {
   const defaultSettingsGithub = darkMode
     ? defaultSettingsGithubDark
     : defaultSettingsGithubLight;
   return createTheme({
     theme: darkMode ? "dark" : "light",
-    settings: { ...defaultSettingsGithub, ...getCommonSettings(fontFamily) },
+    settings: { ...defaultSettingsGithub, ...commonSettings },
     styles: [
       { tag: [t.comment, t.bracket], color },
       { tag: t.variableName, color },
@@ -53,44 +43,25 @@ function boringTheme(darkMode: boolean, color: string, fontFamily: string) {
   });
 }
 
-function buildThemeSet(fontFamily: string) {
-  return {
-    githubDark: githubDarkInit({
-      settings: getCommonSettings(fontFamily),
-    }),
-    githubLight: githubLightInit({
-      settings: getCommonSettings(fontFamily),
-    }),
-    greenDark: boringTheme(true, "#7ee787", fontFamily),
-    greenLight: boringTheme(false, "hsla(157, 100%, 28%, 1)", fontFamily),
-  };
-}
+const githubDarkTheme = githubDarkInit({
+  settings: commonSettings,
+});
 
-const THEMES_BY_FONT_FAMILY: Record<
-  CodeMirrorStyleFontFamily,
-  ReturnType<typeof buildThemeSet>
-> = {
-  inherit: buildThemeSet("inherit"),
-  monospace: buildThemeSet(MONOSPACE_FONT_FAMILY),
-};
+const githubLightTheme = githubLightInit({
+  settings: commonSettings,
+});
 
-export function useCodeMirrorStyle(
-  color?: string,
-  options: CodeMirrorStyleOptions = {},
-) {
+const greenDarkTheme = boringTheme(true, "#7ee787");
+const greenLightTheme = boringTheme(false, "hsla(157, 100%, 28%, 1)");
+
+export function useCodeMirrorStyle(color) {
   const darkMode = useLocalStorage((x) => x.darkMode);
-  return getCodeMirrorStyle(darkMode, color, options);
+  return getCodeMirrorStyle(darkMode, color);
 }
 
-export function getCodeMirrorStyle(
-  darkMode: boolean,
-  color?: string,
-  options: CodeMirrorStyleOptions = {},
-) {
-  const fontFamily = options.fontFamily ?? "monospace";
-  const themeSet = THEMES_BY_FONT_FAMILY[fontFamily];
+export function getCodeMirrorStyle(darkMode, color) {
   if (color === "green") {
-    return darkMode ? themeSet.greenDark : themeSet.greenLight;
+    return darkMode ? greenDarkTheme : greenLightTheme;
   }
-  return darkMode ? themeSet.githubDark : themeSet.githubLight;
+  return darkMode ? githubDarkTheme : githubLightTheme;
 }
