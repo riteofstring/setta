@@ -1,5 +1,10 @@
 package frontendbindings
 
+import (
+	"setta/internal/artifacts"
+	"setta/internal/projectstate"
+)
+
 type BinaryUploadRequestInput struct{}
 
 type BinaryDownloadRequestInput struct {
@@ -8,34 +13,15 @@ type BinaryDownloadRequestInput struct {
 
 type BinaryDownloadResponse struct{}
 
-type ImportFilesToArtifactsRequestInput struct {
-	Paths       []string `json:"paths"`
-	UploadScope string   `json:"uploadScope"`
-}
+type ImportFilesToArtifactsRequestInput artifacts.ImportFilesRequest
 
-type ImportFilesToArtifactsResponseItem struct {
-	Kind     string `json:"kind"`
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	MimeType string `json:"mimeType"`
-	Size     int    `json:"size"`
-}
+type ImportFilesToArtifactsResponseItem artifacts.ImportFilesResponseItem
 
 type ImportFilesToArtifactsResponse []ImportFilesToArtifactsResponseItem
 
-type LoadCachedArtifactsRequestInput struct {
-	Paths []string `json:"paths"`
-}
+type LoadCachedArtifactsRequestInput artifacts.LoadCachedPathsRequest
 
-type ArtifactType string
-
-const (
-	ArtifactTypeImage                      ArtifactType = "Image"
-	ArtifactTypeBrushStroke                ArtifactType = "BrushStroke"
-	ArtifactTypeDrawAreaLayerItemTransform ArtifactType = "DrawAreaLayerItemTransform"
-	ArtifactTypeChartData                  ArtifactType = "ChartData"
-	ArtifactTypeFile                       ArtifactType = "File"
-)
+type ArtifactType = artifacts.ArtifactType
 
 type DrawAreaBrushShape string
 
@@ -81,11 +67,7 @@ type DrawAreaLayerItemTransform struct {
 	EraserStrokes []BrushStrokeWithTransform `json:"eraserStrokes"`
 }
 
-type DrawAreaLayerItem struct {
-	Type        ArtifactType `json:"type"`
-	DataPath    string       `json:"dataPath"`
-	TransformID string       `json:"transformId"`
-}
+type DrawAreaLayerItem = projectstate.DrawAreaLayerItem
 
 type DrawAreaLayer struct {
 	Name         string              `json:"name"`
@@ -94,11 +76,7 @@ type DrawAreaLayer struct {
 	LayerOpacity float64             `json:"layerOpacity"`
 }
 
-type ImageArtifact struct {
-	Type  ArtifactType     `json:"type"`
-	ID    string           `json:"id"`
-	Value BinaryContentRef `json:"value"`
-}
+type ImageArtifact = artifacts.ImageArtifact
 
 type BrushStrokeArtifact struct {
 	Type  ArtifactType `json:"type"`
@@ -116,17 +94,9 @@ type ChartDataScalar struct{}
 
 type ChartDataValue map[string][]ChartDataScalar
 
-type ChartDataArtifact struct {
-	Type  ArtifactType   `json:"type"`
-	ID    string         `json:"id"`
-	Value ChartDataValue `json:"value"`
-}
+type ChartDataArtifact = artifacts.ChartDataArtifact
 
-type FileArtifact struct {
-	Type  ArtifactType     `json:"type"`
-	ID    string           `json:"id"`
-	Value BinaryContentRef `json:"value"`
-}
+type FileArtifact = artifacts.FileArtifact
 
 type ArtifactUnion struct{}
 
@@ -140,30 +110,11 @@ type ChartDataMapping map[string]ChartDataArtifact
 
 type FileMapping map[string]FileArtifact
 
-type ArtifactSaveConflictStrategy string
+type ArtifactSaveConflictStrategy artifacts.SaveConflictStrategy
 
-const (
-	ArtifactSaveConflictStrategySkip      ArtifactSaveConflictStrategy = "skip"
-	ArtifactSaveConflictStrategyBackup    ArtifactSaveConflictStrategy = "backup"
-	ArtifactSaveConflictStrategyOverwrite ArtifactSaveConflictStrategy = "overwrite"
-)
+type ArtifactSaveStatus artifacts.SaveStatus
 
-type ArtifactSaveStatus string
-
-const (
-	ArtifactSaveStatusSaved     ArtifactSaveStatus = "saved"
-	ArtifactSaveStatusUnchanged ArtifactSaveStatus = "unchanged"
-	ArtifactSaveStatusSkipped   ArtifactSaveStatus = "skipped"
-	ArtifactSaveStatusConflict  ArtifactSaveStatus = "conflict"
-)
-
-type ArtifactSaveResult struct {
-	ID         string             `json:"id"`
-	Type       ArtifactType       `json:"type"`
-	Status     ArtifactSaveStatus `json:"status"`
-	BackupPath *string            `json:"backupPath,omitempty"`
-	Message    *string            `json:"message,omitempty"`
-}
+type ArtifactSaveResult artifacts.ArtifactSaveResult
 
 type UpdateArtifactsRequestInput struct {
 	Artifacts        []ArtifactUnion               `json:"artifacts"`
@@ -173,20 +124,15 @@ type UpdateArtifactsRequestInput struct {
 
 type UpdateArtifactsResponse []ArtifactSaveResult
 
-type DeleteArtifactRequestItem struct {
-	ID   string       `json:"id"`
-	Type ArtifactType `json:"type"`
-}
+type DeleteArtifactRequestItem artifacts.DeleteRequestItem
 
-type DeleteArtifactsRequestInput struct {
-	Artifacts []DeleteArtifactRequestItem `json:"artifacts"`
-}
+type DeleteArtifactsRequestInput artifacts.DeleteRequest
 
 type DeleteArtifactsResponse []string
 
-type LoadCachedImageArtifactsResponse []*ImageArtifact
+type LoadCachedImageArtifactsResponse []*artifacts.ImageArtifact
 
-type LoadCachedChartDataResponse []*ChartDataArtifact
+type LoadCachedChartDataResponse []*artifacts.ChartDataArtifact
 
 type LoadCachedBrushStrokesResponse []*BrushStrokeArtifact
 

@@ -2,7 +2,15 @@
 
 package frontendbindings
 
-import "reflect"
+import (
+	"reflect"
+	artifacts "setta/internal/artifacts"
+	binary "setta/internal/binary"
+	externalagentconfigs "setta/internal/externalagentconfigs"
+	llmconfig "setta/internal/llmconfig"
+	projectstate "setta/internal/projectstate"
+	projectview "setta/internal/projectview"
+)
 
 func DiscoveredConvertibleTypes() []reflect.Type {
 	return []reflect.Type{
@@ -92,16 +100,16 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(),
 		reflect.TypeOf(LLMStreamingResponse{}),
 		reflect.TypeOf(APIKeys(nil)),
-		reflect.TypeOf(MCPServerTransport("")),
+		reflect.TypeOf((*MCPServerTransport)(nil)).Elem(),
 		reflect.TypeOf(MCPServerConfig{}),
 		reflect.TypeOf(LLMConfig{}),
 		reflect.TypeOf(AllLLMConfigs{}),
-		reflect.TypeOf(PromptFormat("")),
+		reflect.TypeOf((*PromptFormat)(nil)).Elem(),
 		reflect.TypeOf(PromptTemplate{}),
-		reflect.TypeOf(ExternalAgentToolType("")),
-		reflect.TypeOf(ExternalAgentRunMode("")),
-		reflect.TypeOf(ExternalAgentSettingsMode("")),
-		reflect.TypeOf(ExternalAgentWorkingDirStrategy("")),
+		reflect.TypeOf((*ExternalAgentToolType)(nil)).Elem(),
+		reflect.TypeOf((*ExternalAgentRunMode)(nil)).Elem(),
+		reflect.TypeOf((*ExternalAgentSettingsMode)(nil)).Elem(),
+		reflect.TypeOf((*ExternalAgentWorkingDirStrategy)(nil)).Elem(),
 		reflect.TypeOf(ClaudeSettingsSource("")),
 		reflect.TypeOf(ClaudeSettingsPermissions{}),
 		reflect.TypeOf(ClaudeSettingsManaged{}),
@@ -109,16 +117,16 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(OpenCodeSettingsManaged{}),
 		reflect.TypeOf(ExternalAgentSettingsManagedBlock{}),
 		reflect.TypeOf(ExternalAgentConfig{}),
-		reflect.TypeOf(ExternalAgentEnvVarStatus{}),
+		reflect.TypeOf((*ExternalAgentEnvVarStatus)(nil)).Elem(),
 		reflect.TypeOf(ExternalAgentPreflightStatus{}),
 		reflect.TypeOf(BinaryUploadRequestInput{}),
 		reflect.TypeOf(BinaryDownloadRequestInput{}),
 		reflect.TypeOf(BinaryDownloadResponse{}),
-		reflect.TypeOf(ImportFilesToArtifactsRequestInput{}),
-		reflect.TypeOf(ImportFilesToArtifactsResponseItem{}),
+		reflect.TypeOf((*ImportFilesToArtifactsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*ImportFilesToArtifactsResponseItem)(nil)).Elem(),
 		reflect.TypeOf(ImportFilesToArtifactsResponse(nil)),
-		reflect.TypeOf(LoadCachedArtifactsRequestInput{}),
-		reflect.TypeOf(ArtifactType("")),
+		reflect.TypeOf((*LoadCachedArtifactsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*ArtifactType)(nil)).Elem(),
 		reflect.TypeOf(DrawAreaBrushShape("")),
 		reflect.TypeOf(DrawAreaMode("")),
 		reflect.TypeOf(CanvasPoint{}),
@@ -127,28 +135,28 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(BrushStroke{}),
 		reflect.TypeOf(BrushStrokeWithTransform{}),
 		reflect.TypeOf(DrawAreaLayerItemTransform{}),
-		reflect.TypeOf(DrawAreaLayerItem{}),
+		reflect.TypeOf((*DrawAreaLayerItem)(nil)).Elem(),
 		reflect.TypeOf(DrawAreaLayer{}),
-		reflect.TypeOf(ImageArtifact{}),
+		reflect.TypeOf((*ImageArtifact)(nil)).Elem(),
 		reflect.TypeOf(BrushStrokeArtifact{}),
 		reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}),
 		reflect.TypeOf(ChartDataScalar{}),
 		reflect.TypeOf(ChartDataValue(nil)),
-		reflect.TypeOf(ChartDataArtifact{}),
-		reflect.TypeOf(FileArtifact{}),
+		reflect.TypeOf((*ChartDataArtifact)(nil)).Elem(),
+		reflect.TypeOf((*FileArtifact)(nil)).Elem(),
 		reflect.TypeOf(ArtifactUnion{}),
 		reflect.TypeOf(ImageMapping(nil)),
 		reflect.TypeOf(BrushStrokeMapping(nil)),
 		reflect.TypeOf(DrawAreaLayerItemTransformMapping(nil)),
 		reflect.TypeOf(ChartDataMapping(nil)),
 		reflect.TypeOf(FileMapping(nil)),
-		reflect.TypeOf(ArtifactSaveConflictStrategy("")),
-		reflect.TypeOf(ArtifactSaveStatus("")),
-		reflect.TypeOf(ArtifactSaveResult{}),
+		reflect.TypeOf((*ArtifactSaveConflictStrategy)(nil)).Elem(),
+		reflect.TypeOf((*ArtifactSaveStatus)(nil)).Elem(),
+		reflect.TypeOf((*ArtifactSaveResult)(nil)).Elem(),
 		reflect.TypeOf(UpdateArtifactsRequestInput{}),
 		reflect.TypeOf(UpdateArtifactsResponse(nil)),
-		reflect.TypeOf(DeleteArtifactRequestItem{}),
-		reflect.TypeOf(DeleteArtifactsRequestInput{}),
+		reflect.TypeOf((*DeleteArtifactRequestItem)(nil)).Elem(),
+		reflect.TypeOf((*DeleteArtifactsRequestInput)(nil)).Elem(),
 		reflect.TypeOf(DeleteArtifactsResponse(nil)),
 		reflect.TypeOf(LoadCachedImageArtifactsResponse(nil)),
 		reflect.TypeOf(LoadCachedChartDataResponse(nil)),
@@ -242,7 +250,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(SectionParamDependencyKey{}),
 		reflect.TypeOf(BaseDependencyKeyUnion{}),
 		reflect.TypeOf(DependencyValueType("")),
-		reflect.TypeOf(BinaryContentRef{}),
+		reflect.TypeOf((*BinaryContentRef)(nil)).Elem(),
 		reflect.TypeOf(LiteralDependencyValue{}),
 		reflect.TypeOf(FileReadDependencyValue{}),
 		reflect.TypeOf(BinaryDependencyValue{}),
@@ -717,5 +725,29 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(WebsocketMsgUISettingRevealResult{}),
 		reflect.TypeOf(WebsocketMsg{}),
 		reflect.TypeOf(FrontendWebsocketMsgUnion{}),
+	}
+}
+
+func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
+	return map[reflect.Type]reflect.Type{
+		reflect.TypeOf((*llmconfig.Transport)(nil)).Elem(): reflect.TypeOf((*MCPServerTransport)(nil)).Elem(),
+		reflect.TypeOf((*projectstate.PromptFormat)(nil)).Elem(): reflect.TypeOf((*PromptFormat)(nil)).Elem(),
+		reflect.TypeOf((*externalagentconfigs.ToolType)(nil)).Elem(): reflect.TypeOf((*ExternalAgentToolType)(nil)).Elem(),
+		reflect.TypeOf((*externalagentconfigs.RunMode)(nil)).Elem(): reflect.TypeOf((*ExternalAgentRunMode)(nil)).Elem(),
+		reflect.TypeOf((*externalagentconfigs.SettingsMode)(nil)).Elem(): reflect.TypeOf((*ExternalAgentSettingsMode)(nil)).Elem(),
+		reflect.TypeOf((*externalagentconfigs.WorkingDirStrategy)(nil)).Elem(): reflect.TypeOf((*ExternalAgentWorkingDirStrategy)(nil)).Elem(),
+		reflect.TypeOf((*externalagentconfigs.EnvVarStatus)(nil)).Elem(): reflect.TypeOf((*ExternalAgentEnvVarStatus)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.ImportFilesRequest)(nil)).Elem(): reflect.TypeOf((*ImportFilesToArtifactsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.ImportFilesResponseItem)(nil)).Elem(): reflect.TypeOf((*ImportFilesToArtifactsResponseItem)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.LoadCachedPathsRequest)(nil)).Elem(): reflect.TypeOf((*LoadCachedArtifactsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.SaveConflictStrategy)(nil)).Elem(): reflect.TypeOf((*ArtifactSaveConflictStrategy)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.SaveStatus)(nil)).Elem(): reflect.TypeOf((*ArtifactSaveStatus)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.ArtifactSaveResult)(nil)).Elem(): reflect.TypeOf((*ArtifactSaveResult)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.DeleteRequestItem)(nil)).Elem(): reflect.TypeOf((*DeleteArtifactRequestItem)(nil)).Elem(),
+		reflect.TypeOf((*artifacts.DeleteRequest)(nil)).Elem(): reflect.TypeOf((*DeleteArtifactsRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*binary.ContentRef)(nil)).Elem(): reflect.TypeOf((*BinaryContentRef)(nil)).Elem(),
+		reflect.TypeOf((*projectview.SingleConfig)(nil)).Elem(): reflect.TypeOf((*ProjectStateSingleConfig)(nil)).Elem(),
+		reflect.TypeOf((*projectview.ShownParamIDDetails)(nil)).Elem(): reflect.TypeOf((*ShownParamIdDetails)(nil)).Elem(),
+		reflect.TypeOf((*projectview.ShownParamIDs)(nil)).Elem(): reflect.TypeOf((*ShownParamIds)(nil)).Elem(),
 	}
 }

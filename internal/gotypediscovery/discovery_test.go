@@ -68,10 +68,32 @@ func TestDiscoverPackageTypesInDirIncludesSelectorBackedNamedTypes(t *testing.T)
 	}
 
 	want := []DiscoveredType{
-		{Name: "HeaderAlias", Kind: TypeKindNamed},
-		{Name: "HeaderNamed", Kind: TypeKindNamed},
-		{Name: "TimeAlias", Kind: TypeKindNamed},
-		{Name: "TimeNamed", Kind: TypeKindNamed},
+		{
+			Name:              "HeaderAlias",
+			Kind:              TypeKindNamed,
+			IsAlias:           true,
+			TargetPackagePath: "net/http",
+			TargetTypeName:    "Header",
+		},
+		{
+			Name:              "HeaderNamed",
+			Kind:              TypeKindNamed,
+			TargetPackagePath: "net/http",
+			TargetTypeName:    "Header",
+		},
+		{
+			Name:              "TimeAlias",
+			Kind:              TypeKindNamed,
+			IsAlias:           true,
+			TargetPackagePath: "time",
+			TargetTypeName:    "Time",
+		},
+		{
+			Name:              "TimeNamed",
+			Kind:              TypeKindNamed,
+			TargetPackagePath: "time",
+			TargetTypeName:    "Time",
+		},
 	}
 	if !reflect.DeepEqual(discovered, want) {
 		t.Fatalf("DiscoverPackageTypesInDir(...) = %#v, want %#v", discovered, want)

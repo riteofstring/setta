@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"setta/internal/projectstate"
 	"setta/internal/stringenumvalues"
 )
 
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
+var discoveredWrapperTypeOverrides = DiscoveredWrapperTypeOverrides()
 
 // setta-go-type-discovery: skip
 type TypeDeclaration struct {
@@ -5753,34 +5753,13 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 }
 
 func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
-	switch t {
-	case reflect.TypeOf(projectstate.ChatWindowPlacement("")):
-		return reflect.TypeOf(ChatWindowPlacement(""))
-	case reflect.TypeOf(projectstate.ChatWindowMode("")):
-		return reflect.TypeOf(ChatWindowMode(""))
-	case reflect.TypeOf(projectstate.PromptFormat("")):
-		return reflect.TypeOf(PromptFormat(""))
-	case reflect.TypeOf(projectstate.ChatWindowBounds{}):
-		return reflect.TypeOf(ChatWindowBounds{})
-	case reflect.TypeOf(projectstate.ChatWindowDockMetrics{}):
-		return reflect.TypeOf(ChatWindowDockMetrics{})
-	case reflect.TypeOf(projectstate.ProjectChatWindowInstance{}):
-		return reflect.TypeOf(ProjectChatWindowInstance{})
-	case reflect.TypeOf(projectstate.ProjectChatWindowingState{}):
-		return reflect.TypeOf(ProjectChatWindowingState{})
-	case reflect.TypeOf(projectstate.WindowSpaceSurfaceKind("")):
-		return reflect.TypeOf(WindowSpaceSurfaceKind(""))
-	case reflect.TypeOf(projectstate.NormalizedFloatingWindowBounds{}):
-		return reflect.TypeOf(NormalizedFloatingWindowBounds{})
-	case reflect.TypeOf(projectstate.WindowSpaceWindow{}):
-		return reflect.TypeOf(WindowSpaceWindow{})
-	case reflect.TypeOf(projectstate.WindowSpaceState{}):
-		return reflect.TypeOf(WindowSpaceState{})
-	case reflect.TypeOf(projectstate.WindowSpaceConfig{}):
-		return reflect.TypeOf(WindowSpaceConfig{})
-	default:
-		return t
+	if t == nil {
+		return nil
 	}
+	if override, ok := discoveredWrapperTypeOverrides[t]; ok {
+		return override
+	}
+	return t
 }
 
 func (c *typeConverter) structProperties(t reflect.Type) ([]TypeProperty, error) {

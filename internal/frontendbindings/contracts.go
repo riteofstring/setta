@@ -1,6 +1,10 @@
 package frontendbindings
 
-import "time"
+import (
+	"time"
+
+	binarypayload "setta/internal/binary"
+)
 
 type BackendInitEvent struct {
 	Message   string    `json:"message"`
@@ -627,12 +631,7 @@ const (
 	DependencyValueTypeFileRead DependencyValueType = "FileRead"
 )
 
-type BinaryContentRef struct {
-	ContentID  string  `json:"contentId"`
-	ByteLength int     `json:"byteLength"`
-	MimeType   *string `json:"mimeType"`
-	Sha256     *string `json:"sha256"`
-}
+type BinaryContentRef binarypayload.ContentRef
 
 type LiteralDependencyValue struct{}
 

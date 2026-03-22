@@ -3,12 +3,12 @@ package frontendbindings
 import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
-	"setta/internal/prompttemplates"
+	"setta/internal/projectstate"
 )
 
 type APIKeys map[string]string
 
-type MCPServerTransport string
+type MCPServerTransport llmconfig.Transport
 
 const (
 	MCPServerTransportSSE            MCPServerTransport = MCPServerTransport(llmconfig.TransportSSE)
@@ -47,10 +47,10 @@ type AllLLMConfigs struct {
 	CodexMCPImportedAt  *string                    `json:"codexMcpImportedAt,omitempty"`
 }
 
-type PromptFormat string
+type PromptFormat projectstate.PromptFormat
 
 const (
-	PromptFormatJinja PromptFormat = PromptFormat(prompttemplates.FormatJinja)
+	PromptFormatJinja PromptFormat = PromptFormat(projectstate.PromptFormatJinja)
 )
 
 type PromptTemplate struct {
@@ -63,7 +63,7 @@ type PromptTemplate struct {
 	Metadata    map[string]any `json:"metadata"`
 }
 
-type ExternalAgentToolType string
+type ExternalAgentToolType externalagentconfigs.ToolType
 
 const (
 	ExternalAgentToolTypeClaudeCode ExternalAgentToolType = ExternalAgentToolType(externalagentconfigs.ToolTypeClaudeCode)
@@ -71,7 +71,7 @@ const (
 	ExternalAgentToolTypeOpenCode   ExternalAgentToolType = ExternalAgentToolType(externalagentconfigs.ToolTypeOpenCode)
 )
 
-type ExternalAgentRunMode string
+type ExternalAgentRunMode externalagentconfigs.RunMode
 
 const (
 	ExternalAgentRunModeMCP       ExternalAgentRunMode = ExternalAgentRunMode(externalagentconfigs.RunModeMCP)
@@ -80,7 +80,7 @@ const (
 	ExternalAgentRunModeAppServer ExternalAgentRunMode = ExternalAgentRunMode(externalagentconfigs.RunModeAppServer)
 )
 
-type ExternalAgentSettingsMode string
+type ExternalAgentSettingsMode externalagentconfigs.SettingsMode
 
 const (
 	ExternalAgentSettingsModeReadOnly       ExternalAgentSettingsMode = ExternalAgentSettingsMode(externalagentconfigs.SettingsModeReadOnly)
@@ -89,7 +89,7 @@ const (
 	ExternalAgentSettingsModeExplicitPath   ExternalAgentSettingsMode = ExternalAgentSettingsMode(externalagentconfigs.SettingsModeExplicitPath)
 )
 
-type ExternalAgentWorkingDirStrategy string
+type ExternalAgentWorkingDirStrategy externalagentconfigs.WorkingDirStrategy
 
 const (
 	ExternalAgentWorkingDirStrategyProjectRoot ExternalAgentWorkingDirStrategy = ExternalAgentWorkingDirStrategy(externalagentconfigs.WorkingDirStrategyProjectRoot)
@@ -160,10 +160,7 @@ type ExternalAgentConfig struct {
 	CodexSkipGitRepoCheck   *bool                              `json:"codexSkipGitRepoCheck,omitempty"`
 }
 
-type ExternalAgentEnvVarStatus struct {
-	Present []string `json:"present"`
-	Missing []string `json:"missing"`
-}
+type ExternalAgentEnvVarStatus externalagentconfigs.EnvVarStatus
 
 type ExternalAgentPreflightStatus struct {
 	ConfigID    string                    `json:"configId"`

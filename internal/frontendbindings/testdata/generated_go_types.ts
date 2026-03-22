@@ -1230,9 +1230,16 @@ export function createBinaryDownloadRequestInput(options: Partial<BinaryDownload
 export type BinaryDownloadResponse = Uint8Array;
 
 
+export const UploadScopeEnum = {
+  chat: "chat",
+  generic: "generic",
+} as const;
+export type UploadScope = ObjectValues<typeof UploadScopeEnum>;
+
+
 export type ImportFilesToArtifactsRequestInput = {
   paths: Array<string>;
-  uploadScope: string;
+  uploadScope: UploadScope;
 };
 export function createImportFilesToArtifactsRequestInput(options: Partial<ImportFilesToArtifactsRequestInput> = {}): ImportFilesToArtifactsRequestInput {
   return options as ImportFilesToArtifactsRequestInput;
@@ -2507,8 +2514,8 @@ export type DependencyValueType = ObjectValues<typeof DependencyValueTypeEnum>;
 export type BinaryContentRef = {
   contentId: string;
   byteLength: number;
-  mimeType: string | null;
-  sha256: string | null;
+  mimeType?: string;
+  sha256?: string;
 };
 export function createBinaryContentRef(options: Partial<BinaryContentRef> = {}): BinaryContentRef {
   return options as BinaryContentRef;

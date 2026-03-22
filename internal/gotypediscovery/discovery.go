@@ -34,8 +34,11 @@ const (
 )
 
 type DiscoveredType struct {
-	Name string
-	Kind TypeKind
+	Name              string
+	Kind              TypeKind
+	IsAlias           bool
+	TargetPackagePath string
+	TargetTypeName    string
 }
 
 type DiscoverOptions struct {
@@ -97,6 +100,7 @@ func DiscoverPackageTypesInDirWithOptions(
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", match, err)
 		}
+		importPaths := importAliasPaths(file)
 		for _, decl := range file.Decls {
 			genDecl, ok := decl.(*ast.GenDecl)
 			if !ok || genDecl.Tok != token.TYPE {
@@ -116,14 +120,75 @@ func DiscoverPackageTypesInDirWithOptions(
 				if !ok {
 					continue
 				}
-				discovered = append(discovered, DiscoveredType{
-					Name: typeSpec.Name.Name,
-					Kind: kind,
-				})
+				entry := DiscoveredType{
+					Name:    typeSpec.Name.Name,
+					Kind:    kind,
+					IsAlias: typeSpec.Assign.IsValid(),
+				}
+				if targetPackagePath, targetTypeName, ok := selectorTarget(typeSpec.Type, importPaths); ok {
+					entry.TargetPackagePath = targetPackagePath
+					entry.TargetTypeName = targetTypeName
+				}
+				discovered = append(discovered, entry)
 			}
 		}
 	}
 	return discovered, nil
+}
+
+func importAliasPaths(file *ast.File) map[string]string {
+	paths := map[string]string{}
+	if file == nil {
+		return paths
+	}
+	for _, spec := range file.Imports {
+		if spec == nil || spec.Path == nil {
+			continue
+		}
+		importPath := strings.Trim(strings.TrimSpace(spec.Path.Value), `"`)
+		if importPath == "" {
+			continue
+		}
+		alias := pathAlias(spec, importPath)
+		if alias == "" {
+			continue
+		}
+		paths[alias] = importPath
+	}
+	return paths
+}
+
+func pathAlias(spec *ast.ImportSpec, importPath string) string {
+	if spec != nil && spec.Name != nil {
+		name := strings.TrimSpace(spec.Name.Name)
+		if name == "." || name == "_" {
+			return ""
+		}
+		if name != "" {
+			return name
+		}
+	}
+	base := filepath.Base(importPath)
+	if base == "." || base == "/" {
+		return ""
+	}
+	return base
+}
+
+func selectorTarget(expr ast.Expr, importPaths map[string]string) (string, string, bool) {
+	selector, ok := expr.(*ast.SelectorExpr)
+	if !ok {
+		return "", "", false
+	}
+	packageIdent, ok := selector.X.(*ast.Ident)
+	if !ok || packageIdent == nil {
+		return "", "", false
+	}
+	importPath, ok := importPaths[packageIdent.Name]
+	if !ok || strings.TrimSpace(selector.Sel.Name) == "" {
+		return "", "", false
+	}
+	return importPath, selector.Sel.Name, true
 }
 
 func shouldSkipType(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) bool {

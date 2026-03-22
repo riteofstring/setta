@@ -45,7 +45,11 @@ That means:
   - most nested project-state data models now come from `go_shared_types.py`
   - the handwritten remainder is mainly Python-side defaults and codegen-policy resolution logic
 - Go type discovery now handles selector-backed named wrappers generically, so generated registries can keep frontend-facing names while still pointing at real backend owner types.
+- `cmd/setta-gen-go-type-registries` now also generates a generic frontend wrapper-override registry, and `internal/frontendbindings/converter.go` uses that instead of a hardcoded canonical-type switch.
 - `internal/frontendbindings/project_state_support.go` now points a large part of the project-state surface at real owner structs instead of empty placeholder structs.
+- `internal/frontendbindings/artifact_support.go` and `contracts.go` now use backend-owned wrapper types for the artifact/binary leaf contract family instead of repeating field layouts locally.
+- parts of `internal/frontendbindings/ai_settings_support.go` now use backend-owned wrapper types for enum/env-status families instead of repeating local string enums and structs.
+- the Go -> Python generator now treats `omitempty` fields as absent-capable unless an explicit Python default override is provided, so generated Python models stay aligned with Go JSON omission behavior.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -79,7 +83,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, but not for the chat, artifact, dependency, and assorted settings families.
+This has improved for the project-state/view/windowing family and the artifact/binary leaf family, but not yet for the chat, dependency, and larger settings/config families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -100,7 +104,15 @@ The remaining work is:
 
 But it still discovers through the `frontendbindings` surface, plus enum fallback logic, which means the real owner packages are still not cleanly expressed for many type families.
 
-### 4. Some remaining Python files are still shared-contract candidates
+### 4. There is still some duplicated type ownership inside Go
+The frontend/Python cleanup is surfacing a few remaining “two Go packages define the same concept” cases.
+
+Current known example:
+- prompt format exists both as `internal/projectstate.PromptFormat` and `internal/prompttemplates.Format`
+
+Those need to be collapsed deliberately instead of teaching the generators to arbitrate between multiple backend owners forever.
+
+### 5. Some remaining Python files are still shared-contract candidates
 The remaining handwritten Python files are much smaller and clearer than before, but several still look like shared contract families rather than Python-only helpers.
 
 The main candidates are:
@@ -187,6 +199,7 @@ Target files:
 Work:
 - identify which definitions already have real backend owners elsewhere
 - move ownership away from `frontendbindings` where it is only acting as a mirror
+- prefer backend-owned named wrappers plus the generated wrapper-override registry over manual converter switches
 - keep `frontendbindings` focused on conversion rules, route groups, endpoint specs, and generation helpers
 
 Guardrail:
@@ -207,6 +220,7 @@ Work:
 - find the real Go owner package for each family
 - reuse existing Go definitions wherever they already exist
 - only add new Go definitions where the concept is truly missing
+- if multiple Go packages already define the same concept, collapse that ownership first instead of adding another generated workaround
 - generate the Python surface from those Go owners
 - prune unused generated output afterward
 
