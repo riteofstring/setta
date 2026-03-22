@@ -17,7 +17,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(SettaNotificationType("")),
 		reflect.TypeOf(SettaNotification{}),
 		reflect.TypeOf(ChatContextUsage{}),
-		reflect.TypeOf(ManagedAPIKeysSnapshot{}),
+		reflect.TypeOf((*ManagedAPIKeysSnapshot)(nil)).Elem(),
 		reflect.TypeOf(SetLLMAPIKeysRequestInput{}),
 		reflect.TypeOf(CreateAgentProfileRequestInput{}),
 		reflect.TypeOf(GetAgentProfileRequestInput{}),
@@ -730,6 +730,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 
 func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	return map[reflect.Type]reflect.Type{
+		reflect.TypeOf((*llmconfig.ManagedAPIKeysSnapshot)(nil)).Elem(): reflect.TypeOf((*ManagedAPIKeysSnapshot)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.Transport)(nil)).Elem(): reflect.TypeOf((*MCPServerTransport)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.ServerConfig)(nil)).Elem(): reflect.TypeOf((*MCPServerConfig)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.Config)(nil)).Elem(): reflect.TypeOf((*LLMConfig)(nil)).Elem(),

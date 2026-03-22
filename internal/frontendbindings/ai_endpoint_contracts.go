@@ -1,6 +1,9 @@
 package frontendbindings
 
-import "setta/internal/notifications"
+import (
+	"setta/internal/llmconfig"
+	"setta/internal/notifications"
+)
 
 type SettaNotificationType string
 
@@ -28,13 +31,7 @@ type ChatContextUsage struct {
 	Estimated           bool `json:"estimated"`
 }
 
-type ManagedAPIKeysSnapshot struct {
-	APIKeys   APIKeys `json:"apiKeys"`
-	Revision  int     `json:"revision"`
-	Corrupt   bool    `json:"corrupt"`
-	ErrorCode *string `json:"errorCode,omitempty"`
-	Message   *string `json:"message,omitempty"`
-}
+type ManagedAPIKeysSnapshot llmconfig.ManagedAPIKeysSnapshot
 
 type SetLLMAPIKeysRequestInput struct {
 	APIKeys          APIKeys `json:"apiKeys"`

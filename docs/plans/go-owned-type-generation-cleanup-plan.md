@@ -60,6 +60,7 @@ That means:
   - `MCPServerConfig -> llmconfig.ServerConfig`
   - `LLMConfig -> llmconfig.Config`
   - `AllLLMConfigs -> llmconfig.AllConfigs`
+- `internal/frontendbindings/ai_endpoint_contracts.go` now uses the backend-owned `llmconfig.ManagedAPIKeysSnapshot` instead of a mirrored local struct.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

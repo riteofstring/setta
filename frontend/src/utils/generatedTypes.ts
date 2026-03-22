@@ -204,20 +204,20 @@ export function createChatContextUsage(
   return options as ChatContextUsage;
 }
 
-export type APIKeys = Record<string, string>;
-
 export type ManagedAPIKeysSnapshot = {
-  apiKeys: APIKeys;
+  apiKeys: Record<string, string>;
   revision: number;
   corrupt: boolean;
-  errorCode?: string | null;
-  message?: string | null;
+  errorCode: string | null;
+  message: string | null;
 };
 export function createManagedAPIKeysSnapshot(
   options: Partial<ManagedAPIKeysSnapshot> = {},
 ): ManagedAPIKeysSnapshot {
   return options as ManagedAPIKeysSnapshot;
 }
+
+export type APIKeys = Record<string, string>;
 
 export type SetLLMAPIKeysRequestInput = {
   apiKeys: APIKeys;
