@@ -2034,6 +2034,15 @@ func runCodexFixtureProcess(scenario string) error {
 		method := stringValue(payload["method"])
 		switch method {
 		case "initialize":
+			params, _ := mapValue(payload["params"])
+			clientInfo, _ := mapValue(params["clientInfo"])
+			if stringValue(clientInfo["name"]) != "setta" {
+				return fmt.Errorf("expected initialize clientInfo.name setta, got %#v", clientInfo["name"])
+			}
+			version := stringValue(clientInfo["version"])
+			if version == "" || strings.Contains(strings.ToLower(version), "rewrite") {
+				return fmt.Errorf("expected initialize clientInfo.version to use the app version, got %#v", clientInfo["version"])
+			}
 			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
 				return err
 			}

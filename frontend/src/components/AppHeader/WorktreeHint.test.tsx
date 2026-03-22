@@ -53,7 +53,7 @@ describe("WorktreeHint", () => {
         isReady: true,
         error: null,
         authCookieRefreshWindowSeconds: 300,
-        worktreeName: "feature/go-rewrite",
+        worktreeName: "feature/cleanup",
       },
     });
 
@@ -65,7 +65,7 @@ describe("WorktreeHint", () => {
       ).toHaveBeenCalledOnce();
       expect(
         host.querySelector('[data-testid="worktree-hint"]')?.textContent,
-      ).toContain("feature/go-rewrite");
+      ).toContain("feature/cleanup");
     } finally {
       await act(async () => {
         root.unmount();
@@ -83,7 +83,7 @@ describe("WorktreeHint", () => {
         isReady: true,
         error: null,
         authCookieRefreshWindowSeconds: 300,
-        worktreeName: "feature/go-rewrite",
+        worktreeName: "feature/cleanup",
       },
     });
 

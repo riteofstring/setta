@@ -30,7 +30,7 @@ func TestRegisterStatusRoutesReturnsBackendInitStatus(t *testing.T) {
 	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
 		ModePolicy:               modes.NewPolicy(config.ModeIDE),
 		AuthRefreshWindowSeconds: 3600,
-		WorktreeName:             "go-rewrite",
+		WorktreeName:             "feature-cleanup",
 		ReadyAt:                  readyAt,
 	})
 
@@ -54,8 +54,8 @@ func TestRegisterStatusRoutesReturnsBackendInitStatus(t *testing.T) {
 	if !payload.Events[0].Timestamp.Equal(readyAt) {
 		t.Fatalf("expected ready timestamp %s, got %s", readyAt, payload.Events[0].Timestamp)
 	}
-	if payload.WorktreeName == nil || *payload.WorktreeName != "go-rewrite" {
-		t.Fatalf("expected worktree name go-rewrite, got %#v", payload.WorktreeName)
+	if payload.WorktreeName == nil || *payload.WorktreeName != "feature-cleanup" {
+		t.Fatalf("expected worktree name feature-cleanup, got %#v", payload.WorktreeName)
 	}
 	if payload.AuthCookieRefreshWindowSeconds != 3600 {
 		t.Fatalf("expected auth refresh window 3600, got %d", payload.AuthCookieRefreshWindowSeconds)

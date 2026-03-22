@@ -13,7 +13,7 @@ func TestDeriveNameMatchesSettaWorktreeConvention(t *testing.T) {
 	}{
 		{name: "main worktree", repoRoot: "/tmp/setta", expected: "main"},
 		{name: "feature worktree", repoRoot: "/tmp/setta.feature-x", expected: "feature-x"},
-		{name: "named worktree", repoRoot: "/tmp/setta.go-rewrite", expected: "go-rewrite"},
+		{name: "named worktree", repoRoot: "/tmp/setta.feature-cleanup", expected: "feature-cleanup"},
 		{name: "other repo name", repoRoot: "/tmp/custom-app", expected: "custom-app"},
 		{name: "empty path", repoRoot: "   ", expected: ""},
 	}

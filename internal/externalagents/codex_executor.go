@@ -20,6 +20,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
+	"setta/internal/buildinfo"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 )
@@ -247,7 +248,7 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 	if _, err := session.sendRequest(ctx, "initialize", map[string]any{
 		"clientInfo": map[string]any{
 			"name":    "setta",
-			"version": "go-rewrite",
+			"version": buildinfo.Version(),
 		},
 	}); err != nil {
 		return StartResponse{}, err
