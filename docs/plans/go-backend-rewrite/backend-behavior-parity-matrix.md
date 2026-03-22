@@ -148,6 +148,23 @@ Last audited: `2026-03-23`
   `TestServiceInitTemplateGeneratesContentOnlyScaffold`,
   `TestRunPluginsInitAndValidateText`, and
   `TestRunPluginsInitSupportsBackendTemplate`.
+- Follow-up in this pass on `273f12e42`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` stayed ruled out on the current tree
+  and the saved remote-shell failures in
+  `tmp/backend-gap-hunt-backend-suite.log` remained stale historical suite
+  output rather than a live Go gap. This pass also re-audited
+  `tests/server_state/test_launcher_state.py::test_launcher_state_skips_ide_initialization_phases`
+  plus
+  `tests/server_state/test_server_lifespan.py::{test_lifespan_continues_cleanup_when_plugin_shutdown_fails,test_lifespan_stops_transcription_cleanup_loop_when_available}`
+  and confirmed those source clues were already terminal explicit
+  `Intentional divergence` / `Proved` rows backed directly by
+  `TestAppLauncherDoesNotStartWatchCodeService`,
+  `TestAppServesFoundationRoutes`,
+  `TestRegisterAppDefinitionRoutesAllowsLauncherModeWhenRuntimePresent`,
+  `TestAppShutdownStopsRuntime`,
+  `TestAppShutdownClosesSettingsStateEvenWhenRuntimeShutdownFails`, and
+  `TestRunTranscriptionSessionCleanupLoopStopsOnContextCancel`.
 - Follow-up in this pass on `c1f38d8901b0274f2f052c36dddaa2a015f5876f`:
   rerunning `./scripts/go.sh test ./... -count=1` passed cleanly again, so the
   saved `tmp/backend-gap-hunt-backend-suite.log` remote-shell failures in
