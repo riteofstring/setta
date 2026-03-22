@@ -189,7 +189,7 @@ func runLauncherWithDeps(args []string, global globalFlags, stdout io.Writer, st
 	case "update":
 		return runLauncherUpdate(args[1:], global, stdout, stderr, envLookup, cwd)
 	default:
-		return fmt.Errorf("unknown launcher command %q", args[0])
+		return fmt.Errorf("No such command '%s'", args[0])
 	}
 }
 

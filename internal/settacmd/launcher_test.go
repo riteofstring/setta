@@ -515,6 +515,121 @@ func TestRunLauncherRootIgnoresMetadataPersistenceErrors(t *testing.T) {
 	}
 }
 
+func TestRunLauncherRejectsLegacyInstallAndUninstallCommands(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		args        []string
+		expectedErr string
+	}{
+		{
+			name:        "install",
+			args:        []string{"install", "--json"},
+			expectedErr: "No such command 'install'",
+		},
+		{
+			name:        "uninstall",
+			args:        []string{"uninstall", "--json"},
+			expectedErr: "No such command 'uninstall'",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			err := runLauncherWithDeps(testCase.args, globalFlags{}, &stdout, &stderr, func(string) (string, bool) {
+				return "", false
+			}, t.TempDir(), testLauncherRootDependencies(t, launcherRootTestOptions{}))
+			if err == nil {
+				t.Fatal("expected legacy launcher command to fail")
+			}
+			if err.Error() != testCase.expectedErr {
+				t.Fatalf("expected error %q, got %q", testCase.expectedErr, err.Error())
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("expected empty stdout, got %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestOpenURLInChromeAppMacOSRetriesWithNewInstance(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS-specific chrome-app behavior")
+	}
+
+	stubDir := t.TempDir()
+	openLogPath := filepath.Join(stubDir, "open.log")
+	psCountPath := filepath.Join(stubDir, "ps-count.txt")
+	writeShellCommandStub(t, stubDir, "open", "printf '%s\\n' \"$*\" >> \"$OPEN_LOG_PATH\"\n")
+	writeShellCommandStub(t, stubDir, "ps", "count=0\nif [ -f \"$PS_COUNT_PATH\" ]; then count=$(cat \"$PS_COUNT_PATH\"); fi\ncount=$((count + 1))\nprintf '%s' \"$count\" > \"$PS_COUNT_PATH\"\nif [ \"$count\" -ge 11 ]; then\n  printf '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --app=https://example.com\\n'\nfi\n")
+	t.Setenv("OPEN_LOG_PATH", openLogPath)
+	t.Setenv("PS_COUNT_PATH", psCountPath)
+	t.Setenv("PATH", stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if !openURLInChromeApp("https://example.com") {
+		t.Fatal("expected chrome app launch to succeed on retry")
+	}
+
+	content, err := os.ReadFile(openLogPath)
+	if err != nil {
+		t.Fatalf("read open log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected two open invocations, got %#v", lines)
+	}
+	if lines[0] != "-a Google Chrome --args --app=https://example.com" {
+		t.Fatalf("unexpected first open invocation %q", lines[0])
+	}
+	if lines[1] != "-n -a Google Chrome --args --app=https://example.com" {
+		t.Fatalf("unexpected second open invocation %q", lines[1])
+	}
+}
+
+func TestOpenURLInChromeAppMacOSReturnsFalseWhenNotVisible(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS-specific chrome-app behavior")
+	}
+
+	stubDir := t.TempDir()
+	openLogPath := filepath.Join(stubDir, "open.log")
+	writeShellCommandStub(t, stubDir, "open", "printf '%s\\n' \"$*\" >> \"$OPEN_LOG_PATH\"\n")
+	writeShellCommandStub(t, stubDir, "ps", "exit 0\n")
+	t.Setenv("OPEN_LOG_PATH", openLogPath)
+	t.Setenv("PATH", stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if openURLInChromeApp("https://example.com") {
+		t.Fatal("expected chrome app launch to fail when no visible app process appears")
+	}
+
+	content, err := os.ReadFile(openLogPath)
+	if err != nil {
+		t.Fatalf("read open log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("expected four open attempts across Google Chrome and Chromium, got %#v", lines)
+	}
+}
+
+func TestIsMacOSChromeProcessCommandAcceptsRelocatedBinaryPaths(t *testing.T) {
+	t.Parallel()
+
+	chromeFlag := "--app=https://example.com"
+	command := "/Volumes/Apps/Google Chrome.app/Contents/MacOS/Google Chrome " + chromeFlag
+	if !isMacOSChromeProcessCommand(command, chromeFlag) {
+		t.Fatalf("expected relocated Chrome binary path to match %q", command)
+	}
+	if isMacOSChromeProcessCommand("open -a Google Chrome --args "+chromeFlag, chromeFlag) {
+		t.Fatal("expected wrapper open command to be ignored")
+	}
+}
+
 func TestResolveLauncherServerExecutablePrefersEnvOverride(t *testing.T) {
 	t.Parallel()
 
@@ -738,6 +853,17 @@ func writeExecutableForTest(t *testing.T, path string) string {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
 		t.Fatalf("write executable: %v", err)
+	}
+	return path
+}
+
+func writeShellCommandStub(t *testing.T, dir string, name string, scriptBody string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	content := "#!/bin/sh\nset -eu\n" + scriptBody
+	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+		t.Fatalf("write command stub %q: %v", name, err)
 	}
 	return path
 }
