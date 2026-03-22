@@ -6705,7 +6705,12 @@ export function createSetCallableChildCodeObj(
   return options as SetCallableChildCodeObj;
 }
 
-export type SignatureHelpStatus = string;
+export const SignatureHelpStatusEnum = {
+  matched: "matched",
+  no_match: "no_match",
+  skipped: "skipped",
+} as const;
+export type SignatureHelpStatus = ObjectValues<typeof SignatureHelpStatusEnum>;
 
 export type SetCallableResponse = {
   callableId?: string | null;

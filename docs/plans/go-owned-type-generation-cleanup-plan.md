@@ -47,6 +47,23 @@ That means:
 - Go type discovery now handles selector-backed named wrappers generically, so generated registries can keep frontend-facing names while still pointing at real backend owner types.
 - `cmd/setta-gen-go-type-registries` now also generates a generic frontend wrapper-override registry, and `internal/frontendbindings/converter.go` uses that instead of a hardcoded canonical-type switch.
 - `internal/frontendbindings/project_state_support.go` now points a large part of the project-state surface at real owner structs instead of empty placeholder structs.
+- `internal/frontendbindings/project_state_support.go` has been reduced further by wrapping more real backend owners instead of repeating local contract shapes, including:
+  - `RenameRefactorMode`
+  - `StateMachineGateUIState`
+  - `TypeErrorIgnoreState`
+  - `BrowserSavedSearchTypeFilters`
+  - `BrowserSavedSearch`
+  - `TaskBoardColumn`
+  - `TaskBoardTask`
+  - `CodeSectionDiagnosticsIgnoreState`
+  - `CodeSectionImpl`
+  - `TerminalSectionImpl`
+  - `DeleteProjectConfigsResponse`
+  - `DeleteNotificationResponse`
+  - `CreateNewSectionVariantResponse`
+  - `SetCallableChildCodeObj`
+  - `SignatureHelpStatus`
+  - `CodeFileBindingUpdate`
 - `internal/frontendbindings/artifact_support.go` and `contracts.go` now use backend-owned wrapper types for the artifact/binary leaf contract family instead of repeating field layouts locally.
 - parts of `internal/frontendbindings/ai_settings_support.go` now use backend-owned wrapper types for enum/env-status families instead of repeating local string enums and structs.
 - the external-agent config/settings family now has a real backend owner in `internal/externalagentconfigs` instead of large mirrored structs in `frontendbindings`:
@@ -219,6 +236,9 @@ That means:
 - `internal/frontendbindings/project_state_support.go` now aliases that chat-action family to `internal/scriptablechat`, so the TS generated surface and the Python generated surface both pick it up from the same Go owner.
 - `backend/setta/types/chat_toolkit.py` has been deleted; the Python chat-toolkit code now imports the generated Go-owned event models directly.
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` no longer keeps its own handwritten chat-action payload shape; it now uses the generated chat-action event types.
+- duplicate backend ownership has been reduced further instead of teaching generators to arbitrate between equivalent owners:
+  - `managedchat.ChatPermissionMode` and `externalagents.ChatPermissionMode` now alias the single owner `projectstate.ChatPermissionMode`
+  - `runs.RunSnapshotMode` now aliases the single owner `deployments.RunSnapshotMode`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -277,7 +297,7 @@ But it still leans on the `frontendbindings` surface, plus some enum fallback lo
 ### 4. There may still be some duplicated type ownership inside Go
 The frontend/Python cleanup is surfacing a few remaining “two Go packages define the same concept” cases.
 
-The prompt-format duplication has already been removed. The remaining work here is to keep applying the same rule elsewhere if any more duplicated owner pairs are found:
+The prompt-format duplication has already been removed, and the duplicated `ChatPermissionMode` / `RunSnapshotMode` pairs have also been collapsed onto single owners. The remaining work here is to keep applying the same rule elsewhere if any more duplicated owner pairs are found:
 - collapse the backend ownership first
 - then point frontend/Python generation at the surviving owner
 - do not teach the generators to arbitrate between multiple backend owners forever

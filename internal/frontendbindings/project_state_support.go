@@ -134,7 +134,7 @@ type DeleteProjectConfigsRequestInput struct {
 	IDs []string `json:"ids"`
 }
 
-type DeleteProjectConfigsResponse bool
+type DeleteProjectConfigsResponse httpapi.DeleteProjectConfigsResponse
 
 type SetProjectConfigNameRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
@@ -155,9 +155,7 @@ type DeleteNotificationRequestInput struct {
 
 type NotificationsResponse []SettaNotification
 
-type DeleteNotificationResponse struct {
-	Success bool `json:"success"`
-}
+type DeleteNotificationResponse httpapi.DeleteNotificationResponse
 
 type DocstringToMarkdownResponse string
 
@@ -187,9 +185,7 @@ type CreateNewSectionVariantRequestInput struct {
 	SectionID       string  `json:"sectionId"`
 }
 
-type CreateNewSectionVariantResponse struct {
-	VariantID string `json:"variantId"`
-}
+type CreateNewSectionVariantResponse projectstate.CreateNewSectionVariantResult
 
 type SetSectionVariantRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -744,12 +740,9 @@ type RedoRequestInput struct {
 	Steps           int    `json:"steps"`
 }
 
-type SetCallableChildCodeObj struct {
-	CodeObjID string `json:"codeObjId"`
-	Name      string `json:"name"`
-}
+type SetCallableChildCodeObj projectstate.SetCallableChildCodeObj
 
-type SignatureHelpStatus string
+type SignatureHelpStatus projectstate.SignatureHelpStatus
 
 type SetCallableResponse struct {
 	CallableID    *string                   `json:"callableId,omitempty"`
@@ -971,10 +964,7 @@ type BrowserSavedSearchTypeFilters projectstate.BrowserSavedSearchTypeFilters
 
 type BrowserSavedSearch projectstate.BrowserSavedSearch
 
-type CodeFileBindingUpdate struct {
-	CanonicalPath string             `json:"canonical_path"`
-	AccessMode    CodeFileAccessMode `json:"access_mode"`
-}
+type CodeFileBindingUpdate httpapi.CodeFileBindingUpdate
 
 type TaskBoardColumn projectstate.TaskBoardColumn
 
