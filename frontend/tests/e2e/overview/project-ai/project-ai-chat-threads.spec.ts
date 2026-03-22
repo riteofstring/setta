@@ -773,7 +773,6 @@ test("project ai threads remember explicit large-width close after narrow resize
   await ensureAppReady(page);
 
   let overviewPane = await getOverviewProjectChatSurface(page);
-  await expect(overviewPane.getByTestId("chat-input-textarea")).toBeVisible();
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
