@@ -2,7 +2,9 @@ package projectstate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -604,6 +606,117 @@ func TestRuntimeStateMachineMutationsAcceptLivePromptTemplateLookupAndSignalFilt
 	}
 	if filterEdge.SourceFilter.Equals == nil || *filterEdge.SourceFilter.Equals != equals {
 		t.Fatalf("expected equals %q, got %#v", equals, filterEdge.SourceFilter.Equals)
+	}
+}
+
+func TestRuntimeStateMachineSectionSettingsAllowDraftStructureChangesButRejectConnectedEdgeGroupMismatches(t *testing.T) {
+	t.Parallel()
+
+	runtime := openStateMachineMutationRuntime(t, stateMachineMutationTestProject(t))
+
+	if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
+		ID:              "edge-start-end",
+		MachineGroupID:  "workflow-a",
+		SourceSectionID: "start-section",
+		SourcePortID:    StateMachineEdgeSourcePortID,
+		TargetSectionID: "end-section",
+		TargetPortID:    StateMachineEdgeTargetPortID,
+	}, nil); err != nil {
+		t.Fatalf("create start->end edge: %v", err)
+	}
+
+	if _, err := runtime.SetStateMachineSectionSettings(context.Background(), "project-alpha", "start-section", StateMachineSectionSettings{
+		MachineGroupID: "other-machine",
+		Label:          "Start",
+	}); !errors.Is(err, ErrStateMachineEdgeInvalid) || err == nil || !strings.Contains(err.Error(), "does not match the source section") {
+		t.Fatalf("expected connected-graph machine-group mismatch, got %v", err)
+	}
+
+	_, result, err := runtime.CreateTopLevelSection(context.Background(), "project-alpha", CreateTopLevelSectionInput{
+		ImplType: "StateMachineStart",
+		Position: &Position{X: 720, Y: 0},
+	}, DefaultStructuralMutationSettings())
+	if err != nil {
+		t.Fatalf("create extra start section: %v", err)
+	}
+	if result.SectionID == "" {
+		t.Fatal("expected created extra start section id")
+	}
+
+	if _, err := runtime.SetStateMachineSectionSettings(context.Background(), "project-alpha", result.SectionID, StateMachineSectionSettings{
+		MachineGroupID: "workflow-a",
+		Label:          "Extra Start",
+	}); err != nil {
+		t.Fatalf("set extra start settings: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	extraStartPayload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload extra start: %v", err)
+	}
+	if got := payloadRawStringField(extraStartPayload, "machineGroupId"); got != "workflow-a" {
+		t.Fatalf("expected extra start machineGroupId workflow-a, got %q", got)
+	}
+	if got := payloadRawStringField(extraStartPayload, "label"); got != "Extra Start" {
+		t.Fatalf("expected extra start label Extra Start, got %q", got)
+	}
+
+	gateType := StateMachineGateTypeAND
+	if _, err := runtime.SetStateMachineSectionSettings(context.Background(), "project-alpha", "gate-section", StateMachineSectionSettings{
+		MachineGroupID: "workflow-a",
+		Label:          "Gate Label",
+		GateType:       &gateType,
+	}); err != nil {
+		t.Fatalf("set gate label update: %v", err)
+	}
+
+	project = runtime.Snapshot().Document.Projects["project-alpha"]
+	gatePayload, err := effectiveSectionPayload(project, "gate-section", "gate-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload gate-section: %v", err)
+	}
+	if got := payloadRawStringField(gatePayload, "machineGroupId"); got != "workflow-a" {
+		t.Fatalf("expected gate machineGroupId workflow-a, got %q", got)
+	}
+	if got := payloadRawStringField(gatePayload, "label"); got != "Gate Label" {
+		t.Fatalf("expected gate label Gate Label, got %q", got)
+	}
+	if got := payloadRawStringField(gatePayload, "gateType"); got != string(StateMachineGateTypeAND) {
+		t.Fatalf("expected gate type %q, got %q", StateMachineGateTypeAND, got)
+	}
+}
+
+func TestProjectStateMachineEdgesJSONRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	project := stateMachineMutationTestProject(t)
+	project.StateMachineEdges = []StateMachineEdge{{
+		ID:              "edge-start-end",
+		MachineGroupID:  "workflow-a",
+		SourceSectionID: "start-section",
+		SourcePortID:    StateMachineEdgeSourcePortID,
+		TargetSectionID: "end-section",
+		TargetPortID:    StateMachineEdgeTargetPortID,
+	}}
+
+	encoded, err := json.Marshal(project)
+	if err != nil {
+		t.Fatalf("marshal project with state machine edges: %v", err)
+	}
+
+	var restored Project
+	if err := json.Unmarshal(encoded, &restored); err != nil {
+		t.Fatalf("unmarshal project with state machine edges: %v", err)
+	}
+
+	restored, err = restored.Normalized()
+	if err != nil {
+		t.Fatalf("normalize restored project: %v", err)
+	}
+
+	if !reflect.DeepEqual(restored.StateMachineEdges, project.StateMachineEdges) {
+		t.Fatalf("expected restored state machine edges %#v, got %#v", project.StateMachineEdges, restored.StateMachineEdges)
 	}
 }
 

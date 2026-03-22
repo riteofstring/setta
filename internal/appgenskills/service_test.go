@@ -907,7 +907,7 @@ func TestWriteExistingCustomSkillDocReturnsMissingWhenTargetDisappearsBeforeOpen
 		return os.Remove(skillDocPath)
 	})
 
-	err := writeExistingCustomSkillDoc(skillDocPath, "workspace_agents_skills::editable", repeatedString("A", 8<<20))
+	err := writeExistingCustomSkillDoc(skillDocPath, "workspace_agents_skills::editable", repeatedString("A", 64<<20))
 	if mutationErr := <-mutationDone; mutationErr != nil {
 		t.Fatalf("remove disappearing target: %v", mutationErr)
 	}
@@ -986,7 +986,7 @@ func waitForSkillTempFile(t *testing.T, skillDir string, mutate func() error) <-
 	done := make(chan error, 1)
 	go func() {
 		pattern := filepath.Join(skillDir, ".setta-skill-*.tmp")
-		deadline := time.Now().Add(2 * time.Second)
+		deadline := time.Now().Add(10 * time.Second)
 		for time.Now().Before(deadline) {
 			matches, err := filepath.Glob(pattern)
 			if err != nil {
@@ -997,7 +997,7 @@ func waitForSkillTempFile(t *testing.T, skillDir string, mutate func() error) <-
 				done <- mutate()
 				return
 			}
-			time.Sleep(time.Millisecond)
+			runtime.Gosched()
 		}
 		done <- errors.New("timed out waiting for temp skill file")
 	}()
