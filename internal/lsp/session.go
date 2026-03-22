@@ -861,14 +861,29 @@ func (s *Session) failPending(err error) {
 		return
 	}
 	s.mu.Lock()
+	decoratedErr := decorateSessionProcessError(err, s.stderr.String())
 	defer s.mu.Unlock()
 	for id, ch := range s.pending {
 		select {
-		case ch <- rpcEnvelope{Error: &rpcError{Message: err.Error()}}:
+		case ch <- rpcEnvelope{Error: &rpcError{Message: decoratedErr.Error()}}:
 		default:
 		}
 		delete(s.pending, id)
 	}
+}
+
+func decorateSessionProcessError(err error, stderrOutput string) error {
+	if err == nil {
+		return nil
+	}
+	trimmedStderr := strings.TrimSpace(stderrOutput)
+	if trimmedStderr == "" {
+		return err
+	}
+	if errors.Is(err, io.EOF) {
+		return fmt.Errorf("process exited before response: %s", trimmedStderr)
+	}
+	return fmt.Errorf("%w: %s", err, trimmedStderr)
 }
 
 func readEnvelope(reader *bufio.Reader) (rpcEnvelope, error) {

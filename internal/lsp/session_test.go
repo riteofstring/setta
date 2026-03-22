@@ -100,6 +100,39 @@ func TestSessionStartFailsWhenCommandMissing(t *testing.T) {
 	}
 }
 
+func TestSessionStartIncludesProcessStderrWhenInitializeExitsEarly(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	serverScript := writeTestScript(t, `
+import sys
+
+sys.stderr.write("ModuleNotFoundError: No module named 'basedpyright'\n")
+sys.stderr.flush()
+raise SystemExit(1)
+`)
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot: workspaceRoot,
+		Command:       pythonBinary,
+		Args:          []string{serverScript},
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	err = session.Start(context.Background())
+	if err == nil {
+		t.Fatal("expected initialize failure")
+	}
+	if !strings.Contains(err.Error(), "process exited before response") {
+		t.Fatalf("expected early-exit detail, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "basedpyright") {
+		t.Fatalf("expected stderr in initialize error, got %v", err)
+	}
+}
+
 // Signature-help requests share the same stdio/session boundary as completion,
 // so the fixture server should prove that we frame and decode the request.
 func TestSessionFixtureServerSignatureHelp(t *testing.T) {

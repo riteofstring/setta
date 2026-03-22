@@ -2949,6 +2949,82 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	}
 }
 
+func TestAppCreateProjectConfigRouteIgnoresLSPInitializationFailure(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("SETTA_LSP_COMMAND", "true")
+	t.Setenv("SETTA_LSP_ARGS", "")
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	// Project creation should not fail just because diagnostics cannot start.
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appProjectShellTestProjectWithWindowing()
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteCreateProjectConfig, strings.NewReader(`{"previewImgColor":"bg-orange-500/60 dark:bg-orange-600/30"}`))
+	if err != nil {
+		t.Fatalf("new create request: %v", err)
+	}
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.AddCookie(authCookie)
+
+	createResponse, err := http.DefaultClient.Do(createRequest)
+	if err != nil {
+		t.Fatalf("create project config: %v", err)
+	}
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected create 200 when lsp init fails, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+
+	var createdName string
+	if err := json.NewDecoder(createResponse.Body).Decode(&createdName); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	if createdName == "" {
+		t.Fatal("expected non-empty created name")
+	}
+
+	persistedStore, err := projectstate.NewStore(app.ProjectStates().Paths().Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted project store: %v", err)
+	}
+	persistedDocument, err := persistedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document after create: %v", err)
+	}
+
+	foundCreatedProject := false
+	for _, project := range persistedDocument.Projects {
+		if project.Name == createdName {
+			foundCreatedProject = true
+			break
+		}
+	}
+	if !foundCreatedProject {
+		t.Fatalf("expected created project %q in %#v", createdName, persistedDocument.Projects)
+	}
+}
+
 func TestAppProjectRuntimeCreateProjectDefaultScaffold(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -2971,6 +3047,45 @@ func TestAppProjectRuntimeCreateProjectDefaultScaffold(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("create project through app runtime: %v", err)
+	}
+	project, err := snapshot.Document.ProjectByID(createdProjectID)
+	if err != nil {
+		t.Fatalf("lookup created project: %v", err)
+	}
+	assertAppDefaultGeneratedPythonProjectScaffold(t, project)
+}
+
+func TestAppProjectRuntimeCreateProjectDefaultScaffoldOnRepoWorkspace(t *testing.T) {
+	repoRoot := appTestRepoRoot(t)
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Paths.WorkspaceRoot = repoRoot
+	cfg.Paths.SettaHome = filepath.Join(t.TempDir(), ".setta-development")
+	cfg.Paths.ProfileLookupHome = cfg.Paths.SettaHome
+	cfg.Paths.SettaFilesRoot = filepath.Join(t.TempDir(), "setta_files_dev")
+	cfg.Paths.RuntimeRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "runtime")
+	cfg.User.GlobalSettaFilesBase = filepath.Join(cfg.Paths.SettaHome, "setta_files")
+
+	copyAppTestDir(t, filepath.Join(repoRoot, "setta_files_dev"), cfg.Paths.SettaFilesRoot)
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	snapshot, createdProjectID, _, err := app.ProjectStates().Main().CreateProject(
+		context.Background(),
+		"bg-orange-500/60 dark:bg-orange-600/30",
+	)
+	if err != nil {
+		t.Fatalf("create project through repo workspace runtime: %v", err)
 	}
 	project, err := snapshot.Document.ProjectByID(createdProjectID)
 	if err != nil {

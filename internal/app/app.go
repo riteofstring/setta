@@ -527,7 +527,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						}
 					}
 					if err := projectLSPSyncer.MaterializeDocument(ctx, snapshot.Document); err != nil {
-						return err
+						logger.Warn("project lsp sync failed after save", "error", err)
 					}
 					if err := lspDiagnostics.PruneDocument(snapshot.Document); err != nil {
 						return err

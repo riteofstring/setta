@@ -29,6 +29,7 @@ CLI_SETTA_HOME=0
 CLI_SETTA_FILES_ROOT=0
 CLI_SETTA_FILES_LOCATION=0
 CLI_RUNTIME_ROOT=0
+CLI_NO_OPEN=0
 
 setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
 setta_path_flags_seed_from_env
@@ -36,6 +37,9 @@ setta_path_flags_seed_from_env
 remaining=("$@")
 while [[ "${#remaining[@]}" -gt 0 ]]; do
   arg="${remaining[0]}"
+  if [[ "$arg" == "--no-open" ]]; then
+    CLI_NO_OPEN=1
+  fi
   if setta_path_flags_try_parse "${remaining[@]}"; then
     case "${arg}" in
       --profile|--profile=*)
@@ -113,7 +117,11 @@ SETTA_ARGS=(
   --log-level debug
 )
 
-if [[ "${#NO_OPEN_ARGS[@]}" -eq 0 && -r /dev/tty ]]; then
+if [[ -z "${SETTA_PYTHON:-}" && -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+  export SETTA_PYTHON="${ROOT_DIR}/.venv/bin/python"
+fi
+
+if [[ "${CLI_NO_OPEN}" -eq 0 && "${#NO_OPEN_ARGS[@]}" -eq 0 && -r /dev/tty ]] && ( : </dev/tty ) 2>/dev/null; then
   # `concurrently` detaches stdin, but the Go server only auto-opens when it sees a TTY.
   SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" "${SETTA_ARGS[@]}" </dev/tty
 else
