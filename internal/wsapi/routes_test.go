@@ -3430,7 +3430,7 @@ func TestRegisterRoutesListenerFrontendEmitReportsArtifactManagerFailure(t *test
 	}
 
 	message := readNextMessage(t, listener)
-	if message.MessageType != realtime.MessageTypeListenerError {
+	if message.MessageType != string(realtime.MessageTypeListenerError) {
 		t.Fatalf("expected listener error, got %q", message.MessageType)
 	}
 	var content realtime.ListenerErrorContent
@@ -5081,7 +5081,7 @@ func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, proje
 func assertListenerRegisterAckCallbacks(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string, expectedStatuses map[string]string) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerRegisterAck {
+	if message.MessageType != string(realtime.MessageTypeListenerRegisterAck) {
 		t.Fatalf("expected listener register ack, got %q", message.MessageType)
 	}
 
@@ -5151,7 +5151,7 @@ func assertRouteListenerForceRefresh(
 ) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerForceRefresh {
+	if message.MessageType != string(realtime.MessageTypeListenerForceRefresh) {
 		t.Fatalf("expected listener force refresh, got %q", message.MessageType)
 	}
 
@@ -5212,7 +5212,7 @@ func assertRouteListenerError(
 ) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerError {
+	if message.MessageType != string(realtime.MessageTypeListenerError) {
 		t.Fatalf("expected listener error, got %q", message.MessageType)
 	}
 
@@ -5241,7 +5241,7 @@ func assertRouteListenerErrorMissingDetailKey(
 ) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerError {
+	if message.MessageType != string(realtime.MessageTypeListenerError) {
 		t.Fatalf("expected listener error, got %q", message.MessageType)
 	}
 
@@ -5316,7 +5316,7 @@ func assertRouteListenerRealtimeEvent(
 ) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerRealtimeEvent {
+	if message.MessageType != string(realtime.MessageTypeListenerRealtimeEvent) {
 		t.Fatalf("expected listener realtime event, got %q", message.MessageType)
 	}
 
@@ -5361,7 +5361,7 @@ func assertRouteListenerDependencyEvent(
 ) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerDependencyEvent {
+	if message.MessageType != string(realtime.MessageTypeListenerDependencyEvent) {
 		t.Fatalf("expected listener dependency event, got %q", message.MessageType)
 	}
 
@@ -5426,7 +5426,7 @@ func assertListenerRouterEndpointResult(
 ) {
 	t.Helper()
 
-	if message.MessageType != realtime.MessageTypeListenerRouterResult {
+	if message.MessageType != string(realtime.MessageTypeListenerRouterResult) {
 		t.Fatalf("expected listener router endpoint result, got %q", message.MessageType)
 	}
 

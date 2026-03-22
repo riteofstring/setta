@@ -71,12 +71,12 @@ type frontendEnvelope struct {
 }
 
 type listenerEnvelope struct {
-	MessageType string          `json:"messageType"`
-	Content     json.RawMessage `json:"content"`
+	MessageType realtime.ListenerMessageType `json:"messageType"`
+	Content     json.RawMessage              `json:"content"`
 }
 
 type listenerInboundMessage struct {
-	MessageType  string
+	MessageType  realtime.ListenerMessageType
 	Init         *realtime.ListenerInitContent
 	Register     *realtime.ListenerRegisterContent
 	FrontendEmit *realtime.ListenerFrontendEmitContent

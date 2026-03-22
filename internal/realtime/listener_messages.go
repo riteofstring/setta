@@ -9,17 +9,19 @@ import (
 )
 
 const (
-	MessageTypeListenerInit            = "ListenerInit"
-	MessageTypeListenerRegister        = "ListenerRegister"
-	MessageTypeListenerRegisterAck     = "ListenerRegisterAck"
-	MessageTypeListenerFrontendEmit    = "ListenerFrontendEmit"
-	MessageTypeListenerRouterCall      = "ListenerRouterEndpointCall"
-	MessageTypeListenerRouterResult    = "ListenerRouterEndpointResult"
-	MessageTypeListenerRealtimeEvent   = "ListenerRealtimeEvent"
-	MessageTypeListenerDependencyEvent = "ListenerDependencyEvent"
-	MessageTypeListenerForceRefresh    = "ListenerForceRefresh"
-	MessageTypeListenerError           = "ListenerError"
+	MessageTypeListenerInit            ListenerMessageType = "ListenerInit"
+	MessageTypeListenerRegister        ListenerMessageType = "ListenerRegister"
+	MessageTypeListenerRegisterAck     ListenerMessageType = "ListenerRegisterAck"
+	MessageTypeListenerFrontendEmit    ListenerMessageType = "ListenerFrontendEmit"
+	MessageTypeListenerRouterCall      ListenerMessageType = "ListenerRouterEndpointCall"
+	MessageTypeListenerRouterResult    ListenerMessageType = "ListenerRouterEndpointResult"
+	MessageTypeListenerRealtimeEvent   ListenerMessageType = "ListenerRealtimeEvent"
+	MessageTypeListenerDependencyEvent ListenerMessageType = "ListenerDependencyEvent"
+	MessageTypeListenerForceRefresh    ListenerMessageType = "ListenerForceRefresh"
+	MessageTypeListenerError           ListenerMessageType = "ListenerError"
 )
+
+type ListenerMessageType string
 
 type ListenerInitContent struct {
 	ProjectConfigID string `json:"projectConfigId,omitempty"`
@@ -28,7 +30,7 @@ type ListenerInitContent struct {
 }
 
 type ListenerInitMessage struct {
-	MessageType string              `json:"messageType"`
+	MessageType ListenerMessageType `json:"messageType"`
 	Content     ListenerInitContent `json:"content"`
 }
 
@@ -38,7 +40,7 @@ type ListenerErrorContent struct {
 }
 
 type ListenerErrorMessage struct {
-	MessageType string               `json:"messageType"`
+	MessageType ListenerMessageType  `json:"messageType"`
 	Content     ListenerErrorContent `json:"content"`
 }
 
@@ -59,7 +61,7 @@ type ListenerRegisterContent struct {
 }
 
 type ListenerRegisterMessage struct {
-	MessageType string                  `json:"messageType"`
+	MessageType ListenerMessageType     `json:"messageType"`
 	Content     ListenerRegisterContent `json:"content"`
 }
 
@@ -70,7 +72,7 @@ type ListenerFrontendEmitContent struct {
 }
 
 type ListenerFrontendEmitMessage struct {
-	MessageType string                      `json:"messageType"`
+	MessageType ListenerMessageType         `json:"messageType"`
 	Content     ListenerFrontendEmitContent `json:"content"`
 }
 
@@ -86,7 +88,7 @@ type ListenerRegisterAckContent struct {
 }
 
 type ListenerRegisterAckMessage struct {
-	MessageType string                     `json:"messageType"`
+	MessageType ListenerMessageType        `json:"messageType"`
 	Content     ListenerRegisterAckContent `json:"content"`
 }
 
@@ -98,7 +100,7 @@ type ListenerRouterEndpointCallContent struct {
 }
 
 type ListenerRouterEndpointCallMessage struct {
-	MessageType string                            `json:"messageType"`
+	MessageType ListenerMessageType               `json:"messageType"`
 	Content     ListenerRouterEndpointCallContent `json:"content"`
 }
 
@@ -112,7 +114,7 @@ type ListenerRouterEndpointResultContent struct {
 }
 
 type ListenerRouterEndpointResultMessage struct {
-	MessageType string                              `json:"messageType"`
+	MessageType ListenerMessageType                 `json:"messageType"`
 	Content     ListenerRouterEndpointResultContent `json:"content"`
 }
 
@@ -132,7 +134,7 @@ type ListenerRealtimeEventContent struct {
 }
 
 type ListenerRealtimeEventMessage struct {
-	MessageType string                       `json:"messageType"`
+	MessageType ListenerMessageType          `json:"messageType"`
 	Content     ListenerRealtimeEventContent `json:"content"`
 }
 
@@ -144,7 +146,7 @@ type ListenerDependencyEventContent struct {
 }
 
 type ListenerDependencyEventMessage struct {
-	MessageType string                         `json:"messageType"`
+	MessageType ListenerMessageType            `json:"messageType"`
 	Content     ListenerDependencyEventContent `json:"content"`
 }
 
@@ -185,7 +187,7 @@ type ListenerForceRefreshContent struct {
 }
 
 type ListenerForceRefreshMessage struct {
-	MessageType string                      `json:"messageType"`
+	MessageType ListenerMessageType         `json:"messageType"`
 	Content     ListenerForceRefreshContent `json:"content"`
 }
 

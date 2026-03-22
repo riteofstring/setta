@@ -1,7 +1,7 @@
-from enum import Enum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
+from setta.types.generated.go_shared_types import ListenerMessageType
 from setta.types.listener import (
     ListenerDependencyEventContent,
     ListenerErrorContent,
@@ -16,19 +16,6 @@ from setta.types.listener import (
 )
 
 
-class WebsocketMsgTypeForPythonScript(str, Enum):
-    ListenerInit = "ListenerInit"
-    ListenerRegister = "ListenerRegister"
-    ListenerRegisterAck = "ListenerRegisterAck"
-    ListenerRealtimeEvent = "ListenerRealtimeEvent"
-    ListenerDependencyEvent = "ListenerDependencyEvent"
-    ListenerForceRefresh = "ListenerForceRefresh"
-    ListenerError = "ListenerError"
-    ListenerFrontendEmit = "ListenerFrontendEmit"
-    ListenerRouterEndpointCall = "ListenerRouterEndpointCall"
-    ListenerRouterEndpointResult = "ListenerRouterEndpointResult"
-
-
 class WebsocketMsg(BaseModel):
     id: str | None = None
     content: Any
@@ -41,71 +28,71 @@ class PythonScriptWebsocketMsg(WebsocketMsg):
 
 class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
     content: ListenerRealtimeEventContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent] = (
-        WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent
+    messageType: Literal[ListenerMessageType.ListenerRealtimeEvent] = (
+        ListenerMessageType.ListenerRealtimeEvent
     )
 
 
 class WebsocketMsgListenerDependencyEvent(PythonScriptWebsocketMsg):
     content: ListenerDependencyEventContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerDependencyEvent] = (
-        WebsocketMsgTypeForPythonScript.ListenerDependencyEvent
+    messageType: Literal[ListenerMessageType.ListenerDependencyEvent] = (
+        ListenerMessageType.ListenerDependencyEvent
     )
 
 
 class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
     content: ListenerForceRefreshContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerForceRefresh] = (
-        WebsocketMsgTypeForPythonScript.ListenerForceRefresh
+    messageType: Literal[ListenerMessageType.ListenerForceRefresh] = (
+        ListenerMessageType.ListenerForceRefresh
     )
 
 
 class WebsocketMsgListenerError(PythonScriptWebsocketMsg):
     content: ListenerErrorContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerError] = (
-        WebsocketMsgTypeForPythonScript.ListenerError
+    messageType: Literal[ListenerMessageType.ListenerError] = (
+        ListenerMessageType.ListenerError
     )
 
 
 class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
     content: ListenerFrontendEmitRawContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
-        WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
+    messageType: Literal[ListenerMessageType.ListenerFrontendEmit] = (
+        ListenerMessageType.ListenerFrontendEmit
     )
 
 
 class WebsocketMsgListenerRouterEndpointCall(PythonScriptWebsocketMsg):
     content: ListenerRouterEndpointCallContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRouterEndpointCall] = (
-        WebsocketMsgTypeForPythonScript.ListenerRouterEndpointCall
+    messageType: Literal[ListenerMessageType.ListenerRouterEndpointCall] = (
+        ListenerMessageType.ListenerRouterEndpointCall
     )
 
 
 class WebsocketMsgListenerRouterEndpointResult(PythonScriptWebsocketMsg):
     content: ListenerRouterEndpointResultContent
     messageType: Literal[
-        WebsocketMsgTypeForPythonScript.ListenerRouterEndpointResult
-    ] = WebsocketMsgTypeForPythonScript.ListenerRouterEndpointResult
+        ListenerMessageType.ListenerRouterEndpointResult
+    ] = ListenerMessageType.ListenerRouterEndpointResult
 
 
 class WebsocketMsgListenerRegister(PythonScriptWebsocketMsg):
     content: ListenerRegisterContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegister] = (
-        WebsocketMsgTypeForPythonScript.ListenerRegister
+    messageType: Literal[ListenerMessageType.ListenerRegister] = (
+        ListenerMessageType.ListenerRegister
     )
 
 
 class WebsocketMsgListenerRegisterAck(PythonScriptWebsocketMsg):
     content: ListenerRegisterAckContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegisterAck] = (
-        WebsocketMsgTypeForPythonScript.ListenerRegisterAck
+    messageType: Literal[ListenerMessageType.ListenerRegisterAck] = (
+        ListenerMessageType.ListenerRegisterAck
     )
 
 
 class WebsocketMsgListenerInit(PythonScriptWebsocketMsg):
     content: ListenerInitContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerInit] = (
-        WebsocketMsgTypeForPythonScript.ListenerInit
+    messageType: Literal[ListenerMessageType.ListenerInit] = (
+        ListenerMessageType.ListenerInit
     )
 
 

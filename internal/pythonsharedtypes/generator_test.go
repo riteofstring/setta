@@ -54,3 +54,43 @@ func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
 		t.Fatalf("field[1].DefaultExpr = %q, want %q", model.Fields[1].DefaultExpr, "None")
 	}
 }
+
+func TestSortModelSpecsByDependencies(t *testing.T) {
+	t.Helper()
+
+	models := []modelSpec{
+		{
+			Name: "Chat",
+			Fields: []fieldSpec{
+				{Name: "llmConfig", TypeExpr: "LLMConfig"},
+				{Name: "branches", TypeExpr: "dict[str, ChatSectionBranch]"},
+			},
+		},
+		{
+			Name: "ChatSectionBranch",
+			Fields: []fieldSpec{
+				{Name: "messages", TypeExpr: "list[dict[str, Any]]"},
+			},
+		},
+		{
+			Name: "LLMConfig",
+			Fields: []fieldSpec{
+				{Name: "id", TypeExpr: "str"},
+			},
+		},
+	}
+
+	sorted := sortModelSpecsByDependencies(models)
+	if len(sorted) != 3 {
+		t.Fatalf("sorted len = %d, want 3", len(sorted))
+	}
+	if sorted[0].Name != "ChatSectionBranch" {
+		t.Fatalf("sorted[0].Name = %q, want %q", sorted[0].Name, "ChatSectionBranch")
+	}
+	if sorted[1].Name != "LLMConfig" {
+		t.Fatalf("sorted[1].Name = %q, want %q", sorted[1].Name, "LLMConfig")
+	}
+	if sorted[2].Name != "Chat" {
+		t.Fatalf("sorted[2].Name = %q, want %q", sorted[2].Name, "Chat")
+	}
+}

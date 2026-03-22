@@ -1,5 +1,7 @@
 package frontendbindings
 
+import "setta/internal/realtime"
+
 type EngineType string
 
 const (
@@ -113,106 +115,28 @@ type DetachedRun struct {
 	Tags            map[string]string `json:"tags"`
 }
 
-type StreamingEventType string
+type StreamingEventType = realtime.StreamingEventType
 
-const (
-	StreamingEventTypeMessageStart        StreamingEventType = "message_start"
-	StreamingEventTypeDelta               StreamingEventType = "delta"
-	StreamingEventTypeToolCallDelta       StreamingEventType = "tool_call_delta"
-	StreamingEventTypeToolArgumentPreview StreamingEventType = "tool_argument_preview_delta"
-	StreamingEventTypeToolResult          StreamingEventType = "tool_result"
-	StreamingEventTypeMessageStop         StreamingEventType = "message_stop"
-	StreamingEventTypeMessageFinalized    StreamingEventType = "message_finalized"
-)
+type MessageTextDelta = realtime.MessageTextDelta
 
-type MessageTextDelta struct {
-	Type  string `json:"type"`
-	Index int    `json:"index"`
-	Text  string `json:"text"`
-}
+type MessageThinkingDelta = realtime.MessageThinkingDelta
 
-func (MessageTextDelta) isMessageContentDelta() {}
+type MessageContentDelta interface{}
 
-type MessageThinkingDelta struct {
-	Type      string  `json:"type"`
-	Index     int     `json:"index"`
-	Thinking  string  `json:"thinking"`
-	Summary   *string `json:"summary,omitempty"`
-	Signature *string `json:"signature,omitempty"`
-}
+type MessageStartEvent = realtime.MessageStartEvent
 
-func (MessageThinkingDelta) isMessageContentDelta() {}
+type MessageDeltaEvent = realtime.MessageDeltaEvent
 
-type MessageContentDelta interface {
-	isMessageContentDelta()
-}
+type ToolCallDeltaEvent = realtime.ToolCallDeltaEvent
 
-type MessageStartEvent struct {
-	Type    StreamingEventType   `json:"type"`
-	Message BaseChatMessageUnion `json:"message"`
-}
+type ToolResultEvent = realtime.ToolResultEvent
 
-func (MessageStartEvent) isLLMStreamingResponseChunk() {}
+type ToolArgumentPreviewDeltaEvent = realtime.ToolArgumentPreviewDeltaEvent
 
-type MessageDeltaEvent struct {
-	Type      StreamingEventType    `json:"type"`
-	MessageID string                `json:"message_id"`
-	Content   []MessageContentDelta `json:"content,omitempty"`
-}
+type MessageStopEvent = realtime.MessageStopEvent
 
-func (MessageDeltaEvent) isLLMStreamingResponseChunk() {}
+type MessageFinalizedEvent = realtime.MessageFinalizedEvent
 
-type ToolCallDeltaEvent struct {
-	Type           StreamingEventType `json:"type"`
-	MessageID      string             `json:"message_id"`
-	ToolCallID     string             `json:"tool_call_id"`
-	ArgumentsDelta string             `json:"arguments_delta"`
-	ToolName       *string            `json:"tool_name,omitempty"`
-}
+type LLMStreamingResponseChunk interface{}
 
-func (ToolCallDeltaEvent) isLLMStreamingResponseChunk() {}
-
-type ToolResultEvent struct {
-	Type   StreamingEventType `json:"type"`
-	Result ToolChatMessage    `json:"result"`
-}
-
-func (ToolResultEvent) isLLMStreamingResponseChunk() {}
-
-type ToolArgumentPreviewDeltaEvent struct {
-	Type              StreamingEventType  `json:"type"`
-	MessageID         string              `json:"message_id"`
-	ToolCallID        string              `json:"tool_call_id"`
-	ToolName          string              `json:"tool_name"`
-	ArgumentsDelta    string              `json:"arguments_delta"`
-	PreviewKind       string              `json:"preview_kind"`
-	TargetIDsByType   map[string][]string `json:"target_ids_by_type"`
-	PreviewValueDelta string              `json:"preview_value_delta"`
-}
-
-func (ToolArgumentPreviewDeltaEvent) isLLMStreamingResponseChunk() {}
-
-type MessageStopEvent struct {
-	Type      StreamingEventType `json:"type"`
-	MessageID string             `json:"message_id"`
-}
-
-func (MessageStopEvent) isLLMStreamingResponseChunk() {}
-
-type MessageFinalizedEvent struct {
-	Type    StreamingEventType   `json:"type"`
-	Message BaseChatMessageUnion `json:"message"`
-}
-
-func (MessageFinalizedEvent) isLLMStreamingResponseChunk() {}
-
-type LLMStreamingResponseChunk interface {
-	isLLMStreamingResponseChunk()
-}
-
-type LLMStreamingResponse struct {
-	ChatID          string                    `json:"chatId"`
-	Chunk           LLMStreamingResponseChunk `json:"chunk"`
-	SectionID       *string                   `json:"sectionId,omitempty"`
-	ProjectConfigID *string                   `json:"projectConfigId,omitempty"`
-}
+type LLMStreamingResponse = realtime.LLMStreamingResponseContent

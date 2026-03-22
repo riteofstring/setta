@@ -58,13 +58,16 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerSnapshot as SDKListenerSnapshot,
 )
+from setta.types.generated.go_shared_types import (
+    ListenerDependencyMode as GeneratedListenerDependencyMode,
+)
 from setta.types.id import ID
 
 
 class ListenerDependencyMode(str, Enum):
-    REFRESH_ONLY = "refresh_only"
-    REALTIME_ONLY = "realtime_only"
-    ALWAYS = "always"
+    REFRESH_ONLY = GeneratedListenerDependencyMode.refresh_only.value
+    REALTIME_ONLY = GeneratedListenerDependencyMode.realtime_only.value
+    ALWAYS = GeneratedListenerDependencyMode.always.value
 
 
 class ListenerInitContent(SDKListenerInitRequest):

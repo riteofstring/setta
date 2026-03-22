@@ -77,6 +77,28 @@ That means:
   - `internal/artifacts`
   - `internal/scriptablechat`
 - the Python shared-type pipeline still prunes aggressively afterward, so widening owner-package discovery no longer requires hand-maintaining another allowlist just to keep the output small.
+- `internal/realtime` now owns typed listener/streaming enums instead of leaving those names implicit in plain string constants:
+  - `StreamingEventType`
+  - `ListenerMessageType`
+  - `ListenerDependencyMode`
+- `internal/frontendbindings/ai_runtime_support.go` now points the streaming-event family at realtime-owned structs instead of repeating local field layouts:
+  - `MessageTextDelta`
+  - `MessageThinkingDelta`
+  - `MessageStartEvent`
+  - `MessageDeltaEvent`
+  - `ToolCallDeltaEvent`
+  - `ToolResultEvent`
+  - `ToolArgumentPreviewDeltaEvent`
+  - `MessageStopEvent`
+  - `MessageFinalizedEvent`
+- the Go -> Python generator now orders generated models by dependency, so broader discovery does not break when one generated model references another generated model defined later in discovery order.
+- `scriptablechat.Chat` and `scriptablechat.ChatMetadata` now export their `llmConfig` field through the generated `LLMConfig` name, so the generated Python chat models stay aligned with the rest of the Go-owned AI settings surface.
+- `backend/setta/types/chat.py` no longer hand-owns the chat metadata / section-state field layouts:
+  - `Chat`, `ChatMetadata`, `ChatSectionBranch`, and `ChatSectionState` now subclass Go-generated base models and only keep the Python-side typed message fields / defaults.
+- `backend/setta/types/chat_stream_events.py` no longer hand-owns the streaming event field layouts:
+  - the event classes now subclass Go-generated realtime event models and only keep the Python-side typed chat-message / preview-id wrappers.
+- `backend/setta/types/websocket.py` no longer owns the listener websocket message-type enum; it now reuses the Go-owned generated `ListenerMessageType`.
+- `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -94,11 +116,13 @@ Current handwritten files in `backend/setta/types/`:
 
 Working assumption for the next passes:
 - `id.py` is likely truly Python-only.
-- parts of `listener.py` are likely truly Python-only.
+- most of `listener.py` is now clearly Python-only wrapper logic over generated SDK / Go-owned enums.
+- `chat.py` and `chat_stream_events.py` are now typed Python adapters over Go-owned generated models, not primary schema owners.
+- `websocket.py` is now a typed Python adapter over Go-owned listener message types plus Python-specific `TypeAdapter` glue.
 - the remaining handwritten part of `project_config.py` is likely Python-only policy/default glue, not another large shared-model family.
 - `dependency_key.py` now has a concrete Python-only justification unless the listener SDK stops using hashable dataclass keys.
 - `dependency_value.py` is smaller and narrower, but still needs a deliberate decision because the current frozen dataclass API is used directly in Python tests and runtime helpers.
-- every other file must justify itself as Python-only or move toward Go ownership.
+- the main remaining shared-contract candidates are now `artifact.py` and `chat_messages.py`; everything else is either already Go-owned or needs a concrete Python-only justification.
 
 ## What Is Still Wrong
 
@@ -112,7 +136,7 @@ The remaining problem is that too much of the shared type surface still flows th
 
 That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
 
-This has improved for the project-state/view/windowing family, the artifact/binary leaf family, the prompt-template / LLM-config family, and the dependency wire family, but not yet for the chat and larger external-agent settings families.
+This has improved for the project-state/view/windowing family, the artifact/binary leaf family, the prompt-template / LLM-config family, the dependency wire family, and the streaming/listener enum family, but not yet for the artifact payload family, the detailed chat-message schema family, and the larger external-agent settings families.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
@@ -143,19 +167,22 @@ The prompt-format duplication has already been removed. The remaining work here 
 - then point frontend/Python generation at the surviving owner
 - do not teach the generators to arbitrate between multiple backend owners forever
 
-### 5. Some remaining Python files are still shared-contract candidates
-The remaining handwritten Python files are much smaller and clearer than before, but several still look like shared contract families rather than Python-only helpers.
+### 5. A few handwritten Python files are still shared-contract candidates
+The remaining handwritten Python files are much smaller and clearer than before.
 
-The main candidates are:
+The main candidates are now:
 - `artifact.py`
-- `chat.py`
 - `chat_messages.py`
-- `chat_stream_events.py`
-- `websocket.py`
 
-Secondary candidate:
+Secondary candidates:
 - `dependency_value.py`, if the Python listener/runtime no longer needs the frozen dataclass constructor/equality behavior
 - the remaining local wrapper content in `project_config.py`, if more of its defaults can move cleanly onto Go-owned models without adding duplicate Go definitions
+
+Already narrowed to Python adapter layers:
+- `chat.py`
+- `chat_stream_events.py`
+- `listener.py`
+- `websocket.py`
 
 Likely Python-only:
 - `dependency_key.py`, because the listener SDK currently uses those frozen dataclasses as hashable dictionary keys
@@ -222,6 +249,7 @@ Deliverable:
 Expected likely survivors:
 - `id.py`
 - the Python-specific validation and binary-payload glue in `listener.py`
+- the typed websocket / chat adapter layers if the Go backend deliberately continues to represent chat messages and streaming chunks as raw JSON payloads internally
 
 ### Phase 2: Shrink `frontendbindings` as a type owner
 Target files:

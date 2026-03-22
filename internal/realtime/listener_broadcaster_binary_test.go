@@ -96,7 +96,7 @@ func TestListenerBroadcasterEmitRealtimeDeltasBinaryKeepsAllDeltasOnSharedPayloa
 	}
 
 	envelope, payload := readBinaryEnvelope(t, listener)
-	if envelope.MessageType != MessageTypeListenerRealtimeEvent {
+	if envelope.MessageType != string(MessageTypeListenerRealtimeEvent) {
 		t.Fatalf("expected listener realtime event, got %q", envelope.MessageType)
 	}
 
@@ -220,7 +220,7 @@ func TestListenerBroadcasterEmitDependencyEventsBinaryKeepsAllEventsOnSharedPayl
 	}
 
 	envelope, payload := readBinaryEnvelope(t, listener)
-	if envelope.MessageType != MessageTypeListenerDependencyEvent {
+	if envelope.MessageType != string(MessageTypeListenerDependencyEvent) {
 		t.Fatalf("expected listener dependency event, got %q", envelope.MessageType)
 	}
 

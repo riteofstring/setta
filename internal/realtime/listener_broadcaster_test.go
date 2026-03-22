@@ -768,7 +768,7 @@ func assertListenerRealtimeMessage(
 ) {
 	t.Helper()
 
-	if envelope.MessageType != MessageTypeListenerRealtimeEvent {
+	if envelope.MessageType != string(MessageTypeListenerRealtimeEvent) {
 		t.Fatalf("expected listener realtime event, got %q", envelope.MessageType)
 	}
 
@@ -802,7 +802,7 @@ func assertListenerForceRefreshMessage(
 ) {
 	t.Helper()
 
-	if envelope.MessageType != MessageTypeListenerForceRefresh {
+	if envelope.MessageType != string(MessageTypeListenerForceRefresh) {
 		t.Fatalf("expected listener force refresh, got %q", envelope.MessageType)
 	}
 
@@ -893,7 +893,7 @@ func assertListenerDependencyEventMessage(
 ) {
 	t.Helper()
 
-	if envelope.MessageType != MessageTypeListenerDependencyEvent {
+	if envelope.MessageType != string(MessageTypeListenerDependencyEvent) {
 		t.Fatalf("expected listener dependency event, got %q", envelope.MessageType)
 	}
 

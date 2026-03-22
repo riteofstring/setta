@@ -66,7 +66,7 @@ type Chat struct {
 	ID              string           `json:"id"`
 	Name            string           `json:"name"`
 	LastUpdated     time.Time        `json:"lastUpdated"`
-	LLMConfig       llmconfig.Config `json:"llmConfig"`
+	LLMConfig       llmconfig.Config `json:"llmConfig" py_type:"LLMConfig"`
 	ProjectConfigID *string          `json:"projectConfigId,omitempty"`
 	Messages        []map[string]any `json:"messages"`
 	SystemPrompt    *string          `json:"systemPrompt"`
@@ -76,7 +76,7 @@ type ChatMetadata struct {
 	ID              string           `json:"id"`
 	Name            string           `json:"name"`
 	LastUpdated     time.Time        `json:"lastUpdated"`
-	LLMConfig       llmconfig.Config `json:"llmConfig"`
+	LLMConfig       llmconfig.Config `json:"llmConfig" py_type:"LLMConfig"`
 	ProjectConfigID *string          `json:"projectConfigId,omitempty"`
 }
 

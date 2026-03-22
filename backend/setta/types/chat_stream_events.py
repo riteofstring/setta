@@ -9,20 +9,27 @@ from setta.types.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
     ToolChatMessage,
 )
-from setta.types.generated.go_shared_types import StreamingEventType
+from setta.types.generated.go_shared_types import (
+    MessageDeltaEvent as GoMessageDeltaEvent,
+    MessageFinalizedEvent as GoMessageFinalizedEvent,
+    MessageStartEvent as GoMessageStartEvent,
+    MessageStopEvent as GoMessageStopEvent,
+    MessageTextDelta as GoMessageTextDelta,
+    MessageThinkingDelta as GoMessageThinkingDelta,
+    StreamingEventType,
+    ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
+    ToolCallDeltaEvent as GoToolCallDeltaEvent,
+    ToolResultEvent as GoToolResultEvent,
+)
 from setta.types.id import ID
 
 
-class MessageTextDelta(BaseModel):
+class MessageTextDelta(GoMessageTextDelta):
     type: Literal["text_delta"] = "text_delta"
-    index: int
-    text: str
 
 
-class MessageThinkingDelta(BaseModel):
+class MessageThinkingDelta(GoMessageThinkingDelta):
     type: Literal["thinking_delta"] = "thinking_delta"
-    index: int
-    thinking: str
     summary: str | None = None
     signature: str | None = None
 
@@ -30,51 +37,41 @@ class MessageThinkingDelta(BaseModel):
 MessageContentDelta = MessageTextDelta | MessageThinkingDelta
 
 
-class MessageStartEvent(BaseModel):
+class MessageStartEvent(GoMessageStartEvent):
     type: Literal[StreamingEventType.message_start] = StreamingEventType.message_start
     message: BaseChatMessageUnionWithDiscriminator
 
 
-class MessageDeltaEvent(BaseModel):
+class MessageDeltaEvent(GoMessageDeltaEvent):
     type: Literal[StreamingEventType.delta] = StreamingEventType.delta
-    message_id: str
     content: list[MessageContentDelta] | None = None
 
 
-class ToolCallDeltaEvent(BaseModel):
+class ToolCallDeltaEvent(GoToolCallDeltaEvent):
     type: Literal[StreamingEventType.tool_call_delta] = (
         StreamingEventType.tool_call_delta
     )
-    message_id: str
-    tool_call_id: str
-    arguments_delta: str
     tool_name: str | None = None
 
 
-class ToolResultEvent(BaseModel):
+class ToolResultEvent(GoToolResultEvent):
     type: Literal[StreamingEventType.tool_result] = StreamingEventType.tool_result
     result: ToolChatMessage
 
 
-class ToolArgumentPreviewDeltaEvent(BaseModel):
+class ToolArgumentPreviewDeltaEvent(GoToolArgumentPreviewDeltaEvent):
     type: Literal[StreamingEventType.tool_argument_preview_delta] = (
         StreamingEventType.tool_argument_preview_delta
     )
-    message_id: str
-    tool_call_id: str
-    tool_name: str
-    arguments_delta: str
     preview_kind: ToolArgumentPreviewKind
     target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]]
-    preview_value_delta: str
 
 
-class MessageStopEvent(BaseModel):
+class MessageStopEvent(GoMessageStopEvent):
     type: Literal[StreamingEventType.message_stop] = StreamingEventType.message_stop
-    message_id: str
 
 
-class MessageFinalizedEvent(BaseModel):
+class MessageFinalizedEvent(GoMessageFinalizedEvent):
     type: Literal[StreamingEventType.message_finalized] = (
         StreamingEventType.message_finalized
     )

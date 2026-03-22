@@ -228,7 +228,7 @@ func TestListenerProducerEmitUIChangeIncludesRealtimeDependencyValues(t *testing
 	}
 
 	envelope := readEnvelope(t, listener)
-	if envelope.MessageType != MessageTypeListenerRealtimeEvent {
+	if envelope.MessageType != string(MessageTypeListenerRealtimeEvent) {
 		t.Fatalf("expected listener realtime event, got %q", envelope.MessageType)
 	}
 
@@ -259,9 +259,12 @@ func newListenerProducerDeploymentRuntime(t *testing.T) *deployments.Runtime {
 		DefaultProjectID: "project-a",
 		Projects: map[string]projectstate.Project{
 			"project-a": {
-				ID:                   "project-a",
-				Name:                 "Project A",
-				ProjectChatWindowing: func() *projectstate.ProjectChatWindowingState { state := projectstate.DefaultProjectChatWindowingState(); return &state }(),
+				ID:   "project-a",
+				Name: "Project A",
+				ProjectChatWindowing: func() *projectstate.ProjectChatWindowingState {
+					state := projectstate.DefaultProjectChatWindowingState()
+					return &state
+				}(),
 			},
 		},
 	}

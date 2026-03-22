@@ -52,16 +52,21 @@ const (
 	NotificationTypeSave    NotificationType = "save"
 )
 
+type StreamingEventType string
+
 const (
-	StreamingEventTypeMessageStart        = "message_start"
-	StreamingEventTypeDelta               = "delta"
-	StreamingEventTypeToolCallDelta       = "tool_call_delta"
-	StreamingEventTypeToolArgumentPreview = "tool_argument_preview_delta"
-	StreamingEventTypeToolResult          = "tool_result"
-	StreamingEventTypeMessageStop         = "message_stop"
-	StreamingEventTypeMessageFinalized    = "message_finalized"
-	MessageContentTypeTextDelta           = "text_delta"
-	MessageContentTypeThinkingDelta       = "thinking_delta"
+	StreamingEventTypeMessageStart        StreamingEventType = "message_start"
+	StreamingEventTypeDelta               StreamingEventType = "delta"
+	StreamingEventTypeToolCallDelta       StreamingEventType = "tool_call_delta"
+	StreamingEventTypeToolArgumentPreview StreamingEventType = "tool_argument_preview_delta"
+	StreamingEventTypeToolResult          StreamingEventType = "tool_result"
+	StreamingEventTypeMessageStop         StreamingEventType = "message_stop"
+	StreamingEventTypeMessageFinalized    StreamingEventType = "message_finalized"
+)
+
+const (
+	MessageContentTypeTextDelta     = "text_delta"
+	MessageContentTypeThinkingDelta = "thinking_delta"
 )
 
 type FrontendIdentityContent struct {
@@ -95,31 +100,31 @@ type MessageThinkingDelta struct {
 }
 
 type MessageStartEvent struct {
-	Type    string         `json:"type"`
-	Message map[string]any `json:"message"`
+	Type    StreamingEventType `json:"type"`
+	Message map[string]any     `json:"message"`
 }
 
 type MessageDeltaEvent struct {
-	Type      string `json:"type"`
-	MessageID string `json:"message_id"`
-	Content   []any  `json:"content"`
+	Type      StreamingEventType `json:"type"`
+	MessageID string             `json:"message_id"`
+	Content   []any              `json:"content"`
 }
 
 type ToolCallDeltaEvent struct {
-	Type           string  `json:"type"`
-	MessageID      string  `json:"message_id"`
-	ToolCallID     string  `json:"tool_call_id"`
-	ArgumentsDelta string  `json:"arguments_delta"`
-	ToolName       *string `json:"tool_name"`
+	Type           StreamingEventType `json:"type"`
+	MessageID      string             `json:"message_id"`
+	ToolCallID     string             `json:"tool_call_id"`
+	ArgumentsDelta string             `json:"arguments_delta"`
+	ToolName       *string            `json:"tool_name"`
 }
 
 type ToolResultEvent struct {
-	Type   string         `json:"type"`
-	Result map[string]any `json:"result"`
+	Type   StreamingEventType `json:"type"`
+	Result map[string]any     `json:"result"`
 }
 
 type ToolArgumentPreviewDeltaEvent struct {
-	Type              string              `json:"type"`
+	Type              StreamingEventType  `json:"type"`
 	MessageID         string              `json:"message_id"`
 	ToolCallID        string              `json:"tool_call_id"`
 	ToolName          string              `json:"tool_name"`
@@ -130,13 +135,13 @@ type ToolArgumentPreviewDeltaEvent struct {
 }
 
 type MessageStopEvent struct {
-	Type      string `json:"type"`
-	MessageID string `json:"message_id"`
+	Type      StreamingEventType `json:"type"`
+	MessageID string             `json:"message_id"`
 }
 
 type MessageFinalizedEvent struct {
-	Type    string         `json:"type"`
-	Message map[string]any `json:"message"`
+	Type    StreamingEventType `json:"type"`
+	Message map[string]any     `json:"message"`
 }
 
 type LLMStreamingResponseContent struct {
