@@ -297,6 +297,65 @@ func TestOpenWorkspaceServiceExplicitAutoOverridesProfile(t *testing.T) {
 	}
 }
 
+func TestNormalizeSettaFilesLocationForLaunchMatchesSharedLaunchCases(t *testing.T) {
+	t.Parallel()
+
+	auto := "auto"
+	global := "global"
+	for _, testCase := range []struct {
+		name     string
+		value    *string
+		provided bool
+		root     string
+		profile  string
+		want     *string
+	}{
+		{
+			name:     "omitted without profile defaults to auto",
+			provided: false,
+			want:     &auto,
+		},
+		{
+			name:     "omitted with profile stays nil",
+			provided: false,
+			profile:  "dev",
+			want:     nil,
+		},
+		{
+			name:     "explicit auto with profile is preserved",
+			value:    &auto,
+			provided: true,
+			profile:  "dev",
+			want:     &auto,
+		},
+		{
+			name:     "explicit auto with explicit root is dropped",
+			value:    &auto,
+			provided: true,
+			root:     "/tmp/setta_files_dev",
+			want:     nil,
+		},
+		{
+			name:     "explicit global survives unchanged",
+			value:    &global,
+			provided: true,
+			want:     &global,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := NormalizeSettaFilesLocationForLaunch(testCase.value, testCase.provided, testCase.root, testCase.profile)
+			switch {
+			case got == nil && testCase.want == nil:
+				return
+			case got == nil || testCase.want == nil:
+				t.Fatalf("expected %#v, got %#v", testCase.want, got)
+			case *got != *testCase.want:
+				t.Fatalf("expected %q, got %q", *testCase.want, *got)
+			}
+		})
+	}
+}
+
 func TestOpenWorkspaceServiceTrustFailureRollsBackStartedSessionAndSkipsPersistence(t *testing.T) {
 	t.Parallel()
 

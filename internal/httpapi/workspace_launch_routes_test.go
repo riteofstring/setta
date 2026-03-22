@@ -482,6 +482,79 @@ func TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent(t *testing.T) 
 	}
 }
 
+func TestRegisterWorkspaceLaunchRoutesLaunchUsesStoredRequestFromIntent(t *testing.T) {
+	t.Parallel()
+
+	services := newWorkspaceLaunchTestServices(t)
+
+	router := chi.NewRouter()
+	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
+	}); err != nil {
+		t.Fatalf("register workspace launch routes: %v", err)
+	}
+
+	intentRequest := httptest.NewRequest(
+		http.MethodPost,
+		RouteCreateWorkspaceLaunchIntent,
+		strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace","settaHome":"/tmp/custom/.setta","settaFilesLocation":"global","runtimeRoot":"/tmp/custom-runtime"},"returnUrl":"http://launcher.example:7999/home"}`),
+	)
+	intentRequest.Header.Set("Content-Type", "application/json")
+	intentRequest.Header.Set("Origin", "http://launcher.example:7999")
+	intentResponse := httptest.NewRecorder()
+	router.ServeHTTP(intentResponse, intentRequest)
+	if intentResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
+	}
+
+	var intentPayload createWorkspaceLaunchIntentResponse
+	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
+		t.Fatalf("decode intent response: %v", err)
+	}
+	if !intentPayload.Ok || intentPayload.LaunchIntentToken == nil {
+		t.Fatalf("expected launch intent token, got %#v", intentPayload)
+	}
+
+	launchRequest := httptest.NewRequest(
+		http.MethodPost,
+		RouteLaunch,
+		strings.NewReader(`{"launchIntentToken":"`+*intentPayload.LaunchIntentToken+`"}`),
+	)
+	launchRequest.Header.Set("Content-Type", "application/json")
+	launchRequest.Header.Set("Origin", "http://launcher.example:7999")
+	launchResponseRecorder := httptest.NewRecorder()
+	router.ServeHTTP(launchResponseRecorder, launchRequest)
+	if launchResponseRecorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
+	}
+
+	var payload launchResponse
+	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode launch response: %v", err)
+	}
+	if !payload.Ok {
+		t.Fatalf("expected successful launch payload, got %#v", payload)
+	}
+	if len(services.sessions.captured) != 1 {
+		t.Fatalf("expected one local launch, got %d", len(services.sessions.captured))
+	}
+	if services.sessions.captured[0].WorkspaceRoot != "/tmp/workspace" {
+		t.Fatalf("expected stored workspace root, got %#v", services.sessions.captured[0])
+	}
+	if services.sessions.captured[0].SettaHome != "/tmp/custom/.setta" {
+		t.Fatalf("expected stored setta home, got %#v", services.sessions.captured[0])
+	}
+	if services.sessions.captured[0].RuntimeRoot != "/tmp/custom-runtime" {
+		t.Fatalf("expected stored runtime root, got %#v", services.sessions.captured[0])
+	}
+	if services.sessions.captured[0].SettaFilesLocation == nil || *services.sessions.captured[0].SettaFilesLocation != "global" {
+		t.Fatalf("expected stored setta files location, got %#v", services.sessions.captured[0])
+	}
+}
+
 func TestRegisterWorkspaceLaunchRoutesLaunchesRemoteWorkspaceFromIntent(t *testing.T) {
 	t.Parallel()
 
