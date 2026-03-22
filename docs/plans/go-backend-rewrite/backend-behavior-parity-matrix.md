@@ -5,7 +5,7 @@ Last audited: `2026-03-22`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `c1f38d8901b0274f2f052c36dddaa2a015f5876f`
+- Target head: `44fcd020fd`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -109,6 +109,12 @@ Last audited: `2026-03-22`
   rather than a live Go implementation gap; this pass also added explicit
   packaged launch CLI proof for global-versus-subcommand flag conflicts and
   the typed `InvalidSettaFilesConfig` branch.
+- Follow-up in this pass on `44fcd020fd`: rerunning
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, and the saved
+  remote-shell failures also stayed non-reproducible under targeted probes in
+  `internal/app`, `internal/settacli`, and `internal/sshx`, so
+  `critical_backend_suite::go_test_all` remains stale saved suite output
+  rather than a live Go implementation gap.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
