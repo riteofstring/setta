@@ -153,6 +153,13 @@ func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
 		if !found {
 			t.Fatalf("expected reveal activation step %#v for %s, got %#v", expected, settingID, entry.Metadata.RevealActivationSteps)
 		}
+		if settingID == "core.run_instructions.python_codegen_enabled" && entry.Metadata.Location.OverviewTabKey != "RunInstructions" {
+			t.Fatalf(
+				"expected %s overview tab RunInstructions, got %q",
+				settingID,
+				entry.Metadata.Location.OverviewTabKey,
+			)
+		}
 	}
 }
 

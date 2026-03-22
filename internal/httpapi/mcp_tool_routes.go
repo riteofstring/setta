@@ -8,13 +8,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
+	"setta/internal/realtime"
 )
 
 const RouteMCPToolCall = "/__setta__/tools/call"
 
 type MCPRootRouteDependencies struct {
-	ModePolicy modes.Policy
-	Server     *mcpx.Server
+	ModePolicy   modes.Policy
+	Server       *mcpx.Server
+	ProjectState *projectstate.Runtime
+	WebsocketHub *realtime.WebsocketHub
 }
 
 type MCPToolCallRequest struct {
@@ -53,7 +58,7 @@ func mcpToolCallHandler(deps MCPRootRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		result, err := deps.Server.InvokeTool(r.Context(), toolName, payload.Arguments, mcpx.ToolRequestContext{
+		summary, err := deps.Server.InvokeToolWithSummary(r.Context(), toolName, payload.Arguments, mcpx.ToolRequestContext{
 			SessionKey:                   buildRequestID(),
 			Headers:                      r.Header.Clone(),
 			Meta:                         agenticContextMeta(payload.AgenticContext),
@@ -63,8 +68,48 @@ func mcpToolCallHandler(deps MCPRootRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusNotFound, "tool_not_found", err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		if summary.ProjectStateRevisionChanged {
+			if err := broadcastMCPToolProjectStateUpdate(r, deps, summary.ResolvedProjectConfigID); err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, summary.Result)
 	}
+}
+
+func broadcastMCPToolProjectStateUpdate(
+	r *http.Request,
+	deps MCPRootRouteDependencies,
+	projectConfigID string,
+) error {
+	if deps.ProjectState == nil || deps.WebsocketHub == nil {
+		return nil
+	}
+	projectConfigID = strings.TrimSpace(projectConfigID)
+	if projectConfigID == "" {
+		return nil
+	}
+
+	snapshot := deps.ProjectState.Snapshot()
+	projectStateView, err := projectview.SingleConfigByProjectID(
+		snapshot.Document,
+		projectConfigID,
+	)
+	if err != nil {
+		return err
+	}
+	status := deps.ProjectState.FrontendOpStatus()
+	_, err = deps.WebsocketHub.BroadcastJSON(
+		r.Context(),
+		realtime.NewProjectStateUpdateMessage(realtime.ProjectStateUpdateContent{
+			ProjectState:   projectStateView,
+			CompletedOpIDs: status.Completed,
+			PendingOpIDs:   status.Pending,
+		}),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
 }
 
 func agenticContextMeta(value *mcpx.AgenticContext) map[string]any {

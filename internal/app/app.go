@@ -1502,8 +1502,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			r.Handle("/mcp", mcpServer.Handler())
 			r.Handle("/mcp/", mcpServer.Handler())
 			if err := httpapi.RegisterMCPRootRoutes(r, httpapi.MCPRootRouteDependencies{
-				ModePolicy: modePolicy,
-				Server:     mcpServer,
+				ModePolicy:   modePolicy,
+				Server:       mcpServer,
+				ProjectState: projectRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}

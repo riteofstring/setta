@@ -103,6 +103,12 @@ type ToolRegistration struct {
 	OutputSchema map[string]any
 }
 
+type InvokeToolSummary struct {
+	Result                      *sdkmcp.CallToolResult
+	ResolvedProjectConfigID     string
+	ProjectStateRevisionChanged bool
+}
+
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	SetProjectName(ctx context.Context, projectID string, name string) (projectstate.Snapshot, error)
@@ -572,13 +578,52 @@ func (s *Server) InvokeTool(ctx context.Context, toolName string, arguments map[
 	return s.invokeRegisteredTool(ctx, registered, arguments, requestContext), nil
 }
 
+func (s *Server) InvokeToolWithSummary(ctx context.Context, toolName string, arguments map[string]any, requestContext ToolRequestContext) (InvokeToolSummary, error) {
+	if s == nil {
+		return InvokeToolSummary{}, fmt.Errorf("mcpx: server is required")
+	}
+	registered, ok := s.registry.Lookup(toolName)
+	if !ok {
+		return InvokeToolSummary{}, fmt.Errorf("mcpx: unknown tool %q", toolName)
+	}
+
+	beforeRevision := uint64(0)
+	hasProjectState := s.projectState != nil
+	if hasProjectState {
+		beforeRevision = s.projectState.Snapshot().Revision
+	}
+
+	result, invocation := s.invokeRegisteredToolDetailed(ctx, registered, arguments, requestContext)
+
+	afterRevision := beforeRevision
+	if hasProjectState {
+		afterRevision = s.projectState.Snapshot().Revision
+	}
+
+	resolvedProjectConfigID := ""
+	if invocation.AgenticContext != nil {
+		resolvedProjectConfigID = strings.TrimSpace(invocation.AgenticContext.ProjectConfigID)
+	}
+
+	return InvokeToolSummary{
+		Result:                      result,
+		ResolvedProjectConfigID:     resolvedProjectConfigID,
+		ProjectStateRevisionChanged: hasProjectState && afterRevision != beforeRevision,
+	}, nil
+}
+
 func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Registered, arguments map[string]any, requestContext ToolRequestContext) *sdkmcp.CallToolResult {
+	result, _ := s.invokeRegisteredToolDetailed(ctx, registered, arguments, requestContext)
+	return result
+}
+
+func (s *Server) invokeRegisteredToolDetailed(ctx context.Context, registered tools.Registered, arguments map[string]any, requestContext ToolRequestContext) (*sdkmcp.CallToolResult, ToolInvocationContext) {
 	if arguments == nil {
 		arguments = map[string]any{}
 	}
 	translatedArguments, err := translateArgumentsToCanonical(registered.Name, registered.Metadata, arguments, s.temporaryIDs)
 	if err != nil {
-		return s.buildToolErrorResult(err)
+		return s.buildToolErrorResult(err), ToolInvocationContext{}
 	}
 
 	invocation := ToolInvocationContext{
@@ -587,7 +632,7 @@ func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Regi
 	if !isUnscopedToolName(registered.Name) {
 		resolvedAgenticContext, scope, projectView, err := s.resolveScopedInvocationContext(registered.Name, registered.Metadata, translatedArguments, requestContext)
 		if err != nil {
-			return s.buildToolErrorResult(err)
+			return s.buildToolErrorResult(err), invocation
 		}
 		invocation.AgenticContext = resolvedAgenticContext
 		invocation.Scope = scope
@@ -596,23 +641,23 @@ func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Regi
 
 	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), translatedArguments)
 	if err != nil {
-		return s.buildToolErrorResult(err)
+		return s.buildToolErrorResult(err), invocation
 	}
 	result, err = applyToolResultFilter(result, registered.Metadata, invocation)
 	if err != nil {
-		return s.buildToolErrorResult(err)
+		return s.buildToolErrorResult(err), invocation
 	}
 
 	result, err = translateResultToTemporary(result, registered.Metadata, s.temporaryIDs)
 	if err != nil {
-		return s.buildToolErrorResult(err)
+		return s.buildToolErrorResult(err), invocation
 	}
 
 	callResult, err := buildToolSuccessResult(result)
 	if err != nil {
-		return s.buildToolErrorResult(err)
+		return s.buildToolErrorResult(err), invocation
 	}
-	return callResult
+	return callResult, invocation
 }
 
 func (s *Server) resolveScopedInvocationContext(

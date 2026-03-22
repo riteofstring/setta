@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 	"setta/internal/uisettings"
 )
 
@@ -118,6 +120,80 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected route set_ui_setting_value to persist showParamDisplayNames")
+	}
+}
+
+func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy:   modes.NewPolicy(config.ModeIDE),
+				Server:       server,
+				ProjectState: projectRuntime,
+				WebsocketHub: websocketHub,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_ui_setting_value",
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.watch_code.enabled","value":true},
+		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_ui_setting_value success, got %#v", payload.StructuredContent)
+	}
+
+	envelope := readTranscriptionProfileRouteTestEnvelope(t, websocketClient)
+	if envelope.MessageType != realtime.MessageTypeUpdateFrontendProjectState {
+		t.Fatalf("expected update frontend project state message, got %q", envelope.MessageType)
+	}
+
+	var update realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &update); err != nil {
+		t.Fatalf("decode project state update: %v", err)
+	}
+	if update.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha project update, got %q", update.ProjectState.ProjectConfig.ID)
+	}
+	if !update.ProjectState.ProjectConfig.WatchCodeEnabled {
+		t.Fatal("expected broadcast project state to include watchCodeEnabled=true")
 	}
 }
 
