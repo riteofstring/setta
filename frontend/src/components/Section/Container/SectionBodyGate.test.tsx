@@ -9,22 +9,32 @@ import {
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  getSectionBodyFamily,
   SectionBodyGate,
+  getSectionBodyFamily,
   useResolvedSectionBodyStatus,
 } from "./SectionBodyGate";
 
 type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
+  sections: Record<string, object>;
 };
 
 type MockReactFlowState = {
   viewportInteractionActive: boolean;
   transform: [number, number, number];
+  width: number;
+  height: number;
 };
 
 type MockNodeInternalsState = {
-  x: Map<string, { width: number | null; height: number | null }>;
+  x: Map<
+    string,
+    {
+      position: { x: number; y: number };
+      width: number | null;
+      height: number | null;
+    }
+  >;
 };
 
 let mockSectionImpl: {
@@ -37,15 +47,20 @@ let mockSectionImpl: {
 
 let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
+  sections: { "section-123": {} },
 };
 
 let mockReactFlowState: MockReactFlowState = {
   viewportInteractionActive: false,
   transform: [0, 0, 1],
+  width: 1200,
+  height: 800,
 };
 
 let mockNodeInternalsState: MockNodeInternalsState = {
-  x: new Map([["section-123", { width: 200, height: 100 }]]),
+  x: new Map([
+    ["section-123", { position: { x: 100, y: 120 }, width: 200, height: 100 }],
+  ]),
 };
 
 let mockIsActiveSection = false;
@@ -59,6 +74,9 @@ vi.mock("state/definitions", () => ({
     selector(mockProjectState),
   useNodeInternals: (selector: (state: MockNodeInternalsState) => unknown) =>
     selector(mockNodeInternalsState),
+  useLocalStorage: (
+    selector: (state: { overviewTrueWidth: number }) => unknown,
+  ) => selector({ overviewTrueWidth: 320 }),
 }));
 
 vi.mock("forks/xyflow/core/store", () => ({
@@ -100,17 +118,23 @@ vi.mock("../Layouts/Tier1DenseParamSectionPreview", () => ({
     children,
     sectionId,
     isActiveSection,
+    shouldWarmPreview,
+    warmPriority,
     showPreview,
   }: {
     children: ReactNode;
     sectionId: string;
     isActiveSection: boolean;
+    shouldWarmPreview: boolean;
+    warmPriority: number | null;
     showPreview: boolean;
   }) => (
     <div
       data-testid="mock-tier1-preview"
       data-section-id={sectionId}
       data-is-active={isActiveSection ? "true" : "false"}
+      data-should-warm-preview={shouldWarmPreview ? "true" : "false"}
+      data-warm-priority={warmPriority === null ? "null" : String(warmPriority)}
       data-show-preview={showPreview ? "true" : "false"}
     >
       {children}
@@ -142,13 +166,21 @@ describe("SectionBodyGate", () => {
     };
     mockProjectState = {
       projectChatWindowing: createProjectChatWindowingState(),
+      sections: { "section-123": {} },
     };
     mockReactFlowState = {
       viewportInteractionActive: false,
       transform: [0, 0, 1],
+      width: 1200,
+      height: 800,
     };
     mockNodeInternalsState = {
-      x: new Map([["section-123", { width: 200, height: 100 }]]),
+      x: new Map([
+        [
+          "section-123",
+          { position: { x: 100, y: 120 }, width: 200, height: 100 },
+        ],
+      ]),
     };
     mockIsActiveSection = false;
   });
@@ -158,9 +190,7 @@ describe("SectionBodyGate", () => {
       "tier1-dense-params",
     );
     expect(getSectionBodyFamily(SectionTypeEnum.Code)).toBe("tier2-code");
-    expect(getSectionBodyFamily(SectionTypeEnum.Browser)).toBe(
-      "sparse-local",
-    );
+    expect(getSectionBodyFamily(SectionTypeEnum.Browser)).toBe("sparse-local");
     expect(getSectionBodyFamily(SectionTypeEnum.Image)).toBe("generic");
   });
 
@@ -189,6 +219,7 @@ describe("SectionBodyGate", () => {
           }),
         },
       }),
+      sections: { "section-123": {} },
     };
 
     const markup = renderToStaticMarkup(
@@ -263,9 +294,16 @@ describe("SectionBodyGate", () => {
     mockReactFlowState = {
       viewportInteractionActive: true,
       transform: [0, 0, 0.6],
+      width: 1200,
+      height: 800,
     };
     mockNodeInternalsState = {
-      x: new Map([["section-123", { width: 300, height: 180 }]]),
+      x: new Map([
+        [
+          "section-123",
+          { position: { x: 1380, y: 520 }, width: 300, height: 180 },
+        ],
+      ]),
     };
 
     const markup = renderToStaticMarkup(
@@ -276,8 +314,65 @@ describe("SectionBodyGate", () => {
     );
 
     expect(markup).toContain('data-testid="mock-tier1-preview"');
+    expect(markup).toContain('data-should-warm-preview="true"');
+    expect(markup).toContain('data-warm-priority="0"');
     expect(markup).toContain('data-show-preview="true"');
     expect(markup).toContain('data-testid="mock-area-switch"');
+  });
+
+  it("keeps far dense sections off the overlay-local warm path during motion", () => {
+    mockSectionImpl = {
+      type: SectionTypeEnum.Callable,
+      isMinimized: false,
+    };
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState(),
+      sections: {
+        "section-123": {},
+        "near-1": {},
+        "near-2": {},
+        "near-3": {},
+        "near-4": {},
+        "near-5": {},
+        "near-6": {},
+        "near-7": {},
+        "near-8": {},
+      },
+    };
+    mockReactFlowState = {
+      viewportInteractionActive: true,
+      transform: [0, 0, 0.6],
+      width: 1200,
+      height: 800,
+    };
+    mockNodeInternalsState = {
+      x: new Map([
+        [
+          "section-123",
+          { position: { x: 3200, y: 2400 }, width: 300, height: 180 },
+        ],
+        ["near-1", { position: { x: 360, y: 220 }, width: 300, height: 180 }],
+        ["near-2", { position: { x: 700, y: 220 }, width: 300, height: 180 }],
+        ["near-3", { position: { x: 1040, y: 220 }, width: 300, height: 180 }],
+        ["near-4", { position: { x: 360, y: 460 }, width: 300, height: 180 }],
+        ["near-5", { position: { x: 700, y: 460 }, width: 300, height: 180 }],
+        ["near-6", { position: { x: 1040, y: 460 }, width: 300, height: 180 }],
+        ["near-7", { position: { x: 360, y: 700 }, width: 300, height: 180 }],
+        ["near-8", { position: { x: 700, y: 700 }, width: 300, height: 180 }],
+      ]),
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionBodyGate
+        sectionId="section-123"
+        owner={{ kind: "canvas", bgColor: "bg-setta-50", isUserView: false }}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-tier1-preview"');
+    expect(markup).toContain('data-should-warm-preview="false"');
+    expect(markup).toContain('data-warm-priority="null"');
+    expect(markup).toContain('data-show-preview="false"');
   });
 
   it("exposes resolved status for tests and future render-mode work", () => {

@@ -1,9 +1,10 @@
+import { describe, expect, it } from "vitest";
 import {
   getAutoSectionBodyRequestedMode,
   getProjectedNodeSizePx,
+  isAutoSectionBodyPreviewCandidate,
   SECTION_BODY_AUTO_MODE_THRESHOLDS,
 } from "./sectionBodyModePolicy";
-import { describe, expect, it } from "vitest";
 
 describe("sectionBodyModePolicy", () => {
   it("marks inactive dense canvas sections as preview during motion when they are small on screen", () => {
@@ -69,8 +70,7 @@ describe("sectionBodyModePolicy", () => {
         family: "tier1-dense-params",
         isActiveSection: false,
         viewportInteractionActive: true,
-        zoom:
-          SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize,
+        zoom: SECTION_BODY_AUTO_MODE_THRESHOLDS.previewFallbackMaxZoomWithoutMeasuredSize,
         projectedWidthPx: null,
         projectedHeightPx: null,
       }),
@@ -100,5 +100,18 @@ describe("sectionBodyModePolicy", () => {
       projectedWidthPx: null,
       projectedHeightPx: null,
     });
+  });
+
+  it("exposes preview-candidate eligibility separately from overlay-locality policy", () => {
+    expect(
+      isAutoSectionBodyPreviewCandidate({
+        ownerKind: "canvas",
+        family: "tier1-dense-params",
+        isActiveSection: false,
+        zoom: 0.6,
+        projectedWidthPx: 120,
+        projectedHeightPx: 90,
+      }),
+    ).toBe(true);
   });
 });
