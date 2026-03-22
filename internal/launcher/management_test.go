@@ -463,6 +463,103 @@ func TestValidatePlannedArtifactPathsRejectsDuplicatePaths(t *testing.T) {
 	}
 }
 
+func TestManagementServiceSetupReturnsArtifactInstallFailedWhenManagedArtifactInstallFails(t *testing.T) {
+	homeDir := prepareLauncherArtifactTestHome(t)
+	executable := writeTestExecutable(t, t.TempDir(), "setta")
+	service := newTestManagementService(t, executable, "1.2.3", nil)
+	settaHome := filepath.Join(homeDir, ".setta")
+
+	optionKey, artifactPath, err := failingArtifactOptionForPlatform(homeDir)
+	if err != nil {
+		t.Fatalf("prepare failing artifact option: %v", err)
+	}
+	artifactOptions := map[string]string{optionKey: artifactPath}
+	installArtifacts := true
+
+	_, err = service.Setup(settaHome, LauncherSetupInput{
+		InstallArtifacts: &installArtifacts,
+		ArtifactOptions:  &artifactOptions,
+	})
+	if err == nil {
+		t.Fatal("expected artifact install failure")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "ArtifactInstallFailed" {
+		t.Fatalf("expected ArtifactInstallFailed, got %q (%v)", setupErr.Code, err)
+	}
+
+	status, err := service.CollectStatus(settaHome)
+	if err != nil {
+		t.Fatalf("collect launcher status after failed install: %v", err)
+	}
+	if status.Installed {
+		t.Fatalf("expected failed setup to leave launcher uninstalled, got %#v", status)
+	}
+}
+
+func TestManagementServiceSetupCleansUpManagedArtifactsWhenMetadataWriteFails(t *testing.T) {
+	homeDir := prepareLauncherArtifactTestHome(t)
+	executable := writeTestExecutable(t, t.TempDir(), "setta")
+	service := newTestManagementService(t, executable, "1.2.3", nil)
+	settaHome := filepath.Join(homeDir, ".setta")
+
+	plannedArtifacts, err := planCurrentPlatformArtifactPaths(launcherArtifactContext{
+		TargetCommand:            []string{executable},
+		SettaHome:                settaHome,
+		ExistingManagedArtifacts: map[string]string{},
+		Options:                  map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("plan managed artifacts: %v", err)
+	}
+	launcherDir, err := resolveLauncherDir(settaHome)
+	if err != nil {
+		t.Fatalf("resolve launcher dir: %v", err)
+	}
+	if err := os.MkdirAll(launcherDir, 0o755); err != nil {
+		t.Fatalf("mkdir launcher dir: %v", err)
+	}
+	if err := os.Chmod(launcherDir, 0o555); err != nil {
+		t.Fatalf("chmod launcher dir read-only: %v", err)
+	}
+	defer os.Chmod(launcherDir, 0o755)
+	installArtifacts := true
+
+	_, err = service.Setup(settaHome, LauncherSetupInput{
+		InstallArtifacts: &installArtifacts,
+	})
+	if err == nil {
+		t.Fatal("expected metadata write failure")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "LauncherMetadata" {
+		t.Fatalf("expected LauncherMetadata, got %q (%v)", setupErr.Code, err)
+	}
+	for artifactKey, artifactPath := range plannedArtifacts {
+		if _, err := os.Lstat(artifactPath); !os.IsNotExist(err) {
+			t.Fatalf("expected cleanup to remove artifact %s at %q, stat err=%v", artifactKey, artifactPath, err)
+		}
+		markerPath := expectedOwnershipMarkerPath(artifactKey, artifactPath)
+		if _, err := os.Lstat(markerPath); !os.IsNotExist(err) {
+			t.Fatalf("expected cleanup to remove ownership marker for %s at %q, stat err=%v", artifactKey, markerPath, err)
+		}
+	}
+
+	status, err := service.CollectStatus(settaHome)
+	if err != nil {
+		t.Fatalf("collect launcher status after metadata write failure: %v", err)
+	}
+	if status.Installed {
+		t.Fatalf("expected metadata write failure to leave launcher uninstalled, got %#v", status)
+	}
+}
+
 func launcherOutsideTrustedRootOptions(path string) map[string]string {
 	switch runtime.GOOS {
 	case "darwin":
@@ -517,4 +614,37 @@ func writeTestExecutable(t *testing.T, dir string, name string) string {
 		t.Fatalf("resolve executable path: %v", err)
 	}
 	return resolvedPath
+}
+
+func failingArtifactOptionForPlatform(homeDir string) (string, string, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		blockedPath := filepath.Join(homeDir, "Applications", "Setta.app")
+		if err := os.MkdirAll(filepath.Dir(blockedPath), 0o755); err != nil {
+			return "", "", err
+		}
+		if err := os.WriteFile(blockedPath, []byte("not an app dir"), 0o644); err != nil {
+			return "", "", err
+		}
+		return "app_path", blockedPath, nil
+	case "windows":
+		blockedPath := filepath.Join(resolveEnvPathLoose("LOCALAPPDATA", filepath.Join(homeDir, "AppData", "Local")), "Setta", "Launcher", "setta-launcher.cmd")
+		if err := os.MkdirAll(blockedPath, 0o755); err != nil {
+			return "", "", err
+		}
+		return "wrapper_path", blockedPath, nil
+	default:
+		blockedPath := filepath.Join(homeDir, ".local", "share", "setta", "launcher", "setta-launcher")
+		if err := os.MkdirAll(blockedPath, 0o755); err != nil {
+			return "", "", err
+		}
+		return "wrapper_path", blockedPath, nil
+	}
+}
+
+func expectedOwnershipMarkerPath(artifactKey string, artifactPath string) string {
+	if artifactKey == "macosApp" {
+		return filepath.Join(artifactPath, artifactOwnershipMarkerBasename)
+	}
+	return filepath.Join(filepath.Dir(artifactPath), "."+filepath.Base(artifactPath)+artifactOwnershipMarkerBasename)
 }
