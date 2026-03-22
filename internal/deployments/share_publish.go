@@ -292,6 +292,10 @@ func (p *SharePublisher) rewriteProjectForDeployment(
 	structuredDataPayloads := map[string]map[string]any{}
 	seenVariants := map[string]struct{}{}
 
+	if err := p.rewriteProjectGeneratedCodeBinding(project, deploymentRoot, pathMaps.code); err != nil {
+		return nil, err
+	}
+
 	sectionIDs := make([]string, 0, len(project.Sections))
 	for sectionID := range project.Sections {
 		sectionIDs = append(sectionIDs, sectionID)
@@ -396,6 +400,30 @@ func (p *SharePublisher) rewriteSectionPayload(
 		}
 	}
 
+	messages, changedMessages, err := p.rewriteChatMessagesField(payload, deploymentRoot, pathMaps.artifact)
+	if err != nil {
+		return err
+	}
+	if changedMessages {
+		if err := project.SetSectionFieldForVariant(sectionID, variantID, "messages", messages); err != nil {
+			return err
+		}
+	}
+
+	branches, changedBranches, err := p.rewriteChatBranchesField(payload, deploymentRoot, pathMaps.artifact)
+	if err != nil {
+		return err
+	}
+	if changedBranches {
+		if err := project.SetSectionFieldForVariant(sectionID, variantID, "branches", branches); err != nil {
+			return err
+		}
+	}
+
+	if err := p.rewriteSectionCodeObjectPayloads(project, sectionID, payload, deploymentRoot, pathMaps.artifact); err != nil {
+		return err
+	}
+
 	if !boolField(payload, "isJsonSource") {
 		return nil
 	}
@@ -414,6 +442,226 @@ func (p *SharePublisher) rewriteSectionPayload(
 	variant.Name = rebased
 	project.SectionVariants[variantID] = variant
 	return nil
+}
+
+func (p *SharePublisher) rewriteProjectGeneratedCodeBinding(
+	project *projectstate.Project,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	if project.GeneratedCodeBinding == nil {
+		return nil
+	}
+
+	rebased, err := p.copyCodePath(project.GeneratedCodeBinding.Path, deploymentRoot, pathMap)
+	if err != nil {
+		return err
+	}
+	project.GeneratedCodeBinding = &projectstate.CodeFileBinding{
+		Path:        rebased,
+		AccessMode:  project.GeneratedCodeBinding.AccessMode,
+		AutoBinding: project.GeneratedCodeBinding.AutoBinding,
+	}
+	return nil
+}
+
+func (p *SharePublisher) rewriteChatMessagesField(
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) ([]any, bool, error) {
+	rawMessages, ok := payload["messages"].([]any)
+	if !ok {
+		return nil, false, nil
+	}
+	return p.rewriteChatMessages(rawMessages, deploymentRoot, pathMap)
+}
+
+func (p *SharePublisher) rewriteChatBranchesField(
+	payload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) (map[string]any, bool, error) {
+	rawBranches, ok := payload["branches"].(map[string]any)
+	if !ok {
+		return nil, false, nil
+	}
+
+	changed := false
+	updatedBranches := make(map[string]any, len(rawBranches))
+	for branchID, rawBranch := range rawBranches {
+		branchObject, ok := rawBranch.(map[string]any)
+		if !ok {
+			updatedBranches[branchID] = rawBranch
+			continue
+		}
+
+		nextBranch := cloneJSONObject(branchObject)
+		updatedMessages, branchChanged, err := p.rewriteChatMessagesField(nextBranch, deploymentRoot, pathMap)
+		if err != nil {
+			return nil, false, err
+		}
+		if branchChanged {
+			nextBranch["messages"] = updatedMessages
+			changed = true
+		}
+		updatedBranches[branchID] = nextBranch
+	}
+
+	return updatedBranches, changed, nil
+}
+
+func (p *SharePublisher) rewriteChatMessages(
+	messages []any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) ([]any, bool, error) {
+	changed := false
+	updatedMessages := make([]any, len(messages))
+	for messageIndex, rawMessage := range messages {
+		messageObject, ok := rawMessage.(map[string]any)
+		if !ok {
+			updatedMessages[messageIndex] = rawMessage
+			continue
+		}
+
+		nextMessage := cloneJSONObject(messageObject)
+		attachments, changedAttachments, err := p.rewriteArtifactAttachmentList(rawAttachmentList(nextMessage["attachments"]), deploymentRoot, pathMap, false)
+		if err != nil {
+			return nil, false, err
+		}
+		if changedAttachments {
+			nextMessage["attachments"] = attachments
+			changed = true
+		}
+		updatedMessages[messageIndex] = nextMessage
+	}
+
+	return updatedMessages, changed, nil
+}
+
+func (p *SharePublisher) rewriteSectionCodeObjectPayloads(
+	project *projectstate.Project,
+	sectionID string,
+	sectionPayload map[string]any,
+	deploymentRoot string,
+	pathMap map[string]string,
+) error {
+	codeObjVariantMap := stringMapField(sectionPayload, "codeObjVariantMap")
+	if len(codeObjVariantMap) == 0 {
+		return nil
+	}
+
+	codeObjIDs := make([]string, 0, len(codeObjVariantMap))
+	for codeObjID := range codeObjVariantMap {
+		codeObjIDs = append(codeObjIDs, codeObjID)
+	}
+	sort.Strings(codeObjIDs)
+
+	for _, codeObjID := range codeObjIDs {
+		payload, _, _, _, err := project.ResolveSectionCodeObject(sectionID, codeObjID)
+		if err != nil {
+			return err
+		}
+		if stringField(payload, "type") != "DropzoneParam" {
+			continue
+		}
+
+		rewrittenValue, changed, err := p.rewriteDropzoneValue(rawStringField(payload, "value"), deploymentRoot, pathMap)
+		if err != nil {
+			return err
+		}
+		if !changed {
+			continue
+		}
+		if err := project.SetSectionCodeObjectValue(sectionID, codeObjID, rewrittenValue); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *SharePublisher) rewriteDropzoneValue(
+	rawValue string,
+	deploymentRoot string,
+	pathMap map[string]string,
+) (string, bool, error) {
+	trimmed := strings.TrimSpace(rawValue)
+	if trimmed == "" {
+		return rawValue, false, nil
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		return rawValue, false, nil
+	}
+
+	attachments, changed, err := p.rewriteArtifactAttachmentList(rawAttachmentList(payload["attachments"]), deploymentRoot, pathMap, true)
+	if err != nil {
+		return "", false, err
+	}
+	if !changed {
+		return rawValue, false, nil
+	}
+	payload["attachments"] = attachments
+
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return "", false, err
+	}
+	return string(encoded), true, nil
+}
+
+func (p *SharePublisher) rewriteArtifactAttachmentList(
+	rawAttachments []any,
+	deploymentRoot string,
+	pathMap map[string]string,
+	requireFileKind bool,
+) ([]any, bool, error) {
+	if len(rawAttachments) == 0 {
+		return nil, false, nil
+	}
+
+	changed := false
+	updatedAttachments := make([]any, len(rawAttachments))
+	for attachmentIndex, rawAttachment := range rawAttachments {
+		attachmentObject, ok := rawAttachment.(map[string]any)
+		if !ok {
+			updatedAttachments[attachmentIndex] = rawAttachment
+			continue
+		}
+
+		nextAttachment := cloneJSONObject(attachmentObject)
+		if requireFileKind && stringField(nextAttachment, "kind") != "file" {
+			updatedAttachments[attachmentIndex] = nextAttachment
+			continue
+		}
+
+		attachmentID := stringField(nextAttachment, "id")
+		if attachmentID == "" {
+			updatedAttachments[attachmentIndex] = nextAttachment
+			continue
+		}
+
+		rebased, err := p.copyArtifactPath(attachmentID, deploymentRoot, pathMap)
+		if err != nil {
+			return nil, false, err
+		}
+		nextAttachment["id"] = rebased
+		changed = true
+		updatedAttachments[attachmentIndex] = nextAttachment
+	}
+
+	return updatedAttachments, changed, nil
+}
+
+func rawAttachmentList(value any) []any {
+	attachments, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	return attachments
 }
 
 func (p *SharePublisher) rewriteDrawLayers(payload map[string]any, deploymentRoot string, pathMap map[string]string) ([]any, bool, error) {

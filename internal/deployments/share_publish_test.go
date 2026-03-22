@@ -288,6 +288,126 @@ func TestSharePublisherRebasesPathsAndCopiesFiles(t *testing.T) {
 	assertPublishedPathExistsWithin(t, result.Metadata.DeploymentRoot, dictVariant.Name, filepath.Join(result.Metadata.DeploymentRoot, "json_sources"))
 }
 
+func TestSharePublisherRebasesProjectGeneratedCodeBinding(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	codePath := filepath.Join(settaFilesRoot, "code", "sections", "alpha", "setta_gen.py")
+	writeTextFile(t, codePath, "print('generated')\n")
+
+	document := simpleProjectDocument(false)
+	project := document.Projects["project-alpha"]
+	project.GeneratedCodeBinding = &projectstate.CodeFileBinding{
+		Path:        filepath.ToSlash(filepath.Join("code", "sections", "alpha", "setta_gen.py")),
+		AccessMode:  projectstate.CodeFileAccessModeWriteOnly,
+		AutoBinding: false,
+	}
+	document.Projects["project-alpha"] = project
+
+	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, document)
+	publisher := openTestSharePublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 16, 15, 0, 0, time.UTC))
+
+	result, err := publisher.Publish(context.Background(), SharePublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-share",
+	})
+	if err != nil {
+		t.Fatalf("publish share deployment: %v", err)
+	}
+
+	published := loadPublishedDocument(t, result.Metadata.DeploymentRoot)
+	publishedProject := published.Projects["project-alpha"]
+	if publishedProject.GeneratedCodeBinding == nil {
+		t.Fatal("expected published generated code binding")
+	}
+	assertPublishedPathExistsWithin(
+		t,
+		result.Metadata.DeploymentRoot,
+		publishedProject.GeneratedCodeBinding.Path,
+		filepath.Join(result.Metadata.DeploymentRoot, "code"),
+	)
+}
+
+func TestSharePublisherRebasesDropzoneAndChatAttachmentPaths(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	attachmentPath := filepath.Join(settaFilesRoot, "artifacts", "old.txt")
+	writeTextFile(t, attachmentPath, "attachment\n")
+
+	runtime, _, _ := openSharePublishRuntime(
+		t,
+		settaFilesRoot,
+		attachmentRebaseDocument(filepath.ToSlash(filepath.Join("artifacts", "old.txt"))),
+	)
+	publisher := openTestSharePublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 16, 20, 0, 0, time.UTC))
+
+	result, err := publisher.Publish(context.Background(), SharePublishRequest{
+		ProjectState:   runtime,
+		ProjectID:      "project-alpha",
+		DeploymentName: "demo-share",
+	})
+	if err != nil {
+		t.Fatalf("publish share deployment: %v", err)
+	}
+
+	published := loadPublishedDocument(t, result.Metadata.DeploymentRoot)
+	project := published.Projects["project-alpha"]
+
+	chatPayload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effective chat payload: %v", err)
+	}
+	messages, ok := chatPayload["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one published chat message, got %#v", chatPayload["messages"])
+	}
+	message, ok := messages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected published chat message object, got %#v", messages[0])
+	}
+	chatAttachments := rawAttachmentList(message["attachments"])
+	if len(chatAttachments) != 1 {
+		t.Fatalf("expected one published chat attachment, got %#v", message["attachments"])
+	}
+	chatAttachment, ok := chatAttachments[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected published chat attachment object, got %#v", chatAttachments[0])
+	}
+	assertPublishedPathExistsWithin(
+		t,
+		result.Metadata.DeploymentRoot,
+		stringField(chatAttachment, "id"),
+		filepath.Join(result.Metadata.DeploymentRoot, "artifacts"),
+	)
+
+	dropzonePayload, _, _, _, err := project.ResolveSectionCodeObject("dict-section", "dropzone-param")
+	if err != nil {
+		t.Fatalf("resolve dropzone payload: %v", err)
+	}
+	var storedDropzone map[string]any
+	if err := json.Unmarshal([]byte(rawStringField(dropzonePayload, "value")), &storedDropzone); err != nil {
+		t.Fatalf("decode published dropzone payload: %v", err)
+	}
+	dropzoneAttachments := rawAttachmentList(storedDropzone["attachments"])
+	if len(dropzoneAttachments) != 1 {
+		t.Fatalf("expected one published dropzone attachment, got %#v", storedDropzone["attachments"])
+	}
+	dropzoneAttachment, ok := dropzoneAttachments[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected published dropzone attachment object, got %#v", dropzoneAttachments[0])
+	}
+	assertPublishedPathExistsWithin(
+		t,
+		result.Metadata.DeploymentRoot,
+		stringField(dropzoneAttachment, "id"),
+		filepath.Join(result.Metadata.DeploymentRoot, "artifacts"),
+	)
+}
+
 func TestSharePublisherCopiesListenerEntrypoint(t *testing.T) {
 	t.Parallel()
 
@@ -668,6 +788,123 @@ func rebaseDocument(imagePath string, chartPath string, drawDataPath string, dra
 						ID:      "foo-param-impl",
 						Type:    "TextParam",
 						Payload: mustProjectPayload(map[string]any{"id": "foo-param-impl", "type": "TextParam", "value": "1"}),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		panic(err)
+	}
+	return document
+}
+
+func attachmentRebaseDocument(attachmentPath string) projectstate.Document {
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				SectionVariantMap: map[string]string{
+					"chat-section": "chat-variant",
+					"dict-section": "dict-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"chat-section": {
+						ID:               "chat-section",
+						Name:             "Chat",
+						VariantIDs:       []string{"chat-variant"},
+						DefaultVariantID: "chat-variant",
+					},
+					"dict-section": {
+						ID:               "dict-section",
+						Name:             "Dictionary",
+						VariantIDs:       []string{"dict-variant"},
+						DefaultVariantID: "dict-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"chat-variant": {ID: "chat-variant", ImplID: "chat-impl"},
+					"dict-variant": {ID: "dict-variant", ImplID: "dict-impl"},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"chat-impl": {
+						ID:   "chat-impl",
+						Kind: projectstate.SectionKind("frontend"),
+						Payload: mustProjectPayload(map[string]any{
+							"id":   "chat-impl",
+							"type": "Chat",
+							"messages": []any{
+								map[string]any{
+									"id":   "message-1",
+									"role": "user",
+									"content": []any{
+										map[string]any{
+											"type": "text",
+											"text": "Hello",
+										},
+									},
+									"attachments": []any{
+										map[string]any{
+											"id":       attachmentPath,
+											"name":     "old.txt",
+											"mimeType": "text/plain",
+											"size":     10,
+										},
+									},
+								},
+							},
+						}),
+					},
+					"dict-impl": {
+						ID:   "dict-impl",
+						Kind: projectstate.SectionKind("dict"),
+						Payload: mustProjectPayload(map[string]any{
+							"id":              "dict-impl",
+							"type":            "Dict",
+							"topLevelParamId": "dropzone-root",
+							"codeObjVariantMap": map[string]string{
+								"dropzone-root":  "dropzone-root-variant",
+								"dropzone-param": "dropzone-param-variant",
+							},
+						}),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"dropzone-root": {
+						ID:               "dropzone-root",
+						Name:             "root",
+						VariantIDs:       []string{"dropzone-root-variant"},
+						DefaultVariantID: "dropzone-root-variant",
+					},
+					"dropzone-param": {
+						ID:               "dropzone-param",
+						Name:             "uploads",
+						VariantIDs:       []string{"dropzone-param-variant"},
+						DefaultVariantID: "dropzone-param-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"dropzone-root-variant":  {ID: "dropzone-root-variant", ImplID: "dropzone-root-impl"},
+					"dropzone-param-variant": {ID: "dropzone-param-variant", ImplID: "dropzone-param-impl"},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"dropzone-root-impl": {
+						ID:      "dropzone-root-impl",
+						Type:    "NestedParam",
+						Payload: mustProjectPayload(map[string]any{"id": "dropzone-root-impl", "type": "NestedParam", "children": []string{"dropzone-param"}}),
+					},
+					"dropzone-param-impl": {
+						ID:   "dropzone-param-impl",
+						Type: "DropzoneParam",
+						Payload: mustProjectPayload(map[string]any{
+							"id":    "dropzone-param-impl",
+							"type":  "DropzoneParam",
+							"mode":  "STATEFUL",
+							"value": `{"version":1,"attachments":[{"kind":"file","id":"` + attachmentPath + `","name":"old.txt","mimeType":"text/plain","size":10}]}`,
+						}),
 					},
 				},
 			},
