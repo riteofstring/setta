@@ -71,6 +71,12 @@ That means:
   - `BinaryDependencyValue`
 - `internal/frontendbindings/contracts.go` now aliases those realtime-owned dependency enums and structs instead of repeating empty local placeholder structs for the concrete wire objects.
 - `project_config.py` no longer carries a handwritten `Viewport`; `go_shared_types.py` now provides that Go-owned model with the Python-side default values the SDK expects.
+- `internal/pythonsharedtypes/discovered_shared_types_gen.go` now scans real owner packages directly, not just `projectstate`:
+  - `internal/projectstate`
+  - `internal/realtime`
+  - `internal/artifacts`
+  - `internal/scriptablechat`
+- the Python shared-type pipeline still prunes aggressively afterward, so widening owner-package discovery no longer requires hand-maintaining another allowlist just to keep the output small.
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -125,7 +131,9 @@ The remaining work is:
 ### 3. Go -> Python still leans on `frontendbindings` more than it should
 `internal/pythonsharedtypes/contracts.go` now widens from discovered convertible Go types, which is good.
 
-But it still discovers through the `frontendbindings` surface, plus enum fallback logic, which means the real owner packages are still not cleanly expressed for many type families.
+It now also discovers directly from several real owner packages, which is better.
+
+But it still leans on the `frontendbindings` surface, plus enum fallback logic, for a significant part of the exported Python-facing names, which means the real owner packages are still not cleanly expressed for many type families.
 
 ### 4. There may still be some duplicated type ownership inside Go
 The frontend/Python cleanup is surfacing a few remaining “two Go packages define the same concept” cases.

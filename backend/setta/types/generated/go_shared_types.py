@@ -94,6 +94,25 @@ class TextBlockFormat(str, Enum):
     Markdown = "Markdown"
 
 
+class DependencyKeyType(str, Enum):
+    Section = "Section"
+    SectionParam = "SectionParam"
+
+
+class DependencyValueType(str, Enum):
+    Literal = "Literal"
+    Binary = "Binary"
+    FileRead = "FileRead"
+
+
+class ArtifactType(str, Enum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
+    ChartData = "ChartData"
+    File = "File"
+
+
 class StreamingEventType(str, Enum):
     message_start = "message_start"
     delta = "delta"
@@ -108,14 +127,6 @@ class PromptFormat(str, Enum):
     Jinja = "Jinja"
 
 
-class ArtifactType(str, Enum):
-    Image = "Image"
-    BrushStroke = "BrushStroke"
-    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
-    ChartData = "ChartData"
-    File = "File"
-
-
 class DrawAreaBrushShape(str, Enum):
     butt = "butt"
     round = "round"
@@ -126,17 +137,6 @@ class DrawAreaMode(str, Enum):
     draw = "draw"
     erase = "erase"
     edit = "edit"
-
-
-class DependencyKeyType(str, Enum):
-    Section = "Section"
-    SectionParam = "SectionParam"
-
-
-class DependencyValueType(str, Enum):
-    Literal = "Literal"
-    Binary = "Binary"
-    FileRead = "FileRead"
 
 
 class RunSnapshotMode(str, Enum):
