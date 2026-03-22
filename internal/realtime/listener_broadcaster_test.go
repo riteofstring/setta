@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/coder/websocket"
 )
@@ -129,6 +130,53 @@ func TestListenerBroadcasterEmitRealtimeDeltasFiltersByDependencyAndShareSession
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerShared), "project-a", "session-a", 1, `"value-a1"`)
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerShared), "project-a", "session-a", 2, `"value-a2"`)
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerShared), "project-a", "session-b", 1, `"value-b1"`)
+}
+
+func TestListenerBroadcasterEmitRealtimeDeltasSkipsWhenNoCallbacksMatch(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-a", "")
+	defer listener.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-a", "project-a", "", map[string]ListenerCallback{
+		"cb-refresh": {
+			Dependencies:   []string{"section-a.param-a"},
+			DependencyMode: ListenerDependencyModeRefreshOnly,
+		},
+		"cb-other": {
+			Dependencies:   []string{"section-b.param-b"},
+			DependencyMode: ListenerDependencyModeAlways,
+		},
+	})
+
+	sequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+		Deltas: []ListenerRealtimeDelta{
+			{
+				Dependency: "section-a.param-a",
+				Value:      json.RawMessage(`"value-a"`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit unmatched realtime delta: %v", err)
+	}
+	if sequence != 1 || delivered != 0 {
+		t.Fatalf("expected unmatched realtime delta to advance sequence without deliveries, got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err = listener.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected no listener delivery for unmatched callbacks, got %v", err)
+	}
 }
 
 func TestListenerBroadcasterEmitRealtimeDeltasMatchesExpandedDependencies(t *testing.T) {
