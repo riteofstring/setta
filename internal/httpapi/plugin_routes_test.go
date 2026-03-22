@@ -255,6 +255,70 @@ func TestRegisterPluginRoutesMapMalformedPersistedStateForRuntimeAndRescan(t *te
 	}
 }
 
+func TestRegisterPluginRoutesPreserveCustomStatusesForRuntimeAndRescanFailures(t *testing.T) {
+	t.Parallel()
+
+	const injectedMessage = "Injected route failure for runtime/rescan mapping test."
+	injectedError := &plugins.ServiceError{
+		Code:    plugins.ServiceErrorCode("PLUGIN_TEST_ERROR"),
+		Message: injectedMessage,
+		Status:  http.StatusUnprocessableEntity,
+	}
+
+	testCases := []struct {
+		name    string
+		method  string
+		path    string
+		service pluginRouteServiceStub
+	}{
+		{
+			name:   "runtime",
+			method: http.MethodGet,
+			path:   RoutePluginsRuntime,
+			service: pluginRouteServiceStub{
+				runtimeFunc: func(plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+					return plugins.RuntimeResponse{}, injectedError
+				},
+			},
+		},
+		{
+			name:   "rescan",
+			method: http.MethodPost,
+			path:   RoutePluginsRescan,
+			service: pluginRouteServiceStub{
+				rescanFunc: func() (plugins.DiscoverySnapshot, error) {
+					return plugins.DiscoverySnapshot{}, injectedError
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			handler := newPluginRouteTestHandler(t, config.ModeIDE, testCase.service)
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(testCase.method, "/api"+testCase.path, nil)
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected custom plugin error status 422, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode custom runtime/rescan error response: %v", err)
+			}
+			if payload.Error.Code != "PLUGIN_TEST_ERROR" {
+				t.Fatalf("expected injected error code, got %q", payload.Error.Code)
+			}
+			if payload.Error.Message != injectedMessage {
+				t.Fatalf("expected injected error message %q, got %q", injectedMessage, payload.Error.Message)
+			}
+		})
+	}
+}
+
 // The shared plugin route mapper should preserve explicit service-provided HTTP status, code, and message.
 func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(t *testing.T) {
 	t.Parallel()
@@ -417,6 +481,43 @@ func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
 	}
 	if uninstallPayload.PluginID != "setta-fixture-frontend" || uninstallPayload.RemovedFromScope != plugins.PluginScopeWorkspace || uninstallPayload.RestartRequired {
 		t.Fatalf("unexpected uninstall payload %#v", uninstallPayload)
+	}
+}
+
+func TestRegisterPluginRoutesMapMissingUninstallAndUnsupportedInstallSourceErrors(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	uninstallResponse := httptest.NewRecorder()
+	uninstallRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUninstall, strings.NewReader(`{"pluginId":"missing-plugin","scope":"workspace"}`))
+	handler.ServeHTTP(uninstallResponse, uninstallRequest)
+	if uninstallResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected missing uninstall 404, got %d with body %q", uninstallResponse.Code, uninstallResponse.Body.String())
+	}
+
+	var uninstallPayload errorResponse
+	if err := json.Unmarshal(uninstallResponse.Body.Bytes(), &uninstallPayload); err != nil {
+		t.Fatalf("decode missing uninstall response: %v", err)
+	}
+	if uninstallPayload.Error.Code != string(plugins.ServiceErrorCodeNotFound) {
+		t.Fatalf("expected plugin not found code, got %q", uninstallPayload.Error.Code)
+	}
+
+	installResponse := httptest.NewRecorder()
+	installRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"local:/tmp/not-supported","scope":"workspace","installer":"pip","enable":true,"force":false}`))
+	handler.ServeHTTP(installResponse, installRequest)
+	if installResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected unsupported install source 400, got %d with body %q", installResponse.Code, installResponse.Body.String())
+	}
+
+	var installPayload errorResponse
+	if err := json.Unmarshal(installResponse.Body.Bytes(), &installPayload); err != nil {
+		t.Fatalf("decode unsupported install source response: %v", err)
+	}
+	if installPayload.Error.Code != string(plugins.ServiceErrorCodeSourceSchemeUnsupported) {
+		t.Fatalf("expected source scheme unsupported code, got %q", installPayload.Error.Code)
 	}
 }
 
@@ -1410,6 +1511,20 @@ func TestRegisterPluginRootRoutesRejectsTraversalAndUnknownPlugins(t *testing.T)
 	}
 	if traversalPayload.Error.Code != string(plugins.ServiceErrorCodeAssetInvalidPath) {
 		t.Fatalf("expected asset invalid path code, got %q", traversalPayload.Error.Code)
+	}
+
+	missingAssetResponse := httptest.NewRecorder()
+	missingAssetRequest := httptest.NewRequest(http.MethodGet, "/plugins/setta-fixture-frontend/frontend/dist/missing.js", nil)
+	handler.ServeHTTP(missingAssetResponse, missingAssetRequest)
+	if missingAssetResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected missing asset 404, got %d with body %q", missingAssetResponse.Code, missingAssetResponse.Body.String())
+	}
+	var missingAssetPayload errorResponse
+	if err := json.Unmarshal(missingAssetResponse.Body.Bytes(), &missingAssetPayload); err != nil {
+		t.Fatalf("decode missing asset error payload: %v", err)
+	}
+	if missingAssetPayload.Error.Code != string(plugins.ServiceErrorCodeAssetNotFound) {
+		t.Fatalf("expected asset not found code for missing asset, got %q", missingAssetPayload.Error.Code)
 	}
 
 	notFoundResponse := httptest.NewRecorder()
