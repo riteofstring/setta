@@ -12,11 +12,16 @@ import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import TextBlockSectionImpl
+from setta.types.listener import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+    ListenerSnapshot,
+)
+from setta.types.generated.go_shared_types import SectionType
 from watchfiles import Change
 
 if TYPE_CHECKING:
@@ -38,37 +43,6 @@ class TestSettaListenerHotReload:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
         self._mtime_offset = 1.0
-
-    def _build_project_state(self) -> ProjectStateSingleConfig:
-        section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
-            name="Welcome",
-            text="Hello",
-        )
-        section_variant = Variant(
-            id=ID("section-variant"),
-            name="Welcome Variant",
-            impl=section_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-        )
-        section_core = Core(
-            id=ID("section-welcome"),
-            name="Welcome",
-            variants=[section_variant.id],
-            defaultVariant=section_variant.id,
-        )
-        project_config = ProjectConfig(
-            id=ID("project-1"),
-            name="Demo Project",
-            sectionVariantMap={section_core.id: section_variant.id},
-            topLevelSections={section_core.id: TopLevelSectionLayout()},
-        )
-        return ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section_core.id: section_core},
-            sectionImpls={section_impl.id: section_impl},
-            sectionVariants={section_variant.id: section_variant},
-        )
 
     @staticmethod
     def _bump_mtime(module_path: Path, offset: float) -> None:
@@ -111,9 +85,34 @@ class TestSettaListenerHotReload:
             raise AssertionError("Unexpected callback payload shape")
         return next(iter(callbacks.keys()))
 
+    def _build_authoritative_snapshot_payload(
+        self,
+    ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
+        dependency_key = create_dep_key(sectionId=ID("section-welcome"))
+        return (
+            ListenerDependencyCatalog(
+                entries=[
+                    ListenerDependencyCatalogEntry(
+                        dependencyKey=dependency_key,
+                        name="Welcome",
+                        fullPathName="Welcome",
+                        sectionType=SectionType.TextBlock,
+                    )
+                ]
+            ),
+            ListenerRenderedDependencyValues(
+                entries=[
+                    ListenerRenderedDependencyValue(
+                        dependencyKey=dependency_key,
+                        renderedValue=repr("Hello"),
+                    )
+                ]
+            ),
+        )
+
     async def test_reloader_cycles_update_callback_registration(self) -> None:
-        project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
+        project_config_id = ID("project-1")
+        listener = SettaListener(project_name="Demo Project")
         self._init_listener_invocations(listener)
         websocket = _StubWebsocket()
         listener._websocket = cast("ClientConnection", websocket)
@@ -136,7 +135,16 @@ class TestSettaListenerHotReload:
                 )
                 await reloader.reload_now(reload_module=False)
 
-                await listener._refresh_from_snapshot(project_state)
+                dependency_catalog, dependency_values = (
+                    self._build_authoritative_snapshot_payload()
+                )
+                await listener._refresh_from_snapshot(
+                    ListenerSnapshot(
+                        projectConfigId=project_config_id,
+                        dependencyCatalog=dependency_catalog,
+                        dependencyValues=dependency_values,
+                    )
+                )
                 await asyncio.sleep(0)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
                 assert self._get_listener_invocations(listener) == ["v1"]

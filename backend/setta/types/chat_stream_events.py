@@ -1,39 +1,35 @@
-from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel
-
 from setta.mcp.tool_metadata import (
     ToolArgumentPreviewIdType,
     ToolArgumentPreviewKind,
 )
-from setta.types.chat_messages import ToolChatMessage
-from setta.types.generated.chat_messages import (
+from setta.types.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
+    ToolChatMessage,
+)
+from setta.types.generated.go_shared_types import (
+    MessageDeltaEvent as GoMessageDeltaEvent,
+    MessageFinalizedEvent as GoMessageFinalizedEvent,
+    MessageStartEvent as GoMessageStartEvent,
+    MessageStopEvent as GoMessageStopEvent,
+    MessageTextDelta as GoMessageTextDelta,
+    MessageThinkingDelta as GoMessageThinkingDelta,
+    StreamingEventType,
+    ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
+    ToolCallDeltaEvent as GoToolCallDeltaEvent,
+    ToolResultEvent as GoToolResultEvent,
 )
 from setta.types.id import ID
 
 
-class StreamingEventType(str, Enum):
-    MESSAGE_START = "message_start"
-    DELTA = "delta"
-    TOOL_CALL_DELTA = "tool_call_delta"
-    TOOL_ARGUMENT_PREVIEW_DELTA = "tool_argument_preview_delta"
-    TOOL_RESULT = "tool_result"
-    MESSAGE_STOP = "message_stop"
-    MESSAGE_FINALIZED = "message_finalized"
-
-
-class MessageTextDelta(BaseModel):
+class MessageTextDelta(GoMessageTextDelta):
     type: Literal["text_delta"] = "text_delta"
-    index: int
-    text: str
 
 
-class MessageThinkingDelta(BaseModel):
+class MessageThinkingDelta(GoMessageThinkingDelta):
     type: Literal["thinking_delta"] = "thinking_delta"
-    index: int
-    thinking: str
     summary: str | None = None
     signature: str | None = None
 
@@ -41,53 +37,43 @@ class MessageThinkingDelta(BaseModel):
 MessageContentDelta = MessageTextDelta | MessageThinkingDelta
 
 
-class MessageStartEvent(BaseModel):
-    type: Literal[StreamingEventType.MESSAGE_START] = StreamingEventType.MESSAGE_START
+class MessageStartEvent(GoMessageStartEvent):
+    type: Literal[StreamingEventType.message_start] = StreamingEventType.message_start
     message: BaseChatMessageUnionWithDiscriminator
 
 
-class MessageDeltaEvent(BaseModel):
-    type: Literal[StreamingEventType.DELTA] = StreamingEventType.DELTA
-    message_id: str
+class MessageDeltaEvent(GoMessageDeltaEvent):
+    type: Literal[StreamingEventType.delta] = StreamingEventType.delta
     content: list[MessageContentDelta] | None = None
 
 
-class ToolCallDeltaEvent(BaseModel):
-    type: Literal[StreamingEventType.TOOL_CALL_DELTA] = (
-        StreamingEventType.TOOL_CALL_DELTA
+class ToolCallDeltaEvent(GoToolCallDeltaEvent):
+    type: Literal[StreamingEventType.tool_call_delta] = (
+        StreamingEventType.tool_call_delta
     )
-    message_id: str
-    tool_call_id: str
-    arguments_delta: str
     tool_name: str | None = None
 
 
-class ToolResultEvent(BaseModel):
-    type: Literal[StreamingEventType.TOOL_RESULT] = StreamingEventType.TOOL_RESULT
+class ToolResultEvent(GoToolResultEvent):
+    type: Literal[StreamingEventType.tool_result] = StreamingEventType.tool_result
     result: ToolChatMessage
 
 
-class ToolArgumentPreviewDeltaEvent(BaseModel):
-    type: Literal[StreamingEventType.TOOL_ARGUMENT_PREVIEW_DELTA] = (
-        StreamingEventType.TOOL_ARGUMENT_PREVIEW_DELTA
+class ToolArgumentPreviewDeltaEvent(GoToolArgumentPreviewDeltaEvent):
+    type: Literal[StreamingEventType.tool_argument_preview_delta] = (
+        StreamingEventType.tool_argument_preview_delta
     )
-    message_id: str
-    tool_call_id: str
-    tool_name: str
-    arguments_delta: str
     preview_kind: ToolArgumentPreviewKind
     target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]]
-    preview_value_delta: str
 
 
-class MessageStopEvent(BaseModel):
-    type: Literal[StreamingEventType.MESSAGE_STOP] = StreamingEventType.MESSAGE_STOP
-    message_id: str
+class MessageStopEvent(GoMessageStopEvent):
+    type: Literal[StreamingEventType.message_stop] = StreamingEventType.message_stop
 
 
-class MessageFinalizedEvent(BaseModel):
-    type: Literal[StreamingEventType.MESSAGE_FINALIZED] = (
-        StreamingEventType.MESSAGE_FINALIZED
+class MessageFinalizedEvent(GoMessageFinalizedEvent):
+    type: Literal[StreamingEventType.message_finalized] = (
+        StreamingEventType.message_finalized
     )
     message: BaseChatMessageUnionWithDiscriminator
 

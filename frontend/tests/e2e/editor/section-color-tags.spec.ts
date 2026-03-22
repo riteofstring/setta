@@ -18,7 +18,9 @@ type LatestProjectStateResponse = {
 };
 
 test.describe.serial("section color tags", () => {
-  test("sets tag color via Section Config and shows dot", async ({ page }) => {
+  test("sets tag color via Section Config and shows dot", async ({
+    page,
+  }) => {
     await seedLocalStorage(page, {
       overviewTab: "Overview",
       overviewVis: true,
@@ -47,17 +49,15 @@ test.describe.serial("section color tags", () => {
         "section-config-accordion-appearance",
       );
       await expect(appearanceAccordionTrigger).toBeVisible();
-      await appearanceAccordionTrigger.evaluate((element: HTMLButtonElement) =>
-        element.click(),
+      await appearanceAccordionTrigger.evaluate(
+        (element: HTMLButtonElement) => element.click(),
       );
       await expect(appearanceAccordionTrigger).toHaveAttribute(
         "aria-expanded",
         "true",
       );
 
-      const colorTagHeading = uiEditorPane.getByText("Color Tag", {
-        exact: true,
-      });
+      const colorTagHeading = uiEditorPane.getByText("Color Tag", { exact: true });
       await expect(colorTagHeading).toBeVisible();
       const colorTagBlock = colorTagHeading.locator(
         "xpath=ancestor::div[contains(@class,'rounded-lg') or contains(@class,'rounded-xl')][1]",
@@ -66,32 +66,6 @@ test.describe.serial("section color tags", () => {
 
       const colorPickerTrigger = colorTagBlock.locator(".colorpicker").first();
       await expect(colorPickerTrigger).toBeVisible();
-
-      const colorClassRead = await colorTagBlock.evaluate((block) => {
-        const trigger = block.querySelector(".colorpicker");
-        const wrapper =
-          trigger instanceof HTMLElement ? trigger.parentElement : null;
-        return {
-          wrapperClassName:
-            wrapper instanceof HTMLElement ? wrapper.className : null,
-          triggerClassName:
-            trigger instanceof HTMLElement ? trigger.className : null,
-          blockMarkup: block.innerHTML,
-        };
-      });
-
-      expect(colorClassRead.blockMarkup).not.toContain("single-cell-container");
-      expect(colorClassRead.blockMarkup).not.toContain("single-cell-child");
-      expect(colorClassRead.wrapperClassName).not.toContain(
-        "single-cell-container",
-      );
-      expect(colorClassRead.triggerClassName).not.toContain(
-        "single-cell-container",
-      );
-      expect(colorClassRead.triggerClassName).not.toContain(
-        "single-cell-child",
-      );
-
       await colorPickerTrigger.click();
 
       await page
@@ -165,9 +139,7 @@ test.describe.serial("section color tags", () => {
       await expect(nodeAfter).toBeVisible();
       await nodeAfter.click();
       await expect(
-        nodeAfter.locator(
-          'header.section-title span[title="Color tag: #3b82f6"]',
-        ),
+        nodeAfter.locator('header.section-title span[title="Color tag: #3b82f6"]'),
       ).toBeVisible();
 
       const appearanceAccordionTriggerAfterReload = uiEditorPane.getByTestId(

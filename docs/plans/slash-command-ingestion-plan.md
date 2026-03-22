@@ -10,8 +10,8 @@ This plan turns command discovery into a first-class capability (instead of pass
 
 ## Current State (Setta)
 - Setta already has local composer slash commands (`/new`, `/resume`, `/model`, `/permissions`, `/search`, `/help`) in `frontend/src/components/Chat/chatComposerControls.ts`.
-- External-agent native command metadata is currently best-effort and mostly sourced from run metadata in `backend/setta/agentic/external_agent_runner.py` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
-- Codex adapter explicitly reports native slash commands as unsupported in app-server mode (`backend/setta/agentic/external_adapters/codex_app_server.py`).
+- External-agent native command metadata is currently best-effort and mostly sourced from Go-owned external-agent run/runtime metadata in `internal/externalagents` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- The active Go Codex executor path still treats native slash-command enumeration as unsupported in app-server mode (`internal/externalagents/codex_executor.go`).
 - There is no dedicated backend API for command ingestion by selected engine/config.
 
 ## Scope
@@ -41,9 +41,9 @@ Add a typed shared schema (backend + generated frontend types) with:
 - `statusDetail`: optional machine-safe explanation
 
 Implementation targets:
-- `backend/setta/types/external_agents.py`
-- `backend/setta/types/routes.py` (new route enum)
-- `frontend/generation/*` + `frontend/src/utils/generatedTypes.ts`
+- `internal/externalagents` (normalized command model + discovery result types)
+- `internal/httpapi` (request/response structs + route contract)
+- `internal/frontendbindings/specs.go` + generated `frontend/src/utils/generatedTypes.ts`
 
 ### 2. Discovery endpoint
 Add `route_get_external_agent_commands` (name must match generated endpoint rules) to return normalized command snapshots per selected engine/config.
@@ -61,8 +61,8 @@ Suggested response fields:
 - `discoveredAt`
 
 Implementation targets:
-- `backend/setta/routers/agentic.py`
-- `backend/setta/types/routes.py`
+- `internal/httpapi` (new external-agent command route)
+- `internal/frontendbindings/specs.go`
 - `frontend/src/utils/generatedEndpoints.ts` (via `pnpm generate`)
 
 ### 3. Adapter contract extension
@@ -70,10 +70,10 @@ Extend the adapter protocol with explicit command discovery:
 - `list_commands(context, force_reload) -> AgentCommandDiscoveryResult`
 
 Implementation target:
-- `backend/setta/agentic/external_adapters/base.py`
+- `internal/externalagents` (new Go-side discovery abstraction alongside the executor/runtime path)
 
 Runner integration target:
-- `backend/setta/agentic/external_agent_runner.py`
+- `internal/externalagents/run_service.go`
 
 ## Agent-specific ingestion
 
@@ -172,8 +172,9 @@ Implementation targets:
 
 ## Testing Plan
 
-### Backend (pytest)
-1. Command normalization unit tests for all status modes.
+### Backend (Go)
+1. Command normalization unit tests under `internal/externalagents/*_test.go`
+   for all status modes.
 2. Claude discovery tests:
    - init list parsing
    - custom command frontmatter merge
@@ -183,7 +184,8 @@ Implementation targets:
 4. Codex discovery tests:
    - `skills/list` + `app/list` mapping
    - explicit `not_supported` native slash status
-5. Route tests for `route_get_external_agent_commands`.
+5. Route tests for `route_get_external_agent_commands` under
+   `internal/httpapi/*_test.go`.
 
 ### Frontend (Vitest)
 1. Parser accepts namespaced slash commands and dynamic command sets.

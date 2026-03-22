@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from setta.types.routes import Route
+from setta.types.generated.go_shared_types import Route
 from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
@@ -121,11 +121,6 @@ class C:
     def SHARE_DEPLOYMENTS_FOLDER(cls) -> Path:
         return get_setta_paths().share_deployments_root
 
-    @classproperty
-    def DEPLOYMENTS_FOLDER(cls) -> Path:
-        # Legacy name: deployments (share + app) live under the share deployments root.
-        return cls.SHARE_DEPLOYMENTS_FOLDER
-
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
     APP_MODE = False
@@ -154,7 +149,6 @@ class C:
     SESSION_SECRET_BYTES = 32
 
     # WebSocket message types
-    WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
 
