@@ -211,6 +211,12 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: ValueSchema{Type: ValueTypeBoolean},
+				RevealActivationSteps: []RevealActivationStep{
+					{
+						Type:      RevealActivationRunInstructions,
+						ItemValue: "run-instructions-codegen-targets",
+					},
+				},
 			},
 			ReadValue: func(_ context.Context, projectID string) (any, error) {
 				project, err := runtime.Snapshot().Document.ProjectByID(projectID)

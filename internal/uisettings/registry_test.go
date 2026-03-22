@@ -63,6 +63,99 @@ func TestRegistrySearchRanksCoreSettingBySynonym(t *testing.T) {
 	}
 }
 
+func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginMetadata(t *testing.T) {
+	t.Parallel()
+
+	runtime := openCoreRegistryRuntime(t)
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       runtime,
+		WorkspaceRoot: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new scoped registry without plugin service: %v", err)
+	}
+
+	if len(registry.knownPluginIDs) != 0 {
+		t.Fatalf("expected no known plugin ids, got %#v", registry.knownPluginIDs)
+	}
+	if len(registry.knownPluginSettingIDs) != 0 {
+		t.Fatalf("expected no known plugin setting ids, got %#v", registry.knownPluginSettingIDs)
+	}
+	if len(registry.invalidPluginSettings) != 0 {
+		t.Fatalf("expected no invalid plugin settings, got %#v", registry.invalidPluginSettings)
+	}
+	if len(registry.pluginStatusByPluginID) != 0 {
+		t.Fatalf("expected no plugin status metadata, got %#v", registry.pluginStatusByPluginID)
+	}
+
+	projectNameEntry, ok, err := registry.Get("core.project.name")
+	if err != nil {
+		t.Fatalf("get core.project.name: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected core.project.name entry")
+	}
+	if projectNameEntry.Metadata.Source != SourceCore {
+		t.Fatalf("expected core.project.name to stay core-sourced, got %#v", projectNameEntry.Metadata.Source)
+	}
+}
+
+func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
+	t.Parallel()
+
+	runtime := openCoreRegistryRuntime(t)
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       runtime,
+		WorkspaceRoot: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
+
+	expectedSteps := map[string]RevealActivationStep{
+		"core.project_ai_settings.llm_api_keys": {
+			Type:      RevealActivationProjectAIAccordion,
+			ItemValue: "project-ai-settings-llm-api-keys",
+		},
+		"core.project_ai_settings.agent_profiles": {
+			Type:      RevealActivationProjectAIAccordion,
+			ItemValue: "project-ai-settings-agent-profiles",
+		},
+		"core.project_ai_settings.prompt_templates": {
+			Type:      RevealActivationProjectAIAccordion,
+			ItemValue: "project-ai-settings-prompt-templates",
+		},
+		"core.project_ai_settings.external_agents": {
+			Type:      RevealActivationProjectAIAccordion,
+			ItemValue: "project-ai-settings-external-agents",
+		},
+		"core.run_instructions.python_codegen_enabled": {
+			Type:      RevealActivationRunInstructions,
+			ItemValue: "run-instructions-codegen-targets",
+		},
+	}
+
+	for settingID, expected := range expectedSteps {
+		entry, ok, err := registry.Get(settingID)
+		if err != nil {
+			t.Fatalf("get %s: %v", settingID, err)
+		}
+		if !ok {
+			t.Fatalf("expected registry entry for %s", settingID)
+		}
+		found := false
+		for _, step := range entry.Metadata.RevealActivationSteps {
+			if step.Type == expected.Type && step.ItemValue == expected.ItemValue {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected reveal activation step %#v for %s, got %#v", expected, settingID, entry.Metadata.RevealActivationSteps)
+		}
+	}
+}
+
 func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T) {
 	t.Parallel()
 
