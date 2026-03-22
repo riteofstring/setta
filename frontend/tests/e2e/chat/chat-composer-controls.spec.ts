@@ -1390,12 +1390,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(stopButton).toBeVisible();
       await stopButton.click();
 
-      await expect
-        .poll(() => stopOutcome?.alreadyStopped ?? null)
-        .toBe(false);
+      await expect.poll(() => stopOutcome?.alreadyStopped ?? null).toBe(false);
       expect(stopOutcome?.stoppedRunId).toBeTruthy();
-      // Stop can win before the first assistant message is materialized, so
-      // the backend contract allows stoppedMessageId to be omitted here.
+      expect(stopOutcome?.stoppedMessageId).toBeTruthy();
       await expect.poll(() => providerServer.abortedRequestCount).toBe(1);
 
       await expect
@@ -1419,14 +1416,16 @@ test.describe.serial("chat composer controls", () => {
           };
           return {
             waitingForResponse: payload.waitingForResponse,
-            hasMessages: payload.messages.length >= 1,
+            messageCount: payload.messages.length,
+            includesStreamingText: JSON.stringify(payload.messages).includes(
+              "Streaming",
+            ),
           };
         })
         .toEqual({
           waitingForResponse: false,
-          // Stop can land before any assistant delta is persisted, but the
-          // transcript must still settle into a non-waiting state.
-          hasMessages: true,
+          messageCount: 2,
+          includesStreamingText: true,
         });
 
       const providerRequest = providerServer.requests[0];
@@ -1574,8 +1573,7 @@ test.describe.serial("chat composer controls", () => {
             { data: {} },
           );
           expect(response.ok()).toBe(true);
-          const payload =
-            (await response.json()) as MCPRuntimeStatusResponse;
+          const payload = (await response.json()) as MCPRuntimeStatusResponse;
           return (
             payload.servers.find((server) => server.serverId === "setta")
               ?.state ?? null
@@ -1617,7 +1615,9 @@ test.describe.serial("chat composer controls", () => {
       const firstProviderRequest = providerServer.requests[0];
       expect(firstProviderRequest?.path).toBe("/v1/messages");
       expect(firstProviderRequest?.apiKey).toBe("e2e-anthropic-secret");
-      expect(firstProviderRequest?.body.model).toBe("claude-sonnet-4-5-20250929");
+      expect(firstProviderRequest?.body.model).toBe(
+        "claude-sonnet-4-5-20250929",
+      );
       const firstTools = Array.isArray(firstProviderRequest?.body.tools)
         ? firstProviderRequest.body.tools
         : [];
@@ -1637,7 +1637,9 @@ test.describe.serial("chat composer controls", () => {
         .locator('[data-chat-assistant-activity-section="true"]')
         .first();
       await expect(activitySection).toBeVisible();
-      await expect(activitySection).toContainText("setta__report_completion_status");
+      await expect(activitySection).toContainText(
+        "setta__report_completion_status",
+      );
 
       const activityTrigger = activitySection.locator(
         '[data-chat-assistant-activity-trigger="true"]',
@@ -1660,7 +1662,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(toolItemTrigger).toContainText(
         "setta__report_completion_status",
       );
-      await expect(projectChatSurface).toContainText("Tool-backed anthropic reply");
+      await expect(projectChatSurface).toContainText(
+        "Tool-backed anthropic reply",
+      );
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -2030,10 +2034,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(stopButton).toBeVisible();
       await stopButton.click();
 
-      await expect
-        .poll(() => stopOutcome?.alreadyStopped ?? null)
-        .toBe(false);
+      await expect.poll(() => stopOutcome?.alreadyStopped ?? null).toBe(false);
       expect(stopOutcome?.stoppedRunId).toBeTruthy();
+      expect(stopOutcome?.stoppedMessageId).toBeTruthy();
       await expect.poll(() => providerServer.abortedRequestCount).toBe(1);
 
       await expect
@@ -2057,12 +2060,16 @@ test.describe.serial("chat composer controls", () => {
           };
           return {
             waitingForResponse: payload.waitingForResponse,
-            hasMessages: payload.messages.length >= 1,
+            messageCount: payload.messages.length,
+            includesStreamingText: JSON.stringify(payload.messages).includes(
+              "Streaming",
+            ),
           };
         })
         .toEqual({
           waitingForResponse: false,
-          hasMessages: true,
+          messageCount: 2,
+          includesStreamingText: true,
         });
 
       const providerRequest = providerServer.requests[0];
@@ -2212,8 +2219,7 @@ test.describe.serial("chat composer controls", () => {
             { data: {} },
           );
           expect(response.ok()).toBe(true);
-          const payload =
-            (await response.json()) as MCPRuntimeStatusResponse;
+          const payload = (await response.json()) as MCPRuntimeStatusResponse;
           return (
             payload.servers.find((server) => server.serverId === "setta")
               ?.state ?? null
@@ -2256,20 +2262,26 @@ test.describe.serial("chat composer controls", () => {
       const firstTools = Array.isArray(firstProviderRequest?.body.tools)
         ? firstProviderRequest.body.tools
         : [];
-      expect(JSON.stringify(firstTools)).toContain("setta__report_completion_status");
+      expect(JSON.stringify(firstTools)).toContain(
+        "setta__report_completion_status",
+      );
 
       const secondProviderRequest = providerServer.requests[1];
       const secondMessages = Array.isArray(secondProviderRequest?.body.messages)
         ? secondProviderRequest.body.messages
         : [];
       expect(JSON.stringify(secondMessages)).toContain('"role":"tool"');
-      expect(JSON.stringify(secondMessages)).toContain('"tool_call_id":"tool-call-1"');
+      expect(JSON.stringify(secondMessages)).toContain(
+        '"tool_call_id":"tool-call-1"',
+      );
 
       const activitySection = projectChatSurface
         .locator('[data-chat-assistant-activity-section="true"]')
         .first();
       await expect(activitySection).toBeVisible();
-      await expect(activitySection).toContainText("setta__report_completion_status");
+      await expect(activitySection).toContainText(
+        "setta__report_completion_status",
+      );
 
       const activityTrigger = activitySection.locator(
         '[data-chat-assistant-activity-trigger="true"]',
@@ -3045,10 +3057,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(stopButton).toBeVisible();
       await stopButton.click();
 
-      await expect
-        .poll(() => stopOutcome?.alreadyStopped ?? null)
-        .toBe(false);
+      await expect.poll(() => stopOutcome?.alreadyStopped ?? null).toBe(false);
       expect(stopOutcome?.stoppedRunId).toBeTruthy();
+      expect(stopOutcome?.stoppedMessageId).toBeTruthy();
       await expect.poll(() => providerServer.abortedRequestCount).toBe(1);
 
       await expect
@@ -3072,12 +3083,16 @@ test.describe.serial("chat composer controls", () => {
           };
           return {
             waitingForResponse: payload.waitingForResponse,
-            hasMessages: payload.messages.length >= 1,
+            messageCount: payload.messages.length,
+            includesStreamingText: JSON.stringify(payload.messages).includes(
+              "Streaming",
+            ),
           };
         })
         .toEqual({
           waitingForResponse: false,
-          hasMessages: true,
+          messageCount: 2,
+          includesStreamingText: true,
         });
 
       const providerRequest = providerServer.requests[0];
@@ -3235,8 +3250,7 @@ test.describe.serial("chat composer controls", () => {
             { data: {} },
           );
           expect(response.ok()).toBe(true);
-          const payload =
-            (await response.json()) as MCPRuntimeStatusResponse;
+          const payload = (await response.json()) as MCPRuntimeStatusResponse;
           return (
             payload.servers.find((server) => server.serverId === "setta")
               ?.state ?? null
@@ -3325,7 +3339,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(toolItemTrigger).toContainText(
         "setta__report_completion_status",
       );
-      await expect(projectChatSurface).toContainText("Tool-backed gemini reply");
+      await expect(projectChatSurface).toContainText(
+        "Tool-backed gemini reply",
+      );
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -3877,10 +3893,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(stopButton).toBeVisible();
       await stopButton.click();
 
-      await expect
-        .poll(() => stopOutcome?.alreadyStopped ?? null)
-        .toBe(false);
+      await expect.poll(() => stopOutcome?.alreadyStopped ?? null).toBe(false);
       expect(stopOutcome?.stoppedRunId).toBeTruthy();
+      expect(stopOutcome?.stoppedMessageId).toBeTruthy();
       await expect.poll(() => providerServer.abortedRequestCount).toBe(1);
 
       await expect
@@ -3904,12 +3919,16 @@ test.describe.serial("chat composer controls", () => {
           };
           return {
             waitingForResponse: payload.waitingForResponse,
-            hasMessages: payload.messages.length >= 1,
+            messageCount: payload.messages.length,
+            includesStreamingText: JSON.stringify(payload.messages).includes(
+              "Streaming",
+            ),
           };
         })
         .toEqual({
           waitingForResponse: false,
-          hasMessages: true,
+          messageCount: 2,
+          includesStreamingText: true,
         });
 
       const providerRequest = providerServer.requests[0];
@@ -5903,9 +5922,7 @@ test.describe.serial("chat composer controls", () => {
 
     await page.route("**/api/getAgentRuns", async (route) => {
       const runs =
-        workflowSectionId &&
-        workflowProjectConfigId &&
-        workflowEngineConfigId
+        workflowSectionId && workflowProjectConfigId && workflowEngineConfigId
           ? [
               {
                 id: "run-history-workflow-current",
@@ -6004,22 +6021,25 @@ test.describe.serial("chat composer controls", () => {
       await expect(section.getByRole("button", { name: "Back" })).toBeVisible();
       await expect(section.getByText("Resume workflow thread")).toBeVisible();
 
-      await page.evaluate(async ({ chatId }) => {
-        const { useAIStore } = await import("/src/state/definitions.ts");
-        useAIStore.setState((state) => ({
-          chatDetails: {
-            ...state.chatDetails,
-            [chatId]: {
-              messages: state.chatDetails[chatId]?.messages ?? [],
-              toolCallArguments:
-                state.chatDetails[chatId]?.toolCallArguments ?? {},
-              waitingForResponse: true,
-              llmConfig: state.chatDetails[chatId]?.llmConfig ?? null,
-              contextUsage: state.chatDetails[chatId]?.contextUsage ?? null,
+      await page.evaluate(
+        async ({ chatId }) => {
+          const { useAIStore } = await import("/src/state/definitions.ts");
+          useAIStore.setState((state) => ({
+            chatDetails: {
+              ...state.chatDetails,
+              [chatId]: {
+                messages: state.chatDetails[chatId]?.messages ?? [],
+                toolCallArguments:
+                  state.chatDetails[chatId]?.toolCallArguments ?? {},
+                waitingForResponse: true,
+                llmConfig: state.chatDetails[chatId]?.llmConfig ?? null,
+                contextUsage: state.chatDetails[chatId]?.contextUsage ?? null,
+              },
             },
-          },
-        }));
-      }, { chatId: workflowChatId });
+          }));
+        },
+        { chatId: workflowChatId },
+      );
 
       await expect(section.getByRole("button", { name: "Back" })).toHaveCount(
         0,
@@ -6064,9 +6084,7 @@ test.describe.serial("chat composer controls", () => {
                 {
                   id: "workflow-refresh-user",
                   role: "user",
-                  content: [
-                    { type: "text", text: "Resume workflow thread" },
-                  ],
+                  content: [{ type: "text", text: "Resume workflow thread" }],
                   attachments: [],
                 },
                 {
@@ -6573,9 +6591,12 @@ async function saveSettingsForTest(
 ): Promise<void> {
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-  const saveResponse = await page.request.post(`${backendOrigin}/api/saveSettings`, {
-    data: { settings },
-  });
+  const saveResponse = await page.request.post(
+    `${backendOrigin}/api/saveSettings`,
+    {
+      data: { settings },
+    },
+  );
   const saveText = await saveResponse.text();
   if (!saveResponse.ok()) {
     const detail = saveText ? ` ${saveText}` : "";
@@ -7122,7 +7143,9 @@ async function startManagedAnthropicAbortableServer(): Promise<ManagedAnthropicA
       const address = server.address();
       if (!address || typeof address === "string") {
         server.close(() =>
-          reject(new Error("Unable to allocate Anthropic abortable test port.")),
+          reject(
+            new Error("Unable to allocate Anthropic abortable test port."),
+          ),
         );
         return;
       }
@@ -7355,7 +7378,9 @@ async function startManagedAnthropicToolCallServer(): Promise<ManagedAnthropicSt
           response.write(
             'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"input_tokens":18,"output_tokens":4,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
           );
-          response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+          response.end(
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+          );
           requestCount += 1;
           return;
         }
@@ -7375,7 +7400,9 @@ async function startManagedAnthropicToolCallServer(): Promise<ManagedAnthropicSt
           response.write(
             'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":23,"output_tokens":3,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
           );
-          response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+          response.end(
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+          );
           requestCount += 1;
           return;
         }
@@ -7388,7 +7415,9 @@ async function startManagedAnthropicToolCallServer(): Promise<ManagedAnthropicSt
       const address = server.address();
       if (!address || typeof address === "string") {
         server.close(() =>
-          reject(new Error("Unable to allocate Anthropic tool-call test port.")),
+          reject(
+            new Error("Unable to allocate Anthropic tool-call test port."),
+          ),
         );
         return;
       }

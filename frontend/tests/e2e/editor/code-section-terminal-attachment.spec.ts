@@ -898,6 +898,29 @@ test("embedded terminal can detach via frontend move action", async ({
       codeBox,
       attempt: 0,
     });
+    const moveResponsePromise = page.waitForResponse((response) => {
+      if (response.request().method() !== "POST") {
+        return false;
+      }
+      const url = new URL(response.url());
+      if (!url.pathname.endsWith("/api/moveSections")) {
+        return false;
+      }
+      const payload = response.request().postDataJSON() as
+        | {
+            projectConfigId?: string;
+            sectionIds?: string[];
+            newParentId?: string | null;
+          }
+        | undefined;
+      return (
+        payload?.projectConfigId === projectConfigId &&
+        payload.newParentId === null &&
+        payload.sectionIds?.includes(terminalId) === true
+      );
+    });
+    // Drag-detach coverage lives in the dedicated drag test below; keep this
+    // case deterministic so it can assert the detach backend mutation path.
     await page.evaluate(
       async ({ detachedTerminalId, targetX, targetY }) => {
         const { moveSectionsWithBackend } = await import(
@@ -918,6 +941,8 @@ test("embedded terminal can detach via frontend move action", async ({
         targetY,
       },
     );
+    const moveResponse = await moveResponsePromise;
+    expect(moveResponse.ok()).toBe(true);
 
     await expect
       .poll(
@@ -1441,13 +1466,16 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     );
     let sttyMatch: RegExpMatchArray | null = null;
     await expect
-      .poll(async () => {
-        const sttyOutput = await getTerminalOutputBuffer(page, terminalId);
-        sttyMatch = sttyOutput.match(
-          new RegExp(`${sttyMarker}\\s+(\\d+)\\s+(\\d+)`),
-        );
-        return sttyMatch !== null;
-      }, { timeout: 20000 })
+      .poll(
+        async () => {
+          const sttyOutput = await getTerminalOutputBuffer(page, terminalId);
+          sttyMatch = sttyOutput.match(
+            new RegExp(`${sttyMarker}\\s+(\\d+)\\s+(\\d+)`),
+          );
+          return sttyMatch !== null;
+        },
+        { timeout: 20000 },
+      )
       .toBe(true);
     if (!sttyMatch) {
       throw new Error(`Failed to parse stty output for ${sttyMarker}.`);

@@ -1,6 +1,7 @@
 package managedchat
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -41,6 +42,24 @@ func (s *stubRunStopper) StopRun(runID string) (agentruns.Run, error) {
 		return agentruns.Run{}, s.err
 	}
 	return s.run.Clone(), nil
+}
+
+type stubRunStopperWaiter struct {
+	stopper       stubRunStopper
+	wait          func(ctx context.Context, runID string) (agentruns.Run, error)
+	lastWaitRunID string
+}
+
+func (s *stubRunStopperWaiter) StopRun(runID string) (agentruns.Run, error) {
+	return s.stopper.StopRun(runID)
+}
+
+func (s *stubRunStopperWaiter) WaitForRun(ctx context.Context, runID string) (agentruns.Run, error) {
+	s.lastWaitRunID = runID
+	if s.wait == nil {
+		return agentruns.Run{}, context.DeadlineExceeded
+	}
+	return s.wait(ctx, runID)
 }
 
 type managedChatFixture struct {
@@ -714,6 +733,93 @@ func TestServiceStopChatFallsBackToLiveStateWhenPersistedOutputsLag(t *testing.T
 	}
 	if live.lastRunID != run.ID {
 		t.Fatalf("expected live state lookup for run %q, got %q", run.ID, live.lastRunID)
+	}
+	hydrated, err := fixture.service.GetChat("chat-stop-live", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat after stop: %v", err)
+	}
+	if hydrated.WaitingForResponse {
+		t.Fatalf("expected cancelled chat hydration, got %#v", hydrated)
+	}
+	if len(hydrated.Messages) != 2 {
+		t.Fatalf("expected persisted user and assistant messages, got %#v", hydrated.Messages)
+	}
+	if hydrated.Messages[1]["id"] != "assistant-live" {
+		t.Fatalf("expected persisted live assistant output, got %#v", hydrated.Messages[1])
+	}
+}
+
+// When live state is already gone, stop should still wait for the managed run
+// to finish persisting its partial assistant output before responding.
+func TestServiceStopChatWaitsForPersistedOutputsWhenLiveStateIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-stop-wait",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 14, 45, 0, 0, time.UTC),
+			status:          agentruns.RunStatusRunning,
+			inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+
+	finishedAt := run.StartedAt.Add(3 * time.Second)
+	waitedRun := run.Clone()
+	waitedRun.Status = agentruns.RunStatusCancelled
+	waitedRun.FinishedAt = &finishedAt
+	waitedRun.Outputs = map[string]any{
+		"messages": messageList([]map[string]any{
+			userMessage("user-1", "Hello"),
+			assistantMessage("assistant-waited", "Partial reply"),
+		}),
+	}
+	stopper := &stubRunStopperWaiter{
+		stopper: stubRunStopper{
+			run: agentruns.Run{
+				ID:        run.ID,
+				Inputs:    cloneAnyMap(run.Inputs),
+				Status:    agentruns.RunStatusCancelled,
+				StartedAt: run.StartedAt,
+			},
+		},
+		wait: func(ctx context.Context, runID string) (agentruns.Run, error) {
+			select {
+			case <-time.After(10 * time.Millisecond):
+			case <-ctx.Done():
+				return agentruns.Run{}, ctx.Err()
+			}
+			if err := fixture.runs.Save(waitedRun); err != nil {
+				t.Fatalf("save waited run: %v", err)
+			}
+			return waitedRun.Clone(), nil
+		},
+	}
+	fixture.service.stopper = stopper
+
+	result, err := fixture.service.StopChat("chat-stop-wait")
+	if err != nil {
+		t.Fatalf("stop chat: %v", err)
+	}
+	if result.AlreadyStopped {
+		t.Fatalf("expected active stop result, got %#v", result)
+	}
+	if result.StoppedMessageID == nil || *result.StoppedMessageID != "assistant-waited" {
+		t.Fatalf("expected waited assistant output id, got %#v", result.StoppedMessageID)
+	}
+	if stopper.lastWaitRunID != run.ID {
+		t.Fatalf("expected wait for run %q, got %q", run.ID, stopper.lastWaitRunID)
+	}
+	hydrated, err := fixture.service.GetChat("chat-stop-wait", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat after wait: %v", err)
+	}
+	if len(hydrated.Messages) != 2 || hydrated.Messages[1]["id"] != "assistant-waited" {
+		t.Fatalf("expected waited assistant output to hydrate, got %#v", hydrated.Messages)
 	}
 }
 

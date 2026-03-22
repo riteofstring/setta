@@ -1,6 +1,7 @@
 package managedchat
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -29,6 +30,7 @@ const (
 
 	maxReferenceImageURLChars   = 4096
 	maxReferenceImageNotesChars = 100000
+	stopChatWaitTimeout         = 2 * time.Second
 
 	requiredErrorCheckPrompt = "## Required completion gate for create/scaffold work\n" +
 		"- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n" +
@@ -93,6 +95,10 @@ type ChatStarter interface {
 
 type RunStopper interface {
 	StopRun(runID string) (agentruns.Run, error)
+}
+
+type runWaiter interface {
+	WaitForRun(ctx context.Context, runID string) (agentruns.Run, error)
 }
 
 type ServiceOptions struct {
@@ -570,6 +576,20 @@ func (s *Service) StopChat(chatID string) (StopResult, error) {
 				return StopResult{}, err
 			}
 			stoppedMessageID = resolveLatestAssistantMessageIDFromMessages(inputMessages, liveState.Messages)
+			stoppedRun, err = s.persistLiveChatStateToRun(stoppedRun, liveState)
+			if err != nil {
+				return StopResult{}, err
+			}
+		}
+	}
+	if stoppedMessageID == nil {
+		stoppedRun, err = s.waitForStoppedRunPersistence(stoppedRun)
+		if err != nil {
+			return StopResult{}, err
+		}
+		stoppedMessageID, err = resolveLatestAssistantMessageID(stoppedRun)
+		if err != nil {
+			return StopResult{}, err
 		}
 	}
 	return StopResult{
@@ -833,6 +853,46 @@ func resolveLatestAssistantMessageIDFromMessages(inputMessages []map[string]any,
 		return stringPtr(id)
 	}
 	return nil
+}
+
+func (s *Service) persistLiveChatStateToRun(run agentruns.Run, liveState *ChatState) (agentruns.Run, error) {
+	if s == nil || s.runs == nil || liveState == nil {
+		return run, nil
+	}
+	persisted := run.Clone()
+	outputs := cloneAnyMap(persisted.Outputs)
+	if outputs == nil {
+		outputs = map[string]any{}
+	}
+	outputs["messages"] = messageSliceToJSONList(liveState.Messages)
+	persisted.Outputs = outputs
+	if err := s.runs.Save(persisted); err != nil {
+		return agentruns.Run{}, err
+	}
+	return s.runs.Load(persisted.ID)
+}
+
+func (s *Service) waitForStoppedRunPersistence(run agentruns.Run) (agentruns.Run, error) {
+	if s == nil || s.runs == nil {
+		return run, nil
+	}
+	runID := strings.TrimSpace(run.ID)
+	if runID == "" {
+		return run, nil
+	}
+	if waiter, ok := s.stopper.(runWaiter); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), stopChatWaitTimeout)
+		defer cancel()
+		waitedRun, err := waiter.WaitForRun(ctx, runID)
+		switch {
+		case err == nil:
+			return waitedRun, nil
+		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		default:
+			return agentruns.Run{}, err
+		}
+	}
+	return s.runs.Load(runID)
 }
 
 func parseInputMessages(run agentruns.Run) ([]map[string]any, error) {
