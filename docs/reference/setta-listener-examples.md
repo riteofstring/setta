@@ -30,8 +30,7 @@ in a managed terminal session. It is separate from deployment-mode listeners
 
 ## Deployment listener entrypoint (share/app deployments)
 Deployments can ship a listener entrypoint at `listener/app.py`. If the deployment
-manifest enables it, the Go backend starts a Python listener process per
-deployment session.
+manifest enables it, Setta starts a listener per deployment session.
 
 The entrypoint should define either `build_listener` or `build_callbacks` and
 register callbacks on the provided `SettaListener`:
@@ -249,7 +248,7 @@ target_ids = {"section": None, "param": None}
 
 @listener.listen(deps=["Hue_Slider"], run_on_refresh=True)
 async def sync_color(state, ctx) -> None:
-    if target_ids["section"] is None or target_ids["param"] is None:
+    if target_ids["section"] is None:
         ids = ctx.ids.meta_control_param_ids("Color_Display")
         target_ids["section"] = ids.sectionId
         target_ids["param"] = ids.paramInfoId
@@ -258,12 +257,12 @@ async def sync_color(state, ctx) -> None:
     if hue is None:
         return
 
-    dependency_name = ctx.ids.dependency_name(
-        target_ids["section"],
-        target_ids["param"],
-    )
-    await ctx.emit_to_frontend(
-        dependency_values={dependency_name: hue_to_hex(float(hue))}
+    await ctx.project_manager.set_param_entered_value(
+        {
+            "sectionId": target_ids["section"],
+            "paramInfoId": target_ids["param"],
+            "value": hue_to_hex(float(hue)),
+        }
     )
 
 
@@ -348,22 +347,29 @@ async def mirror_image(state, ctx) -> None:
 listener.start()
 ```
 
-## Chat/chat-section helpers via ctx.project_manager
-Strings: `Demo Project` is the project name; `Chat` is a chat section dependency; `current chat id=%s` is a log message template.
-`ctx.project_manager` is the narrow listener endpoint client for chat/chat-section helpers. For higher-level workflows, use the helpers in `docs/reference/chat-toolkit.md`.
+## Router endpoint calls via ctx.project_manager
+Strings: `Demo Project` is the project name; `controls__title` is a param dependency (section `controls` + param `title`); payload keys like `sectionId`, `paramInfoId`, and `value` are the request field names for the router endpoint; response keys like `projectState` and `sections` are read from the returned dict; `project has %d sections` is a log message template.
+Endpoint results arrive as JSON-compatible dicts, so access fields with dict keys.
 ```python
 from setta.api import SettaListener
 
 listener = SettaListener(project_name="Demo Project")
 
 
-@listener.listen(deps=["Chat"], run_on_refresh=True)
-async def inspect_chat_binding(state, ctx) -> None:
-    section_id = ctx.ids.section_id("Chat")
-    chat_id = await ctx.project_manager.get_chat_section_chat_id(
-        {"sectionId": section_id}
+@listener.listen(deps=["controls__title"])
+async def sync_title(state, ctx) -> None:
+    ids = ctx.ids.param_ids("controls__title")
+    await ctx.project_manager.set_param_entered_value(
+        {
+            "sectionId": ids.sectionId,
+            "paramInfoId": ids.paramInfoId,
+            "value": str(state.controls__title or ""),
+        }
     )
-    ctx.log.info("current chat id=%s", chat_id)
+
+    latest = await ctx.project_manager.get_latest_project_state({})
+    project_state = latest["projectState"]
+    ctx.log.info("project has %d sections", len(project_state["sections"]))
 
 
 listener.start()

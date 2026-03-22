@@ -1,8 +1,11 @@
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from setta.database.utils import create_new_id
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -17,7 +20,7 @@ from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID, create_new_id
+from setta.types.id import ID
 from setta.types.prompt import PromptFormat
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -80,6 +83,26 @@ class CodeLanguage(str, Enum):
 
 
 CodeLanguageKey = CodeLanguage | str
+
+
+def normalize_code_language(language: CodeLanguageKey) -> CodeLanguageKey:
+    if isinstance(language, CodeLanguage):
+        return language
+    if not isinstance(language, str):
+        raise TypeError("Code language must be a string.")
+    normalized = language.strip().lower()
+    if normalized == "":
+        raise ValueError("Code language must be a non-empty string.")
+    try:
+        return CodeLanguage(normalized)
+    except ValueError:
+        return normalized
+
+
+def code_language_to_string(language: CodeLanguageKey) -> str:
+    if isinstance(language, CodeLanguage):
+        return language.value
+    return language
 
 
 class ConfigLanguage(str, Enum):
@@ -165,6 +188,21 @@ class BrowserSavedSearch(BaseModel, extra="forbid"):
     )
     color: str = "#3b82f6"
     quickInfo: str = ""
+
+
+class BrowserAreaItemType(str, Enum):
+    Image = "Image"
+    Video = "Video"
+    Text = "Text"
+    Data = "Data"
+    Brushes = "Brushes"
+    Other = "Other"
+
+
+class BrowserAreaItem(BaseModel, extra="forbid"):
+    id: str
+    type: Any
+    lastModified: datetime
 
 
 class TaskBoardColumn(BaseModel, extra="forbid"):
