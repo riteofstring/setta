@@ -3,7 +3,9 @@ package projectstate
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 )
 
 type ChatPermissionMode string
@@ -100,14 +102,18 @@ func (p *Project) SetChatSectionState(sectionID string, state ChatSectionState) 
 	if _, _, _, err := p.resolveChatSectionMutationState(sectionID); err != nil {
 		return err
 	}
+	normalized, err := normalizeChatSectionStateForPersistence(state)
+	if err != nil {
+		return err
+	}
 
 	return p.applyChatSectionUpdates(sectionID, map[string]any{
-		"messages":           cloneChatSectionMessages(state.Messages),
-		"inputText":          state.InputText,
-		"waitingForResponse": state.WaitingForResponse,
-		"toolCallArguments":  cloneChatSectionToolCallArguments(state.ToolCallArguments),
-		"activeBranchId":     normalizedOptionalChatFieldID(state.ActiveBranchID),
-		"branches":           cloneChatSectionBranches(state.Branches),
+		"messages":           cloneChatSectionMessages(normalized.Messages),
+		"inputText":          normalized.InputText,
+		"waitingForResponse": normalized.WaitingForResponse,
+		"toolCallArguments":  cloneChatSectionToolCallArguments(normalized.ToolCallArguments),
+		"activeBranchId":     normalizedOptionalChatFieldID(normalized.ActiveBranchID),
+		"branches":           cloneChatSectionBranches(normalized.Branches),
 	})
 }
 
@@ -280,6 +286,127 @@ func cloneChatSectionToolCallArguments(arguments map[string]string) map[string]s
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func normalizeChatSectionStateForPersistence(state ChatSectionState) (ChatSectionState, error) {
+	normalized := ChatSectionState{
+		Messages:           cloneChatSectionMessages(state.Messages),
+		InputText:          state.InputText,
+		WaitingForResponse: state.WaitingForResponse,
+		ToolCallArguments:  cloneChatSectionToolCallArguments(state.ToolCallArguments),
+		ActiveBranchID:     cloneOptionalChatFieldID(state.ActiveBranchID),
+		Branches:           cloneTypedChatSectionBranches(state.Branches),
+	}
+	if len(normalized.Branches) == 0 {
+		branchID, err := resolvedChatBranchID(normalized.ActiveBranchID)
+		if err != nil {
+			return ChatSectionState{}, err
+		}
+		normalized.ActiveBranchID = cloneOptionalChatFieldID(&branchID)
+		normalized.Branches = map[string]ChatSectionBranch{
+			branchID: {
+				Messages:            cloneChatSectionMessages(normalized.Messages),
+				CreatedAt:           int(time.Now().UnixMilli()),
+				ParentBranchID:      nil,
+				BranchFromMessageID: nil,
+			},
+		}
+		return normalized, nil
+	}
+
+	activeBranchID := ""
+	if normalized.ActiveBranchID != nil {
+		candidateID := strings.TrimSpace(*normalized.ActiveBranchID)
+		if _, ok := normalized.Branches[candidateID]; ok {
+			activeBranchID = candidateID
+		}
+	}
+	if activeBranchID == "" {
+		activeBranchID = selectCanonicalChatBranchID(normalized.Branches)
+	}
+	if activeBranchID == "" {
+		branchID, err := resolvedChatBranchID(nil)
+		if err != nil {
+			return ChatSectionState{}, err
+		}
+		activeBranchID = branchID
+		normalized.Branches[branchID] = ChatSectionBranch{
+			Messages:            cloneChatSectionMessages(normalized.Messages),
+			CreatedAt:           int(time.Now().UnixMilli()),
+			ParentBranchID:      nil,
+			BranchFromMessageID: nil,
+		}
+	}
+	activeBranch := normalized.Branches[activeBranchID]
+	if len(activeBranch.Messages) == 0 && len(normalized.Messages) != 0 {
+		activeBranch.Messages = cloneChatSectionMessages(normalized.Messages)
+		normalized.Branches[activeBranchID] = activeBranch
+	}
+	normalized.ActiveBranchID = cloneOptionalChatFieldID(&activeBranchID)
+	normalized.Messages = cloneChatSectionMessages(activeBranch.Messages)
+	return normalized, nil
+}
+
+func cloneOptionalChatFieldID(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func cloneTypedChatSectionBranches(
+	branches map[string]ChatSectionBranch,
+) map[string]ChatSectionBranch {
+	if len(branches) == 0 {
+		return map[string]ChatSectionBranch{}
+	}
+	cloned := make(map[string]ChatSectionBranch, len(branches))
+	for branchID, branch := range branches {
+		trimmedBranchID := strings.TrimSpace(branchID)
+		if trimmedBranchID == "" {
+			continue
+		}
+		cloned[trimmedBranchID] = ChatSectionBranch{
+			Messages:            cloneChatSectionMessages(branch.Messages),
+			CreatedAt:           branch.CreatedAt,
+			ParentBranchID:      cloneOptionalChatFieldID(branch.ParentBranchID),
+			BranchFromMessageID: cloneOptionalChatFieldID(branch.BranchFromMessageID),
+		}
+	}
+	return cloned
+}
+
+func resolvedChatBranchID(value *string) (string, error) {
+	if value != nil {
+		trimmed := strings.TrimSpace(*value)
+		if trimmed != "" {
+			return trimmed, nil
+		}
+	}
+	return newProjectStateID()
+}
+
+func selectCanonicalChatBranchID(branches map[string]ChatSectionBranch) string {
+	if len(branches) == 0 {
+		return ""
+	}
+	branchIDs := make([]string, 0, len(branches))
+	for branchID := range branches {
+		branchIDs = append(branchIDs, branchID)
+	}
+	sort.Slice(branchIDs, func(i int, j int) bool {
+		left := branches[branchIDs[i]]
+		right := branches[branchIDs[j]]
+		if left.CreatedAt == right.CreatedAt {
+			return branchIDs[i] < branchIDs[j]
+		}
+		return left.CreatedAt < right.CreatedAt
+	})
+	return branchIDs[0]
 }
 
 func cloneChatSectionBranches(branches map[string]ChatSectionBranch) map[string]any {

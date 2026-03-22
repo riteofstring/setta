@@ -181,6 +181,76 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetChatSectionStateInitializesCanonicalRootBranch(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": chatSectionMutationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetChatSectionState(
+		context.Background(),
+		"project-alpha",
+		"chat-section",
+		ChatSectionState{
+			Messages: []map[string]any{
+				{"id": "message-1", "type": "user", "content": "hello"},
+			},
+			InputText:          "Draft input",
+			WaitingForResponse: true,
+			ToolCallArguments: map[string]string{
+				"tool-call-1": "{\"query\":\"hello\"}",
+			},
+		},
+	); err != nil {
+		t.Fatalf("SetChatSectionState returned error: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload chat-section: %v", err)
+	}
+	activeBranchID := payloadRawStringField(payload, "activeBranchId")
+	if activeBranchID == "" {
+		t.Fatalf("expected generated activeBranchId, got %#v", payload["activeBranchId"])
+	}
+	branches, ok := payload["branches"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected branches object, got %#v", payload["branches"])
+	}
+	if len(branches) != 1 {
+		t.Fatalf("expected exactly one canonical root branch, got %#v", branches)
+	}
+	branchValue, ok := branches[activeBranchID].(map[string]any)
+	if !ok {
+		t.Fatalf("expected canonical branch %q object, got %#v", activeBranchID, branches[activeBranchID])
+	}
+	if branchValue["createdAt"] == nil || branchValue["createdAt"].(float64) <= 0 {
+		t.Fatalf("expected generated branch createdAt, got %#v", branchValue["createdAt"])
+	}
+	branchMessages, ok := branchValue["messages"].([]any)
+	if !ok || len(branchMessages) != 1 {
+		t.Fatalf("expected canonical branch messages, got %#v", branchValue["messages"])
+	}
+	storedMessages, ok := payload["messages"].([]any)
+	if !ok || len(storedMessages) != 1 {
+		t.Fatalf("expected top-level messages to mirror active branch, got %#v", payload["messages"])
+	}
+}
+
 func TestRuntimeChatSectionMutationsRejectInvalidTargetsAndModes(t *testing.T) {
 	t.Parallel()
 

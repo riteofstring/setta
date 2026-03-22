@@ -271,6 +271,75 @@ func TestRegisterProjectRoutesChatSectionMutationsRejectInvalidSectionAndSetting
 	}
 }
 
+func TestRegisterProjectRoutesChatSectionStateInitializesCanonicalBranching(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": chatSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetChatSectionState,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section","state":{"messages":[{"id":"message-1","type":"user","content":"hello"}],"inputText":"Draft input","waitingForResponse":true,"toolCallArguments":{"tool-call-1":"{\"query\":\"hello\"}"}}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionState, response.Code, response.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	chatSharedModifier := decodeProjectRouteRawObject(
+		t,
+		payload.ProjectState.Sections["chat-section"].SharedModifier,
+	)
+	activeBranchID, _ := chatSharedModifier["activeBranchId"].(string)
+	if activeBranchID == "" {
+		t.Fatalf("expected generated activeBranchId, got %#v", chatSharedModifier["activeBranchId"])
+	}
+	branches, ok := chatSharedModifier["branches"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected branches object, got %#v", chatSharedModifier["branches"])
+	}
+	if len(branches) != 1 {
+		t.Fatalf("expected canonical single root branch, got %#v", branches)
+	}
+	if _, ok := branches[activeBranchID].(map[string]any); !ok {
+		t.Fatalf("expected generated branch payload for %q, got %#v", activeBranchID, branches[activeBranchID])
+	}
+}
+
 func TestRegisterProjectRoutesSetChatSectionSettingsPreservesLinkedChatEdgesForNonExecutableTargets(t *testing.T) {
 	t.Parallel()
 

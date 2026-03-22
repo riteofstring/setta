@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"setta/internal/agentprofiles"
 )
 
 var ErrRuntimeServiceRequired = fmt.Errorf("managed agent runtime service is required")
+
+const stopRunGracePeriod = 50 * time.Millisecond
 
 type LiveRunTracker interface {
 	ActivateRun(run Run)
@@ -107,6 +110,13 @@ func (r *Runtime) StopRun(runID string) (Run, error) {
 	r.mu.RUnlock()
 	if ok && active.cancel != nil {
 		active.cancel()
+	}
+	if ok && active.done != nil {
+		select {
+		case <-active.done:
+			return r.service.runs.Load(trimmedRunID)
+		case <-time.After(stopRunGracePeriod):
+		}
 	}
 	return r.service.cancelRun(trimmedRunID)
 }

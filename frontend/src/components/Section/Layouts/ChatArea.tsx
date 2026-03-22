@@ -122,6 +122,41 @@ type ChatStopActionPayload = {
   managed: boolean;
 };
 
+export function shouldPersistInitializedChatState({
+  currentState,
+  initializedState,
+}: {
+  currentState: ChatSectionState;
+  initializedState: ChatSectionState;
+}): boolean {
+  const currentBranches = currentState.branches ?? {};
+  if (Object.keys(currentBranches).length > 0) {
+    return false;
+  }
+  const currentActiveBranchId =
+    typeof currentState.activeBranchId === "string" &&
+    currentState.activeBranchId.trim() !== ""
+      ? currentState.activeBranchId.trim()
+      : null;
+  if (currentActiveBranchId !== null) {
+    return false;
+  }
+  return _.isEqual(
+    {
+      messages: currentState.messages ?? [],
+      inputText: currentState.inputText ?? "",
+      waitingForResponse: currentState.waitingForResponse,
+      toolCallArguments: currentState.toolCallArguments ?? {},
+    },
+    {
+      messages: initializedState.messages ?? [],
+      inputText: initializedState.inputText ?? "",
+      waitingForResponse: initializedState.waitingForResponse,
+      toolCallArguments: initializedState.toolCallArguments ?? {},
+    },
+  );
+}
+
 type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
 
 type ChatSectionChatId = string | null;
@@ -576,11 +611,36 @@ function ScriptableChatArea({
     if (!branchState.didInitialize) {
       return;
     }
+    const current = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    if (
+      !shouldPersistInitializedChatState({
+        currentState: {
+          messages: current.messages,
+          inputText: current.inputText,
+          waitingForResponse: current.waitingForResponse,
+          toolCallArguments: current.toolCallArguments,
+          activeBranchId: current.activeBranchId ?? null,
+          branches: current.branches ?? {},
+        },
+        initializedState: effectiveState,
+      })
+    ) {
+      return;
+    }
     const sendPromise = applyChatStateWithoutAck(effectiveState);
     if (sendPromise) {
       void sendPromise;
     }
-  }, [applyChatStateWithoutAck, branchState.didInitialize, effectiveState]);
+  }, [
+    applyChatStateWithoutAck,
+    branchState.didInitialize,
+    effectiveState,
+    sectionId,
+  ]);
 
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
