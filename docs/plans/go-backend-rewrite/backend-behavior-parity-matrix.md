@@ -5,7 +5,7 @@ Last audited: `2026-03-23`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `7d759b6dd2`
+- Target head: `ddb8e5331b`
 - Additional focused audit in this pass: retained `SettaListener` SDK
   dependency-name collision/bootstrap-catalog proof, metadata-backed
   callback-state cache versus fail-closed access, cached-snapshot replay
@@ -94,6 +94,23 @@ Last audited: `2026-03-23`
   launch trust-bootstrap / rollback explicit-disposition closure on the
   signed launcher-origin handoff, launched-origin trust, started-new rollback,
   reused-session skip-rollback, and rollback-failure typing rows
+- Follow-up in this pass on `ddb8e5331b`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` again passed cleanly, so
+  `critical_backend_suite::go_test_all` remained stale saved-suite output on
+  this head rather than a live Go gap. This pass re-audited
+  `main@26e7406b764009690b3b5af7ade260c91407c0be:tests/utils/test_git.py::{test_run_git_truncates_stdout_at_requested_cap,test_run_git_truncates_stderr_at_requested_cap,test_git_binary_lookup_is_cached}`
+  against `internal/gitread/service.go::{New,runGit,newCappedBuffer}`,
+  `internal/httpapi/git_routes.go::RegisterGitRoutes`, and the shared
+  service construction in `internal/app/app.go::New`, plus the focused Go
+  proof in `TestServiceRunGitTruncatesStdoutAtRequestedCap`,
+  `TestServiceRunGitTruncatesStderrAtRequestedCap`, and
+  `TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksNonIDEModes`; no new
+  implementation gap was found, and the existing
+  `git.transport.shared_subprocess_helper.truncates_stdout_and_stderr_at_requested_caps`
+  row remained the correct terminal `Proved` disposition while
+  `git.transport.binary_lookup.module_global_cache_is_not_a_retained_go_contract`
+  remained the correct terminal `Intentional divergence` disposition for
+  those stale backlog clues.
 - Follow-up in this pass on `7d759b6dd2`: rerunning the exact preflight
   `./scripts/go.sh test ./... -count=1` again passed cleanly, so
   `critical_backend_suite::go_test_all` remained stale saved-suite output on
