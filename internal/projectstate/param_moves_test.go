@@ -41,6 +41,79 @@ func TestProjectMoveParamsReordersWithinParent(t *testing.T) {
 	}
 }
 
+// Whitespace-only param filters stay persisted as raw strings, but they should
+// not block reordering because only nonblank filters disable param moves.
+func TestProjectMoveParamsAllowsWhitespaceOnlyParamFilter(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	if err := project.setCurrentSectionField("dict-a", "paramFilter", "   "); err != nil {
+		t.Fatalf("set whitespace paramFilter: %v", err)
+	}
+	addedParamID := mustAddKwargCodeObjID(t, &project, "dict-a")
+
+	if err := project.MoveParams(MoveParamsInput{
+		SectionID:   "dict-a",
+		ParamIDs:    []string{addedParamID},
+		NewParentID: "shared-root",
+		NewIndex:    0,
+	}); err != nil {
+		t.Fatalf("MoveParams with whitespace-only paramFilter returned error: %v", err)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-root")
+	if err != nil {
+		t.Fatalf("resolve shared-root after whitespace-filter reorder: %v", err)
+	}
+	if got := payloadStringArrayField(rootPayload, "children"); !reflect.DeepEqual(got, []string{addedParamID, "shared-child", "shared-other"}) {
+		t.Fatalf("expected reordered dict children with whitespace-only paramFilter, got %#v", got)
+	}
+}
+
+// Moving into an already nested parent should append under that parent without
+// flattening it back into the root list.
+func TestProjectMoveParamsReparentsIntoExistingNestedParent(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	addedParamID := mustAddKwargCodeObjID(t, &project, "dict-a")
+
+	if err := project.IndentParams(IndentParamsInput{
+		SectionID: "dict-a",
+		ParamIDs:  []string{"shared-other"},
+	}); err != nil {
+		t.Fatalf("seed indent for nested parent: %v", err)
+	}
+
+	if err := project.MoveParams(MoveParamsInput{
+		SectionID:   "dict-a",
+		ParamIDs:    []string{addedParamID},
+		NewParentID: "shared-child",
+		NewIndex:    1,
+	}); err != nil {
+		t.Fatalf("MoveParams into existing nested parent returned error: %v", err)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-root")
+	if err != nil {
+		t.Fatalf("resolve shared-root after reparent: %v", err)
+	}
+	if got := payloadStringArrayField(rootPayload, "children"); !reflect.DeepEqual(got, []string{"shared-child"}) {
+		t.Fatalf("expected reparent to leave only shared-child at root, got %#v", got)
+	}
+
+	parentPayload, _, _, parentImpl, err := project.ResolveSectionCodeObject("dict-a", "shared-child")
+	if err != nil {
+		t.Fatalf("resolve shared-child after reparent: %v", err)
+	}
+	if got := effectiveCodeObjType(parentPayload, parentImpl); got != nestedParamCodeObjType {
+		t.Fatalf("expected shared-child to remain NestedParam, got %q", got)
+	}
+	if got := payloadStringArrayField(parentPayload, "children"); !reflect.DeepEqual(got, []string{"shared-other", addedParamID}) {
+		t.Fatalf("expected nested children [shared-other %s], got %#v", addedParamID, got)
+	}
+}
+
 // Sequential param-group moves should be applied against the progressively
 // mutated tree so frontend keyboard move batches stay deterministic.
 func TestProjectMoveParamGroupsAppliesMovesSequentially(t *testing.T) {
@@ -113,6 +186,53 @@ func TestProjectIndentParamsConvertsPreviousSiblingAndMovesGroup(t *testing.T) {
 	}
 }
 
+// Non-contiguous selections should indent as independent groups so keyboard
+// batches keep the same grouping semantics as the source helper behavior.
+func TestProjectIndentParamsProcessesNonContiguousGroupsIndependently(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	addedA := mustAddKwargCodeObjID(t, &project, "dict-a")
+	addedB := mustAddKwargCodeObjID(t, &project, "dict-a")
+
+	if err := project.IndentParams(IndentParamsInput{
+		SectionID: "dict-a",
+		ParamIDs:  []string{"shared-other", addedB},
+	}); err != nil {
+		t.Fatalf("IndentParams non-contiguous groups returned error: %v", err)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-root")
+	if err != nil {
+		t.Fatalf("resolve shared-root after non-contiguous indent: %v", err)
+	}
+	if got := payloadStringArrayField(rootPayload, "children"); !reflect.DeepEqual(got, []string{"shared-child", addedA}) {
+		t.Fatalf("expected root children [shared-child %s] after non-contiguous indent, got %#v", addedA, got)
+	}
+
+	firstParentPayload, _, _, firstParentImpl, err := project.ResolveSectionCodeObject("dict-a", "shared-child")
+	if err != nil {
+		t.Fatalf("resolve shared-child after non-contiguous indent: %v", err)
+	}
+	if got := effectiveCodeObjType(firstParentPayload, firstParentImpl); got != nestedParamCodeObjType {
+		t.Fatalf("expected shared-child to convert to NestedParam, got %q", got)
+	}
+	if got := payloadStringArrayField(firstParentPayload, "children"); !reflect.DeepEqual(got, []string{"shared-other"}) {
+		t.Fatalf("expected shared-child nested children [shared-other], got %#v", got)
+	}
+
+	secondParentPayload, _, _, secondParentImpl, err := project.ResolveSectionCodeObject("dict-a", addedA)
+	if err != nil {
+		t.Fatalf("resolve %s after non-contiguous indent: %v", addedA, err)
+	}
+	if got := effectiveCodeObjType(secondParentPayload, secondParentImpl); got != nestedParamCodeObjType {
+		t.Fatalf("expected %s to convert to NestedParam, got %q", addedA, got)
+	}
+	if got := payloadStringArrayField(secondParentPayload, "children"); !reflect.DeepEqual(got, []string{addedB}) {
+		t.Fatalf("expected %s nested children [%s], got %#v", addedA, addedB, got)
+	}
+}
+
 // Unindenting the last nested child should promote it after the parent and
 // convert the now-empty nested parent back into a CodeParam with "{}".
 func TestProjectUnindentParamsRestoresEmptyNestedParentToCodeParam(t *testing.T) {
@@ -154,6 +274,60 @@ func TestProjectUnindentParamsRestoresEmptyNestedParentToCodeParam(t *testing.T)
 	}
 	if value := payloadStringField(parentPayload, "value"); value != "{}" {
 		t.Fatalf("expected restored CodeParam value {}, got %q", value)
+	}
+}
+
+// Multi-parent unindent selections should process each parent independently
+// while preserving overall root order and restoring emptied parents.
+func TestProjectUnindentParamsProcessesMultipleParents(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	addedA := mustAddKwargCodeObjID(t, &project, "dict-a")
+	addedB := mustAddKwargCodeObjID(t, &project, "dict-a")
+
+	if err := project.IndentParams(IndentParamsInput{
+		SectionID: "dict-a",
+		ParamIDs:  []string{"shared-other", addedB},
+	}); err != nil {
+		t.Fatalf("seed non-contiguous indent before multi-parent unindent: %v", err)
+	}
+
+	if err := project.UnindentParams(UnindentParamsInput{
+		SectionID: "dict-a",
+		ParamIDs:  []string{"shared-other", addedB},
+	}); err != nil {
+		t.Fatalf("UnindentParams multi-parent selection returned error: %v", err)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-root")
+	if err != nil {
+		t.Fatalf("resolve shared-root after multi-parent unindent: %v", err)
+	}
+	if got := payloadStringArrayField(rootPayload, "children"); !reflect.DeepEqual(got, []string{"shared-child", "shared-other", addedA, addedB}) {
+		t.Fatalf("expected fully restored root order after multi-parent unindent, got %#v", got)
+	}
+
+	firstParentPayload, _, _, firstParentImpl, err := project.ResolveSectionCodeObject("dict-a", "shared-child")
+	if err != nil {
+		t.Fatalf("resolve shared-child after multi-parent unindent: %v", err)
+	}
+	if got := effectiveCodeObjType(firstParentPayload, firstParentImpl); got != codeParamType {
+		t.Fatalf("expected shared-child to convert back to CodeParam, got %q", got)
+	}
+	if value := payloadStringField(firstParentPayload, "value"); value != "{}" {
+		t.Fatalf("expected shared-child value {}, got %q", value)
+	}
+
+	secondParentPayload, _, _, secondParentImpl, err := project.ResolveSectionCodeObject("dict-a", addedA)
+	if err != nil {
+		t.Fatalf("resolve %s after multi-parent unindent: %v", addedA, err)
+	}
+	if got := effectiveCodeObjType(secondParentPayload, secondParentImpl); got != codeParamType {
+		t.Fatalf("expected %s to convert back to CodeParam, got %q", addedA, got)
+	}
+	if value := payloadStringField(secondParentPayload, "value"); value != "{}" {
+		t.Fatalf("expected %s value {}, got %q", addedA, value)
 	}
 }
 
