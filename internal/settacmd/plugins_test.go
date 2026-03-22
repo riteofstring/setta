@@ -58,6 +58,24 @@ func TestRunPluginsListJSONIncludesStatusPayload(t *testing.T) {
 	}
 }
 
+// Plugins list text should keep the explicit empty-state message when no plugins are discovered.
+func TestRunPluginsListTextReportsNoPlugins(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "list")
+	if err != nil {
+		t.Fatalf("run plugins list empty text: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "No plugins discovered." {
+		t.Fatalf("expected empty-state message, got %q", stdout)
+	}
+}
+
 // Bare plugins navigation should now render Go-owned usage instead of failing through Python fallback.
 func TestRunPluginsHelpNavigationPrintsUsage(t *testing.T) {
 	t.Parallel()
@@ -302,6 +320,28 @@ func TestRunPluginsInitAndValidateText(t *testing.T) {
 	}
 	if !strings.Contains(validateStdout, "Plugin manifest is valid: "+pluginRoot) {
 		t.Fatalf("expected validate output to mention plugin root, got %q", validateStdout)
+	}
+}
+
+// Plugins validate should surface manifest lookup failures through the packaged CLI error boundary.
+func TestRunPluginsValidateReportsManifestError(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	invalidPluginRoot := filepath.Join(cwd, "invalid-plugin-root")
+	if err := os.MkdirAll(invalidPluginRoot, 0o755); err != nil {
+		t.Fatalf("mkdir invalid plugin root: %v", err)
+	}
+
+	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "validate", invalidPluginRoot)
+	if err == nil {
+		t.Fatal("expected plugins validate failure")
+	}
+	if ExitCode(err) != 1 {
+		t.Fatalf("expected exit code 1, got %d", ExitCode(err))
+	}
+	if !strings.HasPrefix(DisplayError(err), "PLUGIN_SOURCE_MANIFEST_NOT_FOUND:") {
+		t.Fatalf("expected manifest-not-found error, got %q", DisplayError(err))
 	}
 }
 
@@ -914,6 +954,71 @@ func TestRunPluginsPackageManagerUninstallRejectsExternallyManagedPlugin(t *test
 	}
 	if DisplayError(err) != "PLUGIN_MANAGED_EXTERNALLY: Plugin setta-fixture-frontend is managed by a Python package manager. Use uv/pip/Poetry to uninstall it." {
 		t.Fatalf("unexpected package-manager uninstall error %q", DisplayError(err))
+	}
+}
+
+// Packaged plugin commands should still surface persisted plugins_state load failures as typed CLI errors.
+func TestRunPluginsCommandsSurfaceInvalidPluginsStateErrors(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		prepare func(t *testing.T, cwd string)
+	}{
+		{
+			name: "list",
+			args: []string{"plugins", "list"},
+		},
+		{
+			name: "rescan",
+			args: []string{"plugins", "rescan"},
+		},
+		{
+			name: "restart_required",
+			args: []string{"plugins", "restart-required"},
+		},
+		{
+			name: "install",
+			args: []string{"plugins", "install", "pypi:setta-fixture-frontend==0.1.0", "--scope", "workspace", "--installer", "pip"},
+			prepare: func(t *testing.T, cwd string) {
+				t.Helper()
+
+				artifactDir := t.TempDir()
+				buildLocalPyPIWheelForSettacmdTest(t, artifactDir, "setta-fixture-frontend", "0.1.0")
+				t.Setenv("SETTA_PYTHON", resolveSettacmdTestPython(t))
+				t.Setenv("PIP_NO_INDEX", "1")
+				t.Setenv("PIP_FIND_LINKS", artifactDir)
+			},
+		},
+		{
+			name: "uninstall",
+			args: []string{"plugins", "uninstall", "setta-fixture-missing"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cwd := t.TempDir()
+			if tc.prepare != nil {
+				tc.prepare(t, cwd)
+			}
+			if err := os.MkdirAll(filepath.Join(cwd, "setta_files"), 0o755); err != nil {
+				t.Fatalf("mkdir setta_files root: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(cwd, "setta_files", "plugins_state.json"), []byte("{invalid-json"), 0o644); err != nil {
+				t.Fatalf("seed invalid plugins_state.json: %v", err)
+			}
+
+			_, _, err := runPluginsSettaCommand(t, cwd, tc.args...)
+			if err == nil {
+				t.Fatal("expected command failure")
+			}
+			if ExitCode(err) != 1 {
+				t.Fatalf("expected exit code 1, got %d", ExitCode(err))
+			}
+			if !strings.HasPrefix(DisplayError(err), "PLUGIN_STATE_INVALID: Invalid plugins state file:") {
+				t.Fatalf("unexpected plugins state error %q", DisplayError(err))
+			}
+		})
 	}
 }
 
