@@ -30,6 +30,32 @@ func TestBuildBootstrapURLsRewritesWildcardHosts(t *testing.T) {
 	}
 }
 
+func TestIsLoopbackHostMatchesSourceContract(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		host     string
+		expected bool
+	}{
+		{host: "127.0.0.1", expected: true},
+		{host: "localhost", expected: true},
+		{host: "::1", expected: true},
+		{host: "0.0.0.0", expected: false},
+		{host: "10.0.0.5", expected: false},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.host, func(t *testing.T) {
+			t.Parallel()
+
+			if got := isLoopbackHost(testCase.host); got != testCase.expected {
+				t.Fatalf("expected loopback=%t for %q, got %t", testCase.expected, testCase.host, got)
+			}
+		})
+	}
+}
+
 func TestRenderLocalStartupMessageRemoteSession(t *testing.T) {
 	t.Parallel()
 
@@ -59,6 +85,15 @@ func TestRenderLocalStartupMessageRemoteSession(t *testing.T) {
 	}
 	if !strings.Contains(message, "LOCAL_PORT=61000") {
 		t.Fatalf("expected manual tunnel instructions, got %q", message)
+	}
+	if !strings.Contains(message, "Manual tunnel (no local Setta install):") {
+		t.Fatalf("expected manual tunnel heading, got %q", message)
+	}
+	if !strings.Contains(message, "http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=tok") {
+		t.Fatalf("expected bootstrap fragment hint, got %q", message)
+	}
+	if !strings.Contains(message, "and paste: tok") {
+		t.Fatalf("expected manual token entry hint, got %q", message)
 	}
 }
 
