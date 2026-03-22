@@ -981,6 +981,15 @@ export function getSectionDescendants(
   return ids;
 }
 
+export function getSectionImplChildren(
+  sectionImpl: BaseSectionImplUnion,
+): Array<string> {
+  if (!isBaseParentSectionImpl(sectionImpl)) {
+    return [];
+  }
+  return [...sectionImpl.children];
+}
+
 export function manualDndChildrenReset() {
   updateDndChildren(
     getDisplayedSectionIdToChildren(useProjectState.getState()),

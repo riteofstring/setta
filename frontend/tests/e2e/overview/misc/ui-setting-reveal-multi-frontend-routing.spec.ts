@@ -243,7 +243,7 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       .toBeGreaterThan(0);
     await expect.poll(async () => revealHighlightsOne.count()).toBe(0);
   } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await cleanupIsolatedProject(page, projectContext);
     await secondPage.close();
   }
 });
@@ -318,6 +318,62 @@ test("reveal_ui_setting invalidates stale affinity after websocket reconnect in 
     expect(staleIdentityReveal.statuses[0]?.error?.message).not.toContain(
       "Timed out waiting for frontend reveal confirmation",
     );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("reveal_ui_setting ignores malformed frontend-affinity header when agentic affinity is valid", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  await installFrontendIdentityCapture(page);
+  const projectContext = await openIsolatedProject(page);
+  const revealHighlights = page.locator(".setta-ui-setting-reveal-highlight");
+  const frontendIdentity = await waitForFrontendIdentity(page);
+
+  try {
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 1000,
+      },
+      frontendIdentity,
+      {
+        "x-setta-frontend-affinity-token": "   ",
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("reveal_ui_setting succeeds without affinity when only one frontend is connected", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const revealHighlights = page.locator(".setta-ui-setting-reveal-highlight");
+
+  try {
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 1000,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
