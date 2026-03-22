@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -358,6 +359,71 @@ func TestRuntimeSessionRunReservationLifecycle(t *testing.T) {
 		t.Fatalf("increment run count: %v", err)
 	} else if count != 1 {
 		t.Fatalf("expected incremented run count 1, got %d", count)
+	}
+}
+
+func TestRuntimeTryReserveSessionRunAllowsOnlyOneConcurrentWinner(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := openTestDeploymentRuntime(t)
+
+	if _, err := deploymentRuntime.CreateSessionWithID("session-a"); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	const attempts = 8
+
+	start := make(chan struct{})
+	results := make(chan bool, attempts)
+	errs := make(chan error, attempts)
+
+	var wg sync.WaitGroup
+	wg.Add(attempts)
+	for i := 0; i < attempts; i++ {
+		go func() {
+			defer wg.Done()
+			<-start
+			reserved, err := deploymentRuntime.TryReserveSessionRun("session-a")
+			if err != nil {
+				errs <- err
+				return
+			}
+			results <- reserved
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(results)
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("reserve session run concurrently: %v", err)
+		}
+	}
+
+	successes := 0
+	failures := 0
+	for reserved := range results {
+		if reserved {
+			successes++
+			continue
+		}
+		failures++
+	}
+
+	if successes != 1 {
+		t.Fatalf("expected exactly one successful reservation, got %d", successes)
+	}
+	if failures != attempts-1 {
+		t.Fatalf("expected %d failed reservations, got %d", attempts-1, failures)
+	}
+
+	if count, err := deploymentRuntime.SessionRunCount("session-a"); err != nil {
+		t.Fatalf("session run count after concurrent reservation: %v", err)
+	} else if count != 1 {
+		t.Fatalf("expected concurrent reservation to leave run count 1, got %d", count)
 	}
 }
 
