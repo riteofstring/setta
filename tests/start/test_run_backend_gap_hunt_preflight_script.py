@@ -80,6 +80,14 @@ exit "${DEFAULT_PARITY_EXIT_CODE:-0}"
 """,
     )
 
+    write_stub_executable(
+        scripts_dir / "lint_backend_parity_matrix_claims.py",
+        """#!/usr/bin/env python3
+import os
+raise SystemExit(int(os.environ.get("PARITY_MATRIX_CLAIMS_EXIT_CODE", "0")))
+""",
+    )
+
     return sandbox_root
 
 
@@ -91,6 +99,7 @@ def test_preflight_stops_only_when_backlog_and_parity_gates_are_green(
     env = os.environ.copy()
     env["MINER_EXIT_CODE"] = "10"
     env["GO_TEST_EXIT_CODE"] = "0"
+    env["PARITY_MATRIX_CLAIMS_EXIT_CODE"] = "0"
     env["DEFAULT_PARITY_EXIT_CODE"] = "0"
     env["CORPUS_PARITY_EXIT_CODE"] = "0"
 
@@ -119,6 +128,7 @@ def test_preflight_keeps_loop_running_when_differential_parity_fails(
     env = os.environ.copy()
     env["MINER_EXIT_CODE"] = "10"
     env["GO_TEST_EXIT_CODE"] = "0"
+    env["PARITY_MATRIX_CLAIMS_EXIT_CODE"] = "0"
     env["DEFAULT_PARITY_EXIT_CODE"] = "1"
     env["CORPUS_PARITY_EXIT_CODE"] = "0"
 
@@ -141,3 +151,32 @@ def test_preflight_keeps_loop_running_when_differential_parity_fails(
         "Run: `./scripts/run-backend-differential-parity.sh --baseline-ref main`"
         in report_text
     )
+
+
+def test_preflight_keeps_loop_running_when_parity_matrix_claim_lint_fails(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = _build_preflight_sandbox(tmp_path)
+
+    env = os.environ.copy()
+    env["MINER_EXIT_CODE"] = "10"
+    env["GO_TEST_EXIT_CODE"] = "0"
+    env["PARITY_MATRIX_CLAIMS_EXIT_CODE"] = "1"
+    env["DEFAULT_PARITY_EXIT_CODE"] = "0"
+    env["CORPUS_PARITY_EXIT_CODE"] = "0"
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "scripts" / "run-backend-gap-hunt-preflight.sh")],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report_text = (
+        sandbox_root / "tmp" / "backend-gap-hunt-candidates.md"
+    ).read_text(encoding="utf-8")
+    assert "## Critical Parity Matrix Claim Failures" in report_text
+    assert "critical_parity_matrix_claims::structured_proof_lint" in report_text

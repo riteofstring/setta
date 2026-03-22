@@ -745,6 +745,7 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
     assert "Commit frequently." in prompt_text
     assert "Source Tests Missing Explicit Parity Disposition" in prompt_text
     assert "Critical Differential Parity Failures" in prompt_text
+    assert "Critical Parity Matrix Claim Failures" in prompt_text
     assert "pinned source baseline" in prompt_text
     assert "do not remove it with a bare citation" in prompt_text
     assert (
@@ -752,3 +753,4 @@ def test_backend_gap_hunt_wrapper_uses_checked_in_prompt_file(tmp_path: Path) ->
     )
     assert "proof-mode=live-provider" in prompt_text
     assert "rows without explicit `proof-mode=...` markers are treated as `hermetic`" in prompt_text
+    assert "// parity-evidence: proof-mode=...; evidence-tags=..." in prompt_text

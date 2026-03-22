@@ -51,6 +51,12 @@ module both seeds repo `.env` keys and probes live external network access,
 its `Proved` rows must carry executable live proof plus an explicit
 `proof-mode=live-provider` marker.
 
+Any non-hermetic proof claim must also be machine-checkable. Matrix rows that
+opt into `proof-mode=...` now also need explicit `evidence-tags=...`, and the
+cited Go tests must declare matching structured metadata with a preceding
+`// parity-evidence: proof-mode=...; evidence-tags=...` annotation. The loop
+preflight lints those claims before letting the session proceed.
+
 ## Default Loop
 
 1. Run the differential harness against `main`.

@@ -2,7 +2,7 @@ Automated message: continue the backend gap-hunt loop.
 
 Use `tmp/backend-gap-hunt-candidates.md` as the current queue. The outer wrapper regenerates it before each fresh session batch from the matrix's pinned source baseline, not from this branch's current `tests/` tree. Do not rerun the candidate miner inside Codex unless the developer explicitly asks for that.
 
-The queue can contain `## Critical Backend Suite Failures`, `## Critical Differential Parity Failures`, and `## Source Tests Missing Explicit Parity Disposition`. Always fix the critical sections first. If `tmp/backend-gap-hunt-backend-suite.log`, `tmp/backend-gap-hunt-differential-parity.log`, or `tmp/backend-gap-hunt-differential-parity-corpus.log` exists, read the relevant log before making changes.
+The queue can contain `## Critical Backend Suite Failures`, `## Critical Parity Matrix Claim Failures`, `## Critical Differential Parity Failures`, and `## Source Tests Missing Explicit Parity Disposition`. Always fix the critical sections first. If `tmp/backend-gap-hunt-backend-suite.log`, `tmp/backend-gap-hunt-parity-matrix-claims.log`, `tmp/backend-gap-hunt-differential-parity.log`, or `tmp/backend-gap-hunt-differential-parity-corpus.log` exists, read the relevant log before making changes.
 
 Do not treat an empty source-test section as completion evidence. The loop is only done when the wrapper preflight exits with code `10`, which now means source-test backlog empty, full Go backend suite green, and both required differential parity commands green.
 
@@ -15,10 +15,11 @@ Treat each listed source test or critical backend-suite failure as a clue for a 
    - `Proved` with explicit Go/executable proof in the `Go tests` column
    - or a justified omission status such as `Retained Python boundary`, `Intentional divergence`, or `Dormant / unproven caller`, with a concrete justification in `Notes`
    - apply the same proof-mode rule to every source test: rows without explicit `proof-mode=...` markers are treated as `hermetic`
+   - any non-hermetic structured proof claim must be machine-checkable: add `proof-mode=...` plus `evidence-tags=...` to the row, and back it with cited Go tests annotated using `// parity-evidence: proof-mode=...; evidence-tags=...`
    - when the pinned source-baseline test module itself seeds repo `.env` keys and probes live external network access, a `Proved` row must carry executable live proof marked `proof-mode=live-provider`
 4. In all cases, update the matrix/docs in the same change so every inspected source-test clue has an explicit disposition, and fix any critical backend-suite failure or leave a concrete explanation backed by executable proof.
 5. Run the relevant targeted parity/tests for the touched slice. When you touched a failure surfaced by the preflight suite, rerun the full Go backend suite command from the backlog entry before declaring it fixed.
 
-Never add `proof-mode=live-provider` without actually running that proof in the current branch and reporting the exact command/result.
+Never add `proof-mode=...` or `evidence-tags=...` without actually running that proof in the current branch and reporting the exact command/result.
 
 Report the exact commands run, what gap was fixed or ruled out, which source tests gained explicit dispositions, and whether the full Go backend suite and both differential parity commands passed.

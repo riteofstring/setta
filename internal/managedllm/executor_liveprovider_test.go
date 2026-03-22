@@ -18,6 +18,7 @@ import (
 	"setta/internal/realtime"
 )
 
+// parity-evidence: proof-mode=live-provider; evidence-tags=persisted-messages,usage,streaming-deltas,live-state-finalized
 func TestManagedChatOpenAILiveProviderCompletionParity(t *testing.T) {
 	apiKey := requireLiveProviderAPIKey(t, "OPENAI_API_KEY", "api.openai.com:443")
 
@@ -107,6 +108,7 @@ func TestManagedChatOpenAILiveProviderCompletionParity(t *testing.T) {
 	assertPositiveUsageField(t, usage, "total_tokens")
 }
 
+// parity-evidence: proof-mode=live-provider; evidence-tags=persisted-messages,usage,streaming-deltas,live-state-finalized,thinking-blocks
 func TestManagedChatAnthropicLiveProviderCompletionParity(t *testing.T) {
 	apiKey := requireLiveProviderAPIKey(t, "ANTHROPIC_API_KEY", "api.anthropic.com:443")
 
