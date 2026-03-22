@@ -21,7 +21,7 @@ import (
 func TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFrontendOps(t *testing.T) {
 	t.Parallel()
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument(t))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFronte
 func TestRegisterProjectRoutesProjectChatWindowChatIDRejectsInvalidTargets(t *testing.T) {
 	t.Parallel()
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument(t))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestRegisterProjectRoutesProjectChatWindowChatIDRejectsInvalidTargets(t *te
 func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads(t *testing.T) {
 	t.Parallel()
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument(t))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -368,7 +368,7 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 func TestRegisterProjectRoutesProjectChatWindowingStateRejectsBoundThreadLayoutMutations(t *testing.T) {
 	t.Parallel()
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument(t))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestRegisterProjectRoutesProjectChatWindowingStateRejectsBoundThreadLayoutM
 func TestRegisterProjectRoutesProjectChatWindowingStateAllowsOmittingUnboundProjectAIWindow(t *testing.T) {
 	t.Parallel()
 
-	document := projectChatWindowingRouteTestDocument()
+	document := projectChatWindowingRouteTestDocument(t)
 	project := document.Projects["project-alpha"]
 	project.ProjectChatWindowing.InstancesByID["project-chat-window-2"] = projectstate.ProjectChatWindowInstance{
 		InstanceID: "project-chat-window-2",
@@ -476,7 +476,7 @@ func TestRegisterProjectRoutesProjectChatWindowingStateAllowsOmittingUnboundProj
 func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *testing.T) {
 	t.Parallel()
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument(t))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -517,7 +517,7 @@ func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *test
 func TestRegisterProjectRoutesWindowSpaceRoutesReturn404And422Mappings(t *testing.T) {
 	t.Parallel()
 
-	document := projectChatWindowingRouteTestDocument()
+	document := projectChatWindowingRouteTestDocument(t)
 	project := document.Projects["project-alpha"]
 	project.WindowSpaces["space-b"] = projectstate.WindowSpaceConfig{
 		ID:        "space-b",
@@ -613,7 +613,7 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPoli
 	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
 		deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
 			Mode:     mode,
-			Document: projectChatWindowingRouteTestDocument(),
+			Document: projectChatWindowingRouteTestDocument(t),
 			Policy: map[string]any{
 				"allowLayoutChanges": false,
 				"allowLLM":           true,
@@ -683,7 +683,7 @@ func TestRegisterProjectRoutesProjectChatWindowChatIDRespectsDeploymentLLMPolicy
 
 	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
 		Mode:     config.ModeShare,
-		Document: projectChatWindowingRouteTestDocument(),
+		Document: projectChatWindowingRouteTestDocument(t),
 		Policy: map[string]any{
 			"allowLayoutChanges": false,
 			"allowLLM":           false,
@@ -754,8 +754,10 @@ func newProjectRouteDeploymentTestHandler(
 	return handler
 }
 
-func projectChatWindowingRouteTestDocument() projectstate.Document {
-	return projectstate.Document{
+func projectChatWindowingRouteTestDocument(t *testing.T) projectstate.Document {
+	t.Helper()
+
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
@@ -770,9 +772,11 @@ func projectChatWindowingRouteTestDocument() projectstate.Document {
 				},
 				WindowSpaces: map[string]projectstate.WindowSpaceConfig{
 					"space-a": {
-						ID:        "space-a",
-						Name:      "Primary",
-						SortIndex: 0,
+						ID:          "space-a",
+						Name:        "Primary",
+						WindowsByID: map[string]projectstate.WindowSpaceWindow{},
+						Order:       []string{},
+						SortIndex:   0,
 					},
 				},
 				ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
@@ -791,4 +795,9 @@ func projectChatWindowingRouteTestDocument() projectstate.Document {
 			},
 		},
 	}
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project chat windowing route test document: %v", err)
+	}
+	return normalized
 }

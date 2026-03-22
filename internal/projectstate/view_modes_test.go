@@ -189,6 +189,8 @@ func TestDocumentNormalizedPrunesStaleActiveIDs(t *testing.T) {
 func TestDocumentNormalizedViewportInitializedDefaultsFalseAndPreservesExplicitTrue(t *testing.T) {
 	t.Parallel()
 
+	defaultWindowing := DefaultProjectChatWindowingState()
+
 	document := Document{
 		SchemaVersion: CurrentSchemaVersion,
 		Projects: map[string]Project{
@@ -197,11 +199,19 @@ func TestDocumentNormalizedViewportInitializedDefaultsFalseAndPreservesExplicitT
 				Name:             "False",
 				ActiveViewModeID: "focus",
 				Viewport:         &Viewport{X: 1, Y: 2, Zoom: 1},
+				TopLevelSections: map[string]TopLevelSectionLayout{},
+				ProjectChatWindowing: &ProjectChatWindowingState{
+					InstancesByID:      defaultWindowing.InstancesByID,
+					Order:              defaultWindowing.Order,
+					NextInstanceNumber: defaultWindowing.NextInstanceNumber,
+				},
 				ViewModes: map[string]ViewMode{
 					"focus": {
-						ID:       "focus",
-						Name:     "Focus",
-						Viewport: &Viewport{X: 1, Y: 2, Zoom: 1},
+						ID:                    "focus",
+						Name:                  "Focus",
+						Viewport:              &Viewport{X: 1, Y: 2, Zoom: 1},
+						VisibilityBySectionID: map[string]bool{},
+						TopLevelSections:      map[string]TopLevelSectionLayout{},
 					},
 				},
 			},
@@ -211,12 +221,20 @@ func TestDocumentNormalizedViewportInitializedDefaultsFalseAndPreservesExplicitT
 				ActiveViewModeID:    "focus",
 				Viewport:            &Viewport{X: 3, Y: 4, Zoom: 2},
 				ViewportInitialized: true,
+				TopLevelSections:    map[string]TopLevelSectionLayout{},
+				ProjectChatWindowing: &ProjectChatWindowingState{
+					InstancesByID:      map[string]ProjectChatWindowInstance{},
+					Order:              []string{},
+					NextInstanceNumber: 1,
+				},
 				ViewModes: map[string]ViewMode{
 					"focus": {
-						ID:                  "focus",
-						Name:                "Focus",
-						Viewport:            &Viewport{X: 3, Y: 4, Zoom: 2},
-						ViewportInitialized: true,
+						ID:                    "focus",
+						Name:                  "Focus",
+						Viewport:              &Viewport{X: 3, Y: 4, Zoom: 2},
+						ViewportInitialized:   true,
+						VisibilityBySectionID: map[string]bool{},
+						TopLevelSections:      map[string]TopLevelSectionLayout{},
 					},
 				},
 			},
@@ -615,10 +633,15 @@ func viewModesTestProject(t *testing.T) Project {
 	t.Helper()
 
 	project, err := Project{
-		ID:                  "project-alpha",
-		Name:                "Alpha",
-		ActiveViewModeID:    "focus",
-		IsEditingViewMode:   false,
+		ID:                "project-alpha",
+		Name:              "Alpha",
+		ActiveViewModeID:  "focus",
+		IsEditingViewMode: false,
+		ProjectChatWindowing: &ProjectChatWindowingState{
+			InstancesByID:      map[string]ProjectChatWindowInstance{},
+			Order:              []string{},
+			NextInstanceNumber: 1,
+		},
 		Viewport:            &Viewport{X: 5, Y: 10, Zoom: 0.8},
 		ViewportInitialized: true,
 		TopLevelSections: map[string]TopLevelSectionLayout{

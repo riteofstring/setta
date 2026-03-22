@@ -360,6 +360,50 @@ func normalizeWindowSpaces(
 	return normalized, nil
 }
 
+func validateProjectChatWindowingStateOnLoad(
+	state *ProjectChatWindowingState,
+	sections map[string]Section,
+) error {
+	if state == nil {
+		return ErrProjectChatWindowingRequired
+	}
+	normalized, err := normalizeProjectChatWindowingState(*state, sections)
+	if err != nil {
+		return err
+	}
+	equal, err := persistedJSONEqual(normalized, *state)
+	if err != nil {
+		return err
+	}
+	if !equal {
+		return ErrPersistedProjectChatWindowingRequireRepair
+	}
+	return nil
+}
+
+func validateWindowSpacesOnLoad(
+	windowSpaces map[string]WindowSpaceConfig,
+	sections map[string]Section,
+) error {
+	if hasDuplicateWindowSpaceSortIndices(windowSpaces) {
+		return &InvalidWindowSpaceSortOrderError{
+			Message: "window spaces must not contain duplicate sort indices.",
+		}
+	}
+	normalized, err := normalizeWindowSpaces(windowSpaces, sections)
+	if err != nil {
+		return err
+	}
+	equal, err := persistedJSONEqual(normalized, windowSpaces)
+	if err != nil {
+		return err
+	}
+	if !equal {
+		return ErrPersistedProjectWindowSpacesRequireRepair
+	}
+	return nil
+}
+
 func normalizeChatWindowBounds(bounds ChatWindowBounds) ChatWindowBounds {
 	normalized := bounds.Clone()
 	defaultBounds := DefaultChatWindowBounds()

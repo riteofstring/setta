@@ -858,7 +858,7 @@ func writeShareArtifactRouteFixture(t *testing.T, deploymentRoot string, allowPa
 			},
 		},
 	}
-	writeShareArtifactRouteJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
+	writeHTTPDeploymentDocument(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
 	writeShareArtifactRouteJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
 		"version":                1,
 		"deploymentName":         "share-artifacts",

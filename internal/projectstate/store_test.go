@@ -56,10 +56,12 @@ func TestStoreLoadRejectsLegacyRemovedClockSectionPayload(t *testing.T) {
 				"activeViewModeId": "view-main",
 				"viewModes": map[string]any{
 					"view-main": map[string]any{
-						"id":                    "view-main",
-						"name":                  "Main",
-						"visibilityBySectionId": map[string]any{},
-						"topLevelSections":      map[string]any{},
+						"id":   "view-main",
+						"name": "Main",
+						"visibilityBySectionId": map[string]any{
+							"legacy-clock-section": true,
+						},
+						"topLevelSections": map[string]any{},
 					},
 				},
 				"projectChatWindowing": map[string]any{
@@ -170,7 +172,7 @@ func TestStoreLoadRejectsMissingAuthoritativeProjectChatWindowingState(t *testin
 	}
 }
 
-func TestStoreLoadRepairsDuplicateWindowSpaceSortIndicesUsingPersistedOrder(t *testing.T) {
+func TestStoreLoadRejectsDuplicateWindowSpaceSortIndices(t *testing.T) {
 	t.Parallel()
 
 	projectPath := filepath.Join(t.TempDir(), "project.json")
@@ -247,20 +249,147 @@ func TestStoreLoadRepairsDuplicateWindowSpaceSortIndicesUsingPersistedOrder(t *t
 }`))
 	store := newTestStore(t, projectPath)
 
-	document, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load project document: %v", err)
+	_, err := store.Load(context.Background())
+	if !IsInvalidWindowSpaceSortOrderError(err) {
+		t.Fatalf("expected duplicate window space sort indices to fail closed, got %v", err)
 	}
+}
 
-	project := document.Projects["project-alpha"]
-	if got := project.WindowSpaces["space-zeta"].SortIndex; got != 0 {
-		t.Fatalf("expected space-zeta sort index 0, got %d", got)
+func TestStoreLoadRejectsViewModesThatRequireRepair(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":               "project-alpha",
+				"name":             "Alpha",
+				"activeViewModeId": "",
+				"viewModes":        map[string]any{},
+				"topLevelSections": map[string]any{},
+				"projectChatWindowing": map[string]any{
+					"instancesById":      map[string]any{},
+					"order":              []any{},
+					"nextInstanceNumber": 1,
+				},
+				"sectionVariantMap": map[string]any{},
+				"sections":          map[string]any{},
+				"sectionVariants":   map[string]any{},
+				"sectionImpls":      map[string]any{},
+				"codeObjs":          map[string]any{},
+				"codeObjVariants":   map[string]any{},
+				"codeObjImpls":      map[string]any{},
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	_, err := store.Load(context.Background())
+	if !errors.Is(err, ErrPersistedProjectViewModesRequireRepair) {
+		t.Fatalf("expected repaired view modes to fail closed, got %v", err)
 	}
-	if got := project.WindowSpaces["space-alpha"].SortIndex; got != 1 {
-		t.Fatalf("expected space-alpha sort index 1, got %d", got)
+}
+
+func TestStoreLoadRejectsStaleActiveIDs(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":               "project-alpha",
+				"name":             "Alpha",
+				"activeViewModeId": "view-main",
+				"viewModes": map[string]any{
+					"view-main": map[string]any{
+						"id":                    "view-main",
+						"name":                  "Main",
+						"visibilityBySectionId": map[string]any{},
+						"topLevelSections":      map[string]any{},
+					},
+				},
+				"topLevelSections": map[string]any{},
+				"activeIds":        []any{"missing-section"},
+				"projectChatWindowing": map[string]any{
+					"instancesById":      map[string]any{},
+					"order":              []any{},
+					"nextInstanceNumber": 1,
+				},
+				"sectionVariantMap": map[string]any{},
+				"sections":          map[string]any{},
+				"sectionVariants":   map[string]any{},
+				"sectionImpls":      map[string]any{},
+				"codeObjs":          map[string]any{},
+				"codeObjVariants":   map[string]any{},
+				"codeObjImpls":      map[string]any{},
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	_, err := store.Load(context.Background())
+	if !errors.Is(err, ErrPersistedProjectActiveIDsRequireRepair) {
+		t.Fatalf("expected stale active ids to fail closed, got %v", err)
 	}
-	if got := project.WindowSpaces["space-beta"].SortIndex; got != 2 {
-		t.Fatalf("expected space-beta sort index 2, got %d", got)
+}
+
+func TestStoreLoadRejectsProjectChatWindowingThatRequiresRepair(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":               "project-alpha",
+				"name":             "Alpha",
+				"activeViewModeId": "view-main",
+				"viewModes": map[string]any{
+					"view-main": map[string]any{
+						"id":                    "view-main",
+						"name":                  "Main",
+						"visibilityBySectionId": map[string]any{},
+						"topLevelSections":      map[string]any{},
+					},
+				},
+				"topLevelSections": map[string]any{},
+				"projectChatWindowing": map[string]any{
+					"instancesById": map[string]any{
+						"instance-a": map[string]any{
+							"instanceId": "instance-a",
+							"title":      "Project AI",
+							"chatId":     "chat-a",
+							"bounds": map[string]any{
+								"x":      10,
+								"y":      20,
+								"width":  0,
+								"height": 0,
+							},
+						},
+					},
+					"order":              []any{"instance-a"},
+					"nextInstanceNumber": 1,
+				},
+				"sectionVariantMap": map[string]any{},
+				"sections":          map[string]any{},
+				"sectionVariants":   map[string]any{},
+				"sectionImpls":      map[string]any{},
+				"codeObjs":          map[string]any{},
+				"codeObjVariants":   map[string]any{},
+				"codeObjImpls":      map[string]any{},
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	_, err := store.Load(context.Background())
+	if !errors.Is(err, ErrPersistedProjectChatWindowingRequireRepair) {
+		t.Fatalf("expected repaired project chat windowing to fail closed, got %v", err)
 	}
 }
 
@@ -320,15 +449,10 @@ func TestStoreSaveRoundTripsDocument(t *testing.T) {
 
 	projectPath := filepath.Join(t.TempDir(), "project.json")
 	store := newTestStore(t, projectPath)
-	document := Document{
-		SchemaVersion:    CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-			},
-		},
+	document := NewDocument()
+	projectID, _, err := document.CreateProject("")
+	if err != nil {
+		t.Fatalf("create project document fixture: %v", err)
 	}
 
 	if err := store.Save(context.Background(), document); err != nil {
@@ -345,15 +469,15 @@ func TestStoreSaveRoundTripsDocument(t *testing.T) {
 	if loaded.DefaultProjectID != document.DefaultProjectID {
 		t.Fatalf("expected default project id %q, got %q", document.DefaultProjectID, loaded.DefaultProjectID)
 	}
-	project, ok := loaded.Projects["project-alpha"]
+	project, ok := loaded.Projects[projectID]
 	if !ok {
-		t.Fatal("expected project-alpha to be present")
+		t.Fatalf("expected %s to be present", projectID)
 	}
-	if project.Name != "Alpha" {
-		t.Fatalf("expected project name Alpha, got %q", project.Name)
+	if project.Name == "" {
+		t.Fatal("expected persisted project name")
 	}
 	if project.ProjectChatWindowing == nil {
-		t.Fatal("expected saved project chat windowing to be normalized onto the project")
+		t.Fatal("expected saved project chat windowing to remain present")
 	}
 }
 

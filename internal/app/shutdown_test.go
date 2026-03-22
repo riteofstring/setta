@@ -16,7 +16,11 @@ import (
 func TestAppShutdownClosesSettingsStateEvenWhenRuntimeShutdownFails(t *testing.T) {
 	t.Parallel()
 
-	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsstate.Document{})
+	settingsDocument, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
 	if err != nil {
 		t.Fatalf("open overlay settings runtime: %v", err)
 	}

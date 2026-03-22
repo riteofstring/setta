@@ -7,50 +7,54 @@ import (
 )
 
 var (
-	ErrSectionIDRequired               = errors.New("section id is required")
-	ErrSectionNameRequired             = errors.New("section name is required")
-	ErrSectionIDKeyMismatch            = errors.New("section id must match its map key")
-	ErrProjectNotFound                 = errors.New("project was not found in document")
-	ErrProjectCodegenTargetLanguage    = errors.New("project codegen target language is required")
-	ErrSectionVariantIDRequired        = errors.New("section variant id is required")
-	ErrSectionVariantIDKeyMismatch     = errors.New("section variant id must match its map key")
-	ErrSectionImplIDRequired           = errors.New("section impl id is required")
-	ErrSectionImplIDKeyMismatch        = errors.New("section impl id must match its map key")
-	ErrEntrySectionNotFound            = errors.New("entry code block id was not found in sections")
-	ErrSectionNotFound                 = errors.New("section was not found in project")
-	ErrSectionVariantNotFound          = errors.New("section variant was not found in project")
-	ErrSectionImplNotFound             = errors.New("section impl was not found in project")
-	ErrSectionActiveVariantNotFound    = errors.New("section active variant was not found")
-	ErrSectionDefaultVariantMissing    = errors.New("section default variant id is required when variants exist")
-	ErrSectionVariantMembership        = errors.New("section variant must belong to the section")
-	ErrSectionImplKindRequired         = errors.New("section impl kind is required")
-	ErrUnsupportedSectionImplKind      = errors.New("unsupported section impl kind")
-	ErrCodeSectionConfigRequired       = errors.New("code section config is required")
-	ErrTerminalSectionConfigRequired   = errors.New("terminal section config is required")
-	ErrDrawSectionConfigRequired       = errors.New("draw section config is required")
-	ErrGeneratedSectionConfigRequired  = errors.New("generated section config is required")
-	ErrGeneratedSectionKindRequired    = errors.New("generated section kind is required")
-	ErrUnsupportedGeneratedSectionKind = errors.New("unsupported generated section kind")
-	ErrCodeLanguageRequired            = errors.New("code language is required")
-	ErrCodeFileBindingPathRequired     = errors.New("code file binding path is required")
-	ErrDrawRenderedImagePathRequired   = errors.New("draw rendered image path is required")
-	ErrTopLevelSectionNotFound         = errors.New("top-level section was not found in project")
-	ErrDuplicateTopLevelSection        = errors.New("duplicate top-level section id")
-	ErrParentSectionNotFound           = errors.New("parent section was not found in project")
-	ErrSectionConflict                 = errors.New("section already exists")
-	ErrSectionVariantConflict          = errors.New("section variant already exists")
-	ErrSectionImplConflict             = errors.New("section impl already exists")
-	ErrTerminalSeedRequired            = errors.New("terminal section seed is required")
-	ErrCodeSectionRequired             = errors.New("section must resolve to a code section")
-	ErrTerminalSectionRequired         = errors.New("section must resolve to a terminal section")
-	ErrDrawSectionRequired             = errors.New("section must resolve to a draw section")
-	ErrCallableSectionRequired         = errors.New("section must resolve to a callable section")
-	ErrGroupSectionRequired            = errors.New("section must resolve to a group section")
-	ErrChatSectionRequired             = errors.New("section must resolve to a chat section")
-	ErrPromptSectionRequired           = errors.New("section must resolve to a prompt section")
-	ErrPromptFormatInvalid             = errors.New("prompt format is invalid")
-	ErrChatPermissionModeInvalid       = errors.New("chat permission mode is invalid")
-	ErrChatDictationModeInvalid        = errors.New("chat dictation mode is invalid")
+	ErrSectionIDRequired                          = errors.New("section id is required")
+	ErrSectionNameRequired                        = errors.New("section name is required")
+	ErrSectionIDKeyMismatch                       = errors.New("section id must match its map key")
+	ErrProjectNotFound                            = errors.New("project was not found in document")
+	ErrProjectCodegenTargetLanguage               = errors.New("project codegen target language is required")
+	ErrSectionVariantIDRequired                   = errors.New("section variant id is required")
+	ErrSectionVariantIDKeyMismatch                = errors.New("section variant id must match its map key")
+	ErrSectionImplIDRequired                      = errors.New("section impl id is required")
+	ErrSectionImplIDKeyMismatch                   = errors.New("section impl id must match its map key")
+	ErrEntrySectionNotFound                       = errors.New("entry code block id was not found in sections")
+	ErrSectionNotFound                            = errors.New("section was not found in project")
+	ErrSectionVariantNotFound                     = errors.New("section variant was not found in project")
+	ErrSectionImplNotFound                        = errors.New("section impl was not found in project")
+	ErrSectionActiveVariantNotFound               = errors.New("section active variant was not found")
+	ErrSectionDefaultVariantMissing               = errors.New("section default variant id is required when variants exist")
+	ErrSectionVariantMembership                   = errors.New("section variant must belong to the section")
+	ErrSectionImplKindRequired                    = errors.New("section impl kind is required")
+	ErrUnsupportedSectionImplKind                 = errors.New("unsupported section impl kind")
+	ErrCodeSectionConfigRequired                  = errors.New("code section config is required")
+	ErrTerminalSectionConfigRequired              = errors.New("terminal section config is required")
+	ErrDrawSectionConfigRequired                  = errors.New("draw section config is required")
+	ErrGeneratedSectionConfigRequired             = errors.New("generated section config is required")
+	ErrGeneratedSectionKindRequired               = errors.New("generated section kind is required")
+	ErrUnsupportedGeneratedSectionKind            = errors.New("unsupported generated section kind")
+	ErrCodeLanguageRequired                       = errors.New("code language is required")
+	ErrCodeFileBindingPathRequired                = errors.New("code file binding path is required")
+	ErrDrawRenderedImagePathRequired              = errors.New("draw rendered image path is required")
+	ErrTopLevelSectionNotFound                    = errors.New("top-level section was not found in project")
+	ErrDuplicateTopLevelSection                   = errors.New("duplicate top-level section id")
+	ErrPersistedProjectViewModesRequireRepair     = errors.New("persisted project view modes require repair")
+	ErrPersistedProjectActiveIDsRequireRepair     = errors.New("persisted project active ids require repair")
+	ErrPersistedProjectChatWindowingRequireRepair = errors.New("persisted project chat windowing requires repair")
+	ErrPersistedProjectWindowSpacesRequireRepair  = errors.New("persisted project window spaces require repair")
+	ErrParentSectionNotFound                      = errors.New("parent section was not found in project")
+	ErrSectionConflict                            = errors.New("section already exists")
+	ErrSectionVariantConflict                     = errors.New("section variant already exists")
+	ErrSectionImplConflict                        = errors.New("section impl already exists")
+	ErrTerminalSeedRequired                       = errors.New("terminal section seed is required")
+	ErrCodeSectionRequired                        = errors.New("section must resolve to a code section")
+	ErrTerminalSectionRequired                    = errors.New("section must resolve to a terminal section")
+	ErrDrawSectionRequired                        = errors.New("section must resolve to a draw section")
+	ErrCallableSectionRequired                    = errors.New("section must resolve to a callable section")
+	ErrGroupSectionRequired                       = errors.New("section must resolve to a group section")
+	ErrChatSectionRequired                        = errors.New("section must resolve to a chat section")
+	ErrPromptSectionRequired                      = errors.New("section must resolve to a prompt section")
+	ErrPromptFormatInvalid                        = errors.New("prompt format is invalid")
+	ErrChatPermissionModeInvalid                  = errors.New("chat permission mode is invalid")
+	ErrChatDictationModeInvalid                   = errors.New("chat dictation mode is invalid")
 )
 
 type SectionKind string
@@ -692,6 +696,28 @@ func pruneStaleSectionIDs(sectionIDs []string, sections map[string]Section) []st
 		pruned = append(pruned, sectionID)
 	}
 	return pruned
+}
+
+func validateActiveIDsOnLoad(sectionIDs []string, sections map[string]Section) error {
+	equal, err := persistedJSONEqual(
+		struct {
+			ActiveIDs []string `json:"activeIds,omitempty"`
+		}{
+			ActiveIDs: pruneStaleSectionIDs(sectionIDs, sections),
+		},
+		struct {
+			ActiveIDs []string `json:"activeIds,omitempty"`
+		}{
+			ActiveIDs: sectionIDs,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if !equal {
+		return ErrPersistedProjectActiveIDsRequireRepair
+	}
+	return nil
 }
 
 func (p Project) HasTopLevelSection(sectionID string) bool {

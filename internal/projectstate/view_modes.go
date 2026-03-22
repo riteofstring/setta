@@ -616,6 +616,44 @@ func (p *Project) normalizeViewModesOnLoad() error {
 	return nil
 }
 
+func (p Project) validateViewModesOnLoad() error {
+	candidate := p.Clone()
+	if err := candidate.normalizeViewModesOnLoad(); err != nil {
+		return err
+	}
+	equal, err := persistedJSONEqual(
+		persistedViewModeLoadState{
+			TopLevelSections:    candidate.TopLevelSections,
+			ViewModes:           candidate.ViewModes,
+			ActiveViewModeID:    candidate.ActiveViewModeID,
+			Viewport:            candidate.Viewport,
+			ViewportInitialized: candidate.ViewportInitialized,
+		},
+		persistedViewModeLoadState{
+			TopLevelSections:    p.TopLevelSections,
+			ViewModes:           p.ViewModes,
+			ActiveViewModeID:    p.ActiveViewModeID,
+			Viewport:            p.Viewport,
+			ViewportInitialized: p.ViewportInitialized,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if !equal {
+		return ErrPersistedProjectViewModesRequireRepair
+	}
+	return nil
+}
+
+type persistedViewModeLoadState struct {
+	TopLevelSections    map[string]TopLevelSectionLayout `json:"topLevelSections,omitempty"`
+	ViewModes           map[string]ViewMode              `json:"viewModes,omitempty"`
+	ActiveViewModeID    string                           `json:"activeViewModeId,omitempty"`
+	Viewport            *Viewport                        `json:"viewport,omitempty"`
+	ViewportInitialized bool                             `json:"viewportInitialized,omitempty"`
+}
+
 func (p *Project) toggleViewModeBoolField(viewModeID string, update func(*ViewMode)) error {
 	trimmedViewModeID := strings.TrimSpace(viewModeID)
 	if trimmedViewModeID == "" {
