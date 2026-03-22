@@ -9,6 +9,7 @@ import (
 	"setta/internal/launcher"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 )
 
@@ -122,20 +123,13 @@ type LaunchResponse struct {
 	Error                *LaunchErrorPayload               `json:"error"`
 }
 
-type LauncherHomeErrorPayload struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
+type LauncherHomeErrorPayload launcher.HomeError
 
 type GetLauncherRecentWorkspacesRequestInput struct {
 	SettaHome *string `json:"setta_home,omitempty"`
 }
 
-type LauncherRecentWorkspacePayload struct {
-	WorkspaceRoot string `json:"workspaceRoot"`
-	Pinned        bool   `json:"pinned"`
-	LastUsedAt    int64  `json:"lastUsedAt"`
-}
+type LauncherRecentWorkspacePayload launcher.RecentWorkspaceEntry
 
 type LauncherRecentWorkspacesResponse struct {
 	Ok         bool                             `json:"ok"`
@@ -160,12 +154,7 @@ type LauncherFilesystemRootsResponse struct {
 	Roots []string `json:"roots"`
 }
 
-type LauncherDirectoryEntryPayload struct {
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	IsDirectory bool   `json:"isDirectory"`
-	IsSymlink   bool   `json:"isSymlink"`
-}
+type LauncherDirectoryEntryPayload launcher.DirectoryEntry
 
 type LauncherListDirectoryRequestInput struct {
 	Path     *string `json:"path,omitempty"`
@@ -434,42 +423,17 @@ type AppDefinitionMutationResponse struct {
 	AppDefinition *AppDefinition `json:"appDefinition,omitempty"`
 }
 
-type SettaLspDiagnosticPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
+type SettaLspDiagnosticPosition projectstate.LSPDiagnosticPosition
 
-type SettaLspDiagnosticRange struct {
-	Start SettaLspDiagnosticPosition `json:"start"`
-	End   SettaLspDiagnosticPosition `json:"end"`
-}
+type SettaLspDiagnosticRange projectstate.LSPDiagnosticRange
 
-type SettaLspDiagnostic struct {
-	Message  string                  `json:"message"`
-	Severity *int                    `json:"severity"`
-	Code     any                     `json:"code"`
-	Source   *string                 `json:"source"`
-	Range    SettaLspDiagnosticRange `json:"range"`
-	URI      *string                 `json:"uri"`
-}
+type SettaLspDiagnostic projectstate.LSPDiagnostic
 
-type SettaSectionTypeErrors struct {
-	Callable []string            `json:"callable"`
-	Params   map[string][]string `json:"params"`
-}
+type SettaSectionTypeErrors projectstate.SectionTypeErrors
 
-type SettaProjectConfigDiagnostics struct {
-	ProjectConfigID string                            `json:"projectConfigId"`
-	Errors          map[string]SettaSectionTypeErrors `json:"errors"`
-	IsGenCode       bool                              `json:"isGenCode"`
-}
+type SettaProjectConfigDiagnostics projectstate.ProjectConfigDiagnostics
 
-type SettaLspDiagnosticsPayload struct {
-	ProjectConfigID string                          `json:"projectConfigId"`
-	GenCode         SettaProjectConfigDiagnostics   `json:"genCode"`
-	CodeSections    map[string][]SettaLspDiagnostic `json:"codeSections"`
-	UnmappedGenCode []SettaLspDiagnostic            `json:"unmappedGenCode"`
-}
+type SettaLspDiagnosticsPayload projectstate.LSPDiagnosticsPayload
 
 type GetLatestLspDiagnosticsRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`

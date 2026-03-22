@@ -299,6 +299,16 @@ That means:
     - `UISettingRevealContent -> realtime.UISettingRevealContent`
     - `UISettingRevealResultStatus -> realtime.UISettingRevealResultStatus`
     - `UISettingRevealResultContent -> realtime.UISettingRevealResultContent`
+  - more exact-shape diagnostics and launcher-home helper types now wrap existing backend owners instead of living only in `frontendbindings`:
+    - `LauncherHomeErrorPayload -> launcher.HomeError`
+    - `LauncherRecentWorkspacePayload -> launcher.RecentWorkspaceEntry`
+    - `LauncherDirectoryEntryPayload -> launcher.DirectoryEntry`
+    - `SettaLspDiagnosticPosition -> projectstate.LSPDiagnosticPosition`
+    - `SettaLspDiagnosticRange -> projectstate.LSPDiagnosticRange`
+    - `SettaLspDiagnostic -> projectstate.LSPDiagnostic`
+    - `SettaSectionTypeErrors -> projectstate.SectionTypeErrors`
+    - `SettaProjectConfigDiagnostics -> projectstate.ProjectConfigDiagnostics`
+    - `SettaLspDiagnosticsPayload -> projectstate.LSPDiagnosticsPayload`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
