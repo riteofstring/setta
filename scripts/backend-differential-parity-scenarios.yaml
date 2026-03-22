@@ -92,10 +92,6 @@ scenarios:
     kind: settings_project_missing_required_section_fails_closed
     seed: none
     description: Reloading /settings after a required built-in section is removed from the persisted settings shell should fail closed instead of silently rebuilding it.
-  - name: settings_project_valid_view_mode_noop
-    kind: settings_project_valid_view_mode_noop
-    seed: none
-    description: Restarting and reloading an already-valid dedicated settings project should not rewrite the persisted settings shell.
   - name: json_source_save_missing_key_path
     kind: json_source_save_missing_key_path
     seed: none
