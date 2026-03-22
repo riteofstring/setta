@@ -156,6 +156,98 @@ func TestRunLaunchEmitsJSONPayloadAndUsesSessionLauncher(t *testing.T) {
 	}
 }
 
+// Fresh packaged launches should keep the session launcher's StartedNew signal in JSON output.
+func TestRunLaunchSurfacesStartedNewTrueForFreshSession(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	startedAt := time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC)
+	deps := testLaunchDependencies(t, launchTestOptions{
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				return launchResultForTest(input, startedAt, true), nil
+			}), nil
+		},
+	})
+
+	stdout, stderr, err := runLaunchCommandWithDeps(
+		t,
+		[]string{"--json", "--workspace", workspaceRoot, "--setta-home", settaHome},
+		globalFlags{},
+		t.TempDir(),
+		deps,
+	)
+	if err != nil {
+		t.Fatalf("run launch: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["ok"]; got != true {
+		t.Fatalf("expected ok payload, got %#v", payload)
+	}
+	if got := payload["startedNew"]; got != true {
+		t.Fatalf("expected startedNew true, got %#v", got)
+	}
+	if got := payload["workspaceRoot"]; got != workspaceRoot {
+		t.Fatalf("expected workspaceRoot %q, got %#v", workspaceRoot, got)
+	}
+}
+
+// Global launch flags should still shape the reused-session payload when launch is invoked as a subcommand.
+func TestRunLaunchUsesGlobalSettaFilesLocationAndSurfacesReusedSession(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	startedAt := time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC)
+	deps := testLaunchDependencies(t, launchTestOptions{
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				if input.SettaFilesLocation == nil || *input.SettaFilesLocation != "global" {
+					t.Fatalf("expected global settaFilesLocation from root flags, got %#v", input.SettaFilesLocation)
+				}
+				return launchResultForTest(input, startedAt, false), nil
+			}), nil
+		},
+	})
+
+	stdout, stderr, err := runLaunchCommandWithDeps(
+		t,
+		[]string{"--json"},
+		globalFlags{
+			workspaceRoot:      workspaceRoot,
+			settaHome:          settaHome,
+			settaFilesLocation: "global",
+		},
+		t.TempDir(),
+		deps,
+	)
+	if err != nil {
+		t.Fatalf("run launch: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["ok"]; got != true {
+		t.Fatalf("expected ok payload, got %#v", payload)
+	}
+	if got := payload["startedNew"]; got != false {
+		t.Fatalf("expected startedNew false, got %#v", got)
+	}
+	if got := payload["settaFilesLocation"]; got != "global" {
+		t.Fatalf("expected global settaFilesLocation, got %#v", got)
+	}
+	if got := payload["workspaceRoot"]; got != workspaceRoot {
+		t.Fatalf("expected workspaceRoot %q, got %#v", workspaceRoot, got)
+	}
+}
+
 func TestRunLaunchDefaultsWorkspaceToCWD(t *testing.T) {
 	t.Parallel()
 
@@ -342,6 +434,30 @@ func TestRunLaunchEmitsTypedJSONConfigErrors(t *testing.T) {
 			},
 			expectedCode:    "InvalidRuntimeRoot",
 			expectedMessage: "runtime root is not a directory",
+		},
+		{
+			name: "runtime root matching workspace",
+			buildArgs: func(root string) []string {
+				workspaceRoot := filepath.Join(root, "workspace")
+				return []string{
+					"--json",
+					"--workspace", workspaceRoot,
+					"--setta-home", filepath.Join(root, ".setta"),
+					"--setta-files-location", "local",
+					"--runtime-root", workspaceRoot,
+				}
+			},
+			setup: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(root, "workspace"), 0o755); err != nil {
+					t.Fatalf("mkdir workspace: %v", err)
+				}
+				if err := os.MkdirAll(filepath.Join(root, ".setta"), 0o755); err != nil {
+					t.Fatalf("mkdir setta home: %v", err)
+				}
+			},
+			expectedCode:    "InvalidRuntimeRoot",
+			expectedMessage: "runtime root cannot be the workspace root",
 		},
 		{
 			name: "invalid setta home",
