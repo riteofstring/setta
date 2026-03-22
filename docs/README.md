@@ -1,9 +1,9 @@
 # Docs Overview
 
 Start with the Guides and Reference sections for normal contributor work.
-The Go rewrite doc set under `plans/go-backend-rewrite/` is now mainly for
-merge cleanup, parity tracking, and retained Python boundary work rather than
-the general project entrypoint.
+The cleanup tracker under `plans/go-backend-rewrite/` is for merge prep,
+parity tracking, and package-surface cleanup rather than the general project
+entrypoint.
 
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
@@ -33,7 +33,7 @@ the general project entrypoint.
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `reference/lsp-diagnostics.md` – how LSP diagnostics are collected, broadcast, and surfaced (generated code + code sections).
-- `reference/mcp-system-overview.md` – explains the Go-owned MCP server, tool catalog, client bridge, managed chat runtime, and frontend chat loop (plus third-party access).
+- `reference/mcp-system-overview.md` – explains the MCP server, tool catalog, client bridge, managed chat runtime, and frontend chat loop (plus third-party access).
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `reference/setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
@@ -83,13 +83,13 @@ the general project entrypoint.
 - `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
 
 ## Merge Cleanup / Rewrite Closeout
-- `plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md` – concrete merge-prep checklist for front-door docs, stale references, dead-code review, and retained Python boundary cleanup.
+- `plans/go-backend-rewrite/merge-readiness-cleanup-checklist.md` – concrete merge-prep checklist for front-door docs, stale references, dead-code review, and Python package cleanup.
 - `plans/go-backend-rewrite/README.md` – map for the rewrite/cleanup doc set.
-- `plans/go-backend-rewrite/CURRENT.md` – task router for parity, retained Python boundaries, and post-rewrite cleanup work.
+- `plans/go-backend-rewrite/CURRENT.md` – task router for parity, Python package boundaries, and post-rewrite cleanup work.
 - `plans/go-backend-rewrite/go-rewrite-closeout-cleanup-plan.md` – narrative cleanup plan for repo guidance, docs, AGENTS, and dev/build script surfaces.
 - `plans/go-backend-rewrite/go-backend-rewrite-plan.md` – clean-break defaults and port-vs-redesign decisions for the rewrite.
 - `plans/go-backend-rewrite/testing-strategy.md` – rewrite-wide testing strategy, coverage expectations, harness model, and cross-platform testing rules.
 - `plans/go-backend-rewrite/backend-gap-closure-plan.md` – current parity-gap closure workflow and executable verification loop.
 - `plans/go-backend-rewrite/backend-behavior-parity-matrix.md` – current behavior-level parity ledger and dispositions.
-- `plans/go-backend-rewrite/unused-python-deletion-plan.md` – cleanup plan for deleting superseded Python runtime code while preserving explicit retained boundaries.
+- `plans/go-backend-rewrite/unused-python-deletion-plan.md` – cleanup plan for deleting superseded Python runtime code while preserving explicit package boundaries.
 - `plans/go-backend-rewrite/archive/README.md` – historical phase docs, spikes, and older rewrite snapshots.

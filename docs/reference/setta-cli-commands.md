@@ -1,13 +1,12 @@
 # Setta CLI Commands
 
 This doc covers the commands exposed by the shipped `setta` CLI. The published
-entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher to the
-packaged Go binary for the current shipped command surface. Root help, bare
+entrypoint uses `backend/setta/entrypoint.py` as a thin dispatcher to the
+packaged Go binary for the shipped command surface. Root help, bare
 `setta plugins` / `setta plugins lock` navigation, and invalid root argv all
-resolve through that packaged Go CLI boundary.
-Inside a source checkout, that same retained Python wrapper detects the repo
-root and dispatches into `./scripts/go.sh run ./cmd/setta` instead of a
-packaged binary.
+resolve through that packaged CLI boundary. Inside a source checkout, that same
+wrapper detects the repo root and dispatches into `./scripts/go.sh run
+./cmd/setta` instead of a packaged binary.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -41,7 +40,7 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
-| `setta plugins` | yes | no | Fully Go-owned packaged plugin command cluster. |
+| `setta plugins` | yes | no | Plugin authoring, install, and lifecycle commands. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta mcp` | yes | no | Run the stdio bridge for external MCP clients. |
@@ -84,8 +83,8 @@ Env equivalents:
 
 Starts the backend server in the current workspace, creates a session entry,
 prints a bootstrap URL + token, and (when possible) auto-opens the browser.
-In a source checkout this is the Go `cmd/setta` path; in an installed package
-it is the retained Python wrapper dispatching into the packaged Go binary.
+In a source checkout this runs `cmd/setta`; in an installed package it
+dispatches into the packaged Go binary.
 
 Options:
 - `--host` sets the bind host (default: `127.0.0.1`).
@@ -434,8 +433,7 @@ setta auth --json --latest > /tmp/setta_auth.json
 ## `setta mcp`
 
 Start a local stdio bridge that forwards MCP JSON-RPC on stdin/stdout to the
-Go-owned `/mcp` SSE endpoint. `setta mcp bridge` is an equivalent explicit
-form.
+`/mcp` SSE endpoint. `setta mcp bridge` is an equivalent explicit form.
 
 Options:
 - `--backend URL` full MCP endpoint URL (default: `http://127.0.0.1:8000/mcp`)

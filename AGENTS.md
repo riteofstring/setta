@@ -2,19 +2,19 @@
 
 ## Current Ownership Model
 
-- Treat the Go code under `cmd/` and `internal/` as the canonical backend runtime.
-- Treat `backend/setta/` as a narrow retained Python package/SDK boundary, not as the default backend owner.
-- If a Python file outside the retained boundary looks unused, prove the surviving caller/replacement owner and then delete it instead of re-growing Python runtime ownership.
+- Treat the code under `cmd/` and `internal/` as the backend runtime.
+- Treat `backend/setta/` as the Python package surface for CLI dispatch, source SDKs, packaging, and shipped assets.
+- If a Python file outside that package surface looks unused, prove the surviving caller or replacement owner before deleting it.
 
 ## Project Structure & Module Organization
 
 - `cmd/` contains the active Go entrypoints (`setta`, `setta-server`, generators, test seeders).
-- `internal/` contains the Go-owned backend runtime, transports, services, project state, frontend binding generation, and related tests.
-- `backend/setta/` is the retained Python source/package boundary: thin wheel entrypoint wrappers, repo/sdist Python SDK files under `backend/setta/api/`, generated Python types/codegen helpers, and packaged assets/binaries.
+- `internal/` contains the backend runtime, transports, services, project state, frontend binding generation, and related tests.
+- `backend/setta/` is the Python package surface: thin wheel entrypoint wrappers, repo/sdist Python SDK files under `backend/setta/api/`, generated Python types/codegen helpers, and packaged assets/binaries.
 - `frontend/` contains the React/Vite UI; place components and stores in `src/`, shared templates in `generation/`, and static assets under `public/`.
 - `setta_files/` stores runtime metadata created by the app; it is gitignored and should not be committed. Keep only canonical fixtures under version control elsewhere and wipe local noise before committing.
 - Root scripts such as `build.sh`, `build_and_upload.sh`, and `format_code.sh` orchestrate packaging, publishing, and formatting; keep them executable after edits.
-- Go tests live alongside the packages they cover under `cmd/*` and `internal/*`. The `tests/` directory is for retained Python/compatibility pytest coverage; do not nest suites under `tests/setta`.
+- Go tests live alongside the packages they cover under `cmd/*` and `internal/*`. The `tests/` directory is for Python/package pytest coverage; do not nest suites under `tests/setta`.
 
 ## Build, Test, and Development Commands
 
@@ -25,8 +25,8 @@
 - `pnpm test` executes the Vitest suite (watch mode by default). For a one-off run, prefer `pnpm -C frontend exec vitest run <path>` to avoid hanging in watch; Playwright E2E runs via `./scripts/run-playwright-e2e.sh`.
 - `./scripts/run_go_tests.sh` runs the Go backend/unit suite through the pinned repo-local Go toolchain.
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
-- `./t.sh` runs the Go suite, retained Python pytest suite, frontend Vitest, and Playwright E2E. Use `--b` for Go + retained Python coverage only or `--f` for frontend + Playwright.
-- `./scripts/run_backend_tests.sh` runs the retained Python pytest suite only.
+- `./t.sh` runs the Go suite, Python pytest suite, frontend Vitest, and Playwright E2E. Use `--b` for Go + Python coverage only or `--f` for frontend + Playwright.
+- `./scripts/run_backend_tests.sh` runs the Python pytest suite only.
 - `./scripts/go.sh <go args>` is the default way to run Go in this repo. It resolves the version-pinned repo-local toolchain under `.tools/go/...`, so use it for `go test`, `go env`, and related commands instead of assuming `go` is on `PATH`.
 - `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>` is the default Go formatting command in this repo. Do not assume `gofmt` is on `PATH`.
 - `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root (see Generation & Cleanup for when and why to run cleanup).
@@ -37,7 +37,7 @@
 
 - Python follows Ruff defaults (see `ruff.toml`); use 4-space indents, snake_case for functions/modules, and PascalCase for classes and Pydantic models.
 - Keep Go HTTP routes thin under `internal/httpapi`, websocket transports under `internal/wsapi`, and push business logic into focused `internal/*` service packages instead of bloating transport layers.
-- Retained Python API files under `backend/setta/api/` should stay thin client/SDK surfaces rather than regrowing backend runtime ownership.
+- Python API files under `backend/setta/api/` should stay thin client/SDK surfaces rather than growing backend runtime behavior.
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
@@ -75,8 +75,8 @@
 - New components must ship with Playwright tests, Vitest coverage where applicable, and deeper DevTools performance profiling results.
 - Playwright tests do not require running `pnpm ai`; when running Playwright tests as an AI, use `./scripts/run-playwright-e2e.sh`.
 - Go backend tests live alongside `cmd/*` and `internal/*`; run them with `./scripts/run_go_tests.sh` or `./scripts/go.sh test ./... -count=1`.
-- Retained Python/backend-compat tests live under `tests/` and run with `./scripts/run_backend_tests.sh` (pytest).
-- Add Go tests beside the Go owner when changing Go runtime behavior; add focused pytest coverage under `tests/` when changing retained Python SDK/package boundaries.
+- Python/package tests live under `tests/` and run with `./scripts/run_backend_tests.sh` (pytest).
+- Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
 - Backend and frontend tests must not rely on existing files in `setta_files`. If a test needs to mimic `setta_files`, create it under a temporary directory (for example `/tmp`) and point the test there (see existing tests for patterns).
 - Tests must never mutate real git history in this repo (or any non-disposable developer repo/worktree).
 - Any test that runs git write/history commands (for example `git commit`, `git checkout`, `git reset`, `git rebase`, `git merge`, `git tag`, `git branch`) must run in a disposable temporary repo and fail fast if the target workspace already contains a real `.git` directory.
@@ -97,9 +97,9 @@
 ## Environment & Tooling
 
 - Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --extra source --extra dev` and activates the venv.
-- `dev_install.sh` is the default Go-first local setup: ensure the pinned repo-local Go toolchain is available, install frontend deps, install agent sidecars, then clean build artifacts.
-- `dev_install_python.sh` is the opt-in setup for repo-local Python tooling and the retained Python/package boundary; source it if you want the venv to stay active: `. ./dev_install_python.sh`.
-- `frontend/backendStart.sh` is the source/dev launcher for the Go-backed local backend flow; keep custom flags documented in the script header when extending it.
+- `dev_install.sh` is the default local setup: ensure the pinned repo-local Go toolchain is available, install frontend deps, install agent sidecars, then clean build artifacts.
+- `dev_install_python.sh` is the opt-in setup for repo-local Python tooling and package-boundary work; source it if you want the venv to stay active: `. ./dev_install_python.sh`.
+- `frontend/backendStart.sh` is the source/dev launcher for the local backend flow; keep custom flags documented in the script header when extending it.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
 - Node is pinned in `scripts/node_version.txt` (used by `scripts/bundle_node_runtime.sh` during builds); keep local Node compatible.
 
@@ -122,7 +122,7 @@ Whenever you run `format_code` or any python-related tooling, make sure to first
 
 To run Go backend tests: `./scripts/run_go_tests.sh`
 
-To run retained Python tests: `./scripts/run_backend_tests.sh` (uses pytest).
+To run Python tests: `./scripts/run_backend_tests.sh` (uses pytest).
 
 To run anything python related: `source activate.sh && <python command goes here>`
 
@@ -135,7 +135,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 ## Generation & Cleanup
 
 - Use `pnpm generate` to regenerate frontend templates/bindings and backend generated types. This command can produce a large diff.
-- Use `pnpm -C frontend generate-go-frontend-bindings` when only the canonical Go-owned frontend route/type/endpoint outputs need regeneration; this path does not require Python activation.
+- Use `pnpm -C frontend generate-go-frontend-bindings` when only the canonical frontend route/type/endpoint outputs need regeneration; this path does not require Python activation.
 - Large diffs after `pnpm generate` are often expected: we frequently run cleanup (`pnpm gcf`/`./gcf.sh` and `pnpm full-cleanup`) that removes unused generated files, and `pnpm generate` brings them back.
 - `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root; `pnpm gcf` includes cleanup that can prune unused generated files.
 - `pnpm full-cleanup` runs Knip + a Python prune step and deletes unused generated files.

@@ -13,8 +13,8 @@ Use `go-rewrite-closeout-cleanup-plan.md` for the narrative plan and
 
 ## Principles
 
-- Present Setta as a Go-first codebase with a narrow retained Python
-  package/SDK boundary.
+- Present Setta in normal docs as the current backend/package layout; keep
+  rewrite/merge framing inside the cleanup tracker docs.
 - Prefer small, reviewable cleanup batches over one giant "cleanup" diff.
 - Do not delete Python merely because it looks old; prove current caller
   reachability, replacement ownership, or explicit no-replacement first.
@@ -31,7 +31,7 @@ Use `go-rewrite-closeout-cleanup-plan.md` for the narrative plan and
 - [x] Fix branch-local absolute doc links in `README.md`.
 - [x] Update `docs/README.md` to separate normal contributor docs from
   rewrite-closeout docs.
-- [x] Make the Go-owned runtime / retained Python boundary explicit in
+- [x] Make the backend/package split explicit in
   `AGENTS.md`.
 - [ ] Decide whether a permanent architecture/reference doc is needed once the
   merge is close.
@@ -96,7 +96,7 @@ Verification:
 
 Audit snapshot:
 
-- 74 local Python modules are still reachable from the explicit retained
+- 74 local Python modules are still reachable from the explicit Python package
   boundary import closure.
 - Keep outside that closure for non-deletion reasons:
   - explicit process boundaries:
@@ -118,7 +118,6 @@ Audit snapshot:
   - `backend/setta/types/generated/impl_field_literals.py`
   - `backend/setta/types/generated/shared_modifier.py`
   - `backend/setta/types/hierarchy_traversal.py`
-  - `backend/setta/utils/errors.py`
   - `backend/setta/utils/utils.py`
 
 Verification:
@@ -154,7 +153,7 @@ Verification:
 - [ ] Delete Python tests only when they either:
   - prove a dead path, or
   - have clear Go/frontend replacement coverage
-- [ ] Keep tests that still prove the retained Python SDK, wheel boundary, or
+- [ ] Keep tests that still prove the Python SDK, wheel boundary, or
   listener authoring/client surface.
 
 Verification:
@@ -164,16 +163,16 @@ Verification:
 
 ## Batch 6: Script And Packaging Surface Verification
 
-- [ ] Confirm docs and help text line up with the real supported entrypoints:
+- [x] Confirm docs and help text line up with the real supported entrypoints:
   - `./scripts/go.sh`
   - `./scripts/run-dev-instance.sh`
   - `frontend/backendStart.sh`
   - `./build.sh`
   - `./verify_install.sh`
   - `python -m setta`
-- [ ] Correct stale help text or wrapper wording while touching each script.
-- [ ] Keep the default dev story Go-first; keep Python activation scoped to
-  retained SDK/package tooling and Python-specific workflows.
+- [x] Correct stale help text or wrapper wording while touching each script.
+- [x] Keep the default dev story centered on the backend runtime; keep Python
+  activation scoped to SDK/package tooling and Python-specific workflows.
 
 Verification:
 
@@ -200,11 +199,12 @@ Verification:
 
 ## Final Merge Gate
 
-- [ ] Front-door docs present the repo as Go-first with an explicit retained
-  Python boundary.
+- [ ] Front-door docs present the repo in current-state terms with an explicit
+  backend/package split.
 - [ ] Top-level branch-only clutter is gone or explicitly justified.
 - [ ] High-traffic docs no longer imply Python/FastAPI owns the active backend
   runtime.
-- [ ] Remaining Python code is either retained intentionally or backed by a
+- [ ] Remaining Python code is either intentional package/tooling surface or
+  backed by a
   deletion-proof ledger.
 - [ ] Packaging/install smoke still passes at the Go/Python package boundary.

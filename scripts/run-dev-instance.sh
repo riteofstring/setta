@@ -8,7 +8,7 @@ if [ "$#" -gt 0 ]; then
     -h|--help)
       echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr|reset] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]" >&2
       echo "If instance-name is omitted, the worktree folder name is used." >&2
-      echo "Starts the Go-backed local dev server plus Vite via frontend/package.json." >&2
+      echo "Starts the local dev server plus Vite via frontend/package.json." >&2
       echo "Default dev paths: SETTA_HOME=~/.setta-development and SETTA_FILES_ROOT=<worktree>/setta_files_dev." >&2
       exit 0
       ;;

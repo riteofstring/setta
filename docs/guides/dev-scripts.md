@@ -35,8 +35,8 @@ Use these first for day-to-day work.
   - If you create a single worktree, enters it (starts a new shell there).
   - If you create multiple worktrees, stays in the current folder (equivalent to `--stay`).
 - `./t.sh`
-  - Runs tests (Go suite + retained Python pytest + frontend Vitest + Playwright).
-  - Flags: `--b` (Go + retained Python coverage only), `--f` (frontend + Playwright only), `--all` (enables opt-in external agent integration tests).
+  - Runs tests (Go suite + Python pytest + frontend Vitest + Playwright).
+  - Flags: `--b` (Go + Python coverage only), `--f` (frontend + Playwright only), `--all` (enables opt-in external agent integration tests).
   - Logs to `tests.log` at the repo root.
   - External agent integration tests (Claude/Codex/OpenCode) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
 - `./gcf.sh`
@@ -63,9 +63,9 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop default local setup for the Go-first dev loop (Go toolchain readiness + frontend deps + sidecars).
+  - One-stop default local setup (Go toolchain readiness + frontend deps + sidecars).
 - `./dev_install_python.sh`
-  - Opt-in setup for Python tooling, then runs the default Go-first dev install.
+  - Opt-in setup for Python tooling, then runs the default local dev install.
 - `./init_env.sh`
   - Creates/updates the Python environment.
   - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync` with
@@ -85,7 +85,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Resolves the active Setta state root and deletes it.
   - Used by `reset`/`aireset` flows.
 - `./scripts/run_backend_tests.sh`
-  - Retained Python pytest runner (invoked by `t.sh`).
+  - Python pytest runner (invoked by `t.sh`).
 - `./scripts/run_go_tests.sh`
   - Go test wrapper (invoked by `t.sh`).
   - Runs `./scripts/go.sh test ./... -count=1` and accepts extra `go test` args.
@@ -120,7 +120,7 @@ These are used by the top-level wrappers or for advanced workflows.
 These are the underlying tasks used by the wrappers above.
 
 - `pnpm start` / `pnpm startr`
-  - Vite + Go-backed backend (reload for backend on `startr`).
+  - Vite + backend (reload for backend on `startr`).
 - `pnpm reset`
   - Resolves + wipes the active Setta state root, then starts dev server.
 - `pnpm test`
@@ -128,7 +128,7 @@ These are the underlying tasks used by the wrappers above.
 - `pnpm generate`
   - Regenerates templates/types from `frontend/generation/`.
 - `pnpm -C frontend generate-go-frontend-bindings`
-  - Regenerates only the canonical Go-owned frontend route/type/endpoint files.
+  - Regenerates only the canonical frontend route/type/endpoint files.
 - `pnpm gcf`
   - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
@@ -144,17 +144,17 @@ These are the underlying tasks used by the wrappers above.
 Useful when you need to debug a specific subsystem.
 
 - `frontend/backendStart.sh`
-  - Starts the Go-backed backend process for source/dev runs (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
+  - Starts the backend process for source/dev runs (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
   - Template/type generation (used by `pnpm generate`).
 - `frontend/generation/generate_go_frontend_bindings.sh`
-  - Direct Go-owned frontend route/type/endpoint generation helper.
+  - Direct frontend route/type/endpoint generation helper.
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
 
 ## Notes
 
-- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop no longer requires Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).

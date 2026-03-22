@@ -1,7 +1,7 @@
-# Source/dev launcher for the Go-backed local backend flow.
+# Source/dev launcher for the local backend flow.
 # Default path is `./scripts/go.sh run ./cmd/setta`; `SETTA_BIN` can override
 # the command, and `SETTA_SERVER_BIN` can override the helper binary used by
-# source-checkout dispatchers such as the retained `python -m setta` wrapper.
+# source-checkout dispatchers such as `python -m setta`.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"

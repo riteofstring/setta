@@ -12,7 +12,7 @@ frontend.
 - View mode names: `internal/projectstate/view_modes.go`
 - Window-space names: `internal/projectstate/project_chat_windowing_writes.go`
 - Aggregated validation payloads: `internal/projectstate/name_validation.go`
-- Websocket envelope + retained Python type mirror: `internal/realtime/messages.go`,
+- Websocket envelope + Python type mirror: `internal/realtime/messages.go`,
   `backend/setta/types/websocket.py`
 - Frontend input validation: `frontend/src/utils/nameValidation.ts`
 - Frontend view mode editor: `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx`

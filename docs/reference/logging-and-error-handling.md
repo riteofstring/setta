@@ -3,10 +3,9 @@
 This document describes how Setta’s backend handles logging and errors, and how those
 signals reach (1) developer-visible server logs and (2) user-visible UI “backend log
 events”.
-
-The active backend HTTP/websocket/MCP runtime is Go-owned. Python details in this
-document apply only to retained Python listener/share helpers, not to the main
-backend transport/runtime.
+Most HTTP, websocket, and MCP runtime behavior described here lives in the Go
+backend. The Python details in this document apply to listener/share helper
+processes and packaging-side helpers.
 
 ## Goals
 
@@ -21,14 +20,14 @@ backend transport/runtime.
 There are two parallel outputs:
 
 1. **Backend logging output** (stdout/stderr and optional file):
-   - The active backend runtime logs through Go packages such as
-     `internal/httpapi`, `internal/backendlogs`, and related services.
-   - Retained Python listener/share helpers still use
+   - The backend runtime logs through packages such as `internal/httpapi`,
+     `internal/backendlogs`, and related services.
+   - Listener/share helper processes use
      `setta.logging.config.configure_listener_logging()` and related Python
      context helpers.
 
 2. **Frontend “backend log events”** (websocket broadcast to UI):
-   - Sent by the Go-owned `internal/backendlogs.Service` over `/ws/frontend`.
+   - Sent by `internal/backendlogs.Service` over `/ws/frontend`.
    - Used for user-facing messages like “MCP Server Ready” and for surfacing failures.
 
 ## Logging Configuration
@@ -73,13 +72,13 @@ Values are normalized and sanitized:
 
 **HTTP requests**
 
-- Active Go middleware: `internal/httpapi/httpapi.go`
+- Backend middleware: `internal/httpapi/httpapi.go`
   - Adds `request_id` and logs request method/path/status through the Go
     request, recovery, and access-log middleware stack.
 
 **Websocket connections**
 
-- Active Go transport: `internal/wsapi`
+- Websocket transport: `internal/wsapi`
   - Resolves connection type, auth, and mode/share-session context before
     handing the socket to the route-specific handler.
 
@@ -146,9 +145,9 @@ It:
   exception to propagate to the task and be detectable via awaiting or
   `task.exception()`.
 
-Retained Python listener/share helpers still use `re_raise=True` selectively
-for must-succeed background tasks and use the default (swallow) for many
-long-lived or optional loops.
+Python listener/share helpers still use `re_raise=True` selectively for
+must-succeed background tasks and use the default (swallow) for many long-lived
+or optional loops.
 
 ## When To Use Which
 
@@ -156,25 +155,23 @@ Rules of thumb for choosing between local logging/broadcasting helpers vs relyin
 global handling:
 
 - **HTTP routes**: Prefer returning or propagating errors through the active
-  surface's centralized handling. On the Go backend this means using the shared
-  `internal/httpapi` helpers and per-route error mapping instead of adding
-  route-local duplicate logging.
+  surface's centralized handling. Use the shared `internal/httpapi` helpers and
+  per-route error mapping instead of adding route-local duplicate logging.
 - **HTTP routes with custom behavior**: Catch exceptions only when you must translate
   them into a specific status/message (e.g. domain error → `HTTPException(4xx)`), or
   you need to do local cleanup/rollback before re-raising.
 - **Websockets**: Handle errors at the loop boundary (log + optionally
-  broadcast) and then close. The active shared pattern lives in `internal/wsapi`
-  and the route-specific websocket handlers under `internal/wsapi/routes.go`.
+  broadcast) and then close. The shared pattern lives in `internal/wsapi` and
+  the route-specific websocket handlers under `internal/wsapi/routes.go`.
 - **Background tasks / long-lived loops**: Use `spawn_background_task(...)` so failures
   are labeled and context is preserved. Use `re_raise=True` for must-succeed tasks
   (startup/core orchestration); leave it False for resilient “keep running” tasks.
 - **Log-only vs UI-visible**:
   - Use `log_failure(...)` when you want consistent server-side error logs and *no*
     user-facing UI message is needed (or when there is already another UI surface).
-  - For UI-visible websocket diagnostics, use the active Go-owned websocket/runtime
-    path (`internal/wsapi`, `internal/realtime`, or the route-specific caller surface)
-    instead of reviving the deleted Python `WMHFrontendSender` helper path.
-  - If a retained Python helper needs optional UI broadcast integration, keep it behind
+  - For UI-visible websocket diagnostics, use the websocket/runtime path in
+    `internal/wsapi`, `internal/realtime`, or the route-specific caller surface.
+  - If a Python helper needs optional UI broadcast integration, keep it behind
     a narrow caller-supplied interface and fall back to `log_failure(...)` when no
     broadcaster is available.
 - **User notifications**: If the UX should show a persistent “Saved!”-style message,
@@ -183,10 +180,8 @@ global handling:
 
 ## HTTP Error Handling
 
-There is no retained Python HTTP server surface that owns backend-wide error
-handling.
-
-The active main backend HTTP error handling lives in the Go runtime.
+Backend-wide HTTP error handling lives in the backend runtime under
+`internal/httpapi`.
 
 ## Websocket Error Handling
 
@@ -218,8 +213,8 @@ Listener → backend error mapping for “emit to frontend” is more structured
 
 ## MCP Tool Error Handling
 
-- The active MCP server/runtime is Go-owned under `internal/mcpx`, which maps
-  tool/runtime failures into structured responses.
+- The MCP server/runtime lives under `internal/mcpx`, which maps tool/runtime
+  failures into structured responses.
 - The packaged Go stdio bridge (`setta mcp`) is transport-thin; with
   `--verbose` it emits bridge read/write shutdown details to stderr from
   `internal/settacmd/mcp.go` and `internal/mcpx/stdio_bridge.go`.

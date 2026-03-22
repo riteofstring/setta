@@ -4,13 +4,13 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 
 ## Start
 
-Default Go-first setup:
+Default setup:
 
 ```bash
 ./dev_install.sh
 ```
 
-If you also need the retained Python SDK/package tooling in this checkout:
+If you also need the Python SDK/package tooling in this checkout:
 
 ```bash
 . ./dev_install_python.sh
