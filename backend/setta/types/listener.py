@@ -1,7 +1,27 @@
 from enum import Enum
-from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from setta.sdk_contracts.generated import (
+    ListenerErrorEvent as SDKListenerErrorEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerFrontendEmitRequest as SDKListenerFrontendEmitRequest,
+)
+from setta.sdk_contracts.generated import (
+    ListenerInitRequest as SDKListenerInitRequest,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRegisterAckEvent as SDKListenerRegisterAckEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRegisterAckStatus as SDKListenerRegisterAckStatus,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRouterEndpointCall as SDKListenerRouterEndpointCall,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRouterEndpointResult as SDKListenerRouterEndpointResult,
+)
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
@@ -9,7 +29,6 @@ from setta.types.generated.dependency_keys import (
 from setta.types.generated.dependency_values import (
     BaseDependencyValueUnionWithDiscriminator,
 )
-from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -24,10 +43,8 @@ class ListenerDependencyMode(str, Enum):
     ALWAYS = "always"
 
 
-class ListenerInitContent(BaseModel):
+class ListenerInitContent(SDKListenerInitRequest):
     projectConfigId: ID | None = None
-    projectName: str | None = None
-    useTemporaryIds: bool = False
 
     @model_validator(mode="after")
     def _validate_identifier(self):
@@ -117,33 +134,10 @@ class ListenerForceRefreshContent(BaseModel):
     refreshKind: str | None = None
 
 
-class ListenerErrorContent(BaseModel):
-    error: str
-    details: Any | None = None
-
-
-class ListenerFrontendEmitRawContent(BaseModel):
-    projectConfigId: ID
-    dependencyValues: dict[str, Any] = Field(default_factory=dict)
-    artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
-        default_factory=list
-    )
-
-
-class ListenerRouterEndpointCallContent(BaseModel):
-    projectConfigId: ID
-    callId: str
-    endpointName: str
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-
-class ListenerRouterEndpointResultContent(BaseModel):
-    projectConfigId: ID
-    callId: str
-    ok: bool
-    result: Any | None = None
-    error: str | None = None
-    details: dict[str, Any] = Field(default_factory=dict)
+ListenerErrorContent = SDKListenerErrorEvent
+ListenerFrontendEmitRawContent = SDKListenerFrontendEmitRequest
+ListenerRouterEndpointCallContent = SDKListenerRouterEndpointCall
+ListenerRouterEndpointResultContent = SDKListenerRouterEndpointResult
 
 
 class ListenerCoverageSnapshot(BaseModel):
@@ -183,14 +177,12 @@ class ListenerRegisterCallback(BaseModel):
 
 class ListenerRegisterContent(BaseModel):
     projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterCallback]
+    callbacks: dict[str, ListenerRegisterCallback] = Field(default_factory=dict)
 
 
-class ListenerRegisterAckStatus(BaseModel):
-    status: Literal["accepted", "rejected"]
-    message: str | None = None
+ListenerRegisterAckStatus = SDKListenerRegisterAckStatus
 
 
-class ListenerRegisterAckContent(BaseModel):
+class ListenerRegisterAckContent(SDKListenerRegisterAckEvent):
     projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterAckStatus]
+    callbacks: dict[str, ListenerRegisterAckStatus] = Field(default_factory=dict)

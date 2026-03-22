@@ -537,6 +537,23 @@ Success condition:
 
 - the retained Python SDK is thin, intentional, and not a shadow backend
 
+Phase 6 progress:
+
+- the retained Python listener boundary no longer hand-maintains the generic
+  init, error, register-ack, frontend-emit, and router-endpoint envelope DTOs
+  that already exist in the generated SDK contract module
+- those generic listener payloads now import the generated contract types
+  directly through `backend/setta/types/listener.py`, leaving only the
+  dependency-bearing listener payload wrappers handwritten
+- the handwritten listener DTOs that remain are the ones that still need either
+  dependency-key/value union handling or Python-only binary payload attachment
+
+Current Phase 6 boundary:
+
+- keep the dependency-bearing listener payload wrappers handwritten until the
+  generated contract path can cover their nested dependency-union behavior and
+  binary payload state without regressing websocket round-tripping
+
 ### Phase 7. Packaging, Versioning, And CI Hardening
 
 Finalize the retained Python boundary as a supported surface.
