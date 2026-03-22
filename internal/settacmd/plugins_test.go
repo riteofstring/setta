@@ -884,6 +884,24 @@ func TestRunPluginsScopedLifecycleCommandsRejectConflictingScopeFlags(t *testing
 	}
 }
 
+// Install should keep failing closed on the removed legacy environment flag
+// and scope value even though the Go parser no longer emits Click wording.
+func TestRunPluginsInstallRejectsLegacyEnvironmentFlags(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "install", "pypi:setta-fixture-frontend==0.1.0", "--environment")
+	if err == nil || DisplayError(err) != `unknown option "--environment"` {
+		t.Fatalf("expected removed environment flag error, got %v", err)
+	}
+
+	_, _, err = runPluginsSettaCommand(t, cwd, "plugins", "install", "pypi:setta-fixture-frontend==0.1.0", "--scope", "environment")
+	if err == nil || DisplayError(err) != `Invalid plugin scope: "environment"` {
+		t.Fatalf("expected invalid environment scope error, got %v", err)
+	}
+}
+
 // Package-manager uninstall should stay Go-owned while rejecting externally managed plugin removal with the canonical service code.
 func TestRunPluginsPackageManagerUninstallRejectsExternallyManagedPlugin(t *testing.T) {
 	cwd := t.TempDir()

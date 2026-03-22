@@ -150,6 +150,41 @@ func TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus(t *testing
 	}
 }
 
+// Restart-required summary should surface the same programmatic capability payload
+// the CLI writes directly to JSON when a restart callback exists.
+func TestServiceRestartRequiredSummaryUsesProgrammaticCapabilityWithoutFallbackFields(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationServiceWithRestartCallback(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		func(context.Context) (bool, error) {
+			return true, nil
+		},
+	)
+
+	summary, err := service.RestartRequiredSummary()
+	if err != nil {
+		t.Fatalf("load restart-required summary: %v", err)
+	}
+	if len(summary.PendingPlugins) != 0 {
+		t.Fatalf("expected no pending plugins, got %#v", summary.PendingPlugins)
+	}
+	if len(summary.PendingPluginIDs) != 0 {
+		t.Fatalf("expected no pending plugin ids, got %#v", summary.PendingPluginIDs)
+	}
+	if len(summary.PendingPluginIDsWithoutStatus) != 0 {
+		t.Fatalf("expected no pending ids without status, got %#v", summary.PendingPluginIDsWithoutStatus)
+	}
+	if summary.RestartCapability.Mode != RestartCapabilityModeProgrammatic {
+		t.Fatalf("expected programmatic restart capability, got %#v", summary.RestartCapability)
+	}
+	if summary.RestartCapability.Command != nil || summary.RestartCapability.Reason != nil {
+		t.Fatalf("expected programmatic capability without fallback fields, got %#v", summary.RestartCapability)
+	}
+}
+
 // Restart should preserve the packaged manual payload when no restart hook exists.
 func TestServiceRestartReturnsManualCapabilityPayload(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
