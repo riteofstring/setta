@@ -87,6 +87,33 @@ func TestMaybeShareSessionIDFromRequestPrefersHeaderThenCookieThenQuery(t *testi
 	}
 }
 
+func TestMaybeShareSessionIDFromRequestFallsBackToCookieThenQuery(t *testing.T) {
+	t.Parallel()
+
+	cookieRequest := httptest.NewRequest(http.MethodGet, "/?shareSessionId=query", nil)
+	cookieRequest.AddCookie(&http.Cookie{
+		Name:  ShareSessionCookieName,
+		Value: "cookie",
+	})
+	if sessionID := MaybeShareSessionIDFromRequest(cookieRequest); sessionID != "cookie" {
+		t.Fatalf("expected cookie fallback, got %q", sessionID)
+	}
+
+	queryRequest := httptest.NewRequest(http.MethodGet, "/?shareSessionId=query", nil)
+	if sessionID := MaybeShareSessionIDFromRequest(queryRequest); sessionID != "query" {
+		t.Fatalf("expected query fallback, got %q", sessionID)
+	}
+}
+
+func TestMaybeShareSessionIDFromRequestReturnsEmptyWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	if sessionID := MaybeShareSessionIDFromRequest(request); sessionID != "" {
+		t.Fatalf("expected empty session id, got %q", sessionID)
+	}
+}
+
 func TestResolverFallsBackToCookieThenQueryAndTouchesSession(t *testing.T) {
 	t.Parallel()
 
