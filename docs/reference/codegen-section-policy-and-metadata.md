@@ -82,7 +82,7 @@ The result is `include_in_codegen` plus the chosen `representation`.
 
 ## How policy affects codegen
 
-The dependency graph uses the resolved policy when exporting nodes (`internal/codegen/python_dependency_graph.go` and `backend/setta/code_gen/dependency_graph.py` for retained listener-side fallback metadata work):
+The dependency graph uses the resolved policy when exporting nodes (`internal/codegen/python_dependency_graph.go` for codegen and `backend/setta/api/listener.py` for retained listener-side fallback metadata work):
 - Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
 - The Go-owned Python renderer and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`internal/codegen/python_code_renderer.go`, `internal/codegen/python_value_codec.go`).
 - Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat, TaskBoard, Spreadsheet).
@@ -92,7 +92,7 @@ Code obj value policies are resolved during dependency graph export:
 - Each `ParamNode` stores `value_representation`, resolved from `codeObjValuePolicy`.
 - MetaControl sections store the control code obj id + representation so the same formatting rules apply to control values.
 
-The Python value codec formats params based on representation (`backend/setta/code_gen/value_codec.py`):
+The Python value codec formats params based on representation (`internal/codegen/python_value_codec.go`):
 - `expression` uses the existing per-type formatting (switch bools, nested dicts, etc).
 - `json_parsed` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
 - `string` always emits `repr(literal_value)`.

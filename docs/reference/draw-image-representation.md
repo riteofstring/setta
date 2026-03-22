@@ -90,6 +90,4 @@ Relevant code:
 - `internal/codegen/python_value_codec.go`
 - `internal/runs/service.go`
 - `internal/projectstate/draw_snapshots.go`
-- `backend/setta/code_gen/dependency_graph.py`
-- `backend/setta/code_gen/value_codec.py`
 - `backend/setta/code_gen/python/value_helpers.py`

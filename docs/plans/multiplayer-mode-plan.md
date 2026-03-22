@@ -140,19 +140,21 @@ reliable data key.
    - This avoids O(n^2) fanout from per-mouse-move messages.
 
 Suggested files:
-- `backend/setta/websockets/presence_hub.py` (new)
-- `backend/setta/server_state.py` (initialize hub on app state)
+- `internal/realtime/presence_hub.go` (new)
+- `internal/app/app.go` (initialize/wire the hub on app startup)
 
 ### Phase 1: WebSocket message types
-1. Extend `backend/setta/types/websocket.py`:
-   - Add enums for the new message types.
-   - Add `BaseModel`/Pydantic types for presence content.
+1. Extend the Go websocket/frontend binding contract:
+   - Add enums for the new message types in
+     `internal/frontendbindings/websocket_support.go`.
+   - Add typed presence payload structs alongside the existing websocket
+     binding models.
    - Add `WebsocketMsgPresenceHello`, `WebsocketMsgPresenceUpdate`, etc.
 2. Regenerate websocket unions:
    - `frontend/generation/generate_unions.py websocket_unions` (via `pnpm generate`).
 
 ### Phase 2: Backend receiver integration
-1. Update `backend/setta/websockets/msg_handlers/frontend_receiver.py`:
+1. Update `internal/wsapi/routes.go`:
    - Parse and handle presence messages.
    - Validate `projectConfigId` exists (and share session has that config).
    - Push updates into `PresenceHub`.

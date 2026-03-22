@@ -54,10 +54,12 @@ Reasoning:
   - `source` (`attached`, `temporary`, `reused`)
 
 ### 2) Establish ownership at terminal allocation/use points
-- Primary hook: `backend/setta/terminals/run_code.py`
+- Primary hooks: `internal/wsapi/routes.go`, `internal/terminals/service.go`,
+  and the attached-terminal helpers in `internal/projectstate`
   - when a terminal is selected/created for an AI-originated run, register it for that `chatId`.
 - Terminal lifecycle cleanup:
-  - remove/update entries when terminals are deleted/stopped in `backend/setta/terminals/terminals.py`.
+  - remove/update entries when terminals are deleted/stopped through
+    `internal/httpapi/terminal_routes.go` and `internal/terminals/service.go`.
 
 ### 3) Transport + hydration
 - Add typed websocket update for chat terminal summaries (new message type, not `z.any()`).

@@ -519,7 +519,8 @@ Define a stable "git context" object injected into template rendering:
   - `patch`: optional, may be omitted or truncated
 - `conflicts`: `{ files, count }`
 
-Rendering should use the same backend Jinja renderer (`backend/setta/llm/prompt_renderer.py`) so behavior matches Prompt sections.
+Rendering should use the same Go-owned Jinja renderer
+(`internal/promptrender/render.go`) so behavior matches Prompt sections.
 
 ### Prompt editor UX
 When a user clicks an action:
