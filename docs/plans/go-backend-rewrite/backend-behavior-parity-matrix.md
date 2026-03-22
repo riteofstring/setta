@@ -120,6 +120,34 @@ Last audited: `2026-03-23`
   `TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName`,
   `TestRegisterStatusRoutesReturnsAuthRefreshStatus`, and
   `TestAppServesStatusMetaRoutes`.
+- Follow-up in this pass on `271f05e8c`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` reproduced a real Go gap in
+  `internal/projectstate`
+  `TestSaveJSONSourceFilesWritesStructuredDataFormatsAndPreservesChildOrder`:
+  the TOML readback path inside `readOrderedJSONSourceObject` was still
+  decoding through unordered generic maps, so saved TOML children could flip
+  order between write and reload and the full backend suite failed
+  intermittently on the persisted child-order assertion. Go now decodes TOML
+  JSON-source payloads through an ordered AST walk that preserves top-level
+  key/value order and inline-table child order while still rejecting
+  non-JSON-compatible TOML values. The targeted 50x stress rerun, the
+  focused structured-data load/format tests, the package rerun, and the
+  final exact full-suite rerun all passed, so
+  `critical_backend_suite::go_test_all` closed as another real fixed Go gap
+  in this pass rather than remaining stale suite output. This pass also
+  re-audited the regenerated top plugin backlog slice and confirmed those
+  source clues were already terminal `Proved` or `Intentional divergence`
+  rows backed directly by
+  `TestBuildUVInstallEnvMapsPIPEnvVars`,
+  `TestProductionCandidateProviderResolvePyPICandidateFallsBackToPipWhenUVUnavailable`,
+  `TestProductionCandidateProviderResolvePyPICandidateFallsBackToPipAfterUVFailure`,
+  `TestProductionCandidateProviderResolvePyPICandidateRequiresExplicitUVBinary`,
+  `TestServiceDispatchRegisteredBackendRoutePreservesRepeatedQueryParamsInRawQuery`,
+  `TestServiceInitTemplateGeneratesPublishReadyScaffold`,
+  `TestServiceInitTemplateGeneratesGoBackendScaffold`,
+  `TestServiceInitTemplateGeneratesContentOnlyScaffold`,
+  `TestRunPluginsInitAndValidateText`, and
+  `TestRunPluginsInitSupportsBackendTemplate`.
 - Follow-up in this pass on `c1f38d8901b0274f2f052c36dddaa2a015f5876f`:
   rerunning `./scripts/go.sh test ./... -count=1` passed cleanly again, so the
   saved `tmp/backend-gap-hunt-backend-suite.log` remote-shell failures in

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	toml "github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml/v2/unstable"
 	"gopkg.in/yaml.v3"
 	"setta/internal/statefs"
 )
@@ -206,18 +206,11 @@ func readOrderedJSONSourceObject(path string) (JSONSourceObject, bool, error) {
 		}
 		return payload, true, nil
 	case ".toml":
-		var payload any
-		if err := toml.Unmarshal(content, &payload); err != nil {
-			return JSONSourceObject{}, false, fmt.Errorf("decode json source payload %q: %w", path, err)
-		}
-		rootValue, err := jsonSourceValueFromGeneric(payload)
+		payload, err := decodeOrderedJSONObjectFromTOML(content)
 		if err != nil {
 			return JSONSourceObject{}, false, fmt.Errorf("decode json source payload %q: %w", path, err)
 		}
-		if rootValue.Object == nil {
-			return JSONSourceObject{}, false, fmt.Errorf("json source payload must be an object at the root: %q", path)
-		}
-		return *rootValue.Object, true, nil
+		return payload, true, nil
 	default:
 		return JSONSourceObject{}, false, fmt.Errorf("unsupported jsonSource file extension: %s", path)
 	}
@@ -343,6 +336,140 @@ func decodeOrderedJSONObjectFromYAML(content []byte) (JSONSourceObject, error) {
 		return JSONSourceObject{}, fmt.Errorf("json source payload must be an object at the root")
 	}
 	return *value.Object, nil
+}
+
+func decodeOrderedJSONObjectFromTOML(content []byte) (JSONSourceObject, error) {
+	var parser unstable.Parser
+	parser.Reset(content)
+
+	object := JSONSourceObject{
+		Entries: []JSONSourceObjectEntry{},
+	}
+	currentObject := &object
+
+	for parser.NextExpression() {
+		expr := parser.Expression()
+		switch expr.Kind {
+		case unstable.Comment:
+			continue
+		case unstable.KeyValue:
+			keyPath, err := tomlKeyPath(expr.Key())
+			if err != nil {
+				return JSONSourceObject{}, err
+			}
+			value, err := jsonSourceValueFromTOMLNode(expr.Value())
+			if err != nil {
+				return JSONSourceObject{}, err
+			}
+			if err := setJSONSourceValueAtPath(currentObject, keyPath, value); err != nil {
+				return JSONSourceObject{}, err
+			}
+		case unstable.Table:
+			keyPath, err := tomlKeyPath(expr.Key())
+			if err != nil {
+				return JSONSourceObject{}, err
+			}
+			currentObject, err = ensureJSONSourceObjectPath(&object, keyPath)
+			if err != nil {
+				return JSONSourceObject{}, err
+			}
+		default:
+			return JSONSourceObject{}, fmt.Errorf("json source values must use JSON-compatible types, got TOML %s", expr.Kind)
+		}
+	}
+	if err := parser.Error(); err != nil {
+		return JSONSourceObject{}, err
+	}
+	return object, nil
+}
+
+func tomlKeyPath(iterator unstable.Iterator) ([]string, error) {
+	keyPath := []string{}
+	for iterator.Next() {
+		node := iterator.Node()
+		if node.Kind != unstable.Key {
+			return nil, fmt.Errorf("expected TOML key node, got %s", node.Kind)
+		}
+		keyPath = append(keyPath, string(node.Data))
+	}
+	if len(keyPath) == 0 {
+		return nil, fmt.Errorf("expected TOML key path")
+	}
+	return keyPath, nil
+}
+
+func ensureJSONSourceObjectPath(target *JSONSourceObject, keyPath []string) (*JSONSourceObject, error) {
+	current := target
+	for _, pathPart := range keyPath {
+		next, err := getOrCreateJSONSourceChildObject(current, pathPart)
+		if err != nil {
+			return nil, err
+		}
+		current = next
+	}
+	return current, nil
+}
+
+func setJSONSourceValueAtPath(target *JSONSourceObject, keyPath []string, value JSONSourceValue) error {
+	current := target
+	for _, pathPart := range keyPath[:len(keyPath)-1] {
+		next, err := getOrCreateJSONSourceChildObject(current, pathPart)
+		if err != nil {
+			return err
+		}
+		current = next
+	}
+	setJSONSourceObjectEntry(current, keyPath[len(keyPath)-1], value)
+	return nil
+}
+
+func jsonSourceValueFromTOMLNode(node *unstable.Node) (JSONSourceValue, error) {
+	switch node.Kind {
+	case unstable.InlineTable:
+		object := JSONSourceObject{
+			Entries: []JSONSourceObjectEntry{},
+		}
+		children := node.Children()
+		for children.Next() {
+			entry := children.Node()
+			if entry.Kind != unstable.KeyValue {
+				return JSONSourceValue{}, fmt.Errorf("expected TOML inline table key/value, got %s", entry.Kind)
+			}
+			keyPath, err := tomlKeyPath(entry.Key())
+			if err != nil {
+				return JSONSourceValue{}, err
+			}
+			value, err := jsonSourceValueFromTOMLNode(entry.Value())
+			if err != nil {
+				return JSONSourceValue{}, err
+			}
+			if err := setJSONSourceValueAtPath(&object, keyPath, value); err != nil {
+				return JSONSourceValue{}, err
+			}
+		}
+		return JSONSourceValue{Object: &object}, nil
+	case unstable.Array:
+		elements := []string{}
+		children := node.Children()
+		for children.Next() {
+			value, err := jsonSourceValueFromTOMLNode(children.Node())
+			if err != nil {
+				return JSONSourceValue{}, err
+			}
+			elements = append(elements, serializeJSONSourceValue(value))
+		}
+		return JSONSourceValue{Serialized: "[" + strings.Join(elements, ",") + "]"}, nil
+	case unstable.String:
+		bytes, err := json.Marshal(string(node.Data))
+		if err != nil {
+			return JSONSourceValue{}, err
+		}
+		return JSONSourceValue{Serialized: string(bytes)}, nil
+	case unstable.Bool, unstable.Float, unstable.Integer:
+		return JSONSourceValue{Serialized: string(node.Data)}, nil
+	default:
+		return JSONSourceValue{}, fmt.Errorf("json source values must use JSON-compatible types, got TOML %s", node.Kind)
+	}
 }
 
 func jsonSourceValueFromYAMLNode(node *yaml.Node) (JSONSourceValue, error) {
