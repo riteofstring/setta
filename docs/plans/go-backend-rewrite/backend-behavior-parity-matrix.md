@@ -726,6 +726,22 @@ Last audited: `2026-03-23`
   `TestRunLauncherSetupRejectsClearAndArtifactOptionsTogether`, and the live
   packaged launcher command surface documented in
   `docs/reference/setta-cli-commands.md`.
+- Follow-up in this pass on `130cbb05f4`: rerunning the exact preflight
+  `./scripts/go.sh test ./... -count=1` passed cleanly again, so
+  `critical_backend_suite::go_test_all` remains stale saved-suite output on
+  this head rather than exposing a live Go implementation gap. This pass
+  also re-audited
+  `tests/start/test_ssh_common::{test_parse_session_list_validates_required_keys,test_parse_session_list_requires_workspace_paths,test_parse_session_list_parses_valid_payload,test_parse_session_list_rejects_invalid_server_mode,test_fetch_remote_sessions_forwards_server_mode_flag}`
+  and
+  `tests/start/test_ssh_connect.py::test_rollback_local_ssh_tunnel_raises_when_process_remains_alive`,
+  confirming those clues were already terminal explicit `Proved` rows backed
+  directly by
+  `TestParseRemoteSessionListValidatesRequiredKeys`,
+  `TestParseRemoteSessionListRequiresWorkspacePaths`,
+  `TestParseRemoteSessionListRoundTripsValidPayload`,
+  `TestParseRemoteSessionListRejectsInvalidServerMode`,
+  `TestServiceListRemoteWorkspaceSessionsForwardsProfileAndServerMode`, and
+  `TestLocalLaunchServiceReturnsRemoteRollbackFailedWithTunnelDetail`.
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
