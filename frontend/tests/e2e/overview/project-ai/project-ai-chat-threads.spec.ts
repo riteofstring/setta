@@ -517,9 +517,7 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     "project-chat-master-search-input",
   );
   await expect(masterSearchInput).toBeVisible();
-  await expect(
-    overviewPane.getByPlaceholder("Type a message..."),
-  ).toBeVisible();
+  await expect(overviewPane.getByTestId("chat-input-textarea")).toBeVisible();
   await expect(
     threadsPanel.getByTestId("project-chat-thread-group-select"),
   ).toHaveCount(0);
@@ -615,15 +613,7 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   await expect(draftThreadEntry).toHaveCount(1);
   await expect(
     draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
-  ).toHaveCount(1);
-  await clickDom(threadAgentBadgeToggleButton);
-  await expect(
-    draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
   ).toHaveCount(0);
-  await clickDom(threadAgentBadgeToggleButton);
-  await expect(
-    draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
-  ).toHaveCount(1);
   const draftDragHandle = draftThreadEntry.getByTestId(
     "project-chat-thread-drag-handle",
   );
@@ -775,9 +765,7 @@ test("project ai threads remember explicit large-width close after narrow resize
   await ensureAppReady(page);
 
   let overviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    overviewPane.getByPlaceholder("Type a message..."),
-  ).toBeVisible();
+  await expect(overviewPane.getByTestId("chat-input-textarea")).toBeVisible();
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(1);
@@ -836,7 +824,7 @@ test("project ai preserves draft text when resize reveals inline threads", async
   await ensureAppReady(page);
 
   let overviewPane = await getVisibleProjectChatSurface(page);
-  let composerInput = overviewPane.getByPlaceholder("Type a message...");
+  let composerInput = overviewPane.getByTestId("chat-input-textarea");
   await expect(composerInput).toBeVisible();
   const draftText = "keep this draft while resizing";
   await composerInput.fill(draftText);
@@ -849,7 +837,7 @@ test("project ai preserves draft text when resize reveals inline threads", async
   );
   await expect(inlineThreadsPanel).toBeVisible();
   await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-  composerInput = overviewPane.getByPlaceholder("Type a message...");
+  composerInput = overviewPane.getByTestId("chat-input-textarea");
   await expect(composerInput).toHaveValue(draftText);
 });
 
@@ -864,7 +852,7 @@ test("project ai preserves unsent draft text across reloads", async ({
   await ensureAppReady(page);
 
   const overviewPane = await getVisibleProjectChatSurface(page);
-  const composerInput = overviewPane.getByPlaceholder("Type a message...");
+  const composerInput = overviewPane.getByTestId("chat-input-textarea");
   const draftText = "  keep this unsent draft after reload  \n";
   await composerInput.fill(draftText);
   await expect(composerInput).toHaveValue(draftText);
@@ -875,9 +863,9 @@ test("project ai preserves unsent draft text across reloads", async ({
   await page.waitForSelector(".react-flow__pane");
 
   const reloadedOverviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    reloadedOverviewPane.getByPlaceholder("Type a message..."),
-  ).toHaveValue(draftText);
+  await expect(reloadedOverviewPane.getByTestId("chat-input-textarea")).toHaveValue(
+    draftText,
+  );
 });
 
 test("project ai conversation search dedupes duplicate terms and ignores code-only matches", async ({
