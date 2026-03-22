@@ -573,7 +573,7 @@ func testSaveAsNewProjectConfigSourceProject() Project {
 					},
 					"section-window": {
 						SurfaceKind:      WindowSpaceSurfaceKindSection,
-						Mode:             ChatWindowModeSection,
+						Mode:             ChatWindowModeProjectAI,
 						SectionIDOrNull:  stringPointer("chat-section"),
 						Title:            stringPointer("Section Chat"),
 						ChatID:           stringPointer("source-section-chat"),

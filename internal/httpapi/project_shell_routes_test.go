@@ -688,7 +688,7 @@ func projectShellRouteTestProjectWithWindowing() projectstate.Project {
 					},
 					"section-window": {
 						SurfaceKind:      projectstate.WindowSpaceSurfaceKindSection,
-						Mode:             projectstate.ChatWindowModeSection,
+						Mode:             projectstate.ChatWindowModeProjectAI,
 						SectionIDOrNull:  projectShellRouteTestStringPointer("chat-section"),
 						Title:            projectShellRouteTestStringPointer("Section Chat"),
 						ChatID:           projectShellRouteTestStringPointer("saved-section-chat"),
