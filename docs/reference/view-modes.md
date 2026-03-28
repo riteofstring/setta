@@ -91,8 +91,7 @@
 
 ## Settings project defaults
 - The settings project (`/settings`) seeds built-in tab view modes on load via
-  the Go-owned settings-project materialization and view-mode normalization
-  path.
+  `create_settings_project_state` + `ensure_settings_view_modes`.
 - Tabs are grouped, ordered, and named:
   - Core
   - Section Defaults Structure and Code

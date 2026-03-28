@@ -1,9 +1,9 @@
 import { useRef } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import {
-  AllItemsType,
-  OnSelectedItemChangeFnType,
-} from "./ComboboxStateReducer";
+  buildIdNameComboboxView,
+  IdNameComboboxProps,
+} from "./idNameComboboxView";
 import { useIdNameCombobox } from "./useIdNameCombobox";
 
 // TODO: add "display groups" argument
@@ -27,28 +27,17 @@ export function IdNameCombobox<T>({
   variant = "pill",
   selectedItemCanBeNull = false,
   clearInputAfterSelection = false,
-}: {
-  allItems: AllItemsType<T>;
-  value: string | null;
-  onSelectedItemChange: OnSelectedItemChangeFnType<T>;
-  small?: boolean;
-  outerDivClasses?: string;
-  inputOuterClasses?: string;
-  inputThemeClassName?: string;
-  rightButtonThemeClassName?: string;
-  listThemeClassName?: string;
-  groupHeaderThemeClassName?: string;
-  itemThemeClassName?: string;
-  itemHighlightedThemeClassName?: string;
-  placeholder?: string;
-  bg?: string;
-  isDisabled?: boolean;
-  inputDivId?: string;
-  variant?: "pill" | "pane";
-  selectedItemCanBeNull?: boolean;
-  clearInputAfterSelection?: boolean;
-}) {
+}: IdNameComboboxProps<T>) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const view = buildIdNameComboboxView({
+    allItems,
+    clearInputAfterSelection,
+    onSelectedItemChange,
+    outerDivClasses,
+    selectedItemCanBeNull,
+    small,
+    value,
+  });
 
   const {
     isOpen,
@@ -60,20 +49,10 @@ export function IdNameCombobox<T>({
     getItemProps,
     itemToString,
     onKeyDown,
-  } = useIdNameCombobox({
-    allItems,
-    onSelectedItemChange,
-    value,
-    selectedItemCanBeNull,
-    clearInputAfterSelection,
-  });
+  } = useIdNameCombobox(view.hookOptions);
 
   return (
-    <div
-      className={`flex ${
-        small ? "h-[20px]" : "h-8"
-      } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
-    >
+    <div className={view.rootClassName}>
       <ComboboxInput
         divId={inputDivId}
         getInputProps={getInputProps}

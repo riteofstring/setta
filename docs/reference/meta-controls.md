@@ -97,16 +97,10 @@ their values and action events propagate, and how they appear in generated code 
   dependency updates are not applied for MetaControl sections.
 
 ## Related code
-- `internal/projectstate/top_level_section_creation.go`
-- `internal/projectstate/change_param_impl.go`
-- `internal/projectstate/update_param_impl_config.go`
-- `internal/projectstate/python_codegen_export.go`
-- `internal/codegen/python_dependency_graph.go`
-- `internal/codegen/python_value_codec.go`
-- `internal/realtime/listener_dependency_values.go`
-- `internal/projectstate/section_filter_meta_control_title.go`
-- `internal/httpapi/project_routes.go`
-- `backend/setta/api/listener.py`
+- `backend/setta/types/section_impls.py`
+- `backend/setta/types/helpers_lvl2.py`
+- `backend/setta/code_gen/dependency_graph.py`
+- `backend/setta/code_gen/value_codec.py`
 - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
 - `frontend/src/components/Panes/UiEditor/SectionConfig/MetaControlSettings.tsx`
 - `frontend/src/state/actions/sections/createSectionsHelper.ts`

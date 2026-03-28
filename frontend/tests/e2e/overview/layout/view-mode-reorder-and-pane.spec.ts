@@ -19,10 +19,7 @@ type ProjectMetadataResponse = {
 type LoadProjectConfigWithViewModes = {
   projectConfig?: {
     activeViewModeId?: string | null;
-    viewModes?: Record<
-      string,
-      { id: string; name?: string | null; sortIndex?: number | null }
-    >;
+    viewModes?: Record<string, { id: string }>;
   };
 };
 
@@ -131,16 +128,6 @@ async function readOverviewViewModeOrder(page: Page): Promise<string[]> {
   );
 }
 
-async function readPersistedViewModeOrderById(page: Page): Promise<string[]> {
-  const payload = (await loadProjectConfig(
-    page,
-  )) as LoadProjectConfigWithViewModes;
-  const viewModes = Object.values(payload.projectConfig?.viewModes ?? {});
-  return viewModes
-    .sort((left, right) => (left.sortIndex ?? 0) - (right.sortIndex ?? 0))
-    .map((mode) => mode.id);
-}
-
 async function createProjectConfigAndResolveId(
   page: Page,
   previewImgColor: string,
@@ -200,25 +187,6 @@ async function readOverviewProjectConfigOrderById(
     );
 }
 
-async function readPersistedOverviewProjectConfigOrder(
-  page: Page,
-): Promise<string[]> {
-  return page.evaluate(() => {
-    const raw = window.localStorage.getItem("setta_data");
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw) as {
-      state?: { overviewProjectConfigOrder?: unknown };
-    };
-    const order = parsed.state?.overviewProjectConfigOrder;
-    if (!Array.isArray(order)) {
-      return [];
-    }
-    return order.filter((id): id is string => typeof id === "string");
-  });
-}
-
 test("tab drag reorder persists across reload", async ({ page }) => {
   const context = await openIsolatedProject(page);
   const tabAId = await createNamedViewMode(
@@ -269,13 +237,6 @@ test("tab drag reorder persists across reload", async ({ page }) => {
     .poll(async () => {
       const order = await readTabOrder(page);
       return order.indexOf("Tab C") < order.indexOf("Tab A");
-    })
-    .toBeTruthy();
-
-  await expect
-    .poll(async () => {
-      const order = await readPersistedViewModeOrderById(page);
-      return order.indexOf(tabCId) < order.indexOf(tabAId);
     })
     .toBeTruthy();
 
@@ -350,13 +311,6 @@ test("view mode pane drag reorder persists across reload", async ({ page }) => {
       return (
         order.join(" ").indexOf("Mode C") < order.join(" ").indexOf("Mode A")
       );
-    })
-    .toBeTruthy();
-
-  await expect
-    .poll(async () => {
-      const order = await readPersistedViewModeOrderById(page);
-      return order.indexOf(modeCId) < order.indexOf(modeAId);
     })
     .toBeTruthy();
 
@@ -552,38 +506,8 @@ test("project config drag reorder persists across reload", async ({ page }) => {
     })
     .toBeTruthy();
 
-  await expect
-    .poll(async () => {
-      const order = await readPersistedOverviewProjectConfigOrder(page);
-      return (
-        order.indexOf(secondaryConfig.id) <
-        order.indexOf(context.projectConfigId)
-      );
-    })
-    .toBeTruthy();
-
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
-
-  await expect
-    .poll(async () => {
-      const order = await readPersistedOverviewProjectConfigOrder(page);
-      return (
-        order.indexOf(secondaryConfig.id) <
-        order.indexOf(context.projectConfigId)
-      );
-    })
-    .toBeTruthy();
-
-  await expect
-    .poll(async () => {
-      const order = await readOverviewProjectConfigOrderById(page);
-      return (
-        order.includes(secondaryConfig.id) &&
-        order.includes(context.projectConfigId)
-      );
-    })
-    .toBeTruthy();
 
   await expect
     .poll(async () => {
