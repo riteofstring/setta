@@ -1,28 +1,22 @@
-import { ModalContainer } from "components/Modals/ModalContainer";
 import { memo } from "react";
-import { GlobalWrapper } from "../GlobalWrapper";
 import type { ModeRouteElements } from "../modeRouteResolver";
-import { ShareStandaloneProjectSurfacePage } from "./ShareStandaloneProjectSurfacePage";
-import { StandaloneProjectSurfacePage } from "./StandaloneProjectSurfacePage";
+import {
+  IdeStandaloneProjectSurfaceRouteBoundary,
+  ShareStandaloneProjectSurfaceRouteBoundary,
+  type StandaloneProjectSurfaceRouteElementBoundaryProps,
+} from "./StandaloneProjectSurfaceRouteElementBoundary";
 
 export type StandaloneProjectSurfaceRouteElementsArgs = Pick<
   ModeRouteElements,
   "app" | "launcher"
-> & {
-  renderDictArea: Parameters<
-    typeof StandaloneProjectSurfacePage
-  >[0]["renderDictArea"];
-};
+> &
+  StandaloneProjectSurfaceRouteElementBoundaryProps;
 
 function _IdeStandaloneProjectSurfaceRouteElement({
   renderDictArea,
-}: Pick<StandaloneProjectSurfaceRouteElementsArgs, "renderDictArea">) {
+}: StandaloneProjectSurfaceRouteElementBoundaryProps) {
   return (
-    <GlobalWrapper>
-      <ModalContainer>
-        <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-      </ModalContainer>
-    </GlobalWrapper>
+    <IdeStandaloneProjectSurfaceRouteBoundary renderDictArea={renderDictArea} />
   );
 }
 
@@ -42,7 +36,9 @@ export function buildStandaloneProjectSurfaceRouteElements({
       />
     ),
     share: (
-      <ShareStandaloneProjectSurfacePage renderDictArea={renderDictArea} />
+      <ShareStandaloneProjectSurfaceRouteBoundary
+        renderDictArea={renderDictArea}
+      />
     ),
     app,
     launcher,

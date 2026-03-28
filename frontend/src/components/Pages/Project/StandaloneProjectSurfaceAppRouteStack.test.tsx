@@ -12,39 +12,24 @@ import { APP_ROUTE_IDS } from "../routeConfig";
 import { buildStandaloneProjectSurfaceAppRouteStack } from "./StandaloneProjectSurfaceAppRouteStack";
 import type { StandaloneProjectSurfaceRouteElementsArgs } from "./StandaloneProjectSurfaceRouteElements";
 
-vi.mock("components/Modals/ModalContainer", () => ({
-  ModalContainer: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-modal-container">{children}</div>
-  ),
-}));
-
-vi.mock("../GlobalWrapper", () => ({
-  GlobalWrapper: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-global-wrapper">{children}</div>
-  ),
-}));
-
-vi.mock("./StandaloneProjectSurfacePage", () => ({
-  StandaloneProjectSurfacePage: ({
+vi.mock("./StandaloneProjectSurfaceRouteElementBoundary", () => ({
+  IdeStandaloneProjectSurfaceRouteBoundary: ({
     renderDictArea,
   }: {
     renderDictArea: unknown;
   }) => (
     <div
-      data-testid="mock-standalone-project-surface-page"
+      data-testid="mock-ide-standalone-project-surface-route-boundary"
       data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
     />
   ),
-}));
-
-vi.mock("./ShareStandaloneProjectSurfacePage", () => ({
-  ShareStandaloneProjectSurfacePage: ({
+  ShareStandaloneProjectSurfaceRouteBoundary: ({
     renderDictArea,
   }: {
     renderDictArea: unknown;
   }) => (
     <div
-      data-testid="mock-share-standalone-project-surface-page"
+      data-testid="mock-share-standalone-project-surface-route-boundary"
       data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
     />
   ),

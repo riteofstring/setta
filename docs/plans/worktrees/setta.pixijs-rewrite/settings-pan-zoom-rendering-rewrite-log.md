@@ -5343,3 +5343,35 @@ Record:
     - representative successful requests included `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, and `GET /api/authRefreshStatus`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`ReactFlow`-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`.
+
+## 2026-03-28 182
+
+- Item: Complete the standalone/share route-shell lift with the live standalone-section visual gate deferred.
+- Status: `done`
+- Details:
+  - Added a typed standalone/share route-entry boundary above the thin standalone page entrypoints:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElementBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElementBoundary.test.tsx`
+  - Updated the route-element layer to consume the lifted boundary and keep the standalone app-route stack tests pinned to the higher seam:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - letting `StandaloneProjectSurfaceRouteElementBoundary.tsx` own the IDE route shell above `StandaloneProjectSurfacePageLoadBoundary.tsx` and the share route handoff above `ShareStandaloneProjectSurfacePageBoundary.tsx`
+    - keeping `StandaloneProjectSurfaceRouteElements.tsx` focused on route-element composition instead of mixed shell plus entry-boundary ownership
+    - preserving the caller-owned `renderDictArea(...)` seam through the lifted route-entry shell
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteElementBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneProjectSurfaceRouteElementBoundary.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElementBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - bootstrap/auth worked and `/settings/chat` rendered normally
+    - the live standalone section-route canary remains untrustworthy on this runtime:
+      - `/settings/section/languageserver` did not resolve to a valid standalone section surface
+      - `/settings` itself currently throws an unhandled error in the live verifier session, so the verifier could not derive a trustworthy replacement section slug from the UI
+    - because the targeted seam only affects the standalone section/shell path and the live app currently does not provide a trustworthy standalone-section CDP canary, this slice is being treated as code-complete with the live section-surface visual gate deferred rather than falsely marked visually verified
+- Next action:
+  - Return to the current retained-scene seam-lift sequence above `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` while keeping the missing live standalone-section CDP canary explicit for a later iteration.
