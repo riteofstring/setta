@@ -50,7 +50,7 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import { buildLiveDictAreaRenderBoundary } from "./groupContainerLiveDictAreaRenderBoundary";
+import { buildLiveDictAreaSurface } from "./groupContainerLiveDictAreaSurface";
 import {
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
@@ -287,9 +287,9 @@ function _ParamGroupContainer({
       }),
     _.isEqual,
   );
-  const liveDictAreaRenderBoundary = useMemo(
+  const liveDictAreaSurface = useMemo(
     () =>
-      buildLiveDictAreaRenderBoundary({
+      buildLiveDictAreaSurface({
         bgColor,
         canConnect: canEditStructure && !isSelectingParams,
         edgeInputParams,
@@ -346,8 +346,8 @@ function _ParamGroupContainer({
   );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaRenderBoundary.maxNestedDepth);
-  }, [liveDictAreaRenderBoundary.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaSurface.maxNestedDepth);
+  }, [liveDictAreaSurface.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -360,36 +360,16 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaRenderBoundary.blocks.map((block) => {
+        {liveDictAreaSurface.blocks.map((block) => {
           if (block.kind === "edge-strip") {
-            return (
-              <EdgesStrip
-                key={block.key}
-                sectionId={block.sectionId}
-                domPacket={block.domPacket}
-              />
-            );
+            return <EdgesStrip key={block.key} {...block.props} />;
           }
 
           if (block.kind === "pinned-param-area") {
-            return (
-              <GetPinnedParams
-                key={block.key}
-                sectionId={block.sectionId}
-                domPacket={block.domPacket}
-                handleColumnResizeStart={block.handleColumnResizeStart}
-              />
-            );
+            return <GetPinnedParams key={block.key} {...block.props} />;
           }
 
-          return (
-            <GetUnpinnedParams
-              key={block.key}
-              sectionId={block.sectionId}
-              domPacket={block.domPacket}
-              handleColumnResizeStart={block.handleColumnResizeStart}
-            />
-          );
+          return <GetUnpinnedParams key={block.key} {...block.props} />;
         })}
       </div>
     </ParamDndContext>
