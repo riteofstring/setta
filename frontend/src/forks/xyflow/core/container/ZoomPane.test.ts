@@ -3,7 +3,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useMisc, useSettings } from "state/definitions";
+import { useMisc, useNodeInternals, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { createSettingsState } from "utils/generatedTypes";
@@ -193,6 +193,84 @@ describe("getViewportInteractionActiveValue", () => {
       });
 
       expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("completes a pending initial fit after the zoom pane initializes d3 state", async () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "settings-core-node",
+          {
+            id: "settings-core-node",
+            position: { x: 240, y: 180 },
+            width: 220,
+            height: 140,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useReactFlow.setState({
+      ...initialState,
+      width: 800,
+      height: 600,
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: { nodes: [{ id: "settings-core-node" }] },
+    });
+
+    const { host, root } = await renderZoomPane();
+
+    try {
+      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+      expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("retries a pending initial fit when project load marks fitViewOnInit after d3 is ready", async () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "settings-core-node",
+          {
+            id: "settings-core-node",
+            position: { x: 240, y: 180 },
+            width: 220,
+            height: 140,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    const { host, root } = await renderZoomPane();
+
+    try {
+      expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+
+      await act(async () => {
+        useReactFlow.setState({
+          fitViewOnInit: true,
+          fitViewOnInitDone: false,
+          fitViewOnInitOptions: { nodes: [{ id: "settings-core-node" }] },
+        });
+      });
+
+      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+      expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
     } finally {
       await act(async () => {
         root.unmount();
