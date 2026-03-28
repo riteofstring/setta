@@ -14,6 +14,7 @@ Runs `codex exec` in a loop.
 - `--new-session-every M` starts a fresh Codex session every M iterations.
 - The first iteration in each session batch uses `--prompt-file`.
 - Remaining iterations in the same batch use `--followup-prompt-file`.
+- `--pre-iteration-command` runs before every iteration.
 - The loop continues on error by default. Use `--stop-on-error` to fail fast.
 
 Options:
@@ -26,6 +27,12 @@ Options:
   --stop-on-pre-session-exit-code N
                              Stop the loop cleanly if the pre-session command
                              exits with code N.
+  --pre-iteration-command CMD
+                             Shell command to run before every iteration.
+                             Runs in --workdir.
+  --stop-on-pre-iteration-exit-code N
+                             Stop the loop cleanly if the pre-iteration
+                             command exits with code N.
   --iterations N             Total number of loop iterations. Default: 100
   --new-session-every N      Start a new Codex session every N iterations.
                              Default: 1
@@ -55,6 +62,7 @@ require_value() {
 prompt_file=""
 followup_prompt_file=""
 pre_session_command=""
+pre_iteration_command=""
 iterations="100"
 new_session_every="1"
 output_dir=""
@@ -63,6 +71,7 @@ model=""
 yolo_mode="0"
 stop_on_error="0"
 stop_on_pre_session_exit_code=""
+stop_on_pre_iteration_exit_code=""
 codex_extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -87,9 +96,19 @@ while [[ $# -gt 0 ]]; do
       iterations="$2"
       shift 2
       ;;
+    --pre-iteration-command)
+      require_value "$1" "${2:-}"
+      pre_iteration_command="$2"
+      shift 2
+      ;;
     --stop-on-pre-session-exit-code)
       require_value "$1" "${2:-}"
       stop_on_pre_session_exit_code="$2"
+      shift 2
+      ;;
+    --stop-on-pre-iteration-exit-code)
+      require_value "$1" "${2:-}"
+      stop_on_pre_iteration_exit_code="$2"
       shift 2
       ;;
     --new-session-every)
@@ -172,14 +191,26 @@ if [[ ! "${iterations}" =~ ^[0-9]+$ ]] || [[ "${iterations}" -lt 1 ]]; then
   exit 1
 fi
 
-if [[ -n "${stop_on_pre_session_exit_code}" ]] && (
-  [[ ! "${stop_on_pre_session_exit_code}" =~ ^[0-9]+$ ]] \
-  || [[ "${stop_on_pre_session_exit_code}" -lt 0 ]] \
-  || [[ "${stop_on_pre_session_exit_code}" -gt 255 ]]
-); then
-  echo "--stop-on-pre-session-exit-code must be an integer between 0 and 255" >&2
-  exit 1
-fi
+validate_stop_exit_code() {
+  local flag_name="$1"
+  local value="$2"
+
+  if [[ -z "${value}" ]]; then
+    return
+  fi
+
+  if (
+    [[ ! "${value}" =~ ^[0-9]+$ ]] \
+    || [[ "${value}" -lt 0 ]] \
+    || [[ "${value}" -gt 255 ]]
+  ); then
+    echo "${flag_name} must be an integer between 0 and 255" >&2
+    exit 1
+  fi
+}
+
+validate_stop_exit_code "--stop-on-pre-session-exit-code" "${stop_on_pre_session_exit_code}"
+validate_stop_exit_code "--stop-on-pre-iteration-exit-code" "${stop_on_pre_iteration_exit_code}"
 
 if [[ ! "${new_session_every}" =~ ^[0-9]+$ ]] || [[ "${new_session_every}" -lt 1 ]]; then
   echo "--new-session-every must be a positive integer" >&2
@@ -234,7 +265,7 @@ extract_thread_id() {
   printf '%s\n' "${thread_id}"
 }
 
-run_pre_session_command() {
+run_hook_command() {
   local workdir="$1"
   local command="$2"
   local log_path="$3"
@@ -265,11 +296,33 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   mkdir -p "${run_dir}"
+  if [[ -n "${pre_iteration_command}" ]]; then
+    pre_iteration_log="${run_dir}/pre-iteration.log"
+    echo "[$iteration/$iterations] Running pre-iteration command"
+    set +e
+    run_hook_command "${workdir}" "${pre_iteration_command}" "${pre_iteration_log}"
+    pre_iteration_exit_code="$?"
+    set -e
+    if [[ "${pre_iteration_exit_code}" -ne 0 ]]; then
+      if [[ -n "${stop_on_pre_iteration_exit_code}" ]] && [[ "${pre_iteration_exit_code}" == "${stop_on_pre_iteration_exit_code}" ]]; then
+        echo "stopped:pre-iteration-exit:${pre_iteration_exit_code}" > "${status_file}"
+        echo "[$iteration/$iterations] Stopping loop after pre-iteration command exit code ${pre_iteration_exit_code}"
+        break
+      fi
+      echo "pre-iteration-failure:${pre_iteration_exit_code}" > "${status_file}"
+      echo "[$iteration/$iterations] Pre-iteration command failed with exit code ${pre_iteration_exit_code}" >&2
+      if [[ "${stop_on_error}" == "1" ]]; then
+        exit "${pre_iteration_exit_code}"
+      fi
+      continue
+    fi
+  fi
+
   if [[ "${mode}" == "start" ]] && [[ -n "${pre_session_command}" ]]; then
     pre_session_log="${run_dir}/pre-session.log"
     echo "[$iteration/$iterations] Running pre-session command"
     set +e
-    run_pre_session_command "${workdir}" "${pre_session_command}" "${pre_session_log}"
+    run_hook_command "${workdir}" "${pre_session_command}" "${pre_session_log}"
     pre_session_exit_code="$?"
     set -e
     if [[ "${pre_session_exit_code}" -ne 0 ]]; then
