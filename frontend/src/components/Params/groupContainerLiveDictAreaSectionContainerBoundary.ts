@@ -1,22 +1,19 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
-import type { LiveDictAreaSectionProps } from "./groupContainerLiveDictAreaSection";
+import {
+  buildLiveDictAreaMountBoundary,
+  type LiveDictAreaMountBoundary,
+} from "./groupContainerLiveDictAreaMountBoundary";
+import { useLiveDictAreaSectionStoreBoundary } from "./groupContainerLiveDictAreaSectionStoreBoundary";
 
 export type LiveDictAreaSectionContainerBoundaryInput = Pick<
-  LiveDictAreaSectionProps,
+  Parameters<typeof useLiveDictAreaSectionStoreBoundary>[0],
   "bgColor" | "sectionId" | "sectionTypeName"
 > & {
   outerRef: Parameters<typeof useParamColumnWidth>[0]["outerRef"];
 };
 
-export type LiveDictAreaSectionContainerBoundary = Pick<
-  LiveDictAreaSectionProps,
-  | "bgColor"
-  | "handleColumnResizeStart"
-  | "onMaxNestedDepthChange"
-  | "sectionId"
-  | "sectionTypeName"
->;
+export type LiveDictAreaSectionContainerBoundary = LiveDictAreaMountBoundary;
 
 export function useLiveDictAreaSectionContainerBoundary({
   bgColor,
@@ -29,7 +26,7 @@ export function useLiveDictAreaSectionContainerBoundary({
     unpinned: 1,
   });
   const handleMaxNestedDepthChange = useCallback<
-    NonNullable<LiveDictAreaSectionProps["onMaxNestedDepthChange"]>
+    (nextMaxNestedDepth: LiveDictAreaMountBoundary["maxNestedDepth"]) => void
   >((nextMaxNestedDepth) => {
     onMaxNestedDepthChange((currentMaxNestedDepth) => {
       if (
@@ -47,12 +44,20 @@ export function useLiveDictAreaSectionContainerBoundary({
     outerRef,
     maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
   });
-
-  return {
+  const liveDictAreaInput = useLiveDictAreaSectionStoreBoundary({
     bgColor,
     handleColumnResizeStart,
-    onMaxNestedDepthChange: handleMaxNestedDepthChange,
     sectionId,
     sectionTypeName,
-  };
+  });
+  const liveDictAreaMountBoundary = useMemo(
+    () => buildLiveDictAreaMountBoundary({ input: liveDictAreaInput }),
+    [liveDictAreaInput],
+  );
+
+  useEffect(() => {
+    handleMaxNestedDepthChange(liveDictAreaMountBoundary.maxNestedDepth);
+  }, [handleMaxNestedDepthChange, liveDictAreaMountBoundary.maxNestedDepth]);
+
+  return liveDictAreaMountBoundary;
 }

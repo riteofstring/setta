@@ -214,7 +214,7 @@ describe("LiveDictAreaSectionContainer", () => {
     resetProjectStores();
   });
 
-  it("lifts the column-width and max-nested-depth wiring above LiveDictAreaSection", async () => {
+  it("lifts the mount seam into the section-container layer above the section wrapper", async () => {
     const { ParamDndContext } = await import("forks/dnd-kit/ParamDndContext");
     const { LiveDictAreaSectionContainer } = await import(
       "./groupContainerLiveDictAreaSectionContainer"

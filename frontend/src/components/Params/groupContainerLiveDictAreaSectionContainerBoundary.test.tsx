@@ -6,10 +6,14 @@ import { useProjectState, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
+  CodeObjTypeEnum,
   ConfigLanguageEnum,
+  ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
   SectionTypeEnum,
   createProjectConfig,
   createSettingsState,
+  type BaseCodeObjImplUnion,
   type Core,
   type Variant,
 } from "utils/generatedTypes";
@@ -29,8 +33,16 @@ function syncStoreInitialState(store: {
 
 function seedLiveDictAreaSectionContainerBoundaryState({
   sectionId,
+  edgeInputParamIds = [],
+  edgeOutputPorts = [],
+  pinnedParamIds = [],
+  unpinnedParamIds = [],
 }: {
   sectionId: string;
+  edgeInputParamIds?: string[];
+  edgeOutputPorts?: Array<{ accessor: string; id: string }>;
+  pinnedParamIds?: string[];
+  unpinnedParamIds?: string[];
 }) {
   const variantId = `${sectionId}-variant`;
   const implId = `${sectionId}-impl`;
@@ -75,7 +87,11 @@ function seedLiveDictAreaSectionContainerBoundaryState({
     isMinimized: false,
     positionAndSizeLocked: false,
     isPreset: false,
-    codeObjVariantMap: {},
+    codeObjVariantMap: Object.fromEntries(
+      [...pinnedParamIds, ...unpinnedParamIds, ...edgeInputParamIds].map(
+        (paramId) => [paramId, `${paramId}-variant`],
+      ),
+    ),
     hideUnpinnedParams: false,
     paramFilter: "",
     columnWidth: null,
@@ -91,25 +107,70 @@ function seedLiveDictAreaSectionContainerBoundaryState({
     jsonSourceMissing: false,
   };
 
+  const codeObjs: Record<string, Core> = {};
+  const codeObjVariants: Record<string, Variant> = {};
+  const codeObjImpls: Record<string, BaseCodeObjImplUnion> = {};
+
+  for (const paramId of [
+    ...new Set([...pinnedParamIds, ...unpinnedParamIds, ...edgeInputParamIds]),
+  ]) {
+    const paramVariantId = `${paramId}-variant`;
+    const paramImplId = `${paramId}-impl`;
+
+    codeObjs[paramId] = {
+      id: paramId,
+      name: paramId,
+      displayName: "",
+      variants: [paramVariantId],
+      defaultVariant: paramVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+    codeObjVariants[paramVariantId] = {
+      id: paramVariantId,
+      name: `${paramId}-variant-name`,
+      impl: paramImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+    codeObjImpls[paramImplId] = {
+      type: CodeObjTypeEnum.CodeParam,
+      id: paramImplId,
+      name: paramId,
+      description: "",
+      isPreset: false,
+      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameEditable: true,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      defaultVal: "",
+      value: "",
+    };
+  }
+
   useProjectState.setState((state) => {
     state.projectConfig = projectConfig;
     state.sections = { [sectionId]: sectionCore };
     state.sectionVariants = { [variantId]: sectionVariant };
     state.sectionImpls = { [implId]: dictImpl };
-    state.codeObjs = {};
-    state.codeObjVariants = {};
-    state.codeObjImpls = {};
+    state.codeObjs = codeObjs;
+    state.codeObjVariants = codeObjVariants;
+    state.codeObjImpls = codeObjImpls;
     state.parentSectionMap = { [sectionId]: null };
     state.previewSectionVariantMap = {};
     state.shownParamIds = {
       [variantId]: {
         pinned: {
-          requiredParamIdsToPaths: {},
-          topLevelParamIds: [],
+          requiredParamIdsToPaths: Object.fromEntries(
+            pinnedParamIds.map((paramId) => [paramId, [paramId]]),
+          ),
+          topLevelParamIds: pinnedParamIds,
         },
         unpinned: {
-          requiredParamIdsToPaths: {},
-          topLevelParamIds: [],
+          requiredParamIdsToPaths: Object.fromEntries(
+            unpinnedParamIds.map((paramId) => [paramId, [paramId]]),
+          ),
+          topLevelParamIds: unpinnedParamIds,
         },
       },
     };
@@ -128,7 +189,7 @@ function BoundaryHarness({
   sectionId: string;
   sectionTypeName: SectionTypeEnum;
 }) {
-  const liveDictAreaSectionProps = useLiveDictAreaSectionContainerBoundary({
+  const liveDictAreaMountBoundary = useLiveDictAreaSectionContainerBoundary({
     bgColor,
     outerRef,
     sectionId,
@@ -137,12 +198,15 @@ function BoundaryHarness({
 
   return (
     <div
-      data-bg-color={liveDictAreaSectionProps.bgColor}
-      data-has-resize-handler={
-        typeof liveDictAreaSectionProps.handleColumnResizeStart === "function"
+      data-block-kinds={liveDictAreaMountBoundary.liveDictAreaMountProps.liveDictAreaSurface.blocks
+        .map((block) => block.kind)
+        .join(",")}
+      data-max-nested-depth={JSON.stringify(
+        liveDictAreaMountBoundary.maxNestedDepth,
+      )}
+      data-scene-renderer-packet-count={
+        liveDictAreaMountBoundary.liveDictAreaSceneBoundary.blocks.length
       }
-      data-section-id={liveDictAreaSectionProps.sectionId}
-      data-section-type={liveDictAreaSectionProps.sectionTypeName}
     />
   );
 }
@@ -184,11 +248,15 @@ describe("useLiveDictAreaSectionContainerBoundary", () => {
     resetProjectStores();
   });
 
-  it("lifts the section-container wiring into one boundary above LiveDictAreaSection", async () => {
+  it("lifts the mount seam into the section-container boundary above the section layer", async () => {
     const sectionId = "section-live-dict-area-section-container-boundary";
 
     seedLiveDictAreaSectionContainerBoundaryState({
       sectionId,
+      edgeInputParamIds: ["edge-param"],
+      edgeOutputPorts: [{ accessor: "Result", id: "out-1" }],
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
     });
 
     await act(async () => {
@@ -204,10 +272,13 @@ describe("useLiveDictAreaSectionContainerBoundary", () => {
 
     const boundary = outer.firstElementChild as HTMLDivElement | null;
 
-    expect(boundary?.dataset.bgColor).toBe("bg-transparent");
-    expect(boundary?.dataset.hasResizeHandler).toBe("true");
-    expect(boundary?.dataset.sectionId).toBe(sectionId);
-    expect(boundary?.dataset.sectionType).toBe(SectionTypeEnum.Dict);
+    expect(boundary?.dataset.blockKinds).toBe(
+      "pinned-param-area,unpinned-param-area",
+    );
+    expect(boundary?.dataset.maxNestedDepth).toBe(
+      JSON.stringify({ pinned: 1, unpinned: 1 }),
+    );
+    expect(boundary?.dataset.sceneRendererPacketCount).toBe("2");
     expect(outer.style.getPropertyValue("--param-column-width")).toBe("222px");
   });
 });

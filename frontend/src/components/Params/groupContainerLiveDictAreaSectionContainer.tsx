@@ -1,4 +1,4 @@
-import { LiveDictAreaSection } from "./groupContainerLiveDictAreaSection";
+import { LiveDictAreaMount } from "./groupContainerLiveDictAreaMount";
 import {
   useLiveDictAreaSectionContainerBoundary,
   type LiveDictAreaSectionContainerBoundaryInput,
@@ -13,12 +13,14 @@ export function LiveDictAreaSectionContainer({
   sectionId,
   sectionTypeName,
 }: LiveDictAreaSectionContainerProps) {
-  const liveDictAreaSectionProps = useLiveDictAreaSectionContainerBoundary({
+  const liveDictAreaMountBoundary = useLiveDictAreaSectionContainerBoundary({
     bgColor,
     outerRef,
     sectionId,
     sectionTypeName,
   });
 
-  return <LiveDictAreaSection {...liveDictAreaSectionProps} />;
+  return (
+    <LiveDictAreaMount {...liveDictAreaMountBoundary.liveDictAreaMountProps} />
+  );
 }

@@ -4106,3 +4106,31 @@ Record:
     - representative requests returned `200`, including `/api/authRefreshStatus`, `/api/loadSettings`, `/api/loadProjectConfig`, and `/api/setTopLevelSectionLayout`
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`, starting with the section-container layer before any broad Pixi node drawing lands.
+
+## 2026-03-27 145
+
+- Item: Lift the live dict-area mount seam into the section-container layer above `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`.
+- Status: `done`
+- Details:
+  - Moved the live dict-area mount-boundary ownership up into the section-container boundary so the section-container layer now owns both the column-width feedback loop and the retained-scene mount seam:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.test.tsx`
+  - Updated the section-container component to mount `LiveDictAreaMount` directly from that higher-level boundary instead of routing through a dedicated section wrapper:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx`
+  - Removed the now-redundant `LiveDictAreaSection` wrapper and its dedicated integration test after confirming the section-container seam now owns that responsibility cleanly:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.test.tsx src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+      - `/settings` loaded in the authenticated worktree session with `All Settings` visible and selected
+      - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+      - representative visible labels and controls included `settings`, `backend`, `shortcuts`, `languageServer`, `gui`, `sectionSizingPolicy`, `Filter`, `Tag`, and the bottom tab `All Settings`
+      - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getAgentRuns`, and `GET /api/plugins/runtime`
+      - caveat: the provided bootstrap token was rejected with `POST /__setta__/bootstrap/consume` `401`, so the check reused the already-authenticated settings tab instead
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx`, starting with the shell boundary layer before any broad Pixi node drawing lands.
