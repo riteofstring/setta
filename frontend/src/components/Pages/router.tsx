@@ -35,6 +35,7 @@ import {
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
+import { buildStandaloneProjectSurfaceAppRoutes } from "./Project/StandaloneProjectSurfaceAppRoutes";
 import { buildStandaloneProjectSurfaceRouteElements } from "./Project/StandaloneProjectSurfaceRouteElements";
 import { buildStandaloneProjectSurfaceRoutes } from "./Project/StandaloneProjectSurfaceRoutes";
 import { APP_ROUTE_IDS } from "./routeConfig";
@@ -416,14 +417,14 @@ const workspaceLaunchRoute = {
   element: <ModeWrapper {...workspaceLaunchRouteElements} />,
 };
 
-const appRoutes = [
+const appRoutes = buildStandaloneProjectSurfaceAppRoutes({
   indexRoute,
   homeRoute,
   workspaceLaunchRoute,
-  ...standaloneProjectSurfaceRoutes,
+  standaloneProjectSurfaceRoutes,
   viewModeRoute,
   projectRoute,
   catchAllRoute,
-];
+});
 
 export const router = createBrowserRouter(appRoutes);

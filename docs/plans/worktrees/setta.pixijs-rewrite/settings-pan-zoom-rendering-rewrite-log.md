@@ -3560,3 +3560,29 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining standalone/share route-stack insertion seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the standalone route-array ownership in the top-level `appRoutes` stack before any broad Pixi node drawing lands.
+
+## 2026-03-27 130
+
+- Item: Lift the standalone/share route-array insertion seam out of the top-level `appRoutes` stack in `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed standalone app-routes helper above the lifted route-definition boundary:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRoutes.ts`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRoutes.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of inserting `standaloneProjectSurfaceRoutes` directly into the top-level `appRoutes` array inline.
+  - The new helper now owns the non-Pixi standalone/share route-array insertion seam for:
+    - preserving the canonical top-level route order of `index`, `home`, `workspaceLaunch`, standalone chat/thread/window-space/section routes, `viewMode`, `project`, and `catchAll`
+    - keeping the lifted standalone route objects inserted between `workspaceLaunchRoute` and `viewModeRoute` without cloning the caller-owned route objects
+    - leaving `router.tsx` focused on route element assembly, route object construction, and router creation instead of the last inline standalone route-stack splice
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceAppRoutes.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`3` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - the provided bootstrap token was rejected in that browser session, so the verifier reused an existing authenticated worktree tab
+    - `http://127.0.0.1:3044/settings/chat` rendered cleanly with visible controls including `Search conversations`, `New Group`, `New Chat`, `View Threads`, `Project AI Settings`, `Search in conversation`, `Start a new thread`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Type a message...`, and `Send message`
+    - `http://127.0.0.1:3044/settings/section/languageserver` rendered cleanly with visible labels and controls including `languageServer`, `ARGS`, `Remove arg`, `Add arg`, `Filter`, and the visible `basedpyright` arg row
+    - representative requests returned `200`, including `GET /settings/chat`, `GET /settings/section/languageserver`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining standalone/share route-stack creation seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still assembles `standaloneProjectSurfaceRouteElements`, `standaloneProjectSurfaceRoutes`, and the new standalone app-routes helper input before any broad Pixi node drawing lands.
