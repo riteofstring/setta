@@ -29,7 +29,7 @@ What this does:
 - `activate.sh: no such file or directory: .venv/bin/activate`
   - The repo venv is missing. Create it with:
     - `./init_env.sh`
-    - `./dev_install.sh`
+    - `./dev_install_python.sh`
 
 ## Notes from this run
 

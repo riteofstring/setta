@@ -133,12 +133,7 @@ test("project ai create-project starter submits a codebase-first clarifying prom
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        chatId: "pw-project-ai-starter-codebase-chat",
-        runId: "pw-project-ai-starter-codebase-chat-run",
-        engineType: "setta_llm",
-        sectionId: null,
-      }),
+      body: JSON.stringify("pw-project-ai-starter-codebase-chat"),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -221,12 +216,7 @@ test("project ai create-project starter submits a no-codebase clarifying prompt 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        chatId: "pw-project-ai-starter-no-codebase-chat",
-        runId: "pw-project-ai-starter-no-codebase-chat-run",
-        engineType: "setta_llm",
-        sectionId: null,
-      }),
+      body: JSON.stringify("pw-project-ai-starter-no-codebase-chat"),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
