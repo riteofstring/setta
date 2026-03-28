@@ -143,8 +143,16 @@ vi.mock("../Layouts/ChartArea/ChartArea", () => ({
   ChartArea: () => <div data-testid="mock-chart-area" />,
 }));
 vi.mock("../Layouts/LiveDictAreaLayout", () => ({
-  LiveDictAreaLayout: ({ sectionId }: { sectionId: string }) => (
-    <div data-testid="mock-live-dict-area-layout">live-dict:{sectionId}</div>
+  LiveDictAreaLayout: ({
+    paramGroupContainerProps,
+  }: {
+    paramGroupContainerProps: {
+      sectionId: string;
+    };
+  }) => (
+    <div data-testid="mock-live-dict-area-layout">
+      live-dict:{paramGroupContainerProps.sectionId}
+    </div>
   ),
 }));
 vi.mock("../Layouts/SettingsAllSettingsBenchmarkDictArea", () => ({

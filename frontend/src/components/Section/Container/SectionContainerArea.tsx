@@ -1,5 +1,6 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import type { SetStateAction } from "react";
 import React from "react";
 import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowing";
@@ -27,6 +28,7 @@ import { PromptArea } from "../Layouts/PromptArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { SpreadsheetArea } from "../Layouts/SpreadsheetArea";
 import { StateMachineNodeArea } from "../Layouts/StateMachineNodeArea";
+import { SettingsAllSettingsBenchmarkDictArea } from "../Layouts/SettingsAllSettingsBenchmarkDictArea";
 import { TaskBoardArea } from "../Layouts/TaskBoardArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -34,7 +36,11 @@ import {
   buildSectionContainerAreaView,
   type SectionContainerAreaProps,
 } from "./sectionContainerAreaView";
-import { SectionContainerDictArea } from "./SectionContainerDictArea";
+import {
+  SectionContainerDictArea,
+  type SectionContainerDictAreaProps,
+} from "./SectionContainerDictArea";
+import { buildSectionContainerAreaDictView } from "./sectionContainerAreaDictView";
 
 function _SectionContainerArea(props: SectionContainerAreaProps) {
   const view = buildSectionContainerAreaView(props);
@@ -43,7 +49,7 @@ function _SectionContainerArea(props: SectionContainerAreaProps) {
     case "callable":
       return <CallableArea {...view.props} />;
     case "dict":
-      return <SectionContainerDictArea {...view.props} />;
+      return <SectionContainerAreaDictBranch {...view.props} />;
     case "image":
       return <ImageArea {...view.props} />;
     case "chart":
@@ -107,6 +113,25 @@ function _SectionContainerArea(props: SectionContainerAreaProps) {
 }
 
 export const SectionContainerArea = React.memo(_SectionContainerArea);
+
+function SectionContainerAreaDictBranch(props: SectionContainerDictAreaProps) {
+  const benchmark = useSettingsAllSettingsBenchmark();
+  const view = buildSectionContainerAreaDictView({
+    benchmarkActive: benchmark.active,
+    renderFullSectionBody: benchmark.renderFullSectionBody,
+    ...props,
+  });
+
+  if (view.kind === "benchmark") {
+    return (
+      <SettingsAllSettingsBenchmarkDictArea {...view.benchmarkDictAreaProps} />
+    );
+  }
+
+  return (
+    <SectionContainerDictArea {...view.liveSectionContainerDictAreaProps} />
+  );
+}
 
 function ChatSectionArea({
   sectionId,

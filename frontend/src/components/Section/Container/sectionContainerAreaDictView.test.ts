@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSectionContainerDictAreaView } from "./sectionContainerDictAreaView";
+import { buildSectionContainerAreaDictView } from "./sectionContainerAreaDictView";
 
-describe("buildSectionContainerDictAreaView", () => {
+describe("buildSectionContainerAreaDictView", () => {
   it("routes the dict area through the benchmark shell when the full body is disabled", () => {
     expect(
-      buildSectionContainerDictAreaView({
+      buildSectionContainerAreaDictView({
         benchmarkActive: true,
         renderFullSectionBody: false,
         bgColor: "bg-setta-50",
@@ -21,7 +21,7 @@ describe("buildSectionContainerDictAreaView", () => {
 
   it("routes the dict area through the live layout when benchmarking is inactive", () => {
     expect(
-      buildSectionContainerDictAreaView({
+      buildSectionContainerAreaDictView({
         benchmarkActive: false,
         renderFullSectionBody: true,
         bgColor: "bg-transparent",
@@ -29,7 +29,7 @@ describe("buildSectionContainerDictAreaView", () => {
       }),
     ).toEqual({
       kind: "live",
-      liveDictAreaBoundaryProps: {
+      liveSectionContainerDictAreaProps: {
         bgColor: "bg-transparent",
         sectionId: "section-2",
       },

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildSectionContainerAreaView } from "./sectionContainerAreaView";
 
 describe("buildSectionContainerAreaView", () => {
-  it("routes dict sections through the section-container dict-area boundary", () => {
+  it("routes dict sections through the higher-level section-container dict branch", () => {
     expect(
       buildSectionContainerAreaView({
         sectionId: "section-1",

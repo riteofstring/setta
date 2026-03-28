@@ -2896,3 +2896,35 @@ Record:
     - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/llm/config`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getEngineConfigs`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SectionContainerDictArea` boundary into the next higher-level dict-area dispatch caller in `frontend/src/components/Section/Container/SectionContainerArea.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 108
+
+- Item: Lift the `SectionContainerDictArea` benchmark-vs-live dict routing into `frontend/src/components/Section/Container/SectionContainerArea.tsx`.
+- Status: `done`
+- Details:
+  - Moved the benchmark-vs-live dict dispatch up into a new higher-level area helper boundary owned by `SectionContainerArea`:
+    - `frontend/src/components/Section/Container/SectionContainerArea.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerAreaDictView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerAreaDictView.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerArea.test.tsx`
+  - Shrunk `SectionContainerDictArea` back down to a thin live-only wrapper over `DictAreaLiveBoundary`, removing the lower benchmark/live routing seam from that module:
+    - `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`
+  - Updated the nearby routing/integration coverage to pin the new ownership boundary and the actual `LiveDictAreaLayout` prop seam:
+    - `frontend/src/components/Section/Container/sectionContainerAreaView.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping dict sections on the live `SectionContainerDictArea` path whenever the benchmark is inactive or the full body is enabled
+    - switching dict sections to `SettingsAllSettingsBenchmarkDictArea` only when the benchmark disables the full section body
+    - leaving `SectionContainerDictArea` focused on the live dict-area renderer handoff instead of mixed benchmark/live dispatch
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerArea.test.tsx src/components/Section/Container/sectionContainerAreaDictView.test.ts src/components/Section/Container/sectionContainerAreaView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated and stayed usable without a login wall or blank shell
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the higher-level dict boundary lift
+    - representative visible labels and controls included `Project`, `Edit`, `Run`, project name `pixijs-rewrite`, bottom tabs `Core`, `Section Defaults Struct...`, `Section Defaults Conte...`, `Param Defaults`, and `All Settings`, plus settings cards `backend`, `gui`, `languageServer`, `shortcuts`, and `sectionSizingPolicy`
+    - representative sampled requests returned `200`, including `GET /settings` and the Vite/frontend asset requests used to load the page
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new area-level dict boundary above `SectionContainerArea.tsx` into the next higher-level section body caller on the canvas path before any broad Pixi node drawing lands.

@@ -1,27 +1,27 @@
 import type { DictAreaLiveBoundaryProps } from "../Layouts/DictAreaLiveBoundary";
 import { resolveDictAreaRenderMode } from "../Layouts/dictAreaView";
 
-type BuildSectionContainerDictAreaViewArgs = DictAreaLiveBoundaryProps & {
+type BuildSectionContainerAreaDictViewArgs = DictAreaLiveBoundaryProps & {
   benchmarkActive: boolean;
   renderFullSectionBody: boolean;
 };
 
-export type SectionContainerDictAreaView =
+export type SectionContainerAreaDictView =
   | {
       kind: "benchmark";
       benchmarkDictAreaProps: DictAreaLiveBoundaryProps;
     }
   | {
       kind: "live";
-      liveDictAreaBoundaryProps: DictAreaLiveBoundaryProps;
+      liveSectionContainerDictAreaProps: DictAreaLiveBoundaryProps;
     };
 
-export function buildSectionContainerDictAreaView({
+export function buildSectionContainerAreaDictView({
   benchmarkActive,
   renderFullSectionBody,
   bgColor,
   sectionId,
-}: BuildSectionContainerDictAreaViewArgs): SectionContainerDictAreaView {
+}: BuildSectionContainerAreaDictViewArgs): SectionContainerAreaDictView {
   const props = { bgColor, sectionId };
 
   if (
@@ -38,6 +38,6 @@ export function buildSectionContainerDictAreaView({
 
   return {
     kind: "live",
-    liveDictAreaBoundaryProps: props,
+    liveSectionContainerDictAreaProps: props,
   };
 }
