@@ -77,6 +77,7 @@
 - Go backend tests live alongside `cmd/*` and `internal/*`; run them with `./scripts/run_go_tests.sh` or `./scripts/go.sh test ./... -count=1`.
 - Python/package tests live under `tests/` and run with `./scripts/run_backend_tests.sh` (pytest).
 - Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
+- Do not add generator drift tests that only rerun generators/formatters and compare checked-in generated artifacts against current output. These are workflow-policing tests, not behavior tests: they fail on stale files but do not validate runtime behavior, generator semantics, or user-visible correctness. Prefer testing the generator/build logic directly, and let generation/formatting commands (`pnpm generate`, `pnpm gcf`, `./gcf.sh`, Ruff, Prettier) own artifact refresh.
 - Backend and frontend tests must not rely on existing files in `setta_files`. If a test needs to mimic `setta_files`, create it under a temporary directory (for example `/tmp`) and point the test there (see existing tests for patterns).
 - Tests must never mutate real git history in this repo (or any non-disposable developer repo/worktree).
 - Any test that runs git write/history commands (for example `git commit`, `git checkout`, `git reset`, `git rebase`, `git merge`, `git tag`, `git branch`) must run in a disposable temporary repo and fail fast if the target workspace already contains a real `.git` directory.
