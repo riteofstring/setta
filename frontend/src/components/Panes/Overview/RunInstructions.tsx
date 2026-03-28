@@ -15,7 +15,7 @@ import {
 import { applyProjectCodegenTargetsResponse } from "state/actions/project/codegenTargets";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImpl,
   getSectionCore,
   getSectionImplChildren,
@@ -1593,7 +1593,14 @@ function useCodeObjOptions(): CodeObjOption[] {
         if (!codeObjCore) {
           continue;
         }
-        const impl = getCurrEffectiveCodeObjImpl(x, sectionId, codeObjId);
+        const impl = getCurrEffectiveCodeObjImplIfPresent(
+          x,
+          sectionId,
+          codeObjId,
+        );
+        if (!impl) {
+          continue;
+        }
         if (impl.type === CodeObjTypeEnum.CodeCallable) {
           continue;
         }

@@ -16,7 +16,7 @@ import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
   getCodeObjCore,
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -222,7 +222,10 @@ function SectionSearchCore({
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, callable);
+      const impl = getCurrEffectiveCodeObjImplIfPresent(x, sectionId, callable);
+      if (!impl) {
+        return { name: "", description: "", configLanguage };
+      }
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };
     }

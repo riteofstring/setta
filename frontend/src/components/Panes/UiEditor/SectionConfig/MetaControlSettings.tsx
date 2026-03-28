@@ -3,7 +3,7 @@ import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxSt
 import _ from "lodash";
 import type { ReactNode } from "react";
 import {
-  getCurrCodeObjVariant,
+  getCurrCodeObjVariantIfPresent,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   getParamDisplayName,
@@ -38,7 +38,18 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
         };
       }
 
-      const variant = getCurrCodeObjVariant(x, sectionId, controlParamId);
+      const variant = getCurrCodeObjVariantIfPresent(
+        x,
+        sectionId,
+        controlParamId,
+      );
+      if (!variant) {
+        return {
+          controlParamId,
+          baseImplId: null,
+          paramName: "",
+        };
+      }
       const paramName = getParamDisplayName(x, sectionId, controlParamId);
       return {
         controlParamId,

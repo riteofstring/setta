@@ -517,12 +517,31 @@ export function getCurrEffectiveSectionImplWithTypeGuard<T>(
   typeGuard: (impl) => impl is T,
   preview = false,
 ): T {
-  const effective = getCurrEffectiveSectionImpl(p, sectionId, preview);
+  const effective = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+    p,
+    sectionId,
+    typeGuard,
+    preview,
+  );
+  if (!effective) {
+    throw new Error(`Missing section implementation for section ${sectionId}`);
+  }
+  return effective;
+}
+
+export function getCurrEffectiveSectionImplWithTypeGuardIfPresent<T>(
+  p: ZustandProjectState,
+  sectionId: string,
+  typeGuard: (impl) => impl is T,
+  preview = false,
+): T | null {
+  const effective = getCurrEffectiveSectionImplIfPresent(p, sectionId, preview);
+  if (!effective) {
+    return null;
+  }
 
   if (!typeGuard(effective)) {
-    throw new Error(
-      `Section implementation failed type guard for section ${sectionId}`,
-    );
+    return null;
   }
 
   return effective;
@@ -606,29 +625,47 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
   preview = false,
 ) {
+  const variant = getCurrCodeObjVariantIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!variant) {
+    throw new Error();
+  }
+  return variant;
+}
+
+export function getCurrCodeObjVariantIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+) {
   const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId, preview);
   if (isBaseSectionWithParamsImpl(sectionImpl)) {
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      throw new Error();
+      return null;
     }
-    return getCodeObjVariant(p, variantId);
+    return p.codeObjVariants[variantId] ?? null;
   }
   if (sectionImpl.type === SectionTypeEnum.MetaControl) {
     const controlParamId = sectionImpl.metaControlParamId;
     if (!controlParamId) {
-      throw new Error();
+      return null;
     }
     if (controlParamId !== codeObjId) {
-      throw new Error();
+      return null;
     }
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      throw new Error();
+      return null;
     }
-    return getCodeObjVariant(p, variantId);
+    return p.codeObjVariants[variantId] ?? null;
   }
-  throw new Error();
+  return null;
 }
 
 export function getCurrEffectiveCodeObjImpl(
@@ -637,7 +674,33 @@ export function getCurrEffectiveCodeObjImpl(
   codeObjId: string,
   preview = false,
 ) {
-  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId, preview);
+  const impl = getCurrEffectiveCodeObjImplIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!impl) {
+    throw new Error();
+  }
+  return impl;
+}
+
+export function getCurrEffectiveCodeObjImplIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+) {
+  const variant = getCurrCodeObjVariantIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!variant) {
+    return null;
+  }
   const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
@@ -650,17 +713,40 @@ export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   typeGuard: (impl) => impl is T,
   preview = false,
 ): T {
-  const effective = getCurrEffectiveCodeObjImpl(
+  const effective = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    typeGuard,
+    preview,
+  );
+  if (!effective) {
+    throw new Error(
+      `Missing code obj implementation for section ${sectionId}, codeObj ${codeObjId}`,
+    );
+  }
+  return effective;
+}
+
+export function getCurrEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  typeGuard: (impl) => impl is T,
+  preview = false,
+): T | null {
+  const effective = getCurrEffectiveCodeObjImplIfPresent(
     p,
     sectionId,
     codeObjId,
     preview,
   );
+  if (!effective) {
+    return null;
+  }
 
   if (!typeGuard(effective)) {
-    throw new Error(
-      `Code obj implementation failed type guard for section ${sectionId}, codeObj ${codeObjId}`,
-    );
+    return null;
   }
 
   return effective;
@@ -800,12 +886,33 @@ export function getParamDisplayName(
   sectionId: string,
   codeObjId: string,
 ) {
-  const codeObj = getCodeObjCore(state, codeObjId);
+  const displayName = getParamDisplayNameIfPresent(state, sectionId, codeObjId);
+  if (displayName === null) {
+    throw new Error(
+      `Missing param display name for section ${sectionId}, codeObj ${codeObjId}`,
+    );
+  }
+  return displayName;
+}
+
+export function getParamDisplayNameIfPresent(
+  state: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+): string | null {
+  const codeObj = state.codeObjs[codeObjId];
+  if (!codeObj) {
+    return null;
+  }
   if (!state.projectConfig.showParamDisplayNames) {
     return codeObj.name;
   }
-  const impl = getCurrEffectiveCodeObjImpl(state, sectionId, codeObjId);
-  if (isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
+  const impl = getCurrEffectiveCodeObjImplIfPresent(
+    state,
+    sectionId,
+    codeObjId,
+  );
+  if (impl && isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
     return codeObj.name;
   }
   const trimmedDisplayName = codeObj.displayName.trim();

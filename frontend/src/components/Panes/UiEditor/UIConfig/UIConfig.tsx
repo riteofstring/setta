@@ -3,7 +3,7 @@ import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxSt
 import _ from "lodash";
 import React from "react";
 import {
-  getCurrCodeObjVariant,
+  getCurrCodeObjVariantIfPresent,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -87,9 +87,15 @@ function _UIElement({
   const paramInfoId = paramInfo.id;
   const { canEditStructure } = useShareCapabilities();
   const baseImplId = useProjectState((x) => {
-    return getCurrCodeObjVariant(x, sectionId, paramInfoId).impl;
+    return (
+      getCurrCodeObjVariantIfPresent(x, sectionId, paramInfoId)?.impl ?? null
+    );
   }, _.isEqual);
   const paramName = paramInfo.name;
+
+  if (!baseImplId) {
+    return null;
+  }
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
     if (!canEditStructure) {

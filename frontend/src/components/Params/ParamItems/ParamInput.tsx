@@ -2,7 +2,7 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
@@ -31,26 +31,26 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const baseValue = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+  const previewParamState = useProjectState((x) => {
+    const impl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
       x,
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
       true, // preview
     );
-    return impl.value;
-  });
-  const codeObjType = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseChildlessCodeObjImpl,
-      true, // preview
-    );
-    return impl.type;
-  });
+    if (!impl) {
+      return null;
+    }
+    return {
+      baseValue: impl.value,
+      codeObjType: impl.type,
+    };
+  }, _.isEqual);
+  const hasPreviewParamState = previewParamState !== null;
+  const baseValue = previewParamState?.baseValue ?? "";
+  const codeObjType =
+    previewParamState?.codeObjType ?? CodeObjTypeEnum.TextParam;
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = useToolArgumentPreview((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
@@ -70,7 +70,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
-      if (isPasswordParam) {
+      if (!hasPreviewParamState || isPasswordParam) {
         return;
       }
       useProjectState.setState((state) => {
@@ -89,6 +89,9 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 
   // value and enteredValue should always be string
   function onChange(v, options?: ParamValueChangeOptions) {
+    if (!hasPreviewParamState) {
+      return;
+    }
     const vStr = _.toString(v);
     setPendingValue(vStr);
     if (
@@ -110,7 +113,12 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   }
 
   function onRevealPassword() {
-    if (!isPasswordParam || isRevealing || value !== "") {
+    if (
+      !hasPreviewParamState ||
+      !isPasswordParam ||
+      isRevealing ||
+      value !== ""
+    ) {
       return;
     }
     setIsRevealing(true);
@@ -130,7 +138,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   }
 
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
-    if (attachments.length === 0) {
+    if (!hasPreviewParamState || attachments.length === 0) {
       return;
     }
     const dependencyKey = {
@@ -181,6 +189,10 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
         binaryPayload: attachment.binaryPayload,
       });
     }
+  }
+
+  if (!hasPreviewParamState) {
+    return null;
   }
 
   return (

@@ -4,11 +4,15 @@ import {
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
+  getCurrCodeObjVariantIfPresent,
+  getCurrEffectiveCodeObjImplIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrEffectiveSectionImpl,
   getCurrShownParamIds,
   getDisplayedSectionIdToChildren,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
+  getParamDisplayNameIfPresent,
   getSectionDescendants,
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
@@ -26,9 +30,11 @@ import {
 } from "state/definitions";
 import {
   ChatRoleEnum,
+  CodeObjTypeEnum,
   ConfigLanguageEnum,
   createCallableSectionImpl,
   createChatSectionImpl,
+  createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createCore,
   createDictSectionImpl,
@@ -40,6 +46,7 @@ import {
   createTerminalSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultChatSectionImpl,
+  createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultDictSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
@@ -181,6 +188,121 @@ describe("getCurrShownParamIds", () => {
     const unpinned = getCurrShownParamIds(state, sectionId, false, true);
 
     expect(unpinned.topLevelParamIds).toEqual(["param-b"]);
+  });
+});
+
+describe("current code object helpers", () => {
+  it("returns null when a stale code object id is missing from the active section variant", () => {
+    const sectionId = "section-1";
+    const sectionVariantId = "section-variant-1";
+    const sectionImplId = "section-impl-1";
+    const currentParamId = "param-current";
+    const currentParamVariantId = "param-current-variant";
+    const currentParamImplId = "param-current-impl";
+    const staleParamId = "param-stale";
+    const staleParamVariantId = "param-stale-variant";
+    const staleParamImplId = "param-stale-impl";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: sectionVariantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          name: "Callable",
+          variants: [sectionVariantId],
+          defaultVariant: sectionVariantId,
+        }),
+      },
+      sectionImpls: {
+        [sectionImplId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: sectionImplId,
+            codeObjVariantMap: {
+              [currentParamId]: currentParamVariantId,
+            },
+          },
+        ),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      codeObjs: {
+        [currentParamId]: createCore({
+          id: currentParamId,
+          name: "x",
+          variants: [currentParamVariantId],
+          defaultVariant: currentParamVariantId,
+        }),
+        [staleParamId]: createCore({
+          id: staleParamId,
+          name: "stale",
+          variants: [staleParamVariantId],
+          defaultVariant: staleParamVariantId,
+        }),
+      },
+      codeObjImpls: {
+        [currentParamImplId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: currentParamImplId,
+            value: "1",
+          },
+        ),
+        [staleParamImplId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: staleParamImplId,
+            value: "2",
+          },
+        ),
+      },
+      codeObjVariants: {
+        [currentParamVariantId]: createVariant({
+          id: currentParamVariantId,
+          impl: currentParamImplId,
+          nonPresetImpls: [currentParamImplId],
+        }),
+        [staleParamVariantId]: createVariant({
+          id: staleParamVariantId,
+          impl: staleParamImplId,
+          nonPresetImpls: [staleParamImplId],
+        }),
+      },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    expect(
+      getCurrCodeObjVariantIfPresent(state, sectionId, staleParamId),
+    ).toBeNull();
+    expect(
+      getCurrEffectiveCodeObjImplIfPresent(state, sectionId, staleParamId),
+    ).toBeNull();
+    expect(
+      getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+        state,
+        sectionId,
+        staleParamId,
+        (
+          impl,
+        ): impl is ReturnType<typeof createUserDefaultCodeParamCodeObjImpl> =>
+          impl.type === CodeObjTypeEnum.CodeParam,
+      ),
+    ).toBeNull();
+    expect(getParamDisplayNameIfPresent(state, sectionId, staleParamId)).toBe(
+      "stale",
+    );
   });
 });
 

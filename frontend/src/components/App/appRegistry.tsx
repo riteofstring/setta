@@ -19,9 +19,9 @@ import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrEffectiveSectionImpl,
-  getParamDisplayName,
+  getParamDisplayNameIfPresent,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -702,16 +702,29 @@ function ParamInputBlock({ element }: AppComponentProps) {
       sectionId,
       previewActive,
     );
-    const effectiveCodeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      configState,
-      sectionId,
-      paramId,
-      isBaseChildlessCodeObjImpl,
-      previewActive,
-    );
+    const effectiveCodeObjImpl =
+      getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+        configState,
+        sectionId,
+        paramId,
+        isBaseChildlessCodeObjImpl,
+        previewActive,
+      );
+    if (!effectiveCodeObjImpl) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
     return {
       canRenderParam: true,
-      displayName: getParamDisplayName(configState, sectionId, paramId),
+      displayName: getParamDisplayNameIfPresent(
+        configState,
+        sectionId,
+        paramId,
+      ),
       sectionImpl: effectiveSectionImpl,
       codeObjImpl: effectiveCodeObjImpl,
     };
