@@ -3,7 +3,7 @@ import "utils/workspaceHistoryHandoffInit";
 
 import "@glideapps/glide-data-grid/dist/index.css";
 import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
+import { SectionContainerDefaultBoundary } from "components/Section/Container/SectionContainerDefaultBoundary";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -22,7 +22,7 @@ function renderStandaloneProjectSurfaceRouteDictArea(
 subscribe();
 
 const appProps = buildRuntimeBootstrapAppProps({
-  SectionBoundary: SectionContainerBoundary,
+  SectionBoundary: SectionContainerDefaultBoundary,
   renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
 });
 

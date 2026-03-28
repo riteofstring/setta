@@ -44,14 +44,21 @@ describe("index", () => {
     vi.doMock("./appRuntimeBootstrap", () => ({
       buildRuntimeBootstrapAppProps,
     }));
-    vi.doMock("components/Section/Container/SectionContainerBoundary", () => ({
-      SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-        <div
-          data-testid="mock-section-container-boundary"
-          data-section-id={sectionId}
-        />
-      ),
-    }));
+    vi.doMock(
+      "components/Section/Container/SectionContainerDefaultBoundary",
+      () => ({
+        SectionContainerDefaultBoundary: ({
+          sectionId,
+        }: {
+          sectionId: string;
+        }) => (
+          <div
+            data-testid="mock-section-container-default-boundary"
+            data-section-id={sectionId}
+          />
+        ),
+      }),
+    );
     vi.doMock(
       "components/Section/Container/SectionContainerAreaDictBoundary",
       () => ({
@@ -74,14 +81,14 @@ describe("index", () => {
     await import("./index");
 
     const { createRoot } = await import("react-dom/client");
-    const { SectionContainerBoundary } = await import(
-      "components/Section/Container/SectionContainerBoundary"
+    const { SectionContainerDefaultBoundary } = await import(
+      "components/Section/Container/SectionContainerDefaultBoundary"
     );
 
     expect(subscribe).toHaveBeenCalledOnce();
     expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledOnce();
     expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledWith({
-      SectionBoundary: SectionContainerBoundary,
+      SectionBoundary: SectionContainerDefaultBoundary,
       renderDictArea: expect.any(Function),
     });
 
@@ -91,7 +98,7 @@ describe("index", () => {
       renderToStaticMarkup(
         <routedArgs.SectionBoundary sectionId="section-1" />,
       ),
-    ).toContain('data-testid="mock-section-container-boundary"');
+    ).toContain('data-testid="mock-section-container-default-boundary"');
     expect(
       renderToStaticMarkup(
         <>

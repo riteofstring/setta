@@ -6002,3 +6002,36 @@ Record:
     - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, `POST /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-direct-boundary-owned recursive section-renderer ownership into the next caller layer above `frontend/src/components/Section/Container/SectionContainerBoundary.tsx` and `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`, starting with the injected top-level `SectionBoundary` handoff and `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
+
+## 2026-03-28 200
+
+- Item: Lift the injected top-level `SectionBoundary` handoff above `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated default-injecting top-level boundary so the app bootstrap now owns the recursive section-renderer defaults above the thinner top-level seam:
+    - `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx`
+  - Shrunk the existing top-level boundary into a caller-owned wrapper that only injects `isTopLevel={true}` and forwards whichever recursive renderers it receives:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+  - Moved the live app bootstrap onto the new default boundary at the injected `SectionBoundary` handoff:
+    - `frontend/src/index.tsx`
+    - `frontend/src/index.test.tsx`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx src/index.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerDefaultBoundary.tsx src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx src/index.tsx src/index.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - bootstrapped through `http://127.0.0.1:8044/__setta__/bootstrap#token=...`, then verified `http://127.0.0.1:3044/home`
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3044/black_crown`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, blank state, or broken section shell after the injected `SectionBoundary` handoff lift
+    - representative visible labels included `Connected to server`, `WORKSPACE BROWSER`, `WORKSPACE PROJECTS`, `New Project`, `Create a New Project!`, `Select A Section to Edit`, `Chat Window 1`, `GENERATED PYTHON CODE`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, and `PLAN NEXT STEPS`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/getDefaultConfigName`, `GET /api/authRefreshStatus`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, `POST /api/checkWorkspaceInitialized`, `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the standalone section-surface ownership above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`, starting with `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
