@@ -19,11 +19,11 @@ type AppGenSkillRouteDependencies struct {
 	Service    *appgenskills.Service
 }
 
-type getAppGenSkillContentRequest struct {
+type GetAppGenSkillContentRequest struct {
 	SkillID string `json:"skillId"`
 }
 
-type upsertAppGenCustomSkillRequest struct {
+type UpsertAppGenCustomSkillRequest struct {
 	SkillID      *string `json:"skillId"`
 	RelativePath *string `json:"relativePath"`
 	Content      string  `json:"content"`
@@ -66,7 +66,7 @@ func getAppGenSkillContentHandler(service *appgenskills.Service) http.HandlerFun
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[getAppGenSkillContentRequest](r)
+		payload, err := decodeStrictJSONBody[GetAppGenSkillContentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -88,7 +88,7 @@ func upsertAppGenCustomSkillHandler(service *appgenskills.Service) http.HandlerF
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[upsertAppGenCustomSkillRequest](r)
+		payload, err := decodeStrictJSONBody[UpsertAppGenCustomSkillRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return

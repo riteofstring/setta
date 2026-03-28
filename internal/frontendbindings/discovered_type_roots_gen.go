@@ -6,6 +6,7 @@ import (
 	"reflect"
 	agentprofiles "setta/internal/agentprofiles"
 	agentruns "setta/internal/agentruns"
+	appgenskills "setta/internal/appgenskills"
 	appspec "setta/internal/appspec"
 	artifacts "setta/internal/artifacts"
 	binary "setta/internal/binary"
@@ -235,12 +236,12 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(GetLatestLspDiagnosticsRequestInput{}),
 		reflect.TypeOf(TypeCheckRequestInput{}),
 		reflect.TypeOf(SetTypeErrorIgnoreRequestInput{}),
-		reflect.TypeOf(AppGenSkillEntry{}),
-		reflect.TypeOf(GetAppGenSkillsResponse{}),
-		reflect.TypeOf(GetAppGenSkillContentRequestInput{}),
-		reflect.TypeOf(AppGenSkillContent{}),
+		reflect.TypeOf((*AppGenSkillEntry)(nil)).Elem(),
+		reflect.TypeOf((*GetAppGenSkillsResponse)(nil)).Elem(),
+		reflect.TypeOf((*GetAppGenSkillContentRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*AppGenSkillContent)(nil)).Elem(),
 		reflect.TypeOf(UpsertAppGenCustomSkillRequestInput{}),
-		reflect.TypeOf(UpsertAppGenCustomSkillResponse{}),
+		reflect.TypeOf((*UpsertAppGenCustomSkillResponse)(nil)).Elem(),
 		reflect.TypeOf((*MCPTransport)(nil)).Elem(),
 		reflect.TypeOf((*MCPRuntimeState)(nil)).Elem(),
 		reflect.TypeOf((*MCPServerRuntimeStatus)(nil)).Elem(),
@@ -814,6 +815,11 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*projectstate.SectionTypeErrors)(nil)).Elem(): reflect.TypeOf((*SettaSectionTypeErrors)(nil)).Elem(),
 		reflect.TypeOf((*projectstate.ProjectConfigDiagnostics)(nil)).Elem(): reflect.TypeOf((*SettaProjectConfigDiagnostics)(nil)).Elem(),
 		reflect.TypeOf((*projectstate.LSPDiagnosticsPayload)(nil)).Elem(): reflect.TypeOf((*SettaLspDiagnosticsPayload)(nil)).Elem(),
+		reflect.TypeOf((*appgenskills.SkillEntry)(nil)).Elem(): reflect.TypeOf((*AppGenSkillEntry)(nil)).Elem(),
+		reflect.TypeOf((*appgenskills.GetSkillsResponse)(nil)).Elem(): reflect.TypeOf((*GetAppGenSkillsResponse)(nil)).Elem(),
+		reflect.TypeOf((*httpapi.GetAppGenSkillContentRequest)(nil)).Elem(): reflect.TypeOf((*GetAppGenSkillContentRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*appgenskills.SkillContent)(nil)).Elem(): reflect.TypeOf((*AppGenSkillContent)(nil)).Elem(),
+		reflect.TypeOf((*appgenskills.UpsertCustomSkillResponse)(nil)).Elem(): reflect.TypeOf((*UpsertAppGenCustomSkillResponse)(nil)).Elem(),
 		reflect.TypeOf((*mcpx.Transport)(nil)).Elem(): reflect.TypeOf((*MCPTransport)(nil)).Elem(),
 		reflect.TypeOf((*mcpx.RuntimeState)(nil)).Elem(): reflect.TypeOf((*MCPRuntimeState)(nil)).Elem(),
 		reflect.TypeOf((*mcpx.ServerRuntimeStatus)(nil)).Elem(): reflect.TypeOf((*MCPServerRuntimeStatus)(nil)).Elem(),

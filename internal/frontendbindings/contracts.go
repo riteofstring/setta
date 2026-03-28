@@ -3,6 +3,7 @@ package frontendbindings
 import (
 	"time"
 
+	"setta/internal/appgenskills"
 	"setta/internal/appspec"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
@@ -369,33 +370,13 @@ type SetTypeErrorIgnoreRequestInput struct {
 	IgnoreTypeErrors bool    `json:"ignoreTypeErrors"`
 }
 
-type AppGenSkillEntry struct {
-	SkillID           string  `json:"skillId"`
-	Name              string  `json:"name"`
-	RootLabel         string  `json:"rootLabel"`
-	RootPath          string  `json:"rootPath"`
-	RelativePath      string  `json:"relativePath"`
-	IsEditable        bool    `json:"isEditable"`
-	EditabilityReason *string `json:"editabilityReason"`
-	Description       string  `json:"description"`
-}
+type AppGenSkillEntry appgenskills.SkillEntry
 
-type GetAppGenSkillsResponse struct {
-	Skills                          []AppGenSkillEntry `json:"skills"`
-	CustomSkillCreateRootPath       *string            `json:"customSkillCreateRootPath"`
-	CustomSkillCreateRootActionable bool               `json:"customSkillCreateRootActionable"`
-}
+type GetAppGenSkillsResponse appgenskills.GetSkillsResponse
 
-type GetAppGenSkillContentRequestInput struct {
-	SkillID string `json:"skillId"`
-}
+type GetAppGenSkillContentRequestInput httpapi.GetAppGenSkillContentRequest
 
-type AppGenSkillContent struct {
-	SkillID           string `json:"skillId"`
-	Content           string `json:"content"`
-	Truncated         bool   `json:"truncated"`
-	OriginalSizeBytes int64  `json:"originalSizeBytes"`
-}
+type AppGenSkillContent appgenskills.SkillContent
 
 type UpsertAppGenCustomSkillRequestInput struct {
 	SkillID      *string `json:"skillId"`
@@ -403,14 +384,7 @@ type UpsertAppGenCustomSkillRequestInput struct {
 	Content      string  `json:"content"`
 }
 
-type UpsertAppGenCustomSkillResponse struct {
-	SkillID      string             `json:"skillId"`
-	Created      bool               `json:"created"`
-	RootPath     string             `json:"rootPath"`
-	SkillDocPath string             `json:"skillDocPath"`
-	Skill        AppGenSkillEntry   `json:"skill"`
-	SkillContent AppGenSkillContent `json:"skillContent"`
-}
+type UpsertAppGenCustomSkillResponse appgenskills.UpsertCustomSkillResponse
 
 type MCPTransport mcpx.Transport
 

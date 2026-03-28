@@ -326,6 +326,13 @@ That means:
     - `AppCapabilities -> appspec.AppCapabilities`
     - `AppDefinitionValidationResponse -> projectstate.AppDefinitionValidationResult`
   - `internal/httpapi` now marks the optional app-definition route fields with `omitempty`, so the owner-backed generated TypeScript surface preserves the optional request semantics instead of forcing nullable placeholders for absent fields
+  - the app-gen skill frontend contracts now also point at their real backend owners instead of mirrored `frontendbindings` structs:
+    - `AppGenSkillEntry -> appgenskills.SkillEntry`
+    - `GetAppGenSkillsResponse -> appgenskills.GetSkillsResponse`
+    - `GetAppGenSkillContentRequestInput -> httpapi.GetAppGenSkillContentRequest`
+    - `AppGenSkillContent -> appgenskills.SkillContent`
+    - `UpsertAppGenCustomSkillResponse -> appgenskills.UpsertCustomSkillResponse`
+  - `internal/httpapi` now exports the app-gen skill route request structs, so `frontendbindings` can alias the real route-contract owners instead of repeating those request shapes locally
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
