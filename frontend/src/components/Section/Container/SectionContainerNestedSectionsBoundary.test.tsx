@@ -50,13 +50,8 @@ vi.mock("./SectionContainerCoreCanvasBody", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerSectionBoundary", () => ({
-  renderDefaultSectionContainerCoreBody: () => null,
-  renderDefaultSectionContainerNestedSections: () => null,
-}));
-
 describe("SectionContainerNestedSectionsBoundary", () => {
-  it("injects the default recursive nested-section renderer into the lifted nested-sections seam", () => {
+  it("owns the default recursive nested-section renderer above the lifted nested-sections seam", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerNestedSectionsBoundary
         sectionId="section-1"
