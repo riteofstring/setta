@@ -61,6 +61,7 @@ import {
   type LiveDictAreaPinnedParamAreaRendererPacket,
   type LiveDictAreaUnpinnedParamAreaRendererPacket,
 } from "./groupContainerSceneRendererPackets";
+import { buildLiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
 import {
   buildFilteredParamListView,
   getPinnedParamsBgClassName,
@@ -873,6 +874,17 @@ type GetUnpinnedParamsProps = {
   styleColor: string | null;
 };
 
+type UnpinnedParamsAreaProps = {
+  sectionId: string;
+  visualPacket: ReturnType<
+    typeof buildLiveDictAreaUnpinnedParamAreaVisualPacket
+  >;
+  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  hasSectionStyleTheme: boolean;
+  isScrollable: boolean;
+  setContainerRef: React.RefCallback<HTMLDivElement>;
+};
+
 function buildParamDisplayNameMap({
   state,
   sectionId,
@@ -1054,6 +1066,15 @@ function GetUnpinnedParams({
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
+  const unpinnedParamAreaVisualPacket = useMemo(
+    () =>
+      rendererPacket
+        ? buildLiveDictAreaUnpinnedParamAreaVisualPacket({
+            rendererPacket,
+          })
+        : null,
+    [rendererPacket],
+  );
 
   const setContainerRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -1066,20 +1087,40 @@ function GetUnpinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: rendererPacket?.topLevelParamIds ?? [],
+    paramIds: unpinnedParamAreaVisualPacket?.list.topLevelParamIds ?? [],
     contentRef: containerRef,
     rowsRef: containerRef,
   });
 
   return (
+    unpinnedParamAreaVisualPacket && (
+      <UnpinnedParamsArea
+        sectionId={sectionId}
+        visualPacket={unpinnedParamAreaVisualPacket}
+        handleColumnResizeStart={handleColumnResizeStart}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        isScrollable={isScrollable}
+        setContainerRef={setContainerRef}
+      />
+    )
+  );
+}
+
+function UnpinnedParamsArea({
+  sectionId,
+  visualPacket,
+  handleColumnResizeStart,
+  hasSectionStyleTheme,
+  isScrollable,
+  setContainerRef,
+}: UnpinnedParamsAreaProps) {
+  return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      {...(rendererPacket
-        ? getDictAreaBlockFrameDataProps({
-            blockId: rendererPacket.blockId,
-            frame: rendererPacket.mount,
-          })
-        : {})}
+      {...getDictAreaBlockFrameDataProps({
+        blockId: visualPacket.blockId,
+        frame: visualPacket.mount,
+      })}
     >
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
@@ -1087,22 +1128,20 @@ function GetUnpinnedParams({
         }`}
         ref={setContainerRef}
         style={
-          rendererPacket?.shouldApplyMinHeight
-            ? { minHeight: rendererPacket.minHeight }
+          visualPacket.container.shouldApplyMinHeight
+            ? { minHeight: visualPacket.container.minHeight }
             : undefined
         }
       >
-        {rendererPacket && (
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={rendererPacket.topLevelParamIds}
-            requiredParamIdsToPaths={rendererPacket.requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey={rendererPacket.listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
+        <ParamDndList
+          sectionId={sectionId}
+          paramIds={visualPacket.list.topLevelParamIds}
+          requiredParamIdsToPaths={visualPacket.list.requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
+          listKey={visualPacket.list.listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       </div>
     </div>
   );

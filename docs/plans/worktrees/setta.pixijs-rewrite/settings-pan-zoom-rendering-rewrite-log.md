@@ -872,3 +872,30 @@ Record:
       - relevant requests returned `200`, including `api/authRefreshStatus`, `api/loadSettings`, `api/backendInitStatus`, `api/loadProjectConfig`, and `api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next bounded scene-owned block visual packet from the renderer boundary, starting with the unpinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-26 034
+
+- Item: Extract the unpinned param-area visual packet from the dict-area renderer boundary.
+- Status: `done`
+- Details:
+  - Added a pure typed visual-packet helper for the live unpinned param-area block:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.test.ts`
+  - Kept the current non-Pixi unpinned DOM surface stable by routing `GetUnpinnedParams` / `UnpinnedParamsArea` through the new visual packet instead of passing raw renderer-packet fields directly into the DOM mount path:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts unpinned list metadata and row packets into one explicit visual contract
+    - carries the unpinned min-height application policy through a dedicated container payload
+    - preserves the existing scrollable unpinned DOM mount behavior while exposing a cleaner scene-owned surface for the remaining canary block
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerSceneRendererPackets.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - `/settings` loaded in the authenticated worktree session with `All Settings` visible
+    - the visible settings stack and dict/param area rendered normally after the unpinned visual-packet routing, with no obvious overlap, clipping, or missing content in the viewport
+    - representative visible labels and controls included `All Settings`, `Param Defaults`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `aspectRatio`, `attachedTerminalSectionId`, `code`, `Is Frozen`, `Is Minimized`, `Position And Size Locked`, `Core Name Editable`, `Core Name Type`, `defaultVal`, `typeAnnotation`, and `value`
+    - relevant requests returned `200`, including `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, `api/getListenerCoverage`, `api/plugins/runtime`, `api/llm/apiKeys`, `api/llm/config`, `api/getAgentProfiles`, `api/getPromptTemplates`, `api/getExternalAgentConfigs`, `api/getExternalAgentHealth`, `api/getEngineConfigs`, `api/getTranscriptionProfiles`, `api/setProjectChatWindowingState`, `api/getFileBrowserRoot`, `api/getFolderContents`, `api/setTopLevelSectionLayout`, and `api/setActiveViewMode`
+- Next action:
+  - Continue the first retained-scene node renderer work by composing the extracted edge, pinned, and unpinned block visuals into a higher-level dict-area node visual packet before any broad Pixi node drawing lands.
