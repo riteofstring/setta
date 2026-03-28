@@ -98,3 +98,34 @@ Bundle contents:
 
 Pass extra `playwright codegen` flags directly, for example:
 `./scripts/record-playwright-e2e.sh --browser chromium`
+
+## Chrome repro recording (repo-owned extension)
+
+Use this when you want a simpler headed Chrome recording flow without the
+Playwright Inspector UI:
+
+`./scripts/record-chrome-repro.sh`
+
+Behavior:
+- starts Setta with the normal dev-state defaults
+- prefers Playwright's bundled Chrome for Testing when available
+- launches a dedicated browser profile with a local recording extension
+- captures browser events into `${TMPDIR:-/tmp}/setta-chrome-recordings/<repo>/recording-<timestamp>/`
+- fails early if the recorder extension did not actually attach
+- finalizes the bundle when that Chrome window exits
+
+Options:
+- `--artifact-dir <dir>` to override the output directory
+- `--reset` to clear the active dev `setta_files_dev` state first
+
+Bundle contents:
+- `recording.json`: finalized event recording payload
+- `events.ndjson`: raw event stream
+- `session.json`: recording summary metadata
+- `launcher.json`: launcher/bootstrap metadata
+- `extension/`: the generated unpacked extension used for that session
+- `logs/`: dev-instance, collector, and browser logs
+
+Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
+running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
+skip bootstrap URL discovery.

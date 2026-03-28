@@ -242,6 +242,26 @@ def test_record_playwright_wrapper_defaults_to_repo_artifact_bundle() -> None:
     assert ': "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:=0}"' in script
 
 
+def test_record_chrome_repro_wrapper_uses_tmp_bundle_and_extension_collector() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "record-chrome-repro.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '${TMPDIR:-/tmp}/setta-chrome-recordings' in script
+    assert "resolve_playwright_chrome_bin()" in script
+    assert "require('@playwright/test').chromium.executablePath()" in script
+    assert 'SETTA_CHROME_REPRO_SKIP_DEV_START' in script
+    assert 'SETTA_CHROME_REPRO_BOOTSTRAP_URL' in script
+    assert 'SETTA_PROJECT_PATH="/home"' in script
+    assert '"${ROOT_DIR}/scripts/chrome_repro_collector.py"' in script
+    assert '"${ROOT_DIR}/scripts/run-dev-instance.sh" --mode "${SETTA_CHROME_REPRO_DEV_MODE}"' in script
+    assert '--disable-extensions-except="${extension_dir}"' in script
+    assert '--load-extension="${extension_dir}"' in script
+    assert "wait_for_extension_registration" in script
+    assert 'chrome_log="${log_dir}/chrome.log"' in script
+    assert '"${ROOT_DIR}/scripts/reset-setta-state.sh" --workspace "${SETTA_WORKSPACE_ROOT}"' in script
+
+
 def test_playwright_runner_builds_current_go_cli_binary_by_default() -> None:
     root = repo_root()
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
