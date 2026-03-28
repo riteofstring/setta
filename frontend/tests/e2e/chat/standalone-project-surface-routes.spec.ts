@@ -151,31 +151,6 @@ async function loadProjectConfigState(
   return response;
 }
 
-async function syncProjectChatWindowingInStore(
-  page: Page,
-  projectChatWindowing: unknown,
-): Promise<void> {
-  await page.evaluate(async (nextProjectChatWindowing) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    useProjectState.setState({
-      projectChatWindowing: nextProjectChatWindowing,
-    });
-  }, projectChatWindowing);
-}
-
-async function syncWindowSpacesFromBackend(
-  page: Page,
-  projectConfigName: string,
-): Promise<void> {
-  const loadedProjectConfig = await loadProjectConfigState(page, projectConfigName);
-  await page.evaluate(async (windowSpaces) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    useProjectState.setState((state) => {
-      state.projectConfig.windowSpaces = windowSpaces ?? {};
-    });
-  }, loadedProjectConfig.projectConfig.windowSpaces ?? {});
-}
-
 async function saveProjectConfigCopyWithRefs(
   page: Page,
   projectConfigId: string,
@@ -412,16 +387,15 @@ async function seedProjectChatWindowThreads(
   page: Page,
   fixtures: ProjectChatThreadFixture[],
 ): Promise<void> {
-  await flushProjectChatWindowingWrites(page);
   await page.evaluate(async (nextFixtures) => {
     const { useAIStore, useProjectState } = await import(
       "/src/state/definitions.ts"
     );
     const { getDefaultChatDetails } = await import("/src/state/actions/ai.ts");
-    const { route_set_chat_section_chat_id } = await import(
-      "/src/utils/generatedEndpoints.ts"
+    const { setProjectChatWindowChatId } = await import(
+      "/src/state/actions/projectChatWindowing.ts"
     );
-    const { route_set_project_chat_window_chat_id } = await import(
+    const { route_set_chat_section_chat_id } = await import(
       "/src/utils/generatedEndpoints.ts"
     );
     const { ChatWindowModeEnum } = await import("/src/utils/generatedTypes.ts");
@@ -442,19 +416,7 @@ async function seedProjectChatWindowThreads(
         });
         continue;
       }
-      const response = await route_set_project_chat_window_chat_id({
-        projectConfigId: useProjectState.getState().projectConfig.id,
-        instanceId: fixture.instanceId,
-        chatId: fixture.chatId,
-      });
-      if (response.status !== 200 || !response.data) {
-        throw new Error(
-          `Failed to seed project chat window ${fixture.instanceId}: ${response.status}`,
-        );
-      }
-      useProjectState.setState({
-        projectChatWindowing: response.data,
-      });
+      setProjectChatWindowChatId(fixture.instanceId, fixture.chatId);
     }
 
     useAIStore.setState((state) => {
@@ -485,11 +447,6 @@ async function seedProjectChatWindowThreads(
       };
     });
   }, fixtures);
-
-  // The helper updates both local chat details and persisted window bindings.
-  // Flush the serialized windowing writes so later layout mutations do not
-  // accidentally carry a pending chatId change through the wrong route.
-  await flushProjectChatWindowingWrites(page);
 }
 
 async function seedProjectChatDetails(
@@ -639,17 +596,9 @@ async function clearProjectChatWindowingState(
         chatId: null,
       });
     }
-    const response = await route_set_project_chat_windowing_state({
+    await route_set_project_chat_windowing_state({
       projectConfigId: nextProjectConfigId,
       state: createProjectChatWindowingState(),
-    });
-    if (response.status !== 200 || !response.data) {
-      throw new Error(
-        `Failed to clear project chat windowing state: ${response.status}`,
-      );
-    }
-    useProjectState.setState({
-      projectChatWindowing: response.data,
     });
   }, projectConfigId);
 }
@@ -2127,14 +2076,13 @@ test.describe.serial("standalone project surface routes", () => {
         const {
           ChatWindowModeEnum,
           ChatWindowPlacementEnum,
-          createProjectChatWindowInstance,
           createProjectChatWindowingState,
         } = await import("/src/utils/generatedTypes.ts");
         replaceProjectChatWindowingState(
           createProjectChatWindowingState({
             order: ["live-section-window"],
             instancesById: {
-              "live-section-window": createProjectChatWindowInstance({
+              "live-section-window": {
                 instanceId: "live-section-window",
                 placement: ChatWindowPlacementEnum.floating,
                 mode: ChatWindowModeEnum.project_ai_mode,
@@ -2150,7 +2098,7 @@ test.describe.serial("standalone project surface routes", () => {
                   width: 340,
                   height: 260,
                 },
-              }),
+              },
             },
             nextInstanceNumber: 2,
           }),
@@ -5515,7 +5463,6 @@ test.describe.serial("standalone project surface routes", () => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
     const cleanupManagedEngine = await ensureManagedChatEngine(page);
-    const projectConfigName = getProjectConfigNameFromUrl(page.url());
     await setOverviewTabInStore(page, "ViewModes");
     await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
 
@@ -5530,7 +5477,6 @@ test.describe.serial("standalone project surface routes", () => {
           ChatWindowModeEnum,
           ChatWindowPlacementEnum,
           WindowSpaceSurfaceKindEnum,
-          createProjectChatWindowInstance,
           createProjectChatWindowingState,
           createWindowSpaceState,
         } = await import("/src/utils/generatedTypes.ts");
@@ -5538,13 +5484,13 @@ test.describe.serial("standalone project surface routes", () => {
           currentWindowing: createProjectChatWindowingState({
             order: ["canvas-section-window"],
             instancesById: {
-              "canvas-section-window": createProjectChatWindowInstance({
+              "canvas-section-window": {
                 instanceId: "canvas-section-window",
                 placement: ChatWindowPlacementEnum.canvas_section,
                 mode: ChatWindowModeEnum.section_mode,
                 sectionIdOrNull: sectionId,
                 title: "Canvas Section Chat",
-              }),
+              },
             },
             nextInstanceNumber: 2,
           }),
@@ -5574,13 +5520,11 @@ test.describe.serial("standalone project surface routes", () => {
         projectConfigId: projectContext.projectConfigId,
         state: seededStates.currentWindowing,
       });
-      await syncProjectChatWindowingInStore(page, seededStates.currentWindowing);
       await postBackend(page, "/createWindowSpace", {
         projectConfigId: projectContext.projectConfigId,
         name: "Collision Layout",
         state: seededStates.windowSpaceState,
       });
-      await syncWindowSpacesFromBackend(page, projectConfigName);
 
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
       await clickWindowSpaceOpen(page);
@@ -5716,7 +5660,6 @@ test.describe.serial("standalone project surface routes", () => {
           ChatWindowModeEnum,
           ChatWindowPlacementEnum,
           WindowSpaceSurfaceKindEnum,
-          createProjectChatWindowInstance,
           createProjectChatWindowingState,
           createWindowSpaceState,
         } = await import("/src/utils/generatedTypes.ts");
@@ -5728,7 +5671,7 @@ test.describe.serial("standalone project surface routes", () => {
               "git-graph-window",
             ],
             instancesById: {
-              "blocked-project-chat": createProjectChatWindowInstance({
+              "blocked-project-chat": {
                 instanceId: "blocked-project-chat",
                 placement: ChatWindowPlacementEnum.floating,
                 mode: ChatWindowModeEnum.project_ai_mode,
@@ -5745,8 +5688,8 @@ test.describe.serial("standalone project surface routes", () => {
                   width: 360,
                   height: 280,
                 },
-              }),
-              "scriptable-section-window": createProjectChatWindowInstance({
+              },
+              "scriptable-section-window": {
                 instanceId: "scriptable-section-window",
                 placement: ChatWindowPlacementEnum.floating,
                 mode: ChatWindowModeEnum.section_mode,
@@ -5763,8 +5706,8 @@ test.describe.serial("standalone project surface routes", () => {
                   width: 360,
                   height: 280,
                 },
-              }),
-              "git-graph-window": createProjectChatWindowInstance({
+              },
+              "git-graph-window": {
                 instanceId: "git-graph-window",
                 placement: ChatWindowPlacementEnum.floating,
                 mode: ChatWindowModeEnum.git_graph_mode,
@@ -5781,7 +5724,7 @@ test.describe.serial("standalone project surface routes", () => {
                   width: 420,
                   height: 260,
                 },
-              }),
+              },
             },
             nextInstanceNumber: 4,
           }),
@@ -5850,7 +5793,6 @@ test.describe.serial("standalone project surface routes", () => {
         name: allowedWindowSpaceName,
         state: seededStates.windowSpaceState,
       });
-      await syncWindowSpacesFromBackend(page, projectConfigName);
       await setDeploymentSharePolicy(page, {
         allowLLM: false,
         allowLayoutChanges: false,
@@ -6050,7 +5992,6 @@ test.describe.serial("standalone project surface routes", () => {
         name: blockedWindowSpaceName,
         state: blockedWindowSpaceState,
       });
-      await syncWindowSpacesFromBackend(page, projectConfigName);
       await setDeploymentSharePolicy(page, {
         allowLLM: false,
         allowLayoutChanges: false,
