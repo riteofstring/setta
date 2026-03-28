@@ -1,4 +1,4 @@
-from setta.types.project_config import ProjectConfig, Viewport
+from setta.types.generated.go_shared_types import ProjectConfig, Viewport
 
 
 def test_viewport_initialized_defaults_false_when_unset():

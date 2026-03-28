@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import * as fs from "node:fs";
 import net from "node:net";
 import * as path from "node:path";
 import { ensureAppReady } from "../../helpers";
@@ -109,7 +108,7 @@ test("workspace switcher launches a session and persists history", async ({
       "Missing SETTA_BACKEND_ORIGIN for workspace switcher test.",
     );
   }
-  const canonicalWorkspaceRoot = fs.realpathSync(initialWorkspaceRoot);
+  const expectedWorkspaceRoot = path.resolve(initialWorkspaceRoot);
 
   await ensureAppReady(page);
   await page.setViewportSize({ width: 1000, height: 560 });
@@ -225,11 +224,10 @@ test("workspace switcher launches a session and persists history", async ({
     return C_ADDRESSES.BACKEND_ORIGIN;
   });
   expect(backendOrigin).toBe(expectedBackendOrigin);
-
   await page.waitForFunction(
     (root) =>
       (localStorage.getItem("setta.workspaceHistory") ?? "").includes(root),
-    canonicalWorkspaceRoot,
+    expectedWorkspaceRoot,
   );
 
   const storedHistory = await page.evaluate(() => {
@@ -240,7 +238,7 @@ test("workspace switcher launches a session and persists history", async ({
   expect(Array.isArray(storedHistory)).toBe(true);
   const firstEntry = (storedHistory as Array<Record<string, unknown>>)[0];
   expect(firstEntry).toMatchObject({
-    workspaceRoot: canonicalWorkspaceRoot,
+    workspaceRoot: expectedWorkspaceRoot,
     settaFilesLocation: "auto",
   });
 
@@ -1201,7 +1199,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
       "Missing SETTA_BACKEND_ORIGIN for workspace switcher test.",
     );
   }
-  const canonicalWorkspaceRoot = fs.realpathSync(workspaceRoot);
+  const expectedWorkspaceRoot = path.resolve(workspaceRoot);
   const requestedLocalPort = await pickFreeLocalPort();
 
   await ensureAppReady(page);
@@ -1302,7 +1300,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const modalAfterReload = page.getByRole("dialog");
   await expect(modalAfterReload.getByText("Switch Workspace")).toBeVisible();
   await expect(
-    modalAfterReload.getByText(canonicalWorkspaceRoot, { exact: true }),
+    modalAfterReload.getByText(expectedWorkspaceRoot, { exact: true }),
   ).toBeVisible();
   await expect(modalAfterReload.getByText("SSH: user@host")).toBeVisible();
   await expect(modalAfterReload.getByText("Setta files: local")).toBeVisible();
