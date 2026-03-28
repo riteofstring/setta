@@ -87,7 +87,7 @@ class ImportBinding:
 class ClassInfo:
     definition: TopLevelDefinition
     members: list[ClassMemberDefinition] = field(default_factory=list)
-    local_member_refs: set[str] = field(default_factory=set)
+    member_dependencies: dict[str, set[str]] = field(default_factory=dict)
 
     @property
     def member_names(self) -> set[str]:
@@ -304,6 +304,22 @@ class ClassMemberReferenceCollector(TypeCheckingAwareNodeVisitor):
         self.generic_visit(node)
 
 
+def collect_local_member_refs(
+    *,
+    class_name: str,
+    member_names: set[str],
+    node: ast.AST | None,
+) -> set[str]:
+    if node is None:
+        return set()
+    collector = ClassMemberReferenceCollector(
+        class_name=class_name,
+        member_names=member_names,
+    )
+    collector.visit(node)
+    return collector.refs
+
+
 class DefinitionUsageCollector(TypeCheckingAwareNodeVisitor):
     def __init__(
         self,
@@ -412,6 +428,7 @@ def build_class_info(
     )
     members: list[ClassMemberDefinition] = []
     member_names: set[str] = set()
+    member_dependencies: dict[str, set[str]] = {}
     for stmt in node.body:
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
             members.append(
@@ -456,15 +473,34 @@ def build_class_info(
                 )
             )
             member_names.add(stmt.target.id)
-    member_ref_collector = ClassMemberReferenceCollector(
-        class_name=node.name,
-        member_names=member_names,
-    )
-    member_ref_collector.visit(node)
+    for stmt in node.body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            member_dependencies[stmt.name] = collect_local_member_refs(
+                class_name=node.name,
+                member_names=member_names,
+                node=stmt,
+            ) - {stmt.name}
+            continue
+        if isinstance(stmt, ast.Assign):
+            refs = collect_local_member_refs(
+                class_name=node.name,
+                member_names=member_names,
+                node=stmt.value,
+            )
+            for target in stmt.targets:
+                if isinstance(target, ast.Name):
+                    member_dependencies[target.id] = refs - {target.id}
+            continue
+        if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+            member_dependencies[stmt.target.id] = collect_local_member_refs(
+                class_name=node.name,
+                member_names=member_names,
+                node=stmt.value,
+            ) - {stmt.target.id}
     return ClassInfo(
         definition=class_def,
         members=members,
-        local_member_refs=member_ref_collector.refs,
+        member_dependencies=member_dependencies,
     )
 
 
@@ -604,6 +640,30 @@ def exported_member_names(class_info: ClassInfo) -> set[str]:
     }
 
 
+def propagate_member_dependencies(
+    *,
+    module_infos: dict[str, ModuleInfo],
+    used_members: set[tuple[str, str, str]],
+) -> set[tuple[str, str, str]]:
+    expanded = set(used_members)
+    queue = list(used_members)
+    while queue:
+        module_name, class_name, member_name = queue.pop()
+        module_info = module_infos.get(module_name)
+        if module_info is None:
+            continue
+        class_info = module_info.classes.get(class_name)
+        if class_info is None:
+            continue
+        for dependency_name in class_info.member_dependencies.get(member_name, set()):
+            dependency_key = (module_name, class_name, dependency_name)
+            if dependency_key in expanded:
+                continue
+            expanded.add(dependency_key)
+            queue.append(dependency_key)
+    return expanded
+
+
 def analyze_repo(
     *,
     repo_root: Path,
@@ -666,13 +726,10 @@ def analyze_repo(
         for member_name in exported_member_names(class_info):
             used_members.add((module_name, class_name, member_name))
 
-    for module_name in sorted(reachable_modules):
-        module_info = module_infos[module_name]
-        for class_name, class_info in module_info.classes.items():
-            if (module_name, class_name) not in used_top_level:
-                continue
-            for member_name in class_info.local_member_refs:
-                used_members.add((module_name, class_name, member_name))
+    used_members = propagate_member_dependencies(
+        module_infos=module_infos,
+        used_members=used_members,
+    )
 
     unused_top_level: list[TopLevelDefinition] = []
     potential_unused_members: list[ClassMemberDefinition] = []
