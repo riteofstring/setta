@@ -1,16 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  addKwargFromFrontend,
   cleanupIsolatedProject,
   createCallableSection,
   createTextBlockSection,
   createTopLevelSectionFromFrontend,
   ensureAppReady,
+  getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
   setCodeObjNameFromFrontend,
   setOverviewTab,
   setParamEnteredValueFromFrontend,
   setSectionNameFromFrontend,
+  setSectionSizesFromFrontend,
 } from "../../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -54,6 +57,11 @@ type LoadedCodegenProjectState = {
     {
       type: string;
       code?: string;
+      size?: {
+        width?: number | string;
+        height?: number | string;
+      };
+      codeObjVariantMap?: Record<string, string>;
     }
   >;
   singletonSections: {
@@ -137,6 +145,36 @@ async function loadCodegenProjectState(
     throw new Error("Missing project config response.");
   }
   return response;
+}
+
+async function getGeneratedPythonSectionSize(
+  page: Page,
+): Promise<{
+  width: number | string | undefined;
+  height: number | string | undefined;
+}> {
+  const state = await loadCodegenProjectState(page);
+  const generatedSectionId = state.singletonSections.GenPythonCode;
+  if (!generatedSectionId) {
+    throw new Error("Expected generated python singleton section.");
+  }
+  const variantId = state.projectConfig.sectionVariantMap[generatedSectionId];
+  if (!variantId) {
+    throw new Error(
+      `Expected generated python variant mapping for ${generatedSectionId}.`,
+    );
+  }
+  const implId = state.sectionVariants[variantId]?.impl;
+  if (!implId) {
+    throw new Error(
+      `Expected generated python impl mapping for variant ${variantId}.`,
+    );
+  }
+  const size = state.sectionImpls[implId]?.size;
+  return {
+    width: size?.width,
+    height: size?.height,
+  };
 }
 
 function hasPythonTarget(state: LoadedCodegenProjectState): boolean {
@@ -588,6 +626,91 @@ test("generated python updates for callable and param changes and reports missin
     await expect
       .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
       .not.toMatch(/bg-red-200/);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("generated python keeps its resized section size after param dict mutations", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const initialState = await loadCodegenProjectState(page);
+    const generatedSectionId = initialState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+
+    const generatedResizable = page.locator(
+      `[id="${generatedSectionId}-CustomResizable"]`,
+    );
+    await expect(generatedResizable).toBeVisible();
+    const initialBox = await generatedResizable.boundingBox();
+    if (!initialBox) {
+      throw new Error("Expected generated python resizable bounds.");
+    }
+
+    await setSectionSizesFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionSizes: {
+        [generatedSectionId]: {
+          width: 760,
+          height: 280,
+        },
+      },
+    });
+
+    await expect
+      .poll(async () => getGeneratedPythonSectionSize(page))
+      .toEqual({ width: 760, height: 280 });
+
+    await expect
+      .poll(async () => (await generatedResizable.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(initialBox.width + 120);
+
+    const viewportBounds = await getViewportBoundsForPlacement(page);
+    if (!viewportBounds) {
+      throw new Error("Unable to resolve viewport bounds for dict placement.");
+    }
+    const sectionResponse = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Dict",
+      viewportBounds,
+    });
+    const sectionId = sectionResponse?.sectionId;
+    if (!sectionId) {
+      throw new Error("Missing sectionId when creating dict section.");
+    }
+
+    await addKwargFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+    });
+    const paramInfoId = await getFirstParamInfoId(page, sectionId);
+
+    await setCodeObjNameFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      codeObjId: paramInfoId,
+      name: "renamed_key",
+    });
+    await setParamEnteredValueFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      paramInfoId,
+      value: "123",
+    });
+
+    await expect
+      .poll(async () => getGeneratedPythonSectionSize(page))
+      .toEqual({ width: 760, height: 280 });
+
+    await expect
+      .poll(async () => (await generatedResizable.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(initialBox.width + 120);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

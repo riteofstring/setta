@@ -333,19 +333,20 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 		project.TopLevelSections[spec.sectionID] = projectstate.TopLevelSectionLayout{}
 	}
 
-	project.Sections[spec.sectionID] = projectstate.Section{
-		ID:               spec.sectionID,
-		Name:             spec.name,
-		VariantIDs:       []string{spec.variantID},
-		DefaultVariantID: spec.variantID,
-	}
+	section := project.Sections[spec.sectionID]
+	section.ID = spec.sectionID
+	section.Name = spec.name
+	section.ParentSectionID = ""
+	section.VariantIDs = []string{spec.variantID}
+	section.DefaultVariantID = spec.variantID
+	project.Sections[spec.sectionID] = section
 	project.SectionVariantMap[spec.sectionID] = spec.variantID
-	project.SectionVariants[spec.variantID] = projectstate.SectionVariant{
-		ID:     spec.variantID,
-		ImplID: spec.implID,
-	}
+	variant := project.SectionVariants[spec.variantID]
+	variant.ID = spec.variantID
+	variant.ImplID = spec.implID
+	project.SectionVariants[spec.variantID] = variant
 
-	payload, err := marshalGeneratedPythonSectionPayload(spec.implID, spec.sectionType, spec.code, spec.binding)
+	payload, err := marshalGeneratedPythonSectionPayload(project, spec)
 	if err != nil {
 		return err
 	}
@@ -365,7 +366,9 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 		if viewMode.TopLevelSections == nil {
 			viewMode.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
 		}
-		viewMode.VisibilityBySectionID[spec.sectionID] = true
+		if _, ok := viewMode.VisibilityBySectionID[spec.sectionID]; !ok {
+			viewMode.VisibilityBySectionID[spec.sectionID] = true
+		}
 		if _, ok := viewMode.TopLevelSections[spec.sectionID]; !ok {
 			viewMode.TopLevelSections[spec.sectionID] = projectstate.TopLevelSectionLayout{}
 		}
@@ -375,32 +378,88 @@ func ensurePythonGeneratedSection(project *projectstate.Project, spec pythonGene
 }
 
 func marshalGeneratedPythonSectionPayload(
-	implID string,
-	sectionType string,
-	code string,
-	binding *projectstate.CodeFileBinding,
+	project *projectstate.Project,
+	spec pythonGeneratedSectionSpec,
 ) (projectstate.RawJSON, error) {
-	payload := map[string]any{
-		"id":                        implID,
-		"type":                      sectionType,
-		"size":                      map[string]any{"width": 500.0, "height": 150.0},
-		"children":                  []string{},
-		"code":                      code,
-		"codeFileBinding":           nil,
-		"attachedTerminalSectionId": nil,
+	payload, err := existingGeneratedPythonSectionPayload(project, spec.sectionID)
+	if err != nil {
+		return nil, err
 	}
-	if binding != nil {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	applyGeneratedPythonSectionPayloadDefaults(payload)
+	payload["id"] = spec.implID
+	payload["type"] = spec.sectionType
+	payload["code"] = spec.code
+	payload["codeFileBinding"] = nil
+	if spec.binding != nil {
 		payload["codeFileBinding"] = map[string]any{
-			"canonical_path": binding.Path,
-			"access_mode":    string(binding.AccessMode),
+			"canonical_path": spec.binding.Path,
+			"access_mode":    string(spec.binding.AccessMode),
 			"autoBinding":    false,
 		}
 	}
+
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal generated python section payload %q: %w", implID, err)
+		return nil, fmt.Errorf("marshal generated python section payload %q: %w", spec.implID, err)
 	}
 	return projectstate.RawJSON(encoded), nil
+}
+
+func existingGeneratedPythonSectionPayload(
+	project *projectstate.Project,
+	sectionID string,
+) (map[string]any, error) {
+	if project == nil {
+		return nil, projectstate.ErrProjectNotFound
+	}
+	variantID, ok := project.SectionVariantMap[sectionID]
+	if !ok {
+		return nil, nil
+	}
+	variant, ok := project.SectionVariants[variantID]
+	if !ok {
+		return nil, nil
+	}
+	impl, ok := project.SectionImpls[variant.ImplID]
+	if !ok || len(impl.Payload) == 0 {
+		return nil, nil
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(impl.Payload, &payload); err != nil {
+		return nil, fmt.Errorf(
+			"decode existing generated python payload %q: %w",
+			sectionID,
+			err,
+		)
+	}
+	return payload, nil
+}
+
+func applyGeneratedPythonSectionPayloadDefaults(payload map[string]any) {
+	if payload == nil {
+		return
+	}
+	size, ok := payload["size"].(map[string]any)
+	if !ok {
+		size = map[string]any{}
+		payload["size"] = size
+	}
+	if _, ok := size["width"]; !ok {
+		size["width"] = 500.0
+	}
+	if _, ok := size["height"]; !ok {
+		size["height"] = 150.0
+	}
+	if _, ok := payload["children"]; !ok {
+		payload["children"] = []string{}
+	}
+	if _, ok := payload["attachedTerminalSectionId"]; !ok {
+		payload["attachedTerminalSectionId"] = nil
+	}
 }
 
 func containsString(values []string, target string) bool {

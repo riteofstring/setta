@@ -142,6 +142,92 @@ func TestPythonMaterializerReconcileProjectPythonGeneratedSections(t *testing.T)
 	}
 }
 
+// Regenerating the Generated Python singleton should keep user-controlled presentation state like section size.
+func TestPythonMaterializerReconcileProjectPythonGeneratedSectionsPreservesExistingPresentationState(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	materializer, err := NewPythonMaterializer(PythonMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new python materializer: %v", err)
+	}
+
+	project := singleSectionProject(
+		t,
+		"Greeting",
+		mustRawJSON(t, `{"id":"section-impl-1","type":"TextBlock","text":"hello world"}`),
+		mustRawJSON(t, `{"language":"python","genCodePrefix":"import math","generateMetadata":false}`),
+		nil,
+	)
+	project.Sections[projectstate.GeneratedPythonCodeSectionID] = projectstate.Section{
+		ID:               projectstate.GeneratedPythonCodeSectionID,
+		Name:             projectstate.GeneratedPythonCodeSectionName,
+		VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
+		DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
+	}
+	project.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID] =
+		projectstate.GeneratedPythonCodeVariantID
+	project.SectionVariants[projectstate.GeneratedPythonCodeVariantID] = projectstate.SectionVariant{
+		ID:     projectstate.GeneratedPythonCodeVariantID,
+		ImplID: projectstate.GeneratedPythonCodeImplID,
+	}
+	project.SectionImpls[projectstate.GeneratedPythonCodeImplID] = projectstate.SectionImpl{
+		ID:   projectstate.GeneratedPythonCodeImplID,
+		Kind: projectstate.SectionKindGenerated,
+		Payload: mustRawJSON(
+			t,
+			`{
+				"id":"gen-python-impl",
+				"type":"GenPythonCode",
+				"code":"stale",
+				"size":{"width":760,"height":280},
+				"children":["terminal-1"],
+				"attachedTerminalSectionId":"terminal-1",
+				"positionAndSizeLocked":true
+			}`,
+		),
+		Generated: &projectstate.GeneratedSectionImpl{
+			Kind: projectstate.GeneratedSectionKindPythonCode,
+		},
+	}
+
+	if err := materializer.ReconcileProjectPythonGeneratedSections(context.Background(), &project); err != nil {
+		t.Fatalf("reconcile generated python sections: %v", err)
+	}
+
+	payload := decodeGeneratedSectionPayload(
+		t,
+		project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload,
+	)
+	size, ok := payload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated section size object, got %#v", payload["size"])
+	}
+	if size["width"] != 760.0 || size["height"] != 280.0 {
+		t.Fatalf("expected preserved generated section size 760x280, got %#v", size)
+	}
+	children, ok := payload["children"].([]any)
+	if !ok {
+		t.Fatalf("expected generated section children array, got %#v", payload["children"])
+	}
+	if len(children) != 1 || children[0] != "terminal-1" {
+		t.Fatalf("expected preserved generated section children, got %#v", children)
+	}
+	if got := payload["attachedTerminalSectionId"]; got != "terminal-1" {
+		t.Fatalf("expected preserved attached terminal id, got %#v", got)
+	}
+	if got := payload["positionAndSizeLocked"]; got != true {
+		t.Fatalf("expected preserved positionAndSizeLocked, got %#v", got)
+	}
+	if got := payload["code"]; got == "stale" {
+		t.Fatalf("expected regenerated code to replace stale payload, got %#v", got)
+	}
+}
+
 // Runtime password secrets should flow into generated code through the real password store instead of test-only injection.
 func TestPythonMaterializerMaterializeProjectReadsRuntimePasswordStore(t *testing.T) {
 	t.Parallel()
@@ -303,10 +389,7 @@ func assertGeneratedSectionPayloadChildrenEmpty(
 ) {
 	t.Helper()
 
-	var decoded map[string]any
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		t.Fatalf("decode generated section payload: %v", err)
-	}
+	decoded := decodeGeneratedSectionPayload(t, payload)
 	children, ok := decoded["children"].([]any)
 	if !ok {
 		t.Fatalf("expected generated section payload children array, got %#v", decoded["children"])
@@ -321,6 +404,19 @@ func assertGeneratedSectionPayloadChildrenEmpty(
 	if size["width"] != 500.0 || size["height"] != 150.0 {
 		t.Fatalf("expected generated section payload size 500x150, got %#v", size)
 	}
+}
+
+func decodeGeneratedSectionPayload(
+	t *testing.T,
+	payload projectstate.RawJSON,
+) map[string]any {
+	t.Helper()
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode generated section payload: %v", err)
+	}
+	return decoded
 }
 
 func pythonPasswordMaterializerProject(t *testing.T) projectstate.Project {
