@@ -614,7 +614,11 @@ func newChatAttachmentTestDeploymentRuntime(t *testing.T) (string, *deployments.
 			},
 		},
 	}
-	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
+	normalizedDocument, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize deployment project document: %v", err)
+	}
+	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), normalizedDocument)
 	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
 		"version":                1,
 		"deploymentName":         "demo-share",

@@ -10979,8 +10979,8 @@ func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
 						"type": "Code",
 						"code": "def existing(value):\n    return value\n",
 						"codeFileBinding": map[string]any{
-							"path":        "pkg/bound.py",
-							"access_mode": "read_write",
+							"canonical_path": "pkg/bound.py",
+							"access_mode":    "read_write",
 						},
 						"codeLanguage": "python",
 						"children":     []string{},

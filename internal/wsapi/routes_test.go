@@ -4717,7 +4717,11 @@ func newRouteDeploymentRuntimeWithPolicyAndNow(t *testing.T, mode config.Mode, p
 			},
 		},
 	}
-	writeRouteDeploymentJSON(t, filepath.Join(root, projectstate.MainFileName), document)
+	normalizedDocument, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize route deployment document: %v", err)
+	}
+	writeRouteDeploymentJSON(t, filepath.Join(root, projectstate.MainFileName), normalizedDocument)
 
 	deploymentType := "share"
 	if mode == config.ModeApp {

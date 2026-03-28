@@ -155,6 +155,9 @@ export type ProjectStateSingleConfigResponse = {
   sectionVariants: Record<string, ProjectStateVariant>;
   sectionImpls: Record<string, ProjectStateSectionImpl>;
   sections: Record<string, ProjectStateSectionCore>;
+  singletonSections: {
+    GenPythonCode?: string | null;
+  };
 };
 
 export async function ensureAppReady(page: Page): Promise<void> {

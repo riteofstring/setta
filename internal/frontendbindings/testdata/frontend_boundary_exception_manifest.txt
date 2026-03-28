@@ -4,7 +4,6 @@ backendOriginTransport frontend/src/plugins/transport.ts buildListenerWebsocketU
 backendOriginTransport frontend/src/state/actions/websocketReceive.ts buildBootstrapPageUrl
 backendOriginTransport frontend/src/state/actions/websocketReceive.ts buildFrontendWebsocketUrl
 backendOriginTransport frontend/src/state/actions/websocketReceive.ts getFrontendWebsocketRoute
-backendOriginTransport frontend/src/state/hooks/terminals/websocketUrl.ts BuildTerminalWebsocketUrlOptions
 backendOriginTransport frontend/src/state/hooks/terminals/websocketUrl.ts buildTerminalWebsocketUrl
 backendTransport frontend/src/components/App/appTransport.ts buildBinaryDownloadUrl
 backendTransport frontend/src/utils/settaApiPresets.ts SETTA_API_PRESET_ROUTES
@@ -42,8 +41,6 @@ transportRouteConstants frontend/src/utils/serverModeBoundaryPolicy.ts SERVER_MO
 transportUrlCore frontend/src/utils/backendOriginTransport.ts buildBackendOriginURL
 transportUrlCore frontend/src/utils/backendOriginTransport.ts buildBackendOriginWebsocketURL
 transportUrlCore frontend/src/utils/backendTransport.ts buildBackendURL
-transportUrlCore frontend/src/utils/endpointUtils.ts buildBackendURL
-transportUrlCore frontend/src/utils/endpointUtils.ts replaceAddressParams
 transportUrlCore frontend/src/utils/endpointUtils.ts resolveEndpointOrigin
 transportUrlCore frontend/src/utils/requestTransport.ts buildBackendURL
 workspaceLaunchNavigation frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx resolveWorkspaceLaunchBackNavigation

@@ -268,7 +268,11 @@ func newListenerProducerDeploymentRuntime(t *testing.T) *deployments.Runtime {
 			},
 		},
 	}
-	writeListenerProducerJSON(t, filepath.Join(root, projectstate.MainFileName), document)
+	normalizedDocument, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize listener producer deployment document: %v", err)
+	}
+	writeListenerProducerJSON(t, filepath.Join(root, projectstate.MainFileName), normalizedDocument)
 	writeListenerProducerJSON(t, filepath.Join(root, "manifest.json"), map[string]any{
 		"version":                1,
 		"deploymentName":         "demo",

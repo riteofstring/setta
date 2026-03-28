@@ -11394,14 +11394,14 @@ func mustSetAppCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, 
 		if !ok {
 			bindingPayload = map[string]any{}
 		}
-		if _, ok := bindingPayload["path"].(string); !ok {
-			bindingPayload["path"] = "code/readonly.py"
+		if _, ok := bindingPayload["canonical_path"].(string); !ok {
+			bindingPayload["canonical_path"] = "code/readonly.py"
 		}
 		bindingPayload["access_mode"] = string(projectstate.CodeFileAccessModeReadOnly)
 		payload["codeFileBinding"] = bindingPayload
 		impl.Payload = mustRawJSONValue(t, payload)
 		impl.Code.Binding = &projectstate.CodeFileBinding{
-			Path:       bindingPayload["path"].(string),
+			Path:       bindingPayload["canonical_path"].(string),
 			AccessMode: projectstate.CodeFileAccessModeReadOnly,
 		}
 		project.SectionImpls[impl.ID] = impl

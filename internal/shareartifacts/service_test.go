@@ -356,7 +356,11 @@ func writeShareArtifactDeploymentFixture(t *testing.T, deploymentRoot string, al
 			},
 		},
 	}
-	writeShareArtifactJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
+	normalizedDocument, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize share artifact deployment document: %v", err)
+	}
+	writeShareArtifactJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), normalizedDocument)
 	writeShareArtifactJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
 		"version":                1,
 		"deploymentName":         "share-artifacts",

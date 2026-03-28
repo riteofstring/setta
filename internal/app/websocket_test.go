@@ -39,8 +39,8 @@ import (
 )
 
 type appRouteEnvelope struct {
-	MessageType string          `json:"messageType"`
-	Content     json.RawMessage `json:"content"`
+	MessageType realtime.ListenerMessageType `json:"messageType"`
+	Content     json.RawMessage              `json:"content"`
 }
 
 func TestAppServesFrontendWebsocketRoute(t *testing.T) {
@@ -4379,8 +4379,8 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 	}
 
 	var value struct {
-		Type    string                   `json:"type"`
-		Payload binarypayload.ContentRef `json:"payload"`
+		Type    realtime.DependencyValueType `json:"type"`
+		Payload binarypayload.ContentRef     `json:"payload"`
 	}
 	if err := json.Unmarshal(content.Deltas[0].Value, &value); err != nil {
 		t.Fatalf("decode binary dependency value: %v", err)
@@ -4607,7 +4607,7 @@ func readAppBinaryEnvelope(t *testing.T, conn *websocket.Conn) (appRouteEnvelope
 	return envelope, binaryPayload
 }
 
-func readAppRouteEnvelopeUntilType(t *testing.T, conn *websocket.Conn, messageType string, maxReads int) appRouteEnvelope {
+func readAppRouteEnvelopeUntilType(t *testing.T, conn *websocket.Conn, messageType realtime.ListenerMessageType, maxReads int) appRouteEnvelope {
 	t.Helper()
 
 	for range maxReads {
@@ -4649,7 +4649,7 @@ func readAppRouteAgentRunUpdate(
 	return agentruns.Run{}
 }
 
-func assertNoAppRouteEnvelopeOfType(t *testing.T, conn *websocket.Conn, messageType string, timeout time.Duration) {
+func assertNoAppRouteEnvelopeOfType(t *testing.T, conn *websocket.Conn, messageType realtime.ListenerMessageType, timeout time.Duration) {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)

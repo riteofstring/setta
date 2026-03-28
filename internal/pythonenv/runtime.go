@@ -137,6 +137,12 @@ func ResolveCurrentProcessInterpreter(lookupEnv func(string) (string, bool)) (st
 		return resolveBinary(pythonPath)
 	}
 
+	if cwd, err := os.Getwd(); err == nil {
+		if interpreter, ok := resolveRepoLocalVirtualEnvInterpreter(cwd); ok {
+			return interpreter, nil
+		}
+	}
+
 	for _, candidate := range []string{"python3", "python"} {
 		resolved, err := exec.LookPath(candidate)
 		if err == nil {
@@ -149,6 +155,32 @@ func ResolveCurrentProcessInterpreter(lookupEnv func(string) (string, bool)) (st
 		ErrInterpreterUnavailable,
 		InterpreterEnv,
 	)
+}
+
+func resolveRepoLocalVirtualEnvInterpreter(startDir string) (string, bool) {
+	normalizedDir, err := statefs.NormalizePath(startDir, "")
+	if err != nil {
+		return "", false
+	}
+
+	pythonRelativePath := filepath.Join(".venv", "bin", "python")
+	if runtime.GOOS == "windows" {
+		pythonRelativePath = filepath.Join(".venv", "Scripts", "python.exe")
+	}
+
+	currentDir := normalizedDir
+	for {
+		candidate := filepath.Join(currentDir, pythonRelativePath)
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
+			return candidate, true
+		}
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			return "", false
+		}
+		currentDir = parentDir
+	}
 }
 
 func (r *Runtime) InterpreterPath() string {

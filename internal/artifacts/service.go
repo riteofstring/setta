@@ -743,8 +743,8 @@ func (s *Service) resolveCachedPath(raw string) (string, string, error) {
 		}
 	}
 
-	if _, resolvedPath, err := s.resolveArtifactPath(trimmed); err == nil {
-		return trimmed, resolvedPath, nil
+	if artifactID, resolvedPath, err := s.resolveArtifactPath(trimmed); err == nil {
+		return artifactID, resolvedPath, nil
 	} else {
 		var artifactErr *Error
 		if !errors.As(err, &artifactErr) || artifactErr.Kind != ErrorPathForbidden {

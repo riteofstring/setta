@@ -52,6 +52,35 @@ func TestResolveCurrentProcessInterpreterUsesVirtualEnvFallback(t *testing.T) {
 	}
 }
 
+func TestResolveRepoLocalVirtualEnvInterpreterSearchesParentDirectories(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	workspaceRoot := filepath.Join(repoRoot, "internal", "lsp")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	pythonPath := filepath.Join(repoRoot, ".venv", "bin", "python")
+	if runtime.GOOS == "windows" {
+		pythonPath = filepath.Join(repoRoot, ".venv", "Scripts", "python.exe")
+	}
+	if err := os.MkdirAll(filepath.Dir(pythonPath), 0o755); err != nil {
+		t.Fatalf("mkdir virtualenv bin dir: %v", err)
+	}
+	if err := os.WriteFile(pythonPath, []byte(""), 0o755); err != nil {
+		t.Fatalf("write virtualenv interpreter: %v", err)
+	}
+
+	resolved, ok := resolveRepoLocalVirtualEnvInterpreter(workspaceRoot)
+	if !ok {
+		t.Fatal("expected repo-local virtualenv interpreter")
+	}
+	if resolved != pythonPath {
+		t.Fatalf("expected %q, got %q", pythonPath, resolved)
+	}
+}
+
 func TestRuntimeInstalledPackagesReturnsSortedNameVersions(t *testing.T) {
 	t.Parallel()
 

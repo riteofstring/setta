@@ -171,6 +171,7 @@ func TestAppStreamsManagedToolArgumentPreviewOverFrontendWebsocket(t *testing.T)
 		t.Fatalf("dial frontend websocket route: %v", err)
 	}
 	defer conn.CloseNow()
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
 	request, err := http.NewRequest(
 		http.MethodPost,
@@ -255,8 +256,26 @@ func TestAppStreamsManagedToolArgumentPreviewOverFrontendWebsocket(t *testing.T)
 func waitForManagedPreviewChunk(t *testing.T, conn *websocket.Conn) map[string]any {
 	t.Helper()
 
-	for range 20 {
-		envelope := readAppRouteEnvelope(t, conn)
+	deadline := time.Now().Add(10 * time.Second)
+	seenMessageTypes := []string{}
+	seenChunkTypes := []any{}
+	for time.Now().Before(deadline) {
+		remaining := time.Until(deadline)
+		ctx, cancel := context.WithTimeout(context.Background(), remaining)
+		_, payload, err := conn.Read(ctx)
+		cancel()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				break
+			}
+			t.Fatalf("read app websocket message: %v", err)
+		}
+
+		var envelope appRouteEnvelope
+		if err := json.Unmarshal(payload, &envelope); err != nil {
+			t.Fatalf("decode app websocket message: %v", err)
+		}
+		seenMessageTypes = append(seenMessageTypes, string(envelope.MessageType))
 		if envelope.MessageType != realtime.MessageTypeLLMStreamingResponse {
 			continue
 		}
@@ -266,12 +285,14 @@ func waitForManagedPreviewChunk(t *testing.T, conn *websocket.Conn) map[string]a
 		if err := json.Unmarshal(envelope.Content, &content); err != nil {
 			t.Fatalf("decode llm streaming content: %v", err)
 		}
-		if content.Chunk["type"] != realtime.StreamingEventTypeToolArgumentPreview {
+		chunkType, _ := content.Chunk["type"].(string)
+		seenChunkTypes = append(seenChunkTypes, chunkType)
+		if chunkType != string(realtime.StreamingEventTypeToolArgumentPreview) {
 			continue
 		}
 		return content.Chunk
 	}
 
-	t.Fatal("did not receive managed tool preview chunk")
+	t.Fatalf("did not receive managed tool preview chunk within 10s; seen message types=%#v chunk types=%#v", seenMessageTypes, seenChunkTypes)
 	return nil
 }

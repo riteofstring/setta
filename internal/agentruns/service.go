@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"setta/internal/agentprofiles"
@@ -92,6 +93,7 @@ type Service struct {
 	completionGuardEnabled  bool
 	completionGuardProvider CompletionGuardProvider
 	timeNow                 func() time.Time
+	runStateMu              sync.Mutex
 }
 
 type ResolvedEngine struct {
@@ -217,6 +219,10 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		}
 	}
 	result, execErr := s.executor.Execute(ctx, request)
+
+	s.runStateMu.Lock()
+	defer s.runStateMu.Unlock()
+
 	if persistedRun, err := s.runs.Load(runContext.run.ID); err == nil {
 		runContext.run = persistedRun
 	}
@@ -224,10 +230,10 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		if err := s.persistExecutionResult(&runContext.run, runContext, result); err != nil {
 			return Run{}, err
 		}
-		return s.cancelRun(runContext.run.ID)
+		return s.cancelRunLocked(runContext.run.ID)
 	}
 	if execErr != nil {
-		return s.failRun(runContext, execErr)
+		return s.failRunLocked(runContext, execErr)
 	}
 
 	runContext.run.ToolCalls = cloneToolCalls(result.ToolCalls)
@@ -324,6 +330,15 @@ func (s *Service) persistExecutionResult(run *Run, context runContext, result Ex
 }
 
 func (s *Service) failRun(runContext runContext, cause error) (Run, error) {
+	if s == nil {
+		return Run{}, ErrManagedExecutorUnavailable
+	}
+	s.runStateMu.Lock()
+	defer s.runStateMu.Unlock()
+	return s.failRunLocked(runContext, cause)
+}
+
+func (s *Service) failRunLocked(runContext runContext, cause error) (Run, error) {
 	runContext.run.Outputs = buildFailureOutputs(runContext.run.ID, assistantFailureMessage(cause), s.buildRunMetadata(runContext))
 	runContext.run.Status = RunStatusFailed
 	finishedAt := s.timeNow().UTC()
@@ -356,6 +371,12 @@ func (s *Service) cancelRun(runID string) (Run, error) {
 	if s == nil {
 		return Run{}, ErrManagedExecutorUnavailable
 	}
+	s.runStateMu.Lock()
+	defer s.runStateMu.Unlock()
+	return s.cancelRunLocked(runID)
+}
+
+func (s *Service) cancelRunLocked(runID string) (Run, error) {
 	run, err := s.runs.Load(runID)
 	if err != nil {
 		return Run{}, err

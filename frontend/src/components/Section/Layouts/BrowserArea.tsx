@@ -914,6 +914,7 @@ function ViewSwitch({
         >
           <FileBrowserPane
             useFileBrowserStateHook={useBrowserSectionFileBrowserState}
+            allowOutsideWorkspaceRoot
             showFilter={false}
             showPathNavigation={false}
             onFolderOpen={(node) => onOpenFolder(node.fullPath)}

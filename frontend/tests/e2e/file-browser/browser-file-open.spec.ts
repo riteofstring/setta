@@ -147,27 +147,32 @@ async function setBrowserPath(
   const pathInputId = `CodeMirror-${sectionId}-browser-path`;
   const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
   await expect(pathInput).toBeVisible();
+  const commitPath = async (nextPath: string): Promise<void> => {
+    const cmContent = pathInput.locator(".cm-content");
+    await expect(cmContent).toBeVisible();
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(nextPath);
+    await page.keyboard.press("Enter");
+
+    await expect
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(normalizePathForComparison(nextPath));
+  };
+
   const currentValue = await readCodeMirrorValue(page, pathInputId);
   const normalizedCurrent = normalizePathForComparison(currentValue);
   const normalizedTarget = normalizePathForComparison(targetPath);
-  const nextValue =
-    normalizedCurrent === normalizedTarget && !targetPath.endsWith(path.sep)
-      ? `${targetPath}${path.sep}`
-      : targetPath;
-
-  const cmContent = pathInput.locator(".cm-content");
-  await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.press("Backspace");
-  await page.keyboard.insertText(nextValue);
-  await page.keyboard.press("Enter");
-
-  await expect
-    .poll(async () =>
-      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-    )
-    .toContain(normalizedTarget);
+  if (normalizedCurrent === normalizedTarget) {
+    const parentPath = path.dirname(targetPath);
+    if (normalizePathForComparison(parentPath) !== normalizedTarget) {
+      await commitPath(parentPath);
+    }
+  }
+  await commitPath(targetPath);
 
   return pathInputId;
 }
@@ -291,6 +296,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
+  const workspaceParent = path.dirname(workspaceRoot);
   const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
   const projectContext = await openIsolatedProject(page);
   try {
@@ -392,10 +398,15 @@ test("browser list view opens folders on double click", async ({ page }) => {
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
+  const workspaceParent = path.dirname(workspaceRoot);
   const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
   const projectContext = await openIsolatedProject(page);
   try {
     const projectConfigId = projectContext.projectConfigId;
+    const folderName = "browser_list_folder";
+    const folderPath = path.join(workspaceRoot, folderName);
+    await fs.mkdir(folderPath, { recursive: true });
+
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
       throw new Error(
@@ -417,10 +428,6 @@ test("browser list view opens folders on double click", async ({ page }) => {
       throw new Error("Missing sectionId when creating browser section.");
     }
 
-    const folderName = "browser_list_folder";
-    const folderPath = path.join(workspaceRoot, folderName);
-    await fs.mkdir(folderPath, { recursive: true });
-
     try {
       const sectionNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,
@@ -429,13 +436,13 @@ test("browser list view opens folders on double click", async ({ page }) => {
 
       await sectionNode.locator('button[aria-label="List view"]').click();
 
-      // List view is the default; ensure we're rooted at the workspace.
       const pathInputId = await setBrowserPath(
         page,
         sectionNode,
         sectionId,
-        workspaceRoot,
+        workspaceParent,
       );
+      await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
       const explorer = sectionNode.locator(
         '[role="region"][aria-label="File explorer"]',
@@ -447,12 +454,21 @@ test("browser list view opens folders on double click", async ({ page }) => {
         'button[aria-label="Go forward"]',
       );
 
-      const folderButton = explorer
-        .getByRole("button", { name: folderName })
+      const folderRow = explorer
+        .locator('[data-testid="file-browser-row"]', { hasText: folderName })
         .first();
-      await expect(folderButton).toBeVisible();
-      await folderButton.scrollIntoViewIfNeeded();
-      await folderButton.dblclick();
+      if (!(await folderRow.isVisible().catch(() => false))) {
+        const tree = explorer.locator('div[tabindex="0"]').first();
+        await expect(tree).toBeVisible();
+        await tree.evaluate((element: HTMLElement) => element.focus());
+        await page.keyboard.press("ArrowRight");
+        if (!(await folderRow.isVisible().catch(() => false))) {
+          await page.keyboard.press("ArrowRight");
+        }
+      }
+      await expect(folderRow).toBeVisible();
+      await folderRow.scrollIntoViewIfNeeded();
+      await folderRow.dblclick();
 
       await expect
         .poll(async () =>

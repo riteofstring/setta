@@ -166,34 +166,14 @@ test.describe.serial("agentic edges", () => {
         window.__settaAgenticDebug = [];
       });
 
-      const initialChatIds = await getChatSectionIds(
+      const firstSectionId = await createChatSectionViaCommandPalette(
         page,
         projectContext.projectConfigId,
       );
-      await createChatSectionViaCommandPalette(
-        page,
-        projectContext.projectConfigId,
-        initialChatIds.length + 1,
-      );
-      await createChatSectionViaCommandPalette(
-        page,
-        projectContext.projectConfigId,
-        initialChatIds.length + 2,
-      );
-
-      const finalChatIds = await getChatSectionIds(
+      const secondSectionId = await createChatSectionViaCommandPalette(
         page,
         projectContext.projectConfigId,
       );
-      const newChatIds = finalChatIds.filter(
-        (id) => !initialChatIds.includes(id),
-      );
-      if (newChatIds.length !== 2) {
-        throw new Error(
-          `Expected exactly two newly created chat sections, found ${newChatIds.length}.`,
-        );
-      }
-      const [firstSectionId, secondSectionId] = newChatIds;
       await configureManagedChatSection(
         page,
         projectContext.projectConfigId,
@@ -454,29 +434,14 @@ async function configureManagedChatSection(
 async function createChatSectionViaCommandPalette(
   page: Page,
   projectConfigId: string,
-  expectedChatCount: number,
-): Promise<void> {
+): Promise<string> {
   const isMac = process.platform === "darwin";
   const shortcut = isMac ? "Meta+Shift+P" : "Control+Shift+P";
   const searchInput = page.locator("#ProjectPageSearchBar");
+  const existingChatIds = await getChatSectionIds(page, projectConfigId);
   const chatOption = page
     .getByRole("option", { name: "Chat", exact: true })
     .first();
-  const currChatCount = (await getChatSectionIds(page, projectConfigId))
-    .length;
-  if (currChatCount === expectedChatCount) {
-    return;
-  }
-  if (currChatCount > expectedChatCount) {
-    throw new Error(
-      `Chat section count exceeded expected total before create action. Expected ${expectedChatCount}, found ${currChatCount}.`,
-    );
-  }
-  if (currChatCount !== expectedChatCount - 1) {
-    throw new Error(
-      `Unexpected chat section count before command palette create. Expected ${expectedChatCount - 1}, found ${currChatCount}.`,
-    );
-  }
 
   await page.keyboard.press(shortcut);
   await expect(searchInput).toBeVisible({ timeout: 3000 });
@@ -499,40 +464,47 @@ async function createChatSectionViaCommandPalette(
     await page.keyboard.press("Enter");
   }
 
-  const finalChatCount = await waitForExactChatSectionCount(
+  const createdSectionId = await waitForNewChatSectionId(
     page,
     projectConfigId,
-    expectedChatCount,
+    existingChatIds,
     12000,
   );
-  if (finalChatCount !== expectedChatCount) {
-    throw new Error(
-      `Command palette did not reach expected chat section count. Expected exactly ${expectedChatCount}, found ${finalChatCount}.`,
-    );
-  }
+  await expect(page.getByTestId(`rf__node-${createdSectionId}`)).toBeVisible({
+    timeout: 12000,
+  });
+  return createdSectionId;
 }
 
-async function waitForExactChatSectionCount(
+async function waitForNewChatSectionId(
   page: Page,
   projectConfigId: string,
-  expectedChatCount: number,
+  existingChatIds: string[],
   timeoutMs: number,
-): Promise<number> {
+): Promise<string> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const chatCount = (await getChatSectionIds(page, projectConfigId)).length;
-    if (chatCount === expectedChatCount) {
-      return chatCount;
+    const currentChatIds = await getChatSectionIds(page, projectConfigId);
+    const newChatIds = currentChatIds.filter(
+      (sectionId) => !existingChatIds.includes(sectionId),
+    );
+    if (newChatIds.length === 1) {
+      return newChatIds[0];
     }
-    if (chatCount > expectedChatCount) {
+    if (newChatIds.length > 1) {
       throw new Error(
-        `Command palette created too many chat sections. Expected ${expectedChatCount}, found ${chatCount}.`,
+        `Command palette created too many chat sections. Expected 1 new chat section, found ${newChatIds.length}.`,
       );
     }
     await page.waitForTimeout(100);
   }
-
-  return (await getChatSectionIds(page, projectConfigId)).length;
+  const finalChatIds = await getChatSectionIds(page, projectConfigId);
+  const newChatIds = finalChatIds.filter(
+    (sectionId) => !existingChatIds.includes(sectionId),
+  );
+  throw new Error(
+    `Command palette did not create a new chat section. Expected 1 new chat section, found ${newChatIds.length}.`,
+  );
 }
 
 async function dragHandleToHandle(

@@ -22,6 +22,11 @@ type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
 type CreateTopLevelSectionResponse = { sectionId?: string };
+type LoadProjectConfigResponse = {
+  singletonSections: {
+    GenPythonCode?: string | null;
+  };
+};
 
 test("cleanup removes project config after early exit", async ({ page }) => {
   test.setTimeout(60000);
@@ -215,7 +220,13 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
       genCodeSuffix: "def bad(:\n  pass\n",
     });
 
-    const genSection = findSectionByName(page, "Generated Python Code").first();
+    const projectState = await loadProjectConfigState(page, projectConfigName);
+    const generatedSectionId = projectState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+
+    const genSection = findSectionById(page, generatedSectionId).first();
     await expect(genSection).toBeVisible();
     const codeArea = genSection
       .locator("article.section-full-no-title")
@@ -385,6 +396,10 @@ function findSectionByName(page: Page, name: string): Locator {
     .filter({ has: page.locator("header.section-title", { hasText: name }) });
 }
 
+function findSectionById(page: Page, sectionId: string): Locator {
+  return page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+}
+
 function getProjectConfigName(pageUrl: string, baseUrl: string): string {
   const pagePath = new URL(pageUrl).pathname;
   const basePath = new URL(baseUrl).pathname;
@@ -424,6 +439,21 @@ async function deleteProjectConfigByName(
     );
   }
   await postBackend(page, "/deleteProjectConfigs", { ids: [match.id] });
+}
+
+async function loadProjectConfigState(
+  page: Page,
+  projectConfigName: string,
+): Promise<LoadProjectConfigResponse> {
+  const response = await postBackend<LoadProjectConfigResponse>(
+    page,
+    "/loadProjectConfig",
+    { projectConfigName },
+  );
+  if (!response) {
+    throw new Error("Missing project config response.");
+  }
+  return response;
 }
 
 async function postBackend<T>(

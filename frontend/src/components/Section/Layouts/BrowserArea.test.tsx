@@ -276,4 +276,51 @@ describe("BrowserArea list view", () => {
       host.remove();
     }
   });
+
+  it("loads the Go root and folder contents into list view with outside-workspace access", async () => {
+    setBrowserSectionState(BrowserAreaViewModeEnum.list);
+    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+      data: createFileBrowserRootResponse({
+        rootPath: "/workspace",
+        ignorePatterns: ["node_modules"],
+        pathSeparator: "/",
+      }),
+      status: 200,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_folder_contents).mockResolvedValue({
+      data: [
+        createFolderContentItem({
+          name: "assets",
+          fullPath: "/workspace/assets",
+          type: "folder",
+        }),
+      ],
+      status: 200,
+      hasResponse: true,
+    });
+
+    const { host, root } = await renderBrowserArea();
+
+    try {
+      await flushEffects();
+
+      expect(route_get_file_browser_root).toHaveBeenCalled();
+      expect(route_get_folder_contents).toHaveBeenCalledWith({
+        folderPath: "/workspace",
+        ignorePatterns: ["node_modules"],
+        maxEntries: 5000,
+        includeMtime: true,
+        includeSettaInitialized: false,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      });
+      expect(host.textContent).toContain("assets");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });
