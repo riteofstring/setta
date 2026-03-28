@@ -30,6 +30,7 @@ from setta.types.artifact import BaseArtifactTypeAdapter
 from setta.types.generated.go_shared_types import (
     BinaryContentRef,
     BinaryDependencyValue,
+    CodeObjValueRepresentationMode,
     CodeObjType,
     DependencyValueType,
     ListenerDependencyMode,
@@ -42,9 +43,6 @@ from setta.types.generated.go_shared_types import (
     SectionType,
 )
 from setta.types.id import ID
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
-)
 from setta.types.protocol import (
     BaseDependencyKeyUnion,
     create_dep_key,

@@ -104,27 +104,27 @@ type SingleConfig struct {
 }
 
 type ProjectConfig struct {
-	ID                      string                                         `json:"id"`
-	Name                    string                                         `json:"name"`
+	ID                      string                                         `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
+	Name                    string                                         `json:"name" py_import:"from setta.utils.generate_memorable_string import generate_memorable_string" py_default:"Field(default_factory=generate_memorable_string)"`
 	ShowParamDisplayNames   bool                                           `json:"showParamDisplayNames"`
 	AllowJSONSourceKeyEdits bool                                           `json:"allowJsonSourceKeyEdits"`
 	PreviewImgColor         string                                         `json:"previewImgColor,omitempty"`
 	Viewport                *projectstate.Viewport                         `json:"viewport"`
 	ViewportInitialized     bool                                           `json:"viewportInitialized"`
-	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes"`
-	ActiveViewModeID        *string                                        `json:"activeViewModeId"`
+	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes" py_type:"dict[ID, ViewMode]" py_import:"from setta.types.id import ID, create_new_id"`
+	ActiveViewModeID        *string                                        `json:"activeViewModeId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 	IsEditingViewMode       bool                                           `json:"isEditingViewMode"`
-	CodegenTargets          []json.RawMessage                              `json:"codegenTargets"`
+	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]"`
 	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled"`
 	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders"`
 	WatchCodeFiles          []string                                       `json:"watchCodeFiles"`
 	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry"`
 	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath"`
-	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId"`
-	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections"`
-	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces"`
-	SectionVariantMap       map[string]string                              `json:"sectionVariantMap"`
-	ActiveIDs               []string                                       `json:"activeIds"`
+	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections" py_type:"dict[ID, TopLevelSectionLayout]" py_import:"from setta.types.id import ID, create_new_id"`
+	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces" py_type:"dict[ID, WindowSpaceConfig]" py_import:"from setta.types.id import ID, create_new_id"`
+	SectionVariantMap       map[string]string                              `json:"sectionVariantMap" py_type:"dict[ID, ID]" py_import:"from setta.types.id import ID, create_new_id"`
+	ActiveIDs               []string                                       `json:"activeIds" py_type:"list[ID]" py_import:"from setta.types.id import ID, create_new_id"`
 	Edges                   []projectstate.Edge                            `json:"edges"`
 	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges"`
 	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges"`

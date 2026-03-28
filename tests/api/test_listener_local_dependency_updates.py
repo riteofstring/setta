@@ -29,10 +29,10 @@ from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointResultMessage,
     LiteralDependencyValue,
     MessageTextContent,
+    SectionRepresentationMode,
     SectionType,
 )
 from setta.types.id import ID
-from setta.types.project_config import SectionRepresentationMode
 from setta.types.protocol import create_dep_key
 
 from tests.helpers.listener_runtime_state import (

@@ -230,6 +230,16 @@ func buildModelSpec(
 		for line := range typeSpec.Imports {
 			model.ExternalImports[line] = struct{}{}
 		}
+		importTag := strings.TrimSpace(field.Tag.Get("py_import"))
+		if importTag != "" {
+			for _, line := range strings.Split(importTag, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "" {
+					continue
+				}
+				model.ExternalImports[trimmed] = struct{}{}
+			}
+		}
 		defaultExpr, err := pythonDefaultExpr(
 			field,
 			typeSpec.TypeExpr,
@@ -244,6 +254,9 @@ func buildModelSpec(
 			)
 		}
 		typeExpr := typeSpec.TypeExpr
+		if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
+			typeExpr += " | None"
+		}
 		if fieldAllowsMissing(field) && defaultExpr == "" {
 			if !strings.Contains(typeExpr, " | None") {
 				typeExpr += " | None"

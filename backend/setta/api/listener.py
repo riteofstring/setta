@@ -59,6 +59,7 @@ from setta.types.artifact import (
     BaseArtifactUnion,
 )
 from setta.types.generated.go_shared_types import (
+    CodeObjValueRepresentationMode,
     CodeObjType,
     ListenerDependencyMode,
     ListenerErrorMessage,
@@ -70,11 +71,8 @@ from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointCallMessage,
     ListenerRouterEndpointResultMessage,
     Route,
-    SectionType,
-)
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
     SectionRepresentationMode,
+    SectionType,
 )
 from setta.types.protocol import (
     BaseDependencyKeyUnion,

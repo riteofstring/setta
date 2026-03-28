@@ -40,12 +40,12 @@ That means:
   `ProjectCodegenPythonTarget = GoProjectCodegenPythonTarget` keep a separate
   Python-owned naming layer alive without adding behavior, and they make the
   cleanup look more finished than it really is.
-- The project-codegen defaults are a good example of the remaining gap:
-  Go already owns the default policy semantics, but Python still reconstructs
-  the fully materialized default object locally. The generated Python models
-  only expose field shapes; they do not execute the Go defaulting path, so
-  helpers like `default_section_allowlist()` still duplicate the concrete
-  default payload in Python.
+- The project-codegen defaults were a good example of the remaining gap:
+  Go already owned the default policy semantics, but Python had been
+  reconstructing the fully materialized default object locally. That specific
+  gap is now largely closed: the generated `ProjectConfig` model carries the
+  Go-owned default materialization directly, which is the standard the
+  remaining handwritten wrappers should also meet.
 - Example: `backend/setta/types/chat.py::MessageThinkingDelta` currently exists
   as a handwritten subclass of the generated `MessageThinkingDelta`, but the
   generated base already owns the actual fields. The remaining handwritten
@@ -360,6 +360,10 @@ That means:
 - `backend/setta/types/project_config.py` has been trimmed further by collapsing more single-use default helper functions and aliases:
   - helpers such as `default_section_representation()`, `default_section_type_policies()`, `default_code_obj_representation()`, and `default_code_obj_type_value_policies()` no longer exist as separate Python-owned layers
   - the local `ProjectCodegenTarget` union alias is also gone; the remaining duplicated-default builder now uses the generated target types directly
+- the remaining project-config default duplication has now been collapsed into the generated Go-owned Python surface:
+  - `internal/pythonsharedtypes` now emits the `ProjectConfig` Python defaults directly from the Go-owned defaults, including the materialized default codegen target payload
+  - the generated `ProjectConfig` model now also owns the Python-side `ID` typing and `id` / `name` default factories that used to force handwritten field redeclarations
+  - `backend/setta/types/project_config.py` is now just the Python-only plugin-target normalization / duplicate-language validation layer
 - `backend/setta/types/listener.py` now also owns the handwritten websocket envelope adapters:
   - the Python message classes subclass Go-generated listener message models and only keep the Python-side typed content wrappers, discriminator literals, and `TypeAdapter`
 - the listener register/ack transport family has been reduced further:
@@ -770,17 +774,15 @@ Current handwritten files in `backend/setta/types/`:
 - `artifact.py`
 - `chat.py`
 - `id.py`
-- `listener.py`
 - `protocol.py`
 - `project_config.py`
 
 Final classification:
 - `id.py`: keep. Pydantic-specific `ID` integration and local ID factories are genuinely Python-only.
-- `listener.py`: keep. The remaining code is Python SDK/runtime glue: binary payload storage via `PrivateAttr`, stricter init validation, and typed websocket adapters over generated SDK contracts.
 - `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
 - `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
 - `artifact.py`: keep for now. The file is now just the Python-side artifact union/type-adapter boundary used by the listener runtime; it no longer owns handwritten artifact model wrappers.
-- `project_config.py`: keep for now. The remaining code is Python-only defaulting and validation over generated Go-owned project-state/codegen models, but the Python-side materialization of Go-owned defaults is still unfinished cleanup.
+- `project_config.py`: keep for now. The remaining code is now only the Python-side plugin-target normalization and duplicate-language validation; the generated Go-owned `ProjectConfig` model now owns the field layout, defaults, and `ID` typing directly.
 - there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.
 
 ## Optional Follow-ups
@@ -851,7 +853,6 @@ This item is resolved for the current scope. The remaining handwritten Python fi
 ### `backend/setta/types/`
 Keep only:
 - `id.py` if its Pydantic integration remains genuinely Python-specific
-- the narrow Python runtime glue in `listener.py` if it cannot be expressed cleanly in Go
 - a very small number of other files only if they are truly Python-only
 
 Everything else should either:
@@ -902,7 +903,7 @@ Deliverable:
 
 Expected likely survivors:
 - `id.py`
-- the Python-specific validation and binary-payload glue in `listener.py`
+- the Python-specific binary-payload glue in `backend/setta/api/listener.py` if it cannot be expressed cleanly in generated models
 - the typed websocket / chat adapter layers if the Go backend deliberately continues to represent chat messages and streaming chunks as raw JSON payloads internally
 
 ### Phase 2: Shrink `frontendbindings` as a type owner
@@ -922,7 +923,6 @@ Guardrail:
 ### Phase 3: Move the remaining shared Python families to Go ownership
 Primary targets:
 - `chat.py`
-- `listener.py`
 - `protocol.py`
 - any remaining reducible wrapper content in `project_config.py`
 - any remaining reducible wrapper content in `artifact.py`
