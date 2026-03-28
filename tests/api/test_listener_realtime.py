@@ -45,7 +45,6 @@ from setta.types.listener import (
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
-    WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.project_config import (
@@ -1225,7 +1224,7 @@ class TestSettaListenerRealtimeIntegration:
             content=ListenerErrorContent(
                 error="project_state_unavailable",
                 details={"projectName": "dog"},
-            )
+            ),
         )
         root_logger = logging.getLogger()
         module_logger = logging.getLogger("setta.api.listener")
@@ -1374,9 +1373,7 @@ class TestSettaListenerBootstrapFailure:
     async def test_bootstrap_uses_authoritative_composite_cache_from_go_snapshot_values(
         self,
     ) -> None:
-        fixture = _build_nested_controls_fixture(
-            ID("project-snapshot-composite")
-        )
+        fixture = _build_nested_controls_fixture(ID("project-snapshot-composite"))
         listener = SettaListener(project_name=fixture.projectConfig.name)
         callback_calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
 
@@ -1406,9 +1403,7 @@ class TestSettaListenerBootstrapFailure:
         assert listener._runtime_state is not None
         assert listener._dependency_cache[fixture.count_name] == 5
         assert listener._dependency_cache[fixture.section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {fixture.section_name: {"count": 5}})
-        ]
+        assert callback_calls == [({"count": 5}, {fixture.section_name: {"count": 5}})]
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
 
@@ -1708,9 +1703,7 @@ class TestSettaListenerBootstrapFailure:
     async def test_realtime_triggers_composite_listener_from_authoritative_values_when_runtime_state_exists(
         self,
     ) -> None:
-        fixture = _build_nested_controls_fixture(
-            ID("project-runtime-composite-parent")
-        )
+        fixture = _build_nested_controls_fixture(ID("project-runtime-composite-parent"))
         listener = SettaListener(project_name=fixture.projectConfig.name)
         runtime_state = _build_composite_runtime_state(fixture)
         callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
@@ -1891,17 +1884,19 @@ class TestSettaListenerBinaryParsing:
                 ),
             )
         )
-        message = WebsocketMsgListenerForceRefresh(
-            messageType=ListenerMessageType.ListenerForceRefresh,
-            content=content,
+        payload = json.dumps(
+            {
+                "messageType": ListenerMessageType.ListenerForceRefresh.value,
+                "content": content.model_dump(mode="json"),
+            }
         )
 
-        parsed = listener._parse_websocket_payload(message.model_dump_json())
+        parsed = listener._parse_websocket_payload(payload)
 
-        assert isinstance(parsed, WebsocketMsgListenerForceRefresh)
-        assert parsed.content.snapshot.projectConfigId == ID("project-1")
-        assert parsed.content.snapshot.dependencyCatalog.entries
-        assert parsed.content.snapshot.dependencyValues.entries
+        assert isinstance(parsed, ListenerForceRefreshEvent)
+        assert parsed.snapshot.projectConfigId == ID("project-1")
+        assert parsed.snapshot.dependencyCatalog.entries
+        assert parsed.snapshot.dependencyValues.entries
 
     def test_binary_realtime_event_applies_payload_to_all_deltas(self) -> None:
         listener = SettaListener(project_name="Binary Parse")

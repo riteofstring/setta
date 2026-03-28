@@ -75,7 +75,6 @@ from setta.types.listener import (
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
-    WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.project_config import (
@@ -972,7 +971,30 @@ class SettaListener:
             )
             return None
         try:
-            message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
+            raw_message = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Received malformed listener payload: %s", payload)
+            return None
+        if (
+            isinstance(raw_message, dict)
+            and raw_message.get("messageType")
+            == ListenerMessageType.ListenerForceRefresh.value
+        ):
+            try:
+                message = ListenerForceRefreshEvent.model_validate(
+                    raw_message.get("content")
+                )
+            except ValidationError:
+                logger.warning("Received malformed listener payload: %s", payload)
+                return None
+            logger.debug(
+                "Listener %s received %s message",
+                self._log_identifier,
+                ListenerMessageType.ListenerForceRefresh,
+            )
+            return message
+        try:
+            message = PythonScriptWebsocketMsgTypeAdapter.validate_python(raw_message)
         except ValidationError:
             logger.warning("Received malformed listener payload: %s", payload)
             return None
@@ -997,8 +1019,8 @@ class SettaListener:
         if isinstance(message, WebsocketMsgListenerDependencyEvent):
             await self._handle_dependency_event(message.content)
             return
-        if isinstance(message, WebsocketMsgListenerForceRefresh):
-            await self._handle_force_refresh(message.content)
+        if isinstance(message, ListenerForceRefreshEvent):
+            await self._handle_force_refresh(message)
             return
         if isinstance(message, ListenerErrorMessage):
             self._handle_listener_error(message)

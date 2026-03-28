@@ -378,6 +378,9 @@ That means:
 - `backend/setta/types/listener.py` no longer keeps a handwritten `WebsocketMsgListenerRegister` envelope or treats register payloads as part of the inbound websocket decode union:
   - listener registration is a Python-originated send path, not a server-originated websocket message family that needs `PythonScriptWebsocketMsgTypeAdapter`
   - the outbound register payload now sends `messageType` plus the generated `ListenerRegisterRequest` content directly, and the register-inspection tests validate that SDK contract payload instead of routing it back through the inbound listener adapter
+- `backend/setta/types/listener.py` no longer keeps a handwritten `WebsocketMsgListenerForceRefresh` envelope:
+  - force-refresh payloads now validate the generated `ListenerForceRefreshEvent` content directly at the parse boundary instead of preserving a separate websocket wrapper class just to retype `content`
+  - the inbound listener websocket union is now narrower and stays focused on the message families that still need typed realtime/dependency wrapper content or generated websocket envelope decoding
 - `backend/setta/types/listener.py` no longer keeps a handwritten `ListenerInitContent` wrapper:
   - the generated Go-owned init request/message models now carry the wire shape directly
   - the only remaining bootstrap requirement, that either `projectConfigId` or `projectName` must be provided, is enforced at the actual listener bootstrap call site instead of through a separate Python schema subclass

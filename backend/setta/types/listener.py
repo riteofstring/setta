@@ -14,9 +14,6 @@ from setta.sdk_contracts.generated import (
     ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
 )
 from setta.sdk_contracts.generated import (
-    ListenerForceRefreshEvent as SDKListenerForceRefreshEvent,
-)
-from setta.sdk_contracts.generated import (
     ListenerRealtimeDelta as SDKListenerRealtimeDelta,
 )
 from setta.sdk_contracts.generated import (
@@ -33,9 +30,6 @@ from setta.types.generated.go_shared_types import (
     ListenerRegisterAckMessage,
     ListenerRouterEndpointCallMessage,
     ListenerRouterEndpointResultMessage,
-)
-from setta.types.generated.go_shared_types import (
-    ListenerForceRefreshMessage as GoListenerForceRefreshMessage,
 )
 from setta.types.generated.go_shared_types import (
     ListenerRealtimeEventMessage as GoListenerRealtimeEventMessage,
@@ -82,10 +76,6 @@ class WebsocketMsgListenerDependencyEvent(GoListenerDependencyEventMessage):
     content: ListenerDependencyEventContent
 
 
-class WebsocketMsgListenerForceRefresh(GoListenerForceRefreshMessage):
-    content: SDKListenerForceRefreshEvent
-
-
 def _listener_message_type(value: Any) -> str | None:
     raw_type = (
         value.get("messageType")
@@ -107,10 +97,6 @@ PythonScriptWebsocketMsgUnion = Annotated[
     | Annotated[
         WebsocketMsgListenerDependencyEvent,
         Tag(ListenerMessageType.ListenerDependencyEvent.value),
-    ]
-    | Annotated[
-        WebsocketMsgListenerForceRefresh,
-        Tag(ListenerMessageType.ListenerForceRefresh.value),
     ]
     | Annotated[ListenerErrorMessage, Tag(ListenerMessageType.ListenerError.value)]
     | Annotated[
