@@ -1,6 +1,10 @@
 import _ from "lodash";
+import type { CSSProperties } from "react";
 import { memo, useEffect } from "react";
-import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
+import {
+  makeEdgeHandleKey,
+  recomputeEdgeHandlePositions,
+} from "state/actions/edgeHandles";
 import { reconnectEdgeFromConnection } from "state/actions/edges";
 import { useEdgeHandleRegistry, useProjectState } from "state/definitions";
 import { ConnectionLine } from "../components/ConnectionLine";
@@ -8,12 +12,13 @@ import BezierEdge from "../components/Edges/BezierEdge";
 import StraightEdge from "../components/Edges/StraightEdge";
 import wrapEdge from "../components/Edges/wrapEdge";
 import { useReactFlow } from "../store";
-import { buildEdgeRendererView } from "./edgeRendererView";
+import type { Connection } from "../types";
 
 const WrappedBezierEdge = wrapEdge(BezierEdge);
 const WrappedStraightEdge = wrapEdge(StraightEdge);
 
-const edgeComponentsByType = {
+const edgeTypes = {
+  default: WrappedBezierEdge,
   bezier: WrappedBezierEdge,
   straight: WrappedStraightEdge,
 };
@@ -39,32 +44,83 @@ const EdgeRenderer = () => {
     recomputeEdgeHandlePositions();
   }, [edges, width, height, topLevelSections]);
 
-  const edgeView = buildEdgeRendererView({
-    width,
-    height,
-    edges,
-    positions,
-    reconnectEdge: reconnectEdgeFromConnection,
-    sectionVariantMap,
-  });
-
-  if (!edgeView) {
+  if (!width || !height) {
     return null;
   }
+
+  const sortedEdges = [...edges].sort((a, b) => a.zIndex - b.zIndex);
 
   return (
     <>
       <svg
-        width={edgeView.svgWidth}
-        height={edgeView.svgHeight}
-        className={edgeView.svgClassName}
+        width={width}
+        height={height}
+        className="react-flow__edges react-flow__container"
       >
         <g>
-          {edgeView.renderedEdges.map((edge) => {
-            const { componentType, ...edgeProps } = edge;
-            const EdgeComponent = edgeComponentsByType[componentType];
+          {sortedEdges.map((edge) => {
+            if (
+              sectionVariantMap[edge.sourceSectionId] !==
+                edge.sourceVariantId ||
+              sectionVariantMap[edge.targetSectionId] !== edge.targetVariantId
+            ) {
+              return null;
+            }
 
-            return <EdgeComponent key={edge.id} {...edgeProps} />;
+            const sourceKey = makeEdgeHandleKey(
+              edge.sourceSectionId,
+              edge.sourcePortId,
+              "source",
+            );
+            const targetKey = makeEdgeHandleKey(
+              edge.targetSectionId,
+              edge.targetPortId,
+              "target",
+            );
+            const source = positions[sourceKey];
+            const target = positions[targetKey];
+            if (!source || !target || edge.hidden) {
+              return null;
+            }
+
+            const EdgeComponent =
+              edgeTypes[edge.type ?? "default"] ?? WrappedBezierEdge;
+            const onReconnect = (connection: Connection) => {
+              reconnectEdgeFromConnection(edge.id, connection);
+            };
+
+            const style = edge.style
+              ? (edge.style as CSSProperties)
+              : undefined;
+
+            return (
+              <EdgeComponent
+                key={edge.id}
+                id={edge.id}
+                type={edge.type}
+                data={edge.data ?? null}
+                selected={edge.selected}
+                animated={edge.animated}
+                hidden={edge.hidden}
+                label={edge.label ?? undefined}
+                style={style}
+                source={edge.sourceSectionId}
+                target={edge.targetSectionId}
+                sourceHandleId={edge.sourcePortId}
+                targetHandleId={edge.targetPortId}
+                sourceX={source.x}
+                sourceY={source.y}
+                targetX={target.x}
+                targetY={target.y}
+                sourcePosition={source.side}
+                targetPosition={target.side}
+                elementsSelectable={true}
+                onReconnect={onReconnect}
+                reconnectRadius={12}
+                isReconnectable={true}
+                interactionWidth={16}
+              />
+            );
           })}
         </g>
       </svg>
