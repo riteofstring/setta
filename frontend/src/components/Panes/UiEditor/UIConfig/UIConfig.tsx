@@ -96,9 +96,7 @@ function _UIElement({
       return;
     }
     if (!selectedId) {
-      // The combobox reports null when the previously selected impl disappears
-      // during state sync; that is not a user mutation and should not crash.
-      return;
+      throw new Error();
     }
     void applyUiTypeComboboxSelection({
       projectConfigId: getCurrProjectConfigId(),
