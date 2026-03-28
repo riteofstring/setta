@@ -69,14 +69,16 @@ vi.mock("./SortableSectionContainer", () => ({
   ),
 }));
 
-vi.mock("./SortableSectionSection", () => ({
-  SortableSectionSection: ({ sectionId }: { sectionId: string }) => (
+function MockSectionBoundary({
+  sectionId,
+}: SortableSectionBodySectionBoundaryProps) {
+  return (
     <div
       data-testid="mock-sortable-section-section"
       data-section-id={sectionId}
     />
-  ),
-}));
+  );
+}
 
 function renderNestedSections({
   sectionId,
@@ -115,6 +117,7 @@ describe("SectionContainerNestedSections", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerNestedSections
         sectionId="section-1"
+        SectionBoundary={MockSectionBoundary}
         isGroup={false}
         layoutVariant="default"
         isJoinedCodeTerminalGroup={false}
@@ -139,6 +142,7 @@ describe("SectionContainerNestedSections", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerNestedSections
         sectionId="section-2"
+        SectionBoundary={MockSectionBoundary}
         isGroup={true}
         layoutVariant="tight"
         isJoinedCodeTerminalGroup={true}

@@ -1,5 +1,6 @@
 import React, { type ComponentProps } from "react";
 import { SectionContainer } from "./SectionContainer";
+import { SortableSectionSection } from "./SortableSectionSection";
 import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
 export type SectionContainerSectionProps = Pick<
@@ -21,7 +22,7 @@ function _SectionContainerSection({
   return (
     <SectionContainer
       {...props}
-      SectionBoundary={SectionContainerSection}
+      SectionBoundary={SortableSectionSection}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}
     />

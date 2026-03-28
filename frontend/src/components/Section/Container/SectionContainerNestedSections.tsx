@@ -2,15 +2,18 @@ import React from "react";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SortableSectionContainer } from "./SortableSectionContainer";
-import { SortableSectionSection } from "./SortableSectionSection";
 import {
   buildSectionContainerNestedSectionsView,
   type SectionContainerNestedSectionsProps,
 } from "./sectionContainerNestedSectionsView";
-import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
+import type {
+  SortableSectionBodySectionBoundary,
+  SortableSectionNestedSectionsRenderer,
+} from "./sortableSectionBodyView";
 
 export type SectionContainerNestedSectionsComponentProps =
   SectionContainerNestedSectionsProps & {
+    SectionBoundary: SortableSectionBodySectionBoundary;
     renderCoreBody: SectionContainerCoreBodyRenderer;
     renderNestedSections: SortableSectionNestedSectionsRenderer;
   };
@@ -18,7 +21,12 @@ export type SectionContainerNestedSectionsComponentProps =
 function _SectionContainerNestedSections(
   props: SectionContainerNestedSectionsComponentProps,
 ) {
-  const { renderCoreBody, renderNestedSections, ...viewProps } = props;
+  const {
+    SectionBoundary,
+    renderCoreBody,
+    renderNestedSections,
+    ...viewProps
+  } = props;
   const view = buildSectionContainerNestedSectionsView(viewProps);
   const nestedSections = (
     <MaybeManyNestedSections
@@ -29,7 +37,7 @@ function _SectionContainerNestedSections(
             sectionId={childId}
             key={`Nested-Sec-${childId}`}
             className={childClassName}
-            SectionBoundary={SortableSectionSection}
+            SectionBoundary={SectionBoundary}
             renderCoreBody={renderCoreBody}
             renderNestedSections={renderNestedSections}
           />

@@ -149,6 +149,7 @@ vi.mock("./SectionContainerCore", () => ({
 vi.mock("./SectionContainerNestedSections", () => ({
   SectionContainerNestedSections: ({
     sectionId,
+    SectionBoundary,
     isGroup,
     layoutVariant,
     isJoinedCodeTerminalGroup,
@@ -156,6 +157,9 @@ vi.mock("./SectionContainerNestedSections", () => ({
     renderNestedSections,
   }: {
     sectionId: string;
+    SectionBoundary: (
+      props: SortableSectionBodySectionBoundaryProps,
+    ) => ReactNode;
     isGroup: boolean;
     layoutVariant?: "default" | "tight";
     isJoinedCodeTerminalGroup: boolean;
@@ -173,6 +177,12 @@ vi.mock("./SectionContainerNestedSections", () => ({
         isJoinedCodeTerminalGroup ? "true" : "false"
       }
     >
+      <SectionBoundary
+        sectionId={`${sectionId}-nested`}
+        dragListeners={{ onPointerDown: "listener" }}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />
       {renderCoreBody({
         sectionId: `${sectionId}-child`,
         sectionTypeName: "Code",
@@ -309,6 +319,8 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-layout-variant="tight"');
     expect(markup).toContain('data-is-joined-code-terminal-group="false"');
     expect(markup).toContain('data-section-id="section-1-child"');
+    expect(markup).toContain('data-testid="mock-sortable-section-boundary"');
+    expect(markup).toContain('data-section-id="section-1-nested"');
     expect(markup).toContain('data-bg-color="bg:nested"');
   });
 

@@ -6203,3 +6203,49 @@ Record:
     - representative requests returned `200`, including `GET /crude_real/section/generated_python_code`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-page-target-owned standalone section renderer handoff into the next caller layer above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`.
+
+## 2026-03-28 206
+
+- Item: Lift the `SortableSectionSection` boundary into `frontend/src/components/Section/Container/SectionContainerSection.tsx`.
+- Status: `done`
+- Details:
+  - Raised the recursive nested-section seam one caller higher so `SectionContainerSection.tsx` now owns the dedicated `SortableSectionSection` handoff above `SectionContainerNestedSections.tsx`:
+    - `frontend/src/components/Section/Container/SectionContainerSection.tsx`
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`
+  - Updated the remaining direct callers that still instantiate `SectionContainerNestedSections.tsx` so they pass the caller-owned section boundary explicitly instead of depending on a hardcoded lower-level import:
+    - `frontend/src/components/Section/Container/sectionContainerDefaultRenderers.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`
+  - Refreshed focused coverage so the lifted seam is pinned on both the recursive section-container path and the standalone/default nested-section callers:
+    - `frontend/src/components/Section/Container/SectionContainerSection.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerDefaultRenderers.test.tsx`
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+  - This keeps the current DOM behavior intact while shrinking `SectionContainerNestedSections.tsx` into a thinner caller-owned nested-section mapper:
+    - `SectionContainerSection.tsx` now owns `SectionBoundary={SortableSectionSection}` for recursive nested sections
+    - `SectionContainer.tsx` and the remaining direct nested-section callers now forward the boundary explicitly
+    - regular nested sections and standalone group/list-root surfaces still route through the same sortable section container path
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/sectionContainerDefaultRenderers.test.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerNestedSections.tsx src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerSection.tsx src/components/Section/Container/sectionContainerDefaultRenderers.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/sectionContainerDefaultRenderers.test.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx src/components/Section/Container/SectionContainer.test.tsx`
+      - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 pnpm -C frontend exec playwright test tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+    - initial direct run of `tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"` failed in global setup because the earlier bootstrap token had already been consumed and returned `401`
+    - reran with a freshly minted token from `setta_files_dev/runtime/sessions/7c8a40/secret`:
+      - `SETTA_BOOTSTRAP_TOKEN=<fresh token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 pnpm -C frontend exec playwright test tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+      - result: passed
+  - Chrome DevTools MCP visual check on the restarted worktree app (`http://127.0.0.1:3046`) in a fresh sub-agent context:
+    - bootstrapped through the restarted `8046` session and used a fresh live canary because the older direct `/settings` route remains unstable on this rewrite runtime
+    - created a fresh project `calling_sail`, then verified a nested section tree with parent group `being_dreaming` and child section `flock_zooming`
+    - the child rendered inside the parent container with no obvious blank state, clipping, or overlap after the seam lift
+    - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/moveSections`, `POST /api/loadProjectConfig`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-caller-owned `SectionBoundary` ownership one layer higher above `frontend/src/components/Section/Container/SectionContainerSection.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerSectionBoundary.tsx`, while keeping the unstable live `/settings` canary explicit.

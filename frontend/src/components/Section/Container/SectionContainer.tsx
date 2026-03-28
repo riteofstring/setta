@@ -133,6 +133,7 @@ function _SectionContainer({
   const nestedSections = (
     <SectionContainerNestedSections
       {...view.nestedSectionsProps}
+      SectionBoundary={SectionBoundary}
       isJoinedCodeTerminalGroup={view.kind === "joined-code-terminal-group"}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}

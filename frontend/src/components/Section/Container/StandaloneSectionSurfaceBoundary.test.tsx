@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 import { StandaloneSectionSurfaceBoundary } from "./StandaloneSectionSurfaceBoundary";
 
 vi.mock("./SectionWindowSurface", () => ({
@@ -47,12 +48,16 @@ vi.mock("./SectionWindowSurface", () => ({
 const mockSectionContainerNestedSections = vi.fn(
   ({
     sectionId,
+    SectionBoundary,
     isGroup,
     isJoinedCodeTerminalGroup,
     renderCoreBody,
     renderNestedSections,
   }: {
     sectionId: string;
+    SectionBoundary: (
+      props: SortableSectionBodySectionBoundaryProps,
+    ) => ReactNode;
     isGroup: boolean;
     isJoinedCodeTerminalGroup: boolean;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
@@ -65,6 +70,7 @@ const mockSectionContainerNestedSections = vi.fn(
       data-section-id={sectionId}
       data-is-group={String(isGroup)}
       data-is-joined-code-terminal-group={String(isJoinedCodeTerminalGroup)}
+      data-has-section-boundary={String(Boolean(SectionBoundary))}
       data-has-render-core-body={String(Boolean(renderCoreBody))}
       data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     />
@@ -74,6 +80,9 @@ const mockSectionContainerNestedSections = vi.fn(
 vi.mock("./SectionContainerNestedSections", () => ({
   SectionContainerNestedSections: (props: {
     sectionId: string;
+    SectionBoundary: (
+      props: SortableSectionBodySectionBoundaryProps,
+    ) => ReactNode;
     isGroup: boolean;
     isJoinedCodeTerminalGroup: boolean;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
@@ -122,6 +131,7 @@ describe("StandaloneSectionSurfaceBoundary", () => {
     );
     expect(markup).toContain('data-is-group="true"');
     expect(markup).toContain('data-is-joined-code-terminal-group="false"');
+    expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
     expect(forwardedProps?.renderCoreBody).toBe(renderCoreBody);

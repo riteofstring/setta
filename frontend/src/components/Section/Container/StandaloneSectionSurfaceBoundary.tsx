@@ -3,6 +3,7 @@ import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import { SectionWindowSurface } from "./SectionWindowSurface";
+import { SortableSectionSection } from "./SortableSectionSection";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
 
@@ -36,6 +37,7 @@ function StandaloneSectionNestedSectionsBody({
     <div className="min-h-0 flex-1 overflow-auto">
       <SectionContainerNestedSections
         sectionId={sectionId}
+        SectionBoundary={SortableSectionSection}
         isGroup={sectionType === SectionTypeEnum.Group}
         isJoinedCodeTerminalGroup={false}
         renderCoreBody={renderCoreBody}

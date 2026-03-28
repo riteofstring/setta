@@ -5,6 +5,7 @@ import {
 } from "./sectionContainerDefaultRenderers";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import { SortableSectionSection } from "./SortableSectionSection";
 
 function _SectionContainerNestedSectionsBoundary(
   props: SectionContainerNestedSectionsProps,
@@ -12,6 +13,7 @@ function _SectionContainerNestedSectionsBoundary(
   return (
     <SectionContainerNestedSections
       {...props}
+      SectionBoundary={SortableSectionSection}
       renderCoreBody={renderDefaultSectionContainerCoreBody}
       renderNestedSections={renderDefaultSectionContainerNestedSections}
     />
