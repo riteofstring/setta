@@ -4,6 +4,7 @@ import {
   buildTextInputCodeMirrorCoreView,
   planTextInputCodeMirrorMouseDown,
   shouldActivateTextInputCodeMirrorFromFocus,
+  shouldAutoActivateTextInputCodeMirrorOnMount,
 } from "./textInputCodeMirrorView";
 
 describe("planTextInputCodeMirrorMouseDown", () => {
@@ -59,6 +60,46 @@ describe("shouldActivateTextInputCodeMirrorFromFocus", () => {
       shouldActivateTextInputCodeMirrorFromFocus({
         hasActivationEvent: false,
         isDisabled: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldAutoActivateTextInputCodeMirrorOnMount", () => {
+  it("activates once for enabled Pixi handoff mounts that do not already have an activation event", () => {
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: false,
+        hasAutoActivatedOnMount: false,
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not auto-activate when the editor is disabled, already active, or already auto-activated", () => {
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: true,
+        hasAutoActivatedOnMount: false,
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: false,
+        hasAutoActivatedOnMount: true,
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: false,
+        hasAutoActivatedOnMount: false,
+        isDisabled: true,
+        shouldAutoActivateOnMount: true,
       }),
     ).toBe(false);
   });

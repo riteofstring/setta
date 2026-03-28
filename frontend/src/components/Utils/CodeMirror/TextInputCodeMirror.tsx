@@ -1,6 +1,12 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -14,6 +20,7 @@ import {
   buildTextInputCodeMirrorCoreView,
   planTextInputCodeMirrorMouseDown,
   shouldActivateTextInputCodeMirrorFromFocus,
+  shouldAutoActivateTextInputCodeMirrorOnMount,
 } from "./textInputCodeMirrorView";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
@@ -39,11 +46,29 @@ export function TextInputCodeMirror({
   autocomplete = true,
   isKeyName = false,
   isDisabled = false,
+  shouldAutoActivateOnMount = false,
   completionsFn,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
+  const didAutoActivateOnMountRef = useRef(false);
   const theme = useCodeMirrorStyle(color);
+
+  useEffect(() => {
+    if (
+      !shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: activationEvent !== null,
+        hasAutoActivatedOnMount: didAutoActivateOnMountRef.current,
+        isDisabled,
+        shouldAutoActivateOnMount,
+      })
+    ) {
+      return;
+    }
+
+    didAutoActivateOnMountRef.current = true;
+    setActivationEvent("tab");
+  }, [activationEvent, isDisabled, shouldAutoActivateOnMount]);
 
   function localOnBlur() {
     // hack to prevent codemirror from

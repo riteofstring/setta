@@ -38,6 +38,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
+import { useShouldAutoActivateCodeMirrorOnMount } from "../paramEditorActivation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -245,6 +246,8 @@ export function ParamUI({
       value,
       hasSecret: passwordHasSecret,
     });
+  const shouldAutoActivateCodeMirrorOnMount =
+    useShouldAutoActivateCodeMirrorOnMount();
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
@@ -269,6 +272,9 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          shouldAutoActivateCodeMirrorOnMount={
+            shouldAutoActivateCodeMirrorOnMount
+          }
         />
       );
     case CodeObjTypeEnum.TextParam:
@@ -285,6 +291,9 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          shouldAutoActivateCodeMirrorOnMount={
+            shouldAutoActivateCodeMirrorOnMount
+          }
         />
       );
     case CodeObjTypeEnum.DateParam:
@@ -408,6 +417,9 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          shouldAutoActivateCodeMirrorOnMount={
+            shouldAutoActivateCodeMirrorOnMount
+          }
         />
       );
     case CodeObjTypeEnum.DropzoneParam:
@@ -441,6 +453,7 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  shouldAutoActivateCodeMirrorOnMount,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -453,6 +466,7 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
+  shouldAutoActivateCodeMirrorOnMount: boolean;
 }) {
   return (
     <>
@@ -472,6 +486,7 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
+        shouldAutoActivateOnMount={shouldAutoActivateCodeMirrorOnMount}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {waitingForResult && (

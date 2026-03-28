@@ -1,8 +1,17 @@
-import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
+import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
+import {
+  useLocalStorage,
+  useProjectState,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { GetParamSwitch } from "./GetParamSwitch";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
+import {
+  AutoActivateCodeMirrorOnMountProvider,
+  resolveParamEditorKind,
+} from "./paramEditorActivation";
 
 type LiveDictAreaPixiValueRowOverlayProps = {
   target: LiveDictAreaPixiValueRowTarget;
@@ -11,6 +20,11 @@ type LiveDictAreaPixiValueRowOverlayProps = {
 export function LiveDictAreaPixiValueRowOverlay({
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
+  const editorKind = useProjectState((state) =>
+    resolveParamEditorKind(
+      getCurrEffectiveCodeObjImpl(state, target.sectionId, target.rowId).type,
+    ),
+  );
   const darkMode = useLocalStorage((state) => state.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(target.sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -25,29 +39,32 @@ export function LiveDictAreaPixiValueRowOverlay({
   );
 
   return (
-    <div
-      className="pointer-events-auto absolute z-20"
-      data-live-dict-area-editor-overlay="active"
-      data-live-dict-area-editor-overlay-kind="value-row"
-      data-live-dict-area-editor-overlay-row-id={target.rowId}
-      style={{
-        left: target.x,
-        minHeight: target.height,
-        right: 0,
-        top: target.y,
-      }}
-    >
-      <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full auto-rows-min content-start gap-y-1 pr-1.5">
-        <GetParamSwitch
-          sectionId={target.sectionId}
-          paramIds={[target.rowId]}
-          requiredParamIdsToPaths={target.requiredParamIdsToPaths}
-          onResizeStart={target.handleColumnResizeStart}
-          isTopLevel={true}
-          listKey={target.listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
+    <AutoActivateCodeMirrorOnMountProvider value={editorKind === "codemirror"}>
+      <div
+        className="pointer-events-auto absolute z-20"
+        data-live-dict-area-editor-overlay="active"
+        data-live-dict-area-editor-overlay-editor-kind={editorKind}
+        data-live-dict-area-editor-overlay-kind="value-row"
+        data-live-dict-area-editor-overlay-row-id={target.rowId}
+        style={{
+          left: target.x,
+          minHeight: target.height,
+          right: 0,
+          top: target.y,
+        }}
+      >
+        <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full auto-rows-min content-start gap-y-1 pr-1.5">
+          <GetParamSwitch
+            sectionId={target.sectionId}
+            paramIds={[target.rowId]}
+            requiredParamIdsToPaths={target.requiredParamIdsToPaths}
+            onResizeStart={target.handleColumnResizeStart}
+            isTopLevel={true}
+            listKey={target.listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
       </div>
-    </div>
+    </AutoActivateCodeMirrorOnMountProvider>
   );
 }

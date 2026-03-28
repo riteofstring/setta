@@ -6547,3 +6547,42 @@ Record:
     - console noise included repeated `Too many active WebGL contexts` warnings plus one Pixi deprecation warning; they did not block this slice
 - Next action:
   - Continue the live retained-scene slice by tightening this first row-scoped handoff into immediate editor activation for a concrete value-row editor, starting with the first CodeMirror-backed path on the Pixi canary.
+
+## 2026-03-28 214
+
+- Item: Land immediate CodeMirror activation for the first Pixi value-row editor handoff on the live `pixi-node-body` canary.
+- Status: `done`
+- Details:
+  - Kept the retained-scene canary on the existing row-scoped overlay path and tightened only the first concrete text-editor handoff instead of widening the overlay system:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/textInputCodeMirrorView.ts`
+  - Added a small source-of-truth editor-kind helper plus focused coverage for the new classification boundary:
+    - `frontend/src/components/Params/paramEditorActivation.tsx`
+    - `frontend/src/components/Params/paramEditorActivation.test.ts`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+  - The live value-row overlay now resolves the row's editor kind from the current param code object type, exposes that on the active overlay, and provides a bounded CodeMirror auto-activation context only for CodeMirror-backed rows.
+  - `ParamUI` now consumes that bounded activation context so only the text/code/text-area value editor path opts into immediate activation on the Pixi canary.
+  - `TextInputCodeMirror` now supports a one-time mount-time activation path that reuses the existing focus-based editor activation flow without re-triggering after blur.
+  - Extended the live canary E2E to prove the new contract on the real Settings path:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the test now clicks Pixi value-row handoffs until it reaches a CodeMirror-backed row via the overlay's own `data-live-dict-area-editor-overlay-editor-kind` marker, then asserts `.cm-editor` is mounted and focus lands inside it on the first click
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramEditorActivation.test.ts src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Params/groupContainerShell.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/paramEditorActivation.tsx src/components/Params/paramEditorActivation.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/textInputCodeMirrorView.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - the live Pixi canary markers were present: `[data-live-dict-area-render-mode='pixi-node-body']` and `[data-live-dict-area-scene='pixi']`
+    - after one value-row handoff click, the active overlay reported `data-live-dict-area-editor-overlay-editor-kind='codemirror'`
+    - `.cm-editor` was mounted and `document.activeElement` was inside the live CodeMirror editor content
+    - the checked viewport showed no obvious blank/clipped regression
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the live retained-scene slice by adding the first non-text targeted control handoff on the Pixi canary, starting with a popup-style combobox-backed value row instead of widening the whole-shell overlay again.

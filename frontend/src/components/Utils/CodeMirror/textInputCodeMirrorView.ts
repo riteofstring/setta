@@ -46,6 +46,25 @@ export function shouldActivateTextInputCodeMirrorFromFocus({
   return !isDisabled && !hasActivationEvent;
 }
 
+export function shouldAutoActivateTextInputCodeMirrorOnMount({
+  hasActivationEvent,
+  hasAutoActivatedOnMount,
+  isDisabled,
+  shouldAutoActivateOnMount,
+}: {
+  hasActivationEvent: boolean;
+  hasAutoActivatedOnMount: boolean;
+  isDisabled: boolean;
+  shouldAutoActivateOnMount: boolean;
+}): boolean {
+  return (
+    shouldAutoActivateOnMount &&
+    !isDisabled &&
+    !hasActivationEvent &&
+    !hasAutoActivatedOnMount
+  );
+}
+
 export function buildTextInputCodeMirrorCoreView({
   sectionId,
   paramInfoId,

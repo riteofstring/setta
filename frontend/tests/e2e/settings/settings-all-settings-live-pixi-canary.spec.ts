@@ -135,3 +135,82 @@ test("all settings canary can hand off from the Pixi scene into a value-row DOM 
   expect(result?.localParamContainerCount).toBe(1);
   expect(result?.sceneCanvasCount).toBeGreaterThan(0);
 });
+
+test("all settings canary can immediately activate a CodeMirror-backed value row on first Pixi handoff click", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.addInitScript(
+    ({ mode, storageKey }) => {
+      window.sessionStorage.setItem(storageKey, mode);
+    },
+    {
+      mode: LIVE_PIXI_MODE,
+      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
+    },
+  );
+
+  const url = new URL(SETTINGS_URL);
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  const handoffButtons = page.locator(
+    "[data-live-dict-area-editor-handoff='value-row']",
+  );
+  const handoffButtonCount = await handoffButtons.count();
+  expect(handoffButtonCount).toBeGreaterThan(0);
+
+  let codemirrorActivationResult: {
+    activeElementInsideCodeMirror: boolean;
+    editorKind: string | null;
+    hasCodeMirrorEditor: boolean;
+  } | null = null;
+
+  for (let i = 0; i < handoffButtonCount; i += 1) {
+    const handoffButton = handoffButtons.nth(i);
+    await handoffButton.scrollIntoViewIfNeeded();
+    await handoffButton.click();
+
+    const activationMetrics = await page.waitForFunction(() => {
+      const overlay = document.querySelector<HTMLElement>(
+        "[data-live-dict-area-editor-overlay='active']",
+      );
+      if (!overlay) {
+        return null;
+      }
+
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+
+      return {
+        activeElementInsideCodeMirror: Boolean(
+          activeElement?.closest(".cm-editor"),
+        ),
+        editorKind: overlay.getAttribute(
+          "data-live-dict-area-editor-overlay-editor-kind",
+        ),
+        hasCodeMirrorEditor: Boolean(overlay.querySelector(".cm-editor")),
+      };
+    });
+
+    const result = await activationMetrics.jsonValue();
+    if (result?.editorKind === "codemirror") {
+      codemirrorActivationResult = result;
+      break;
+    }
+  }
+
+  expect(codemirrorActivationResult).not.toBeNull();
+  expect(codemirrorActivationResult?.hasCodeMirrorEditor).toBe(true);
+  expect(codemirrorActivationResult?.activeElementInsideCodeMirror).toBe(true);
+});
