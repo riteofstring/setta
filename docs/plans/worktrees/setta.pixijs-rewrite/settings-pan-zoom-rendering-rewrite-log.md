@@ -2581,3 +2581,29 @@ Record:
     - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getExternalAgentHealth`, and `GET /api/getAgentProfiles`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `sectionContainerView.ts` / `SectionContainerCoreBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SortableSectionContainer.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 097
+
+- Item: Lift the `sectionContainerView.ts` / `SectionContainerCoreBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SortableSectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated sortable-section body boundary plus a pure typed helper above the lifted `SectionContainer` call:
+    - `frontend/src/components/Section/Container/SortableSectionBody.tsx`
+    - `frontend/src/components/Section/Container/sortableSectionBodyView.ts`
+    - `frontend/src/components/Section/Container/sortableSectionBodyView.test.ts`
+    - `frontend/src/components/Section/Container/SortableSectionBody.test.tsx`
+  - Updated `frontend/src/components/Section/Container/SortableSectionContainer.tsx` to consume the new boundary instead of owning the temp-placeholder vs live `SectionContainer` handoff inline.
+  - Kept the current non-Pixi sortable DOM path intact while lifting the next section-container caller boundary one level higher:
+    - the new helper now owns the deterministic routing between temp placeholder rendering, temp-section suppression once the initial transform is removed, and the regular `SectionContainer` drag-listener handoff
+    - `SortableSectionContainer.tsx` now stays focused on sortable transform state, z-indexing, and edge-handle update scheduling while delegating the section-body branch through one deeper boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sortableSectionBodyView.test.ts src/components/Section/Container/SortableSectionBody.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated after bootstrap and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible UI included the top app chrome, the `All Settings` tab in the bottom tab strip, and the dict/param panels
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `SortableSectionBody.tsx` boundary into the next higher-level nested-section caller in `frontend/src/components/Section/Container/ManyNestedSections.tsx` before any broad Pixi node drawing lands.

@@ -1,0 +1,37 @@
+import { isTempSection } from "forks/dnd-kit/dndState";
+
+export type SortableSectionDragListeners = Record<string, unknown>;
+
+export type SortableSectionBodyProps = {
+  sectionId: string;
+  applyTransform: boolean;
+  listeners: SortableSectionDragListeners;
+};
+
+type SectionContainerViewProps = {
+  sectionId: string;
+  dragListeners: SortableSectionDragListeners;
+};
+
+export type SortableSectionBodyView =
+  | { kind: "temp" }
+  | { kind: "section"; props: SectionContainerViewProps }
+  | { kind: "none" };
+
+export function buildSortableSectionBodyView({
+  sectionId,
+  applyTransform,
+  listeners,
+}: SortableSectionBodyProps): SortableSectionBodyView {
+  if (isTempSection(sectionId)) {
+    return applyTransform ? { kind: "temp" } : { kind: "none" };
+  }
+
+  return {
+    kind: "section",
+    props: {
+      sectionId,
+      dragListeners: listeners,
+    },
+  };
+}
