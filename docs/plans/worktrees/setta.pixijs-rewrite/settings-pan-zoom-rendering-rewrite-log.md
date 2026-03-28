@@ -792,3 +792,29 @@ Record:
     - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `GET /api/backendInitStatus`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the first scene-native block renderer packet from this normalized dict-area scene block view before any broad Pixi node drawing lands.
+
+## 2026-03-26 031
+
+- Item: Extract the first scene-native block renderer packets from the normalized dict-area scene block view.
+- Status: `done`
+- Details:
+  - Added a pure typed renderer-packet boundary above the normalized dict-area scene block view:
+    - `frontend/src/components/Params/groupContainerSceneRendererPackets.ts`
+    - `frontend/src/components/Params/groupContainerSceneRendererPackets.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path plus its block-mounted DOM surfaces to consume the new renderer packets instead of branching on the raw scene-block view payload:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - flattening explicit edge/pinned/unpinned scene blocks into deterministic renderer packets with stable mount metadata
+    - keeping the pinned/unpinned max-nested-depth accounting on the same mount path while removing the remaining raw scene-block branching from `GroupContainer`
+    - leaving the existing DOM edge-strip and pinned/unpinned param-area surfaces intact while exposing a cleaner future scene-renderer contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerSceneRendererPackets.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerSceneBlockView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - `/settings` loaded in the authenticated worktree session with `All Settings` visible
+    - the dict/param area still rendered normally, with representative labels and controls including `defaultZoomLevel 1.0`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Selection Mode`, `Dropzone Param`, `Nested Param`, `Password Param`, `Time Param`, and the `Size Mode Height` / `Size Mode Width` selectors
+    - relevant requests returned `200`, including `/api/loadSettings`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/plugins/runtime`, `/api/getAgentProfiles`, `/api/getPromptTemplates`, `/api/getExternalAgentConfigs`, `/api/getExternalAgentHealth`, `/api/getEngineConfigs`, `/api/getTranscriptionProfiles`, `/api/getFileBrowserRoot`, `/api/getFolderContents`, and `/api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next bounded scene-owned block visual packet from this renderer-packet boundary before any broad Pixi node drawing lands.

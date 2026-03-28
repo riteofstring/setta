@@ -50,20 +50,20 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
+import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
+import { buildLiveDictAreaNodeLayoutView } from "./groupContainerNodeLayoutView";
+import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
+import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
+import {
+  buildLiveDictAreaSceneRendererPackets,
+  type LiveDictAreaEdgeStripRendererPacket,
+  type LiveDictAreaPinnedParamAreaRendererPacket,
+  type LiveDictAreaUnpinnedParamAreaRendererPacket,
+} from "./groupContainerSceneRendererPackets";
 import {
   buildFilteredParamListView,
   getPinnedParamsBgClassName,
 } from "./groupContainerView";
-import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
-import {
-  buildLiveDictAreaNodeLayoutView,
-} from "./groupContainerNodeLayoutView";
-import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
-import type {
-  DictAreaBlockFrameMountPacket,
-  LiveDictAreaEdgeStripFramePacket,
-  LiveDictAreaParamAreaFramePacket,
-} from "./groupContainerBlockFramePackets";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
@@ -319,10 +319,17 @@ function _ParamGroupContainer({
       }),
     [liveDictAreaNodeLayoutView],
   );
+  const liveDictAreaSceneRendererPackets = useMemo(
+    () =>
+      buildLiveDictAreaSceneRendererPackets({
+        sceneBlockView: liveDictAreaSceneBlockView,
+      }),
+    [liveDictAreaSceneBlockView],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaSceneBlockView.maxNestedDepth);
-  }, [liveDictAreaSceneBlockView.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaSceneRendererPackets.maxNestedDepth);
+  }, [liveDictAreaSceneRendererPackets.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -335,14 +342,14 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaSceneBlockView.blocks.map((block) => {
+        {liveDictAreaSceneRendererPackets.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
                 key={block.mount.frameId}
                 sectionId={sectionId}
                 bgColor={bgColor}
-                framePacket={block.framePacket}
+                rendererPacket={block}
               />
             );
           }
@@ -352,7 +359,7 @@ function _ParamGroupContainer({
               <GetPinnedParams
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                framePacket={block.framePacket}
+                rendererPacket={block}
                 handleColumnResizeStart={handleColumnResizeStart}
                 positionAndSizeLocked={positionAndSizeLocked}
                 sectionTypeName={sectionTypeName}
@@ -365,7 +372,7 @@ function _ParamGroupContainer({
             <GetUnpinnedParams
               key={block.mount.frameId}
               sectionId={sectionId}
-              framePacket={block.framePacket}
+              rendererPacket={block}
               handleColumnResizeStart={handleColumnResizeStart}
               styleColor={styleColor}
             />
@@ -519,11 +526,11 @@ function useMeasuredParamAreaMinHeight({
 function EdgesStrip({
   sectionId,
   bgColor,
-  framePacket,
+  rendererPacket,
 }: {
   sectionId: string;
   bgColor: string;
-  framePacket: LiveDictAreaEdgeStripFramePacket;
+  rendererPacket: LiveDictAreaEdgeStripRendererPacket;
 }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
@@ -713,8 +720,8 @@ function EdgesStrip({
       ref={stripRef}
       data-params-fixed="true"
       {...getDictAreaBlockFrameDataProps({
-        blockId: framePacket.id,
-        frame: framePacket.frame,
+        blockId: rendererPacket.blockId,
+        frame: rendererPacket.mount,
       })}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
@@ -819,7 +826,7 @@ type MaxNestedDepth = {
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  framePacket: LiveDictAreaParamAreaFramePacket | null;
+  rendererPacket: LiveDictAreaPinnedParamAreaRendererPacket | null;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
@@ -828,7 +835,7 @@ type GetPinnedParamsProps = {
 
 type PinnedParamsAreaProps = {
   sectionId: string;
-  framePacket: LiveDictAreaParamAreaFramePacket;
+  rendererPacket: LiveDictAreaPinnedParamAreaRendererPacket;
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
@@ -843,7 +850,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  framePacket: LiveDictAreaParamAreaFramePacket | null;
+  rendererPacket: LiveDictAreaUnpinnedParamAreaRendererPacket | null;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   styleColor: string | null;
 };
@@ -877,7 +884,7 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  framePacket,
+  rendererPacket,
   handleColumnResizeStart,
   positionAndSizeLocked,
   sectionTypeName,
@@ -903,22 +910,22 @@ function GetPinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: framePacket?.topLevelParamIds ?? [],
+    paramIds: rendererPacket?.topLevelParamIds ?? [],
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    framePacket && (
+    rendererPacket && (
       <PinnedParamsArea
         sectionId={sectionId}
-        framePacket={framePacket}
-        topLevelParamIds={framePacket.topLevelParamIds}
-        requiredParamIdsToPaths={framePacket.requiredParamIdsToPaths}
+        rendererPacket={rendererPacket}
+        topLevelParamIds={rendererPacket.topLevelParamIds}
+        requiredParamIdsToPaths={rendererPacket.requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        shouldRoundBottom={framePacket.shouldRoundBottom}
+        shouldRoundBottom={rendererPacket.shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
         contentRef={contentRef}
@@ -931,7 +938,7 @@ function GetPinnedParams({
 
 function PinnedParamsArea({
   sectionId,
-  framePacket,
+  rendererPacket,
   topLevelParamIds,
   requiredParamIdsToPaths,
   handleColumnResizeStart,
@@ -967,8 +974,8 @@ function PinnedParamsArea({
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
       {...getDictAreaBlockFrameDataProps({
-        blockId: framePacket.id,
-        frame: framePacket.frame,
+        blockId: rendererPacket.blockId,
+        frame: rendererPacket.mount,
       })}
     >
       <div
@@ -1007,7 +1014,7 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  framePacket,
+  rendererPacket,
   handleColumnResizeStart,
   styleColor,
 }: GetUnpinnedParamsProps) {
@@ -1038,7 +1045,7 @@ function GetUnpinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: framePacket?.topLevelParamIds ?? [],
+    paramIds: rendererPacket?.topLevelParamIds ?? [],
     contentRef: containerRef,
     rowsRef: containerRef,
   });
@@ -1046,10 +1053,10 @@ function GetUnpinnedParams({
   return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      {...(framePacket
+      {...(rendererPacket
         ? getDictAreaBlockFrameDataProps({
-            blockId: framePacket.id,
-            frame: framePacket.frame,
+            blockId: rendererPacket.blockId,
+            frame: rendererPacket.mount,
           })
         : {})}
     >
@@ -1059,19 +1066,19 @@ function GetUnpinnedParams({
         }`}
         ref={setContainerRef}
         style={
-          framePacket?.shouldApplyMinHeight
-            ? { minHeight: framePacket.minHeight }
+          rendererPacket?.shouldApplyMinHeight
+            ? { minHeight: rendererPacket.minHeight }
             : undefined
         }
       >
-        {framePacket && (
+        {rendererPacket && (
           <ParamDndList
             sectionId={sectionId}
-            paramIds={framePacket.topLevelParamIds}
-            requiredParamIdsToPaths={framePacket.requiredParamIdsToPaths}
+            paramIds={rendererPacket.topLevelParamIds}
+            requiredParamIdsToPaths={rendererPacket.requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
-            listKey={framePacket.listKey}
+            listKey={rendererPacket.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}
