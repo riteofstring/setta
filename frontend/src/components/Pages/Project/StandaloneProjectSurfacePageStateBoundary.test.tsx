@@ -9,9 +9,14 @@ import { StandaloneProjectSurfacePageStateBoundary } from "./StandaloneProjectSu
 
 const pageBoundaryMock = vi.fn();
 
+vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
+  SectionContainerAreaDictBoundary: () => null,
+}));
+
 vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
   StandaloneProjectSurfacePageBoundary: ({
     projectChatThreadTitle,
+    renderDictArea,
     standaloneProjectChatId,
     standaloneProjectChatThreadRouteInvalid,
     standaloneProjectChatThreadMissing,
@@ -19,6 +24,7 @@ vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
     setStandaloneProjectChatId,
   }: {
     projectChatThreadTitle: string | null;
+    renderDictArea: unknown;
     standaloneProjectChatId: string | null;
     standaloneProjectChatThreadRouteInvalid: boolean;
     standaloneProjectChatThreadMissing: boolean;
@@ -27,6 +33,7 @@ vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
   }) => {
     pageBoundaryMock({
       projectChatThreadTitle,
+      hasRenderDictArea: Boolean(renderDictArea),
       standaloneProjectChatId,
       standaloneProjectChatThreadRouteInvalid,
       standaloneProjectChatThreadMissing,
@@ -120,6 +127,7 @@ describe("StandaloneProjectSurfacePageStateBoundary", () => {
 
     expect(pageBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        hasRenderDictArea: true,
         projectChatThreadTitle: "Alpha Chat",
         standaloneProjectChatId: "chat-alpha",
         standaloneProjectChatThreadRouteInvalid: false,

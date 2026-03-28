@@ -3,6 +3,8 @@ import {
   standaloneWindowSpaceHasAllowedWindows,
   type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import {
   memo,
   type ComponentProps,
@@ -110,6 +112,7 @@ type StandaloneProjectSurfacePageStateBoundaryProps = Omit<
   | "standaloneProjectChatId"
   | "standaloneProjectChatThreadRouteInvalid"
   | "standaloneProjectChatThreadMissing"
+  | "renderDictArea"
   | "setStandaloneProjectChatId"
   | "onProjectChatBlockedErrorCodeChange"
 > & {
@@ -187,6 +190,12 @@ function resolveShouldBlockStandaloneManagedChat({
         !standaloneWindowSpaceHasVisibleWindows
     : (!canUseManagedChat && standaloneTargetRequiresManagedChat) ||
         standaloneManagedChatDenied;
+}
+
+function renderStandaloneProjectSurfacePageDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return <SectionContainerAreaDictBoundary {...props} />;
 }
 
 function _StandaloneProjectSurfacePageStateBoundary({
@@ -329,6 +338,7 @@ function _StandaloneProjectSurfacePageStateBoundary({
         standaloneProjectChatThreadRouteInvalid
       }
       standaloneProjectChatThreadMissing={standaloneProjectChatThreadMissing}
+      renderDictArea={renderStandaloneProjectSurfacePageDictArea}
       setStandaloneProjectChatId={setStandaloneProjectChatId}
       onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
     />

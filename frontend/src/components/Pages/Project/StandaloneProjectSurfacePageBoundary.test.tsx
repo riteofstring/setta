@@ -56,6 +56,8 @@ const managedChatAuthorityState = {
   sectionImpls: {},
 };
 
+const renderDictArea = () => null;
+
 function createBaseProps() {
   return {
     doneLoading: true,
@@ -78,6 +80,7 @@ function createBaseProps() {
     standaloneProjectChatId: null,
     standaloneProjectChatThreadRouteInvalid: false,
     standaloneProjectChatThreadMissing: false,
+    renderDictArea,
     setStandaloneProjectChatId: () => undefined,
     onProjectChatBlockedErrorCodeChange: () => undefined,
   };
