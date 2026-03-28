@@ -260,6 +260,9 @@ That means:
 - `backend/setta/types/chat.py` no longer relies on field-based union discrimination that forced literal-only `role` narrowing:
   - `BaseChatMessageUnionWithDiscriminator` now uses the same tagged/custom discriminator pattern already used by the artifact and listener unions
   - the remaining handwritten chat wrappers keep `role` only as a constructor default for Python ergonomics, not as a separate Python-owned `Literal[...]` schema surface
+- the generated chat models now also own the routine Python-side defaults and `ID` typing that used to force more handwritten field redeclarations:
+  - `go_shared_types.py` now emits `ID`-typed chat ids and project-config references, default timestamps, default role values, default empty attachment/content/tool-call-argument containers, and typed generated content unions for the concrete chat-message models
+  - `backend/setta/types/chat.py` no longer needs to redeclare those inherited fields; the remaining handwritten layer is now mostly the OpenAI-format helpers plus the message/container union coercion that still cannot move without reintroducing a Python-owned schema boundary
 - `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
 - the chart artifact family now has real Go owners for the remaining shared schema pieces:
@@ -783,7 +786,7 @@ Current handwritten files in `backend/setta/types/`:
 Final classification:
 - `id.py`: keep. Pydantic-specific `ID` integration and local ID factories are genuinely Python-only.
 - `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
-- `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
+- `chat.py`: keep. The remaining code is now mostly Python-only chat/runtime glue: OpenAI-format conversion and the message/container union coercion that still maps generated payloads onto the Python helper classes used by the chat toolkit.
 - `artifact.py`: keep for now. The file is now just the Python-side artifact union/type-adapter boundary used by the listener runtime; it no longer owns handwritten artifact model wrappers.
 - `project_config.py`: keep for now. The remaining code is now only the Python-side plugin-target normalization and duplicate-language validation; the generated Go-owned `ProjectConfig` model now owns the field layout, defaults, and `ID` typing directly.
 - there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.

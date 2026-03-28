@@ -63,21 +63,21 @@ type Service struct {
 }
 
 type Chat struct {
-	ID              string           `json:"id"`
+	ID              string           `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
 	Name            string           `json:"name"`
-	LastUpdated     time.Time        `json:"lastUpdated"`
+	LastUpdated     time.Time        `json:"lastUpdated" py_import:"from setta.utils.timestamps import get_now_timestamp" py_default:"Field(default_factory=get_now_timestamp)"`
 	LLMConfig       llmconfig.Config `json:"llmConfig" py_type:"LLMConfig"`
-	ProjectConfigID *string          `json:"projectConfigId,omitempty"`
+	ProjectConfigID *string          `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 	Messages        []map[string]any `json:"messages"`
 	SystemPrompt    *string          `json:"systemPrompt"`
 }
 
 type ChatMetadata struct {
-	ID              string           `json:"id"`
+	ID              string           `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
 	Name            string           `json:"name"`
 	LastUpdated     time.Time        `json:"lastUpdated"`
 	LLMConfig       llmconfig.Config `json:"llmConfig" py_type:"LLMConfig"`
-	ProjectConfigID *string          `json:"projectConfigId,omitempty"`
+	ProjectConfigID *string          `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
 
 type CreateChatRequest struct {

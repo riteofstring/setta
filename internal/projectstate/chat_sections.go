@@ -37,18 +37,18 @@ type ChatSectionSettings struct {
 
 type ChatSectionBranch struct {
 	Messages            []map[string]any `json:"messages"`
-	CreatedAt           int              `json:"createdAt"`
-	ParentBranchID      *string          `json:"parentBranchId"`
-	BranchFromMessageID *string          `json:"branchFromMessageId"`
+	CreatedAt           int              `json:"createdAt" py_default:"0"`
+	ParentBranchID      *string          `json:"parentBranchId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	BranchFromMessageID *string          `json:"branchFromMessageId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
 
 type ChatSectionState struct {
 	Messages           []map[string]any             `json:"messages"`
-	InputText          string                       `json:"inputText"`
-	WaitingForResponse bool                         `json:"waitingForResponse"`
-	ToolCallArguments  map[string]string            `json:"toolCallArguments"`
-	ActiveBranchID     *string                      `json:"activeBranchId"`
-	Branches           map[string]ChatSectionBranch `json:"branches"`
+	InputText          string                       `json:"inputText" py_default:"\"\""`
+	WaitingForResponse bool                         `json:"waitingForResponse" py_default:"False"`
+	ToolCallArguments  map[string]string            `json:"toolCallArguments" py_default:"Field(default_factory=dict)"`
+	ActiveBranchID     *string                      `json:"activeBranchId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	Branches           map[string]ChatSectionBranch `json:"branches" py_type:"dict[ID, ChatSectionBranch]" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=dict)"`
 }
 
 func (p *Project) SetChatSectionSettings(sectionID string, settings ChatSectionSettings) error {

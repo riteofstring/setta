@@ -89,40 +89,40 @@ type ToolCall struct {
 }
 
 type SystemChatMessage struct {
-	ID          string               `json:"id"`
-	Role        ChatRole             `json:"role"`
-	CreatedAt   int                  `json:"createdAt"`
-	Content     []map[string]any     `json:"content"`
-	Attachments []ChatFileAttachment `json:"attachments"`
+	ID          string               `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
+	Role        ChatRole             `json:"role" py_default:"ChatRole.system"`
+	CreatedAt   int                  `json:"createdAt" py_default:"0"`
+	Content     []map[string]any     `json:"content" py_type:"list[MessageTextContent | MessageImageURLContent | MessageThinkingContent]" py_default:"Field(default_factory=list)"`
+	Attachments []ChatFileAttachment `json:"attachments" py_default:"Field(default_factory=list)"`
 }
 
 type AssistantChatMessage struct {
-	ID          string               `json:"id"`
-	Role        ChatRole             `json:"role"`
-	CreatedAt   int                  `json:"createdAt"`
-	Content     []map[string]any     `json:"content"`
-	Attachments []ChatFileAttachment `json:"attachments"`
+	ID          string               `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
+	Role        ChatRole             `json:"role" py_default:"ChatRole.assistant"`
+	CreatedAt   int                  `json:"createdAt" py_default:"0"`
+	Content     []map[string]any     `json:"content" py_type:"list[MessageTextContent | MessageImageURLContent | MessageThinkingContent]" py_default:"Field(default_factory=list)"`
+	Attachments []ChatFileAttachment `json:"attachments" py_default:"Field(default_factory=list)"`
 	ToolCalls   []ToolCall           `json:"tool_calls,omitempty"`
 }
 
 type UserChatMessage struct {
-	ID          string               `json:"id"`
-	Role        ChatRole             `json:"role"`
-	CreatedAt   int                  `json:"createdAt"`
-	Content     []map[string]any     `json:"content"`
-	Attachments []ChatFileAttachment `json:"attachments"`
+	ID          string               `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
+	Role        ChatRole             `json:"role" py_default:"ChatRole.user"`
+	CreatedAt   int                  `json:"createdAt" py_default:"0"`
+	Content     []map[string]any     `json:"content" py_type:"list[MessageTextContent | MessageImageURLContent | MessageThinkingContent]" py_default:"Field(default_factory=list)"`
+	Attachments []ChatFileAttachment `json:"attachments" py_default:"Field(default_factory=list)"`
 }
 
 type ToolChatMessage struct {
-	ID          string           `json:"id"`
-	Role        ChatRole         `json:"role"`
-	CreatedAt   int              `json:"createdAt"`
+	ID          string           `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
+	Role        ChatRole         `json:"role" py_default:"ChatRole.tool"`
+	CreatedAt   int              `json:"createdAt" py_default:"0"`
 	ToolCallID  string           `json:"tool_call_id"`
 	ToolName    *string          `json:"tool_name,omitempty"`
-	Arguments   any              `json:"arguments"`
-	Result      any              `json:"result"`
-	Content     []map[string]any `json:"content"`
-	IsError     bool             `json:"is_error"`
-	StartedAt   time.Time        `json:"started_at"`
+	Arguments   any              `json:"arguments" py_default:"Field(default_factory=dict)"`
+	Result      any              `json:"result" py_default:"None"`
+	Content     []map[string]any `json:"content" py_type:"list[TextContent | ImageContent | EmbeddedResource | ToolReferenceContent]" py_import:"from mcp.types import EmbeddedResource, ImageContent, TextContent" py_default:"Field(default_factory=list)"`
+	IsError     bool             `json:"is_error" py_default:"False"`
+	StartedAt   time.Time        `json:"started_at" py_import:"from setta.utils.timestamps import get_now_timestamp" py_default:"Field(default_factory=get_now_timestamp)"`
 	CompletedAt *time.Time       `json:"completed_at,omitempty"`
 }

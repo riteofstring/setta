@@ -1,17 +1,12 @@
 import json
-from datetime import datetime
 from typing import Annotated, Any
 
-from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import Discriminator, Field, Tag
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage as GoAssistantChatMessage,
 )
 from setta.types.generated.go_shared_types import (
     Chat as GoChat,
-)
-from setta.types.generated.go_shared_types import (
-    ChatFileAttachment as GoChatFileAttachment,
 )
 from setta.types.generated.go_shared_types import (
     ChatRole,
@@ -29,19 +24,10 @@ from setta.types.generated.go_shared_types import (
     MessageFinalizedEvent as GoMessageFinalizedEvent,
 )
 from setta.types.generated.go_shared_types import (
-    MessageImageURLContent as GoMessageImageURLContent,
-)
-from setta.types.generated.go_shared_types import (
     MessageStartEvent as GoMessageStartEvent,
 )
 from setta.types.generated.go_shared_types import (
     MessageStopEvent as GoMessageStopEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageTextContent as GoMessageTextContent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageThinkingContent as GoMessageThinkingContent,
 )
 from setta.types.generated.go_shared_types import (
     SystemChatMessage as GoSystemChatMessage,
@@ -50,16 +36,10 @@ from setta.types.generated.go_shared_types import (
     ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
-    ToolCall as GoToolCall,
-)
-from setta.types.generated.go_shared_types import (
     ToolCallDeltaEvent as GoToolCallDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
     ToolChatMessage as GoToolChatMessage,
-)
-from setta.types.generated.go_shared_types import (
-    ToolReferenceContent as GoToolReferenceContent,
 )
 from setta.types.generated.go_shared_types import (
     ToolResultEvent as GoToolResultEvent,
@@ -67,14 +47,7 @@ from setta.types.generated.go_shared_types import (
 from setta.types.generated.go_shared_types import (
     UserChatMessage as GoUserChatMessage,
 )
-from setta.types.id import ID, create_new_id
-from setta.utils.timestamps import get_now_timestamp
-
-JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
-
-MessageContent = (
-    GoMessageTextContent | GoMessageImageURLContent | GoMessageThinkingContent
-)
+from setta.types.id import ID
 
 
 class _OpenAIMessageMixin:
@@ -87,21 +60,10 @@ class _OpenAIMessageMixin:
 
 
 class SystemChatMessage(GoSystemChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.system
-    createdAt: int = 0
-    content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[GoChatFileAttachment] = Field(default_factory=list)
+    pass
 
 
 class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.assistant
-    createdAt: int = 0
-    content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[GoChatFileAttachment] = Field(default_factory=list)
-    tool_calls: list[GoToolCall] | None = None
-
     def to_openai_format(self) -> dict[str, Any]:
         output = _OpenAIMessageMixin.to_openai_format(self)
         tool_calls = output.get("tool_calls")
@@ -113,25 +75,10 @@ class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
 
 
 class UserChatMessage(GoUserChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.user
-    createdAt: int = 0
-    content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[GoChatFileAttachment] = Field(default_factory=list)
+    pass
 
 
 class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.tool
-    createdAt: int = 0
-    arguments: JSONValue = Field(default_factory=dict)
-    result: JSONValue = None
-    content: list[
-        TextContent | ImageContent | EmbeddedResource | GoToolReferenceContent
-    ] = Field(default_factory=list)
-    is_error: bool = False
-    started_at: datetime = Field(default_factory=get_now_timestamp)
-
     def to_openai_format(self) -> dict[str, Any]:
         output = _OpenAIMessageMixin.to_openai_format(self)
         output.pop("arguments", None)
@@ -169,25 +116,15 @@ BaseChatMessageUnionWithDiscriminator = Annotated[
 
 
 class Chat(GoChat):
-    id: ID = Field(default_factory=create_new_id)
-    lastUpdated: datetime = Field(default_factory=get_now_timestamp)
-    projectConfigId: ID | None = None
     messages: list[BaseChatMessageUnion]
 
 
 class ChatSectionBranch(GoChatSectionBranch):
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    createdAt: int = 0
-    parentBranchId: ID | None = None
-    branchFromMessageId: ID | None = None
 
 
 class ChatSectionState(GoChatSectionState):
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    inputText: str = ""
-    waitingForResponse: bool = False
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
-    activeBranchId: ID | None = None
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
