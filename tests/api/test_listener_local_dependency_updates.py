@@ -2,7 +2,11 @@ import asyncio
 
 import pytest
 from setta.api import SettaListener, dep_id
-from setta.api.listener import ListenerCallbackContext
+from setta.api.listener import (
+    ListenerCallbackContext,
+    ListenerRealtimeDelta,
+    ListenerRealtimeEventContent,
+)
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
@@ -28,10 +32,6 @@ from setta.types.generated.go_shared_types import (
     SectionType,
 )
 from setta.types.id import ID
-from setta.types.listener import (
-    ListenerRealtimeDelta,
-    ListenerRealtimeEventContent,
-)
 from setta.types.project_config import SectionRepresentationMode
 from setta.types.protocol import create_dep_key
 

@@ -23,7 +23,7 @@ from uuid import uuid4
 
 import requests
 import websockets
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
 from setta.api.listener_endpoint_client import RouterEndpointAPI
@@ -39,10 +39,14 @@ from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
+    ListenerDependencyEvent as SDKListenerDependencyEvent,
+    ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
     ListenerForceRefreshEvent,
     ListenerFrontendEmitRequest,
     ListenerRegisterCallbackSpec,
     ListenerRegisterRequest,
+    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
+    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
@@ -67,12 +71,6 @@ from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointResultMessage,
     Route,
     SectionType,
-)
-from setta.types.listener import (
-    DependencyEvent,
-    ListenerDependencyEventContent,
-    ListenerRealtimeDelta,
-    ListenerRealtimeEventContent,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -140,6 +138,38 @@ def _validate_generated_listener_message(raw_message: Any) -> BaseModel | None:
     if model is None:
         return None
     return model.model_validate(raw_message)
+
+
+class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
+    deltas: list["ListenerRealtimeDelta"] = Field(default_factory=list)
+
+
+class DependencyEvent(SDKListenerDependencyEventEntry):
+    _binary_payload: bytes | None = PrivateAttr(default=None)
+
+    @property
+    def binaryPayload(self) -> bytes | None:
+        return self._binary_payload
+
+    @binaryPayload.setter
+    def binaryPayload(self, value: bytes | None) -> None:
+        self._binary_payload = value
+
+
+class ListenerDependencyEventContent(SDKListenerDependencyEvent):
+    dependencyEvents: list[DependencyEvent] = Field(default_factory=list)
+
+
+class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
+    _binary_payload: bytes | None = PrivateAttr(default=None)
+
+    @property
+    def binaryPayload(self) -> bytes | None:
+        return self._binary_payload
+
+    @binaryPayload.setter
+    def binaryPayload(self, value: bytes | None) -> None:
+        self._binary_payload = value
 
 
 # Listener callbacks may either complete synchronously or return an awaitable.

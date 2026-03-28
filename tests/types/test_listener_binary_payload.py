@@ -1,9 +1,9 @@
+from setta.api.listener import DependencyEvent, ListenerRealtimeDelta
 from setta.types.generated.go_shared_types import (
     DependencyValueType,
     LiteralDependencyValue,
 )
 from setta.types.id import ID
-from setta.types.listener import DependencyEvent, ListenerRealtimeDelta
 from setta.types.protocol import create_dep_key
 
 

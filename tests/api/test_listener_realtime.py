@@ -10,8 +10,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 from setta.api.listener import (
+    DependencyEvent,
     ListenerCallbackSpec,
+    ListenerDependencyEventContent,
     ListenerDependencyMetadata,
+    ListenerRealtimeDelta,
+    ListenerRealtimeEventContent,
     SettaListener,
 )
 from setta.sdk_contracts.generated import (
@@ -38,12 +42,6 @@ from setta.types.generated.go_shared_types import (
     SectionType,
 )
 from setta.types.id import ID
-from setta.types.listener import (
-    DependencyEvent,
-    ListenerDependencyEventContent,
-    ListenerRealtimeDelta,
-    ListenerRealtimeEventContent,
-)
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
 )

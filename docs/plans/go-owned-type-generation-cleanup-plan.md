@@ -390,6 +390,9 @@ That means:
 - `backend/setta/types/listener.py` no longer keeps a handwritten websocket union/type-adapter layer for the remaining generated envelope models:
   - the listener runtime and tests now validate generated envelope models such as `ListenerRouterEndpointCallMessage`, `ListenerRouterEndpointResultMessage`, `ListenerErrorMessage`, `ListenerInitMessage`, `ListenerRegisterAckMessage`, and `ListenerFrontendEmitMessage` directly
   - that removes another Python-owned rename/dispatch surface from `listener.py`, leaving only the typed realtime/dependency content wrappers and binary side-channel behavior there
+- `backend/setta/types/listener.py` has now been deleted entirely:
+  - the surviving listener-only Python glue, namely typed realtime/dependency nested content wrappers and binary payload side channels, now lives in `backend/setta/api/listener.py`, which is the actual runtime owner that uses it
+  - `backend/setta/types/` is smaller again, and the listener runtime no longer preserves a dedicated handwritten type module for behavior that was never part of the shared Go-owned schema surface
 - `backend/setta/types/listener.py` no longer keeps a handwritten `ListenerInitContent` wrapper:
   - the generated Go-owned init request/message models now carry the wire shape directly
   - the only remaining bootstrap requirement, that either `projectConfigId` or `projectName` must be provided, is enforced at the actual listener bootstrap call site instead of through a separate Python schema subclass
