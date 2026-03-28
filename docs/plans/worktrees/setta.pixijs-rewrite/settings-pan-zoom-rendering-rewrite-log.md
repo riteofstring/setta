@@ -413,3 +413,28 @@ Record:
       - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/forks/dnd-kit/ParamDndContext.tsx` before any Pixi renderer code lands.
+
+## 2026-03-26 017
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/forks/dnd-kit/ParamDndContext.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the param DnD provider decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its helper-overlay visibility and list-key collision scoping inline in the component:
+    - `frontend/src/forks/dnd-kit/ParamDndContext.tsx`
+    - `frontend/src/forks/dnd-kit/paramDndContextView.ts`
+    - `frontend/src/forks/dnd-kit/paramDndContextView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - keeping the drag helper overlay mounted while a param drag is still active even if edit mode toggles off mid-drag
+    - keeping the provider on the stable inert DnD context used by the param stack
+    - scoping tracker collisions to the active `pinned` or `unpinned` list and explicitly clearing collisions when every candidate belongs to another list
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/forks/dnd-kit/paramDndContextView.test.ts src/forks/dnd-kit/dndCollisions.integration.test.ts src/forks/dnd-kit/adapter/dragEventMapping.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - the settings UI rendered normally with no obvious overlap, clipping, or broken helper overlays
+      - representative visible rows and controls included `Filter`, tag rows such as `backend`, `sectionSizingPolicy`, `languageServer`, `shortcuts`, and `gui`, plus bottom stack tabs including `Param Defaults` and `All Settings`
+      - relevant requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`.
