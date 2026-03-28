@@ -57,6 +57,7 @@ import {
   type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
 import { buildLiveDictAreaNodeCanaryView } from "./groupContainerNodeCanaryView";
+import { buildLiveDictAreaNodeCanaryRenderView } from "./groupContainerNodeCanaryRenderView";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
@@ -359,10 +360,17 @@ function _ParamGroupContainer({
       }),
     [liveDictAreaNodeCanaryPacket],
   );
+  const liveDictAreaNodeCanaryRenderView = useMemo(
+    () =>
+      buildLiveDictAreaNodeCanaryRenderView({
+        nodeCanaryView: liveDictAreaNodeCanaryView,
+      }),
+    [liveDictAreaNodeCanaryView],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeCanaryView.maxNestedDepth);
-  }, [liveDictAreaNodeCanaryView.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeCanaryRenderView.maxNestedDepth);
+  }, [liveDictAreaNodeCanaryRenderView.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -375,11 +383,11 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeCanaryView.blocks.map((block) => {
+        {liveDictAreaNodeCanaryRenderView.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
-                key={block.mount.frameId}
+                key={block.key}
                 sectionId={sectionId}
                 domPacket={block.domPacket}
               />
@@ -389,7 +397,7 @@ function _ParamGroupContainer({
           if (block.kind === "pinned-param-area") {
             return (
               <GetPinnedParams
-                key={block.mount.frameId}
+                key={block.key}
                 sectionId={sectionId}
                 domPacket={block.domPacket}
                 handleColumnResizeStart={handleColumnResizeStart}
@@ -399,7 +407,7 @@ function _ParamGroupContainer({
 
           return (
             <GetUnpinnedParams
-              key={block.mount.frameId}
+              key={block.key}
               sectionId={sectionId}
               domPacket={block.domPacket}
               handleColumnResizeStart={handleColumnResizeStart}

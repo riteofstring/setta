@@ -1744,3 +1744,30 @@ Record:
     - representative requests returned `200`, including `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific helpers into the next higher-level scene-owned boundary above `groupContainerNodeCanaryView.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 066
+
+- Item: Compose the block-specific canary-view helpers into a node canary render view above `groupContainerNodeCanaryView.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed render-view helper above the existing block-specific canary-view helpers:
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderView.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderView.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new node canary render view instead of reading the raw node canary view boundary directly:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the edge-strip, pinned param-area, and unpinned param-area canary-view blocks into one higher-level render boundary with stable block keys
+    - keeps the current DOM block mount order and mount metadata intact while hiding the render-key shaping inside one deeper helper
+    - preserves the existing non-Pixi DOM edge-strip and pinned/unpinned param-area surfaces while deepening the first scene-owned canary render contract above the live DOM path
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeCanaryRenderView.test.ts src/components/Params/groupContainerNodeCanaryView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - bootstrap was not needed; the existing authenticated `/settings` tab was used
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new node canary render view wiring
+    - representative visible labels and controls included `settings`, `shortcuts`, `backend`, `sectionSizingPolicy`, `gui`, `languageServer`, `Filter`, `TAG`, `All Settings`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Zoom On Scroll`, `minHeight 32.0`, and `minWidth 200.0`
+    - representative request returned `200`: `POST http://127.0.0.1:8044/api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the edge-strip block into the first block-specific helper above `groupContainerNodeCanaryRenderView.ts` before any broad Pixi node drawing lands.
