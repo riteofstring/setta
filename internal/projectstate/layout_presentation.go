@@ -44,12 +44,12 @@ func (d *Document) SetActiveIDs(projectID string, activeIDs []string) error {
 }
 
 func (r *Runtime) SetActiveIDs(ctx context.Context, projectID string, activeIDs []string) (Snapshot, error) {
-	return r.MutateAndPersistLater(ctx, func(document Document) (Document, error) {
+	return r.mutateAndPersistLaterWithHistoryMode(ctx, func(document Document) (Document, error) {
 		if err := document.SetActiveIDs(projectID, activeIDs); err != nil {
 			return Document{}, err
 		}
 		return document, nil
-	})
+	}, runtimeHistoryModeReplaceCurrent)
 }
 
 func (p *Project) SetViewport(viewport *Viewport) error {
@@ -84,12 +84,12 @@ func (d *Document) SetViewport(projectID string, viewport *Viewport) error {
 }
 
 func (r *Runtime) SetViewport(ctx context.Context, projectID string, viewport *Viewport) (Snapshot, error) {
-	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+	return r.mutateAndSaveWithHistoryMode(ctx, func(document Document) (Document, error) {
 		if err := document.SetViewport(projectID, viewport); err != nil {
 			return Document{}, err
 		}
 		return document, nil
-	})
+	}, runtimeHistoryModeReplaceCurrent)
 }
 
 func (p *Project) TogglePositionLocks(sectionIDs []string) error {

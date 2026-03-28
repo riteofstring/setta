@@ -1153,14 +1153,23 @@ function applyViewportFromProjectState(
   projectState: ProjectStateSingleConfig,
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentConfig = useProjectState.getState().projectConfig;
+  const currentState = useProjectState.getState();
+  const currentConfig = currentState.projectConfig;
   const viewModeChanged =
     currentConfig.activeViewModeId !==
     projectState.projectConfig.activeViewModeId;
   const viewportChanged =
     !_.isEqual(currentConfig.viewport, viewport) ||
     currentConfig.viewportInitialized !== viewportInitialized;
-  if (!viewportChanged && !viewModeChanged) {
+  const visibleTopLevelSectionIdsChanged = !_.isEqual(
+    getVisibleTopLevelSectionIdsForAutoFit(currentState),
+    getVisibleTopLevelSectionIdsForAutoFit(projectState),
+  );
+  if (
+    !viewportChanged &&
+    !viewModeChanged &&
+    (!(!viewport || !viewportInitialized) || !visibleTopLevelSectionIdsChanged)
+  ) {
     return false;
   }
   if (!viewport || !viewportInitialized) {
@@ -1178,6 +1187,25 @@ function applyViewportFromProjectState(
     transform: [viewport.x, viewport.y, viewport.zoom],
   });
   return false;
+}
+
+function getVisibleTopLevelSectionIdsForAutoFit(
+  projectState: ProjectStateSingleConfig,
+): string[] {
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const orderedSectionIds = Object.keys(topLevelSections);
+  const { activeViewModeId, isEditingViewMode, viewModes } =
+    projectState.projectConfig;
+  if (isEditingViewMode || !activeViewModeId) {
+    return orderedSectionIds;
+  }
+  const activeViewMode = viewModes[activeViewModeId];
+  if (!activeViewMode) {
+    return orderedSectionIds;
+  }
+  return orderedSectionIds.filter(
+    (sectionId) => activeViewMode.visibilityBySectionId[sectionId],
+  );
 }
 
 function getFitViewOptionsForVisibleSections(
@@ -2074,3 +2102,8 @@ export const debouncedDispatchViewportUpdate = _.debounce(
   () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
   1000,
 );
+
+export function dispatchViewportUpdateImmediately() {
+  debouncedDispatchViewportUpdate.cancel();
+  dispatchViewportUpdate(getCurrProjectConfigViewport());
+}

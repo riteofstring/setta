@@ -8,6 +8,10 @@ type scheduledPersist struct {
 }
 
 func (r *Runtime) MutateAndPersistLater(ctx context.Context, mutate Mutation) (Snapshot, error) {
+	return r.mutateAndPersistLaterWithHistoryMode(ctx, mutate, runtimeHistoryModeAppend)
+}
+
+func (r *Runtime) mutateAndPersistLaterWithHistoryMode(ctx context.Context, mutate Mutation, historyMode runtimeHistoryMode) (Snapshot, error) {
 	if mutate == nil {
 		return Snapshot{}, ErrMutationMissing
 	}
@@ -26,9 +30,7 @@ func (r *Runtime) MutateAndPersistLater(ctx context.Context, mutate Mutation) (S
 				return snapshotFromState(*state), err
 			}
 
-			applyRuntimeMutationState(state, normalized)
-
-			recordRuntimeHistoryState(state, state.current)
+			applyRuntimeMutationState(state, normalized, historyMode)
 			snapshot := snapshotFromState(*state)
 			r.scheduleDeferredPersist(persistCtx, snapshot)
 			return snapshot, nil

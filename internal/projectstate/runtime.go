@@ -211,6 +211,10 @@ func (r *Runtime) SavePolicy() SavePolicy {
 }
 
 func (r *Runtime) Mutate(mutate Mutation) (Snapshot, error) {
+	return r.mutateWithHistoryMode(mutate, runtimeHistoryModeAppend)
+}
+
+func (r *Runtime) mutateWithHistoryMode(mutate Mutation, historyMode runtimeHistoryMode) (Snapshot, error) {
 	if mutate == nil {
 		return Snapshot{}, ErrMutationMissing
 	}
@@ -227,7 +231,7 @@ func (r *Runtime) Mutate(mutate Mutation) (Snapshot, error) {
 				return snapshotFromState(*state), err
 			}
 
-			applyRuntimeMutationState(state, normalized)
+			applyRuntimeMutationState(state, normalized, historyMode)
 
 			return snapshotFromState(*state), nil
 		},
@@ -235,6 +239,10 @@ func (r *Runtime) Mutate(mutate Mutation) (Snapshot, error) {
 }
 
 func (r *Runtime) MutateWithContext(ctx context.Context, mutate Mutation) (Snapshot, error) {
+	return r.mutateWithContextAndHistoryMode(ctx, mutate, runtimeHistoryModeAppend)
+}
+
+func (r *Runtime) mutateWithContextAndHistoryMode(ctx context.Context, mutate Mutation, historyMode runtimeHistoryMode) (Snapshot, error) {
 	if mutate == nil {
 		return Snapshot{}, ErrMutationMissing
 	}
@@ -252,7 +260,7 @@ func (r *Runtime) MutateWithContext(ctx context.Context, mutate Mutation) (Snaps
 				return snapshotFromState(*state), err
 			}
 
-			applyRuntimeMutationState(state, normalized)
+			applyRuntimeMutationState(state, normalized, historyMode)
 
 			return snapshotFromState(*state), nil
 		},
@@ -279,6 +287,10 @@ func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 }
 
 func (r *Runtime) MutateAndSave(ctx context.Context, mutate Mutation) (Snapshot, error) {
+	return r.mutateAndSaveWithHistoryMode(ctx, mutate, runtimeHistoryModeAppend)
+}
+
+func (r *Runtime) mutateAndSaveWithHistoryMode(ctx context.Context, mutate Mutation, historyMode runtimeHistoryMode) (Snapshot, error) {
 	if mutate == nil {
 		return Snapshot{}, ErrMutationMissing
 	}
@@ -296,9 +308,7 @@ func (r *Runtime) MutateAndSave(ctx context.Context, mutate Mutation) (Snapshot,
 				return snapshotFromState(*state), err
 			}
 
-			applyRuntimeMutationState(state, normalized)
-
-			recordRuntimeHistoryState(state, state.current)
+			applyRuntimeMutationState(state, normalized, historyMode)
 			snapshot := snapshotFromState(*state)
 			return snapshot, r.persistSnapshotSync(ctx, snapshot)
 		},

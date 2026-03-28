@@ -531,7 +531,10 @@ const ZoomPane = ({
       ...fitViewOnInitOptions,
     });
     if (didCompleteInitialFit) {
-      useReactFlow.setState({ fitViewOnInitDone: true });
+      useReactFlow.setState({
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+      });
     }
   }, [
     d3Selection,

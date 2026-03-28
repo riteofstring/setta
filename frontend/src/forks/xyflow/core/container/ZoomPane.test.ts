@@ -229,6 +229,7 @@ describe("getViewportInteractionActiveValue", () => {
     const { host, root } = await renderZoomPane();
 
     try {
+      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
       expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
       expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
     } finally {
@@ -269,6 +270,7 @@ describe("getViewportInteractionActiveValue", () => {
         });
       });
 
+      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
       expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
       expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
     } finally {

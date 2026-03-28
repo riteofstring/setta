@@ -128,6 +128,84 @@ func TestRegisterProjectRoutesUndoAndRedoRejectInvalidProjectPayloads(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesProjectScopedHistoryClampsAtProjectCreationBoundary(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	_, createdProjectID, _, err := projectRuntime.CreateProject(context.Background(), "")
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if _, err := projectRuntime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID(createdProjectID)
+		if err != nil {
+			return projectstate.Document{}, err
+		}
+		project.Name = "Renamed"
+		document.Projects[project.ID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("rename project: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	undoRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUndo,
+		strings.NewReader(`{"projectConfigId":"`+createdProjectID+`","steps":10}`),
+	)
+	undoRequest.Header.Set("Content-Type", "application/json")
+	undoResponse := httptest.NewRecorder()
+	handler.ServeHTTP(undoResponse, undoRequest)
+	if undoResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 undo response, got %d with body %q", undoResponse.Code, undoResponse.Body.String())
+	}
+
+	var undoPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(undoResponse.Body.Bytes(), &undoPayload); err != nil {
+		t.Fatalf("decode undo payload: %v", err)
+	}
+	if undoPayload.ProjectState.ProjectConfig.ID != createdProjectID {
+		t.Fatalf("expected undo to keep project %q, got %q", createdProjectID, undoPayload.ProjectState.ProjectConfig.ID)
+	}
+	if undoPayload.ProjectState.ProjectConfig.Name == "Renamed" {
+		t.Fatalf("expected undo to clamp to the created project state, but project name stayed %q", undoPayload.ProjectState.ProjectConfig.Name)
+	}
+
+	redoRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRedo,
+		strings.NewReader(`{"projectConfigId":"`+createdProjectID+`","steps":10}`),
+	)
+	redoRequest.Header.Set("Content-Type", "application/json")
+	redoResponse := httptest.NewRecorder()
+	handler.ServeHTTP(redoResponse, redoRequest)
+	if redoResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 redo response, got %d with body %q", redoResponse.Code, redoResponse.Body.String())
+	}
+
+	var redoPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(redoResponse.Body.Bytes(), &redoPayload); err != nil {
+		t.Fatalf("decode redo payload: %v", err)
+	}
+	if redoPayload.ProjectState.ProjectConfig.ID != createdProjectID {
+		t.Fatalf("expected redo to restore project %q, got %q", createdProjectID, redoPayload.ProjectState.ProjectConfig.ID)
+	}
+	if redoPayload.ProjectState.ProjectConfig.Name != "Renamed" {
+		t.Fatalf("expected redo to restore renamed project state, got %q", redoPayload.ProjectState.ProjectConfig.Name)
+	}
+}
+
 func TestRegisterProjectRoutesUndoAndRedoUseDeploymentOverlayWithoutPolicyGate(t *testing.T) {
 	t.Parallel()
 

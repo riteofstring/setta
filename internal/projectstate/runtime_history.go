@@ -5,9 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"sort"
+	"strings"
 )
 
-func applyRuntimeMutationState(state *runtimeState, normalized Document) bool {
+type runtimeHistoryMode int
+
+const (
+	runtimeHistoryModeAppend runtimeHistoryMode = iota
+	runtimeHistoryModeReplaceCurrent
+)
+
+func applyRuntimeMutationState(state *runtimeState, normalized Document, historyMode runtimeHistoryMode) bool {
 	if state == nil {
 		return false
 	}
@@ -16,7 +25,12 @@ func applyRuntimeMutationState(state *runtimeState, normalized Document) bool {
 	}
 	state.current = normalized.Clone()
 	state.revision++
-	recordRuntimeHistoryState(state, state.current)
+	switch historyMode {
+	case runtimeHistoryModeReplaceCurrent:
+		replaceRuntimeHistoryState(state, state.current)
+	default:
+		recordRuntimeHistoryState(state, state.current)
+	}
 	return true
 }
 
@@ -50,6 +64,27 @@ func recordRuntimeHistoryState(state *runtimeState, document Document) {
 	state.historyIndex = len(state.history) - 1
 }
 
+func replaceRuntimeHistoryState(state *runtimeState, document Document) {
+	if state == nil {
+		return
+	}
+
+	cloned := document.Clone()
+	if len(state.history) == 0 {
+		state.history = []Document{cloned}
+		state.historyIndex = 0
+		return
+	}
+	if state.historyIndex < 0 {
+		state.historyIndex = 0
+	}
+	if state.historyIndex >= len(state.history) {
+		state.historyIndex = len(state.history) - 1
+	}
+
+	state.history[state.historyIndex] = cloned
+}
+
 func documentsEqualForRuntimeState(left Document, right Document) bool {
 	leftJSON, leftErr := json.Marshal(left)
 	rightJSON, rightErr := json.Marshal(right)
@@ -59,39 +94,81 @@ func documentsEqualForRuntimeState(left Document, right Document) bool {
 	return reflect.DeepEqual(left, right)
 }
 
-func undoRuntimeState(state *runtimeState, steps int) bool {
-	if state == nil || steps <= 0 || len(state.history) == 0 {
-		return false
-	}
-
-	targetIndex := state.historyIndex - steps
-	if targetIndex < 0 {
-		targetIndex = 0
-	}
-	if targetIndex == state.historyIndex {
-		return false
-	}
-
-	state.historyIndex = targetIndex
-	state.current = state.history[state.historyIndex].Clone()
-	state.revision++
-	return true
+type projectHistoryEntry struct {
+	historyIndex int
+	project      Project
 }
 
-func redoRuntimeState(state *runtimeState, steps int) bool {
-	if state == nil || steps <= 0 || len(state.history) == 0 {
+func projectsEqualForRuntimeHistory(left Project, right Project) bool {
+	sanitizedLeft := left.Clone()
+	sanitizedRight := right.Clone()
+	sanitizedLeft.passwordSecrets = nil
+	sanitizedRight.passwordSecrets = nil
+
+	leftJSON, leftErr := json.Marshal(sanitizedLeft)
+	rightJSON, rightErr := json.Marshal(sanitizedRight)
+	if leftErr == nil && rightErr == nil {
+		return bytes.Equal(leftJSON, rightJSON)
+	}
+	return reflect.DeepEqual(sanitizedLeft, sanitizedRight)
+}
+
+func projectHistoryEntries(state *runtimeState, projectID string) ([]projectHistoryEntry, error) {
+	if state == nil {
+		return nil, ErrRuntimeClosed
+	}
+
+	trimmedProjectID := strings.TrimSpace(projectID)
+	if trimmedProjectID == "" {
+		return nil, ErrProjectIDRequired
+	}
+
+	entries := make([]projectHistoryEntry, 0, len(state.history))
+	for historyIndex, document := range state.history {
+		project, ok := document.Projects[trimmedProjectID]
+		if !ok {
+			continue
+		}
+		if len(entries) > 0 && projectsEqualForRuntimeHistory(entries[len(entries)-1].project, project) {
+			continue
+		}
+		entries = append(entries, projectHistoryEntry{
+			historyIndex: historyIndex,
+			project:      project.Clone(),
+		})
+	}
+	if len(entries) == 0 {
+		return nil, ErrProjectNotFound
+	}
+	return entries, nil
+}
+
+func currentProjectHistoryEntryPosition(entries []projectHistoryEntry, currentHistoryIndex int) int {
+	if len(entries) == 0 {
+		return -1
+	}
+	return sort.Search(len(entries), func(index int) bool {
+		return entries[index].historyIndex > currentHistoryIndex
+	}) - 1
+}
+
+func moveRuntimeStateToProjectHistoryEntry(state *runtimeState, entries []projectHistoryEntry, targetPosition int) bool {
+	if state == nil || len(entries) == 0 {
+		return false
+	}
+	if targetPosition < 0 {
+		targetPosition = 0
+	}
+	if targetPosition >= len(entries) {
+		targetPosition = len(entries) - 1
+	}
+
+	targetHistoryIndex := entries[targetPosition].historyIndex
+	if targetHistoryIndex == state.historyIndex {
 		return false
 	}
 
-	targetIndex := state.historyIndex + steps
-	if targetIndex >= len(state.history) {
-		targetIndex = len(state.history) - 1
-	}
-	if targetIndex == state.historyIndex {
-		return false
-	}
-
-	state.historyIndex = targetIndex
+	state.historyIndex = targetHistoryIndex
 	state.current = state.history[state.historyIndex].Clone()
 	state.revision++
 	return true
@@ -100,10 +177,18 @@ func redoRuntimeState(state *runtimeState, steps int) bool {
 func (r *Runtime) UndoAndSave(ctx context.Context, projectID string, steps int) (Snapshot, error) {
 	return r.submit(operation{
 		run: func(state *runtimeState) (Snapshot, error) {
-			if _, err := state.current.ProjectByID(projectID); err != nil {
+			entries, err := projectHistoryEntries(state, projectID)
+			if err != nil {
 				return snapshotFromState(*state), err
 			}
-			undoRuntimeState(state, steps)
+			if steps > 0 {
+				targetPosition := 0
+				currentPosition := currentProjectHistoryEntryPosition(entries, state.historyIndex)
+				if currentPosition >= 0 {
+					targetPosition = currentPosition - steps
+				}
+				moveRuntimeStateToProjectHistoryEntry(state, entries, targetPosition)
+			}
 			snapshot := snapshotFromState(*state)
 			return snapshot, r.persistSnapshot(ctx, snapshot)
 		},
@@ -113,10 +198,20 @@ func (r *Runtime) UndoAndSave(ctx context.Context, projectID string, steps int) 
 func (r *Runtime) RedoAndSave(ctx context.Context, projectID string, steps int) (Snapshot, error) {
 	return r.submit(operation{
 		run: func(state *runtimeState) (Snapshot, error) {
-			if _, err := state.current.ProjectByID(projectID); err != nil {
+			entries, err := projectHistoryEntries(state, projectID)
+			if err != nil {
 				return snapshotFromState(*state), err
 			}
-			redoRuntimeState(state, steps)
+			if steps > 0 {
+				targetPosition := len(entries) - 1
+				currentPosition := currentProjectHistoryEntryPosition(entries, state.historyIndex)
+				if currentPosition < 0 {
+					targetPosition = steps - 1
+				} else {
+					targetPosition = currentPosition + steps
+				}
+				moveRuntimeStateToProjectHistoryEntry(state, entries, targetPosition)
+			}
 			snapshot := snapshotFromState(*state)
 			return snapshot, r.persistSnapshot(ctx, snapshot)
 		},

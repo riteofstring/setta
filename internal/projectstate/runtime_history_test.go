@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -150,6 +151,195 @@ func TestRuntimeHistoryKeepsBackToBackMutationsAsSeparateUndoSteps(t *testing.T)
 	}
 	if secondProject.Name != "Alpha" {
 		t.Fatalf("expected second undo to land on Alpha, got %q", secondProject.Name)
+	}
+}
+
+func TestRuntimePresentationMutationsRewriteCurrentHistoryEntry(t *testing.T) {
+	t.Parallel()
+
+	runtime := openViewModesTestRuntime(t)
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		project := document.Projects["project-alpha"]
+		project.Name = "Beta"
+		document.Projects[project.ID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed structural history entry: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	updatedLayout := project.TopLevelSections["standalone-section"]
+	updatedLayout.X += 240
+	updatedLayout.Y += 160
+	updatedLayout.ZIndex = 9
+	updatedViewport := &Viewport{X: 90, Y: -45, Zoom: 1.35}
+	updatedActiveIDs := []string{"standalone-section"}
+
+	if _, err := runtime.SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]TopLevelSectionLayout{
+		"parent-section":     project.TopLevelSections["parent-section"],
+		"standalone-section": updatedLayout,
+		"moving-section":     project.TopLevelSections["moving-section"],
+	}); err != nil {
+		t.Fatalf("SetTopLevelSectionLayout returned error: %v", err)
+	}
+	if _, err := runtime.SetViewport(context.Background(), "project-alpha", updatedViewport); err != nil {
+		t.Fatalf("SetViewport returned error: %v", err)
+	}
+	if _, err := runtime.SetActiveIDs(context.Background(), "project-alpha", updatedActiveIDs); err != nil {
+		t.Fatalf("SetActiveIDs returned error: %v", err)
+	}
+
+	undoSnapshot, err := runtime.UndoAndSave(context.Background(), "project-alpha", 1)
+	if err != nil {
+		t.Fatalf("undo and save runtime: %v", err)
+	}
+	undoProject := undoSnapshot.Document.Projects["project-alpha"]
+	if undoProject.Name != "Alpha" {
+		t.Fatalf("expected first undo to land on Alpha, got %q", undoProject.Name)
+	}
+
+	redoSnapshot, err := runtime.RedoAndSave(context.Background(), "project-alpha", 1)
+	if err != nil {
+		t.Fatalf("redo and save runtime: %v", err)
+	}
+	redoProject := redoSnapshot.Document.Projects["project-alpha"]
+	if redoProject.Name != "Beta" {
+		t.Fatalf("expected first redo to land on Beta, got %q", redoProject.Name)
+	}
+	if got := redoProject.TopLevelSections["standalone-section"]; !reflect.DeepEqual(got, updatedLayout) {
+		t.Fatalf("expected redo layout %#v, got %#v", updatedLayout, got)
+	}
+	if !reflect.DeepEqual(redoProject.Viewport, updatedViewport) {
+		t.Fatalf("expected redo viewport %#v, got %#v", updatedViewport, redoProject.Viewport)
+	}
+	if !reflect.DeepEqual(redoProject.ActiveIDs, updatedActiveIDs) {
+		t.Fatalf("expected redo active ids %#v, got %#v", updatedActiveIDs, redoProject.ActiveIDs)
+	}
+}
+
+func TestRuntimeUndoAndRedoSkipIntermediateHistoryEntriesForOtherProjects(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Beta",
+			},
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntime(t, store)
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return Document{}, err
+		}
+		project.Name = "Alpha updated"
+		document.Projects[project.ID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("update alpha project: %v", err)
+	}
+	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		project, err := document.ProjectByID("project-beta")
+		if err != nil {
+			return Document{}, err
+		}
+		project.Name = "Beta updated"
+		document.Projects[project.ID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("update beta project: %v", err)
+	}
+
+	undoSnapshot, err := runtime.UndoAndSave(context.Background(), "project-alpha", 1)
+	if err != nil {
+		t.Fatalf("undo alpha project mutation: %v", err)
+	}
+	undoProject, err := undoSnapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("load undone alpha project: %v", err)
+	}
+	if undoProject.Name != "Alpha" {
+		t.Fatalf("expected alpha undo to skip beta-only history entry and land on Alpha, got %q", undoProject.Name)
+	}
+
+	redoSnapshot, err := runtime.RedoAndSave(context.Background(), "project-alpha", 1)
+	if err != nil {
+		t.Fatalf("redo alpha project mutation: %v", err)
+	}
+	redoProject, err := redoSnapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("load redone alpha project: %v", err)
+	}
+	if redoProject.Name != "Alpha updated" {
+		t.Fatalf("expected alpha redo to restore Alpha updated, got %q", redoProject.Name)
+	}
+}
+
+func TestRuntimeProjectScopedHistoryClampsAtProjectCreationBoundary(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	_, createdProjectID, _, err := runtime.CreateProject(context.Background(), "")
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		project, err := document.ProjectByID(createdProjectID)
+		if err != nil {
+			return Document{}, err
+		}
+		project.Name = "Renamed"
+		document.Projects[project.ID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("rename created project: %v", err)
+	}
+
+	undoSnapshot, err := runtime.UndoAndSave(context.Background(), createdProjectID, 1)
+	if err != nil {
+		t.Fatalf("undo project creation: %v", err)
+	}
+	undoProject, err := undoSnapshot.Document.ProjectByID(createdProjectID)
+	if err != nil {
+		t.Fatalf("expected undo snapshot to keep project %q: %v", createdProjectID, err)
+	}
+	if undoProject.Name == "Renamed" {
+		t.Fatalf("expected undo to clamp at the created project state, but project name stayed %q", undoProject.Name)
+	}
+
+	redoSnapshot, err := runtime.RedoAndSave(context.Background(), createdProjectID, 1)
+	if err != nil {
+		t.Fatalf("redo project creation: %v", err)
+	}
+	redoProject, err := redoSnapshot.Document.ProjectByID(createdProjectID)
+	if err != nil {
+		t.Fatalf("expected redo snapshot to restore project %q: %v", createdProjectID, err)
+	}
+	if redoProject.Name != "Renamed" {
+		t.Fatalf("expected redo snapshot to restore renamed project state, got %q", redoProject.Name)
 	}
 }
 
