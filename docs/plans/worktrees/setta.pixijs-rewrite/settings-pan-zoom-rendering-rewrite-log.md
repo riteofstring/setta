@@ -5605,3 +5605,38 @@ Record:
     - self-recovery was not needed
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
+
+## 2026-03-28 188
+
+- Item: Close the previously blocked standalone target-resolution/store-selection lift by fixing the live dict-area shell seam under `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Finished the previously blocked pure helper extraction for the standalone target boundary so the boundary now owns only the lifted store selection plus the final handoff into the standalone page state boundary:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`
+    - `frontend/src/components/Pages/Project/standaloneProjectSurfacePageTargetState.ts`
+    - `frontend/src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts`
+  - Added typed helper coverage so the lifted helper now:
+    - rebuilds the standalone page's project-state snapshot from stable store refs
+    - centralizes standalone chat / section / window-space target resolution plus page-state shaping outside the boundary
+    - gates `doneLoading` on whether a resolved standalone section target can actually render from the current live section-variant state
+  - Fixed the lower live dict-area seam that was causing the `getCurrSectionVariantId` / `buildLiveDictAreaSectionState` crash on `/settings/section/languageserver`:
+    - `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx`
+    - `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`
+    - `DictAreaLiveBoundary.tsx` now passes `GroupContainerShellProps` through the lifted live-layout seam instead of wrapper props
+    - `LiveDictAreaLayout.tsx` now renders `GroupContainerShell` inside `ParamDndContext` instead of incorrectly re-entering `GroupContainerWrapper` with shell-boundary props
+  - This preserves the current non-Pixi behavior while unblocking the standalone settings surface:
+    - `StandaloneProjectSurfacePageTargetBoundary.tsx` stays a thin route/store seam above the pure helper
+    - the live dict-area path keeps the expected shell ownership contract without dropping `sectionId` during standalone section-route mounts
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/DictAreaLiveBoundary.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/dictAreaView.test.ts src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx src/components/Pages/Project/standaloneProjectSurfacePageTargetState.ts src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts src/components/Section/Layouts/DictAreaLiveBoundary.tsx src/components/Section/Layouts/LiveDictAreaLayout.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - `http://127.0.0.1:3044/settings` and `http://127.0.0.1:3044/settings/section/languageserver` both rendered normally after their initial load phase
+    - no React error overlay or obvious clipping/overlap was visible in the viewport on either route
+    - representative successful requests included `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `GET /api/serverMode`, `POST /api/getAIFollowSnapshot`, and `POST /api/getListenerCoverage`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.

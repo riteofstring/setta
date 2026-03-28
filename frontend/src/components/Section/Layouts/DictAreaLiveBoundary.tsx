@@ -1,9 +1,9 @@
 import React from "react";
+import type { GroupContainerShellProps } from "../../Params/groupContainerShell";
 import {
   useGroupContainerShellBoundary,
   type GroupContainerShellBoundary,
 } from "../../Params/groupContainerShellBoundary";
-import type { GroupContainerWrapperProps } from "../../Params/groupContainerWrapper";
 import { LiveDictAreaLayout } from "./LiveDictAreaLayout";
 import { buildLiveDictAreaLayoutView } from "./dictAreaView";
 
@@ -12,11 +12,11 @@ export type DictAreaLiveBoundaryProps = {
   sectionId: string;
 };
 
-function buildGroupContainerWrapperProps({
+function buildGroupContainerShellProps({
   liveDictAreaMountProps,
   setOuterRef,
   waitingForResult,
-}: GroupContainerShellBoundary): GroupContainerWrapperProps {
+}: GroupContainerShellBoundary): GroupContainerShellProps {
   return {
     liveDictAreaMountProps,
     setOuterRef,
@@ -38,7 +38,7 @@ function _DictAreaLiveBoundary({
 
   return (
     <LiveDictAreaLayout
-      groupContainerWrapperProps={buildGroupContainerWrapperProps(
+      groupContainerShellProps={buildGroupContainerShellProps(
         groupContainerShellBoundary,
       )}
       kwargsControlsProps={liveDictAreaLayoutView.kwargsControlsProps}

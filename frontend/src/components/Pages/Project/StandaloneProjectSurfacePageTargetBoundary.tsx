@@ -1,71 +1,19 @@
-import {
-  canUseManagedChatLLM,
-  type ManagedChatSurfaceAuthorityState,
-} from "components/Chat/sharePolicyChatAccess";
 import { type ComponentProps, useMemo } from "react";
-import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import {
   useAIStore,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
-import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
 import { shallow } from "zustand/shallow";
 import { StandaloneProjectSurfacePageStateBoundary } from "./StandaloneProjectSurfacePageStateBoundary";
-import { type StandaloneSurfaceTarget } from "./StandaloneProjectSurfaceRouteBoundary";
-
-function normalizeStandaloneChatId(
-  chatId: string | null | undefined,
-): string | null {
-  const normalizedChatId = chatId?.trim() ?? "";
-  if (!normalizedChatId) {
-    return null;
-  }
-  return normalizedChatId;
-}
-
-function resolveStandaloneSurfaceTarget(
-  state: Parameters<typeof resolveStandaloneSectionSlug>[0],
-  sectionSlug: string | undefined,
-  chatId: string | undefined,
-  windowSpaceSlug: string | undefined,
-): StandaloneSurfaceTarget {
-  const normalizedChatId = normalizeStandaloneChatId(chatId);
-  if (normalizedChatId) {
-    return {
-      kind: "project_chat_thread",
-      chatId: normalizedChatId,
-    };
-  }
-  if (chatId !== undefined) {
-    return { kind: "project_chat_thread_not_found" };
-  }
-  if (windowSpaceSlug) {
-    const resolution = resolveStandaloneWindowSpaceSlug(state, windowSpaceSlug);
-    if (resolution.kind !== "found") {
-      return { kind: "window_space_not_found" };
-    }
-    return {
-      kind: "window_space",
-      windowSpaceId: resolution.windowSpaceId,
-      windowSpaceName: resolution.windowSpace.name,
-    };
-  }
-  if (!sectionSlug) {
-    return { kind: "project_chat" };
-  }
-  const resolution = resolveStandaloneSectionSlug(state, sectionSlug);
-  if (resolution.kind !== "found") {
-    return { kind: "section_not_found" };
-  }
-  return {
-    kind: "section",
-    sectionId: resolution.sectionId,
-    sectionName: resolution.sectionName,
-    sectionType: resolution.sectionType,
-  };
-}
+import {
+  buildStandaloneProjectSurfacePageTargetProjectState,
+  buildStandaloneProjectSurfacePageTargetState,
+  canRenderStandaloneSurfaceTarget,
+  type StandaloneProjectSurfacePageTargetProjectState,
+  type StandaloneProjectSurfacePageTargetProjectStateRefs,
+  type StandaloneProjectSurfacePageTargetRenderState,
+} from "./standaloneProjectSurfacePageTargetState";
 
 export type StandaloneProjectSurfacePageTargetBoundaryProps = Omit<
   ComponentProps<typeof StandaloneProjectSurfacePageStateBoundary>,
@@ -87,44 +35,24 @@ function _StandaloneProjectSurfacePageTargetBoundary({
   windowSpaceSlug,
   ...stateBoundaryProps
 }: StandaloneProjectSurfacePageTargetBoundaryProps) {
-  const target = useProjectState(
-    (state) =>
-      resolveStandaloneSurfaceTarget(
-        state,
-        sectionSlug,
-        chatId,
-        windowSpaceSlug,
-      ),
-    shallow,
-  );
-  const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
-    useProjectState(
-      (state) => ({
-        sections: state.sections,
-        sectionVariants: state.sectionVariants,
-        sectionImpls: state.sectionImpls,
-        sectionVariantMap: state.projectConfig.sectionVariantMap,
-      }),
+  const projectStateRefs =
+    useProjectState<StandaloneProjectSurfacePageTargetProjectStateRefs>(
+      (state) =>
+        ({
+          projectConfigId: state.projectConfig.id,
+          windowSpaces: state.projectConfig.windowSpaces,
+          sectionVariantMap: state.projectConfig.sectionVariantMap,
+          sections: state.sections,
+          sectionVariants: state.sectionVariants,
+          sectionImpls: state.sectionImpls,
+          parentSectionMap: state.parentSectionMap,
+        }) satisfies StandaloneProjectSurfacePageTargetProjectStateRefs,
       shallow,
     );
-  const managedChatAuthorityState = useMemo<ManagedChatSurfaceAuthorityState>(
-    () => ({
-      projectConfig: {
-        sectionVariantMap,
-      },
-      sections,
-      sectionVariants,
-      sectionImpls,
-    }),
-    [sectionImpls, sectionVariantMap, sectionVariants, sections],
+  const projectState = useMemo<StandaloneProjectSurfacePageTargetProjectState>(
+    () => buildStandaloneProjectSurfacePageTargetProjectState(projectStateRefs),
+    [projectStateRefs],
   );
-  const standaloneWindowSpace = useProjectState((state) => {
-    if (target.kind !== "window_space") {
-      return null;
-    }
-    return state.projectConfig.windowSpaces[target.windowSpaceId] ?? null;
-  }, shallow);
   const { isDeploymentMode, allowLLM } = useShareSession(
     (state) => ({
       isDeploymentMode: state.isDeploymentMode,
@@ -133,28 +61,48 @@ function _StandaloneProjectSurfacePageTargetBoundary({
     shallow,
   );
   const agentRuns = useAIStore((state) => state.agentRuns);
-  const projectChatHistoryEntries = useMemo(
+  const targetState = useMemo(
     () =>
-      buildChatHistoryEntries(agentRuns, {
-        projectConfigId,
-        unscopedOnly: true,
+      buildStandaloneProjectSurfacePageTargetState({
+        projectState,
+        sectionSlug,
+        chatId,
+        windowSpaceSlug,
+        agentRuns,
+        isDeploymentMode,
+        allowLLM,
       }),
-    [agentRuns, projectConfigId],
+    [
+      agentRuns,
+      allowLLM,
+      chatId,
+      isDeploymentMode,
+      projectState,
+      sectionSlug,
+      windowSpaceSlug,
+    ],
   );
-  const canUseManagedChat = canUseManagedChatLLM({
-    isDeploymentMode,
-    allowLLM,
-  });
+  const targetReady = useProjectState(
+    (state) =>
+      canRenderStandaloneSurfaceTarget({
+        state: {
+          projectConfig: {
+            sectionVariantMap: state.projectConfig.sectionVariantMap,
+          },
+          sections: state.sections,
+          sectionVariants: state.sectionVariants,
+          sectionImpls: state.sectionImpls,
+        } satisfies StandaloneProjectSurfacePageTargetRenderState,
+        target: targetState.target,
+      }),
+    Object.is,
+  );
 
   return (
     <StandaloneProjectSurfacePageStateBoundary
       {...stateBoundaryProps}
-      projectConfigId={projectConfigId}
-      target={target}
-      standaloneWindowSpace={standaloneWindowSpace}
-      managedChatAuthorityState={managedChatAuthorityState}
-      canUseManagedChat={canUseManagedChat}
-      projectChatHistoryEntries={projectChatHistoryEntries}
+      {...targetState}
+      doneLoading={stateBoundaryProps.doneLoading && targetReady}
     />
   );
 }

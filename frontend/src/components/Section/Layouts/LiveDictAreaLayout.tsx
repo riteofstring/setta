@@ -1,8 +1,9 @@
+import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import React from "react";
 import {
-  GroupContainerWrapper,
-  type GroupContainerWrapperProps,
-} from "../../Params/groupContainerWrapper";
+  GroupContainerShell,
+  type GroupContainerShellProps,
+} from "../../Params/groupContainerShell";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import type { LiveDictAreaLayoutView } from "./dictAreaView";
 
@@ -10,17 +11,19 @@ export type LiveDictAreaLayoutProps = Pick<
   LiveDictAreaLayoutView,
   "kwargsControlsProps"
 > & {
-  groupContainerWrapperProps: GroupContainerWrapperProps;
+  groupContainerShellProps: GroupContainerShellProps;
 };
 
 function _LiveDictAreaLayout({
-  groupContainerWrapperProps,
+  groupContainerShellProps,
   kwargsControlsProps,
 }: LiveDictAreaLayoutProps) {
   return (
     <>
       <KwargsControls {...kwargsControlsProps} />
-      <GroupContainerWrapper {...groupContainerWrapperProps} />
+      <ParamDndContext>
+        <GroupContainerShell {...groupContainerShellProps} />
+      </ParamDndContext>
     </>
   );
 }
