@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
 import {
@@ -16,14 +15,6 @@ import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
 import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
-import {
-  buildReactFlowScrollPlan,
-  buildReactFlowStoreDimensions,
-  REACT_FLOW_SCROLL_INIT,
-  resolveReactFlowWireColor,
-  shouldRenderReactFlowContents,
-  type ReactFlowGuiSettings,
-} from "./reactFlowView";
 import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
 import ViewportWrapper from "./Viewport";
 
@@ -36,8 +27,9 @@ const wrapperStyle: CSSProperties = {
   overflowAnchor: "none",
 };
 
+const SCROLL_INIT = 5000;
+
 const ReactFlow = () => {
-  const benchmark = useSettingsAllSettingsBenchmark();
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
@@ -46,13 +38,16 @@ const ReactFlow = () => {
     (state) => state.connectionStartHandle !== null,
   );
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
-  const wireColor = useSettings((x) =>
-    resolveReactFlowWireColor({
-      // If the backend is running an older build, these fields can be missing.
-      gui: x.gui as ReactFlowGuiSettings,
-      darkMode,
-    }),
-  );
+  const wireColor = useSettings((x) => {
+    // If the backend is running an older build, these fields can be missing.
+    const gui = x.gui as unknown as {
+      wireColor?: string;
+      wireColorDarkMode?: string;
+    };
+    const light = gui.wireColor ?? "#41506c";
+    const dark = gui.wireColorDarkMode ?? "#bac2d3";
+    return darkMode ? dark : light;
+  });
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
@@ -65,13 +60,14 @@ const ReactFlow = () => {
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.scrollTop = REACT_FLOW_SCROLL_INIT;
-      ref.current.scrollLeft = REACT_FLOW_SCROLL_INIT;
+      ref.current.scrollTop = SCROLL_INIT;
+      ref.current.scrollLeft = SCROLL_INIT;
     }
     setInitialized(true);
   }, []);
 
-  const readyToRender = shouldRenderReactFlowContents(wrapperDimensions);
+  const readyToRender =
+    wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
 
   return (
     <div
@@ -88,7 +84,6 @@ const ReactFlow = () => {
       data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
       data-show-arg-edges={showArgEdges ? "true" : "false"}
       data-connecting={isConnecting ? "true" : "false"}
-      data-settings-benchmark-stage={benchmark.active ? benchmark.stage : "off"}
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
@@ -96,10 +91,10 @@ const ReactFlow = () => {
       <div
         style={{
           position: "relative",
-          height: `${REACT_FLOW_SCROLL_INIT}px`,
-          width: `${REACT_FLOW_SCROLL_INIT}px`,
-          top: `${REACT_FLOW_SCROLL_INIT}px`,
-          left: `${REACT_FLOW_SCROLL_INIT}px`,
+          height: `${SCROLL_INIT}px`,
+          width: `${SCROLL_INIT}px`,
+          top: `${SCROLL_INIT}px`,
+          left: `${SCROLL_INIT}px`,
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
@@ -121,25 +116,17 @@ const ReactFlow = () => {
 };
 
 function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
-  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
-  const scrollPlan = buildReactFlowScrollPlan({
-    initialized,
-    scrollLeft: e.currentTarget.scrollLeft,
-    scrollTop: e.currentTarget.scrollTop,
-    transform,
-  });
-
-  if (!scrollPlan) {
+  if (!initialized) {
     return;
   }
-
+  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
   d3Zoom!.translateBy(
     d3Selection!,
-    scrollPlan.deltaX,
-    scrollPlan.deltaY,
+    -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
+    -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
   );
-  e.currentTarget.scrollTop = scrollPlan.resetScrollTop;
-  e.currentTarget.scrollLeft = scrollPlan.resetScrollLeft;
+  e.currentTarget.scrollTop = SCROLL_INIT;
+  e.currentTarget.scrollLeft = SCROLL_INIT;
 }
 
 function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
@@ -166,19 +153,15 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
         }
 
         const { width, height } = entries[0].contentRect;
-        const nextWrapperDimensions = { width, height };
 
         // Set wrapper dimensions
-        setWrapperDimensions(nextWrapperDimensions);
+        setWrapperDimensions({ width, height });
 
         // Set React Flow state
-        useReactFlow.setState(
-          buildReactFlowStoreDimensions({
-            wrapperDimensions: nextWrapperDimensions,
-            overviewWidth,
-            uiEditorWidth,
-          }),
-        );
+        useReactFlow.setState({
+          width: width - overviewWidth - uiEditorWidth || 500,
+          height: height || 500,
+        });
       });
 
       resizeObserver.observe(ref.current);

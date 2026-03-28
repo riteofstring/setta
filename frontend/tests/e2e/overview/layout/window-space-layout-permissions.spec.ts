@@ -16,6 +16,7 @@ async function seedWindowSpacePane(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
       createWindowSpaceConfig,
     } = await import("/src/utils/generatedTypes.ts");
@@ -45,7 +46,7 @@ async function seedWindowSpacePane(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["floating-window"],
         instancesById: {
-          "floating-window": {
+          "floating-window": createProjectChatWindowInstance({
             instanceId: "floating-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -59,7 +60,7 @@ async function seedWindowSpacePane(
               width: 420,
               height: 320,
             },
-          },
+          }),
         },
       });
     });
@@ -93,6 +94,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
       createWindowSpaceConfig,
     } = await import("/src/utils/generatedTypes.ts");
@@ -115,7 +117,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["keep-window", "stale-window"],
         instancesById: {
-          "keep-window": {
+          "keep-window": createProjectChatWindowInstance({
             instanceId: "keep-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -129,8 +131,8 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
               width: 420,
               height: 320,
             },
-          },
-          "stale-window": {
+          }),
+          "stale-window": createProjectChatWindowInstance({
             instanceId: "stale-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -144,7 +146,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
               width: 360,
               height: 280,
             },
-          },
+          }),
         },
       });
     });
@@ -178,6 +180,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
     } = await import("/src/utils/generatedTypes.ts");
 
@@ -191,7 +194,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["save-window"],
         instancesById: {
-          "save-window": {
+          "save-window": createProjectChatWindowInstance({
             instanceId: "save-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -207,7 +210,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
               width: 420,
               height: 320,
             },
-          },
+          }),
         },
         nextInstanceNumber: 2,
       });
@@ -242,6 +245,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
       createProjectChatWindowingState,
       createWindowSpaceConfig,
     } = await import("/src/utils/generatedTypes.ts");
@@ -278,7 +282,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["live-window"],
         instancesById: {
-          "live-window": {
+          "live-window": createProjectChatWindowInstance({
             instanceId: "live-window",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -294,7 +298,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
               width: 420,
               height: 320,
             },
-          },
+          }),
         },
         nextInstanceNumber: 2,
       });
@@ -509,38 +513,44 @@ test("saving a window space keeps the latest floating window interaction while s
       });
     });
 
-    const floatingWindow = page.locator(
-      '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="save-window"]',
-    );
+    const floatingWindow = page
+      .locator('[data-testid="project-chat-floating-window"]')
+      .first();
     await expect(floatingWindow).toBeVisible();
+    const windowInstanceId = await floatingWindow.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!windowInstanceId) {
+      throw new Error("Expected a seeded floating project chat window id.");
+    }
 
     await page.getByTestId("window-space-save-current-layout").click();
     await expect.poll(() => syncRequestCount).toBe(1);
 
-    await page.evaluate(async () => {
+    await page.evaluate(async ({ windowInstanceId }) => {
       const { focusProjectChatWindow, setProjectChatWindowBounds } =
         await import("/src/state/actions/projectChatWindowing.ts");
-      focusProjectChatWindow("save-window", 4242);
-      setProjectChatWindowBounds("save-window", {
+      focusProjectChatWindow(windowInstanceId, 4242);
+      setProjectChatWindowBounds(windowInstanceId, {
         x: 260,
         y: 180,
         width: 520,
         height: 360,
       });
-    });
+    }, { windowInstanceId });
     await expect
       .poll(async () =>
-        page.evaluate(async () => {
+        page.evaluate(async ({ windowInstanceId }) => {
           const { useProjectState } = await import("/src/state/definitions.ts");
           const window =
             useProjectState.getState().projectChatWindowing.instancesById[
-              "save-window"
+              windowInstanceId
             ];
           return {
             lastFocusedAt: window?.lastFocusedAt ?? null,
             bounds: window?.bounds ?? null,
           };
-        }),
+        }, { windowInstanceId }),
       )
       .toEqual({
         lastFocusedAt: 4242,
@@ -623,10 +633,13 @@ test("restore stays blocked when deployment policy disallows saved thread rebind
       .poll(async () =>
         page.evaluate(async () => {
           const { useProjectState } = await import("/src/state/definitions.ts");
-          return useProjectState.getState().projectChatWindowing.order;
+          const windowing = useProjectState.getState().projectChatWindowing;
+          return windowing.order.map(
+            (instanceId) => windowing.instancesById[instanceId]?.chatId ?? null,
+          );
         }),
       )
-      .toEqual(["live-window"]);
+      .toEqual(["chat-live"]);
     expect(layoutWriteCount).toBe(0);
     expect(threadBindingWriteCount).toBe(0);
   } finally {
