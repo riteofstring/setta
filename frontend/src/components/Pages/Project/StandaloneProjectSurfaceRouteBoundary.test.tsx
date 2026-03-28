@@ -48,27 +48,27 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   ),
 }));
 
-const mockStandaloneSectionSurfaceBoundary = vi.fn(
+const mockStandaloneProjectSurfaceRouteSectionBoundary = vi.fn(
   ({
+    projectConfigId,
     sectionId,
     sectionType,
-    projectChatSurfaceId,
     renderDictArea,
     renderCoreBody,
     renderNestedSections,
   }: {
+    projectConfigId: string;
     sectionId: string;
     sectionType: string;
-    projectChatSurfaceId: string;
     renderDictArea?: unknown;
     renderCoreBody?: unknown;
     renderNestedSections?: unknown;
   }) => (
     <div
-      data-testid="mock-standalone-section-surface-boundary"
+      data-testid="mock-standalone-project-surface-route-section-boundary"
+      data-project-config-id={projectConfigId}
       data-section-id={sectionId}
       data-section-type={sectionType}
-      data-project-chat-surface-id={projectChatSurfaceId}
       data-has-render-dict-area={String(Boolean(renderDictArea))}
       data-has-render-core-body={String(Boolean(renderCoreBody))}
       data-has-render-nested-sections={String(Boolean(renderNestedSections))}
@@ -76,19 +76,16 @@ const mockStandaloneSectionSurfaceBoundary = vi.fn(
   ),
 );
 
-vi.mock(
-  "components/Section/Container/StandaloneSectionSurfaceBoundary",
-  () => ({
-    StandaloneSectionSurfaceBoundary: (props: {
-      sectionId: string;
-      sectionType: string;
-      projectChatSurfaceId: string;
-      renderDictArea?: unknown;
-      renderCoreBody?: unknown;
-      renderNestedSections?: unknown;
-    }) => mockStandaloneSectionSurfaceBoundary(props),
-  }),
-);
+vi.mock("./StandaloneProjectSurfaceRouteSectionBoundary", () => ({
+  StandaloneProjectSurfaceRouteSectionBoundary: (props: {
+    projectConfigId: string;
+    sectionId: string;
+    sectionType: string;
+    renderDictArea?: unknown;
+    renderCoreBody?: unknown;
+    renderNestedSections?: unknown;
+  }) => mockStandaloneProjectSurfaceRouteSectionBoundary(props),
+}));
 
 vi.mock("components/Utils/FloatingBox", () => ({
   FloatingBox: () => <div data-testid="mock-floating-box" />,
@@ -144,7 +141,7 @@ const renderNestedSections = () => null;
 
 describe("StandaloneProjectSurfaceRouteBoundary", () => {
   it("routes standalone section targets through the lifted section surface boundary", () => {
-    mockStandaloneSectionSurfaceBoundary.mockClear();
+    mockStandaloneProjectSurfaceRouteSectionBoundary.mockClear();
     const markup = renderToStaticMarkup(
       <StandaloneProjectSurfaceRouteBoundary
         projectConfigId="project-config-1"
@@ -170,22 +167,22 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
     );
 
     expect(markup).toContain('data-testid="standalone-project-surface-page"');
-    expect(markup).toContain('data-testid="standalone-section-surface"');
     expect(markup).toContain(
-      'data-testid="mock-standalone-section-surface-boundary"',
+      'data-testid="mock-standalone-project-surface-route-section-boundary"',
     );
+    expect(markup).toContain('data-project-config-id="project-config-1"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain(`data-section-type="${SectionTypeEnum.Group}"`);
-    expect(markup).toContain('data-project-chat-surface-id="');
     expect(markup).toContain('data-has-render-dict-area="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
     expect(markup).toContain('data-testid="mock-floating-box"');
     expect(
-      mockStandaloneSectionSurfaceBoundary.mock.calls[0]?.[0]?.renderCoreBody,
+      mockStandaloneProjectSurfaceRouteSectionBoundary.mock.calls[0]?.[0]
+        ?.renderCoreBody,
     ).toBe(renderCoreBody);
     expect(
-      mockStandaloneSectionSurfaceBoundary.mock.calls[0]?.[0]
+      mockStandaloneProjectSurfaceRouteSectionBoundary.mock.calls[0]?.[0]
         ?.renderNestedSections,
     ).toBe(renderNestedSections);
   });

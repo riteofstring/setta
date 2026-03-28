@@ -1,11 +1,7 @@
 import { type ManagedChatSurfaceAuthorityState } from "components/Chat/sharePolicyChatAccess";
 import { ProjectChatWindowSurface } from "components/ChatWindowing/ProjectChatWindowSurface";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
-import {
-  buildStandalonePageProjectChatSurfaceId,
-  buildStandalonePageSectionProjectChatSurfaceId,
-} from "components/ChatWindowing/projectChatSurfaceIds";
-import { StandaloneSectionSurfaceBoundary } from "components/Section/Container/StandaloneSectionSurfaceBoundary";
+import { buildStandalonePageProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
@@ -21,6 +17,7 @@ import {
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
 import { NotFound } from "../NotFound/NotFound";
+import { StandaloneProjectSurfaceRouteSectionBoundary } from "./StandaloneProjectSurfaceRouteSectionBoundary";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
 
 export type StandaloneSurfaceTarget =
@@ -96,10 +93,10 @@ type StandaloneProjectSurfaceRouteBoundaryProps = {
   standaloneProjectChatThreadMissing: boolean;
   renderDictArea: (props: SectionContainerAreaDictProps) => ReactNode;
   renderCoreBody: ComponentProps<
-    typeof StandaloneSectionSurfaceBoundary
+    typeof StandaloneProjectSurfaceRouteSectionBoundary
   >["renderCoreBody"];
   renderNestedSections: ComponentProps<
-    typeof StandaloneSectionSurfaceBoundary
+    typeof StandaloneProjectSurfaceRouteSectionBoundary
   >["renderNestedSections"];
   setStandaloneProjectChatId: (
     next: SetStateAction<string | null | undefined>,
@@ -245,25 +242,17 @@ function _StandaloneProjectSurfaceRouteBoundary({
 
   return (
     <StandaloneSurfaceShell>
-      <div
-        className="flex min-h-0 flex-1 overflow-hidden"
-        data-testid="standalone-section-surface"
-      >
-        <StandaloneSectionSurfaceBoundary
-          sectionId={target.sectionId}
-          sectionType={target.sectionType}
-          projectChatSurfaceId={buildStandalonePageSectionProjectChatSurfaceId(
-            projectConfigId,
-            target.sectionId,
-          )}
-          onProjectChatBlockedErrorCodeChange={
-            onProjectChatBlockedErrorCodeChange
-          }
-          renderDictArea={renderDictArea}
-          renderCoreBody={renderCoreBody}
-          renderNestedSections={renderNestedSections}
-        />
-      </div>
+      <StandaloneProjectSurfaceRouteSectionBoundary
+        projectConfigId={projectConfigId}
+        sectionId={target.sectionId}
+        sectionType={target.sectionType}
+        onProjectChatBlockedErrorCodeChange={
+          onProjectChatBlockedErrorCodeChange
+        }
+        renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />
     </StandaloneSurfaceShell>
   );
 }

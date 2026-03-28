@@ -3518,6 +3518,34 @@ Record:
 - Next action:
   - Continue the live dict-area surface pass by lifting the new standalone section-surface boundary one level higher in the standalone route stack before any broad Pixi node drawing lands.
 
+## 2026-03-28 122
+
+- Item: Lift the standalone section-surface route handoff one level higher above `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated standalone route-section boundary above the existing standalone section surface:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteSectionBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteSectionBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx` so the route stack now delegates the `target.kind === "section"` branch through the new boundary instead of shaping the `StandaloneSectionSurfaceBoundary` handoff inline.
+  - Updated the focused route test to pin the higher seam instead of the lower section-surface boundary directly:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping the same standalone section route shell and `renderDictArea` / `renderCoreBody` / `renderNestedSections` seams intact
+    - moving the standalone section `projectChatSurfaceId` construction and lower surface handoff into one deeper standalone-route boundary
+    - leaving `StandaloneProjectSurfaceRouteBoundary.tsx` focused on higher-level target dispatch instead of mixed route dispatch plus section-surface assembly
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteSectionBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes"`
+    - result: passed
+    - note: an earlier full-spec run of `standalone-project-surface-routes.spec.ts` stopped on an unrelated `router.navigate` failure in the cross-project chat-thread path, so this iteration kept the verification on the narrower standalone section-route coverage relevant to the lifted seam
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings/section/languageserver`) in a fresh sub-agent context
+    - bootstrap/auth succeeded and the standalone `languageServer` section surface rendered with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `languageServer`, `ARGS`, `Filter`, `Remove arg`, `Add arg`, `Pin selected args`, `Convert to edge connectors`, and `Delete selected args`
+    - representative requests returned `200`, including `api/serverMode`, `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, `api/getListenerCoverage`, and `api/plugins/runtime`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new standalone section-route boundary into the next higher-level standalone page-boundary caller above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx` before any broad Pixi node drawing lands.
+
 ## 2026-03-27 122
 
 - Item: Lift the new standalone section-surface boundary one level higher in the standalone route stack.
