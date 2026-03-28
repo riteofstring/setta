@@ -43,6 +43,23 @@ type appRouteEnvelope struct {
 	Content     json.RawMessage              `json:"content"`
 }
 
+type appTestCallableSignatureResolver struct {
+	result    projectstate.CallableSignatureResult
+	ok        bool
+	err       error
+	callCount int
+}
+
+func (s *appTestCallableSignatureResolver) ResolveCallableSignature(
+	_ context.Context,
+	_ projectstate.Project,
+	_ string,
+	_ string,
+) (projectstate.CallableSignatureResult, bool, error) {
+	s.callCount++
+	return s.result, s.ok, s.err
+}
+
 func TestAppServesFrontendWebsocketRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -3081,6 +3098,140 @@ func TestAppSetCallableRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
+// LSP-driven callable auto-refetches are backend-owned mutations, so the app
+// must explicitly rebroadcast the updated project graph back to connected IDE
+// frontends when missing imports later become valid.
+func TestAppCallableAutoRefetchBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appCallableAutoRefetchProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed callable auto-refetch project state: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	resolver := &appTestCallableSignatureResolver{
+		ok: true,
+		result: projectstate.CallableSignatureResult{
+			Status: projectstate.SignatureHelpStatusMatched,
+			Params: []projectstate.CallableParamProposal{
+				{
+					Name:           "x",
+					TypeAnnotation: "SupportsFloat",
+					PassingStyle:   "POSITIONAL_ONLY",
+				},
+			},
+		},
+	}
+	if err := refetchCallableParamsAndBroadcast(
+		context.Background(),
+		app.ProjectStates().Main(),
+		app.websocketHub,
+		"project-alpha",
+		[]string{"callable-section"},
+		resolver,
+	); err != nil {
+		t.Fatalf("refetch callable params and broadcast: %v", err)
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if len(content.CompletedOpIDs) != 0 {
+		t.Fatalf("expected no completed op ids for auto-refetch broadcast, got %#v", content.CompletedOpIDs)
+	}
+	if len(content.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending op ids for auto-refetch broadcast, got %#v", content.PendingOpIDs)
+	}
+
+	callableVariantID := content.ProjectState.ProjectConfig.SectionVariantMap["callable-section"]
+	callableSectionImplID := content.ProjectState.SectionVariants[callableVariantID].Impl
+	var sectionPayload struct {
+		Callable          string            `json:"callable"`
+		CodeObjVariantMap map[string]string `json:"codeObjVariantMap"`
+	}
+	if err := json.Unmarshal(content.ProjectState.SectionImpls[callableSectionImplID], &sectionPayload); err != nil {
+		t.Fatalf("decode callable section impl payload: %v", err)
+	}
+	if sectionPayload.Callable == "" {
+		t.Fatalf("expected callable section to remain bound after auto-refetch, got %#v", sectionPayload)
+	}
+	if got := content.ProjectState.CodeObjs[sectionPayload.Callable].Name; got != "math.sqrt" {
+		t.Fatalf("expected auto-refetched callable name math.sqrt, got %q", got)
+	}
+	if _, ok := sectionPayload.CodeObjVariantMap[sectionPayload.Callable]; !ok {
+		t.Fatalf("expected callable variant mapping for %q, got %#v", sectionPayload.Callable, sectionPayload.CodeObjVariantMap)
+	}
+
+	shownParams, ok := content.ProjectState.ShownParamIDs[callableVariantID]
+	if !ok {
+		t.Fatalf("expected shown params for callable variant %q, got %#v", callableVariantID, content.ProjectState.ShownParamIDs)
+	}
+	if len(shownParams.Pinned.TopLevelParamIDs) != 0 {
+		t.Fatalf("expected no pinned auto-refetched params, got %#v", shownParams.Pinned.TopLevelParamIDs)
+	}
+	if len(shownParams.Unpinned.TopLevelParamIDs) != 1 {
+		t.Fatalf("expected one unpinned auto-refetched param, got %#v", shownParams.Unpinned.TopLevelParamIDs)
+	}
+
+	paramID := shownParams.Unpinned.TopLevelParamIDs[0]
+	if got := content.ProjectState.CodeObjs[paramID].Name; got != "x" {
+		t.Fatalf("expected auto-refetched param name x, got %q", got)
+	}
+	paramVariantID := content.ProjectState.CodeObjs[paramID].DefaultVariant
+	if paramVariantID == nil {
+		t.Fatalf("expected auto-refetched param %q to have a default variant", paramID)
+	}
+	paramImplID := content.ProjectState.CodeObjVariants[*paramVariantID].Impl
+	var paramPayload struct {
+		TypeAnnotation string `json:"typeAnnotation"`
+	}
+	if err := json.Unmarshal(content.ProjectState.CodeObjImpls[paramImplID], &paramPayload); err != nil {
+		t.Fatalf("decode auto-refetched param impl payload: %v", err)
+	}
+	if paramPayload.TypeAnnotation != "SupportsFloat" {
+		t.Fatalf("expected auto-refetched param type annotation SupportsFloat, got %q", paramPayload.TypeAnnotation)
+	}
+}
+
 func TestAppSetParamEnteredValueRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -5116,4 +5267,76 @@ func canonicalAppJSONValue(t *testing.T, value any) string {
 		t.Fatalf("re-encode json %q: %v", string(encoded), err)
 	}
 	return string(normalized)
+}
+
+func appCallableAutoRefetchProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"callable-section",
+		},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"callable-section": {X: 40, Y: 40},
+		},
+		SectionVariantMap: map[string]string{
+			"callable-section": "callable-variant-1",
+		},
+		Sections: map[string]projectstate.Section{
+			"callable-section": {
+				ID:               "callable-section",
+				Name:             "Call Section",
+				VariantIDs:       []string{"callable-variant-1"},
+				DefaultVariantID: "callable-variant-1",
+				UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"callable-variant-1": {
+				ID:     "callable-variant-1",
+				ImplID: "callable-impl-1",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"callable-impl-1": {
+				ID:   "callable-impl-1",
+				Kind: projectstate.SectionKind("callable"),
+				Payload: projectstate.RawJSON(`{
+					"id":"callable-impl-1",
+					"type":"Callable",
+					"callable":"callable-1",
+					"codeObjVariantMap":{
+						"callable-1":"callable-variant-a"
+					}
+				}`),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"callable-1": {
+				ID:               "callable-1",
+				Name:             "math.sqrt",
+				VariantIDs:       []string{"callable-variant-a"},
+				DefaultVariantID: "callable-variant-a",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"callable-variant-a": {
+				ID:     "callable-variant-a",
+				ImplID: "callable-impl-a",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"callable-impl-a": {
+				ID:      "callable-impl-a",
+				Type:    "CodeCallable",
+				Payload: projectstate.RawJSON(`{"id":"callable-impl-a","type":"CodeCallable","children":[]}`),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize callable auto-refetch project: %v", err)
+	}
+	return project
 }

@@ -466,6 +466,15 @@ async function getBackendParamTypeErrorMessage(
   );
 }
 
+async function getBackendCallableTypeErrorMessage(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<string | null> {
+  const diagnostics = await loadBackendLspDiagnostics(page, projectConfigId);
+  return diagnostics.genCode.errors[sectionId]?.callable?.[0] ?? null;
+}
+
 async function setParamValueFromFrontend(
   page: Page,
   payload: {
@@ -761,6 +770,61 @@ test("generated python updates for callable and param changes and reports missin
     await expect
       .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
       .not.toMatch(/bg-red-200/);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+// Importing a previously missing callable module should clear the generated
+// Python symbol error and auto-populate the callable params without any manual
+// refetch action from the user.
+test("generated python import fixes auto-refetch callable params without manual refresh", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const sectionId = await createCallableSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    await setCallableFromUi(page, sectionId, "math.sqrt");
+
+    await expect
+      .poll(async () =>
+        getBackendCallableTypeErrorMessage(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+        ),
+      )
+      .toMatch(/not defined|unknown/i);
+
+    await setGenCodePrefixFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      "import math\n",
+    );
+
+    await expect
+      .poll(async () =>
+        getBackendCallableTypeErrorMessage(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+        ),
+      )
+      .toBeNull();
+
+    const firstParam = page
+      .locator(
+        `.react-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
+      )
+      .first();
+    await expect(firstParam).toBeVisible({ timeout: 20000 });
+    await expect(firstParam.locator(".section-key").first()).toHaveText(/x/i);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

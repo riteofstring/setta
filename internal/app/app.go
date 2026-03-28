@@ -637,7 +637,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
 		projectLSPSyncer.SetCallableAutoRefetchHandlers(
 			func(ctx context.Context, projectID string, sectionIDs []string) {
-				if _, _, err := projectStates.Main().RefetchCallableParams(ctx, projectID, sectionIDs, lspSignature); err != nil {
+				if err := refetchCallableParamsAndBroadcast(
+					ctx,
+					projectStates.Main(),
+					websocketHub,
+					projectID,
+					sectionIDs,
+					lspSignature,
+				); err != nil {
 					logger.Error("lsp callable auto-refetch after symbol resolution failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
 				}
 			},
@@ -650,7 +657,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				if !enabled {
 					return
 				}
-				if _, _, err := projectStates.Main().RefetchCallableParams(ctx, projectID, sectionIDs, lspSignature); err != nil {
+				if err := refetchCallableParamsAndBroadcast(
+					ctx,
+					projectStates.Main(),
+					websocketHub,
+					projectID,
+					sectionIDs,
+					lspSignature,
+				); err != nil {
 					logger.Error("lsp callable auto-refetch after mismatch failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
 				}
 			},
