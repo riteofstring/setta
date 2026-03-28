@@ -2311,3 +2311,29 @@ Record:
     - representative requests returned `200`, including `GET /__setta__/bootstrap`, `POST /__setta__/bootstrap/consume`, `GET /settings?...`, `GET /index.css`, and `GET /src/App.tsx?...`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionState.ts` boundary into the next higher-level scene-owned boundary above `LiveDictAreaSection` before any broad Pixi node drawing lands.
+
+## 2026-03-27 087
+
+- Item: Lift the new `groupContainerLiveDictAreaSectionState.ts` boundary into one higher-level scene-owned boundary above `LiveDictAreaSection`.
+- Status: `done`
+- Details:
+  - Added a new pure typed boundary above the existing section-state and section-input helpers:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionBoundary.test.ts`
+  - Updated `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx` to consume the new boundary through a single `useProjectState(...)` selector instead of stitching `groupContainerLiveDictAreaSectionState.ts` and `groupContainerLiveDictAreaSectionInput.ts` together inline.
+  - Kept the current non-Pixi DOM path intact while shrinking `LiveDictAreaSection` further:
+    - the new boundary now owns the deterministic composition from store-backed section state plus share/settings/misc-derived flags into the final `LiveDictArea` render input
+    - `LiveDictAreaSection` now remains a thin hook adapter over the higher-level boundary and the existing `LiveDictArea` component
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionBoundary.test.ts src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded and `All Settings` was visible in the bottom tab strip
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new section-boundary wiring
+    - representative visible labels and controls included `OVERVIEW`, `settings`, `Filter`, `TAG`, the tag list, and the bottom tabs `Core`, `Section Defaults Struct...`, `Section Defaults Conte...`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/getAgentRuns`, `GET /api/plugins/runtime`, `POST /api/setActiveViewMode`, and `POST /api/setTopLevelSectionLayout`
+    - note: the verifier also saw existing console warnings/errors including repeated React `Maximum update depth exceeded` plus accessibility warnings; they did not block rendering or this bounded verification, and this iteration did not investigate them
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionBoundary.ts` boundary into the next higher-level scene-owned boundary above `LiveDictAreaSection` before any broad Pixi node drawing lands.

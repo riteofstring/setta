@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { useMemo } from "react";
 import { useMisc, useProjectState, useSettings } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -8,8 +7,7 @@ import {
   type LiveDictAreaProps,
 } from "./groupContainerLiveDictArea";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
-import { buildLiveDictAreaSectionInput } from "./groupContainerLiveDictAreaSectionInput";
-import { buildLiveDictAreaSectionState } from "./groupContainerLiveDictAreaSectionState";
+import { buildLiveDictAreaSectionBoundary } from "./groupContainerLiveDictAreaSectionBoundary";
 
 export type LiveDictAreaSectionProps = {
   bgColor: string;
@@ -26,18 +24,14 @@ export function LiveDictAreaSection({
   sectionId,
   sectionTypeName,
 }: LiveDictAreaSectionProps) {
-  const liveDictAreaSectionState = useProjectState(
-    (state) => buildLiveDictAreaSectionState({ sectionId, state }),
-    _.isEqual,
-  );
   const { canEditLayout, canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const unpinnedParamsAreaMinHeight = useSettings(
     (state) => state.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
   );
-  const liveDictAreaInput = useMemo(
-    () =>
-      buildLiveDictAreaSectionInput({
+  const liveDictAreaInput = useProjectState(
+    (state) =>
+      buildLiveDictAreaSectionBoundary({
         bgColor,
         canEditLayout,
         canEditStructure,
@@ -45,20 +39,10 @@ export function LiveDictAreaSection({
         isSelectingParams,
         sectionId,
         sectionTypeName,
+        state,
         unpinnedParamsAreaMinHeight,
-        ...liveDictAreaSectionState,
       }),
-    [
-      bgColor,
-      canEditLayout,
-      canEditStructure,
-      handleColumnResizeStart,
-      isSelectingParams,
-      sectionId,
-      sectionTypeName,
-      unpinnedParamsAreaMinHeight,
-      liveDictAreaSectionState,
-    ],
+    _.isEqual,
   );
 
   return (
