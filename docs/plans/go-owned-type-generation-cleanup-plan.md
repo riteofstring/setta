@@ -290,6 +290,14 @@ That means:
     - `PluginLockApplyRequestInput -> httpapi.PluginLockApplyRequest`
     - `PluginLockWriteResponse -> plugins.PluginLockWriteResult`
     - `PluginLockApplyResponse -> plugins.PluginLockApplyResult`
+  - more exact plugin mutation request contracts now also point at exported `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `PluginEnableDisableRequestInput -> httpapi.PluginEnableDisableRequest`
+    - `PluginLinkRequestInput -> httpapi.PluginLinkRequest`
+    - `PluginUninstallRequestInput -> httpapi.PluginUninstallRequest`
+    - `PluginUpdateRequestInput -> httpapi.PluginUpdateRequest`
+    - `PluginRollbackRequestInput -> httpapi.PluginRollbackRequest`
+    - `PluginConfigWriteRequestInput -> httpapi.PluginConfigWriteRequest`
+  - `internal/httpapi/plugin_routes.go` now exports those exact plugin mutation request structs instead of trapping them inside handler bodies, so `frontendbindings` no longer has to repeat them
   - `internal/httpapi` now exports the plugin rescan / lock request-response structs that were still trapped inside route handlers, so `frontendbindings` can alias the real route-contract owners instead of repeating those shapes locally
   - the remaining launcher enums that already had exact backend owners are now also wrapped instead of repeated:
     - `LauncherOpenMode -> launcher.LauncherOpenMode`

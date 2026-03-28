@@ -389,9 +389,7 @@ type PluginRuntimeResponse plugins.RuntimeResponse
 
 type PluginRescanResponse httpapi.PluginsRescanResponse
 
-type PluginEnableDisableRequestInput struct {
-	PluginID string `json:"pluginId"`
-}
+type PluginEnableDisableRequestInput httpapi.PluginEnableDisableRequest
 
 type PluginInstallRequestInput struct {
 	SourceSpec string                  `json:"sourceSpec"`
@@ -401,45 +399,27 @@ type PluginInstallRequestInput struct {
 	Force      *bool                   `json:"force"`
 }
 
-type PluginLinkRequestInput struct {
-	LocalPluginRoot string       `json:"localPluginRoot"`
-	Scope           *PluginScope `json:"scope"`
-	Enable          *bool        `json:"enable"`
-	Force           *bool        `json:"force"`
-}
+type PluginLinkRequestInput httpapi.PluginLinkRequest
 
 type PluginInstallResponse plugins.PluginInstallResult
 
 type PluginEnableDisableResponse plugins.PluginEnableDisableResult
 
-type PluginUninstallRequestInput struct {
-	PluginID string       `json:"pluginId"`
-	Scope    *PluginScope `json:"scope"`
-}
+type PluginUninstallRequestInput httpapi.PluginUninstallRequest
 
 type PluginUninstallResponse plugins.PluginUninstallResult
 
-type PluginUpdateRequestInput struct {
-	PluginID string       `json:"pluginId"`
-	Scope    *PluginScope `json:"scope"`
-	To       *string      `json:"to"`
-}
+type PluginUpdateRequestInput httpapi.PluginUpdateRequest
 
 type PluginUpdateResponse plugins.PluginUpdateResult
 
-type PluginRollbackRequestInput struct {
-	PluginID string       `json:"pluginId"`
-	Scope    *PluginScope `json:"scope"`
-}
+type PluginRollbackRequestInput httpapi.PluginRollbackRequest
 
 type PluginRollbackResponse plugins.PluginRollbackResult
 
 type PluginConfigValidationResult plugins.PluginConfigValidationResult
 
-type PluginConfigWriteRequestInput struct {
-	PluginID string         `json:"pluginId"`
-	Config   map[string]any `json:"config"`
-}
+type PluginConfigWriteRequestInput httpapi.PluginConfigWriteRequest
 
 type PluginConfigWriteResponse plugins.PluginConfigWriteResult
 

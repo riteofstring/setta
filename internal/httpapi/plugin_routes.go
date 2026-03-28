@@ -82,6 +82,38 @@ type PluginsRescanResponse struct {
 	ActivePlugins    int         `json:"activePlugins"`
 }
 
+type PluginEnableDisableRequest struct {
+	PluginID string `json:"pluginId"`
+}
+
+type PluginLinkRequest struct {
+	LocalPluginRoot string               `json:"localPluginRoot"`
+	Scope           *plugins.PluginScope `json:"scope"`
+	Enable          *bool                `json:"enable"`
+	Force           *bool                `json:"force"`
+}
+
+type PluginUninstallRequest struct {
+	PluginID string               `json:"pluginId"`
+	Scope    *plugins.PluginScope `json:"scope"`
+}
+
+type PluginUpdateRequest struct {
+	PluginID string               `json:"pluginId"`
+	Scope    *plugins.PluginScope `json:"scope"`
+	To       *string              `json:"to"`
+}
+
+type PluginRollbackRequest struct {
+	PluginID string               `json:"pluginId"`
+	Scope    *plugins.PluginScope `json:"scope"`
+}
+
+type PluginConfigWriteRequest struct {
+	PluginID string         `json:"pluginId"`
+	Config   map[string]any `json:"config"`
+}
+
 type PluginLockApplyRequest struct {
 	Check bool `json:"check"`
 }
@@ -153,12 +185,8 @@ func pluginRescanHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)) http.HandlerFunc {
-	type enableDisablePluginRequest struct {
-		PluginID string `json:"pluginId"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[enableDisablePluginRequest](r)
+		payload, err := decodeJSONBody[PluginEnableDisableRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -236,15 +264,8 @@ func normalizePluginInstallScope(raw *string) (*plugins.PluginScope, error) {
 }
 
 func pluginLinkHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type linkPluginRequest struct {
-		LocalPluginRoot string               `json:"localPluginRoot"`
-		Scope           *plugins.PluginScope `json:"scope"`
-		Enable          *bool                `json:"enable"`
-		Force           *bool                `json:"force"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[linkPluginRequest](r)
+		payload, err := decodeJSONBody[PluginLinkRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -274,13 +295,8 @@ func pluginLinkHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginUninstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type uninstallPluginRequest struct {
-		PluginID string               `json:"pluginId"`
-		Scope    *plugins.PluginScope `json:"scope"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[uninstallPluginRequest](r)
+		payload, err := decodeJSONBody[PluginUninstallRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -299,14 +315,8 @@ func pluginUninstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginUpdateHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type updatePluginRequest struct {
-		PluginID string               `json:"pluginId"`
-		Scope    *plugins.PluginScope `json:"scope"`
-		To       *string              `json:"to"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[updatePluginRequest](r)
+		payload, err := decodeJSONBody[PluginUpdateRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -331,13 +341,8 @@ func pluginUpdateHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginRollbackHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type rollbackPluginRequest struct {
-		PluginID string               `json:"pluginId"`
-		Scope    *plugins.PluginScope `json:"scope"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[rollbackPluginRequest](r)
+		payload, err := decodeJSONBody[PluginRollbackRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -356,13 +361,8 @@ func pluginRollbackHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginConfigHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type writePluginConfigRequest struct {
-		PluginID string         `json:"pluginId"`
-		Config   map[string]any `json:"config"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[writePluginConfigRequest](r)
+		payload, err := decodeJSONBody[PluginConfigWriteRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
