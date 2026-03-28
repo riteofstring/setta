@@ -51,7 +51,12 @@ const OTHER_SURFACE_ID = "surface-other";
 const TARGET_SURFACE_ID = "surface-target";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
 }
 
 describe("submitEditedMessage", () => {
