@@ -1,7 +1,7 @@
 import React from "react";
 import { DictAreaLiveBoundary } from "./DictAreaLiveBoundary";
 
-type DictAreaProps = {
+export type DictAreaProps = {
   sectionId: string;
   bgColor: string;
 };

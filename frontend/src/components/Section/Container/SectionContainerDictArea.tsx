@@ -1,13 +1,13 @@
 import React from "react";
 import {
-  DictAreaLiveBoundary,
-  type DictAreaLiveBoundaryProps,
-} from "../Layouts/DictAreaLiveBoundary";
+  DictArea,
+  type DictAreaProps,
+} from "../Layouts/DictArea";
 
-export type SectionContainerDictAreaProps = DictAreaLiveBoundaryProps;
+export type SectionContainerDictAreaProps = DictAreaProps;
 
 function _SectionContainerDictArea(props: SectionContainerDictAreaProps) {
-  return <DictAreaLiveBoundary {...props} />;
+  return <DictArea {...props} />;
 }
 
 export const SectionContainerDictArea = React.memo(_SectionContainerDictArea);

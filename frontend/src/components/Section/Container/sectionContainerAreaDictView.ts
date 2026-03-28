@@ -1,7 +1,7 @@
-import type { DictAreaLiveBoundaryProps } from "../Layouts/DictAreaLiveBoundary";
+import type { DictAreaProps } from "../Layouts/DictArea";
 import { resolveDictAreaRenderMode } from "../Layouts/dictAreaView";
 
-type BuildSectionContainerAreaDictViewArgs = DictAreaLiveBoundaryProps & {
+type BuildSectionContainerAreaDictViewArgs = DictAreaProps & {
   benchmarkActive: boolean;
   renderFullSectionBody: boolean;
 };
@@ -9,11 +9,11 @@ type BuildSectionContainerAreaDictViewArgs = DictAreaLiveBoundaryProps & {
 export type SectionContainerAreaDictView =
   | {
       kind: "benchmark";
-      benchmarkDictAreaProps: DictAreaLiveBoundaryProps;
+      benchmarkDictAreaProps: DictAreaProps;
     }
   | {
       kind: "live";
-      liveSectionContainerDictAreaProps: DictAreaLiveBoundaryProps;
+      liveSectionContainerDictAreaProps: DictAreaProps;
     };
 
 export function buildSectionContainerAreaDictView({

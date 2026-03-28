@@ -2138,6 +2138,29 @@ Record:
   - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
     - the existing authenticated `/settings` session loaded successfully without needing bootstrap
     - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, missing content, or broken mount order after the new renderer boundary wiring
+
+## 2026-03-27 077
+
+- Item: Lift the live dict-area seam into `frontend/src/components/Section/Layouts/DictArea.tsx`.
+- Status: `done`
+- Details:
+  - Raised the section-container/live-dict-area handoff to `DictArea` so higher layers no longer depend on `DictAreaLiveBoundary` directly:
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerAreaDictView.ts`
+  - `DictArea` now exports the shared `DictAreaProps` contract and the section-container dict path composes through `DictArea` instead of importing the lower live boundary type/component directly.
+  - Updated the affected section-container test mock surface to the higher seam:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Container/sectionContainerAreaDictView.test.ts src/components/Section/Container/SectionContainerAreaDictBoundary.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `All Settings` was visible and the settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative network responses returned `200`, including `loadSettings`, `loadProjectConfig`, and `setTopLevelSectionLayout`
+- Next action:
+  - Continue the retained-scene seam lift by moving the live dict-area handoff one level higher above `DictArea.tsx`, starting with the `SectionContainerAreaDictBoundary` path.
     - representative visible labels and controls included `OVERVIEW`, `settings`, the left tag list, the bottom tabs `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`, plus visible rows, switches, comboboxes, and value widgets in `Param Defaults` / `All Settings`
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
@@ -4313,3 +4336,29 @@ Record:
     - no repo-level lifecycle recovery was needed
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerDictArea.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 151
+
+- Item: Lift the live dict-area seam into `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`.
+- Status: `done`
+- Details:
+  - Raised the section-container/live-dict-area handoff so the section-container dict path now depends on `DictArea` and its exported `DictAreaProps` contract instead of importing `DictAreaLiveBoundary` directly:
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerAreaDictView.ts`
+  - Updated the affected section-container test mock surface to follow the higher seam:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - This keeps the retained-scene seam moving upward through the dict-area call chain while preserving the existing non-Pixi DOM path for:
+    - the `All Settings` live dict/param surface
+    - the benchmark/live routing boundary above it
+    - the lower `DictAreaLiveBoundary` ownership of the shell-backed dict/param mount
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Container/sectionContainerAreaDictView.test.ts src/components/Section/Container/SectionContainerAreaDictBoundary.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `All Settings` was visible and the settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `loadSettings`, `loadProjectConfig`, and `setTopLevelSectionLayout`
+- Next action:
+  - Continue the retained-scene seam lift by moving the live dict-area handoff one level higher above `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`, starting with the `SectionContainerAreaDictBoundary` path.

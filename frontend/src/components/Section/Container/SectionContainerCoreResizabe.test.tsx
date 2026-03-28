@@ -142,8 +142,8 @@ vi.mock("../Layouts/CallableArea", () => ({
 vi.mock("../Layouts/ChartArea/ChartArea", () => ({
   ChartArea: () => <div data-testid="mock-chart-area" />,
 }));
-vi.mock("../Layouts/DictAreaLiveBoundary", () => ({
-  DictAreaLiveBoundary: ({
+vi.mock("../Layouts/DictArea", () => ({
+  DictArea: ({
     sectionId,
   }: {
     sectionId: string;
