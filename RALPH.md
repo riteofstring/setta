@@ -70,6 +70,7 @@ This file is the reusable loop entrypoint for this worktree.
   - `terminal` opens lifecycle processes in new macOS Terminal windows
 - `aireset` and `restart-aireset` fall back to `ai.sh` if `aireset.sh` fails.
 - `main` lifecycle is for a read-only visual reference session only; no code changes or commits may happen there.
+- `main` reference startup is asynchronous; Ralph does not block Codex on `main` becoming ready.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
 - Example:
   - `./ralph.sh --terminal-mode cmux --worktree-lifecycle restart-aireset`

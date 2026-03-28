@@ -516,6 +516,7 @@ run_lifecycle_mode() {
   local lifecycle_mode="$3"
   local run_dir="$4"
   local resolved_terminal_mode="$5"
+  local wait_for_running="${6:-1}"
   local label=""
   local launcher_path=""
   local command_display=""
@@ -626,7 +627,11 @@ run_lifecycle_mode() {
       start_command_in_visible_terminal "${resolved_terminal_mode}" "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
     fi
 
-    wait_for_workspace_session_state "${target_name}" "${target_root}" "running" "180" "${run_dir}" "${label}"
+    if [[ "${wait_for_running}" == "1" ]]; then
+      wait_for_workspace_session_state "${target_name}" "${target_root}" "running" "180" "${run_dir}" "${label}"
+    else
+      echo "[bootstrap] ${target_name}: continuing without blocking on session readiness"
+    fi
   fi
 }
 
@@ -1229,7 +1234,7 @@ if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
     exit 1
   fi
   echo "[reference] Bootstrapping main (${main_lifecycle})"
-  run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}"
+  run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}" "0"
 fi
 
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
