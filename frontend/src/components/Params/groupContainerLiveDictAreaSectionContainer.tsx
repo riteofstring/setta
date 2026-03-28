@@ -1,14 +1,11 @@
-import { useState } from "react";
-import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
-import { SectionTypeEnum } from "utils/generatedTypes";
 import { LiveDictAreaSection } from "./groupContainerLiveDictAreaSection";
+import {
+  useLiveDictAreaSectionContainerBoundary,
+  type LiveDictAreaSectionContainerBoundaryInput,
+} from "./groupContainerLiveDictAreaSectionContainerBoundary";
 
-type LiveDictAreaSectionContainerProps = {
-  bgColor: string;
-  outerRef: Parameters<typeof useParamColumnWidth>[0]["outerRef"];
-  sectionId: string;
-  sectionTypeName: SectionTypeEnum;
-};
+export type LiveDictAreaSectionContainerProps =
+  LiveDictAreaSectionContainerBoundaryInput;
 
 export function LiveDictAreaSectionContainer({
   bgColor,
@@ -16,23 +13,12 @@ export function LiveDictAreaSectionContainer({
   sectionId,
   sectionTypeName,
 }: LiveDictAreaSectionContainerProps) {
-  const [maxNestedDepth, setMaxNestedDepth] = useState({
-    pinned: 1,
-    unpinned: 1,
-  });
-  const handleColumnResizeStart = useParamColumnWidth({
-    sectionId,
+  const liveDictAreaSectionProps = useLiveDictAreaSectionContainerBoundary({
+    bgColor,
     outerRef,
-    maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
+    sectionId,
+    sectionTypeName,
   });
 
-  return (
-    <LiveDictAreaSection
-      bgColor={bgColor}
-      handleColumnResizeStart={handleColumnResizeStart}
-      onMaxNestedDepthChange={setMaxNestedDepth}
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-    />
-  );
+  return <LiveDictAreaSection {...liveDictAreaSectionProps} />;
 }

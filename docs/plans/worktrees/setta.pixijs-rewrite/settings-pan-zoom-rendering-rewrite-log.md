@@ -2337,3 +2337,29 @@ Record:
     - note: the verifier also saw existing console warnings/errors including repeated React `Maximum update depth exceeded` plus accessibility warnings; they did not block rendering or this bounded verification, and this iteration did not investigate them
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionBoundary.ts` boundary into the next higher-level scene-owned boundary above `LiveDictAreaSection` before any broad Pixi node drawing lands.
+
+## 2026-03-27 088
+
+- Item: Lift the new `groupContainerLiveDictAreaSectionBoundary.ts` boundary into one higher-level scene-owned section-container boundary above `LiveDictAreaSection`.
+- Status: `done`
+- Details:
+  - Added a new typed section-container boundary above the existing section boundary:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.test.tsx`
+  - Updated `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx` to consume the new boundary instead of owning the `maxNestedDepth` state and `useParamColumnWidth(...)` wiring inline.
+  - Kept the current non-Pixi DOM path intact while shrinking `LiveDictAreaSectionContainer` further:
+    - the new boundary now owns the deterministic composition from the outer-ref/section props into the `LiveDictAreaSection` props that add `handleColumnResizeStart` plus `onMaxNestedDepthChange`
+    - the boundary also stabilizes the nested-depth feedback loop by ignoring redundant `onMaxNestedDepthChange(...)` payloads whose pinned/unpinned depths did not actually change, preventing the infinite render cycle that the container test exposed
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.test.tsx src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the provided bootstrap URL token was rejected in that browser session, but the existing authenticated `/settings` tab remained usable
+    - `All Settings` stayed visible/reachable and the visible settings shell plus dict/param area rendered normally after the new section-container boundary wiring
+    - representative visible labels and controls included `Dict`, `Rotary Param`, `Switch Param`, `Text Param`, and `UI Type`, plus the surrounding settings shell and bottom tab strip
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/getAgentRuns`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, `GET /api/plugins/runtime`, and `POST /api/getLatestLspDiagnostics`
+    - notable console noise was limited to existing accessibility warnings and repeated React 19 `element.ref` deprecation messages; the earlier `Maximum update depth exceeded` symptom did not reappear in this bounded verification
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionContainerBoundary.ts` boundary into the next higher-level scene-owned boundary above `LiveDictAreaSectionContainer` before any broad Pixi node drawing lands.
