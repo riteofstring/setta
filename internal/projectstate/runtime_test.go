@@ -1114,6 +1114,81 @@ func TestRuntimeSetSectionCodeObjectValueReconcilesGeneratedPythonSectionsWhenCo
 	}
 }
 
+func TestRuntimeSetTextBlockTextReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	project := textBlockMutationTestProject(t)
+	defaultWindowing := DefaultProjectChatWindowingState()
+	project.ID = "project-alpha"
+	project.Name = "Alpha"
+	project.CodegenTargets = []ProjectCodegenTarget{
+		{Language: string(CodeLanguagePython)},
+	}
+	project.ProjectChatWindowing = &defaultWindowing
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	structuralReconciler := testRuntimeStructuralMutationPythonGeneratedSectionReconciler()
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: PythonCodegenSectionReconcilerFunc(func(ctx context.Context, project *Project) error {
+			if err := structuralReconciler.ReconcileProjectPythonGeneratedSections(ctx, project); err != nil {
+				return err
+			}
+			if project == nil {
+				return ErrProjectNotFound
+			}
+
+			textPayload, err := effectiveSectionPayload(*project, "text-section", "text-variant")
+			if err != nil {
+				return err
+			}
+			payload, err := marshalProjectObject(map[string]any{
+				"id":   GeneratedPythonCodeImplID,
+				"type": "GenPythonCode",
+				"code": fmt.Sprintf("text=%s", payloadRawStringField(textPayload, "text")),
+			})
+			if err != nil {
+				return err
+			}
+
+			impl := project.SectionImpls[GeneratedPythonCodeImplID]
+			impl.Payload = payload
+			project.SectionImpls[GeneratedPythonCodeImplID] = impl
+			return nil
+		}),
+	})
+
+	snapshot, err := runtime.SetTextBlockText(
+		context.Background(),
+		"project-alpha",
+		"text-section",
+		"hello from text block",
+	)
+	if err != nil {
+		t.Fatalf("set text block text through runtime: %v", err)
+	}
+
+	project, err = snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("lookup mutated project: %v", err)
+	}
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after text mutation, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `text=hello from text block`) {
+		t.Fatalf("expected generated python payload to include updated text, got %q", string(impl.Payload))
+	}
+}
+
 func testRuntimeStructuralMutationPythonProject() Project {
 	defaultWindowing := DefaultProjectChatWindowingState()
 	return Project{

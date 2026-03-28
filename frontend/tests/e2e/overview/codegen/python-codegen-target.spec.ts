@@ -830,6 +830,49 @@ test("generated python import fixes auto-refetch callable params without manual 
   }
 });
 
+test("generated python updates when text section text changes", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const initialState = await loadCodegenProjectState(page);
+    const generatedSectionId = initialState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+    const generatedCodeContent = page.locator(
+      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+    );
+    await expect(generatedCodeContent).toBeVisible();
+
+    const { sectionId } = await createTextBlockSection(
+      page,
+      projectContext.projectConfigId,
+      "__pw_python_codegen_text__",
+    );
+    const generatedCodeBeforeTextUpdate =
+      (await generatedCodeContent.textContent()) ?? "";
+
+    await postBackend(page, "/setTextBlockText", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      text: "hello from text block",
+    });
+
+    await expect
+      .poll(async () => (await generatedCodeContent.textContent()) ?? "")
+      .toContain("hello from text block");
+    await expect
+      .poll(async () => (await generatedCodeContent.textContent()) ?? "")
+      .not.toBe(generatedCodeBeforeTextUpdate);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("generated python updates when a list section is moved into a dict section", async ({
   page,
 }) => {

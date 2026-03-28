@@ -3098,6 +3098,90 @@ func TestAppSetCallableRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
+func TestAppSetTextBlockTextRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, textSectionID := websocketTextBlockTestProject(t)
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed text block project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetTextBlockText,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"`+textSectionID+`","text":"hello from websocket text block","frontendOpId":"set-text-block-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new set text block text request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set text block text: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if !containsAppString(content.CompletedOpIDs, "set-text-block-op") {
+		t.Fatalf("expected completed set-text-block-op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+
+	var payload struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(content.ProjectState.Sections[textSectionID].SharedModifier, &payload); err != nil {
+		t.Fatalf("decode text block shared modifier payload: %v", err)
+	}
+	if payload.Text != "hello from websocket text block" {
+		t.Fatalf("expected websocket update to include edited text, got %#v", payload)
+	}
+}
+
 // LSP-driven callable auto-refetches are backend-owned mutations, so the app
 // must explicitly rebroadcast the updated project graph back to connected IDE
 // frontends when missing imports later become valid.
@@ -3365,6 +3449,31 @@ func websocketMoveSectionsTestProject(t *testing.T) (projectstate.Project, strin
 	}
 
 	return project, dictResult.SectionID, listResult.SectionID
+}
+
+func websocketTextBlockTestProject(t *testing.T) (projectstate.Project, string) {
+	t.Helper()
+
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+	project := projectstate.Project{
+		ID:                   "project-alpha",
+		Name:                 "Alpha",
+		ProjectChatWindowing: &defaultWindowing,
+	}
+	textName := "Notes"
+	result, err := project.CreateTopLevelSection(
+		projectstate.CreateTopLevelSectionInput{
+			ImplType: "TextBlock",
+			Name:     &textName,
+			Position: &projectstate.Position{X: 40, Y: 80},
+		},
+		projectstate.DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create text block project fixture: %v", err)
+	}
+
+	return project, result.SectionID
 }
 
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {

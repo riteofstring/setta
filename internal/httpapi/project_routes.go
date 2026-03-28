@@ -5953,13 +5953,18 @@ func setTextBlockTextHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetTextBlockText(
+		snapshot, err := runtime.SetTextBlockText(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			payload.Text,
-		); err != nil {
+		)
+		if err != nil {
 			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

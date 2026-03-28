@@ -65,6 +65,9 @@ func (r *Runtime) SetTextBlockText(ctx context.Context, projectID string, sectio
 		if err := document.SetTextBlockText(projectID, sectionID, text); err != nil {
 			return Document{}, err
 		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); err != nil {
+			return Document{}, err
+		}
 		return document, nil
 	})
 }
