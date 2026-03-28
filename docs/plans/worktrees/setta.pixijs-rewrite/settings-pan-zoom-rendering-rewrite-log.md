@@ -4279,6 +4279,35 @@ Record:
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerWrapper.tsx`, starting with `frontend/src/components/Params/GroupContainer.tsx` before any broad Pixi node drawing lands.
 
+## 2026-03-28 148
+
+- Item: Reconcile the live dict-area mount seam so the wrapper layer owns the shell boundary above `frontend/src/components/Params/groupContainerShell.tsx`.
+- Status: `done`
+- Details:
+  - The repo state at the start of this iteration still had `ParamGroupContainer` owning `useGroupContainerShellBoundary(...)`, so this slice reconciled the actual tree with the already-sequenced wrapper-layer boundary lift:
+    - `frontend/src/components/Params/groupContainerWrapper.tsx`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - `GroupContainerWrapper` now owns the typed shell-boundary hook and passes only the pure shell-view props into `GroupContainerShell`, while `ParamGroupContainer` shrinks back down to a thin memoized delegating export.
+  - Focused test coverage now treats the wrapper as the ownership seam for:
+    - the shell-boundary observers and mount path
+    - the waiting-overlay rendering on the wrapper-owned shell path
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Playwright caveat:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: failed twice in temp workspaces with the benchmark page timing out on `.react-flow__pane` readiness before the canvas mounted
+    - this iteration treated that as a verification harness caveat rather than evidence of a boundary regression because the narrower params scroll slice passed and the live worktree surface remained visually intact in CDP
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - a fresh tab plus hard reload rendered the normal settings shell without the earlier stale-tab error boundary
+    - representative visible labels/controls included `Settings` and the `Home` link in the shell chrome
+    - representative requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the retained-scene canary by lifting the now-wrapper-owned shell/mount seam into the next higher-level `ParamGroupContainer` callers above `frontend/src/components/Params/GroupContainer.tsx`, starting with the callable/global-variables layout path before any broad Pixi node drawing lands.
+
 ## 2026-03-27 148
 
 - Item: Lift the live dict-area mount seam into `frontend/src/components/Params/GroupContainer.tsx`.

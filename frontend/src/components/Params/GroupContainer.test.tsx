@@ -338,7 +338,7 @@ describe("ParamGroupContainer layout", () => {
   });
 });
 
-describe("ParamGroupContainer boundary", () => {
+describe("GroupContainerWrapper boundary", () => {
   let animationFrames: Map<number, FrameRequestCallback>;
   let host: HTMLDivElement;
   let mutationObservers: TestMutationObserverInstance[];
@@ -401,9 +401,9 @@ describe("ParamGroupContainer boundary", () => {
     resetProjectStores();
   });
 
-  it("owns the shell boundary seam above the pure wrapper view", async () => {
+  it("owns the shell boundary seam above the pure shell view", async () => {
     const sectionId = "section-group-container-shell";
-    const { ParamGroupContainer } = await import("./GroupContainer");
+    const { GroupContainerWrapper } = await import("./groupContainerWrapper");
 
     seedParamGroupContainerState({
       sectionId,
@@ -415,7 +415,7 @@ describe("ParamGroupContainer boundary", () => {
 
     await act(async () => {
       root.render(
-        <ParamGroupContainer
+        <GroupContainerWrapper
           bgColor="bg-transparent"
           sectionId={sectionId}
           sectionTypeName={SectionTypeEnum.Dict}
@@ -429,9 +429,9 @@ describe("ParamGroupContainer boundary", () => {
     expect(mutationObservers.length).toBeGreaterThan(0);
   });
 
-  it("keeps the waiting overlay on the pure wrapper mount path", async () => {
+  it("keeps the waiting overlay on the wrapper-owned shell mount path", async () => {
     const sectionId = "section-group-container-waiting";
-    const { ParamGroupContainer } = await import("./GroupContainer");
+    const { GroupContainerWrapper } = await import("./groupContainerWrapper");
 
     seedParamGroupContainerState({
       sectionId,
@@ -444,7 +444,7 @@ describe("ParamGroupContainer boundary", () => {
 
     await act(async () => {
       root.render(
-        <ParamGroupContainer
+        <GroupContainerWrapper
           bgColor="bg-transparent"
           sectionId={sectionId}
           sectionTypeName={SectionTypeEnum.Dict}

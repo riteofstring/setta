@@ -3,12 +3,34 @@ import {
   GroupContainerShell,
   type GroupContainerShellProps,
 } from "./groupContainerShell";
-export type GroupContainerWrapperProps = GroupContainerShellProps;
+import {
+  useGroupContainerShellBoundary,
+  type GroupContainerShellBoundary,
+  type GroupContainerShellBoundaryInput,
+} from "./groupContainerShellBoundary";
+
+export type GroupContainerWrapperProps = GroupContainerShellBoundaryInput;
+
+function buildGroupContainerShellProps({
+  liveDictAreaMountProps,
+  setOuterRef,
+  waitingForResult,
+}: GroupContainerShellBoundary): GroupContainerShellProps {
+  return {
+    liveDictAreaMountProps,
+    setOuterRef,
+    waitingForResult,
+  };
+}
 
 export function GroupContainerWrapper(props: GroupContainerWrapperProps) {
+  const groupContainerShellBoundary = useGroupContainerShellBoundary(props);
+
   return (
     <ParamDndContext>
-      <GroupContainerShell {...props} />
+      <GroupContainerShell
+        {...buildGroupContainerShellProps(groupContainerShellBoundary)}
+      />
     </ParamDndContext>
   );
 }
