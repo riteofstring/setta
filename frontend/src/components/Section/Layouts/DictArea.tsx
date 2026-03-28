@@ -1,8 +1,6 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import { ParamGroupContainer } from "../../Params/GroupContainer";
-import { KwargsControls } from "../SectionParts/KwargsControls";
+import { LiveDictAreaLayout } from "./LiveDictAreaLayout";
 import { SettingsAllSettingsBenchmarkDictArea } from "./SettingsAllSettingsBenchmarkDictArea";
 import { resolveDictAreaRenderMode } from "./dictAreaView";
 
@@ -27,16 +25,7 @@ function _DictArea({ sectionId, bgColor }: DictAreaProps) {
     );
   }
 
-  return (
-    <>
-      <KwargsControls sectionId={sectionId} />
-      <ParamGroupContainer
-        sectionId={sectionId}
-        bgColor={bgColor}
-        sectionTypeName={SectionTypeEnum.Dict}
-      />
-    </>
-  );
+  return <LiveDictAreaLayout sectionId={sectionId} bgColor={bgColor} />;
 }
 
 export const DictArea = React.memo(_DictArea);

@@ -2388,3 +2388,34 @@ Record:
     - notable console noise was limited to existing React 19 `element.ref` warnings; no obvious clipping, overlap, or missing content was observed in the captured viewport
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerShellBoundary.ts` boundary into the next higher-level live dict-area caller in `frontend/src/components/Section/Layouts/DictArea.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 090
+
+- Item: Lift the new `groupContainerShellBoundary.ts` boundary into the next higher-level live dict-area caller in `frontend/src/components/Section/Layouts/DictArea.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed live dict-area layout boundary above the existing `GroupContainer` wrapper path:
+    - `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`
+  - Extended the existing dict-area view helper boundary so the live branch now shapes its `KwargsControls` and `ParamGroupContainer` props through one deterministic contract:
+    - `frontend/src/components/Section/Layouts/dictAreaView.ts`
+    - `frontend/src/components/Section/Layouts/dictAreaView.test.ts`
+  - Updated the production non-Pixi `DictArea` path to consume the new live layout boundary instead of owning the last inline kwargs-plus-group-container handoff itself:
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+  - The new live dict-area layout boundary now deterministically:
+    - composes the remaining `KwargsControls` and `ParamGroupContainer` hop from one deeper boundary above the `GroupContainer` shell/wrapper stack
+    - keeps the current benchmark/live switch intact while hiding the last live dict/param caller wiring hop behind a dedicated layout boundary
+    - preserves the existing non-Pixi settings dict/param DOM structure while shrinking `DictArea.tsx` to the benchmark gate plus one live-layout handoff
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/dictAreaView.test.ts src/components/Section/Layouts/DictArea.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded already authenticated and did not require consuming the provided bootstrap token in that browser session
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new live-layout boundary wiring
+    - representative visible labels and controls included `settings`, `gui`, `sectionSizingPolicy`, `backend`, `languageServer`, `shortcuts`, `Grid Color`, `Grid Color Dark Mode`, `Grid Pattern`, `Pan On Drag`, `Wire Color`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, and `POST /api/getAIFollowSnapshot`
+    - notable console noise was limited to existing accessibility warnings about missing form `id`/`name` attributes and unmatched `aria-labelledby` targets; no runtime error investigation was needed for this bounded slice
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `LiveDictAreaLayout.tsx` boundary into the next higher-level section layout caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` before any broad Pixi node drawing lands.

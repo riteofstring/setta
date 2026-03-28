@@ -1,3 +1,5 @@
+import { SectionTypeEnum } from "utils/generatedTypes";
+
 export type DictAreaRenderMode = "benchmark" | "live";
 
 type ResolveDictAreaRenderModeArgs = {
@@ -13,6 +15,22 @@ export type BenchmarkParamTreeItem = {
 
 export type BenchmarkParamRow = BenchmarkParamTreeItem & {
   label: string;
+};
+
+type BuildLiveDictAreaLayoutViewArgs = {
+  bgColor: string;
+  sectionId: string;
+};
+
+export type LiveDictAreaLayoutView = {
+  kwargsControlsProps: {
+    sectionId: string;
+  };
+  paramGroupContainerProps: {
+    bgColor: string;
+    sectionId: string;
+    sectionTypeName: SectionTypeEnum.Dict;
+  };
 };
 
 export function resolveDictAreaRenderMode({
@@ -39,4 +57,20 @@ export function buildBenchmarkParamRows({
     isParent: item.isParent,
     label: getLabel(item.id),
   }));
+}
+
+export function buildLiveDictAreaLayoutView({
+  bgColor,
+  sectionId,
+}: BuildLiveDictAreaLayoutViewArgs): LiveDictAreaLayoutView {
+  return {
+    kwargsControlsProps: {
+      sectionId,
+    },
+    paramGroupContainerProps: {
+      bgColor,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Dict,
+    },
+  };
 }

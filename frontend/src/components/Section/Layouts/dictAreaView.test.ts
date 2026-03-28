@@ -1,6 +1,8 @@
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   buildBenchmarkParamRows,
+  buildLiveDictAreaLayoutView,
   resolveDictAreaRenderMode,
 } from "./dictAreaView";
 
@@ -55,5 +57,23 @@ describe("dictAreaView", () => {
         label: "param-1-label",
       },
     ]);
+  });
+
+  it("builds the live DictArea layout props above the GroupContainer wrapper", () => {
+    expect(
+      buildLiveDictAreaLayoutView({
+        bgColor: "bg-transparent",
+        sectionId: "section-1",
+      }),
+    ).toEqual({
+      kwargsControlsProps: {
+        sectionId: "section-1",
+      },
+      paramGroupContainerProps: {
+        bgColor: "bg-transparent",
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+      },
+    });
   });
 });
