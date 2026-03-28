@@ -95,6 +95,50 @@ function isStateMachineRunCleared(run: AgentRun): boolean {
   return outputs.machineStateCleared === true;
 }
 
+function clearStateMachineRunForMachineGroup(
+  projectConfigId: string,
+  machineGroupId: string,
+  stoppedRunId?: string | null,
+): void {
+  useAIStore.setState((state) => {
+    const matchingRuns = filterStateMachineRunsByMachineGroup(
+      state.agentRuns,
+      projectConfigId,
+      machineGroupId,
+    );
+    const targetRunId = stoppedRunId?.trim() || matchingRuns[0]?.id || null;
+    if (targetRunId === null) {
+      return state;
+    }
+
+    let didChange = false;
+    const nextRuns = state.agentRuns.map((run) => {
+      if (run.id !== targetRunId) {
+        return run;
+      }
+      didChange = true;
+      const nextOutputs =
+        run.outputs !== null &&
+        typeof run.outputs === "object" &&
+        !Array.isArray(run.outputs)
+          ? { ...run.outputs }
+          : {};
+      nextOutputs.machineStateCleared = true;
+      return {
+        ...run,
+        status: AgentRunStatusEnum.cancelled,
+        outputs: nextOutputs,
+      };
+    });
+    if (!didChange) {
+      return state;
+    }
+    return {
+      agentRuns: nextRuns,
+    };
+  });
+}
+
 export function getLatestStateMachineRun(
   runs: AgentRun[],
   projectConfigId: string,
@@ -172,6 +216,28 @@ async function refreshRunningStateMachineRunsForProject(
   }
 }
 
+async function refreshStateMachineRunForMachineGroup(
+  projectConfigId: string,
+  machineGroupId: string,
+): Promise<void> {
+  const res = await route_get_state_machine_run({
+    projectConfigId,
+    machineGroupId,
+  });
+  logWorkflowDebug("workflow run direct refresh response", {
+    projectConfigId,
+    machineGroupId,
+    status: res.status,
+    hasResponse: res.hasResponse,
+    ok: res200(res),
+    errorDetail: res200(res) ? null : getErrorDetail(res.data),
+  });
+  if (!res200(res)) {
+    return;
+  }
+  receiveAgentRunUpdate(res.data);
+}
+
 async function pollRunningStateMachineRunsForCurrentProject(): Promise<void> {
   const projectConfigId = useProjectState.getState().projectConfig.id;
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -243,11 +309,13 @@ export function subscribeStateMachineRunPolling(): () => void {
   };
 }
 
-async function runStateMachineMutation({
+async function runStateMachineMutation<TSuccess>({
   machineGroupId,
   startSectionId,
   failureMessage,
   send,
+  onSuccess,
+  skipDirectRefresh,
 }: {
   machineGroupId: string;
   startSectionId?: string | null;
@@ -256,7 +324,15 @@ async function runStateMachineMutation({
     projectConfigId: string;
     machineGroupId: string;
     startSectionId: string | null;
-  }) => Promise<{ data: unknown; status: number; hasResponse: boolean }>;
+  }) => Promise<{ data: TSuccess; status: number; hasResponse: boolean }>;
+  onSuccess?: (
+    data: TSuccess,
+    context: {
+      projectConfigId: string;
+      machineGroupId: string;
+    },
+  ) => void;
+  skipDirectRefresh?: boolean;
 }): Promise<boolean> {
   if (useShareSession.getState().isDeploymentMode) {
     return false;
@@ -304,7 +380,16 @@ async function runStateMachineMutation({
     );
     return false;
   }
-  await pollRunningStateMachineRunsForCurrentProject();
+  onSuccess?.(res.data, {
+    projectConfigId,
+    machineGroupId: normalizedMachineGroupId,
+  });
+  if (!skipDirectRefresh) {
+    await refreshStateMachineRunForMachineGroup(
+      projectConfigId,
+      normalizedMachineGroupId,
+    );
+  }
   return true;
 }
 
@@ -322,6 +407,7 @@ export async function startStateMachineRun(
         machineGroupId: request.machineGroupId,
         startSectionId: request.startSectionId,
       }),
+    onSuccess: receiveAgentRunUpdate,
   });
 }
 
@@ -350,5 +436,20 @@ export async function resetStateMachineRun(
         projectConfigId: request.projectConfigId,
         machineGroupId: request.machineGroupId,
       }),
+    onSuccess: (data, context) => {
+      const stoppedRunId =
+        data !== null &&
+        typeof data === "object" &&
+        "stoppedRunId" in data &&
+        typeof data.stoppedRunId === "string"
+          ? data.stoppedRunId
+          : null;
+      clearStateMachineRunForMachineGroup(
+        context.projectConfigId,
+        context.machineGroupId,
+        stoppedRunId,
+      );
+    },
+    skipDirectRefresh: true,
   });
 }
