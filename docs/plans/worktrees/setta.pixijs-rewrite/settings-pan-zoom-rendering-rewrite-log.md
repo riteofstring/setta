@@ -4529,3 +4529,33 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`.
+
+## 2026-03-28 158
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone page-level dict-area handoff one caller higher so `StandaloneProjectSurfacePageBoundary` now owns the dict renderer seam above `StandaloneProjectSurfaceRouteBoundary`:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`
+  - Updated the focused coverage to pin the higher ownership boundary and verify the lifted seam is still passed through the loaded page path:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - page-level loading / `404` / managed-chat-blocked gating in `StandaloneProjectSurfacePageBoundary`
+    - route-level section/chat/window-space switching in `StandaloneProjectSurfaceRouteBoundary`
+    - standalone section surfaces still receiving the same `SectionContainerAreaDictBoundary` renderer through a caller-owned prop instead of route-local ownership
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed
+  - Chrome DevTools MCP visual check on the restarted worktree app in a fresh sub-agent context
+    - the initial pre-restart verification failed because the stale worktree session rejected bootstrap and `http://127.0.0.1:3044/settings/section/gui` fell through to `Section Not Found`
+    - used the one allowed lifecycle self-recovery via `./aireset.sh`, which restarted the worktree on `http://127.0.0.1:3046/` and `http://127.0.0.1:8046`
+    - `pnpm -C frontend cdp-port` returned `9267` after the restart; `source activate.sh && setta status --connect-info --latest --json --workspace .` returned `Error: No matching Setta sessions found.`
+    - despite that status caveat, the restarted app was reachable and `http://127.0.0.1:3046/settings/section/gui` rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible controls and labels included `gui`, `ARGS`, `defaultZoomLevel`, `Grid Color`, `Grid Color Dark Mode`, `Grid Pattern`, `Pan On Drag`, `Pan On Scroll`, and `sectionTagColorChoices`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getListenerCoverage`
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.tsx`.

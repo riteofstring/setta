@@ -1,4 +1,6 @@
 import { memo, type ComponentProps } from "react";
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import {
@@ -6,8 +8,15 @@ import {
   StandaloneProjectSurfaceRouteBoundary,
 } from "./StandaloneProjectSurfaceRouteBoundary";
 
-export type StandaloneProjectSurfacePageBoundaryProps = ComponentProps<
-  typeof StandaloneProjectSurfaceRouteBoundary
+function renderStandaloneProjectSurfacePageDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
+
+export type StandaloneProjectSurfacePageBoundaryProps = Omit<
+  ComponentProps<typeof StandaloneProjectSurfaceRouteBoundary>,
+  "renderDictArea"
 > & {
   doneLoading: boolean;
   is404: boolean;
@@ -32,7 +41,12 @@ function _StandaloneProjectSurfacePageBoundary({
     return <StandaloneManagedChatBlockedSurface />;
   }
 
-  return <StandaloneProjectSurfaceRouteBoundary {...routeBoundaryProps} />;
+  return (
+    <StandaloneProjectSurfaceRouteBoundary
+      {...routeBoundaryProps}
+      renderDictArea={renderStandaloneProjectSurfacePageDictArea}
+    />
+  );
 }
 
 export const StandaloneProjectSurfacePageBoundary = memo(

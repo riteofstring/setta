@@ -29,16 +29,19 @@ vi.mock("./StandaloneProjectSurfaceRouteBoundary", () => ({
   StandaloneProjectSurfaceRouteBoundary: ({
     projectConfigId,
     target,
+    renderDictArea,
     standaloneProjectChatId,
   }: {
     projectConfigId: string;
     target: { kind: string };
+    renderDictArea: unknown;
     standaloneProjectChatId: string | null;
   }) => (
     <div
       data-testid="mock-standalone-project-surface-route-boundary"
       data-project-config-id={projectConfigId}
       data-target-kind={target.kind}
+      data-has-render-dict-area={String(Boolean(renderDictArea))}
       data-standalone-project-chat-id={standaloneProjectChatId ?? ""}
     />
   ),
@@ -139,6 +142,7 @@ describe("StandaloneProjectSurfacePageBoundary", () => {
     );
     expect(markup).toContain('data-project-config-id="project-config-1"');
     expect(markup).toContain('data-target-kind="project_chat_thread"');
+    expect(markup).toContain('data-has-render-dict-area="true"');
     expect(markup).toContain('data-standalone-project-chat-id="chat-alpha"');
   });
 });

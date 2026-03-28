@@ -7,7 +7,6 @@ import {
   buildStandalonePageProjectChatSurfaceId,
   buildStandalonePageSectionProjectChatSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
-import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
 import { StandaloneSectionSurfaceBoundary } from "components/Section/Container/StandaloneSectionSurfaceBoundary";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { FloatingBox } from "components/Utils/FloatingBox";
@@ -52,12 +51,6 @@ export type StandaloneSurfaceTarget =
 
 export type StandaloneSurfaceErrorCode = "chat_not_found" | "llm_disallowed";
 
-function renderStandaloneProjectSurfaceRouteDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
-
 function StandaloneSurfaceShell({ children }: { children: ReactNode }) {
   return (
     <SectionDndContext>
@@ -98,6 +91,7 @@ type StandaloneProjectSurfaceRouteBoundaryProps = {
   standaloneProjectChatId: string | null;
   standaloneProjectChatThreadRouteInvalid: boolean;
   standaloneProjectChatThreadMissing: boolean;
+  renderDictArea: (props: SectionContainerAreaDictProps) => ReactNode;
   setStandaloneProjectChatId: (
     next: SetStateAction<string | null | undefined>,
   ) => void;
@@ -114,6 +108,7 @@ function _StandaloneProjectSurfaceRouteBoundary({
   standaloneProjectChatId,
   standaloneProjectChatThreadRouteInvalid,
   standaloneProjectChatThreadMissing,
+  renderDictArea,
   setStandaloneProjectChatId,
   onProjectChatBlockedErrorCodeChange,
 }: StandaloneProjectSurfaceRouteBoundaryProps) {
@@ -253,7 +248,7 @@ function _StandaloneProjectSurfaceRouteBoundary({
           onProjectChatBlockedErrorCodeChange={
             onProjectChatBlockedErrorCodeChange
           }
-          renderDictArea={renderStandaloneProjectSurfaceRouteDictArea}
+          renderDictArea={renderDictArea}
         />
       </div>
     </StandaloneSurfaceShell>

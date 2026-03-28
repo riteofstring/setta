@@ -121,6 +121,8 @@ const managedChatAuthorityState = {
   sectionImpls: {},
 };
 
+const renderDictArea = () => null;
+
 describe("StandaloneProjectSurfaceRouteBoundary", () => {
   it("routes standalone section targets through the lifted section surface boundary", () => {
     const markup = renderToStaticMarkup(
@@ -139,6 +141,7 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatId={null}
         standaloneProjectChatThreadRouteInvalid={false}
         standaloneProjectChatThreadMissing={false}
+        renderDictArea={renderDictArea}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
@@ -171,6 +174,7 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatId="chat-alpha"
         standaloneProjectChatThreadRouteInvalid={false}
         standaloneProjectChatThreadMissing={false}
+        renderDictArea={renderDictArea}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
@@ -206,6 +210,7 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatId={null}
         standaloneProjectChatThreadRouteInvalid={false}
         standaloneProjectChatThreadMissing={false}
+        renderDictArea={renderDictArea}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
@@ -232,6 +237,7 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatId={null}
         standaloneProjectChatThreadRouteInvalid
         standaloneProjectChatThreadMissing={false}
+        renderDictArea={renderDictArea}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
