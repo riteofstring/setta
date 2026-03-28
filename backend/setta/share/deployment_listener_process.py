@@ -9,10 +9,12 @@ if str(_IMPORT_ROOT) not in sys.path:
     sys.path.insert(0, str(_IMPORT_ROOT))
 
 from setta.api import SettaListener
-from setta.utils.env_vars import RUNTIME_ROOT_ENV
+from setta.types.generated.go_shared_constants import (
+    DEPLOYMENT_LISTENER_READY_SENTINEL,
+)
+from setta.types.generated.go_shared_constants import RUNTIME_ROOT_ENV
 
 _BUILDER_NAMES = ("build_listener", "build_callbacks")
-_READY_SENTINEL = "SETTA_DEPLOYMENT_LISTENER_READY"
 
 _ListenerBuilder = Callable[[SettaListener], None]
 
@@ -88,7 +90,7 @@ def main() -> None:
         port=args.port,
     )
     builder(listener)
-    print(_READY_SENTINEL, flush=True)
+    print(DEPLOYMENT_LISTENER_READY_SENTINEL, flush=True)
     listener.start()
 
 

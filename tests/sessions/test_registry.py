@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from setta.sessions.registry import SessionRegistry
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
+from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
 
 

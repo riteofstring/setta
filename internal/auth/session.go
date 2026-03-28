@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	sessionIDEnv    = "SETTA_SESSION_ID"
-	sessionsRootEnv = "SETTA_SESSIONS_ROOT"
+	SessionIDEnv    = "SETTA_SESSION_ID"
+	SessionsRootEnv = "SETTA_SESSIONS_ROOT"
 )
 
 type SessionMetadata struct {
@@ -49,7 +49,7 @@ func LoadCurrentSession(opts LoadCurrentSessionOptions) (*CurrentSession, error)
 		envLookup = os.LookupEnv
 	}
 
-	sessionID := lookupTrimmed(envLookup, sessionIDEnv)
+	sessionID := lookupTrimmed(envLookup, SessionIDEnv)
 	if sessionID == "" {
 		return nil, nil
 	}
@@ -94,7 +94,7 @@ func LoadCurrentSession(opts LoadCurrentSessionOptions) (*CurrentSession, error)
 }
 
 func resolveSessionsRoot(runtimeRoot string, envLookup func(string) (string, bool)) (string, error) {
-	if raw := lookupTrimmed(envLookup, sessionsRootEnv); raw != "" {
+	if raw := lookupTrimmed(envLookup, SessionsRootEnv); raw != "" {
 		resolved, err := filepath.Abs(raw)
 		if err != nil {
 			return "", fmt.Errorf("resolve sessions root: %w", err)

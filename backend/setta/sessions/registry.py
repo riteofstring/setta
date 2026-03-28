@@ -11,11 +11,12 @@ from typing import Literal
 
 import psutil
 from pydantic import BaseModel, Field, ValidationError
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
+from setta.types.generated.go_shared_constants import (
+    IN_PROCESS_ENV_VAR,
+    SESSION_METADATA_FILENAME,
+    SESSION_SECRET_FILENAME,
+)
 from setta.utils.constants import C
-
-SESSION_METADATA_FILENAME = "session.json"
-SESSION_SECRET_FILENAME = "secret"
 
 logger = logging.getLogger(__name__)
 

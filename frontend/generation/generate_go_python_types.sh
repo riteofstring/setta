@@ -8,6 +8,8 @@ cd "${ROOT_DIR}"
 ./scripts/go.sh run ./cmd/setta-gen-go-type-registries
 ./scripts/go.sh run ./cmd/setta-gen-python-sdk-contracts \
   -out backend/setta/sdk_contracts/generated.py
+./scripts/go.sh run ./cmd/setta-gen-python-shared-constants \
+  -out backend/setta/types/generated/go_shared_constants.py
 ./scripts/go.sh run ./cmd/setta-gen-python-shared-types \
   -out backend/setta/types/generated/go_shared_types.py
 python backend/scripts/prune_generated_types.py

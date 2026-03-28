@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 
+from setta.types.generated import go_shared_constants
 from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
@@ -10,7 +11,9 @@ _HTTP_TOKEN_SEPARATORS = set("()<>@,;:/[]?={} \t")
 _HTTP_TOKEN_SEPARATORS.update({"\\", '"'})
 
 
-def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> str:
+def normalize_cookie_name(
+    raw: str | None, *, default: str = go_shared_constants.DEFAULT_AUTH_COOKIE_NAME
+) -> str:
     if raw is None:
         return default
     trimmed = raw.strip()
@@ -39,8 +42,8 @@ class classproperty:
 
 class C:
     # Basic configuration
-    DEFAULT_HOST = "127.0.0.1"
-    DEFAULT_PORT = 8000
+    DEFAULT_HOST = go_shared_constants.DEFAULT_HOST
+    DEFAULT_PORT = go_shared_constants.DEFAULT_PORT
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
@@ -52,7 +55,8 @@ class C:
 
     _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
     AUTH_COOKIE_NAME = normalize_cookie_name(
-        _raw_auth_cookie_name, default="setta_auth"
+        _raw_auth_cookie_name,
+        default=go_shared_constants.DEFAULT_AUTH_COOKIE_NAME,
     )
     if _raw_auth_cookie_name is not None:
         _trimmed_auth_cookie_name = _raw_auth_cookie_name.strip()
@@ -62,10 +66,10 @@ class C:
                 _trimmed_auth_cookie_name,
                 AUTH_COOKIE_NAME,
             )
-    AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12
-    BOOTSTRAP_TOKEN_TTL_SECONDS = 60 * 10
+    AUTH_COOKIE_MAX_AGE_SECONDS = go_shared_constants.AUTH_COOKIE_MAX_AGE_SECONDS
+    BOOTSTRAP_TOKEN_TTL_SECONDS = go_shared_constants.BOOTSTRAP_TOKEN_TTL_SECONDS
     LAUNCH_INTENT_TOKEN_TTL_SECONDS = 60 * 5
-    SESSION_SECRET_BYTES = 32
+    SESSION_SECRET_BYTES = go_shared_constants.SESSION_SECRET_BYTES
 
     @classproperty
     def BACKEND(cls):

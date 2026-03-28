@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -16,14 +17,14 @@ import (
 )
 
 const (
-	workspaceRootEnv     = "SETTA_WORKSPACE_ROOT"
-	runtimeRootEnv       = "SETTA_RUNTIME_ROOT"
-	filesRootEnv         = "SETTA_FILES_ROOT"
-	profileEnv           = "SETTA_PROFILE"
-	profileLookupHomeEnv = "SETTA_PROFILE_LOOKUP_HOME"
+	WorkspaceRootEnv     = "SETTA_WORKSPACE_ROOT"
+	RuntimeRootEnv       = "SETTA_RUNTIME_ROOT"
+	FilesRootEnv         = "SETTA_FILES_ROOT"
+	ProfileEnv           = "SETTA_PROFILE"
+	ProfileLookupHomeEnv = "SETTA_PROFILE_LOOKUP_HOME"
 	serverModeEnv        = "SETTA_SERVER_MODE"
-	settaHomeEnv         = "SETTA_HOME"
-	filesLocationEnv     = "SETTA_FILES_LOCATION"
+	SettaHomeEnv         = "SETTA_HOME"
+	FilesLocationEnv     = "SETTA_FILES_LOCATION"
 	hostEnv              = "SETTA_HOST"
 	portEnv              = "SETTA_PORT"
 	logLevelEnv          = "SETTA_LOG_LEVEL"
@@ -38,6 +39,24 @@ var (
 	allowedSettaHomeNames        = map[string]struct{}{".setta": {}, ".setta-development": {}}
 	allowedSettaFilesRootSegment = map[string]struct{}{"setta_files": {}, "setta_files_dev": {}}
 )
+
+func AllowedSettaHomeNames() []string {
+	names := make([]string, 0, len(allowedSettaHomeNames))
+	for name := range allowedSettaHomeNames {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func AllowedSettaFilesRootSegments() []string {
+	segments := make([]string, 0, len(allowedSettaFilesRootSegment))
+	for segment := range allowedSettaFilesRootSegment {
+		segments = append(segments, segment)
+	}
+	sort.Strings(segments)
+	return segments
+}
 
 type Mode string
 
@@ -190,7 +209,7 @@ func Load(opts LoadOptions) (Config, error) {
 		return Config{}, err
 	}
 
-	profileName := firstNonEmpty(trimmed(opts.CLI.Profile), lookupEnvTrimmed(envLookup, profileEnv))
+	profileName := firstNonEmpty(trimmed(opts.CLI.Profile), lookupEnvTrimmed(envLookup, ProfileEnv))
 	var (
 		profile           profileConfig
 		profileLookupHome string
@@ -415,7 +434,7 @@ func resolveSettaHome(explicitSettaHome, profileSettaHome string, envLookup func
 	if profileSettaHome != "" {
 		return resolvePath(profileSettaHome, "")
 	}
-	if raw := lookupEnvTrimmed(envLookup, settaHomeEnv); raw != "" {
+	if raw := lookupEnvTrimmed(envLookup, SettaHomeEnv); raw != "" {
 		return resolvePath(raw, "")
 	}
 	return defaultSettaHome(envLookup)
@@ -425,10 +444,10 @@ func resolveSettaHomeWithoutProfile(explicitSettaHome string, envLookup func(str
 	if explicitSettaHome != "" {
 		return resolvePath(explicitSettaHome, "")
 	}
-	if raw := lookupEnvTrimmed(envLookup, profileLookupHomeEnv); raw != "" {
+	if raw := lookupEnvTrimmed(envLookup, ProfileLookupHomeEnv); raw != "" {
 		return resolvePath(raw, "")
 	}
-	if raw := lookupEnvTrimmed(envLookup, settaHomeEnv); raw != "" {
+	if raw := lookupEnvTrimmed(envLookup, SettaHomeEnv); raw != "" {
 		return resolvePath(raw, "")
 	}
 	return defaultSettaHome(envLookup)
@@ -463,8 +482,8 @@ func resolveWorkspaceRoot(mode Mode, explicitWorkspaceRoot, profileWorkspaceRoot
 		return resolvePath(explicitWorkspaceRoot, "")
 	case profileWorkspaceRoot != "":
 		return resolvePath(profileWorkspaceRoot, "")
-	case lookupEnvTrimmed(envLookup, workspaceRootEnv) != "":
-		return resolvePath(lookupEnvTrimmed(envLookup, workspaceRootEnv), "")
+	case lookupEnvTrimmed(envLookup, WorkspaceRootEnv) != "":
+		return resolvePath(lookupEnvTrimmed(envLookup, WorkspaceRootEnv), "")
 	case mode == ModeLauncher:
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -494,8 +513,8 @@ func resolveSettaFilesRoot(
 	explicitLocationRaw := trimmed(cli.SettaFilesLocation)
 	profileRootRaw := profile.SettaFilesRoot
 	profileLocationRaw := string(profile.SettaFilesLocation)
-	envRootRaw := lookupEnvTrimmed(envLookup, filesRootEnv)
-	envLocationRaw := lookupEnvTrimmed(envLookup, filesLocationEnv)
+	envRootRaw := lookupEnvTrimmed(envLookup, FilesRootEnv)
+	envLocationRaw := lookupEnvTrimmed(envLookup, FilesLocationEnv)
 
 	if explicitRootRaw != "" && explicitLocationRaw != "" {
 		return "", "", false, newConfigError(
@@ -507,7 +526,7 @@ func resolveSettaFilesRoot(
 	if envRootRaw != "" && envLocationRaw != "" {
 		return "", "", false, newConfigError(
 			"InvalidSettaFilesConfig",
-			fmt.Sprintf("environment variables %s and %s cannot both be set", filesRootEnv, filesLocationEnv),
+			fmt.Sprintf("environment variables %s and %s cannot both be set", FilesRootEnv, FilesLocationEnv),
 			nil,
 		)
 	}
@@ -619,8 +638,8 @@ func resolveRuntimeRoot(
 		return resolvePath(explicitRuntimeRoot, "")
 	case profileRuntimeRoot != "":
 		return resolvePath(profileRuntimeRoot, "")
-	case lookupEnvTrimmed(envLookup, runtimeRootEnv) != "":
-		return resolvePath(lookupEnvTrimmed(envLookup, runtimeRootEnv), "")
+	case lookupEnvTrimmed(envLookup, RuntimeRootEnv) != "":
+		return resolvePath(lookupEnvTrimmed(envLookup, RuntimeRootEnv), "")
 	case (mode == ModeShare || mode == ModeApp) && deploymentRoot != "":
 		return deployments.DefaultRuntimeRoot(deploymentRoot)
 	default:

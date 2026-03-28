@@ -3,10 +3,9 @@ import os
 from pathlib import Path
 
 from filelock import FileLock
-from setta.utils.env_vars import RUNTIME_ROOT_ENV
+from setta.types.generated.go_shared_constants import PASSWORD_STORE_FILENAME
+from setta.types.generated.go_shared_constants import RUNTIME_ROOT_ENV
 from setta.utils.paths import get_setta_paths
-
-PASSWORD_STORE_FILENAME = "passwords.json"
 
 
 def _runtime_secrets_root() -> Path:

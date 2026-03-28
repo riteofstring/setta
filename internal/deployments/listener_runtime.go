@@ -24,7 +24,7 @@ var (
 )
 
 const (
-	deploymentListenerReadySentinel = "SETTA_DEPLOYMENT_LISTENER_READY"
+	DeploymentListenerReadySentinel = "SETTA_DEPLOYMENT_LISTENER_READY"
 	deploymentListenerStartTimeout  = 5 * time.Second
 	deploymentListenerStopTimeout   = 2 * time.Second
 
@@ -229,7 +229,7 @@ func (r *deploymentListenerRuntime) startHandle(key deploymentListenerHandleKey)
 			ready <- err
 			return
 		}
-		if strings.TrimSpace(line) != deploymentListenerReadySentinel {
+		if strings.TrimSpace(line) != DeploymentListenerReadySentinel {
 			ready <- fmt.Errorf("unexpected startup response %q", strings.TrimSpace(line))
 			return
 		}

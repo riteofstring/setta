@@ -2,7 +2,7 @@ import json
 
 import requests
 import pytest
-from setta import __version__ as SETTA_SDK_VERSION
+from setta import __version__
 from setta.api.runtime_compat import (
     RuntimeCompatibilityError,
     verify_running_backend_compatibility,
@@ -29,7 +29,7 @@ def test_verify_running_backend_compatibility_accepts_matching_versions(
         observed_headers.append(headers)
         return _response(
             {
-                "sdkVersion": SETTA_SDK_VERSION,
+                "sdkVersion": __version__,
                 "coreVersion": "dev",
                 "sdkContractVersion": SETTA_SDK_CONTRACT_VERSION,
             }
@@ -43,7 +43,7 @@ def test_verify_running_backend_compatibility_accepts_matching_versions(
         auth_headers={"Cookie": "setta-auth=value"},
     )
 
-    assert handshake.sdkVersion == SETTA_SDK_VERSION
+    assert handshake.sdkVersion == __version__
     assert observed_headers == [{"Cookie": "setta-auth=value"}]
 
 
@@ -82,7 +82,7 @@ def test_verify_running_backend_compatibility_rejects_contract_mismatch(
         assert url == "http://127.0.0.1:8000/api/sdkRuntimeHandshake"
         return _response(
             {
-                "sdkVersion": SETTA_SDK_VERSION,
+                "sdkVersion": __version__,
                 "coreVersion": "dev",
                 "sdkContractVersion": SETTA_SDK_CONTRACT_VERSION + 1,
             }

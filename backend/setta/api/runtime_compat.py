@@ -1,6 +1,6 @@
 import requests
 
-from setta import __version__ as SETTA_SDK_VERSION
+from setta import __version__
 from setta.sdk_contracts.generated import (
     SETTA_SDK_CONTRACT_VERSION,
     RunningBackendVersionHandshake,
@@ -24,7 +24,7 @@ def verify_running_backend_compatibility(
     )
     response.raise_for_status()
     handshake = RunningBackendVersionHandshake(**response.json())
-    expected_sdk_version = SETTA_SDK_VERSION.strip()
+    expected_sdk_version = __version__.strip()
     if handshake.sdkVersion != expected_sdk_version:
         raise RuntimeCompatibilityError(
             "Setta SDK/backend version mismatch: "

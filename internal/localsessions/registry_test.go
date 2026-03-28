@@ -71,12 +71,12 @@ func TestRegistryCreateSessionWritesMetadataAndSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load secret: %v", err)
 	}
-	if len(secret) != sessionSecretBytes {
-		t.Fatalf("expected %d secret bytes, got %d", sessionSecretBytes, len(secret))
+	if len(secret) != SessionSecretBytes {
+		t.Fatalf("expected %d secret bytes, got %d", SessionSecretBytes, len(secret))
 	}
 
 	sessionDir := filepath.Join(sessionsRoot, metadata.ID)
-	metadataPath := filepath.Join(sessionDir, sessionMetadataFileName)
+	metadataPath := filepath.Join(sessionDir, SessionMetadataFileName)
 	metadataBytes, err := os.ReadFile(metadataPath)
 	if err != nil {
 		t.Fatalf("read metadata file: %v", err)
@@ -212,7 +212,7 @@ func TestRegistryLoadSessionsAndFindByWorkspaceAndMode(t *testing.T) {
 	if err := os.MkdirAll(invalidDir, 0o755); err != nil {
 		t.Fatalf("mkdir invalid session dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(invalidDir, sessionMetadataFileName), []byte("{not-json}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(invalidDir, SessionMetadataFileName), []byte("{not-json}\n"), 0o644); err != nil {
 		t.Fatalf("write invalid session metadata: %v", err)
 	}
 
@@ -256,7 +256,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 	if err := os.MkdirAll(validSessionDir, 0o755); err != nil {
 		t.Fatalf("mkdir valid session dir: %v", err)
 	}
-	validSecretPath := filepath.Join(validSessionDir, sessionSecretFileName)
+	validSecretPath := filepath.Join(validSessionDir, SessionSecretFileName)
 	if err := os.WriteFile(validSecretPath, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("write valid secret: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 		t.Fatalf("marshal valid metadata: %v", err)
 	}
 	validBytes = append(validBytes, '\n')
-	if err := os.WriteFile(filepath.Join(validSessionDir, sessionMetadataFileName), validBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(validSessionDir, SessionMetadataFileName), validBytes, 0o644); err != nil {
 		t.Fatalf("write valid metadata: %v", err)
 	}
 
@@ -283,7 +283,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 	if err := os.MkdirAll(missingModeDir, 0o755); err != nil {
 		t.Fatalf("mkdir missing-mode session dir: %v", err)
 	}
-	missingModeSecretPath := filepath.Join(missingModeDir, sessionSecretFileName)
+	missingModeSecretPath := filepath.Join(missingModeDir, SessionSecretFileName)
 	if err := os.WriteFile(missingModeSecretPath, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("write missing-mode secret: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
 		t.Fatalf("marshal missing-mode metadata: %v", err)
 	}
 	missingModeBytes = append(missingModeBytes, '\n')
-	if err := os.WriteFile(filepath.Join(missingModeDir, sessionMetadataFileName), missingModeBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(missingModeDir, SessionMetadataFileName), missingModeBytes, 0o644); err != nil {
 		t.Fatalf("write missing-mode metadata: %v", err)
 	}
 
@@ -345,7 +345,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingCanonicalWorkspaceOrRelativeSec
 		WorkspacePathCanonical: workspaceRoot,
 		Host:                   "127.0.0.1",
 		Port:                   61234,
-		SecretPath:             filepath.Join(validSessionDir, sessionSecretFileName),
+		SecretPath:             filepath.Join(validSessionDir, SessionSecretFileName),
 		ServerMode:             "ide",
 		StartedAt:              time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
 	}
@@ -354,7 +354,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingCanonicalWorkspaceOrRelativeSec
 		t.Fatalf("marshal valid metadata: %v", err)
 	}
 	validBytes = append(validBytes, '\n')
-	if err := os.WriteFile(filepath.Join(validSessionDir, sessionMetadataFileName), validBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(validSessionDir, SessionMetadataFileName), validBytes, 0o644); err != nil {
 		t.Fatalf("write valid metadata: %v", err)
 	}
 
@@ -367,7 +367,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingCanonicalWorkspaceOrRelativeSec
 		WorkspacePath: workspaceRoot,
 		Host:          "127.0.0.1",
 		Port:          61235,
-		SecretPath:    filepath.Join(missingCanonicalDir, sessionSecretFileName),
+		SecretPath:    filepath.Join(missingCanonicalDir, SessionSecretFileName),
 		ServerMode:    "ide",
 		StartedAt:     time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
 	}
@@ -376,7 +376,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingCanonicalWorkspaceOrRelativeSec
 		t.Fatalf("marshal missing-canonical metadata: %v", err)
 	}
 	missingCanonicalBytes = append(missingCanonicalBytes, '\n')
-	if err := os.WriteFile(filepath.Join(missingCanonicalDir, sessionMetadataFileName), missingCanonicalBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(missingCanonicalDir, SessionMetadataFileName), missingCanonicalBytes, 0o644); err != nil {
 		t.Fatalf("write missing-canonical metadata: %v", err)
 	}
 
@@ -399,7 +399,7 @@ func TestRegistryLoadSessionsSkipsMetadataMissingCanonicalWorkspaceOrRelativeSec
 		t.Fatalf("marshal relative-secret metadata: %v", err)
 	}
 	relativeSecretBytes = append(relativeSecretBytes, '\n')
-	if err := os.WriteFile(filepath.Join(relativeSecretDir, sessionMetadataFileName), relativeSecretBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(relativeSecretDir, SessionMetadataFileName), relativeSecretBytes, 0o644); err != nil {
 		t.Fatalf("write relative-secret metadata: %v", err)
 	}
 
@@ -430,7 +430,7 @@ func TestRegistryLoadSessionsSkipsRelativeSecretPathMetadata(t *testing.T) {
 	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
 		t.Fatalf("mkdir session dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(sessionDir, sessionSecretFileName), []byte("secret"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(sessionDir, SessionSecretFileName), []byte("secret"), 0o600); err != nil {
 		t.Fatalf("write secret: %v", err)
 	}
 	metadata := auth.SessionMetadata{
@@ -440,7 +440,7 @@ func TestRegistryLoadSessionsSkipsRelativeSecretPathMetadata(t *testing.T) {
 		Host:                   "127.0.0.1",
 		Port:                   61234,
 		PID:                    12345,
-		SecretPath:             sessionSecretFileName,
+		SecretPath:             SessionSecretFileName,
 		ServerMode:             "ide",
 		StartedAt:              time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
 	}
@@ -449,7 +449,7 @@ func TestRegistryLoadSessionsSkipsRelativeSecretPathMetadata(t *testing.T) {
 		t.Fatalf("marshal metadata: %v", err)
 	}
 	metadataBytes = append(metadataBytes, '\n')
-	if err := os.WriteFile(filepath.Join(sessionDir, sessionMetadataFileName), metadataBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(sessionDir, SessionMetadataFileName), metadataBytes, 0o644); err != nil {
 		t.Fatalf("write metadata: %v", err)
 	}
 
@@ -477,7 +477,7 @@ func TestRegistryLoadSecretRejectsRelativeSecretPath(t *testing.T) {
 
 	_, err = registry.LoadSecret(auth.SessionMetadata{
 		ID:         "relative-secret",
-		SecretPath: sessionSecretFileName,
+		SecretPath: SessionSecretFileName,
 		ServerMode: "ide",
 	})
 	if err == nil {
@@ -514,7 +514,7 @@ func TestFilterActiveSessionsPrunesNonSettaProcesses(t *testing.T) {
 }
 
 func TestIsSessionActiveRejectsCurrentPIDWithoutInProcessFlag(t *testing.T) {
-	t.Setenv(inProcessBackendEnvVar, "")
+	t.Setenv(InProcessBackendEnvVar, "")
 
 	session := auth.SessionMetadata{
 		ID:            "current-process",
@@ -527,7 +527,7 @@ func TestIsSessionActiveRejectsCurrentPIDWithoutInProcessFlag(t *testing.T) {
 }
 
 func TestIsSessionActiveKeepsCurrentPIDWithInProcessFlag(t *testing.T) {
-	t.Setenv(inProcessBackendEnvVar, "1")
+	t.Setenv(InProcessBackendEnvVar, "1")
 
 	session := auth.SessionMetadata{
 		ID:            "current-process",

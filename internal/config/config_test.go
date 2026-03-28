@@ -470,7 +470,7 @@ func TestLoadTrimsWorkspaceRootEnv(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: tmpDir,
 		EnvLookup: testEnv{
-			workspaceRootEnv: "  " + workspaceRoot + "  ",
+			WorkspaceRootEnv: "  " + workspaceRoot + "  ",
 		}.lookup,
 		CLI: CLIOptions{
 			SettaHome: settaHome,
@@ -502,7 +502,7 @@ func TestLoadUsesFilesLocationEnvGlobal(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: tmpDir,
 		EnvLookup: testEnv{
-			filesLocationEnv: "global",
+			FilesLocationEnv: "global",
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -543,7 +543,7 @@ func TestLoadTrimsFilesLocationEnvWhitespace(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: tmpDir,
 		EnvLookup: testEnv{
-			filesLocationEnv: "  GLOBAL  ",
+			FilesLocationEnv: "  GLOBAL  ",
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -751,7 +751,7 @@ func TestLoadPrefersExistingLocalRootEvenWhenGlobalRequested(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: tmpDir,
 		EnvLookup: testEnv{
-			filesLocationEnv: "global",
+			FilesLocationEnv: "global",
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -787,7 +787,7 @@ func TestLoadRejectsInvalidFilesLocationEnv(t *testing.T) {
 	_, err := Load(LoadOptions{
 		CWD: tmpDir,
 		EnvLookup: testEnv{
-			filesLocationEnv: "nope",
+			FilesLocationEnv: "nope",
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -935,8 +935,8 @@ func TestLoadIgnoresProfileLookupHomeWithoutSelectedProfile(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: workspaceRoot,
 		EnvLookup: testEnv{
-			settaHomeEnv:         runtimeHome,
-			profileLookupHomeEnv: lookupHome,
+			SettaHomeEnv:         runtimeHome,
+			ProfileLookupHomeEnv: lookupHome,
 		}.lookup,
 	})
 	if err != nil {
@@ -1047,7 +1047,7 @@ func TestResolveSettaHomeUsesTrimmedEnvOverride(t *testing.T) {
 	override := filepath.Join(tmpDir, ".setta")
 
 	resolved, err := resolveSettaHome("", "", testEnv{
-		settaHomeEnv: "  " + override + "  ",
+		SettaHomeEnv: "  " + override + "  ",
 	}.lookup)
 	if err != nil {
 		t.Fatalf("resolve setta home: %v", err)
@@ -1064,7 +1064,7 @@ func TestResolveSettaHomeExpandsEnvOverride(t *testing.T) {
 	t.Setenv("SETTA_HOME_BASE", base)
 
 	resolved, err := resolveSettaHome("", "", testEnv{
-		settaHomeEnv: "$SETTA_HOME_BASE/.setta-development",
+		SettaHomeEnv: "$SETTA_HOME_BASE/.setta-development",
 	}.lookup)
 	if err != nil {
 		t.Fatalf("resolve setta home: %v", err)
@@ -1083,7 +1083,7 @@ func TestDefaultSettaHomeForUnixUsesDotSetta(t *testing.T) {
 	home := filepath.Join(tmpDir, "home")
 
 	resolved, err := defaultSettaHomeFor("linux", testEnv{
-		settaHomeEnv: filepath.Join(tmpDir, "ignored"),
+		SettaHomeEnv: filepath.Join(tmpDir, "ignored"),
 	}.lookup, func() (string, error) {
 		return home, nil
 	})
@@ -1255,7 +1255,7 @@ func TestLoadPrefersEnvSettaFilesRootOverExistingLocalRoot(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: workspaceRoot,
 		EnvLookup: testEnv{
-			filesRootEnv: envRoot,
+			FilesRootEnv: envRoot,
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -1299,7 +1299,7 @@ func TestLoadPrefersProfileSettaFilesRootOverEnvOverride(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: workspaceRoot,
 		EnvLookup: testEnv{
-			filesRootEnv: envRoot,
+			FilesRootEnv: envRoot,
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -1501,8 +1501,8 @@ func TestLoadRejectsConflictingEnvSettaFilesRootAndLocation(t *testing.T) {
 	_, err := Load(LoadOptions{
 		CWD: workspaceRoot,
 		EnvLookup: testEnv{
-			filesRootEnv:     filepath.Join(tmpDir, "state", "setta_files_dev"),
-			filesLocationEnv: "global",
+			FilesRootEnv:     filepath.Join(tmpDir, "state", "setta_files_dev"),
+			FilesLocationEnv: "global",
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -1519,8 +1519,8 @@ func TestLoadRejectsConflictingEnvSettaFilesRootAndLocation(t *testing.T) {
 	if configErr.Code != "InvalidSettaFilesConfig" {
 		t.Fatalf("expected InvalidSettaFilesConfig, got %q", configErr.Code)
 	}
-	if got := configErr.Message; !strings.Contains(got, filesRootEnv) || !strings.Contains(got, filesLocationEnv) {
-		t.Fatalf("expected environment conflict error to mention %s and %s, got %q", filesRootEnv, filesLocationEnv, got)
+	if got := configErr.Message; !strings.Contains(got, FilesRootEnv) || !strings.Contains(got, FilesLocationEnv) {
+		t.Fatalf("expected environment conflict error to mention %s and %s, got %q", FilesRootEnv, FilesLocationEnv, got)
 	}
 }
 
@@ -1587,7 +1587,7 @@ func TestLoadUsesRuntimeRootEnvOverride(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: workspaceRoot,
 		EnvLookup: testEnv{
-			runtimeRootEnv: runtimeRoot,
+			RuntimeRootEnv: runtimeRoot,
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,
@@ -1620,7 +1620,7 @@ func TestLoadTrimsRuntimeRootEnvOverride(t *testing.T) {
 	cfg, err := Load(LoadOptions{
 		CWD: workspaceRoot,
 		EnvLookup: testEnv{
-			runtimeRootEnv: "  " + runtimeRoot + "  ",
+			RuntimeRootEnv: "  " + runtimeRoot + "  ",
 		}.lookup,
 		CLI: CLIOptions{
 			WorkspaceRoot: workspaceRoot,

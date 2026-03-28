@@ -1,6 +1,6 @@
 import json
 
-HEADER_LENGTH_BYTES = 4
+from setta.types.generated.go_shared_constants import HEADER_LENGTH_BYTES
 
 
 def decode_binary_frame(data: bytes) -> tuple[dict[str, object], bytes]:

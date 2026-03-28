@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	sessionMetadataFileName = "session.json"
-	sessionSecretFileName   = "secret"
-	sessionSecretBytes      = 32
+	SessionMetadataFileName = "session.json"
+	SessionSecretFileName   = "secret"
+	SessionSecretBytes      = 32
 	sessionIDBytes          = 3
-	inProcessBackendEnvVar  = "SETTA_IN_PROCESS_BACKEND"
+	InProcessBackendEnvVar  = "SETTA_IN_PROCESS_BACKEND"
 )
 
 type RegistryOptions struct {
@@ -130,8 +130,8 @@ func (r *Registry) CreateSession(input CreateSessionInput) (auth.SessionMetadata
 		}
 	}()
 
-	secretPath := filepath.Join(sessionDir, sessionSecretFileName)
-	secret, err := randomBytes(r.random, sessionSecretBytes)
+	secretPath := filepath.Join(sessionDir, SessionSecretFileName)
+	secret, err := randomBytes(r.random, SessionSecretBytes)
 	if err != nil {
 		return auth.SessionMetadata{}, fmt.Errorf("generate session secret: %w", err)
 	}
@@ -162,7 +162,7 @@ func (r *Registry) CreateSession(input CreateSessionInput) (auth.SessionMetadata
 		return auth.SessionMetadata{}, fmt.Errorf("marshal session metadata: %w", err)
 	}
 	payload = append(payload, '\n')
-	if err := statefs.AtomicWriteFile(filepath.Join(sessionDir, sessionMetadataFileName), payload, 0o644); err != nil {
+	if err := statefs.AtomicWriteFile(filepath.Join(sessionDir, SessionMetadataFileName), payload, 0o644); err != nil {
 		return auth.SessionMetadata{}, fmt.Errorf("write session metadata: %w", err)
 	}
 
@@ -206,7 +206,7 @@ func (r *Registry) LoadSessions() ([]auth.SessionMetadata, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		metadataPath := filepath.Join(r.sessionsRoot, entry.Name(), sessionMetadataFileName)
+		metadataPath := filepath.Join(r.sessionsRoot, entry.Name(), SessionMetadataFileName)
 		metadataBytes, err := os.ReadFile(metadataPath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -400,7 +400,7 @@ func IsSessionActive(session auth.SessionMetadata) bool {
 }
 
 func inProcessBackendEnabled() bool {
-	raw, ok := os.LookupEnv(inProcessBackendEnvVar)
+	raw, ok := os.LookupEnv(InProcessBackendEnvVar)
 	if !ok {
 		return false
 	}

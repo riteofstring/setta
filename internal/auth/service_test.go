@@ -33,7 +33,7 @@ func TestLoadCurrentSessionUsesRuntimeRootFallback(t *testing.T) {
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
 		RuntimeRoot: runtimeRoot,
 		EnvLookup: envMap{
-			sessionIDEnv: sessionID,
+			SessionIDEnv: sessionID,
 		}.lookup,
 	})
 	if err != nil {
@@ -62,8 +62,8 @@ func TestLoadCurrentSessionUsesSessionsRootOverride(t *testing.T) {
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
 		RuntimeRoot: filepath.Join(tmpDir, "unused-runtime"),
 		EnvLookup: envMap{
-			sessionIDEnv:    sessionID,
-			sessionsRootEnv: filepath.Join(overrideRuntimeRoot, "sessions"),
+			SessionIDEnv:    sessionID,
+			SessionsRootEnv: filepath.Join(overrideRuntimeRoot, "sessions"),
 		}.lookup,
 	})
 	if err != nil {
@@ -95,7 +95,7 @@ func TestLoadCurrentSessionPrefersExplicitEnvSession(t *testing.T) {
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
 		RuntimeRoot: runtimeRoot,
 		EnvLookup: envMap{
-			sessionIDEnv: "session-b",
+			SessionIDEnv: "session-b",
 		}.lookup,
 	})
 	if err != nil {
@@ -149,7 +149,7 @@ func TestLoadCurrentSessionReturnsNilWhenSecretMissing(t *testing.T) {
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
 		RuntimeRoot: runtimeRoot,
 		EnvLookup: envMap{
-			sessionIDEnv: sessionID,
+			SessionIDEnv: sessionID,
 		}.lookup,
 	})
 	if err != nil {
@@ -180,7 +180,7 @@ func TestLoadCurrentSessionReturnsNilWhenCanonicalWorkspacePathMissing(t *testin
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
 		RuntimeRoot: runtimeRoot,
 		EnvLookup: envMap{
-			sessionIDEnv: sessionID,
+			SessionIDEnv: sessionID,
 		}.lookup,
 	})
 	if err != nil {
@@ -211,7 +211,7 @@ func TestLoadCurrentSessionReturnsNilWhenServerModeMissing(t *testing.T) {
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
 		RuntimeRoot: runtimeRoot,
 		EnvLookup: envMap{
-			sessionIDEnv: sessionID,
+			SessionIDEnv: sessionID,
 		}.lookup,
 	})
 	if err != nil {
@@ -232,7 +232,7 @@ func TestLoadCurrentSessionReturnsNilAfterSecretDeletedOnLaterCall(t *testing.T)
 	metadata := writeSessionFixture(t, runtimeRoot, sessionID, secret)
 
 	envLookup := envMap{
-		sessionIDEnv: sessionID,
+		SessionIDEnv: sessionID,
 	}.lookup
 
 	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
@@ -745,7 +745,7 @@ func newTestService(t *testing.T, profileCookieName string) *Service {
 		RuntimeRoot:       runtimeRoot,
 		ProfileCookieName: profileCookieName,
 		EnvLookup: envMap{
-			sessionIDEnv: sessionID,
+			SessionIDEnv: sessionID,
 		}.lookup,
 	})
 	if err != nil {

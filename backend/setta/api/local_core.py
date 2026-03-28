@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from setta import __version__ as SETTA_SDK_VERSION
+from setta import __version__
 from setta.api.runtime_compat import RuntimeCompatibilityError
 from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
 from setta.sdk_contracts.generated import (
@@ -16,10 +16,9 @@ from setta.sdk_contracts.generated import (
     LocalCoreResultEnvelope,
     LocalCoreVersionHandshake,
 )
-
-_LOCAL_CORE_PROTOCOL_VERSION = 1
-_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES = (
-    "listener_render_realtime_dependency_values"
+from setta.types.generated.go_shared_constants import (
+    LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
+    LOCAL_CORE_PROTOCOL_VERSION,
 )
 
 
@@ -42,7 +41,7 @@ class LocalCoreClient:
             state = await asyncio.to_thread(self._ensure_started)
             envelope = LocalCoreCommandEnvelope(
                 callId=uuid4().hex,
-                commandName=_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
+                commandName=LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
                 payload=request.model_dump(mode="json"),
             )
             raw_result = await asyncio.to_thread(
@@ -143,11 +142,11 @@ class LocalCoreClient:
         )
 
     def _verify_handshake(self, handshake: LocalCoreVersionHandshake) -> None:
-        expected_sdk_version = SETTA_SDK_VERSION.strip()
-        if handshake.protocolVersion != _LOCAL_CORE_PROTOCOL_VERSION:
+        expected_sdk_version = __version__.strip()
+        if handshake.protocolVersion != LOCAL_CORE_PROTOCOL_VERSION:
             raise RuntimeCompatibilityError(
                 "Setta local core protocol mismatch: "
-                f"python={_LOCAL_CORE_PROTOCOL_VERSION} "
+                f"python={LOCAL_CORE_PROTOCOL_VERSION} "
                 f"local_core={handshake.protocolVersion}"
             )
         if handshake.sdkVersion != expected_sdk_version:

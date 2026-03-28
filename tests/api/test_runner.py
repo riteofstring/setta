@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 import setta.api.runner as runner_mod
-from setta import __version__ as SETTA_SDK_VERSION
+from setta import __version__
 from setta.api.runner import RunOverride, RunPlan, SettaRunner
 from setta.auth.cookies import auth_cookie_name
 from setta.sdk_contracts.generated import (
@@ -16,10 +16,10 @@ from setta.sdk_contracts.generated import (
     SETTA_SDK_CONTRACT_VERSION,
     RunningBackendVersionHandshake,
 )
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.generated.go_shared_types import DependencyKeyType, ProjectConfig
+from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
 from setta.types.id import ID
 from setta.types.protocol import SectionParamDependencyKey
 from setta.utils.constants import C
@@ -339,7 +339,7 @@ def test_post_resolves_auth_headers_once_and_reuses_session_headers(
         runtime_compat_calls += 1
         assert base_url == "http://example.com"
         return RunningBackendVersionHandshake(
-            sdkVersion=SETTA_SDK_VERSION,
+            sdkVersion=__version__,
             coreVersion="dev",
             sdkContractVersion=SETTA_SDK_CONTRACT_VERSION,
         )

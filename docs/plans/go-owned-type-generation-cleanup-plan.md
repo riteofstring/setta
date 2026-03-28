@@ -116,8 +116,9 @@ That means:
   - `pnpm full-cleanup`
   - `frontend/scripts/runKnip.mjs`
   - `pnpm gcf`
-- `backend/setta/types/generated/` has been collapsed to a single real generated file:
+- `backend/setta/types/generated/` has been collapsed to a minimal generated surface:
   - `backend/setta/types/generated/go_shared_types.py`
+  - `backend/setta/types/generated/go_shared_constants.py`
 - The dead Python-owned impl and union generation layer is gone:
   - removed `section_impls.py`
   - removed `code_obj_impls.py`
@@ -951,12 +952,12 @@ Work:
 
 ### Phase 4: Collapse the Python package surface further
 After the Go owners exist:
-- update Python imports to use `go_shared_types.py`
+- update Python imports to use `go_shared_types.py` and `go_shared_constants.py` where appropriate
 - delete the handwritten mirror files that become unnecessary
 - rerun pruning and formatting
 
 Success condition:
-- `backend/setta/types/` contains only genuinely Python-only files plus `generated/go_shared_types.py`
+- `backend/setta/types/` contains only genuinely Python-only files plus the generated shared types/constants modules
 
 ### Phase 5: Stabilize the full generation plus cleanup workflow
 Target scripts:
@@ -1001,7 +1002,7 @@ Add targeted frontend verification as generator ownership changes land.
 
 ## Acceptance Criteria
 - New shared backend types do not require hand-appending large root inventories.
-- `backend/setta/types/generated/` stays collapsed to a single generated shared-types file.
+- `backend/setta/types/generated/` stays collapsed to a minimal generated shared surface instead of regrowing handwritten mirrors.
 - `backend/setta/types/` no longer contains handwritten mirrors of Go-owned shared types.
 - Go -> Python follows the broad pattern: discover, generate, prune.
 - Go -> TypeScript follows the broad pattern: discover, generate, cleanup-prune.

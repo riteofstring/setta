@@ -6,7 +6,7 @@ import (
 	"errors"
 )
 
-const binaryHeaderLengthBytes = 4
+const BinaryHeaderLengthBytes = 4
 
 var (
 	ErrBinaryFrameTooShort        = errors.New("realtime: binary frame too short to include header length")
@@ -21,25 +21,25 @@ func EncodeBinaryFrame(header any, payload []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	frame := make([]byte, binaryHeaderLengthBytes+len(headerBytes)+len(payload))
-	binary.BigEndian.PutUint32(frame[:binaryHeaderLengthBytes], uint32(len(headerBytes)))
-	copy(frame[binaryHeaderLengthBytes:], headerBytes)
-	copy(frame[binaryHeaderLengthBytes+len(headerBytes):], payload)
+	frame := make([]byte, BinaryHeaderLengthBytes+len(headerBytes)+len(payload))
+	binary.BigEndian.PutUint32(frame[:BinaryHeaderLengthBytes], uint32(len(headerBytes)))
+	copy(frame[BinaryHeaderLengthBytes:], headerBytes)
+	copy(frame[BinaryHeaderLengthBytes+len(headerBytes):], payload)
 	return frame, nil
 }
 
 func DecodeBinaryFrame(data []byte) (json.RawMessage, []byte, error) {
-	if len(data) < binaryHeaderLengthBytes {
+	if len(data) < BinaryHeaderLengthBytes {
 		return nil, nil, ErrBinaryFrameTooShort
 	}
 
-	headerLength := int(binary.BigEndian.Uint32(data[:binaryHeaderLengthBytes]))
-	headerEnd := binaryHeaderLengthBytes + headerLength
+	headerLength := int(binary.BigEndian.Uint32(data[:BinaryHeaderLengthBytes]))
+	headerEnd := BinaryHeaderLengthBytes + headerLength
 	if len(data) < headerEnd {
 		return nil, nil, ErrBinaryFrameHeaderPartial
 	}
 
-	header := append(json.RawMessage(nil), data[binaryHeaderLengthBytes:headerEnd]...)
+	header := append(json.RawMessage(nil), data[BinaryHeaderLengthBytes:headerEnd]...)
 	var decoded any
 	if err := json.Unmarshal(header, &decoded); err != nil {
 		return nil, nil, ErrBinaryFrameHeaderJSON

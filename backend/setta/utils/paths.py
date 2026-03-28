@@ -5,7 +5,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, cast
 
-from setta.utils.env_vars import (
+from setta.types.generated.go_shared_constants import (
+    ALLOWED_SETTA_FILES_ROOT_SEGMENTS,
+)
+from setta.types.generated.go_shared_constants import (
+    ALLOWED_SETTA_HOME_NAMES,
+)
+from setta.types.generated.go_shared_constants import (
     FILES_LOCATION_ENV,
     FILES_ROOT_ENV,
     PROFILE_ENV,
@@ -25,8 +31,6 @@ from setta.utils.user_config import load_setta_user_config
 
 SettaFilesLocation = Literal["auto", "local", "global"]
 ResolvedSettaFilesLocation = Literal["local", "global"]
-_ALLOWED_SETTA_HOME_NAMES = frozenset({".setta", ".setta-development"})
-_ALLOWED_SETTA_FILES_ROOT_SEGMENTS = frozenset({"setta_files", "setta_files_dev"})
 
 
 class SettaPathsError(ValueError):
@@ -524,18 +528,18 @@ def _sanitize_leaf(value: str) -> str:
 
 
 def _validate_setta_home_name(path: Path, *, label: str) -> None:
-    if path.name in _ALLOWED_SETTA_HOME_NAMES:
+    if path.name in ALLOWED_SETTA_HOME_NAMES:
         return
-    allowed = ", ".join(sorted(_ALLOWED_SETTA_HOME_NAMES))
+    allowed = ", ".join(sorted(ALLOWED_SETTA_HOME_NAMES))
     raise InvalidSettaHomeError(
         f"{label} must end with one of: {allowed}. Received: {path}"
     )
 
 
 def _validate_setta_files_root_path(path: Path) -> None:
-    if any(part in _ALLOWED_SETTA_FILES_ROOT_SEGMENTS for part in path.parts):
+    if any(part in ALLOWED_SETTA_FILES_ROOT_SEGMENTS for part in path.parts):
         return
-    allowed = ", ".join(sorted(_ALLOWED_SETTA_FILES_ROOT_SEGMENTS))
+    allowed = ", ".join(sorted(ALLOWED_SETTA_FILES_ROOT_SEGMENTS))
     raise InvalidSettaFilesRootError(
         f"Setta files root must include one of these folder names: {allowed}. Received: {path}"
     )

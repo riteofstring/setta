@@ -11,7 +11,7 @@ import (
 	"setta/internal/statefs"
 )
 
-const passwordStoreFileName = "passwords.json"
+const PasswordStoreFileName = "passwords.json"
 
 type PasswordSecretStore interface {
 	Get(implID string) (string, error)
@@ -45,7 +45,7 @@ func NewFilePasswordSecretStore(runtimeRoot string) (*FilePasswordSecretStore, e
 		return nil, fmt.Errorf("resolve runtime root: %w", err)
 	}
 	return &FilePasswordSecretStore{
-		path: filepath.Join(resolvedRuntimeRoot, "secrets", passwordStoreFileName),
+		path: filepath.Join(resolvedRuntimeRoot, "secrets", PasswordStoreFileName),
 	}, nil
 }
 
