@@ -1,6 +1,5 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
-import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, {
   useCallback,
@@ -51,6 +50,7 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
+import { buildLiveDictAreaEdgeStripVisualPacket } from "./groupContainerEdgeStripVisualPacket";
 import { buildLiveDictAreaNodeLayoutView } from "./groupContainerNodeLayoutView";
 import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
 import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
@@ -601,8 +601,28 @@ function EdgesStrip({
   );
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
-  const selectedParamIdSet = new Set(selectedParams);
   const canConnect = canEditStructure && !isSelectingParams;
+  const edgeStripVisualPacket = useMemo(
+    () =>
+      buildLiveDictAreaEdgeStripVisualPacket({
+        canConnect,
+        inputPorts,
+        isSelectingParams,
+        outputPorts,
+        rendererPacket,
+        selectedParamIds: selectedParams,
+        shouldRoundBottom,
+      }),
+    [
+      canConnect,
+      inputPorts,
+      isSelectingParams,
+      outputPorts,
+      rendererPacket,
+      selectedParams,
+      shouldRoundBottom,
+    ],
+  );
   const handlePreventSectionClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
   const rowPreventSectionClassName = isSelectingParams
     ? handlePreventSectionClassName
@@ -703,12 +723,12 @@ function EdgesStrip({
     };
   }, [heightKey]);
 
-  if (!hasEdges) {
+  if (!edgeStripVisualPacket) {
     return null;
   }
 
   let roundedBottomClassName = "";
-  if (shouldRoundBottom) {
+  if (edgeStripVisualPacket.shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
       ? "rounded-b-sm"
       : "rounded-b-xl";
@@ -720,8 +740,8 @@ function EdgesStrip({
       ref={stripRef}
       data-params-fixed="true"
       {...getDictAreaBlockFrameDataProps({
-        blockId: rendererPacket.blockId,
-        frame: rendererPacket.mount,
+        blockId: edgeStripVisualPacket.blockId,
+        frame: edgeStripVisualPacket.mount,
       })}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
@@ -729,26 +749,26 @@ function EdgesStrip({
           <div
             className={`text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
-            In
+            {edgeStripVisualPacket.inputColumn.title}
           </div>
           <div className="-ml-2 flex flex-col gap-1 pt-1">
-            {inputPorts.map((port) => (
+            {edgeStripVisualPacket.inputColumn.ports.map((port) => (
               <div
                 key={port.id}
                 className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowHoverClassName} ${
-                  selectedParamIdSet.has(port.id)
+                  port.isSelected
                     ? edgeRowSelectedClassName
                     : edgeRowTextColorClassName
-                } ${isSelectingParams ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
+                } ${port.isSelectable ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
                 onMouseDown={(e) => {
-                  if (!isSelectingParams) {
+                  if (!port.isSelectable) {
                     return;
                   }
                   e.stopPropagation();
                   e.preventDefault();
                 }}
                 onClick={(e) => {
-                  if (!isSelectingParams) {
+                  if (!port.isSelectable) {
                     return;
                   }
                   e.stopPropagation();
@@ -759,16 +779,16 @@ function EdgesStrip({
               >
                 <Handle
                   id={port.id}
-                  type="target"
-                  position={HandlePosition.Left}
+                  type={port.handleType}
+                  position={port.handlePosition}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={canConnect}
-                  isConnectableStart={canConnect}
-                  isConnectableEnd={canConnect}
+                  isConnectable={edgeStripVisualPacket.canConnect}
+                  isConnectableStart={edgeStripVisualPacket.canConnect}
+                  isConnectableEnd={edgeStripVisualPacket.canConnect}
                   className={`arg-edge-handle arg-edge-handle--target ${handlePreventSectionClassName} ${handleSelectableClassName}`}
                   onClick={(e) => {
-                    if (!isSelectingParams) {
+                    if (!port.isSelectable) {
                       return;
                     }
                     e.stopPropagation();
@@ -790,10 +810,10 @@ function EdgesStrip({
           <div
             className={`text-right text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
-            Out
+            {edgeStripVisualPacket.outputColumn.title}
           </div>
           <div className="-mr-2 flex flex-col gap-1 pt-1">
-            {outputPorts.map((port) => (
+            {edgeStripVisualPacket.outputColumn.ports.map((port) => (
               <div
                 key={port.id}
                 className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowTextColorClassName} ${edgeRowHoverClassName}`}
@@ -801,13 +821,13 @@ function EdgesStrip({
                 <span className="truncate">{port.label}</span>
                 <Handle
                   id={port.id}
-                  type="source"
-                  position={HandlePosition.Right}
+                  type={port.handleType}
+                  position={port.handlePosition}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={canConnect}
-                  isConnectableStart={canConnect}
-                  isConnectableEnd={canConnect}
+                  isConnectable={edgeStripVisualPacket.canConnect}
+                  isConnectableStart={edgeStripVisualPacket.canConnect}
+                  isConnectableEnd={edgeStripVisualPacket.canConnect}
                   className={`arg-edge-handle arg-edge-handle--source ${handlePreventSectionClassName}`}
                 />
               </div>

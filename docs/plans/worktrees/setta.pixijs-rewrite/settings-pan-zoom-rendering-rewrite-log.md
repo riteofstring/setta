@@ -814,7 +814,34 @@ Record:
     - result: passed
   - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
     - `/settings` loaded in the authenticated worktree session with `All Settings` visible
-    - the dict/param area still rendered normally, with representative labels and controls including `defaultZoomLevel 1.0`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Selection Mode`, `Dropzone Param`, `Nested Param`, `Password Param`, `Time Param`, and the `Size Mode Height` / `Size Mode Width` selectors
+      - the dict/param area still rendered normally, with representative labels and controls including `defaultZoomLevel 1.0`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Selection Mode`, `Dropzone Param`, `Nested Param`, `Password Param`, `Time Param`, and the `Size Mode Height` / `Size Mode Width` selectors
     - relevant requests returned `200`, including `/api/loadSettings`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/plugins/runtime`, `/api/getAgentProfiles`, `/api/getPromptTemplates`, `/api/getExternalAgentConfigs`, `/api/getExternalAgentHealth`, `/api/getEngineConfigs`, `/api/getTranscriptionProfiles`, `/api/getFileBrowserRoot`, `/api/getFolderContents`, and `/api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next bounded scene-owned block visual packet from this renderer-packet boundary before any broad Pixi node drawing lands.
+
+## 2026-03-26 032
+
+- Item: Extract the first scene-owned edge-strip visual packet from the dict-area renderer boundary.
+- Status: `done`
+- Details:
+  - Added a pure typed visual-packet helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripVisualPacket.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripVisualPacket.test.ts`
+  - Kept the current non-Pixi DOM edge-strip surface stable by routing `EdgesStrip` through the new visual packet instead of branching directly on raw port arrays and selection state:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts input/output edge-strip ports into explicit visual columns with stable handle side/type metadata
+    - carries per-port selection/selectability state for the input side without leaving that shaping inline in `EdgesStrip`
+    - preserves the existing DOM edge-strip behavior while exposing a cleaner scene-owned visual contract for the first block-specific canary surface
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripVisualPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerSceneRendererPackets.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+      - `All Settings` stayed visible and the dict/param shell rendered normally with representative controls including `Open section in floating window`, `Lock position and size`, `Minimize section`, `Delete section`, `Add arg`, and `Remove arg`
+      - a distinct edge-strip row/handle was not visible in the current viewport, so the CDP pass verified the visible settings shell and dict/param surface rather than the edge-strip block itself
+      - relevant requests returned `200`, including `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/getDefaultConfigName`, `POST /api/loadProjectConfig`, `POST /api/setActiveViewMode`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next bounded scene-owned block visual packet from the renderer boundary, starting with the pinned param-area block before any broad Pixi node drawing lands.
