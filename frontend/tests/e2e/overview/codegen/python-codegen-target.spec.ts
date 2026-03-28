@@ -830,6 +830,65 @@ test("generated python import fixes auto-refetch callable params without manual 
   }
 });
 
+test("ui config does not crash when callable params appear and the callable is reselected", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const sectionId = await createCallableSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+    const sectionChrome = sectionNode
+      .locator(`section[data-section-id="${sectionId}"]`)
+      .first();
+    await expect(sectionChrome).toBeVisible();
+
+    await sectionChrome.click();
+    const uiConfigTab = page.getByTestId("ui-editor-tab-ui-config");
+    await expect(uiConfigTab).toBeVisible();
+    await uiConfigTab.click();
+
+    await setCallableFromUi(page, sectionId, "math.sqrt");
+    await setGenCodePrefixFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      "import math\n",
+    );
+
+    const paramInfoId = await getFirstParamInfoId(page, sectionId);
+    await expect(
+      sectionNode.locator(`[id="ParamContainer-${sectionId}-${paramInfoId}"]`),
+    ).toBeVisible();
+
+    const latestState = await loadCodegenProjectState(page);
+    const generatedSectionId = latestState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+
+    await page
+      .locator(`.react-flow__node[data-id="${generatedSectionId}"]`)
+      .click();
+    await sectionChrome.click();
+
+    await expect(page.getByText("Unhandled Thrown Error!")).toHaveCount(0);
+    await expect(page.locator("#UiEditorPane")).toBeVisible();
+    await expect(
+      sectionNode.locator(`[id="ParamContainer-${sectionId}-${paramInfoId}"]`),
+    ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("generated python updates when text section text changes", async ({
   page,
 }) => {
