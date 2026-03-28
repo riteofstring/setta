@@ -228,6 +228,7 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-bg-color="bg:Code"');
     expect(markup).toContain('data-layout-variant="tight"');
     expect(markup).not.toContain("data-joined-code-terminal-group");
+    expect(markup).not.toContain('class="-mt-px"');
   });
 
   it("keeps the joined code-terminal wrapper and passes the lifted body through the joined core branch", () => {
@@ -253,5 +254,6 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-joined-corners="code-terminal-parent"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain('data-layout-variant="tight"');
+    expect(markup).toContain('class="-mt-px"');
   });
 });

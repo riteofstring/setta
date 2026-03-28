@@ -2638,3 +2638,30 @@ Record:
       - remaining console noise was limited to existing React 19 `element.ref` warnings
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `ManyNestedSectionsBody.tsx` boundary into the next higher-level nested-section caller in `frontend/src/components/Section/Container/SectionContainer.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 099
+
+- Item: Lift the `ManyNestedSectionsBody.tsx` boundary into the next higher-level nested-section caller in `frontend/src/components/Section/Container/SectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated nested-sections boundary plus a pure typed helper above the existing `MaybeManyNestedSections` caller:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerNestedSectionsView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerNestedSectionsView.test.ts`
+  - Updated `frontend/src/components/Section/Container/SectionContainer.tsx` to consume the new boundary instead of owning the final `MaybeManyNestedSections` mount plus joined code-terminal `-mt-px` wrapper inline.
+  - Kept the current non-Pixi nested-section DOM path intact while lifting the next caller boundary one level higher:
+    - the new helper now owns the deterministic direct-vs-wrapped nested-section routing for standard containers versus joined code-terminal groups
+    - `SectionContainer.tsx` now stays focused on store selection, core body construction, joined-shell outline chrome, and the higher-level container branch
+  - Updated the existing section-container test to cover the lifted nested-sections seam:
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerNestedSectionsView.test.ts src/components/Section/Container/SectionContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - authenticated `/settings` successfully and the visible settings shell plus nested section/dict-param area rendered normally with no obvious clipping, overlap, or missing content after the lifted nested-sections boundary wiring
+    - representative visible labels included `All Settings`, `dictSectionDefault`, `textParamCodeObjDefault`, `dateParamCodeObjDefault`, and `groupSectionDefault`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `SectionContainerNestedSections.tsx` boundary into the next higher-level caller in `frontend/src/components/Section/Container/SortableSectionBody.tsx` before any broad Pixi node drawing lands.

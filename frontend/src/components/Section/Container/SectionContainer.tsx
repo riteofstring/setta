@@ -18,9 +18,9 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
-import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 import { SectionContainerCoreBody } from "./SectionContainerCoreBody";
+import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import { buildSectionContainerView } from "./sectionContainerView";
 import { getOutlineColor } from "./utils";
 
@@ -117,7 +117,10 @@ function _SectionContainer({
   }
 
   const nestedSections = (
-    <MaybeManyNestedSections {...view.nestedSectionsProps} />
+    <SectionContainerNestedSections
+      {...view.nestedSectionsProps}
+      isJoinedCodeTerminalGroup={view.kind === "joined-code-terminal-group"}
+    />
   );
   const core = view.core ? (
     <SectionContainerCore
@@ -151,7 +154,7 @@ function _SectionContainer({
             >
               <AgenticEdgeHandles isUserView={isUserView} />
               {core}
-              <div className="-mt-px">{nestedSections}</div>
+              {nestedSections}
             </div>
           ) : (
             <>
