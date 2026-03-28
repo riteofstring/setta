@@ -6473,3 +6473,39 @@ Record:
     - relevant requests returned `200`, including `POST /api/loadSettings` and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the live retained-scene slice by starting the first focused editor-overlay or interaction handoff on top of the now-stable non-interactive Pixi node-body canary.
+
+## 2026-03-28 212
+
+- Item: Add the first on-demand DOM editor-overlay handoff on top of the live `pixi-node-body` dict-area canary.
+- Status: `done`
+- Details:
+  - Added a dedicated Pixi overlay shell so the live canary can stay scene-rendered by default but hand off into the existing DOM dict-area shell on demand instead of remaining fully non-interactive:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/groupContainerShell.tsx`
+  - The new handoff stays bounded to the live Pixi canary path:
+    - the existing fixed-height measurement markers remain active for the Pixi shell
+    - the live Pixi scene still mounts first and stays present underneath the overlay
+    - a transparent handoff activator now mounts the existing `LiveDictAreaMount` shell as an absolute overlay only after explicit user activation
+  - Added focused coverage for the new handoff boundary:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - This keeps the current retained-scene slice moving without inventing another seam-lift hop:
+    - the first handoff is intentionally a whole-shell DOM overlay for the canary
+    - thinner row/editor overlays and first-click parity can build on this handoff in later slices
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.tsx src/components/Params/groupContainerShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - opened `All Settings`, clicked the handoff selector `[data-live-dict-area-editor-handoff="available"]`, and confirmed `[data-live-dict-area-editor-overlay="active"]`
+    - the overlay subtree contained live `ParamContainer` DOM while Pixi canvases remained mounted underneath
+    - no obvious visible regression was observed in the checked viewport
+- Next action:
+  - Continue the live retained-scene slice by replacing this whole-shell overlay handoff with the first thinner targeted row/editor overlay on the Pixi canary, starting with a value-row activation path.

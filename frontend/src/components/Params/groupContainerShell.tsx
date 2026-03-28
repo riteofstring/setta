@@ -1,10 +1,6 @@
-import {
-  LiveDictAreaMount,
-  type LiveDictAreaMountProps,
-} from "./groupContainerLiveDictAreaMount";
+import type { LiveDictAreaMountProps } from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
-import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout";
-import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
+import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
 
 export type GroupContainerShellProps = {
   liveDictAreaMountProps: LiveDictAreaMountProps;
@@ -33,47 +29,13 @@ export function GroupContainerShell({
         </div>
       )}
       {renderMode === "pixi-node-body" && liveDictAreaSceneBoundary ? (
-        <LiveDictAreaPixiFixedMeasurementMarkers
-          liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
-        />
-      ) : null}
-      {renderMode === "pixi-node-body" && liveDictAreaSceneBoundary ? (
-        <LiveDictAreaPixiScene
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={liveDictAreaMountProps}
           liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
         />
       ) : (
         <LiveDictAreaMount {...liveDictAreaMountProps} />
       )}
-    </div>
-  );
-}
-
-function LiveDictAreaPixiFixedMeasurementMarkers({
-  liveDictAreaSceneBoundary,
-}: {
-  liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
-}) {
-  const measurements = buildLiveDictAreaPixiFixedMeasurements({
-    liveDictAreaSceneBoundary,
-  });
-
-  if (measurements.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute left-0 top-0 w-px opacity-0"
-    >
-      {measurements.map((measurement) => (
-        <div
-          key={measurement.blockId}
-          data-live-dict-area-fixed-measurement={measurement.blockId}
-          data-params-fixed="true"
-          style={{ height: `${measurement.height}px` }}
-        />
-      ))}
     </div>
   );
 }

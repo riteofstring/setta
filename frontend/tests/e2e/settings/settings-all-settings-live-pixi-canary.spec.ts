@@ -70,3 +70,62 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result?.rowCount).toBeGreaterThan(0);
   expect(result?.localParamContainerCount).toBe(0);
 });
+
+test("all settings canary can hand off from the Pixi scene into the live DOM editor overlay", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.addInitScript(
+    ({ mode, storageKey }) => {
+      window.sessionStorage.setItem(storageKey, mode);
+    },
+    {
+      mode: LIVE_PIXI_MODE,
+      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
+    },
+  );
+
+  const url = new URL(SETTINGS_URL);
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  const handoffButton = page
+    .locator("[data-live-dict-area-editor-handoff='available']")
+    .first();
+  await expect(handoffButton).toBeVisible();
+  await handoffButton.click();
+
+  await page.waitForSelector("[data-live-dict-area-editor-overlay='active']");
+
+  const overlayMetrics = await page.waitForFunction(() => {
+    const overlay = document.querySelector<HTMLElement>(
+      "[data-live-dict-area-editor-overlay='active']",
+    );
+    if (!overlay) {
+      return null;
+    }
+
+    return {
+      localParamContainerCount: overlay.querySelectorAll(
+        '[id^="ParamContainer-"]',
+      ).length,
+      sceneCanvasCount: document.querySelectorAll(
+        "[data-live-dict-area-scene='pixi'] canvas",
+      ).length,
+    };
+  });
+
+  const result = await overlayMetrics.jsonValue();
+
+  expect(result).not.toBeNull();
+  expect(result?.localParamContainerCount).toBeGreaterThan(0);
+  expect(result?.sceneCanvasCount).toBeGreaterThan(0);
+});
