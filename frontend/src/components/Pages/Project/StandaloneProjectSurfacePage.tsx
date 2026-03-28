@@ -22,17 +22,11 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
-import {
-  type SectionType,
-} from "utils/generatedTypes";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
 import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
 import { shallow } from "zustand/shallow";
-import { LoadingSpinner } from "../LoadingSpinner";
-import { NotFound } from "../NotFound/NotFound";
+import { StandaloneProjectSurfacePageBoundary } from "./StandaloneProjectSurfacePageBoundary";
 import {
-  StandaloneManagedChatBlockedSurface,
-  StandaloneProjectSurfaceRouteBoundary,
   type StandaloneSurfaceErrorCode,
   type StandaloneSurfaceTarget,
 } from "./StandaloneProjectSurfaceRouteBoundary";
@@ -391,20 +385,11 @@ export function StandaloneProjectSurfacePageWithLoadState({
     target,
   ]);
 
-  if (!resolvedDoneLoading) {
-    return <LoadingSpinner />;
-  }
-
-  if (resolvedIs404) {
-    return <NotFound />;
-  }
-
-  if (shouldBlockStandaloneManagedChat) {
-    return <StandaloneManagedChatBlockedSurface />;
-  }
-
   return (
-    <StandaloneProjectSurfaceRouteBoundary
+    <StandaloneProjectSurfacePageBoundary
+      doneLoading={resolvedDoneLoading}
+      is404={resolvedIs404}
+      shouldBlockStandaloneManagedChat={shouldBlockStandaloneManagedChat}
       projectConfigId={projectConfigId}
       target={target}
       standaloneWindowSpace={standaloneWindowSpace}
