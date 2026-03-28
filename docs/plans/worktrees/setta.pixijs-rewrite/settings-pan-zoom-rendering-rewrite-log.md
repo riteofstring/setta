@@ -3618,3 +3618,30 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, `POST /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining route-group assembly seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still combines the lifted standalone app-route stack with the top-level non-standalone route definitions before any broad Pixi node drawing lands.
+
+## 2026-03-27 132
+
+- Item: Lift the remaining route-group assembly seam out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed top-level route-stack helper above the lifted standalone route-stack boundary:
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of constructing the non-standalone top-level route objects inline before passing them into `buildStandaloneProjectSurfaceAppRouteStack(...)`.
+  - The new helper now owns the non-Pixi route-group assembly seam for:
+    - turning the caller-owned mode route-element groups into the canonical top-level `index`, `home`, `workspaceLaunch`, `viewMode`, `project`, and `catchAll` route objects
+    - handing the resulting top-level route objects plus the standalone app/launcher route elements off to the already-lifted standalone app-route stack boundary
+    - leaving `router.tsx` focused on route-element ownership, workspace-launch policy resolution, and final router creation instead of the last inline route-group object assembly
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedAppRouteStack.test.tsx src/components/Pages/router.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`3` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in fresh sub-agent contexts
+    - the provided bootstrap token was rejected in those browser sessions, so verification reused an existing authenticated worktree tab
+    - `http://127.0.0.1:3044/settings` rendered cleanly with visible `Settings`, `Connected to server`, and a link back to `/home`
+    - `http://127.0.0.1:3044/settings/chat` rendered cleanly with visible controls including `Search conversations`, `New Chat`, `View Threads`, `Project AI Settings`, `Search in conversation`, `Start a new thread`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Type a message...`, and `Send message`
+    - representative requests returned `200`, including `GET /api/backendInitStatus`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/plugins/runtime`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getExternalAgentHealth`, `GET /api/getEngineConfigs`, `GET /api/getTranscriptionProfiles`, and `POST /api/getFileBrowserRoot`
+    - standalone section-route behavior remained covered by the targeted Playwright route spec in this verification pass
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining router-creation seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still feeds the assembled app route stack into `createBrowserRouter(...)` before any broad Pixi node drawing lands.
