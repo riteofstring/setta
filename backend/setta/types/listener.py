@@ -1,51 +1,23 @@
-from enum import Enum
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
-
-from setta.types.generated.dependency_keys import (
-    BaseDependencyKeyUnionWithDiscriminator,
+from pydantic import Field, PrivateAttr
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEvent as SDKListenerDependencyEvent,
 )
-from setta.types.generated.dependency_values import (
-    BaseDependencyValueUnionWithDiscriminator,
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
 )
-from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
-from setta.types.id import ID
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
+)
 
 
-class ListenerDependencyMode(str, Enum):
-    REFRESH_ONLY = "refresh_only"
-    REALTIME_ONLY = "realtime_only"
-    ALWAYS = "always"
+class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
+    deltas: list["ListenerRealtimeDelta"] = Field(default_factory=list)
 
 
-class ListenerInitContent(BaseModel):
-    projectConfigId: ID | None = None
-    projectName: str | None = None
-    useTemporaryIds: bool = False
-
-    @model_validator(mode="after")
-    def _validate_identifier(self):
-        if self.projectConfigId is None and self.projectName is None:
-            raise ValueError(
-                "ListenerInitContent requires either projectConfigId or projectName"
-            )
-        return self
-
-
-class ListenerRealtimeEventContent(BaseModel):
-    projectConfigId: ID
-    shareSessionId: str | None = None
-    deltas: list["ListenerRealtimeDelta"]
-    sequence: int
-
-
-class DependencyEvent(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    payload: BaseDependencyValueUnionWithDiscriminator | None = None
-    timestampMs: int
+class DependencyEvent(SDKListenerDependencyEventEntry):
     _binary_payload: bytes | None = PrivateAttr(default=None)
 
     @property
@@ -57,77 +29,11 @@ class DependencyEvent(BaseModel):
         self._binary_payload = value
 
 
-class RealtimeDependencyEventContent(BaseModel):
-    projectConfigId: ID
-    dependencyEvent: DependencyEvent
+class ListenerDependencyEventContent(SDKListenerDependencyEvent):
+    dependencyEvents: list[DependencyEvent] = Field(default_factory=list)
 
 
-class ListenerDependencyEventContent(BaseModel):
-    projectConfigId: ID
-    shareSessionId: str | None = None
-    dependencyEvents: list[DependencyEvent]
-    sequence: int
-
-
-class ListenerForceRefreshContent(BaseModel):
-    shareSessionId: str | None = None
-    projectState: ProjectStateSingleConfig | None = None
-
-
-class ListenerErrorContent(BaseModel):
-    error: str
-    details: Any | None = None
-
-
-class ListenerFrontendEmitKeyAndValue(BaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
-
-
-class ListenerFrontendEmitRawContent(BaseModel):
-    projectConfigId: ID
-    dependencyValues: dict[str, Any] = Field(default_factory=dict)
-    artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
-        default_factory=list
-    )
-
-
-class ListenerRouterEndpointCallContent(BaseModel):
-    projectConfigId: ID
-    callId: str
-    endpointName: str
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-
-class ListenerRouterEndpointResultContent(BaseModel):
-    projectConfigId: ID
-    callId: str
-    ok: bool
-    result: Any | None = None
-    error: str | None = None
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
-class ListenerCoverageRequest(BaseModel):
-    projectConfigId: ID
-
-
-class ListenerCoverageSnapshot(BaseModel):
-    projectConfigId: ID
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
-    hasRealtimeWildcard: bool
-
-
-class RealtimeUIChangeContent(BaseModel):
-    projectConfigId: ID
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
-
-
-class ListenerRealtimeDelta(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dependency: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
+class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     _binary_payload: bytes | None = PrivateAttr(default=None)
 
     @property
@@ -137,26 +43,3 @@ class ListenerRealtimeDelta(BaseModel):
     @binaryPayload.setter
     def binaryPayload(self, value: bytes | None) -> None:
         self._binary_payload = value
-
-
-class ListenerRegisterCallback(BaseModel):
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
-    dependencyMode: ListenerDependencyMode
-    debounceMs: int | None = None
-    throttleMs: int | None = None
-    runOnRefresh: bool = False
-
-
-class ListenerRegisterContent(BaseModel):
-    projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterCallback]
-
-
-class ListenerRegisterAckStatus(BaseModel):
-    status: Literal["accepted", "rejected"]
-    message: str | None = None
-
-
-class ListenerRegisterAckContent(BaseModel):
-    projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterAckStatus]
