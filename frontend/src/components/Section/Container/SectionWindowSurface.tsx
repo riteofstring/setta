@@ -20,8 +20,14 @@ import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
 } from "./sectionChrome";
+import { SectionContainerAreaDictBoundary } from "./SectionContainerAreaDictBoundary";
 import { SectionWindowSurfaceBody } from "./SectionWindowSurfaceBody";
+import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 import { getBgColor } from "./utils";
+
+function renderSectionWindowSurfaceDictArea(props: SectionContainerAreaDictProps) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
 
 type SectionWindowSurfaceProps = {
   sectionId: string;
@@ -163,6 +169,7 @@ export function SectionWindowSurface({
               onProjectChatBlockedErrorCodeChange
             }
             bodyOverride={bodyOverride}
+            renderDictArea={renderSectionWindowSurfaceDictArea}
           />
         </div>
       </div>

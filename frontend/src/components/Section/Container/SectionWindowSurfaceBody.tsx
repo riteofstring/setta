@@ -1,5 +1,4 @@
 import React from "react";
-import { SectionContainerAreaDictBoundary } from "./SectionContainerAreaDictBoundary";
 import { SectionContainerArea } from "./SectionContainerArea";
 import {
   buildSectionWindowSurfaceBodyView,
@@ -7,11 +6,11 @@ import {
 } from "./sectionWindowSurfaceBodyView";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 
-function renderSectionWindowSurfaceDictArea(props: SectionContainerAreaDictProps) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
+type SectionWindowSurfaceBodyBoundaryProps = SectionWindowSurfaceBodyProps & {
+  renderDictArea: (props: SectionContainerAreaDictProps) => React.ReactNode;
+};
 
-function _SectionWindowSurfaceBody(props: SectionWindowSurfaceBodyProps) {
+function _SectionWindowSurfaceBody(props: SectionWindowSurfaceBodyBoundaryProps) {
   const view = buildSectionWindowSurfaceBodyView(props);
 
   switch (view.kind) {
@@ -21,7 +20,7 @@ function _SectionWindowSurfaceBody(props: SectionWindowSurfaceBodyProps) {
       return (
         <SectionContainerArea
           {...view.props}
-          renderDictArea={renderSectionWindowSurfaceDictArea}
+          renderDictArea={props.renderDictArea}
         />
       );
     case "none":

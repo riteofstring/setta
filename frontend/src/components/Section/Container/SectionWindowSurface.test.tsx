@@ -69,6 +69,7 @@ vi.mock("./SectionWindowSurfaceBody", () => ({
     projectChatId,
     setProjectChatId,
     bodyOverride,
+    renderDictArea,
   }: {
     sectionId: string;
     chatHost: string;
@@ -77,6 +78,7 @@ vi.mock("./SectionWindowSurfaceBody", () => ({
     projectChatId?: string | null;
     setProjectChatId?: unknown;
     bodyOverride?: ReactNode;
+    renderDictArea?: unknown;
   }) => (
     <div
       data-testid="mock-section-window-surface-body"
@@ -87,6 +89,7 @@ vi.mock("./SectionWindowSurfaceBody", () => ({
       data-project-chat-id={projectChatId ?? ""}
       data-project-chat-controlled={setProjectChatId ? "true" : "false"}
       data-body-override={bodyOverride ? "present" : ""}
+      data-render-dict-area={renderDictArea ? "true" : "false"}
     />
   ),
 }));
@@ -130,6 +133,7 @@ describe("SectionWindowSurface", () => {
     expect(markup).toContain('data-project-chat-surface-id="window-surface-1"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
+    expect(markup).toContain('data-render-dict-area="true"');
   });
 
   it("disables canvas section controls so window surfaces only render supplied header actions", () => {

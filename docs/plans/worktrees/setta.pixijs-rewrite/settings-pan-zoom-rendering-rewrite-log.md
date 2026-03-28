@@ -4446,3 +4446,30 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAgentRuns`, and `POST /api/getFileBrowserRoot`
 - Next action:
   - Continue the retained-scene seam lift by moving the remaining caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`, starting with `frontend/src/components/Section/Container/SectionWindowSurface.tsx`.
+
+## 2026-03-28 155
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Section/Container/SectionWindowSurface.tsx`.
+- Status: `done`
+- Details:
+  - Raised the remaining window-surface dict-area renderer handoff one caller higher so `SectionWindowSurface` now owns the dict renderer seam above `SectionWindowSurfaceBody`:
+    - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`
+  - Updated focused coverage to pin the higher ownership boundary:
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurfaceBody.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionWindowSurfaceBody` on the same override-vs-area-vs-none branching path
+    - routing dict sections through `SectionContainerAreaDictBoundary` from the higher-level window-surface caller via `renderDictArea(...)`
+    - leaving the floating/window-surface dict/param DOM path intact while shrinking `SectionWindowSurfaceBody.tsx` ownership further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionWindowSurfaceBody.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded successfully and the visible `backend` section was opened in a floating window via the section header control
+    - the floating surface rendered dict/param content cleanly with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `OPTIONS /api/loadProjectConfig`, and `GET /settings`
+- Next action:
+  - Continue the retained-scene seam lift by moving the remaining caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionWindowSurface.tsx`, starting with `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.

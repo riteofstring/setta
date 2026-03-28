@@ -32,24 +32,8 @@ vi.mock("./SectionContainerArea", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerAreaDictBoundary", () => ({
-  SectionContainerAreaDictBoundary: ({
-    sectionId,
-    bgColor,
-  }: {
-    sectionId: string;
-    bgColor: string;
-  }) => (
-    <div
-      data-testid="mock-window-surface-dict-boundary"
-      data-section-id={sectionId}
-      data-bg-color={bgColor}
-    />
-  ),
-}));
-
 describe("SectionWindowSurfaceBody", () => {
-  it("owns the lifted dict-area renderer seam above SectionContainerArea", () => {
+  it("renders the caller-owned dict-area seam above SectionContainerArea", () => {
     const markup = renderToStaticMarkup(
       <SectionWindowSurfaceBody
         sectionId="section-1"
@@ -57,6 +41,13 @@ describe("SectionWindowSurfaceBody", () => {
         bgColor="bg-setta-50"
         isMinimized={false}
         chatHost={ChatWindowPlacementEnum.floating}
+        renderDictArea={({ sectionId, bgColor }) => (
+          <div
+            data-testid="mock-window-surface-dict-boundary"
+            data-section-id={sectionId}
+            data-bg-color={bgColor}
+          />
+        )}
       />,
     );
 
