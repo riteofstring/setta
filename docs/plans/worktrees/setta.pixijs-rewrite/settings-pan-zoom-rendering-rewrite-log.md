@@ -2501,3 +2501,29 @@ Record:
     - representative requests returned `200`, including `POST /api/setTopLevelSectionLayout` and `POST /api/setProjectChatWindowingState`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the remaining `SectionContainerArea.tsx` body caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` above `AreaSwitch` before any broad Pixi node drawing lands.
+
+## 2026-03-27 094
+
+- Item: Lift the remaining `SectionContainerArea.tsx` body caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` above `AreaSwitch`.
+- Status: `done`
+- Details:
+  - Added a dedicated on-canvas section body boundary plus a pure typed helper above the existing area renderer:
+    - `frontend/src/components/Section/Container/SectionCanvasBody.tsx`
+    - `frontend/src/components/Section/Container/sectionCanvasBodyView.ts`
+    - `frontend/src/components/Section/Container/sectionCanvasBodyView.test.ts`
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` to consume the new boundary instead of keeping the externalized-window placeholder gate, minimized-body suppression, and default `chatHost="section_layout"` handoff inline.
+  - Removed the now-unused production `AreaSwitch` seam from `SectionContainerCoreResizabe.tsx` after both higher-level callers had been lifted above it.
+  - Updated the existing section-container test to target the lifted canvas-body boundary directly:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionCanvasBodyView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded cleanly after bootstrap auth and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `setta`, `Project`, `Edit`, `Run`, workspace label `pixijs-rewrite`, `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, `languageServer`, and `All Settings`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `GET /api/serverMode`
+    - non-blocking console noise was limited to repeated existing React 19 `element.ref` deprecation messages
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `SectionCanvasBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SectionContainerCore.tsx` before any broad Pixi node drawing lands.

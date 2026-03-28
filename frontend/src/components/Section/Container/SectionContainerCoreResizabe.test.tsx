@@ -2,16 +2,13 @@ import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindow
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AreaSwitch,
-  SectionContainerCoreResizable,
-} from "./SectionContainerCoreResizabe";
+import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import { SectionCanvasBody } from "./SectionCanvasBody";
 
 type MockProjectState = {
   projectConfig: {
@@ -260,22 +257,19 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-testid="mock-code-area"');
   });
 
-  it("routes workspace section windows through the section-owned surface id", () => {
+  it("routes chat sections through the section-owned surface id on the section layout host", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionCanvasBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
         isMinimized={false}
         isUserView={false}
-        chatHost={ChatWindowPlacementEnum.floating}
-        chatModeOverride={ChatWindowModeEnum.section_mode}
       />,
     );
 
     expect(markup).toContain('data-testid="mock-unified-chat-surface"');
-    expect(markup).toContain('data-mode="section_mode"');
-    expect(markup).toContain('data-host="floating"');
+    expect(markup).toContain('data-host="section_layout"');
     expect(markup).toContain('data-section-id="section-123"');
     expect(markup).toContain(
       `data-surface-id="${buildWorkspaceSectionProjectChatSurfaceId("project-1", "section-123")}"`,
@@ -284,33 +278,23 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-project-chat-controlled="false"');
   });
 
-  it("preserves explicit standalone thread ownership overrides", () => {
+  it("suppresses minimized section bodies that stay on the main canvas", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionCanvasBody
         sectionId="section-123"
-        sectionTypeName={SectionTypeEnum.Chat}
+        sectionTypeName={SectionTypeEnum.Code}
         bgColor="bg-setta-50"
-        isMinimized={false}
+        isMinimized={true}
         isUserView={false}
-        chatHost="standalone_page"
-        chatModeOverride={ChatWindowModeEnum.section_mode}
-        projectChatSurfaceId="standalone-window-space:project-1:space-1:window-1"
-        projectChatId="saved-thread"
-        setProjectChatId={() => {}}
       />,
     );
 
-    expect(markup).toContain('data-host="standalone_page"');
-    expect(markup).toContain(
-      'data-surface-id="standalone-window-space:project-1:space-1:window-1"',
-    );
-    expect(markup).toContain('data-project-chat-id="saved-thread"');
-    expect(markup).toContain('data-project-chat-controlled="true"');
+    expect(markup).toBe("");
   });
 
   it("routes dict sections through the live dict layout outside the reduced benchmark shell", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionCanvasBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Dict}
         bgColor="bg-setta-50"
@@ -336,7 +320,7 @@ describe("SectionContainerCoreResizable", () => {
     };
 
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionCanvasBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Dict}
         bgColor="bg-setta-50"
