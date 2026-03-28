@@ -112,8 +112,7 @@ This doc is intentionally exhaustive. It's written as an implementation-ready bl
 - Actions reachable via tab order; context menus accessible via keyboard where feasible.
 
 ## Data Model (Backend Types)
-Create typed Go request/response structs for the backend contract, likely
-alongside `internal/gitread` and `internal/frontendbindings/git_support.go`.
+Create new Pydantic models under `backend/setta/types/git.py` (or similar).
 
 ### Repo + refs
 - `GitRepoSummary`
@@ -236,24 +235,27 @@ Lane overflow:
 
 ## Backend Implementation Plan
 ### New module layout
-- `internal/gitread/*.go`
-  - Read-only git command execution, parsing, and typed responses.
-- `internal/httpapi/git_routes.go`
-  - HTTP routes (generated endpoint names/specs must stay aligned).
-- `internal/frontendbindings/git_support.go`
-  - Shared request/response structs exported to generated frontend bindings.
-- `internal/frontendbindings/specs.go`
-  - Generated endpoint exposure for frontend.
-- `internal/mcpx`
-  - MCP tools for external agents if we add `gitStatus`, `gitDiff`,
-    `gitMergePreview`, and related helpers.
+- `backend/setta/git/cli.py`
+  - Low-level subprocess wrappers (no shell).
+  - Timeouts, capture output, normalize errors.
+- `backend/setta/git/queries.py`
+  - Higher-level query functions: status, refs, log, details, diff.
+- `backend/setta/git/worktrees.py`
+  - Create/cleanup temporary worktrees.
+  - Used for merge previews and conflict-resolution attempts.
+- `backend/setta/types/git.py`
+  - Pydantic models.
+- `backend/setta/routers/git.py`
+  - FastAPI routes (generatedEndpoints must match names).
+- `backend/setta/mcp/tools/git_tools.py`
+  - MCP tools for external agents: `gitStatus`, `gitDiff`, `gitMergePreview`, etc.
 
 ### Git command strategy (read-only)
 All git commands should:
-- Use `exec.CommandContext(ctx, "git", ...)` with `Cmd.Dir = repoRoot`.
-- Never invoke a shell.
+- Use `subprocess.run([...], cwd=repo_root, text=True, capture_output=True)`.
+- Never use `shell=True`.
 - Always include `--no-pager` and `--no-color` where relevant.
-- Have explicit timeouts and maximum stdout/stderr capture limits.
+- Have explicit timeouts and maximum output limits.
 
 Core commands:
 - Repo root:
@@ -280,9 +282,7 @@ Core commands:
     - `git diff --no-color <a>..<b>`
 
 ### Routes (backend)
-Add route constants/handlers in `internal/httpapi/git_routes.go`, expose the
-contract through `internal/frontendbindings/specs.go` and
-`internal/frontendbindings/git_support.go`, then run `pnpm generate`.
+Add routes in `backend/setta/types/routes.py` and implement in `backend/setta/routers/git.py`, then run `pnpm generate`.
 
 Suggested endpoints:
 - `route_get_git_repo_summary() -> GitRepoSummary`
@@ -519,8 +519,7 @@ Define a stable "git context" object injected into template rendering:
   - `patch`: optional, may be omitted or truncated
 - `conflicts`: `{ files, count }`
 
-Rendering should use the same Go-owned Jinja renderer
-(`internal/promptrender/render.go`) so behavior matches Prompt sections.
+Rendering should use the same backend Jinja renderer (`backend/setta/llm/prompt_renderer.py`) so behavior matches Prompt sections.
 
 ### Prompt editor UX
 When a user clicks an action:
@@ -638,9 +637,8 @@ External agent profiles can then allow `mcp__setta__git*` broadly while still re
   - Fetch commit details only on selection.
 
 ## Testing Plan
-### Backend (Go)
-Add tests under `internal/gitread/*_test.go` and
-`internal/httpapi/git_routes_test.go`:
+### Backend (pytest)
+Add tests under `tests/git/` mirroring `backend/setta/git/`:
 - Create temp git repos in `/tmp`:
   - Initialize repo, commit a few files, create branches, do a merge.
   - Create a conflict scenario (edit same lines in two branches).
