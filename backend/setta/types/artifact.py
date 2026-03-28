@@ -3,6 +3,8 @@ from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter
 from setta.types.generated.go_shared_types import (
     ArtifactType,
+    LineChartSettings,
+    ScatterChartSettings,
 )
 from setta.types.generated.go_shared_types import (
     BrushStroke as GoBrushStroke,
@@ -17,12 +19,6 @@ from setta.types.generated.go_shared_types import (
     ChartDataArtifact as GoChartDataArtifact,
 )
 from setta.types.generated.go_shared_types import (
-    DrawAreaLayer as GoDrawAreaLayer,
-)
-from setta.types.generated.go_shared_types import (
-    DrawAreaLayerItem as GoDrawAreaLayerItem,
-)
-from setta.types.generated.go_shared_types import (
     DrawAreaLayerItemTransform as GoDrawAreaLayerItemTransform,
 )
 from setta.types.generated.go_shared_types import (
@@ -34,13 +30,8 @@ from setta.types.generated.go_shared_types import (
 from setta.types.generated.go_shared_types import (
     ImageArtifact as GoImageArtifact,
 )
-from setta.types.generated.go_shared_types import (
-    LineChartSettings,
-    ScatterChartSettings,
-)
 from setta.types.id import create_new_id
 from setta.utils.constants import C
-from setta.utils.generate_memorable_string import generate_memorable_string
 
 
 def create_artifact_id(extension: str = ".json"):
@@ -110,19 +101,6 @@ class BrushStrokeWithTransform(GoBrushStrokeWithTransform):
 class DrawAreaLayerItemTransform(GoDrawAreaLayerItemTransform):
     transform: DrawAreaTransform = (1, 0, 0, 1, 0, 0)
     eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
-
-
-class DrawAreaLayerItem(GoDrawAreaLayerItem):
-    type: Literal[ArtifactType.Image, ArtifactType.BrushStroke] = (
-        ArtifactType.BrushStroke
-    )
-
-
-class DrawAreaLayer(GoDrawAreaLayer):
-    name: str = Field(default_factory=generate_memorable_string)
-    elements: list[DrawAreaLayerItem] = Field(default_factory=list)
-    visible: bool = True
-    layerOpacity: float = 1
 
 
 class ImageArtifact(GoImageArtifact):

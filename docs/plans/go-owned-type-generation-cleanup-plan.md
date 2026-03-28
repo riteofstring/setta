@@ -254,6 +254,9 @@ That means:
   - the file now imports and uses `LineChartSettings` and `ScatterChartSettings` from `go_shared_types.py` directly instead of preserving a local rename layer
 - `backend/setta/types/artifact.py` has also been trimmed by deleting duplicate inherited field lines that did not change behavior:
   - redundant redeclarations such as `BrushStroke.lineCap`, `BrushStrokeWithTransform.strokeStyle/lineWidth/lineCap`, and `ImageArtifact.value` / `FileArtifact.value` are gone
+- `backend/setta/types/artifact.py` no longer keeps handwritten `DrawAreaLayer` or `DrawAreaLayerItem` wrappers:
+  - those shapes were not part of the discriminated artifact union/runtime adapter boundary
+  - the only remaining internal import now uses the generated Go-owned `DrawAreaLayer` model directly
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
   - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
   - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)

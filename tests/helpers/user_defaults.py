@@ -7,20 +7,25 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 # Section type imports
-from setta.types.artifact import DrawAreaLayer
 from setta.types.chat import BaseChatMessageUnion, ChatSectionBranch
 from setta.types.generated.go_shared_types import (
-    ButtonActionMode,
     BrowserAreaViewMode,
+    BrowserSavedSearchTypeFilters,
+    BrowserSearchScope,
+    ButtonActionMode,
     ChatDictationMode,
     ChatPermissionMode,
+    CodeFileAccessMode,
     CodeLanguage,
-    EdgePort,
     DateCalendarWeekStart,
     DateControlMode,
     DateDisplayFormat,
     DateSelectionMode,
+    DrawAreaBrushShape,
+    DrawAreaLayer,
+    DrawAreaMode,
     DropzoneMode,
+    EdgePort,
     HttpRequestMethod,
     ListRootViewMode,
     ParamNameType,
@@ -29,19 +34,15 @@ from setta.types.generated.go_shared_types import (
     SpreadsheetGridDensity,
     StateMachineGateType,
     TaskBoardViewMode,
-    TextParamInputUIType,
     TextBlockDisplayMode,
     TextBlockFormat,
+    TextParamInputUIType,
     TimeControlMode,
     TimeDisplayFont,
     TimeDisplayFormat,
-    DrawAreaBrushShape,
-    DrawAreaMode,
-    BrowserSearchScope,
-    BrowserSavedSearchTypeFilters,
-    CodeFileAccessMode,
 )
 from setta.types.id import ID, create_new_id
+
 from tests.helpers.settings_models import ColorPickerChoice
 
 
