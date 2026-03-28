@@ -2474,3 +2474,30 @@ Record:
     - non-blocking console noise was limited to existing React 19 `element.ref` deprecation messages plus accessibility warnings about missing form `id/name` attributes and broken `aria-labelledby` targets
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `SectionContainerArea.tsx` boundary into the next higher-level section-window/body caller above `AreaSwitch` before any broad Pixi node drawing lands.
+
+## 2026-03-27 093
+
+- Item: Lift the `SectionContainerArea.tsx` boundary into the section-window caller above `AreaSwitch`.
+- Status: `done`
+- Details:
+  - Added a dedicated window-surface body boundary plus a pure typed helper above the existing area renderer:
+    - `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`
+    - `frontend/src/components/Section/Container/sectionWindowSurfaceBodyView.ts`
+    - `frontend/src/components/Section/Container/sectionWindowSurfaceBodyView.test.ts`
+  - Updated `frontend/src/components/Section/Container/SectionWindowSurface.tsx` to consume the new boundary instead of delegating directly to `AreaSwitch`.
+  - Kept the current non-Pixi window DOM path intact while lifting the higher-level handoff one step above `AreaSwitch`:
+    - the new helper now owns the nullish `bodyOverride` fallback, minimized-to-null gate, and window-scoped `SectionContainerArea` prop shaping in one deterministic contract
+    - `SectionWindowSurface` now remains focused on section chrome, theme resolution, and header wiring while the body fallback is isolated behind the new boundary
+  - Updated the existing window-surface test to target the lifted boundary directly:
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionWindowSurfaceBodyView.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "workspace floating section windows switch threads through the section binding and survive reload"`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043/`) in a fresh sub-agent context
+    - reused the already-authenticated worktree tab instead of consuming the provided bootstrap token
+    - opened `/settings`, created a floating section window, and confirmed the window still rendered live section body content after the new body-boundary wiring
+    - representative requests returned `200`, including `POST /api/setTopLevelSectionLayout` and `POST /api/setProjectChatWindowingState`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the remaining `SectionContainerArea.tsx` body caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` above `AreaSwitch` before any broad Pixi node drawing lands.
