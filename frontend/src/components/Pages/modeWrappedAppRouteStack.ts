@@ -13,7 +13,7 @@ import { APP_ROUTE_IDS } from "./routeConfig";
 
 type AppRoute = Pick<RouteObject, "element" | "id" | "path">;
 
-type BuildModeWrappedAppRouteStackArgs = {
+export type BuildModeWrappedAppRouteStackArgs = {
   renderModeElement: (routeElements: ModeRouteElements) => ReactNode;
   indexRouteElements: ModeRouteElements;
   homeRouteElements: ModeRouteElements;

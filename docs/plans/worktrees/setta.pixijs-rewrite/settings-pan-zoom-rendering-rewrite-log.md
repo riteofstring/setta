@@ -3705,3 +3705,32 @@ Record:
     - non-blocking console noise was limited to existing React 19 `element.ref` warnings and accessibility warnings about missing form `id`/`name` attributes plus `aria-labelledby` mismatches
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining router-creation seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still feeds the assembled app route stack into `createBrowserRouter(...)` before any broad Pixi node drawing lands.
+
+## 2026-03-27 134
+
+- Item: Lift the remaining browser-router creation seam out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed browser-router helper above the lifted route-stack boundary:
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+  - Exported the existing route-stack helper arg type so the new browser-router boundary can own the final handoff without duplicating the route-stack contract:
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of directly calling `createBrowserRouter(...)`.
+  - The new helper now owns the non-Pixi router-creation seam for:
+    - building the lifted mode-wrapped app route stack through the existing route-stack boundary
+    - feeding the assembled route stack into `createBrowserRouter(...)`
+    - leaving `router.tsx` focused on route-element ownership and workspace-launch/mode wiring instead of the final browser-router construction hop
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedAppRouteStack.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`3` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - bootstrapped the current worktree session successfully before verification
+    - `http://127.0.0.1:3044/settings` rendered normally with the workspace/settings chrome and settings panels visible
+    - `http://127.0.0.1:3044/settings/chat` rendered normally after the initial spinner with visible controls including `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, the message composer, and the `Settings` link
+    - no obvious clipping, overlap, or missing content was visible in either route
+    - representative requests returned `200`, including `GET /settings`, `GET /settings/chat`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, `GET /api/plugins/runtime`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getFileBrowserRoot`, and `GET /api/getLatestLspDiagnostics`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining route-element ownership seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the mode-specific home/project/catch-all route-element bundles before any broad Pixi node drawing lands.

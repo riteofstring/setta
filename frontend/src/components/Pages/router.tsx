@@ -10,7 +10,7 @@ import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useEffect } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
 import {
   useAllProjectMetadata,
@@ -31,7 +31,7 @@ import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
-import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
+import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
 import { MainContainer } from "./Project/MainContainer";
 
 const LazyAppWrapper = lazy(async () => {
@@ -329,7 +329,7 @@ const workspaceLaunchRouteElements: ModeRouteElements = {
   launcher: resolveWorkspaceLaunchRouteElement("launcher"),
 };
 
-const appRoutes = buildModeWrappedAppRouteStack({
+export const router = createModeWrappedBrowserRouter({
   renderModeElement: (routeElements) => <ModeWrapper {...routeElements} />,
   indexRouteElements: {
     ide: ideIndexRouteElement,
@@ -365,5 +365,3 @@ const appRoutes = buildModeWrappedAppRouteStack({
   standaloneAppRouteElement: appRouteElement,
   standaloneLauncherRouteElement: <ProjectRootRedirect />,
 });
-
-export const router = createBrowserRouter(appRoutes);
