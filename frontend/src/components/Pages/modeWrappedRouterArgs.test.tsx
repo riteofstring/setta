@@ -1,14 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import type { ModeRouteElements } from "./modeRouteResolver";
 import { buildModeWrappedRouteBoundaryArgs } from "./modeWrappedRouteBoundaryArgs";
 import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
 import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
-
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: vi.fn(),
-}));
 
 vi.mock("./modeWrappedRouteBoundaryArgs", () => ({
   buildModeWrappedRouteBoundaryArgs: vi.fn(),
@@ -27,7 +22,7 @@ function createModeRouteElements(label: string): ModeRouteElements {
 }
 
 describe("buildModeWrappedRouterArgs", () => {
-  it("owns the lifted section-boundary seam above modeWrappedRouterRouteElements.ts", () => {
+  it("accepts a caller-owned section boundary above modeWrappedRouterRouteElements.ts", () => {
     const standaloneAppRouteElement = (
       <div data-testid="standalone-app-route-copy" />
     );
@@ -44,6 +39,9 @@ describe("buildModeWrappedRouterArgs", () => {
       renderModeElement: vi.fn(),
       viewModeRouteElements: projectRouteElements,
     };
+    const MockSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+      <div data-testid="mock-section-boundary" data-section-id={sectionId} />
+    );
 
     vi.mocked(buildModeWrappedRouterRouteElements).mockReturnValue({
       indexRouteElements,
@@ -58,11 +56,13 @@ describe("buildModeWrappedRouterArgs", () => {
       routeBoundaryArgs,
     );
 
-    const args = buildModeWrappedRouterArgs();
+    const args = buildModeWrappedRouterArgs({
+      SectionBoundary: MockSectionBoundary,
+    });
 
     expect(buildModeWrappedRouterRouteElements).toHaveBeenCalledOnce();
     expect(buildModeWrappedRouterRouteElements).toHaveBeenCalledWith({
-      SectionBoundary: SectionContainerBoundary,
+      SectionBoundary: MockSectionBoundary,
     });
     expect(buildModeWrappedRouteBoundaryArgs).toHaveBeenCalledOnce();
     expect(buildModeWrappedRouteBoundaryArgs).toHaveBeenCalledWith({

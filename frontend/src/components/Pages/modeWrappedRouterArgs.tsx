@@ -1,11 +1,22 @@
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
-import type { CreateModeWrappedBrowserRouterArgs } from "./modeWrappedBrowserRouter";
+import type { ComponentType } from "react";
+import type { BuildModeWrappedAppRouteStackArgs } from "./modeWrappedAppRouteStack";
 import { buildModeWrappedRouteBoundaryArgs } from "./modeWrappedRouteBoundaryArgs";
 import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
 
-export function buildModeWrappedRouterArgs(): CreateModeWrappedBrowserRouterArgs {
+export type BuildModeWrappedRouterArgs = Omit<
+  BuildModeWrappedAppRouteStackArgs,
+  "renderDictArea"
+>;
+
+type BuildModeWrappedRouterArgsInput = {
+  SectionBoundary: ComponentType<{ sectionId: string }>;
+};
+
+export function buildModeWrappedRouterArgs({
+  SectionBoundary,
+}: BuildModeWrappedRouterArgsInput): BuildModeWrappedRouterArgs {
   const routeElements = buildModeWrappedRouterRouteElements({
-    SectionBoundary: SectionContainerBoundary,
+    SectionBoundary,
   });
   const routeBoundaryArgs = buildModeWrappedRouteBoundaryArgs({
     projectRouteElements: routeElements.projectRouteElements,

@@ -5635,6 +5635,40 @@ Record:
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-router-args-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`, starting with `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`.
 
+## 2026-03-28 190
+
+- Item: Lift the router-args-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the browser-router layer now owns the default `SectionContainerBoundary` handoff above the router-args builder:
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`
+    - `frontend/src/components/Pages/router.tsx`
+  - Added focused coverage to pin the lifted ownership split across the browser-router wrapper, router-args builder, and top-level app router:
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.test.tsx`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `modeWrappedBrowserRouter.ts` now explicitly owning the default project/share `SectionContainerBoundary` dependency while still building the same route stack and browser router
+    - `modeWrappedRouterArgs.tsx` shrinking into a thinner route-args builder that receives a caller-owned `SectionBoundary` and still produces the same route-element and route-boundary payload
+    - `router.tsx` shrinking into a thinner top-level handoff that only passes `renderDictArea` into the caller-owned browser-router layer
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/modeWrappedBrowserRouter.ts src/components/Pages/modeWrappedRouterArgs.tsx src/components/Pages/router.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - bootstrapped successfully via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - verified both `http://127.0.0.1:3044/home` and a fresh live project route `http://127.0.0.1:3044/voice_spring`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, or seam-lift regression in the viewport
+    - representative visible labels included `WORKSPACE BROWSER`, `SELECTED PROJECT`, `New Project`, `CREATE PROJECT`, `PROJECT AI CHAT`, `Select A Section to Edit`, `Chat Window 1`, and `pixijs-rewrite`
+    - representative successful requests included `/api/loadSettings`, `/api/backendInitStatus`, `/api/checkWorkspaceInitialized`, `/api/createProjectConfig`, `/api/loadProjectConfig`, `/api/getFileBrowserRoot`, `/api/loadAllProjectMetadata`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getAgentProfiles`, `/api/getPromptTemplates`, and `/api/getEngineConfigs`
+    - caveat: the live project route showed an in-app `Thinking` state while rendering, but the UI remained usable and no seam-lift-specific visual issue was observed
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-browser-router-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`, starting with `frontend/src/components/Pages/router.tsx`.
+
 ## 2026-03-28 188
 
 - Item: Close the previously blocked standalone target-resolution/store-selection lift by fixing the live dict-area shell seam under `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`.

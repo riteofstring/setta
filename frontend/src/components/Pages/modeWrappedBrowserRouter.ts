@@ -1,13 +1,23 @@
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { createBrowserRouter } from "react-router-dom";
-import {
-  buildModeWrappedAppRouteStack,
-  type BuildModeWrappedAppRouteStackArgs,
-} from "./modeWrappedAppRouteStack";
+import type { BuildModeWrappedAppRouteStackArgs } from "./modeWrappedAppRouteStack";
+import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
+import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
 
-export type CreateModeWrappedBrowserRouterArgs = BuildModeWrappedAppRouteStackArgs;
+export type CreateModeWrappedBrowserRouterArgs = Pick<
+  BuildModeWrappedAppRouteStackArgs,
+  "renderDictArea"
+>;
 
-export function createModeWrappedBrowserRouter(
-  args: CreateModeWrappedBrowserRouterArgs,
-) {
-  return createBrowserRouter(buildModeWrappedAppRouteStack(args));
+export function createModeWrappedBrowserRouter({
+  renderDictArea,
+}: CreateModeWrappedBrowserRouterArgs) {
+  return createBrowserRouter(
+    buildModeWrappedAppRouteStack({
+      ...buildModeWrappedRouterArgs({
+        SectionBoundary: SectionContainerBoundary,
+      }),
+      renderDictArea,
+    }),
+  );
 }
