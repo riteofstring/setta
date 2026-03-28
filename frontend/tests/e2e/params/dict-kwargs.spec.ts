@@ -1,16 +1,18 @@
 import { expect, test } from "@playwright/test";
 import {
-  addKwargFromFrontend,
+  cleanupIsolatedProject,
   createTopLevelSectionFromFrontend,
   ensureAppReady,
-  getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
-  postBackend,
+  openIsolatedProject,
 } from "../helpers";
 
-test("dict kwargs render after add_kwarg", async ({ page }) => {
+test("dict kwargs render after clicking the add arg button", async ({
+  page,
+}) => {
   await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+  const projectContext = await openIsolatedProject(page);
+  const projectConfigId = projectContext.projectConfigId;
   const viewportBounds = await getViewportBoundsForPlacement(page);
   if (!viewportBounds) {
     throw new Error("Unable to resolve viewport bounds for section placement.");
@@ -26,13 +28,9 @@ test("dict kwargs render after add_kwarg", async ({ page }) => {
   }
 
   try {
-    await addKwargFromFrontend(page, {
-      projectConfigId,
-      sectionId,
-    });
-
     const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
+    await sectionNode.getByRole("button", { name: "Add arg" }).click();
 
     const paramContainer = sectionNode.locator(
       `[id^="ParamContainer-${sectionId}-"]`,
@@ -43,9 +41,6 @@ test("dict kwargs render after add_kwarg", async ({ page }) => {
     const box = await firstParam.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThan(10);
   } finally {
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: [sectionId],
-    });
+    await cleanupIsolatedProject(page, projectContext);
   }
 });

@@ -3011,16 +3011,26 @@ func deleteSelectedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		if _, _, err := deps.ProjectState.DeleteSelectedParams(
+		snapshot, _, err := runtime.DeleteSelectedParams(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.DeleteSelectedParamsInput{
 				SectionID:    payload.SectionID,
 				ParamInfoIDs: payload.ParamInfoIDs,
 			},
-		); err != nil {
+		)
+		if err != nil {
 			writeParamSelectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3780,9 +3790,19 @@ func addKwargHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		if _, _, err := deps.ProjectState.AddKwarg(projectMutationContext(r.Context(), nil), projectID, sectionID); err != nil {
+		snapshot, _, err := runtime.AddKwarg(projectMutationContext(r.Context(), nil), projectID, sectionID)
+		if err != nil {
 			writeKwargMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3811,9 +3831,19 @@ func deleteKwargHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		if _, _, err := deps.ProjectState.DeleteKwarg(projectMutationContext(r.Context(), nil), projectID, sectionID); err != nil {
+		snapshot, _, err := runtime.DeleteKwarg(projectMutationContext(r.Context(), nil), projectID, sectionID)
+		if err != nil {
 			writeKwargMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
