@@ -1,18 +1,13 @@
-import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
-import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
+import type { CreateAppRouterArgs } from "components/Pages/router";
 import type { AppProps } from "./App";
 import { buildAppProps } from "./App";
 
-function renderStandaloneProjectSurfaceRouteDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
-
-export function buildBootstrapAppProps(): AppProps {
+export function buildBootstrapAppProps({
+  SectionBoundary,
+  renderDictArea,
+}: CreateAppRouterArgs): AppProps {
   return buildAppProps({
-    SectionBoundary: SectionContainerBoundary,
-    renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
+    SectionBoundary,
+    renderDictArea,
   });
 }

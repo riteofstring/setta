@@ -5861,3 +5861,36 @@ Record:
     - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, and `GET /api/backendInitStatus`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-bootstrap-owned `SectionContainerBoundary` seam into the next higher bootstrap/runtime caller layer above `frontend/src/appBootstrap.tsx`.
+
+## 2026-03-28 196
+
+- Item: Lift the bootstrap-owned `SectionContainerBoundary` seam into `frontend/src/appRuntimeBootstrap.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the new runtime/bootstrap helper now owns the default `SectionContainerBoundary` handoff above `frontend/src/appBootstrap.tsx`:
+    - `frontend/src/appRuntimeBootstrap.tsx`
+    - `frontend/src/appRuntimeBootstrap.test.tsx`
+    - `frontend/src/appBootstrap.tsx`
+    - `frontend/src/appBootstrap.test.tsx`
+    - `frontend/src/index.tsx`
+    - `frontend/src/index.test.tsx`
+  - Preserved the current non-Pixi behavior for:
+    - `appRuntimeBootstrap.tsx` now owning `buildBootstrapAppProps({ SectionBoundary: SectionContainerBoundary, renderDictArea })` while keeping the same standalone dict-area route helper
+    - `appBootstrap.tsx` shrinking into a thinner caller-owned adapter that accepts `SectionBoundary` plus `renderDictArea` and still builds the same app props below the new runtime/bootstrap helper
+    - `index.tsx` shrinking into the final subscription plus root-mount entrypoint below the lifted runtime/bootstrap seam
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/appRuntimeBootstrap.test.tsx src/appBootstrap.test.tsx src/index.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/appRuntimeBootstrap.tsx src/appRuntimeBootstrap.test.tsx src/appBootstrap.tsx src/appBootstrap.test.tsx src/index.tsx src/index.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - bootstrap via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` succeeded and redirected into the frontend with `__setta_backend_origin`
+    - verified `/home`
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3044/cloud_winning`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, or blank-state regression
+    - representative visible labels included `WORKSPACE BROWSER`, `SELECTED PROJECT`, `WORKSPACE PROJECTS`, `New Project`, `Create a New Project!`, `PROJECT AI CHAT`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Select A Section to Edit`, and `Chat Window 1`
+    - representative requests returned `200`, including `POST /__setta__/bootstrap/consume`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, `POST /api/checkWorkspaceInitialized`, and `POST /api/createProjectConfig`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-runtime-bootstrap-owned `SectionContainerBoundary` seam into the next higher bootstrap/runtime caller layer above `frontend/src/appRuntimeBootstrap.tsx`.

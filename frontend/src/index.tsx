@@ -7,12 +7,12 @@ import { createRoot } from "react-dom/client";
 import { subscribe } from "state/subscriptions";
 import "../icons.css";
 import { App } from "./App";
-import { buildBootstrapAppProps } from "./appBootstrap";
+import { buildRuntimeBootstrapAppProps } from "./appRuntimeBootstrap";
 import "./index.css";
 
 subscribe();
 
-const appProps = buildBootstrapAppProps();
+const appProps = buildRuntimeBootstrapAppProps();
 
 const container = document.getElementById("root");
 if (!container) {

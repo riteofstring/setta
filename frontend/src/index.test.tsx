@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("index", () => {
-  it("owns only the final subscription and root-mount seams below appBootstrap", async () => {
+  it("owns only the final subscription and root-mount seams below appRuntimeBootstrap", async () => {
     const routerValue = {
       dispose: vi.fn(),
       navigate: vi.fn(),
@@ -23,7 +23,9 @@ describe("index", () => {
     };
     const renderRoot = vi.fn();
     const subscribe = vi.fn();
-    const buildBootstrapAppProps = vi.fn(() => ({ router: routerValue }));
+    const buildRuntimeBootstrapAppProps = vi.fn(() => ({
+      router: routerValue,
+    }));
     const App = vi.fn(({ router }: { router: unknown }) => (
       <div data-testid="mock-app" data-has-router={String(Boolean(router))} />
     ));
@@ -39,8 +41,8 @@ describe("index", () => {
     vi.doMock("./App", () => ({
       App,
     }));
-    vi.doMock("./appBootstrap", () => ({
-      buildBootstrapAppProps,
+    vi.doMock("./appRuntimeBootstrap", () => ({
+      buildRuntimeBootstrapAppProps,
     }));
 
     await import("./index");
@@ -48,8 +50,8 @@ describe("index", () => {
     const { createRoot } = await import("react-dom/client");
 
     expect(subscribe).toHaveBeenCalledOnce();
-    expect(buildBootstrapAppProps).toHaveBeenCalledOnce();
-    expect(buildBootstrapAppProps).toHaveBeenCalledWith();
+    expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledOnce();
+    expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledWith();
 
     expect(createRoot).toHaveBeenCalledOnce();
     expect(createRoot).toHaveBeenCalledWith(document.getElementById("root"));
