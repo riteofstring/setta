@@ -215,11 +215,14 @@ function MockUnifiedChatSurface({
   );
 }
 
-vi.mock("components/Section/Container/ManyNestedSections", () => ({
-  MaybeManyNestedSections: () => (
-    <div data-testid="mock-many-nested-sections" />
-  ),
-}));
+vi.mock(
+  "components/Section/Container/SectionContainerNestedSections",
+  () => ({
+    SectionContainerNestedSections: () => (
+      <div data-testid="mock-many-nested-sections" />
+    ),
+  }),
+);
 
 vi.mock("components/Section/Container/SectionWindowSurface", () => ({
   SectionWindowSurface: ({

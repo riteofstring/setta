@@ -3201,3 +3201,35 @@ Record:
     - representative requests returned `200`, including `POST /api/getFolderContents` and `POST /api/getFileBrowserRoot`
 - Next action:
   - Continue the live dict-area surface pass by lifting the nested sortable-section body boundary into the next higher-level caller above `ManyNestedSections.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 117
+
+- Item: Lift the nested sortable-section renderer boundary into the next higher-level caller above `frontend/src/components/Section/Container/ManyNestedSections.tsx`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/ManyNestedSections.tsx` so it no longer hardcodes the default nested sortable-section renderer:
+    - `MaybeManyNestedSections` now accepts a caller-owned typed `renderNestedSections(...)` boundary and routes it through the existing DnD/body seam
+  - Lifted the default nested sortable-section renderer into `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`:
+    - the higher-level nested-sections boundary now owns the production `SortableSectionContainer` + `SectionContainerCoreCanvasBody` handoff for the live graph path
+  - Routed the standalone section surface through the same higher-level boundary so the direct page path no longer bypasses the lifted nested-sections contract:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+  - Updated focused coverage to pin the new ownership seam:
+    - `frontend/src/components/Section/Container/ManyNestedSections.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionContainerNestedSections.tsx` as the higher-level owner of the default nested sortable-section renderer
+    - leaving `ManyNestedSections.tsx` focused on nested-section state selection, terminal filtering, and DnD/body routing instead of owning the production renderer choice
+    - routing both the graph path and standalone section surface through the same lifted nested-sections contract while keeping the current DOM/live canvas path intact
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/ManyNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/sectionContainerNestedSectionsView.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - used the existing authenticated `/settings` session; bootstrap was not needed
+    - `All Settings` remained visible and the visible dict/param area rendered with no obvious clipping, overlap, or missing content after the lifted nested-sections renderer boundary
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, `defaultZoomLevel`, `Grid Color`, `Auto Refetch Callable Params On LSP Mismatch`, and `basedpyright analysis`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the nested-section renderer seam into the next higher-level caller above `SectionContainerNestedSections.tsx` before any broad Pixi node drawing lands.

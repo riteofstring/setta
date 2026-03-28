@@ -11,37 +11,19 @@ import {
   ManyNestedSectionsBody,
   type ManyNestedSectionsRenderer,
 } from "./ManyNestedSectionsBody";
-import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
-import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import type { ManyNestedSectionsRendererProps } from "./manyNestedSectionsView";
-import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
-
-const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
-  props,
-) => <SectionContainerCoreCanvasBody {...props} />;
-
-const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
-  childIds,
-  childClassName,
-}: ManyNestedSectionsRendererProps) =>
-  childIds.map((childId) => (
-    <SortableSectionContainer
-      sectionId={childId}
-      key={`Nested-Sec-${childId}`}
-      className={childClassName}
-      renderCoreBody={renderSectionContainerCoreBody}
-    />
-  ));
 
 export function MaybeManyNestedSections({
   sectionId,
   isGroup,
   layoutVariant = "default",
+  renderNestedSections,
 }: {
   sectionId: string;
   isGroup: boolean;
   layoutVariant?: "default" | "tight";
+  renderNestedSections: ManyNestedSectionsRenderer;
 }) {
   const hasNested = useHasTempNested(sectionId);
   return (
@@ -51,6 +33,7 @@ export function MaybeManyNestedSections({
           sectionId={sectionId}
           isGroup={isGroup}
           layoutVariant={layoutVariant}
+          renderNestedSections={renderNestedSections}
         />
       </div>
     )
@@ -61,10 +44,12 @@ function ManyNestedSections({
   sectionId,
   isGroup,
   layoutVariant,
+  renderNestedSections,
 }: {
   sectionId: string;
   isGroup: boolean;
   layoutVariant: "default" | "tight";
+  renderNestedSections: ManyNestedSectionsRenderer;
 }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
   const { isHorizontalOrientation, listRootViewMode } = useProjectState((x) => {
@@ -110,7 +95,7 @@ function ManyNestedSections({
         isHorizontalOrientation={isHorizontalOrientation}
         listRootViewMode={listRootViewMode}
         layoutVariant={layoutVariant}
-        renderNestedSections={renderSortableNestedSections}
+        renderNestedSections={renderNestedSections}
       />
     </DNDSortable>
   );
