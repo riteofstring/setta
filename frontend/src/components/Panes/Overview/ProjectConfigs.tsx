@@ -13,6 +13,7 @@ import {
   toggleProjectConfigPreviewEnabled,
 } from "state/actions/localStorage";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
+import { loadAllProjectMetadata } from "state/actions/project/loadProject";
 import { loadShareProjectConfig } from "state/actions/share";
 import {
   useAllProjectMetadata,
@@ -88,6 +89,8 @@ export function ProjectConfigs() {
     _.isEqual,
   );
   const [isEditing, setIsEditing] = useState(false);
+  const [hasAttemptedMetadataLoad, setHasAttemptedMetadataLoad] =
+    useState(false);
   const isReorderingRef = useRef(false);
   const canEditProjectConfigs = canEditStructure && !isDeploymentMode;
   const hoverPreviewEnabled = shouldShowProjectConfigHoverPreview({
@@ -111,14 +114,37 @@ export function ProjectConfigs() {
     [incomingIds, persistedOrder],
   );
   useEffect(() => {
+    if (allProjectMetadata.length > 0 || hasAttemptedMetadataLoad) {
+      return;
+    }
+    let isCancelled = false;
+    void (async () => {
+      await loadAllProjectMetadata();
+      if (!isCancelled) {
+        setHasAttemptedMetadataLoad(true);
+      }
+    })();
+    return () => {
+      isCancelled = true;
+    };
+  }, [allProjectMetadata.length, hasAttemptedMetadataLoad]);
+  useEffect(() => {
     if (!canEditProjectConfigs) {
+      return;
+    }
+    if (incomingIds.length === 0) {
       return;
     }
     if (areIdArraysEqual(persistedOrder, orderedProjectConfigIds)) {
       return;
     }
     setOverviewProjectConfigOrder(orderedProjectConfigIds);
-  }, [canEditProjectConfigs, orderedProjectConfigIds, persistedOrder]);
+  }, [
+    canEditProjectConfigs,
+    incomingIds.length,
+    orderedProjectConfigIds,
+    persistedOrder,
+  ]);
   useEffect(() => {
     const clearReorderingState = () => {
       isReorderingRef.current = false;
