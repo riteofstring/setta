@@ -3454,3 +3454,30 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining standalone route-param/load-state seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 126
+
+- Item: Lift the remaining standalone route-param/load-state seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed higher-level standalone page route/load boundary above the lifted target boundary:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` to consume the new boundary instead of directly owning:
+    - `useLoadProjectConfig()`
+    - `useParams()`
+    - `useNavigate()`
+    - the page-level `useCodeMirrorStyleLoader`, `useAddMouseLocationListener`, and `usePluginRuntimeBootstrap` hook wiring
+  - The refactor preserves the existing non-Pixi behavior while leaving `StandaloneProjectSurfacePage.tsx` focused on the route entrypoint handoff and the reusable `StandaloneProjectSurfacePageWithLoadState` export for the share wrapper path.
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts`
+    - result: passed (`38` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - the bootstrap page loaded but `POST /__setta__/bootstrap/consume` returned `401` in that browser session; the already-usable worktree session still rendered both standalone routes directly
+    - `http://127.0.0.1:3044/settings/chat` rendered cleanly with visible controls including `Search conversations`, `New Chat`, `View Threads`, `Project AI Settings`, `Start a new thread`, `Create Project`, `Summarize Codebase`, `Plan Next Steps`, `Type a message...`, and `Send message`
+    - `http://127.0.0.1:3044/settings/section/languageserver` rendered cleanly with visible labels and controls including `Remove arg`, `Add arg`, `Pin selected args`, `Convert to edge connectors`, `Delete selected args`, `Filter`, `basedpyright`, `analysis`, and `diagnosticSeverityOverrides`
+    - representative requests returned `200`, including `GET /settings/chat`, `GET /settings/section/languageserver`, `GET /index.css`, `GET /@vite/client`, and `GET /src/index.tsx?...`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new standalone page route/load boundary one level higher in the standalone/share route stack before any broad Pixi node drawing lands.
