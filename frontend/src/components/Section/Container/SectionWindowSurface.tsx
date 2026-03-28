@@ -16,11 +16,11 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
+import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
 } from "./sectionChrome";
-import { SectionWindowSurfaceBody } from "./SectionWindowSurfaceBody";
 import { getBgColor } from "./utils";
 
 type SectionWindowSurfaceProps = {
@@ -149,21 +149,23 @@ export function SectionWindowSurface({
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
         >
-          <SectionWindowSurfaceBody
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            bgColor={bgColor}
-            isMinimized={isMinimized}
-            chatHost={chatHost}
-            chatModeOverride={chatModeOverride}
-            projectChatSurfaceId={projectChatSurfaceId}
-            projectChatId={projectChatId}
-            setProjectChatId={setProjectChatId}
-            onProjectChatBlockedErrorCodeChange={
-              onProjectChatBlockedErrorCodeChange
-            }
-            bodyOverride={bodyOverride}
-          />
+          {bodyOverride ?? (
+            <AreaSwitch
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              bgColor={bgColor}
+              isMinimized={isMinimized}
+              isUserView={false}
+              chatHost={chatHost}
+              chatModeOverride={chatModeOverride}
+              projectChatSurfaceId={projectChatSurfaceId}
+              projectChatId={projectChatId}
+              setProjectChatId={setProjectChatId}
+              onProjectChatBlockedErrorCodeChange={
+                onProjectChatBlockedErrorCodeChange
+              }
+            />
+          )}
         </div>
       </div>
     </section>
