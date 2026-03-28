@@ -1,15 +1,15 @@
 import React from "react";
-import { SectionContainer } from "./SectionContainer";
+import { SectionContainerSection } from "./SectionContainerSection";
 import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
 function _SortableSectionSection(
   props: SortableSectionBodySectionBoundaryProps,
 ) {
   return (
-    <SectionContainer
-      {...props}
+    <SectionContainerSection
+      dragListeners={props.dragListeners}
       isTopLevel={false}
-      SectionBoundary={SortableSectionSection}
+      sectionId={props.sectionId}
     />
   );
 }

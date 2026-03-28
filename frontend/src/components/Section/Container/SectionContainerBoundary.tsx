@@ -1,30 +1,13 @@
-import React, { type ComponentProps } from "react";
+import React from "react";
 import {
-  SectionContainer,
-  type SectionContainerCoreBodyRenderer,
-} from "./SectionContainer";
-import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
-import { renderSectionContainerNestedSections } from "./SectionContainerNestedSectionsBoundary";
-import { SortableSectionSection } from "./SortableSectionSection";
+  SectionContainerSection,
+  type SectionContainerSectionProps,
+} from "./SectionContainerSection";
 
-type SectionContainerBoundaryProps = Pick<
-  ComponentProps<typeof SectionContainer>,
-  "dragListeners" | "isTopLevel" | "sectionId"
->;
-
-const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
-  props,
-) => <SectionContainerCoreCanvasBody {...props} />;
+type SectionContainerBoundaryProps = SectionContainerSectionProps;
 
 function _SectionContainerBoundary(props: SectionContainerBoundaryProps) {
-  return (
-    <SectionContainer
-      {...props}
-      SectionBoundary={SortableSectionSection}
-      renderCoreBody={renderSectionContainerCoreBody}
-      renderNestedSections={renderSectionContainerNestedSections}
-    />
-  );
+  return <SectionContainerSection {...props} />;
 }
 
 export const SectionContainerBoundary = React.memo(_SectionContainerBoundary);

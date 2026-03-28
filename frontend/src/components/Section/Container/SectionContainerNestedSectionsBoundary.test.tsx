@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import { SectionContainerNestedSectionsBoundary } from "./SectionContainerNestedSectionsBoundary";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import type { SectionContainerSectionProps } from "./SectionContainerSection";
 import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
 vi.mock("./SectionContainerNestedSections", () => ({
@@ -63,27 +64,22 @@ vi.mock("./SectionContainerCoreCanvasBody", () => ({
   ),
 }));
 
-vi.mock("./SortableSectionSection", () => ({
-  SortableSectionSection: ({
+vi.mock("./SectionContainerSection", () => ({
+  renderDefaultSectionContainerCoreBody: () => null,
+  renderDefaultSectionContainerNestedSections: () => null,
+  SectionContainerSection: ({
     sectionId,
     dragListeners,
-    renderCoreBody,
-    renderNestedSections,
-  }: SortableSectionBodySectionBoundaryProps) => (
+  }: SectionContainerSectionProps &
+    Pick<
+      SortableSectionBodySectionBoundaryProps,
+      "renderCoreBody" | "renderNestedSections"
+    >) => (
     <div
-      data-testid="mock-sortable-section-section"
+      data-testid="mock-section-container-section"
       data-section-id={sectionId}
       data-has-drag-listeners={String(Boolean(dragListeners))}
-      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
-    >
-      {renderCoreBody({
-        sectionId,
-        sectionTypeName: "Code",
-        bgColor: "bg:white",
-        isMinimized: false,
-        isUserView: false,
-      })}
-    </div>
+    />
   ),
 }));
 
@@ -104,10 +100,8 @@ describe("SectionContainerNestedSectionsBoundary", () => {
     expect(markup).toContain('data-layout-variant="default"');
     expect(markup).toContain('data-is-joined-code-terminal-group="false"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
-    expect(markup).toContain('data-testid="mock-sortable-section-section"');
+    expect(markup).toContain('data-testid="mock-section-container-section"');
     expect(markup).toContain('data-section-id="child-a"');
     expect(markup).toContain('data-has-drag-listeners="true"');
-    expect(markup).toContain('data-has-render-nested-sections="true"');
-    expect(markup).toContain('data-testid="mock-section-container-core-body"');
   });
 });

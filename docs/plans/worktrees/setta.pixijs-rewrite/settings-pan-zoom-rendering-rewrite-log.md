@@ -5219,3 +5219,38 @@ Record:
     - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, `POST /api/loadProjectConfig`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`SectionContainer`-owned sortable-section boundary into the next higher caller layer above `frontend/src/components/Section/Container/SectionContainer.tsx` while keeping the unstable direct `/settings` canary explicit.
+
+## 2026-03-28 178
+
+- Item: Lift the now-`SectionContainer`-owned recursive section seam into `frontend/src/components/Section/Container/SectionContainerSection.tsx`.
+- Status: `done`
+- Details:
+  - Raised the recursive section-container seam one caller higher so a new dedicated `SectionContainerSection.tsx` now owns the default recursive section boundary plus the default core-body and nested-sections renderers above `SectionContainer.tsx`:
+    - `frontend/src/components/Section/Container/SectionContainerSection.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.tsx`
+  - Added focused coverage to pin the new higher-level recursive wrapper and keep the older wrappers on thin delegation seams:
+    - `frontend/src/components/Section/Container/SectionContainerSection.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `SectionContainerSection.tsx` now owning the recursive `SectionBoundary={SectionContainerSection}` handoff together with the default `SectionContainerCoreCanvasBody` and nested-section renderer wiring
+    - `SectionContainerBoundary.tsx` shrinking into a thin top-level delegate over the new higher-level section wrapper
+    - `SortableSectionSection.tsx` shrinking into a thin nested-section delegate that only fixes `isTopLevel={false}` while the recursive seam lives above `SectionContainer.tsx`
+    - `SectionContainerNestedSectionsBoundary.tsx` reusing the same higher-level default renderer/boundary ownership instead of duplicating that wiring inline
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SortableSectionContainer.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerSection.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/SortableSectionSection.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - direct `/settings` remains an unstable canary on this worktree runtime, so the verifier used a fresh live project route instead
+    - after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`, the verifier created a fresh project and confirmed the live project route `http://127.0.0.1:3044/vapor_teaching`
+    - the new `ListRoot` parent `seed_vapor` rendered with `Children: 1`, and the nested `Callable` child `tank_royal` appeared directly beneath it with clear vertical separation and no obvious overlap or clipping
+    - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the new `SectionContainerSection` boundary into the next higher caller layer above `frontend/src/components/Section/Container/SectionContainerSection.tsx` while keeping the unstable direct `/settings` canary explicit.
