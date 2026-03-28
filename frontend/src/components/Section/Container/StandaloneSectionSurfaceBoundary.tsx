@@ -1,12 +1,10 @@
 import React, { type ComponentProps } from "react";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import { SectionWindowSurface } from "./SectionWindowSurface";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
-import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "./sectionContainerDefaultRenderers";
+import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
 
 type StandaloneSectionSurfaceBoundaryProps = Pick<
   ComponentProps<typeof SectionWindowSurface>,
@@ -14,12 +12,19 @@ type StandaloneSectionSurfaceBoundaryProps = Pick<
 > & {
   sectionType: SectionType;
   renderDictArea: (props: SectionContainerAreaDictProps) => React.ReactNode;
+  renderCoreBody: SectionContainerCoreBodyRenderer;
+  renderNestedSections: SortableSectionNestedSectionsRenderer;
 };
 
 function StandaloneSectionNestedSectionsBody({
   sectionId,
   sectionType,
-}: Pick<StandaloneSectionSurfaceBoundaryProps, "sectionId" | "sectionType">) {
+  renderCoreBody,
+  renderNestedSections,
+}: Pick<
+  StandaloneSectionSurfaceBoundaryProps,
+  "sectionId" | "sectionType" | "renderCoreBody" | "renderNestedSections"
+>) {
   if (
     sectionType !== SectionTypeEnum.Group &&
     sectionType !== SectionTypeEnum.ListRoot
@@ -33,8 +38,8 @@ function StandaloneSectionNestedSectionsBody({
         sectionId={sectionId}
         isGroup={sectionType === SectionTypeEnum.Group}
         isJoinedCodeTerminalGroup={false}
-        renderCoreBody={renderDefaultSectionContainerCoreBody}
-        renderNestedSections={renderDefaultSectionContainerNestedSections}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
       />
     </div>
   );
@@ -46,6 +51,8 @@ function _StandaloneSectionSurfaceBoundary({
   projectChatSurfaceId,
   onProjectChatBlockedErrorCodeChange,
   renderDictArea,
+  renderCoreBody,
+  renderNestedSections,
 }: StandaloneSectionSurfaceBoundaryProps) {
   const bodyOverride =
     sectionType === SectionTypeEnum.Group ||
@@ -53,6 +60,8 @@ function _StandaloneSectionSurfaceBoundary({
       <StandaloneSectionNestedSectionsBody
         sectionId={sectionId}
         sectionType={sectionType}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
       />
     ) : undefined;
 

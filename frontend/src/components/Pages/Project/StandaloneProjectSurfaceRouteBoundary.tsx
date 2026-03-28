@@ -1,6 +1,4 @@
-import {
-  type ManagedChatSurfaceAuthorityState,
-} from "components/Chat/sharePolicyChatAccess";
+import { type ManagedChatSurfaceAuthorityState } from "components/Chat/sharePolicyChatAccess";
 import { ProjectChatWindowSurface } from "components/ChatWindowing/ProjectChatWindowSurface";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import {
@@ -9,6 +7,10 @@ import {
 } from "components/ChatWindowing/projectChatSurfaceIds";
 import { StandaloneSectionSurfaceBoundary } from "components/Section/Container/StandaloneSectionSurfaceBoundary";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { memo, type ReactNode, type SetStateAction } from "react";
@@ -249,6 +251,8 @@ function _StandaloneProjectSurfaceRouteBoundary({
             onProjectChatBlockedErrorCodeChange
           }
           renderDictArea={renderDictArea}
+          renderCoreBody={renderDefaultSectionContainerCoreBody}
+          renderNestedSections={renderDefaultSectionContainerNestedSections}
         />
       </div>
     </StandaloneSurfaceShell>

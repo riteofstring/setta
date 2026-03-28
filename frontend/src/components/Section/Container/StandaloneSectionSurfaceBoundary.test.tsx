@@ -4,10 +4,6 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
-import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "./sectionContainerDefaultRenderers";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { StandaloneSectionSurfaceBoundary } from "./StandaloneSectionSurfaceBoundary";
 
@@ -87,18 +83,17 @@ vi.mock("./SectionContainerNestedSections", () => ({
   }) => mockSectionContainerNestedSections(props),
 }));
 
-vi.mock("./sectionContainerDefaultRenderers", () => ({
-  renderDefaultSectionContainerCoreBody: () => null,
-  renderDefaultSectionContainerNestedSections: () => null,
-}));
-
 describe("StandaloneSectionSurfaceBoundary", () => {
   beforeEach(() => {
     mockSectionContainerNestedSections.mockClear();
   });
 
-  it("injects the standalone section surface defaults and nested-sections boundary for group sections", () => {
+  it("forwards the caller-owned recursive renderers through the standalone nested-sections body", () => {
     const renderDictArea = (_props: SectionContainerAreaDictProps) => null;
+    const renderCoreBody = (_props: SectionContainerCoreBodyProps) => null;
+    const renderNestedSections = (
+      _props: SectionContainerNestedSectionsProps,
+    ) => null;
     const markup = renderToStaticMarkup(
       <StandaloneSectionSurfaceBoundary
         sectionId="section-1"
@@ -106,6 +101,8 @@ describe("StandaloneSectionSurfaceBoundary", () => {
         projectChatSurfaceId="surface-1"
         onProjectChatBlockedErrorCodeChange={() => undefined}
         renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
       />,
     );
     const forwardedProps =
@@ -127,12 +124,8 @@ describe("StandaloneSectionSurfaceBoundary", () => {
     expect(markup).toContain('data-is-joined-code-terminal-group="false"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
-    expect(forwardedProps?.renderCoreBody).toBe(
-      renderDefaultSectionContainerCoreBody,
-    );
-    expect(forwardedProps?.renderNestedSections).toBe(
-      renderDefaultSectionContainerNestedSections,
-    );
+    expect(forwardedProps?.renderCoreBody).toBe(renderCoreBody);
+    expect(forwardedProps?.renderNestedSections).toBe(renderNestedSections);
   });
 
   it("keeps standalone non-group sections on the default section window body path", () => {
@@ -143,6 +136,8 @@ describe("StandaloneSectionSurfaceBoundary", () => {
         sectionType={SectionTypeEnum.TextBlock}
         projectChatSurfaceId="surface-2"
         renderDictArea={renderDictArea}
+        renderCoreBody={() => null}
+        renderNestedSections={() => null}
       />,
     );
 

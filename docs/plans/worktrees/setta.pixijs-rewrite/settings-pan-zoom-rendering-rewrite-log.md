@@ -6065,3 +6065,39 @@ Record:
     - representative requests returned `200`, including `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-standalone-section-surface-owned nested-section renderer handoff into the next caller layer above `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`.
+
+## 2026-03-28 202
+
+- Item: Lift the standalone section-surface nested-section renderer handoff into `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Moved the default recursive section-renderer ownership one caller higher on the standalone section route path:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`
+  - `StandaloneProjectSurfaceRouteBoundary.tsx` now injects the default recursive renderers directly for standalone section targets:
+    - `renderDefaultSectionContainerCoreBody`
+    - `renderDefaultSectionContainerNestedSections`
+  - `StandaloneSectionSurfaceBoundary.tsx` is now a thinner caller-owned seam that forwards caller-provided recursive renderers through the group/list-root nested-section body override instead of owning the default renderer injection itself.
+  - Refreshed focused coverage so both sides of the lifted seam are pinned directly:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+      - result: passed
+  - Playwright:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes stay bound to their section thread and keep workspace project chat isolated"`
+      - result: failed
+      - note: the helper-minted bootstrap token hit `401` in Playwright global setup during this iteration
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<current worktree token> pnpm -C frontend exec playwright test frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes stay bound to their section thread and keep workspace project chat isolated"`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - reused the existing authenticated shell at `http://127.0.0.1:3044/home` rather than the rejected bootstrap token in that browser session
+    - created a fresh project `trail_foam`, added a top-level `Group` section `standalone_nested_group`, added a nested `TextBlock` child, set its text to `Nested section body is live.`, and verified the standalone section route `http://127.0.0.1:3044/trail_foam/section/standalone_nested_group`
+    - the standalone section surface rendered normally with no obvious blank state, overlap, or clipping; representative visible labels included `standalone_nested_group`, `Nested section body is live.`, `Edit Plaintext`, `Open section in floating window`, `Lock position and size`, `Minimize section`, and `Delete section`
+    - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, `POST /api/setTextBlockText`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-route-owned standalone section renderer handoff into the next caller layer above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`.
