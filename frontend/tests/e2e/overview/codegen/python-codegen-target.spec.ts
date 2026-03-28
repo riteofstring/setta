@@ -889,6 +889,66 @@ test("ui config does not crash when callable params appear and the callable is r
   }
 });
 
+test("ui config shows the current callable param type and applies slider selection", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const sectionId = await createCallableSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+    const sectionChrome = sectionNode
+      .locator(`section[data-section-id="${sectionId}"]`)
+      .first();
+    await expect(sectionChrome).toBeVisible();
+
+    await sectionChrome.click();
+    const uiConfigTab = page.getByTestId("ui-editor-tab-ui-config");
+    await expect(uiConfigTab).toBeVisible();
+    await uiConfigTab.click();
+
+    await setCallableFromUi(page, sectionId, "math.sqrt");
+    await setGenCodePrefixFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      "import math\n",
+    );
+
+    const paramInfoId = await getFirstParamInfoId(page, sectionId);
+    await expect(
+      sectionNode.locator(`[id="ParamContainer-${sectionId}-${paramInfoId}"]`),
+    ).toBeVisible();
+
+    await sectionChrome.click();
+    await uiConfigTab.click();
+    await expect(page.locator("#UiEditorPane")).toContainText("x");
+
+    const uiTypeInput = page
+      .locator(`#UiEditorPane input[placeholder="Search"]`)
+      .first();
+    await expect(uiTypeInput).toBeVisible();
+    await expect(uiTypeInput).toHaveValue("CodeParam");
+
+    await uiTypeInput.click();
+    await page.getByText("SliderParam", { exact: true }).click();
+
+    await expect(uiTypeInput).toHaveValue("SliderParam");
+    await expect(
+      page.locator(`#UiEditorPane input[placeholder="min"]`),
+    ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("generated python updates when text section text changes", async ({
   page,
 }) => {

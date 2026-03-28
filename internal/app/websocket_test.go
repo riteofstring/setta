@@ -3098,6 +3098,90 @@ func TestAppSetCallableRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
+func TestAppChangeParamImplRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteChangeParamImpl,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","selectedId":"SliderParam","frontendOpId":"change-param-impl-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new change param impl request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post change param impl: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if !containsAppString(content.CompletedOpIDs, "change-param-impl-op") {
+		t.Fatalf("expected completed change-param-impl-op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+
+	paramVariant := content.ProjectState.CodeObjVariants["allowed-param-variant"]
+	if !containsAppString(paramVariant.NonPresetImpls, paramVariant.Impl) {
+		t.Fatalf(
+			"expected current impl %q to be selectable in nonPresetImpls, got %#v",
+			paramVariant.Impl,
+			paramVariant.NonPresetImpls,
+		)
+	}
+	var payload struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(content.ProjectState.CodeObjImpls[paramVariant.Impl], &payload); err != nil {
+		t.Fatalf("decode changed param impl payload: %v", err)
+	}
+	if payload.Type != "SliderParam" {
+		t.Fatalf("expected websocket update to switch param impl to SliderParam, got %#v", payload)
+	}
+}
+
 func TestAppSetTextBlockTextRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

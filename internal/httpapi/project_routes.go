@@ -2075,19 +2075,28 @@ func changeParamImplHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "selected_id_required", "Selected impl or code object type is required.")
 			return
 		}
-		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
 			return
 		}
 
-		if _, err := deps.ProjectState.ChangeParamImpl(
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		snapshot, err := runtime.ChangeParamImpl(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			paramInfoID,
 			selectedID,
-		); err != nil {
+		)
+		if err != nil {
 			writeChangeParamImplError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

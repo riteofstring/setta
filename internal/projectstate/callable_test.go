@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"context"
+	"reflect"
 	"testing"
 )
 
@@ -154,6 +155,18 @@ func TestProjectSetCallableAppliesMatchedSignatureAndPreservesExistingValues(t *
 	}
 	if got := payloadStringField(newPayload, "defaultVal"); got != "False" {
 		t.Fatalf("expected default value False, got %q", got)
+	}
+	newParamCore := project.CodeObjs[newParamID]
+	newParamVariantID := newParamCore.DefaultVariantID
+	if newParamVariantID == "" {
+		t.Fatalf("expected new param %q to have a default variant", newParamID)
+	}
+	newParamVariant := project.CodeObjVariants[newParamVariantID]
+	if !reflect.DeepEqual(newParamVariant.NonPresetImplIDs, []string{newParamVariant.ImplID}) {
+		t.Fatalf(
+			"expected new param variant to expose its current impl as non-preset, got %#v",
+			newParamVariant.NonPresetImplIDs,
+		)
 	}
 }
 

@@ -403,6 +403,10 @@ func (p *Project) updateExistingCallableParam(
 		impl.Type = codeParamType
 		impl.Payload = raw
 		p.CodeObjImpls[impl.ID] = impl
+		if !codeObjImplIsPreset(impl) && !containsString(variant.NonPresetImplIDs, impl.ID) {
+			variant.NonPresetImplIDs = append(variant.NonPresetImplIDs, impl.ID)
+			p.CodeObjVariants[variant.ID] = variant
+		}
 	}
 
 	return nil
@@ -849,8 +853,9 @@ func newCallableParamCodeObject(proposal CallableParamProposal) (CodeObject, Cod
 			DefaultVariantID: variantID,
 		},
 		CodeObjectVariant{
-			ID:     variantID,
-			ImplID: implID,
+			ID:               variantID,
+			ImplID:           implID,
+			NonPresetImplIDs: []string{implID},
 		},
 		CodeObjectImpl{
 			ID:      implID,
