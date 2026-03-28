@@ -680,3 +680,30 @@ Record:
       - relevant requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue workstream `3. Scene Packet And Edge Packet Extraction` by routing the live dict/param canary through this node-layout packet boundary as the mounting input for the first retained-scene node renderer step.
+
+## 2026-03-26 027
+
+- Item: Route the live dict/param canary through the retained-scene node-layout boundary in the production DOM path.
+- Status: `done`
+- Details:
+  - Added a pure typed mount-view helper above the existing live scene packet and node-layout packet boundaries:
+    - `frontend/src/components/Params/groupContainerNodeLayoutView.ts`
+    - `frontend/src/components/Params/groupContainerNodeLayoutView.test.ts`
+  - Updated the live `GroupContainer` path to build the combined live dict-area scene packet once in the parent, derive the node-layout packet from it, and feed the existing pinned/unpinned DOM surfaces from that shared layout-routed view instead of rebuilding per-area packets inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - routes live pinned/unpinned param areas through the existing node-layout block order before the DOM path consumes them
+    - keeps the live DOM renderer on the current non-Pixi path while exposing the first real retained-scene mount input in production code
+    - preserves the existing pinned/unpinned row packets, min-height policy, and max-nested-depth behavior while removing the duplicated per-area packet construction
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeLayoutView.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerScenePackets.test.ts src/components/Section/Layouts/dictAreaNodeLayoutPackets.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - bootstrap was attempted via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`, but that token was rejected in the verifier session; the already-authenticated settings tab still loaded cleanly
+      - visible labels and controls included `settings`, `Filter`, `All Settings`, `Param Defaults`, `backend`, `gui`, `languageServer`, and `sectionSizingPolicy`
+      - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/backendInitStatus`
+      - no obvious visual regressions were observed in the visible settings shell or dict/param area
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting deterministic block-frame mount packets from this live dict-area node-layout view before any Pixi node drawing lands.
