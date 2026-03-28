@@ -3,15 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import NodeRenderer from "./NodeRenderer";
 
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-section-container-boundary"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("state/definitions", () => ({
   useNodeInternals: () => ["section-a", "section-b"],
 }));
@@ -50,8 +41,16 @@ vi.mock("forks/xyflow/core/components/wrapNode", () => ({
 }));
 
 describe("NodeRenderer", () => {
-  it("owns the top-level section boundary above the generic node wrapper shell", () => {
-    const markup = renderToStaticMarkup(<NodeRenderer />);
+  it("keeps the generic node wrapper shell caller-owned via the lifted section boundary prop", () => {
+    const TestSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+      <div
+        data-testid="mock-section-container-boundary"
+        data-section-id={sectionId}
+      />
+    );
+    const markup = renderToStaticMarkup(
+      <NodeRenderer SectionBoundary={TestSectionBoundary} />,
+    );
 
     expect(markup).toContain('data-testid="mock-node-wrapper"');
     expect(markup).toContain('data-section-id="section-a"');

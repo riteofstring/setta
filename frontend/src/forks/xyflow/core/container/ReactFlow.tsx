@@ -1,4 +1,5 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
 import {
@@ -109,7 +110,7 @@ const ReactFlow = () => {
                 <EdgeRenderer />
                 <AgenticEdgeRenderer />
                 <StateMachineEdgeRenderer />
-                <NodeRenderer />
+                <NodeRenderer SectionBoundary={SectionContainerBoundary} />
               </>
             )}
           </ViewportWrapper>
@@ -133,11 +134,7 @@ function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
     return;
   }
 
-  d3Zoom!.translateBy(
-    d3Selection!,
-    scrollPlan.deltaX,
-    scrollPlan.deltaY,
-  );
+  d3Zoom!.translateBy(d3Selection!, scrollPlan.deltaX, scrollPlan.deltaY);
   e.currentTarget.scrollTop = scrollPlan.resetScrollTop;
   e.currentTarget.scrollLeft = scrollPlan.resetScrollLeft;
 }

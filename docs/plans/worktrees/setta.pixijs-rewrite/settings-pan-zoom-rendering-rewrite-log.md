@@ -5313,3 +5313,33 @@ Record:
     - representative successful requests included `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`NodeRenderer`-owned `SectionContainerBoundary` seam into the next higher xyflow caller layer above `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`.
+
+## 2026-03-28 181
+
+- Item: Lift the now-`NodeRenderer`-owned `SectionContainerBoundary` seam into `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one xyflow caller higher so `ReactFlow.tsx` now owns the default `SectionContainerBoundary` handoff above `NodeRenderer.tsx` instead of keeping that ownership inside the node renderer:
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
+  - Added focused coverage to pin the lifted ownership split across the two layers:
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.test.tsx`
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `ReactFlow.tsx` now explicitly owning the top-level section boundary choice while still mounting the same edge renderers, viewport wrapper, and node renderer stack
+    - `NodeRenderer.tsx` shrinking back into a thinner generic xyflow node-list shell that only maps wrapper visibility/draggability state plus a caller-owned `SectionBoundary`
+    - the existing top-level section DOM path staying stable while the retained-scene seam moves one caller higher above `NodeRenderer.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/ReactFlow.test.tsx src/forks/xyflow/core/container/NodeRenderer.test.tsx src/forks/xyflow/core/container/nodeRendererView.test.ts src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/ReactFlow.test.tsx src/forks/xyflow/core/container/NodeRenderer.tsx src/forks/xyflow/core/container/NodeRenderer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - the verifier used `http://127.0.0.1:3044/home` to create a fresh project after the provided bootstrap URL was rejected in that browser session, then verified the live project route `http://127.0.0.1:3044/walking_sand`
+    - the top-level section/canvas area rendered cleanly with no obvious clipping or overlap in the visible viewport
+    - representative visible labels included `PROJECT AI CHAT`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Select A Section to Edit`, `Chat Window 1`, and `GENERATED PYTHON CODE`
+    - representative successful requests included `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-`ReactFlow`-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`.

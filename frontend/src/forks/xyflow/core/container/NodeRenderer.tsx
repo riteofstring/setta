@@ -1,7 +1,6 @@
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, type ComponentType } from "react";
 import { useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
@@ -16,7 +15,11 @@ const selector = (s: ReactFlowState) => ({
   panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
-const NodeRenderer = () => {
+type NodeRendererProps = {
+  SectionBoundary: ComponentType<{ sectionId: string }>;
+};
+
+const NodeRenderer = ({ SectionBoundary }: NodeRendererProps) => {
   const { panActivationKeyPressed } = useReactFlow(selector, shallow);
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,
@@ -46,7 +49,7 @@ const NodeRenderer = () => {
           isDraggable={nodeWrapper.isDraggable}
           resizeObserver={nodeWrapper.resizeObserver}
           visibility={nodeWrapper.visibility}
-          SectionBoundary={SectionContainerBoundary}
+          SectionBoundary={SectionBoundary}
         />
       ))}
     </div>
