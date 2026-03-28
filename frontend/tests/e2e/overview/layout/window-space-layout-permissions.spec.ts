@@ -5,6 +5,43 @@ import {
   seedLocalStorage,
 } from "../../helpers";
 
+async function disableProjectChatAutoCreate(page: Page): Promise<void> {
+  await page.route("**/api/loadSettings", async (route) => {
+    const response = await route.fetch();
+    const settings = (await response.json()) as {
+      chatWindowing?: Record<string, unknown>;
+    };
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...settings,
+        chatWindowing: {
+          ...(settings.chatWindowing ?? {}),
+          autoCreateInitialChat: false,
+        },
+      }),
+    });
+  });
+  await page.route("**/api/loadProjectConfig", async (route) => {
+    const response = await route.fetch();
+    const projectState = (await response.json()) as {
+      projectChatWindowing?: Record<string, unknown>;
+    };
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...projectState,
+        projectChatWindowing: {
+          order: [],
+          instancesById: {},
+        },
+      }),
+    });
+  });
+}
+
 async function seedWindowSpacePane(
   page: Page,
   { allowLayoutChanges }: { allowLayoutChanges: boolean },
@@ -78,6 +115,7 @@ async function seedWindowSpacePane(
       },
       shareDeploymentName: "deployment",
       shareDeploymentVersion: "v1",
+      deploymentMode: "share",
     });
   }, allowLayoutChanges);
 
@@ -164,6 +202,7 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
       },
       shareDeploymentName: "deployment",
       shareDeploymentVersion: "v1",
+      deploymentMode: "share",
     });
   });
 
@@ -229,6 +268,7 @@ async function seedWindowSpacePaneWithSingleFloatingWindow(
       },
       shareDeploymentName: "deployment",
       shareDeploymentVersion: "v1",
+      deploymentMode: "share",
     });
   });
 
@@ -317,6 +357,7 @@ async function seedWindowSpacePaneWithBlockedThreadRestore(
       },
       shareDeploymentName: "deployment",
       shareDeploymentVersion: "v1",
+      deploymentMode: "share",
     });
   });
 
@@ -327,6 +368,7 @@ test("window-space controls stay available when deployment mode allows layout ed
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await disableProjectChatAutoCreate(page);
   const projectContext = await openIsolatedProject(page);
 
   try {
@@ -349,6 +391,7 @@ test("window-space controls disable when deployment mode blocks layout edits", a
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await disableProjectChatAutoCreate(page);
   const projectContext = await openIsolatedProject(page);
 
   try {
@@ -369,6 +412,7 @@ test("saving a window space reconciles the live workspace to the backend-normali
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await disableProjectChatAutoCreate(page);
   const projectContext = await openIsolatedProject(page);
   let createRequestState: {
     windowsById: Record<string, unknown>;
@@ -459,6 +503,7 @@ test("saving a window space keeps the latest floating window interaction while s
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await disableProjectChatAutoCreate(page);
   const projectContext = await openIsolatedProject(page);
   let createRequestState: {
     windowsById: Record<string, unknown>;
@@ -596,6 +641,7 @@ test("restore stays blocked when deployment policy disallows saved thread rebind
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await disableProjectChatAutoCreate(page);
   const projectContext = await openIsolatedProject(page);
   let layoutWriteCount = 0;
   let threadBindingWriteCount = 0;
