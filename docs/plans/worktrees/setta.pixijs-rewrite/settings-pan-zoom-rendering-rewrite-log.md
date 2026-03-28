@@ -4050,3 +4050,31 @@ Record:
       - relevant requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/llm/config`, `GET /api/plugins/runtime`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the retained-scene canary by lifting the next scene-owned bridge above `buildLiveDictAreaView`, starting with a dedicated mount/consumer boundary for the scene renderer packets before any broad Pixi node drawing lands.
+
+## 2026-03-27 143
+
+- Item: Lift the next scene-owned bridge above `buildLiveDictAreaView` into a dedicated live dict-area mount/consumer boundary.
+- Status: `done`
+- Details:
+  - Added a dedicated mount/consumer boundary above the current live dict-area view seam:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaMountBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaMountBoundary.test.ts`
+  - Updated the live dict-area component to consume the new boundary instead of reaching directly into `buildLiveDictAreaView(...)`:
+    - `frontend/src/components/Params/groupContainerLiveDictArea.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictArea.test.tsx`
+  - The new boundary now owns the bounded retained-scene bridge for:
+    - composing the existing DOM mount props from the higher-level view result
+    - exposing the retained-scene boundary alongside the DOM mount path from one deeper seam
+    - keeping `maxNestedDepth` relayed through the same higher-level boundary while preserving current visible behavior
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaMountBoundary.test.ts src/components/Params/groupContainerLiveDictAreaView.test.ts src/components/Params/groupContainerLiveDictArea.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` was authenticated and `All Settings` stayed visible and selected
+    - the live dict/param stack rendered cleanly with no obvious clipping, overlap, or missing content in the visible viewport
+    - representative successful network request observed during the check: `POST http://127.0.0.1:8044/api/getFolderContents` `200`
+    - caveat: that verification pass only exposed a small set of page requests in the Network panel, so the sampled request list was correspondingly narrow
+- Next action:
+  - Continue the retained-scene canary by lifting the new `groupContainerLiveDictAreaMountBoundary.ts` seam into the next higher-level live dict-area caller so the scene-renderer packets keep moving upward before any broad Pixi node drawing lands.
