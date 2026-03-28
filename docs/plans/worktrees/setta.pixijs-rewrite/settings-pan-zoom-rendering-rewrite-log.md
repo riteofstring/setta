@@ -5832,3 +5832,32 @@ Record:
     - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/getFileBrowserRoot`, `POST /api/getAIFollowSnapshot`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-entrypoint-owned `SectionContainerBoundary` seam into the next higher bootstrap/runtime caller layer above `frontend/src/index.tsx`.
+
+## 2026-03-28 195
+
+- Item: Lift the entrypoint-owned `SectionContainerBoundary` seam into `frontend/src/appBootstrap.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the new bootstrap helper now owns the default `SectionContainerBoundary` handoff above `frontend/src/index.tsx`:
+    - `frontend/src/appBootstrap.tsx`
+    - `frontend/src/appBootstrap.test.tsx`
+    - `frontend/src/index.tsx`
+    - `frontend/src/index.test.tsx`
+  - Preserved the current non-Pixi behavior for:
+    - `appBootstrap.tsx` now owning `buildAppProps({ SectionBoundary: SectionContainerBoundary, renderDictArea })` while keeping the same standalone dict-area route helper
+    - `index.tsx` shrinking into the final subscription plus root-mount entrypoint below the bootstrap helper
+    - the focused bootstrap/index tests now pin the lifted ownership split so the bootstrap helper owns the section-boundary and dict-area seams while the entrypoint owns only runtime subscription and mount
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/appBootstrap.test.tsx src/index.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/appBootstrap.tsx src/appBootstrap.test.tsx src/index.tsx src/index.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - verified `/home`
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3044/flowing_blue`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, or blank-state regression
+    - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-bootstrap-owned `SectionContainerBoundary` seam into the next higher bootstrap/runtime caller layer above `frontend/src/appBootstrap.tsx`.

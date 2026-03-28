@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("index", () => {
-  it("owns the lifted section-boundary and dict-area seams above App.tsx", async () => {
+  it("owns only the final subscription and root-mount seams below appBootstrap", async () => {
     const routerValue = {
       dispose: vi.fn(),
       navigate: vi.fn(),
@@ -23,7 +23,7 @@ describe("index", () => {
     };
     const renderRoot = vi.fn();
     const subscribe = vi.fn();
-    const buildAppProps = vi.fn(() => ({ router: routerValue }));
+    const buildBootstrapAppProps = vi.fn(() => ({ router: routerValue }));
     const App = vi.fn(({ router }: { router: unknown }) => (
       <div data-testid="mock-app" data-has-router={String(Boolean(router))} />
     ));
@@ -36,87 +36,20 @@ describe("index", () => {
     vi.doMock("state/subscriptions", () => ({
       subscribe,
     }));
-    vi.doMock("components/Section/Container/SectionContainerBoundary", () => ({
-      SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-        <div
-          data-testid="mock-section-container-boundary"
-          data-section-id={sectionId}
-        />
-      ),
-    }));
     vi.doMock("./App", () => ({
       App,
-      buildAppProps,
     }));
-    vi.doMock(
-      "components/Section/Container/SectionContainerAreaDictBoundary",
-      () => ({
-        SectionContainerAreaDictBoundary: ({
-          bgColor,
-          sectionId,
-        }: {
-          bgColor: string;
-          sectionId: string;
-        }) => (
-          <div
-            data-testid="mock-section-container-area-dict-boundary"
-            data-bg-color={bgColor}
-            data-section-id={sectionId}
-          />
-        ),
-      }),
-    );
+    vi.doMock("./appBootstrap", () => ({
+      buildBootstrapAppProps,
+    }));
 
     await import("./index");
 
     const { createRoot } = await import("react-dom/client");
-    const { SectionContainerBoundary } = await import(
-      "components/Section/Container/SectionContainerBoundary"
-    );
 
     expect(subscribe).toHaveBeenCalledOnce();
-    expect(buildAppProps).toHaveBeenCalledOnce();
-    expect(buildAppProps).toHaveBeenCalledWith({
-      SectionBoundary: SectionContainerBoundary,
-      renderDictArea: expect.any(Function),
-    });
-
-    const routedArgs = vi.mocked(buildAppProps).mock.calls[0][0];
-    expect(
-      renderToStaticMarkup(
-        <routedArgs.SectionBoundary sectionId="section-1" />,
-      ),
-    ).toContain('data-testid="mock-section-container-boundary"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-section-id="section-1"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-bg-color="#123456"');
+    expect(buildBootstrapAppProps).toHaveBeenCalledOnce();
+    expect(buildBootstrapAppProps).toHaveBeenCalledWith();
 
     expect(createRoot).toHaveBeenCalledOnce();
     expect(createRoot).toHaveBeenCalledWith(document.getElementById("root"));
