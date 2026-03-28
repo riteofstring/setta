@@ -2553,3 +2553,31 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getExternalAgentConfigs`, `GET /api/getEngineConfigs`, and `GET /api/getTranscriptionProfiles`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `SectionContainerCoreBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SectionContainer.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 096
+
+- Item: Lift the `SectionContainerCoreBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Added a pure typed section-container view boundary above the lifted core-body boundary:
+    - `frontend/src/components/Section/Container/sectionContainerView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerView.test.ts`
+  - Updated `frontend/src/components/Section/Container/SectionContainer.tsx` to build the current core body once and inject it into `SectionContainerCore` instead of leaving the `SectionContainerCoreBody` construction and branch-specific body wiring inside `SectionContainerCore.tsx`.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCore.tsx` so it now consumes an injected body element and compares the lifted body props in its memo boundary instead of ignoring the new higher-level body contract.
+  - Added focused component coverage for the lifted section-container seam:
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+  - Kept the current non-Pixi DOM path intact while shrinking the higher-level section caller:
+    - the new helper now owns the deterministic render gating for generated-python visibility, joined code-terminal groups, nested-layout variant selection, and core-body prop shaping
+    - `SectionContainer.tsx` now stays focused on store selection, active-state outline logic, and the final container wrapper shell
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerView.test.ts src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - used the existing authenticated worktree tab instead of consuming the provided bootstrap token
+    - `All Settings` stayed visible and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the lifted section-container body wiring
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getExternalAgentHealth`, and `GET /api/getAgentProfiles`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `sectionContainerView.ts` / `SectionContainerCoreBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SortableSectionContainer.tsx` before any broad Pixi node drawing lands.
