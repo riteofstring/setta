@@ -7,6 +7,7 @@ This folder is intended to keep the repo honest about performance changes (befor
 ## What is tracked in git
 
 - `perf/reports/*.md`: human-readable performance reports (before/after numbers + methodology + conclusions).
+- `perf/scripts/*.js`: reusable replay and trace-summary helpers for repeatable benchmarks.
 
 ## What is NOT tracked in git
 
