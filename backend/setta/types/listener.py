@@ -1,51 +1,58 @@
-from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
-
-from setta.types.generated.dependency_keys import (
-    BaseDependencyKeyUnionWithDiscriminator,
+from pydantic import (
+    Discriminator,
+    Field,
+    PrivateAttr,
+    Tag,
+    TypeAdapter,
 )
-from setta.types.generated.dependency_values import (
-    BaseDependencyValueUnionWithDiscriminator,
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEvent as SDKListenerDependencyEvent,
 )
-from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
-from setta.types.id import ID
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
+)
+from setta.sdk_contracts.generated import (
+    ListenerForceRefreshEvent as SDKListenerForceRefreshEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRegisterRequest as SDKListenerRegisterRequest,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerDependencyEventMessage as GoListenerDependencyEventMessage,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerErrorMessage,
+    ListenerFrontendEmitMessage,
+    ListenerInitMessage,
+    ListenerMessageType,
+    ListenerRegisterAckMessage,
+    ListenerRouterEndpointCallMessage,
+    ListenerRouterEndpointResultMessage,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerForceRefreshMessage as GoListenerForceRefreshMessage,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerRealtimeEventMessage as GoListenerRealtimeEventMessage,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerRegisterMessage as GoListenerRegisterMessage,
+)
 
 
-class ListenerDependencyMode(str, Enum):
-    REFRESH_ONLY = "refresh_only"
-    REALTIME_ONLY = "realtime_only"
-    ALWAYS = "always"
+class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
+    deltas: list["ListenerRealtimeDelta"] = Field(default_factory=list)
 
 
-class ListenerInitContent(BaseModel):
-    projectConfigId: ID | None = None
-    projectName: str | None = None
-    useTemporaryIds: bool = False
-
-    @model_validator(mode="after")
-    def _validate_identifier(self):
-        if self.projectConfigId is None and self.projectName is None:
-            raise ValueError(
-                "ListenerInitContent requires either projectConfigId or projectName"
-            )
-        return self
-
-
-class ListenerRealtimeEventContent(BaseModel):
-    projectConfigId: ID
-    shareSessionId: str | None = None
-    deltas: list["ListenerRealtimeDelta"]
-    sequence: int
-
-
-class DependencyEvent(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    payload: BaseDependencyValueUnionWithDiscriminator | None = None
-    timestampMs: int
+class DependencyEvent(SDKListenerDependencyEventEntry):
     _binary_payload: bytes | None = PrivateAttr(default=None)
 
     @property
@@ -57,106 +64,87 @@ class DependencyEvent(BaseModel):
         self._binary_payload = value
 
 
-class RealtimeDependencyEventContent(BaseModel):
-    projectConfigId: ID
-    dependencyEvent: DependencyEvent
+class ListenerDependencyEventContent(SDKListenerDependencyEvent):
+    dependencyEvents: list[DependencyEvent] = Field(default_factory=list)
 
 
-class ListenerDependencyEventContent(BaseModel):
-    projectConfigId: ID
-    shareSessionId: str | None = None
-    dependencyEvents: list[DependencyEvent]
-    sequence: int
+class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
+    _binary_payload: bytes | None = PrivateAttr(default=None)
+
+    @property
+    def binaryPayload(self) -> bytes | None:
+        return self._binary_payload
+
+    @binaryPayload.setter
+    def binaryPayload(self, value: bytes | None) -> None:
+        self._binary_payload = value
 
 
-class ListenerForceRefreshContent(BaseModel):
-    shareSessionId: str | None = None
-    projectState: ProjectStateSingleConfig | None = None
+class WebsocketMsgListenerRealtimeEvent(GoListenerRealtimeEventMessage):
+    content: ListenerRealtimeEventContent
 
 
-class ListenerErrorContent(BaseModel):
-    error: str
-    details: Any | None = None
+class WebsocketMsgListenerDependencyEvent(GoListenerDependencyEventMessage):
+    content: ListenerDependencyEventContent
 
 
-class ListenerFrontendEmitKeyAndValue(BaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
+class WebsocketMsgListenerForceRefresh(GoListenerForceRefreshMessage):
+    content: SDKListenerForceRefreshEvent
 
 
-class ListenerFrontendEmitRawContent(BaseModel):
-    projectConfigId: ID
-    dependencyValues: dict[str, Any] = Field(default_factory=dict)
-    artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
-        default_factory=list
+class WebsocketMsgListenerRegister(GoListenerRegisterMessage):
+    content: SDKListenerRegisterRequest
+
+
+def _listener_message_type(value: Any) -> str | None:
+    raw_type = (
+        value.get("messageType")
+        if isinstance(value, dict)
+        else getattr(value, "messageType", None)
     )
+    if isinstance(raw_type, ListenerMessageType):
+        return raw_type.value
+    if isinstance(raw_type, str):
+        return raw_type
+    return None
 
 
-class ListenerRouterEndpointCallContent(BaseModel):
-    projectConfigId: ID
-    callId: str
-    endpointName: str
-    payload: dict[str, Any] = Field(default_factory=dict)
+PythonScriptWebsocketMsgUnion = Annotated[
+    Annotated[
+        WebsocketMsgListenerRealtimeEvent,
+        Tag(ListenerMessageType.ListenerRealtimeEvent.value),
+    ]
+    | Annotated[
+        WebsocketMsgListenerDependencyEvent,
+        Tag(ListenerMessageType.ListenerDependencyEvent.value),
+    ]
+    | Annotated[
+        WebsocketMsgListenerForceRefresh,
+        Tag(ListenerMessageType.ListenerForceRefresh.value),
+    ]
+    | Annotated[ListenerErrorMessage, Tag(ListenerMessageType.ListenerError.value)]
+    | Annotated[
+        ListenerFrontendEmitMessage,
+        Tag(ListenerMessageType.ListenerFrontendEmit.value),
+    ]
+    | Annotated[
+        ListenerRouterEndpointCallMessage,
+        Tag(ListenerMessageType.ListenerRouterEndpointCall.value),
+    ]
+    | Annotated[
+        ListenerRouterEndpointResultMessage,
+        Tag(ListenerMessageType.ListenerRouterEndpointResult.value),
+    ]
+    | Annotated[
+        WebsocketMsgListenerRegister,
+        Tag(ListenerMessageType.ListenerRegister.value),
+    ]
+    | Annotated[
+        ListenerRegisterAckMessage,
+        Tag(ListenerMessageType.ListenerRegisterAck.value),
+    ]
+    | Annotated[ListenerInitMessage, Tag(ListenerMessageType.ListenerInit.value)],
+    Discriminator(_listener_message_type),
+]
 
-
-class ListenerRouterEndpointResultContent(BaseModel):
-    projectConfigId: ID
-    callId: str
-    ok: bool
-    result: Any | None = None
-    error: str | None = None
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
-class ListenerCoverageRequest(BaseModel):
-    projectConfigId: ID
-
-
-class ListenerCoverageSnapshot(BaseModel):
-    projectConfigId: ID
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
-    hasRealtimeWildcard: bool
-
-
-class RealtimeUIChangeContent(BaseModel):
-    projectConfigId: ID
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
-
-
-class ListenerRealtimeDelta(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    dependency: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
-    _binary_payload: bytes | None = PrivateAttr(default=None)
-
-    @property
-    def binaryPayload(self) -> bytes | None:
-        return self._binary_payload
-
-    @binaryPayload.setter
-    def binaryPayload(self, value: bytes | None) -> None:
-        self._binary_payload = value
-
-
-class ListenerRegisterCallback(BaseModel):
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
-    dependencyMode: ListenerDependencyMode
-    debounceMs: int | None = None
-    throttleMs: int | None = None
-    runOnRefresh: bool = False
-
-
-class ListenerRegisterContent(BaseModel):
-    projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterCallback]
-
-
-class ListenerRegisterAckStatus(BaseModel):
-    status: Literal["accepted", "rejected"]
-    message: str | None = None
-
-
-class ListenerRegisterAckContent(BaseModel):
-    projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterAckStatus]
+PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(PythonScriptWebsocketMsgUnion)

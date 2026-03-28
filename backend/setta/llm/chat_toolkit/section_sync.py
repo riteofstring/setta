@@ -1,23 +1,29 @@
-from setta.types.chat_messages import (
+from pydantic import TypeAdapter
+from setta.types.chat import (
     AssistantChatMessage,
-    MessageTextContent,
-    MessageThinkingContent,
-    ToolCall,
-    ToolCallFunction,
-)
-from setta.types.chat_stream_events import (
+    BaseChatMessageUnion,
+    BaseChatMessageUnionWithDiscriminator,
+    ChatSectionBranch,
+    ChatSectionState,
     LLMStreamingResponseChunk,
+    ToolChatMessage,
+)
+from setta.types.generated.go_shared_types import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
+    MessageTextContent,
+    MessageThinkingContent,
     ToolArgumentPreviewDeltaEvent,
+    ToolCall,
     ToolCallDeltaEvent,
+    ToolCallFunction,
     ToolResultEvent,
 )
-from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-from setta.types.section_impls import ChatSectionBranch, ChatSectionState
+
+_CHAT_MESSAGE_TYPE_ADAPTER = TypeAdapter(BaseChatMessageUnionWithDiscriminator)
 
 
 def build_chat_section_state(
@@ -63,7 +69,7 @@ def apply_stream_delta(
         return next_branches
 
     if isinstance(chunk, MessageStartEvent):
-        message = chunk.message
+        message = _coerce_chat_message(chunk.message)
         if isinstance(message, AssistantChatMessage):
             message = message.model_copy(deep=True)
         messages = _upsert_message(messages, message)
@@ -115,7 +121,7 @@ def apply_stream_delta(
         )
 
     if isinstance(chunk, ToolResultEvent):
-        messages = _upsert_message(messages, chunk.result)
+        messages = _upsert_message(messages, ToolChatMessage.model_validate(chunk.result))
         updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
@@ -139,7 +145,7 @@ def apply_stream_delta(
         )
 
     if isinstance(chunk, MessageFinalizedEvent):
-        messages = _upsert_message(messages, chunk.message)
+        messages = _upsert_message(messages, _coerce_chat_message(chunk.message))
         waiting_for_response = False
         tool_call_arguments = {}
         updated_branches = sync_active_branch_messages()
@@ -173,6 +179,10 @@ def _upsert_message(
             updated[index] = message
             return updated
     return list(messages) + [message]
+
+
+def _coerce_chat_message(value: object) -> BaseChatMessageUnion:
+    return _CHAT_MESSAGE_TYPE_ADAPTER.validate_python(value)
 
 
 def _ensure_assistant_message(
@@ -229,6 +239,7 @@ def _apply_tool_call_delta(
     if existing is None:
         existing = ToolCall(
             id=chunk.tool_call_id,
+            type="function",
             function=ToolCallFunction(
                 name=chunk.tool_name or "",
                 arguments={},
@@ -259,11 +270,11 @@ def _ensure_text_block(
     index: int,
 ) -> MessageTextContent:
     while len(content) <= index:
-        content.append(MessageTextContent(text=""))
+        content.append(MessageTextContent(type="text", text=""))
     block = content[index]
     if isinstance(block, MessageTextContent):
         return block
-    block = MessageTextContent(text="")
+    block = MessageTextContent(type="text", text="")
     content[index] = block
     return block
 
@@ -273,10 +284,22 @@ def _ensure_thinking_block(
     index: int,
 ) -> MessageThinkingContent:
     while len(content) <= index:
-        content.append(MessageThinkingContent())
+        content.append(
+            MessageThinkingContent(
+                type="thinking",
+                thinking="",
+                summary="",
+                signature="",
+            )
+        )
     block = content[index]
     if isinstance(block, MessageThinkingContent):
         return block
-    block = MessageThinkingContent()
+    block = MessageThinkingContent(
+        type="thinking",
+        thinking="",
+        summary="",
+        signature="",
+    )
     content[index] = block
     return block

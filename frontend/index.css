@@ -413,41 +413,6 @@ html.dark body {
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
 }
 
-.section-windowflow-shell > .section-title {
-  align-self: stretch;
-  flex: 0 0 auto;
-  min-height: 22px;
-  min-width: 0;
-}
-
-.section-windowflow-shell
-  > :is(
-    .section-search,
-    .section-args,
-    .section-row-pin,
-    .section-row-pin-main
-  ) {
-  align-self: stretch;
-  flex: 0 0 auto;
-  min-width: 0;
-}
-
-.section-windowflow-shell
-  > :is(
-    .section-main,
-    .section-main-full-w,
-    .section-full,
-    .section-full-no-title,
-    .section-w-full,
-    .section-row-main,
-    .section-row-left-bottom
-  ) {
-  align-self: stretch;
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-}
-
 .section-grid-sweep-areas {
   grid-template-areas:
     "search search search search search"
@@ -466,115 +431,13 @@ html.dark body {
 /* utility classes */
 
 .section-args-nested {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.section-param-row {
-  contain: layout;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  column-gap: 0.75rem;
-}
-
-.section-param-row > .section-key.param-row-label {
-  contain: layout;
-  flex: 0 0 var(--param-column-width, 200px);
-  width: var(--param-column-width, 200px);
-  min-width: 0;
-}
-
-.section-param-row > .section-key-value.param-row-label {
-  contain: layout;
-  flex: 1 1 auto;
-  width: auto !important;
-  min-width: 0;
-}
-
-.section-param-row > .section-value {
-  contain: layout;
-  flex: 1 1 0%;
-  min-width: 0;
-}
-
-.section-param-row > [data-param-label-shape="nameInputLeaf"],
-.section-param-row > [data-param-label-shape="nameInputParent"],
-.section-param-row > [data-param-label-shape="nameInputLeaf"] + .section-value,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  + .section-value {
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.section-param-row
-  > [data-param-label-shape="nameInputLeaf"]
-  > .peer\/nameinput,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  > .peer\/nameinput,
-.section-param-row
-  > [data-param-label-shape="nameInputLeaf"]
-  + .section-value
-  > .peer\/textinput,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  + .section-value
-  > .peer\/textinput,
-.section-param-row
-  > [data-param-label-shape="nameInputLeaf"]
-  > .peer\/nameinput
-  .cm-content,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  > .peer\/nameinput
-  .cm-content,
-.section-param-row
-  > [data-param-label-shape="nameInputLeaf"]
-  + .section-value
-  > .peer\/textinput
-  .cm-content,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  + .section-value
-  > .peer\/textinput
-  .cm-content,
-.section-param-row
-  > [data-param-label-shape="nameInputLeaf"]
-  > .peer\/nameinput
-  .cm-line,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  > .peer\/nameinput
-  .cm-line,
-.section-param-row
-  > [data-param-label-shape="nameInputLeaf"]
-  + .section-value
-  > .peer\/textinput
-  .cm-line,
-.section-param-row
-  > [data-param-label-shape="nameInputParent"]
-  + .section-value
-  > .peer\/textinput
-  .cm-line {
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.section-param-row > [data-param-resize-handle="true"] {
-  flex: 0 0 auto;
-}
-
-.section-param-row > .param-row-error {
-  flex: 0 0 auto;
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
+  grid-template-areas: "left-gutter key center-gutter value";
 }
 
 .section-args-nested-key-value {
-  display: flex;
-  align-items: center;
-  min-width: 0;
+  grid-template-columns: 1fr 0.75rem 1fr;
+  grid-template-areas: "key center-gutter value";
 }
 
 @supports (-moz-appearance: none) {
@@ -761,12 +624,9 @@ input[type="color" i] {
   pointer-events: none;
   transition: opacity 160ms ease-out;
   z-index: 2;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
+  -webkit-mask: linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
