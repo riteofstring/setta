@@ -61,6 +61,9 @@ func TestServiceCreateAppliesCodexDefaultsAndWritesCanonicalConfig(t *testing.T)
 	if !ok {
 		t.Fatalf("expected setta mcp server entry, got %#v", mcpServers)
 	}
+	if settaServer["transport"] != "sse" {
+		t.Fatalf("expected setta server transport sse, got %#v", settaServer)
+	}
 	if settaServer["url"] != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected setta server url, got %#v", settaServer)
 	}
@@ -229,8 +232,47 @@ func TestServiceCreatePreservesExistingCodexMCPServersWhenAddingSetta(t *testing
 		t.Fatalf("expected existing filesystem mcp server to survive, got %#v", mcpServers)
 	}
 	settaServer, ok := mcpServers["setta"].(map[string]any)
-	if !ok || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
+	if !ok || settaServer["transport"] != "sse" || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected normalized setta mcp server, got %#v", mcpServers)
+	}
+}
+
+func TestServiceReconcileManagedCanonicalConfigsRepairsLegacyCodexSettaTransport(t *testing.T) {
+	t.Parallel()
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+
+	created, err := service.Create(Config{
+		ID:                 "codex-config",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	configPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName)
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+[mcp_servers.setta]
+url = "http://127.0.0.1:8000/mcp"
+`)+"\n"), 0o644); err != nil {
+		t.Fatalf("write legacy codex config: %v", err)
+	}
+
+	if err := service.ReconcileManagedCanonicalConfigs(); err != nil {
+		t.Fatalf("reconcile managed canonical configs: %v", err)
+	}
+
+	payload := readCodexConfigPayload(t, configPath)
+	mcpServers, ok := payload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
+	}
+	settaServer, ok := mcpServers["setta"].(map[string]any)
+	if !ok || settaServer["transport"] != "sse" || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected reconciled setta server entry, got %#v", mcpServers["setta"])
 	}
 }
 

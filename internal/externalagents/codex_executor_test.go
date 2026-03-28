@@ -553,7 +553,7 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 		t.Fatalf("expected inherited filesystem mcp server, got %#v", mcpServers)
 	}
 	settaServer, ok := mapValue(mcpServers["setta"])
-	if !ok || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
+	if !ok || stringValue(settaServer["transport"]) != "sse" || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected runtime setta mcp url, got %#v", mcpServers["setta"])
 	}
 	headers, ok := mapValue(settaServer["http_headers"])

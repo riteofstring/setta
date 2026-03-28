@@ -1363,14 +1363,19 @@ func applyCodexRuntimeConfig(
 	if strings.TrimSpace(stringValue(payload["model_reasoning_summary"])) == "" {
 		payload["model_reasoning_summary"] = "none"
 	}
+	mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
+	serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
+	if len(serverEntry) > 0 || len(settaHeaders) > 0 {
+		serverEntry = externalagentconfigs.NormalizeSettaCodexMCPServerEntry(serverEntry, "")
+	}
 	if len(settaHeaders) > 0 {
-		mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
-		serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
 		headerEntry := ensureAnyMapFromValue(serverEntry["http_headers"])
 		for key, value := range settaHeaders {
 			headerEntry[key] = value
 		}
 		serverEntry["http_headers"] = headerEntry
+	}
+	if len(serverEntry) > 0 {
 		mcpServers[mcpx.DefaultServerID] = serverEntry
 		payload["mcp_servers"] = mcpServers
 	}

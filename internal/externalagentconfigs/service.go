@@ -77,6 +77,32 @@ func (s *Service) Get(configID string) (Config, error) {
 	return s.configs.Get(configID)
 }
 
+func (s *Service) ReconcileManagedCanonicalConfigs() error {
+	if err := s.requireConfigured(); err != nil {
+		return err
+	}
+	configs, err := s.configs.List()
+	if err != nil {
+		return err
+	}
+	for _, config := range configs {
+		if config.SettingsMode == SettingsModeExplicitPath {
+			continue
+		}
+		switch config.ToolType {
+		case ToolTypeCodex:
+			if err := s.writeCodexConfig(s.codexConfigPath(config.ID), config); err != nil {
+				return err
+			}
+		case ToolTypeOpenCode:
+			if err := s.writeOpenCodeConfig(s.openCodeConfigPath(config.ID), config); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (s *Service) Create(config Config) (Config, error) {
 	if err := s.requireConfigured(); err != nil {
 		return Config{}, err
@@ -441,12 +467,7 @@ func (s *Service) writeCodexConfig(path string, config Config) error {
 		mcpServers = map[string]any{}
 	}
 	serverEntry, _ := mcpServers["setta"].(map[string]any)
-	if serverEntry == nil {
-		serverEntry = map[string]any{}
-	}
-	if strings.TrimSpace(s.settaServerURL) != "" {
-		serverEntry["url"] = s.settaServerURL
-	}
+	serverEntry = NormalizeSettaCodexMCPServerEntry(serverEntry, s.settaServerURL)
 	mcpServers["setta"] = serverEntry
 	payload["mcp_servers"] = mcpServers
 	content, err := toml.Marshal(payload)

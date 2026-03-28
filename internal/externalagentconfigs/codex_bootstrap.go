@@ -322,6 +322,28 @@ func parseCodexMCPServerEntry(rawEntry any, serverID string) (map[string]any, er
 	}
 }
 
+func NormalizeSettaCodexMCPServerEntry(entry map[string]any, settaServerURL string) map[string]any {
+	normalized := map[string]any{}
+	for key, value := range entry {
+		normalized[key] = cloneJSONValue(value)
+	}
+	for _, key := range []string{
+		"command",
+		"args",
+		"env",
+		"cwd",
+		"encoding",
+		"encoding_error_handler",
+	} {
+		delete(normalized, key)
+	}
+	normalized["transport"] = "sse"
+	if trimmedURL := strings.TrimSpace(settaServerURL); trimmedURL != "" {
+		normalized["url"] = trimmedURL
+	}
+	return normalized
+}
+
 func parseCodexOptionalStringField(entry map[string]any, serverID string, fieldName string) (string, error) {
 	rawValue, ok := entry[fieldName]
 	if !ok {
