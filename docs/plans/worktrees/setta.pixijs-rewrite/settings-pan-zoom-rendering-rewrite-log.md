@@ -3347,3 +3347,28 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new standalone section-surface boundary one level higher in the standalone route stack before any broad Pixi node drawing lands.
+
+## 2026-03-27 122
+
+- Item: Lift the new standalone section-surface boundary one level higher in the standalone route stack.
+- Status: `done`
+- Details:
+  - Added a typed higher-level standalone route boundary above the section/chat/window surface implementations:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` to consume the new route boundary instead of directly assembling the standalone project-chat frame, standalone section surface, window-space surface, and route-owned not-found shells inline.
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `StandaloneProjectSurfacePage.tsx` focused on route param resolution, load/title/auth state, and route-owned error-state bookkeeping instead of target-surface assembly
+    - keeping standalone section routes on the same lifted `StandaloneSectionSurfaceBoundary` path while moving the surrounding route-shell ownership one level higher
+    - keeping standalone project chat and window-space routes on their existing DOM/live surface paths while routing them through one caller-owned boundary in the standalone route stack
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app in a fresh sub-agent context after bootstrapping with the provided token
+    - `http://127.0.0.1:3044/settings/section/languageserver` stayed authenticated and rendered the expected section UI with visible labels such as `languageServer`, `ARGS`, `Filter`, `basedpyright`, `analysis`, and `diagnosticSeverityOverrides`, with no obvious clipping, overlap, or missing content
+    - `http://127.0.0.1:3044/settings/chat` stayed authenticated and rendered the chat settings surface with visible controls such as `Search conversations`, `New Chat`, `View Threads`, `Project AI Settings`, `CREATE PROJECT`, and `Type a message...`, with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, `GET /api/llm/config`, and `GET /api/getExternalAgentHealth`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the standalone route-owned target/render switch one level higher in the standalone page stack before any broad Pixi node drawing lands.
