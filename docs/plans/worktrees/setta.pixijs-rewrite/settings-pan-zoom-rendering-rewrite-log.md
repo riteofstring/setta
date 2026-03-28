@@ -6035,3 +6035,33 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/getDefaultConfigName`, `GET /api/authRefreshStatus`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, `POST /api/checkWorkspaceInitialized`, `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the standalone section-surface ownership above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`, starting with `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
+
+## 2026-03-28 201
+
+- Item: Lift the standalone section-surface nested-section ownership above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Moved the standalone section surface path off the lower default-owning nested-section boundary so the standalone seam now injects the default recursive renderers itself:
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`
+  - Updated focused coverage so the standalone section surface test now pins the higher-level ownership directly by asserting the forwarded default recursive renderer references on the group/list-root body override path:
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+  - Kept the public standalone route/caller contract unchanged while making the ownership move local to this seam-lift step.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes stay bound to their section thread and keep workspace project chat isolated"`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - bootstrapped through `http://127.0.0.1:8044/__setta__/bootstrap#token=...`, then verified `http://127.0.0.1:3044/home`
+    - created a fresh project at `http://127.0.0.1:3044/gray_slag`
+    - added a live `ListRoot` section `teaching_lark` with nested `Code` child `zinc_sitting`, then verified the standalone section route `http://127.0.0.1:3044/gray_slag/section/teaching_lark`
+    - the standalone section surface rendered normally with no obvious blank state, clipping, or overlap, and the nested section body path remained present for the route
+    - representative visible labels included `teaching_lark`, `zinc_sitting`, and `1`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-standalone-section-surface-owned nested-section renderer handoff into the next caller layer above `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`.

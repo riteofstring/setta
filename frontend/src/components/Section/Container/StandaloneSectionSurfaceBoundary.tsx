@@ -1,8 +1,12 @@
 import React, { type ComponentProps } from "react";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
-import { SectionContainerNestedSectionsBoundary } from "./SectionContainerNestedSectionsBoundary";
+import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import { SectionWindowSurface } from "./SectionWindowSurface";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "./sectionContainerDefaultRenderers";
 
 type StandaloneSectionSurfaceBoundaryProps = Pick<
   ComponentProps<typeof SectionWindowSurface>,
@@ -25,10 +29,12 @@ function StandaloneSectionNestedSectionsBody({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <SectionContainerNestedSectionsBoundary
+      <SectionContainerNestedSections
         sectionId={sectionId}
         isGroup={sectionType === SectionTypeEnum.Group}
         isJoinedCodeTerminalGroup={false}
+        renderCoreBody={renderDefaultSectionContainerCoreBody}
+        renderNestedSections={renderDefaultSectionContainerNestedSections}
       />
     </div>
   );

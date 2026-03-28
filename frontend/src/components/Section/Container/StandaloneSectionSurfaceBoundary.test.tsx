@@ -1,9 +1,15 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { StandaloneSectionSurfaceBoundary } from "./StandaloneSectionSurfaceBoundary";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
+import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "./sectionContainerDefaultRenderers";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import { StandaloneSectionSurfaceBoundary } from "./StandaloneSectionSurfaceBoundary";
 
 vi.mock("./SectionWindowSurface", () => ({
   SectionWindowSurface: ({
@@ -42,26 +48,55 @@ vi.mock("./SectionWindowSurface", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerNestedSectionsBoundary", () => ({
-  SectionContainerNestedSectionsBoundary: ({
+const mockSectionContainerNestedSections = vi.fn(
+  ({
     sectionId,
     isGroup,
     isJoinedCodeTerminalGroup,
+    renderCoreBody,
+    renderNestedSections,
   }: {
     sectionId: string;
     isGroup: boolean;
     isJoinedCodeTerminalGroup: boolean;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
+    renderNestedSections: (
+      props: SectionContainerNestedSectionsProps,
+    ) => ReactNode;
   }) => (
     <div
-      data-testid="mock-section-container-nested-sections-boundary"
+      data-testid="mock-section-container-nested-sections"
       data-section-id={sectionId}
       data-is-group={String(isGroup)}
       data-is-joined-code-terminal-group={String(isJoinedCodeTerminalGroup)}
+      data-has-render-core-body={String(Boolean(renderCoreBody))}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     />
   ),
+);
+
+vi.mock("./SectionContainerNestedSections", () => ({
+  SectionContainerNestedSections: (props: {
+    sectionId: string;
+    isGroup: boolean;
+    isJoinedCodeTerminalGroup: boolean;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
+    renderNestedSections: (
+      props: SectionContainerNestedSectionsProps,
+    ) => ReactNode;
+  }) => mockSectionContainerNestedSections(props),
+}));
+
+vi.mock("./sectionContainerDefaultRenderers", () => ({
+  renderDefaultSectionContainerCoreBody: () => null,
+  renderDefaultSectionContainerNestedSections: () => null,
 }));
 
 describe("StandaloneSectionSurfaceBoundary", () => {
+  beforeEach(() => {
+    mockSectionContainerNestedSections.mockClear();
+  });
+
   it("injects the standalone section surface defaults and nested-sections boundary for group sections", () => {
     const renderDictArea = (_props: SectionContainerAreaDictProps) => null;
     const markup = renderToStaticMarkup(
@@ -73,6 +108,8 @@ describe("StandaloneSectionSurfaceBoundary", () => {
         renderDictArea={renderDictArea}
       />,
     );
+    const forwardedProps =
+      mockSectionContainerNestedSections.mock.calls[0]?.[0];
 
     expect(markup).toContain('data-testid="mock-section-window-surface"');
     expect(markup).toContain('data-section-id="section-1"');
@@ -82,15 +119,19 @@ describe("StandaloneSectionSurfaceBoundary", () => {
     expect(markup).toContain('data-has-error-callback="true"');
     expect(markup).toContain('data-has-body-override="true"');
     expect(markup).toContain('data-has-render-dict-area="true"');
+    expect(markup).toContain('class="min-h-0 flex-1 overflow-auto"');
     expect(markup).toContain(
-      'class="min-h-0 flex-1 overflow-auto"',
-    );
-    expect(markup).toContain(
-      'data-testid="mock-section-container-nested-sections-boundary"',
+      'data-testid="mock-section-container-nested-sections"',
     );
     expect(markup).toContain('data-is-group="true"');
-    expect(markup).toContain(
-      'data-is-joined-code-terminal-group="false"',
+    expect(markup).toContain('data-is-joined-code-terminal-group="false"');
+    expect(markup).toContain('data-has-render-core-body="true"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
+    expect(forwardedProps?.renderCoreBody).toBe(
+      renderDefaultSectionContainerCoreBody,
+    );
+    expect(forwardedProps?.renderNestedSections).toBe(
+      renderDefaultSectionContainerNestedSections,
     );
   });
 
@@ -109,8 +150,7 @@ describe("StandaloneSectionSurfaceBoundary", () => {
     expect(markup).toContain('data-section-id="section-2"');
     expect(markup).toContain('data-has-body-override="false"');
     expect(markup).toContain('data-has-render-dict-area="true"');
-    expect(markup).not.toContain(
-      'mock-section-container-nested-sections-boundary',
-    );
+    expect(markup).not.toContain("mock-section-container-nested-sections");
+    expect(mockSectionContainerNestedSections).not.toHaveBeenCalled();
   });
 });
