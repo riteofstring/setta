@@ -1,13 +1,17 @@
-import React, { type ComponentProps } from "react";
+import React from "react";
 import { SectionContainer } from "./SectionContainer";
+import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
-type SortableSectionSectionProps = Pick<
-  ComponentProps<typeof SectionContainer>,
-  "dragListeners" | "renderCoreBody" | "renderNestedSections" | "sectionId"
->;
-
-function _SortableSectionSection(props: SortableSectionSectionProps) {
-  return <SectionContainer {...props} />;
+function _SortableSectionSection(
+  props: SortableSectionBodySectionBoundaryProps,
+) {
+  return (
+    <SectionContainer
+      {...props}
+      isTopLevel={false}
+      SectionBoundary={SortableSectionSection}
+    />
+  );
 }
 
 export const SortableSectionSection = React.memo(_SortableSectionSection);

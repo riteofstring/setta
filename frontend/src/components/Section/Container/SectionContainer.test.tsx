@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
 type MockEmbeddedTerminal = {
   isTerminalMinimized: boolean;
@@ -145,6 +146,47 @@ vi.mock("./SectionContainerCore", () => ({
   ),
 }));
 
+vi.mock("./SectionContainerNestedSections", () => ({
+  SectionContainerNestedSections: ({
+    sectionId,
+    isGroup,
+    layoutVariant,
+    isJoinedCodeTerminalGroup,
+    SectionBoundary,
+    renderCoreBody,
+    renderNestedSections,
+  }: {
+    sectionId: string;
+    isGroup: boolean;
+    layoutVariant?: "default" | "tight";
+    isJoinedCodeTerminalGroup: boolean;
+    SectionBoundary: (
+      props: SortableSectionBodySectionBoundaryProps,
+    ) => ReactNode;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
+    renderNestedSections: (
+      props: SectionContainerNestedSectionsProps,
+    ) => ReactNode;
+  }) => (
+    <div
+      data-testid="mock-section-container-nested-sections"
+      data-section-id={sectionId}
+      data-is-group={isGroup ? "true" : "false"}
+      data-layout-variant={layoutVariant ?? "default"}
+      data-is-joined-code-terminal-group={
+        isJoinedCodeTerminalGroup ? "true" : "false"
+      }
+    >
+      <SectionBoundary
+        sectionId={`${sectionId}-child`}
+        dragListeners={{ onPointerDown: "listener" }}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />
+    </div>
+  ),
+}));
+
 vi.mock("./AgenticEdgeHandles", () => ({
   AgenticEdgeHandles: ({ isUserView }: { isUserView: boolean }) => (
     <div
@@ -174,6 +216,23 @@ function renderNestedSections({
       data-is-joined-code-terminal-group={
         isJoinedCodeTerminalGroup ? "true" : "false"
       }
+    />
+  );
+}
+
+function MockSectionBoundary({
+  sectionId,
+  dragListeners,
+  renderCoreBody,
+  renderNestedSections,
+}: SortableSectionBodySectionBoundaryProps) {
+  return (
+    <div
+      data-testid="mock-sortable-section-boundary"
+      data-section-id={sectionId}
+      data-has-drag-listeners={dragListeners ? "true" : "false"}
+      data-has-render-core-body={String(Boolean(renderCoreBody))}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     />
   );
 }
@@ -230,6 +289,7 @@ describe("SectionContainer", () => {
         sectionId="section-1"
         isTopLevel={false}
         dragListeners={undefined}
+        SectionBoundary={MockSectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
@@ -245,6 +305,11 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-bg-color="bg:Code"');
     expect(markup).toContain('data-layout-variant="tight"');
     expect(markup).toContain('data-is-joined-code-terminal-group="false"');
+    expect(markup).toContain('data-testid="mock-sortable-section-boundary"');
+    expect(markup).toContain('data-section-id="section-1-child"');
+    expect(markup).toContain('data-has-drag-listeners="true"');
+    expect(markup).toContain('data-has-render-core-body="true"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
   });
 
   it("keeps the joined code-terminal wrapper and passes the lifted body through the joined core branch", () => {
@@ -259,6 +324,7 @@ describe("SectionContainer", () => {
         sectionId="section-2"
         isTopLevel={true}
         dragListeners={undefined}
+        SectionBoundary={MockSectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,

@@ -5187,3 +5187,35 @@ Record:
     - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, `POST /api/setTopLevelSectionLayout`, `POST /api/loadProjectConfig`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the lifted `SortableSectionSection` boundary one caller higher into `frontend/src/components/Section/Container/SectionContainer.tsx` while keeping the unstable direct `/settings` canary explicit.
+
+## 2026-03-28 177
+
+- Item: Lift the `SortableSectionSection` boundary into `frontend/src/components/Section/Container/SectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Raised the sortable nested-section seam one caller higher so `SectionContainer.tsx` now owns the dedicated `SortableSectionSection` handoff above `SectionContainerNestedSections.tsx`:
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.tsx`
+  - Updated focused coverage to pin the lifted seam at both the generic section container and its immediate wrappers:
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `SectionContainer.tsx` now explicitly owning the sortable nested-section boundary handoff while still building the same core body and joined-code-terminal shell branches
+    - `SectionContainerBoundary.tsx` shrinking into a thinner default injector that supplies the root `SortableSectionSection`, the default core-body renderer, and the recursive nested-sections renderer
+    - `SortableSectionSection.tsx` remaining the recursive nested-section entrypoint while now explicitly fixing `isTopLevel={false}` and reusing itself as the nested section boundary for deeper child stacks
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SortableSectionSection.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - the earlier nested-section canary route `http://127.0.0.1:3044/sweet_kelp` had gone stale on this runtime and resolved to `Project Not Found`, so the verifier switched to a fresh live project route instead of treating that route churn as a seam regression
+    - `http://127.0.0.1:3044/driving_moss` rendered a live project surface after bootstrapping from `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - after creating a fresh `ListRoot` parent and one nested `Callable` child, the child rendered visibly beneath the parent, the surrounding shell stayed stable, and no obvious overlap or clipping appeared in the canary area
+    - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, `POST /api/loadProjectConfig`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-`SectionContainer`-owned sortable-section boundary into the next higher caller layer above `frontend/src/components/Section/Container/SectionContainer.tsx` while keeping the unstable direct `/settings` canary explicit.

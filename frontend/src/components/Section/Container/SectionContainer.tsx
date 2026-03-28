@@ -19,9 +19,13 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
+import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
-import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { buildSectionContainerView } from "./sectionContainerView";
+import type {
+  SortableSectionBodySectionBoundary,
+  SortableSectionNestedSectionsRenderer,
+} from "./sortableSectionBodyView";
 import { getOutlineColor } from "./utils";
 
 export type SectionContainerCoreBodyRenderer = (
@@ -32,15 +36,15 @@ function _SectionContainer({
   sectionId,
   isTopLevel,
   dragListeners,
+  SectionBoundary,
   renderNestedSections,
   renderCoreBody,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   dragListeners?: any;
-  renderNestedSections: (
-    props: SectionContainerNestedSectionsProps,
-  ) => React.ReactElement | null;
+  SectionBoundary: SortableSectionBodySectionBoundary;
+  renderNestedSections: SortableSectionNestedSectionsRenderer;
   renderCoreBody: SectionContainerCoreBodyRenderer;
 }) {
   const {
@@ -126,10 +130,15 @@ function _SectionContainer({
     return null;
   }
 
-  const nestedSections = renderNestedSections({
-    ...view.nestedSectionsProps,
-    isJoinedCodeTerminalGroup: view.kind === "joined-code-terminal-group",
-  });
+  const nestedSections = (
+    <SectionContainerNestedSections
+      {...view.nestedSectionsProps}
+      isJoinedCodeTerminalGroup={view.kind === "joined-code-terminal-group"}
+      SectionBoundary={SectionBoundary}
+      renderCoreBody={renderCoreBody}
+      renderNestedSections={renderNestedSections}
+    />
+  );
   const core = view.core ? (
     <SectionContainerCore {...view.core.props}>
       {renderCoreBody(view.core.bodyProps)}
@@ -177,6 +186,7 @@ function _SectionContainer({
 export const SectionContainer = React.memo(
   _SectionContainer,
   (p, n) =>
+    p.SectionBoundary === n.SectionBoundary &&
     p.renderCoreBody === n.renderCoreBody &&
     p.renderNestedSections === n.renderNestedSections &&
     _.isEqual(p.dragListeners, n.dragListeners),

@@ -4,16 +4,21 @@ import { describe, expect, it, vi } from "vitest";
 import { SectionContainerBoundary } from "./SectionContainerBoundary";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
 vi.mock("./SectionContainer", () => ({
   SectionContainer: ({
     sectionId,
     isTopLevel,
+    SectionBoundary,
     renderCoreBody,
     renderNestedSections,
   }: {
     sectionId: string;
     isTopLevel: boolean;
+    SectionBoundary: (
+      props: SortableSectionBodySectionBoundaryProps,
+    ) => ReactNode;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: (
       props: SectionContainerNestedSectionsProps,
@@ -37,6 +42,12 @@ vi.mock("./SectionContainer", () => ({
         layoutVariant: "default",
         isJoinedCodeTerminalGroup: false,
       })}
+      <SectionBoundary
+        sectionId="child-a"
+        dragListeners={{ onPointerDown: "listener" }}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />
     </div>
   ),
 }));
@@ -73,8 +84,25 @@ vi.mock("./SectionContainerNestedSectionsBoundary", () => ({
   ),
 }));
 
+vi.mock("./SortableSectionSection", () => ({
+  SortableSectionSection: ({
+    sectionId,
+    dragListeners,
+    renderCoreBody,
+    renderNestedSections,
+  }: SortableSectionBodySectionBoundaryProps) => (
+    <div
+      data-testid="mock-sortable-section-section"
+      data-section-id={sectionId}
+      data-has-drag-listeners={String(Boolean(dragListeners))}
+      data-has-render-core-body={String(Boolean(renderCoreBody))}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
+    />
+  ),
+}));
+
 describe("SectionContainerBoundary", () => {
-  it("injects the default core-body and nested-sections boundaries into the generic section container", () => {
+  it("injects the default core-body, sortable section boundary, and nested-sections renderer into the generic section container", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerBoundary sectionId="section-1" isTopLevel={true} />,
     );
@@ -86,9 +114,12 @@ describe("SectionContainerBoundary", () => {
     expect(markup).toContain(
       'data-testid="mock-section-container-nested-sections"',
     );
+    expect(markup).toContain('data-testid="mock-sortable-section-section"');
+    expect(markup).toContain('data-section-id="child-a"');
+    expect(markup).toContain('data-has-drag-listeners="true"');
+    expect(markup).toContain('data-has-render-core-body="true"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
     expect(markup).toContain('data-layout-variant="default"');
-    expect(markup).toContain(
-      'data-is-joined-code-terminal-group="false"',
-    );
+    expect(markup).toContain('data-is-joined-code-terminal-group="false"');
   });
 });
