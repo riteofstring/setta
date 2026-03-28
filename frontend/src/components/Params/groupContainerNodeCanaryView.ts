@@ -1,16 +1,13 @@
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import type { LiveDictAreaEdgeStripCanaryPacket } from "./groupContainerEdgeStripCanaryPacket";
+import {
+  buildLiveDictAreaEdgeStripCanaryView,
+  type LiveDictAreaEdgeStripCanaryView,
+} from "./groupContainerEdgeStripCanaryView";
 import type { LiveDictAreaNodeCanaryPacket } from "./groupContainerNodeCanaryPacket";
 import type { LiveDictAreaPinnedParamAreaCanaryPacket } from "./groupContainerPinnedParamAreaCanaryPacket";
 import type { LiveDictAreaUnpinnedParamAreaCanaryPacket } from "./groupContainerUnpinnedParamAreaCanaryPacket";
 
-export type LiveDictAreaEdgeStripCanaryView = {
-  blockId: LiveDictAreaEdgeStripCanaryPacket["blockId"];
-  domPacket: LiveDictAreaEdgeStripCanaryPacket["domPacket"];
-  kind: "edge-strip";
-  mount: DictAreaBlockFrameMountPacket;
-  scenePacket: LiveDictAreaEdgeStripCanaryPacket["scenePacket"];
-};
+export type { LiveDictAreaEdgeStripCanaryView } from "./groupContainerEdgeStripCanaryView";
 
 export type LiveDictAreaPinnedParamAreaCanaryView = {
   blockId: LiveDictAreaPinnedParamAreaCanaryPacket["blockId"];
@@ -81,20 +78,6 @@ export function buildLiveDictAreaNodeCanaryView({
     pinnedParamAreaBlock,
     scenePacket: nodeCanaryPacket.scenePacket,
     unpinnedParamAreaBlock,
-  };
-}
-
-function buildLiveDictAreaEdgeStripCanaryView({
-  canaryPacket,
-}: {
-  canaryPacket: LiveDictAreaEdgeStripCanaryPacket;
-}): LiveDictAreaEdgeStripCanaryView {
-  return {
-    blockId: canaryPacket.blockId,
-    domPacket: canaryPacket.domPacket,
-    kind: "edge-strip",
-    mount: canaryPacket.domPacket.mount,
-    scenePacket: canaryPacket.scenePacket,
   };
 }
 
