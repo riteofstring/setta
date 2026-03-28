@@ -18,6 +18,8 @@ type StageMetrics = {
   domCount: number;
   headerCount: number;
   shellCount: number;
+  sceneCanvasCount: number;
+  sceneRowCount: number;
   staticRowCount: number;
   paramContainerCount: number;
 };
@@ -47,14 +49,20 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("section-body-shell")?.shellCount).toBeGreaterThan(
     0,
   );
+  expect(metricsByStage.get("section-body-shell")?.sceneCanvasCount).toBe(0);
   expect(metricsByStage.get("section-body-shell")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("section-body-shell")?.paramContainerCount).toBe(0);
 
   expect(
-    metricsByStage.get("static-param-list")?.staticRowCount,
+    metricsByStage.get("static-param-list")?.sceneCanvasCount,
   ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("static-param-list")?.sceneRowCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("static-param-list")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("static-param-list")?.paramContainerCount).toBe(0);
 
+  expect(metricsByStage.get("full")?.sceneCanvasCount).toBe(0);
   expect(metricsByStage.get("full")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("full")?.paramContainerCount).toBeGreaterThan(0);
 
@@ -63,9 +71,6 @@ test("all settings benchmark stages progressively restore section complexity", a
   );
   expect(metricsByStage.get("header-only")?.domCount).toBeLessThan(
     metricsByStage.get("section-body-shell")?.domCount ?? 0,
-  );
-  expect(metricsByStage.get("section-body-shell")?.domCount).toBeLessThan(
-    metricsByStage.get("static-param-list")?.domCount ?? 0,
   );
   expect(metricsByStage.get("static-param-list")?.domCount).toBeLessThan(
     metricsByStage.get("full")?.domCount ?? 0,
@@ -116,6 +121,21 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       headerCount: flowRoot.querySelectorAll("header.section-title").length,
       shellCount: flowRoot.querySelectorAll("[data-settings-benchmark-shell]")
         .length,
+      sceneCanvasCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-scene='pixi'] canvas",
+      ).length,
+      sceneRowCount: Array.from(
+        flowRoot.querySelectorAll("[data-settings-benchmark-scene='pixi']"),
+      ).reduce((rowCount, element) => {
+        return (
+          rowCount +
+          Number.parseInt(
+            element.getAttribute("data-settings-benchmark-scene-row-count") ??
+              "0",
+            10,
+          )
+        );
+      }, 0),
       staticRowCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-static-param-row]",
       ).length,

@@ -6389,3 +6389,39 @@ Record:
     - representative requests returned `200`, including `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getAIFollowSnapshot`, `GET /api/getAgentProfiles`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`index.tsx`-owned `SectionBoundary` handoff into the next runtime bootstrap layer above `frontend/src/index.tsx`, starting with `frontend/src/appRuntimeBootstrap.tsx`, while keeping the unstable live `/settings` canary explicit.
+
+## 2026-03-28 210
+
+- Item: Land the first real Pixi-backed dict-area benchmark renderer on the `static-param-list` canary stage.
+- Status: `done`
+- Details:
+  - Pivoted off the completed seam-lift lane and mounted the first real retained-scene benchmark renderer instead of continuing ownership hops through forwarding wrappers:
+    - `frontend/package.json`
+    - `frontend/pnpm-lock.yaml`
+    - `frontend/src/components/Section/Layouts/BenchmarkDictAreaPixiScene.tsx`
+    - `frontend/src/components/Section/Layouts/benchmarkDictAreaPixiLayout.ts`
+    - `frontend/src/components/Section/Layouts/benchmarkDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Section/Layouts/SettingsAllSettingsBenchmarkDictArea.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+  - Added `pixi.js` and a pure benchmark layout helper so the `settingsBenchmarkStage=static-param-list` path now paints the benchmark dict-area shell through Pixi canvas hosts instead of rendering the old static DOM param-row list.
+  - Kept the surrounding benchmark/live gating stable:
+    - only the `static-param-list` benchmark stage uses the new Pixi scene path
+    - the existing section-body-shell and full live DOM stages stay intact
+    - the benchmark verification now asserts Pixi scene hosts are present and that the old static row DOM is absent for that stage
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/benchmarkDictAreaPixiLayout.test.ts src/components/Section/Layouts/dictAreaScenePackets.test.ts`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/BenchmarkDictAreaPixiScene.tsx src/components/Section/Layouts/benchmarkDictAreaPixiLayout.ts src/components/Section/Layouts/benchmarkDictAreaPixiLayout.test.ts src/components/Section/Layouts/SettingsAllSettingsBenchmarkDictArea.tsx tests/e2e/settings/settings-all-settings-benchmark.spec.ts package.json`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?settingsBenchmarkStage=static-param-list`) in a fresh sub-agent context:
+    - `All Settings` rendered Pixi-backed canvas scene hosts instead of the old static DOM row list
+    - visible benchmark context included `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer`
+    - no obvious blank states or clipping were observed in the visible benchmark shells; the floating `Chat Window 1` overlay on the right was unrelated app chrome
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the first retained-scene/Pixi slice by reusing the existing live dict-area scene boundary on the real canary path, starting with a non-interactive Pixi node-body mount above the cleaned live dict/param shell before any editor-overlay or drag handoff work lands.

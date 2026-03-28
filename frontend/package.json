@@ -66,6 +66,7 @@
     "katex": "0.16.21",
     "lodash": "4.17.21",
     "match-sorter": "8.1.0",
+    "pixi.js": "8.17.1",
     "postcss": "8.4.31",
     "re-resizable": "6.9.0",
     "react": "19.1.1",

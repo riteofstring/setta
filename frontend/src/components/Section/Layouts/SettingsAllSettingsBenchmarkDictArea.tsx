@@ -8,11 +8,15 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { buildBenchmarkParamRows, type BenchmarkParamRow } from "./dictAreaView";
+import { BenchmarkDictAreaPixiScene } from "./BenchmarkDictAreaPixiScene";
 import {
   buildBenchmarkDictAreaScenePacket,
   type BenchmarkDictAreaSceneParamRowPacket,
 } from "./dictAreaScenePackets";
+import {
+  buildBenchmarkParamRows,
+  type BenchmarkParamRow,
+} from "./dictAreaView";
 
 export function SettingsAllSettingsBenchmarkDictArea({
   sectionId,
@@ -64,6 +68,12 @@ export function SettingsAllSettingsBenchmarkDictArea({
       ),
     });
   }, _.isEqual);
+
+  if (benchmark.renderStaticParamList) {
+    return (
+      <BenchmarkDictAreaPixiScene bgColor={bgColor} scenePacket={scenePacket} />
+    );
+  }
 
   return (
     <section
