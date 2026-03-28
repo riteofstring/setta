@@ -53,7 +53,7 @@ import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePa
 import {
   buildLiveDictAreaNodeDomPacket,
   type LiveDictAreaEdgeStripDomPacket,
-  type LiveDictAreaPinnedParamAreaMountPacket,
+  type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaMountPacket,
 } from "./groupContainerNodeDomPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
@@ -796,7 +796,7 @@ function EdgesStrip({
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  domPacket: LiveDictAreaPinnedParamAreaMountPacket;
+  domPacket: LiveDictAreaPinnedParamAreaDomPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 

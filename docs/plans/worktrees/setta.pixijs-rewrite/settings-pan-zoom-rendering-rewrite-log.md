@@ -1473,3 +1473,31 @@ Record:
     - relevant requests returned `200`, including `GET /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `OPTIONS /api/loadProjectConfig`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific DOM helper from `groupContainerNodeDomPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-27 056
+
+- Item: Extract the pinned param-area block into the next block-specific DOM helper above `groupContainerNodeDomPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed DOM-packet helper for the live dict-area pinned param area:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaDomPacket.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaDomPacket.test.ts`
+  - Updated the higher-level node DOM packet boundary to compose through the new pinned helper instead of passing the pinned mount packet through unchanged:
+    - `frontend/src/components/Params/groupContainerNodeDomPacket.ts`
+  - Updated the production non-Pixi `GroupContainer` pinned mount site to consume the new DOM-specific pinned packet type while keeping the current DOM path unchanged:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the pinned param-area mount block into one explicit DOM packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node DOM packet as a composition boundary instead of a mixed composition-plus-pinned-block-shaping module
+    - leaving the current DOM pinned param-area surface intact while deepening the future retained-scene DOM handoff contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaDomPacket.test.ts src/components/Params/groupContainerNodeDomPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated with `All Settings` visible
+    - the visible settings shell and dict/param area rendered normally after the new pinned DOM packet extraction, with representative labels and controls including `OVERVIEW`, `Filter`, `TAG`, `Param Defaults`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, and `settings`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/plugins/runtime`, `GET /api/getAgentRuns`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific DOM helper from `groupContainerNodeDomPacket.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.

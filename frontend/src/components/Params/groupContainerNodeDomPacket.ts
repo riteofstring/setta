@@ -1,27 +1,30 @@
 import {
   buildLiveDictAreaNodeMountPacket,
   type LiveDictAreaNodeMountPacket,
-  type LiveDictAreaPinnedParamAreaMountPacket,
   type LiveDictAreaUnpinnedParamAreaMountPacket,
 } from "./groupContainerNodeMountPacket";
 import {
   buildLiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaEdgeStripDomPacket,
 } from "./groupContainerEdgeStripDomPacket";
+import {
+  buildLiveDictAreaPinnedParamAreaDomPacket,
+  type LiveDictAreaPinnedParamAreaDomPacket,
+} from "./groupContainerPinnedParamAreaDomPacket";
 import type { LiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
 
 export type { LiveDictAreaEdgeStripDomPacket } from "./groupContainerEdgeStripDomPacket";
-export type { LiveDictAreaPinnedParamAreaMountPacket } from "./groupContainerNodeMountPacket";
+export type { LiveDictAreaPinnedParamAreaDomPacket } from "./groupContainerPinnedParamAreaDomPacket";
 export type { LiveDictAreaUnpinnedParamAreaMountPacket } from "./groupContainerNodeMountPacket";
 
 export type LiveDictAreaNodeDomPacket = {
   domBlocks: (
     | LiveDictAreaEdgeStripDomPacket
-    | LiveDictAreaPinnedParamAreaMountPacket
+    | LiveDictAreaPinnedParamAreaDomPacket
     | LiveDictAreaUnpinnedParamAreaMountPacket
   )[];
   domEdgeStripBlock: LiveDictAreaEdgeStripDomPacket | null;
-  domPinnedParamAreaBlock: LiveDictAreaPinnedParamAreaMountPacket | null;
+  domPinnedParamAreaBlock: LiveDictAreaPinnedParamAreaDomPacket | null;
   domUnpinnedParamAreaBlock: LiveDictAreaUnpinnedParamAreaMountPacket | null;
   edgeStrip: LiveDictAreaNodeMountPacket["edgeStrip"];
   maxNestedDepth: LiveDictAreaNodeMountPacket["maxNestedDepth"];
@@ -41,7 +44,11 @@ export function buildLiveDictAreaNodeDomPacket({
         mountPacket: nodeMountPacket.domEdgeStripBlock,
       })
     : null;
-  const pinnedParamAreaBlock = nodeMountPacket.domPinnedParamAreaBlock;
+  const pinnedParamAreaBlock = nodeMountPacket.domPinnedParamAreaBlock
+    ? buildLiveDictAreaPinnedParamAreaDomPacket({
+        mountPacket: nodeMountPacket.domPinnedParamAreaBlock,
+      })
+    : null;
   const unpinnedParamAreaBlock = nodeMountPacket.domUnpinnedParamAreaBlock;
 
   return {
@@ -72,7 +79,7 @@ function buildNodeDomBlock({
 }: {
   block: LiveDictAreaNodeMountPacket["domBlocks"][number];
   edgeStripBlock: LiveDictAreaEdgeStripDomPacket | null;
-  pinnedParamAreaBlock: LiveDictAreaPinnedParamAreaMountPacket | null;
+  pinnedParamAreaBlock: LiveDictAreaPinnedParamAreaDomPacket | null;
   unpinnedParamAreaBlock: LiveDictAreaUnpinnedParamAreaMountPacket | null;
 }): LiveDictAreaNodeDomPacket["domBlocks"][number] | null {
   if (block.kind === "edge-strip") {
