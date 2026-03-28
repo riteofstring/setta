@@ -32,53 +32,6 @@ from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-def default_section_representation(
-    section_type: SectionType,
-) -> SectionRepresentationMode:
-    if section_type in (SectionType.Chat, SectionType.Draw, SectionType.Image):
-        return SectionRepresentationMode.file_read
-    return SectionRepresentationMode.expression
-
-
-def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolicy]:
-    policies: dict[SectionType, SectionTypeCodegenPolicy] = {}
-    for section_type in SectionType:
-        policies[section_type] = SectionTypeCodegenPolicy(
-            mode=SectionCodegenMode.inherit,
-            representation=default_section_representation(section_type),
-        )
-    return policies
-
-
-def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
-    policies: dict[CodeObjType, CodeObjTypeValuePolicy] = {}
-    for code_obj_type in CodeObjType:
-        policies[code_obj_type] = CodeObjTypeValuePolicy(
-            representation=default_code_obj_representation(code_obj_type),
-        )
-    return policies
-
-
-def default_code_obj_representation(
-    code_obj_type: CodeObjType,
-) -> CodeObjValueRepresentationMode:
-    if code_obj_type in (
-        CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
-        CodeObjType.TextAreaParam,
-        CodeObjType.PasswordParam,
-        CodeObjType.ColorPickerParam,
-    ):
-        return CodeObjValueRepresentationMode.string
-    if code_obj_type is CodeObjType.DropzoneParam:
-        return CodeObjValueRepresentationMode.file_path
-    return CodeObjValueRepresentationMode.expression
-
-
-ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
-
-
 _DEFAULT_SECTION_ALLOWLIST: tuple[SectionType, ...] = (
     SectionType.Callable,
     SectionType.Dict,
@@ -108,8 +61,24 @@ _DEFAULT_META_CONTROL_ALLOWLIST: tuple[CodeObjType, ...] = (
     CodeObjType.DropzoneParam,
 )
 
+_FILE_READ_SECTION_TYPES: frozenset[SectionType] = frozenset(
+    {SectionType.Chat, SectionType.Draw, SectionType.Image}
+)
+_STRING_CODE_OBJ_TYPES: frozenset[CodeObjType] = frozenset(
+    {
+        CodeObjType.TextParam,
+        CodeObjType.DateParam,
+        CodeObjType.TimeParam,
+        CodeObjType.TextAreaParam,
+        CodeObjType.PasswordParam,
+        CodeObjType.ColorPickerParam,
+    }
+)
 
-def default_codegen_targets() -> list[ProjectCodegenTarget]:
+
+def default_codegen_targets() -> list[
+    ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
+]:
     return [
         ProjectCodegenPythonTarget(
             language=ProjectCodegenLanguage.python,
@@ -120,11 +89,34 @@ def default_codegen_targets() -> list[ProjectCodegenTarget]:
                 allowlist=list(_DEFAULT_SECTION_ALLOWLIST),
                 metaControlAllowlist=list(_DEFAULT_META_CONTROL_ALLOWLIST),
                 exclude=[],
-                typePolicies=default_section_type_policies(),
+                typePolicies={
+                    section_type: SectionTypeCodegenPolicy(
+                        mode=SectionCodegenMode.inherit,
+                        representation=(
+                            SectionRepresentationMode.file_read
+                            if section_type in _FILE_READ_SECTION_TYPES
+                            else SectionRepresentationMode.expression
+                        ),
+                    )
+                    for section_type in SectionType
+                },
                 sectionOverrides={},
             ),
             codeObjValuePolicy=CodeObjValuePolicy(
-                typePolicies=default_code_obj_type_value_policies(),
+                typePolicies={
+                    code_obj_type: CodeObjTypeValuePolicy(
+                        representation=(
+                            CodeObjValueRepresentationMode.string
+                            if code_obj_type in _STRING_CODE_OBJ_TYPES
+                            else (
+                                CodeObjValueRepresentationMode.file_path
+                                if code_obj_type is CodeObjType.DropzoneParam
+                                else CodeObjValueRepresentationMode.expression
+                            )
+                        ),
+                    )
+                    for code_obj_type in CodeObjType
+                },
                 codeObjOverrides={},
             ),
         )
@@ -143,8 +135,8 @@ class ProjectConfig(GoProjectConfig, extra="forbid"):
     windowSpaces: dict[ID, WindowSpaceConfig] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
-    codegenTargets: list[ProjectCodegenTarget] = Field(
-        default_factory=default_codegen_targets
+    codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget] = (
+        Field(default_factory=default_codegen_targets)
     )
     entryCodeBlockId: ID | None = None
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)

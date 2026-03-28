@@ -357,6 +357,9 @@ That means:
 - `backend/setta/types/project_config.py` has also been trimmed by collapsing tiny default-materialization helpers:
   - small functions such as `default_section_allowlist()` and `default_meta_control_allowlist()` no longer exist as separate helper layers
   - that reduces Python-side helper fragmentation, but it does not change the larger unfinished problem that Python still materializes the Go-owned default codegen payload locally
+- `backend/setta/types/project_config.py` has been trimmed further by collapsing more single-use default helper functions and aliases:
+  - helpers such as `default_section_representation()`, `default_section_type_policies()`, `default_code_obj_representation()`, and `default_code_obj_type_value_policies()` no longer exist as separate Python-owned layers
+  - the local `ProjectCodegenTarget` union alias is also gone; the remaining duplicated-default builder now uses the generated target types directly
 - `backend/setta/types/listener.py` now also owns the handwritten websocket envelope adapters:
   - the Python message classes subclass Go-generated listener message models and only keep the Python-side typed content wrappers, discriminator literals, and `TypeAdapter`
 - the listener register/ack transport family has been reduced further:
