@@ -257,6 +257,9 @@ That means:
 - `backend/setta/types/chat.py` has been trimmed further by deleting duplicate field redeclarations and dead timestamp validators:
   - the generated chat models already parse ISO `lastUpdated` datetimes correctly, so the handwritten `Chat` / `ChatMetadata` validators were unnecessary
   - redundant inherited field lines such as `name`, `llmConfig`, `systemPrompt`, `tool_name`, and `completed_at` have been removed where they no longer changed behavior
+- `backend/setta/types/chat.py` no longer relies on field-based union discrimination that forced literal-only `role` narrowing:
+  - `BaseChatMessageUnionWithDiscriminator` now uses the same tagged/custom discriminator pattern already used by the artifact and listener unions
+  - the remaining handwritten chat wrappers keep `role` only as a constructor default for Python ergonomics, not as a separate Python-owned `Literal[...]` schema surface
 - `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
 - the chart artifact family now has real Go owners for the remaining shared schema pieces:
@@ -301,6 +304,9 @@ That means:
 - `backend/setta/types/protocol.py` no longer keeps handwritten dependency-value subclasses:
   - `LiteralDependencyValue`, `FileReadDependencyValue`, and `BinaryDependencyValue` now come directly from the generated Go-owned models
   - the remaining union discrimination is handled by a tagged/custom discriminator instead of literal-only Python subclasses
+- `backend/setta/types/protocol.py` no longer relies on field-based key discrimination that forced literal-only `type` fields:
+  - `BaseDependencyKeyUnionWithDiscriminator` now also uses tagged/custom discriminator logic
+  - `SectionDependencyKey` and `SectionParamDependencyKey` now keep only the frozen/hashable ID-typed wrapper behavior, while construction sites set the concrete key type explicitly
 - the frontend-facing project codegen policy family now has a real Go owner in `internal/projectview` instead of empty `frontendbindings` placeholders:
   - `ProjectCodegenLanguage`
   - `SectionCodegenMode`
@@ -375,6 +381,9 @@ That means:
 - `backend/setta/types/listener.py` has also dropped a private no-behavior union alias:
   - `PythonScriptWebsocketMsgUnionWithDiscriminator = PythonScriptWebsocketMsgUnion` is gone
   - the type adapter now points at the real union directly instead of preserving an internal rename layer
+- `backend/setta/types/listener.py` no longer restates `messageType` on the surviving handwritten websocket envelope wrappers:
+  - the listener websocket union already discriminates via tagged/custom message-type extraction, so those literal-only field overrides were unnecessary
+  - the small number of Python construction sites now set `messageType` explicitly instead of keeping that defaulting behavior embedded in the wrapper classes
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line

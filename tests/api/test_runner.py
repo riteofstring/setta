@@ -19,6 +19,7 @@ from setta.sdk_contracts.generated import (
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
+from setta.types.generated.go_shared_types import DependencyKeyType
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.protocol import SectionParamDependencyKey
@@ -210,12 +211,14 @@ def test_summary_params_by_name_accepts_display_names_and_fails_closed(
     assert summary.params.by_name(
         "Training Settings", "learning_rate"
     ) == SectionParamDependencyKey(
+        type=DependencyKeyType.SectionParam,
         sectionId=ID("training-section"),
         codeObjId=ID("lr-param"),
     )
     assert summary.params.by_name(
         "Training Settings", "Learning Rate"
     ) == SectionParamDependencyKey(
+        type=DependencyKeyType.SectionParam,
         sectionId=ID("training-section"),
         codeObjId=ID("lr-param"),
     )
@@ -566,6 +569,7 @@ def test_run_detached_encodes_param_overrides_from_dependency_keys(
     summary_snapshot = _build_project_summary_snapshot()
     observed_requests: list[tuple[runner_mod.Route, dict]] = []
     param_key = SectionParamDependencyKey(
+        type=DependencyKeyType.SectionParam,
         sectionId=ID("section-a"),
         codeObjId=ID("param-b"),
     )

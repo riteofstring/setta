@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import Field
+from pydantic import Discriminator, Field, Tag
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage as GoAssistantChatMessage,
 )
@@ -88,7 +88,7 @@ class _OpenAIMessageMixin:
 
 class SystemChatMessage(GoSystemChatMessage, _OpenAIMessageMixin):
     id: str = Field(default_factory=create_new_id)
-    role: Literal[ChatRole.system] = ChatRole.system
+    role: ChatRole = ChatRole.system
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
     attachments: list[GoChatFileAttachment] = Field(default_factory=list)
@@ -96,7 +96,7 @@ class SystemChatMessage(GoSystemChatMessage, _OpenAIMessageMixin):
 
 class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
     id: str = Field(default_factory=create_new_id)
-    role: Literal[ChatRole.assistant] = ChatRole.assistant
+    role: ChatRole = ChatRole.assistant
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
     attachments: list[GoChatFileAttachment] = Field(default_factory=list)
@@ -114,7 +114,7 @@ class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
 
 class UserChatMessage(GoUserChatMessage, _OpenAIMessageMixin):
     id: str = Field(default_factory=create_new_id)
-    role: Literal[ChatRole.user] = ChatRole.user
+    role: ChatRole = ChatRole.user
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
     attachments: list[GoChatFileAttachment] = Field(default_factory=list)
@@ -122,7 +122,7 @@ class UserChatMessage(GoUserChatMessage, _OpenAIMessageMixin):
 
 class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
     id: str = Field(default_factory=create_new_id)
-    role: Literal[ChatRole.tool] = ChatRole.tool
+    role: ChatRole = ChatRole.tool
     createdAt: int = 0
     arguments: JSONValue = Field(default_factory=dict)
     result: JSONValue = None
@@ -147,8 +147,24 @@ BaseChatMessageUnion = (
     SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
 )
 
+
+def _chat_role(value: Any) -> str | None:
+    raw_role = (
+        value.get("role") if isinstance(value, dict) else getattr(value, "role", None)
+    )
+    if isinstance(raw_role, ChatRole):
+        return raw_role.value
+    if isinstance(raw_role, str):
+        return raw_role
+    return None
+
+
 BaseChatMessageUnionWithDiscriminator = Annotated[
-    BaseChatMessageUnion, Field(discriminator="role")
+    Annotated[SystemChatMessage, Tag(ChatRole.system.value)]
+    | Annotated[AssistantChatMessage, Tag(ChatRole.assistant.value)]
+    | Annotated[UserChatMessage, Tag(ChatRole.user.value)]
+    | Annotated[ToolChatMessage, Tag(ChatRole.tool.value)],
+    Discriminator(_chat_role),
 ]
 
 

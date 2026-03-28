@@ -34,7 +34,7 @@ from setta.types.listener import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.project_config import SectionRepresentationMode
-from setta.types.protocol import SectionDependencyKey
+from setta.types.protocol import create_dep_key
 
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
@@ -45,7 +45,7 @@ def _build_chat_catalog(section_id: ID) -> ListenerDependencyCatalog:
     return ListenerDependencyCatalog(
         entries=[
             ListenerDependencyCatalogEntry(
-                dependencyKey=SectionDependencyKey(sectionId=section_id),
+                dependencyKey=create_dep_key(sectionId=section_id),
                 name="Chat Section",
                 fullPathName="Chat_Section",
                 sectionType=SectionType.Chat,
@@ -61,7 +61,7 @@ def _build_chat_snapshot(
     section_id: ID,
     state: ChatSectionState,
 ) -> ListenerSnapshot:
-    dependency_key = SectionDependencyKey(sectionId=section_id)
+    dependency_key = create_dep_key(sectionId=section_id)
     return ListenerSnapshot(
         projectConfigId=project_config_id,
         dependencyCatalog=_build_chat_catalog(section_id),
@@ -173,7 +173,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
     listener._is_registered = True
 
     delta = ListenerRealtimeDelta(
-        dependency=SectionDependencyKey(sectionId=section_id),
+        dependency=create_dep_key(sectionId=section_id),
         value=LiteralDependencyValue(
             type=DependencyValueType.Literal,
             payload=repr(first_state.model_dump(mode="json")),

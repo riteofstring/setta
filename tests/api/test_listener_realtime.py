@@ -1826,7 +1826,10 @@ class TestSettaListenerBinaryParsing:
             ],
             sequence=1,
         )
-        message = WebsocketMsgListenerRealtimeEvent(content=content)
+        message = WebsocketMsgListenerRealtimeEvent(
+            messageType=ListenerMessageType.ListenerRealtimeEvent,
+            content=content,
+        )
 
         parsed = listener._parse_websocket_payload(message.model_dump_json())
 
@@ -1849,7 +1852,10 @@ class TestSettaListenerBinaryParsing:
             ],
             sequence=1,
         )
-        message = WebsocketMsgListenerDependencyEvent(content=content)
+        message = WebsocketMsgListenerDependencyEvent(
+            messageType=ListenerMessageType.ListenerDependencyEvent,
+            content=content,
+        )
 
         parsed = listener._parse_websocket_payload(message.model_dump_json())
 
@@ -1885,7 +1891,10 @@ class TestSettaListenerBinaryParsing:
                 ),
             )
         )
-        message = WebsocketMsgListenerForceRefresh(content=content)
+        message = WebsocketMsgListenerForceRefresh(
+            messageType=ListenerMessageType.ListenerForceRefresh,
+            content=content,
+        )
 
         parsed = listener._parse_websocket_payload(message.model_dump_json())
 
@@ -1916,7 +1925,10 @@ class TestSettaListenerBinaryParsing:
             deltas=[delta_one, delta_two],
             sequence=1,
         )
-        message = WebsocketMsgListenerRealtimeEvent(content=content)
+        message = WebsocketMsgListenerRealtimeEvent(
+            messageType=ListenerMessageType.ListenerRealtimeEvent,
+            content=content,
+        )
         payload = encode_binary_frame(message.model_dump(mode="json"), b"payload")
 
         parsed = listener._parse_websocket_payload(payload)
@@ -1949,7 +1961,10 @@ class TestSettaListenerBinaryParsing:
             dependencyEvents=[event_one, event_two],
             sequence=1,
         )
-        message = WebsocketMsgListenerDependencyEvent(content=content)
+        message = WebsocketMsgListenerDependencyEvent(
+            messageType=ListenerMessageType.ListenerDependencyEvent,
+            content=content,
+        )
         payload = encode_binary_frame(message.model_dump(mode="json"), b"payload")
 
         parsed = listener._parse_websocket_payload(payload)

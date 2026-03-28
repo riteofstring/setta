@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import (
     Discriminator,
@@ -82,34 +82,26 @@ class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
 
 class WebsocketMsgListenerRealtimeEvent(GoListenerRealtimeEventMessage):
     content: ListenerRealtimeEventContent
-    messageType: Literal[ListenerMessageType.ListenerRealtimeEvent] = (
-        ListenerMessageType.ListenerRealtimeEvent
-    )
 
 
 class WebsocketMsgListenerDependencyEvent(GoListenerDependencyEventMessage):
     content: ListenerDependencyEventContent
-    messageType: Literal[ListenerMessageType.ListenerDependencyEvent] = (
-        ListenerMessageType.ListenerDependencyEvent
-    )
 
 
 class WebsocketMsgListenerForceRefresh(GoListenerForceRefreshMessage):
     content: SDKListenerForceRefreshEvent
-    messageType: Literal[ListenerMessageType.ListenerForceRefresh] = (
-        ListenerMessageType.ListenerForceRefresh
-    )
 
 
 class WebsocketMsgListenerRegister(GoListenerRegisterMessage):
     content: SDKListenerRegisterRequest
-    messageType: Literal[ListenerMessageType.ListenerRegister] = (
-        ListenerMessageType.ListenerRegister
-    )
 
 
 def _listener_message_type(value: Any) -> str | None:
-    raw_type = value.get("messageType") if isinstance(value, dict) else getattr(value, "messageType", None)
+    raw_type = (
+        value.get("messageType")
+        if isinstance(value, dict)
+        else getattr(value, "messageType", None)
+    )
     if isinstance(raw_type, ListenerMessageType):
         return raw_type.value
     if isinstance(raw_type, str):

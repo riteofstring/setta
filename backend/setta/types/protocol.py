@@ -1,6 +1,6 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
-from pydantic import ConfigDict, Discriminator, Field, Tag
+from pydantic import ConfigDict, Discriminator, Tag
 from setta.types.generated.go_shared_types import (
     BinaryDependencyValue as GoBinaryDependencyValue,
 )
@@ -27,7 +27,6 @@ class SectionDependencyKey(GoSectionDependencyKey):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     sectionId: ID
-    type: Literal[DependencyKeyType.Section] = DependencyKeyType.Section
 
 
 class SectionParamDependencyKey(GoSectionParamDependencyKey):
@@ -35,24 +34,49 @@ class SectionParamDependencyKey(GoSectionParamDependencyKey):
 
     sectionId: ID
     codeObjId: ID
-    type: Literal[DependencyKeyType.SectionParam] = DependencyKeyType.SectionParam
 
 
 def create_dep_key(sectionId: ID, codeObjId: ID | None = None):
     if codeObjId is None:
-        return SectionDependencyKey(sectionId=sectionId)
-    return SectionParamDependencyKey(sectionId=sectionId, codeObjId=codeObjId)
+        return SectionDependencyKey(
+            type=DependencyKeyType.Section,
+            sectionId=sectionId,
+        )
+    return SectionParamDependencyKey(
+        type=DependencyKeyType.SectionParam,
+        sectionId=sectionId,
+        codeObjId=codeObjId,
+    )
 
 
 BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey
 
+
+def _dependency_key_type(value: Any) -> str | None:
+    raw_type = (
+        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    )
+    if isinstance(raw_type, DependencyKeyType):
+        return raw_type.value
+    if isinstance(raw_type, str):
+        return raw_type
+    return None
+
+
 BaseDependencyKeyUnionWithDiscriminator = Annotated[
-    BaseDependencyKeyUnion, Field(discriminator="type")
+    Annotated[SectionDependencyKey, Tag(DependencyKeyType.Section.value)]
+    | Annotated[
+        SectionParamDependencyKey,
+        Tag(DependencyKeyType.SectionParam.value),
+    ],
+    Discriminator(_dependency_key_type),
 ]
 
 
 def _dependency_value_type(value: Any) -> str | None:
-    raw_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    raw_type = (
+        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    )
     if isinstance(raw_type, DependencyValueType):
         return raw_type.value
     if isinstance(raw_type, str):

@@ -1330,7 +1330,10 @@ class SettaListener:
         content = ListenerRegisterRequest(
             projectConfigId=self._require_project_id(), callbacks=callbacks
         )
-        message = WebsocketMsgListenerRegister(content=content)
+        message = WebsocketMsgListenerRegister(
+            messageType=ListenerMessageType.ListenerRegister,
+            content=content,
+        )
         payload = message.model_dump_json()
         logger.debug(
             "Listener %s registering %d callbacks",
@@ -1986,7 +1989,7 @@ class SettaListener:
                 callId=call_id,
                 endpointName=endpoint_name,
                 payload=serialized_payload,
-            )
+            ),
         )
         logger.debug(
             "Listener %s calling router endpoint %s (callId=%s)",
