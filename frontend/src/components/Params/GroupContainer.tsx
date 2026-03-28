@@ -54,7 +54,7 @@ import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket"
 import {
   buildLiveDictAreaNodeCanvasPacket,
   type LiveDictAreaEdgeStripCanvasPacket,
-  type LiveDictAreaPinnedParamAreaPainterPacket,
+  type LiveDictAreaPinnedParamAreaCanvasPacket,
   type LiveDictAreaUnpinnedParamAreaPainterPacket,
 } from "./groupContainerNodeCanvasPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
@@ -399,7 +399,7 @@ function _ParamGroupContainer({
               <GetPinnedParams
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                painterPacket={block}
+                canvasPacket={block}
                 handleColumnResizeStart={handleColumnResizeStart}
               />
             );
@@ -804,7 +804,7 @@ function EdgesStrip({
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  painterPacket: LiveDictAreaPinnedParamAreaPainterPacket;
+  canvasPacket: LiveDictAreaPinnedParamAreaCanvasPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -864,11 +864,11 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  painterPacket,
+  canvasPacket,
   handleColumnResizeStart,
 }: GetPinnedParamsProps) {
   const { positionAndSizeLocked, sectionTypeName, styleColor, visualPacket } =
-    painterPacket;
+    canvasPacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(

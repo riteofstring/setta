@@ -4,26 +4,29 @@ import {
   type LiveDictAreaEdgeStripCanvasPacket,
 } from "./groupContainerEdgeStripCanvasPacket";
 import {
+  buildLiveDictAreaPinnedParamAreaCanvasPacket,
+  type LiveDictAreaPinnedParamAreaCanvasPacket,
+} from "./groupContainerPinnedParamAreaCanvasPacket";
+import {
   buildLiveDictAreaNodePainterPacket,
   type LiveDictAreaNodePainterBlock,
-  type LiveDictAreaPinnedParamAreaPainterPacket,
   type LiveDictAreaUnpinnedParamAreaPainterPacket,
 } from "./groupContainerNodePainterPacket";
 
 export type {
-  LiveDictAreaPinnedParamAreaPainterPacket,
   LiveDictAreaUnpinnedParamAreaPainterPacket,
 } from "./groupContainerNodePainterPacket";
 export type { LiveDictAreaEdgeStripCanvasPacket } from "./groupContainerEdgeStripCanvasPacket";
+export type { LiveDictAreaPinnedParamAreaCanvasPacket } from "./groupContainerPinnedParamAreaCanvasPacket";
 
 export type LiveDictAreaNodeCanvasPacket = {
   domBlocks: (
     | LiveDictAreaEdgeStripCanvasPacket
-    | LiveDictAreaPinnedParamAreaPainterPacket
+    | LiveDictAreaPinnedParamAreaCanvasPacket
     | LiveDictAreaUnpinnedParamAreaPainterPacket
   )[];
   domEdgeStripBlock: LiveDictAreaEdgeStripCanvasPacket | null;
-  domPinnedParamAreaBlock: LiveDictAreaPinnedParamAreaPainterPacket | null;
+  domPinnedParamAreaBlock: LiveDictAreaPinnedParamAreaCanvasPacket | null;
   domUnpinnedParamAreaBlock: LiveDictAreaUnpinnedParamAreaPainterPacket | null;
   edgeStrip: LiveDictAreaNodeDrawPacket["edgeStrip"];
   maxNestedDepth: LiveDictAreaNodeDrawPacket["maxNestedDepth"];
@@ -43,20 +46,25 @@ export function buildLiveDictAreaNodeCanvasPacket({
         painterPacket: nodePainterPacket.edgeStripBlock,
       })
     : null;
+  const pinnedParamAreaBlock = nodePainterPacket.pinnedParamAreaBlock
+    ? buildLiveDictAreaPinnedParamAreaCanvasPacket({
+        painterPacket: nodePainterPacket.pinnedParamAreaBlock,
+      })
+    : null;
 
   return {
     domBlocks: nodePainterPacket.blocks.flatMap((block) => {
       const canvasBlock = buildNodeCanvasBlock({
         block,
         edgeStripBlock,
-        pinnedParamAreaBlock: nodePainterPacket.pinnedParamAreaBlock,
+        pinnedParamAreaBlock,
         unpinnedParamAreaBlock: nodePainterPacket.unpinnedParamAreaBlock,
       });
 
       return canvasBlock ? [canvasBlock] : [];
     }),
     domEdgeStripBlock: edgeStripBlock,
-    domPinnedParamAreaBlock: nodePainterPacket.pinnedParamAreaBlock,
+    domPinnedParamAreaBlock: pinnedParamAreaBlock,
     domUnpinnedParamAreaBlock: nodePainterPacket.unpinnedParamAreaBlock,
     edgeStrip: nodePainterPacket.edgeStrip,
     maxNestedDepth: nodePainterPacket.maxNestedDepth,
@@ -72,7 +80,7 @@ function buildNodeCanvasBlock({
 }: {
   block: LiveDictAreaNodePainterBlock;
   edgeStripBlock: LiveDictAreaEdgeStripCanvasPacket | null;
-  pinnedParamAreaBlock: LiveDictAreaPinnedParamAreaPainterPacket | null;
+  pinnedParamAreaBlock: LiveDictAreaPinnedParamAreaCanvasPacket | null;
   unpinnedParamAreaBlock: LiveDictAreaUnpinnedParamAreaPainterPacket | null;
 }): LiveDictAreaNodeCanvasPacket["domBlocks"][number] | null {
   if (block.kind === "edge-strip") {
