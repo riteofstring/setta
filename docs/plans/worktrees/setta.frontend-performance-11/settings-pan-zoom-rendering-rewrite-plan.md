@@ -47,9 +47,9 @@ Default assumption:
 
 1. Treat dense-scene rendering as a retained-scene/GPU-first problem, not a DOM-preview problem.
 2. Use a bespoke scene model rendered by PixiJS first.
-3. Keep DOM for panes, app chrome, and active node overlays only.
-4. Rewrite graph-level motion, rendering, and hit testing first.
-5. Preserve node-internal DOM behavior where possible by reusing existing DOM subtrees only when nodes are active.
+3. Keep DOM for panes, popups, heavyweight editor surfaces, and thin interaction adapters. Do not let DOM replace the visible node body as the default active-state path.
+4. Rewrite graph-level motion, rendering, hit testing, and most graph-surface controls first.
+5. Preserve semantics and business rules from existing DOM widgets, but do not assume the existing DOM widget libraries remain the graph-surface implementation.
 
 This does not mean "rewrite the whole frontend".
 
@@ -58,6 +58,39 @@ It means:
 - keep the app
 - keep the product behavior
 - change the dense-scene rendering substrate
+
+## Implementation Discipline
+
+This plan must be executed with a cleanup-first, TDD-first workflow so the rewrite remains understandable to both humans and AI across conversations.
+
+Per-file rule:
+
+1. Before changing a messy target file, use the relevant architecture/cleanup skill to simplify and deepen the module first.
+2. Make the cleanup a separate step with a clear boundary.
+3. Write or update tests for the new behavior before implementing the Pixi/scene work.
+4. Implement the new behavior.
+5. Run the relevant tests and verification.
+6. Append the log with status, files touched, benchmark/test state, and next action.
+
+Skill rule:
+
+- before modifying a messy or high-coupling file, use the relevant skill guidance, especially `improve-codebase-architecture`, to reduce shallow-module sprawl and make the file more AI-navigable
+- do not jump straight into Pixi implementation inside a file that is still structurally unclear
+
+TDD rule:
+
+- every work item should explicitly follow:
+  - baseline / context read
+  - cleanup/refactor of the target file or cluster
+  - tests for the intended new behavior
+  - implementation
+  - test run and verification
+  - append-only log update
+
+Translation rule:
+
+- every major item must leave behind enough plan/log/test context that a later chat can resume without reconstructing intent from scratch
+- implementation steps should prefer named stages, explicit files, and explicit exit gates over vague prose
 
 ## Branching Decision
 
@@ -118,23 +151,24 @@ This layer owns:
 - scene-level hit regions
 - graph-level selection and movement visuals
 
-### Layer 2: Active Node Overlay Layer
+### Layer 2: DOM Overlay And Editor Layer
 
-Complex interactive DOM should not remain mounted for the whole graph.
+DOM should not replace the visible node body by default.
 
 Instead:
 
-- when a node becomes active, selected for editing, or otherwise interaction-heavy, mount the real existing DOM subtree as an overlay
-- keep that overlay mounted while the node is in active use
-- drop back to scene rendering when inactive
+- the visible graph surface stays scene-rendered whenever practical
+- DOM is used for thin interaction adapters, popups, and heavyweight editors
+- code-like fields must begin editing on the first click, not require an activation click
+- only use a whole-node DOM overlay if a specific interaction proves impossible to preserve cleanly any other way
 
 This layer owns:
 
-- CodeMirror
-- comboboxes
-- resize handles where needed
-- node-internal `dnd-kit` interactions
-- any DOM-heavy widget behavior that is too expensive or too risky to port initially
+- immediate editor mounts for CodeMirror-backed fields and code blocks
+- combobox, color-picker, and similar popups
+- invisible or near-invisible text/input adapters where needed
+- rare deliberate editor surfaces
+- only narrowly-scoped whole-node overlays if explicitly justified by parity and benchmark data
 
 ### Layer 3: Panes And App Chrome
 
@@ -166,13 +200,14 @@ What should remain:
 
 - pane JSX
 - app-shell JSX
-- active-node JSX overlays
+- popup/editor JSX
 - controller/state components that coordinate selection, editing, commands, and data flow
 
 What should change:
 
 - dense resting-state node bodies should no longer be represented by the current deep JSX trees during motion
-- the DOM body view should become an active overlay implementation, not the universal rendering substrate
+- the DOM body view should no longer be assumed to be the default visible active-state implementation either
+- graph-surface controls should move toward scene primitives plus focused DOM adapters, not wrapper-for-wrapper JSX translation
 
 This is the clean boundary:
 
@@ -231,14 +266,15 @@ Instead, define semantic primitives such as:
 
 The scene should be built from these primitives, not from a one-to-one translation of JSX wrappers.
 
-### 4. Active DOM As Exact Interaction Oracle
+### 4. DOM As Interaction Adapter, Not Default Visual Owner
 
-When exact live behavior matters, use the real existing DOM subtree.
+When exact live behavior matters, use DOM selectively.
 
-That is how parity stays clean:
+The parity rule is:
 
-- scene for resting visuals
-- real DOM for active interaction
+- scene remains the owner of the visible graph surface whenever practical
+- DOM augments interaction without visibly replacing the node chrome by default
+- popups and heavyweight editors may be DOM, but incidental one-control swaps inside the visible node surface should be avoided
 
 Target standard:
 
@@ -284,6 +320,53 @@ Plan rule:
 - edges are part of the retained-scene vertical slice
 - edge strategy cannot be deferred until after node chrome is "working"
 
+## Graph Widget Strategy
+
+Not every current graph-surface control should be treated the same.
+
+### Scene-Native In The Graph
+
+These should trend scene-native in the graph surface:
+
+- sliders
+- toggles
+- checkboxes
+- resize grips
+- row handles
+- dict/list row visuals
+- kanban card visuals
+- graph-surface drag affordances
+
+### Scene-Native Closed State, DOM Popup
+
+These can keep DOM popups while leaving the closed control scene-rendered:
+
+- comboboxes
+- color pickers
+- date pickers
+- context menus
+
+### Heavy Editor Surfaces
+
+These should use real editors, but must support first-click editing:
+
+- CodeMirror-backed code blocks
+- CodeMirror-backed inline code fields
+- other heavyweight text/code editors
+
+Rule:
+
+- the first click in a code field should mount and focus the editor immediately in the same interaction, not require a second click
+- the visible field chrome should remain stable when that happens
+
+### Pane-Only DOM
+
+These stay DOM-first:
+
+- panes
+- non-graph app UI
+- windowed tools outside the main graph surface
+
 ## `xyflow` Position
 
 Current recommendation:
@@ -324,17 +407,21 @@ Rewrite this natively in the scene system:
 
 ### Node-Internal Drag And Reorder
 
-Preserve this inside active DOM overlays initially:
+Do not assume `dnd-kit` remains the long-term implementation for this inside the graph surface.
+
+Preserve semantics and business rules, but plan to replace graph-surface interaction plumbing for:
 
 - param lists
 - nested param trees
 - dict/list-like editing controls
-- other complex node-internal `dnd-kit` flows
+- kanban boards and drag/drop lists inside graph nodes
+- other complex node-internal `dnd-kit` flows that live inside the graph surface
 
 This keeps scope disciplined:
 
 - rewrite the graph hot path
-- preserve complex node-internal interaction behavior until profiling proves it must move
+- preserve behavior semantics first
+- replace DOM-bound drag plumbing where necessary to keep the visible graph surface scene-owned
 
 ## Recommended Backend Stack
 
@@ -374,6 +461,8 @@ Reason:
 - no obvious handoff glitch when a node transitions from scene rendering to active DOM
 - active editing state remains faithful and immediately interactive
 - active-node overlays preserve current complex behaviors cleanly
+- code-like fields and code blocks enter edit on the first click and accept typing immediately
+- graph-surface controls do not visibly change renderer ownership in a janky way during normal interaction
 
 ### Benchmark Criteria
 
@@ -421,7 +510,8 @@ Deliverables:
 Tasks:
 
 - specify the scene layer, overlay layer, and pane layer
-- specify how nodes move between inactive scene rendering and active DOM overlay ownership
+- specify the rule that the visible graph surface stays scene-owned by default
+- specify how immediate first-click editor activation works for code-like fields
 - specify the exact scope boundary for `dnd-kit`
 - specify the exact edge strategy for the slice
 
@@ -443,6 +533,7 @@ Tasks:
 - define the canonical text/layout measurement rules
 - define semantic scene primitives for dense nodes
 - identify the ugliest text-heavy node type and make it the parity canary
+- define the stable visible field chrome for code-like inputs so editor activation does not change appearance
 
 Important requirement:
 
@@ -479,14 +570,18 @@ The slice must include:
 - retained-scene pan and zoom
 - retained-scene edges
 - retained-scene hit testing and selection
-- one active DOM node overlay using the current real widget subtree
+- one CodeMirror-backed field that enters edit on the first click without visual jank
+- one popup-style control such as a combobox or color picker
+- one drag/reorder interaction inside the graph surface
 
 Tasks:
 
 - implement Pixi scene renderer for the slice
 - align the scene to the camera transform
 - render edges in the same slice
-- support one active node overlay that preserves current CodeMirror/combobox/resize behavior
+- support immediate editor activation for a CodeMirror-backed field
+- support one popup-style DOM overlay anchored to the scene
+- support one scene-native drag/reorder path inside the graph surface
 - benchmark the slice on `settings` and `tier1Synthetic`
 
 Exit gate:
@@ -501,8 +596,12 @@ Goal:
 
 Tasks:
 
-- define exactly when a node becomes an active DOM overlay
-- keep active overlays mounted while actively used
+- define exactly which interactions use:
+  - pure scene ownership
+  - thin DOM adapters
+  - popup overlays
+  - rare deliberate whole-node overlays
+- keep heavy editors mounted while actively used
 - ensure pointer, keyboard, selection, and focus ownership swap cleanly
 - ensure edge anchors stay coherent when a node is overlay-owned
 
@@ -510,6 +609,7 @@ Important requirement:
 
 - handoff policy must be coarse and stable
 - no zoom-threshold flapping like the old preview path
+- no activation-click model for editors
 
 ## 6. `xyflow` Viability Gate
 
@@ -541,6 +641,7 @@ Tasks:
 - keep sparse scenes on DOM until profiling justifies migration
 - benchmark continuously against `settings` and `tier1Synthetic`
 - reject expansions that preserve correctness but fail the `Paint` gate
+- apply the cleanup-first, test-first workflow for each file cluster before scene migration work lands
 
 ## Evidence Base
 
@@ -560,11 +661,10 @@ These collectively show:
 ## Immediate Next Actions
 
 1. Update the rewrite RFC language to retained-scene/GPU-first rather than "canvas-first".
-2. Add explicit text/layout and edge strategy sections before implementation work expands.
-3. Lock the vertical slice:
-   - one benchmark scene
-   - one text-heavy node type
-   - edges included
-   - one active DOM overlay
-4. Restart the implementation from `main`.
-5. Reject the slice quickly if it does not materially beat the retained queued-image checkpoint on benchmark `Paint` for both dense scenes.
+2. Lock the stricter visible-surface rule: visible graph pixels stay scene-owned by default, and code editing cannot require an extra activation click.
+3. Add explicit text/layout and edge strategy sections before implementation work expands.
+4. Add the cleanup-first, skill-assisted TDD workflow to the branch handoff checklist.
+5. Lock the vertical slice: one benchmark scene, one text-heavy node type, edges included, first-click CodeMirror editing, one popup control, and one graph-surface drag/reorder path.
+6. Restart the implementation from `main`.
+7. Transfer the revised plan and append-only log into the new branch once it exists.
+8. Reject the slice quickly if it does not materially beat the retained queued-image checkpoint on benchmark `Paint` for both dense scenes.
