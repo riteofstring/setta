@@ -3761,3 +3761,35 @@ Record:
     - representative requests returned `200`, including `/api/loadSettings`, `/api/backendInitStatus`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getFileBrowserRoot`, `/api/getFolderContents`, `/api/llm/config`, and `/api/plugins/runtime`; static asset revalidations were expected `304`s
 - Next action:
   - Continue the live dict-area surface pass by lifting the next remaining route-element ownership seam above `frontend/src/components/Pages/router.tsx`, starting with the index/workspace-launch/share-index route-element bundle wiring before any broad Pixi node drawing lands.
+
+## 2026-03-27 136
+
+- Item: Lift the index/workspace-launch/share-index route-element bundle wiring out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated helper boundary for the remaining index/workspace-launch/share-index route-element bundle seam:
+    - `frontend/src/components/Pages/modeWrappedIndexWorkspaceLaunchRouteElements.tsx`
+    - `frontend/src/components/Pages/modeWrappedIndexWorkspaceLaunchRouteElements.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of owning:
+    - the IDE index route element
+    - the share-index redirect element and default-config resolution
+    - the workspace-launch route-kind mapping for IDE/share/app/launcher modes
+  - The new helper now owns the non-Pixi route-element bundle seam for:
+    - assembling `indexRouteElements` for IDE/share/app/launcher modes
+    - assembling `workspaceLaunchRouteElements` from the existing route-kind policy
+    - keeping `router.tsx` focused on the remaining mode wrapper, launcher home element, standalone route wiring, and final router composition instead of the last inline index/workspace-launch JSX bundle
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedIndexWorkspaceLaunchRouteElements.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-routing.spec.ts --grep "app mode blocks direct /launching navigation"`
+    - result: passed (`1` passed)
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/launcher/launcher-home.spec.ts --grep "launcher mode resolves /launching intent-token handoffs"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - reused the existing authenticated app session; bootstrap was not required to complete the check
+    - `http://127.0.0.1:3044/settings` rendered normally with the connected settings shell visible
+    - `http://127.0.0.1:3044/launching` rendered the expected launch-failure surface (`SWITCHING WORKSPACE`, `Launch failed`, `Missing pending workspace launch request.`) without obvious clipping, overlap, or missing primary content
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `GET /api/serverMode`
+    - console noise was limited to existing React 19 `element.ref` warnings and existing accessibility warnings; no route-breaking console errors appeared during verification
+- Next action:
+  - Continue the live dict-area surface pass by lifting the next remaining route-element ownership seam above `frontend/src/components/Pages/router.tsx`, starting with the remaining standalone app/launcher route elements and mode-wrapper-owned JSX before any broad Pixi node drawing lands.
