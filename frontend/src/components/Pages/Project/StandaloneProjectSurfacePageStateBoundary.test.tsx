@@ -1,11 +1,25 @@
 /* @vitest-environment jsdom */
 
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePageStateBoundary } from "./StandaloneProjectSurfacePageStateBoundary";
+
+const defaultRendererMocks = vi.hoisted(() => ({
+  renderDefaultSectionContainerCoreBody: vi.fn(() => null),
+  renderDefaultSectionContainerNestedSections: vi.fn(() => null),
+}));
+
+vi.mock(
+  "components/Section/Container/sectionContainerDefaultRenderers",
+  () => defaultRendererMocks,
+);
 
 const pageBoundaryMock = vi.fn();
 
@@ -13,6 +27,8 @@ vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
   StandaloneProjectSurfacePageBoundary: ({
     projectChatThreadTitle,
     renderDictArea,
+    renderCoreBody,
+    renderNestedSections,
     standaloneProjectChatId,
     standaloneProjectChatThreadRouteInvalid,
     standaloneProjectChatThreadMissing,
@@ -21,6 +37,8 @@ vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
   }: {
     projectChatThreadTitle: string | null;
     renderDictArea: unknown;
+    renderCoreBody: unknown;
+    renderNestedSections: unknown;
     standaloneProjectChatId: string | null;
     standaloneProjectChatThreadRouteInvalid: boolean;
     standaloneProjectChatThreadMissing: boolean;
@@ -30,6 +48,8 @@ vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
     pageBoundaryMock({
       projectChatThreadTitle,
       hasRenderDictArea: Boolean(renderDictArea),
+      renderCoreBody,
+      renderNestedSections,
       standaloneProjectChatId,
       standaloneProjectChatThreadRouteInvalid,
       standaloneProjectChatThreadMissing,
@@ -126,6 +146,8 @@ describe("StandaloneProjectSurfacePageStateBoundary", () => {
       expect.objectContaining({
         hasRenderDictArea: true,
         projectChatThreadTitle: "Alpha Chat",
+        renderCoreBody: renderDefaultSectionContainerCoreBody,
+        renderNestedSections: renderDefaultSectionContainerNestedSections,
         standaloneProjectChatId: "chat-alpha",
         standaloneProjectChatThreadRouteInvalid: false,
         standaloneProjectChatThreadMissing: false,

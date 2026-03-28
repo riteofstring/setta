@@ -4,12 +4,16 @@ import {
   type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
 import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
+import {
   memo,
-  type ComponentProps,
-  type SetStateAction,
   useEffect,
   useRef,
   useState,
+  type ComponentProps,
+  type SetStateAction,
 } from "react";
 import type { WindowSpaceConfig } from "utils/generatedTypes";
 import { StandaloneProjectSurfacePageBoundary } from "./StandaloneProjectSurfacePageBoundary";
@@ -112,6 +116,8 @@ type StandaloneProjectSurfacePageStateBoundaryProps = Omit<
   | "standaloneProjectChatThreadMissing"
   | "setStandaloneProjectChatId"
   | "onProjectChatBlockedErrorCodeChange"
+  | "renderCoreBody"
+  | "renderNestedSections"
 > & {
   projectConfigName: string | undefined;
   projectChatHistoryEntries: Array<{
@@ -331,6 +337,8 @@ function _StandaloneProjectSurfacePageStateBoundary({
       }
       standaloneProjectChatThreadMissing={standaloneProjectChatThreadMissing}
       renderDictArea={renderDictArea}
+      renderCoreBody={renderDefaultSectionContainerCoreBody}
+      renderNestedSections={renderDefaultSectionContainerNestedSections}
       setStandaloneProjectChatId={setStandaloneProjectChatId}
       onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
     />

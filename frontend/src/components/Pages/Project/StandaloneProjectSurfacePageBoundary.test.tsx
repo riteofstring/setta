@@ -1,21 +1,7 @@
-import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePageBoundary } from "./StandaloneProjectSurfacePageBoundary";
-
-const defaultRendererMocks = vi.hoisted(() => ({
-  renderDefaultSectionContainerCoreBody: vi.fn(() => null),
-  renderDefaultSectionContainerNestedSections: vi.fn(() => null),
-}));
-
-vi.mock(
-  "components/Section/Container/sectionContainerDefaultRenderers",
-  () => defaultRendererMocks,
-);
 
 vi.mock("../LoadingSpinner", () => ({
   LoadingSpinner: () => <div data-testid="mock-loading-spinner" />,
@@ -88,6 +74,8 @@ const managedChatAuthorityState = {
 };
 
 const renderDictArea = () => null;
+const renderCoreBody = vi.fn(() => null);
+const renderNestedSections = vi.fn(() => null);
 
 function createBaseProps() {
   return {
@@ -112,6 +100,8 @@ function createBaseProps() {
     standaloneProjectChatThreadRouteInvalid: false,
     standaloneProjectChatThreadMissing: false,
     renderDictArea,
+    renderCoreBody,
+    renderNestedSections,
     setStandaloneProjectChatId: () => undefined,
     onProjectChatBlockedErrorCodeChange: () => undefined,
   };
@@ -184,10 +174,10 @@ describe("StandaloneProjectSurfacePageBoundary", () => {
     expect(
       mockStandaloneProjectSurfaceRouteBoundary.mock.calls[0]?.[0]
         ?.renderCoreBody,
-    ).toBe(renderDefaultSectionContainerCoreBody);
+    ).toBe(renderCoreBody);
     expect(
       mockStandaloneProjectSurfaceRouteBoundary.mock.calls[0]?.[0]
         ?.renderNestedSections,
-    ).toBe(renderDefaultSectionContainerNestedSections);
+    ).toBe(renderNestedSections);
   });
 });
