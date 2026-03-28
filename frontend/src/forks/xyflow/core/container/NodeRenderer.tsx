@@ -1,3 +1,4 @@
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo } from "react";
@@ -45,6 +46,7 @@ const NodeRenderer = () => {
           isDraggable={nodeWrapper.isDraggable}
           resizeObserver={nodeWrapper.resizeObserver}
           visibility={nodeWrapper.visibility}
+          SectionBoundary={SectionContainerBoundary}
         />
       ))}
     </div>
