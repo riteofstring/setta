@@ -3,6 +3,8 @@
 ## Goal
 Make Go the source of truth for shared backend, frontend, and Python types.
 
+Status: complete for the current merge-prep cleanup scope.
+
 That means:
 - `backend/setta/types/` should contain very few handwritten files.
 - Shared Go-owned types should be generated broadly, then pruned.
@@ -584,25 +586,25 @@ Current handwritten files in `backend/setta/types/`:
 - `protocol.py`
 - `project_config.py`
 
-Working assumption for the next passes:
-- `id.py` is likely truly Python-only.
-- most of `listener.py` is now clearly Python-only wrapper logic over generated SDK / Go-owned enums.
-- `protocol.py` is now clearly Python-only listener/dependency adapter glue, not a shared-schema owner.
-- `chat.py` now owns the remaining chat metadata, section-state, and stream-event adapter glue over Go-owned generated models; it is not a primary schema owner.
-- the remaining handwritten part of `project_config.py` is now narrower Python-only defaulting and validation glue over Go-generated project codegen and project-state models, not another large shared-model family.
-- `artifact.py` is no longer a shared-schema owner; the handwritten remainder is now tuple aliases, artifact-id factories, discriminator literals, and draw-area convenience defaults.
-- there is no longer an obvious large shared-schema owner left in `backend/setta/types/`; the surviving `project_config.py` and `artifact.py` code is much closer to adapter/default glue than to schema ownership.
+Final classification:
+- `id.py`: keep. Pydantic-specific `ID` integration and local ID factories are genuinely Python-only.
+- `listener.py`: keep. The remaining code is Python SDK/runtime glue: binary payload storage via `PrivateAttr`, stricter init validation, and typed websocket adapters over generated SDK contracts.
+- `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
+- `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, datetime parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
+- `artifact.py`: keep. The remaining code is Python-only artifact/runtime glue: artifact-id factories, tuple aliases, discriminator defaults, and the adapter/type-adapter layer used by the listener runtime.
+- `project_config.py`: keep. The remaining code is Python-only defaulting and validation over generated Go-owned project-state/codegen models.
+- there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.
 
-## What Is Still Wrong
+## Optional Follow-ups
 
 ### 1. Discovery is generated, but ownership still flows through mirror packages
 The biggest remaining problem is no longer “there is a giant manual type list.”
 
-The remaining problem is that too much of the shared type surface still flows through:
+The remaining follow-up is that some type surface still flows through:
 - `internal/frontendbindings/project_state_support.go`
 - related support files under `internal/frontendbindings/`
 
-That is better than handwritten Python mirrors, but it still means `frontendbindings` is acting as an oversized type owner instead of a thin conversion layer over real backend owner packages.
+At this point, most of the remaining local surface is route-local query/body shaping, raw-JSON/stringly contracts, or generator sentinel types rather than duplicated shared-schema ownership. Further shrinkage is possible, but it is no longer required to satisfy the current cleanup goal.
 
 This has improved for the project-state/view/windowing family, the project/deployment metadata family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the follow-update / completion family, the detailed chat-message schema family, the external-agent config/settings family, and the runtime agent / engine / transcription / detached-run family.
 
@@ -631,7 +633,7 @@ What actually exists today:
 - `runKnip.mjs` iteratively trims unused declarations from `frontend/src/utils/generatedTypes.ts`
 
 So the remaining work is not “invent TS pruning.”
-The remaining work is:
+The remaining optional improvement is:
 - keep the TS generation surface generic
 - keep the generated output stable under cleanup
 - decide whether the standard documented workflow is `generate` then `full-cleanup`, or whether some of that cleanup should move closer to the generation entrypoint
@@ -643,39 +645,18 @@ It now also discovers directly from several real owner packages, which is better
 
 It also now applies discovered wrapper overrides to nested fields, not just top-level discovered roots, which removes one class of manual `py_type` patching.
 
-But it still leans on the `frontendbindings` surface, plus some enum fallback logic, for a significant part of the exported Python-facing names, which means the real owner packages are still not cleanly expressed for many type families.
+But it still leans on the `frontendbindings` surface, plus some enum fallback logic, for part of the exported Python-facing names. That is now an optimization/future-cleanup issue, not a blocker for the current goal.
 
 ### 4. There may still be some duplicated type ownership inside Go
 The frontend/Python cleanup is surfacing a few remaining “two Go packages define the same concept” cases.
 
-The prompt-format duplication has already been removed, and the duplicated `ChatPermissionMode` / `RunSnapshotMode` pairs have also been collapsed onto single owners. The remaining work here is to keep applying the same rule elsewhere if any more duplicated owner pairs are found:
+The prompt-format duplication has already been removed, and the duplicated `ChatPermissionMode` / `RunSnapshotMode` pairs have also been collapsed onto single owners. The remaining optional work here is to keep applying the same rule elsewhere if any more duplicated owner pairs are found:
 - collapse the backend ownership first
 - then point frontend/Python generation at the surviving owner
 - do not teach the generators to arbitrate between multiple backend owners forever
 
 ### 5. A few handwritten Python files are still shared-contract candidates
-The remaining handwritten Python files are much smaller and clearer than before.
-
-They are also much closer to adapter/default glue than to true schema ownership now.
-
-The main candidates are now:
-- any reducible remainder in `project_config.py`, if more of the defaulting/validation surface can be deleted or expressed without another handwritten adapter layer
-- any remaining thin adapter logic in `artifact.py`, if the Python package no longer needs the tuple aliases, id factories, or convenience defaults
-- any adapter-only file under `chat*.py`, `listener.py`, or `protocol.py` that can be collapsed further without reintroducing duplicate backend definitions
-
-Already narrowed to Python adapter layers:
-- `chat.py`
-- `artifact.py`
-- `listener.py`
-- `protocol.py`
-
-Likely Python-only:
-- the remaining frozen/hashable dependency-key behavior in `protocol.py`, because the listener SDK currently uses dependency keys as dictionary keys
-
-Those files should either:
-- disappear because the Python package no longer needs them, or
-- move to Go ownership and generate into `go_shared_types.py`, or
-- be proven Python-only with a concrete runtime reason
+This item is resolved for the current scope. The remaining handwritten Python files have now been classified as Python-only runtime/default/validation glue rather than shared-schema owners.
 
 ## Desired End State
 
