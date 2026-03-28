@@ -526,6 +526,40 @@ That means:
     - `SetCodeObjDisplayNameRequestInput -> httpapi.SetCodeObjDisplayNameRequest`
     - `SetWatchCodeEnabledRequestInput -> httpapi.SetWatchCodeEnabledRequest`
     - `SetWatchCodeInputsRequestInput -> httpapi.SetWatchCodeInputsRequest`
+  - more exact section/browser/chat/text-block mutation requests now also point at `httpapi` owners instead of mirrored `project_state_support.go` structs:
+    - `SetCallableHideParamsRequestInput -> httpapi.SetCallableHideParamsRequest`
+    - `SetSectionHideUnpinnedParamsRequestInput -> httpapi.SetSectionHideUnpinnedParamsRequest`
+    - `SetSectionPinnedParamsRequestInput -> httpapi.SetSectionPinnedParamsRequest`
+    - `SetChatSectionSettingsRequestInput -> httpapi.SetChatSectionSettingsRequest`
+    - `SetStateMachineSectionSettingsRequestInput -> httpapi.SetStateMachineSectionSettingsRequest`
+    - `ToggleParamSelectedRequestInput -> httpapi.ToggleParamSelectedRequest`
+    - `UnselectAllParamsRequestInput -> httpapi.UnselectAllParamsRequest`
+    - `SetSectionParamFilterRequestInput -> httpapi.SetSectionParamFilterRequest`
+    - `SetMetaControlShowSectionTitleRequestInput -> httpapi.SetMetaControlShowSectionTitleRequest`
+    - `SetSectionColumnWidthRequestInput -> httpapi.SetSectionColumnWidthRequest`
+    - `SetSectionEdgeInputsRequestInput -> httpapi.SetSectionEdgeInputsRequest`
+    - `SetSectionEdgeOutputsRequestInput -> httpapi.SetSectionEdgeOutputsRequest`
+    - `SetListRootViewModeRequestInput -> httpapi.SetListRootViewModeRequest`
+    - `ToggleGroupOrientationRequestInput -> httpapi.ToggleGroupOrientationRequest`
+    - `SetGroupOverflowModeRequestInput -> httpapi.SetGroupOverflowModeRequest`
+    - `SetBrowserColumnWidthsRequestInput -> httpapi.SetBrowserColumnWidthsRequest`
+    - `SetBrowserAreaViewModeRequestInput -> httpapi.SetBrowserAreaViewModeRequest`
+    - `SetBrowserHideColumnRequestInput -> httpapi.SetBrowserHideColumnRequest`
+    - `SetBrowserSavedSearchesRequestInput -> httpapi.SetBrowserSavedSearchesRequest`
+    - `SetSpreadsheetFilePathRequestInput -> httpapi.SetSpreadsheetFilePathRequest`
+    - `SetSpreadsheetSectionSettingsRequestInput -> httpapi.SetSpreadsheetSectionSettingsRequest`
+    - `SetTaskBoardSectionStateRequestInput -> httpapi.SetTaskBoardSectionStateRequest`
+    - `SetImageAreaImagePathRequestInput -> httpapi.SetImageAreaImagePathRequest`
+    - `SetSocialURLRequestInput -> httpapi.SetSocialURLRequest`
+    - `AppendDrawAreaLayerItemRequestInput -> httpapi.AppendDrawAreaLayerItemRequest`
+    - `SetChartAreaDataPathRequestInput -> httpapi.SetChartAreaDataPathRequest`
+    - `SetChartTypeRequestInput -> httpapi.SetChartTypeRequest`
+    - `SetTextBlockTextRequestInput -> httpapi.SetTextBlockTextRequest`
+    - `SetTextBlockDisplayModeRequestInput -> httpapi.SetTextBlockDisplayModeRequest`
+    - `SetTextBlockFormatRequestInput -> httpapi.SetTextBlockFormatRequest`
+    - `SetTextBlockHeadingAsSectionNameRequestInput -> httpapi.SetTextBlockHeadingAsSectionNameRequest`
+    - `SetTextBlockMetaControlStyleRequestInput -> httpapi.SetTextBlockMetaControlStyleRequest`
+    - `SetTextBlockMasterFontSizeRequestInput -> httpapi.SetTextBlockMasterFontSizeRequest`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

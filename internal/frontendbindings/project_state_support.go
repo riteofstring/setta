@@ -440,26 +440,11 @@ type SetCodeRequestInput httpapi.SetCodeRequest
 
 type FormatCodeRequestInput httpapi.FormatCodeRequest
 
-type SetCallableHideParamsRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	HideParams      bool    `json:"hideParams"`
-}
+type SetCallableHideParamsRequestInput httpapi.SetCallableHideParamsRequest
 
-type SetSectionHideUnpinnedParamsRequestInput struct {
-	FrontendOpID       *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID    string  `json:"projectConfigId"`
-	SectionID          string  `json:"sectionId"`
-	HideUnpinnedParams bool    `json:"hideUnpinnedParams"`
-}
+type SetSectionHideUnpinnedParamsRequestInput httpapi.SetSectionHideUnpinnedParamsRequest
 
-type SetSectionPinnedParamsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	PinnedParams    []string `json:"pinnedParams"`
-}
+type SetSectionPinnedParamsRequestInput httpapi.SetSectionPinnedParamsRequest
 
 type SetProjectConfigCodegenTargetsRequestInput struct {
 	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
@@ -467,28 +452,9 @@ type SetProjectConfigCodegenTargetsRequestInput struct {
 	CodegenTargets  []ProjectCodegenTarget `json:"codegenTargets"`
 }
 
-type SetChatSectionSettingsRequestInput struct {
-	FrontendOpID           *string            `json:"frontendOpId,omitempty"`
-	ProjectConfigID        string             `json:"projectConfigId"`
-	SectionID              string             `json:"sectionId"`
-	Managed                bool               `json:"managed"`
-	EngineConfigID         *string            `json:"engineConfigId,omitempty"`
-	TranscriptionProfileID *string            `json:"transcriptionProfileId,omitempty"`
-	AgentProfileID         *string            `json:"agentProfileId,omitempty"`
-	Thinking               bool               `json:"thinking"`
-	PermissionMode         ChatPermissionMode `json:"permissionMode"`
-	SearchEnabled          bool               `json:"searchEnabled"`
-	DictationMode          ChatDictationMode  `json:"dictationMode"`
-}
+type SetChatSectionSettingsRequestInput httpapi.SetChatSectionSettingsRequest
 
-type SetStateMachineSectionSettingsRequestInput struct {
-	FrontendOpID    *string               `json:"frontendOpId,omitempty"`
-	ProjectConfigID string                `json:"projectConfigId"`
-	SectionID       string                `json:"sectionId"`
-	MachineGroupID  string                `json:"machineGroupId"`
-	Label           string                `json:"label"`
-	GateType        *StateMachineGateType `json:"gateType,omitempty"`
-}
+type SetStateMachineSectionSettingsRequestInput httpapi.SetStateMachineSectionSettingsRequest
 
 type SetWatchCodeEnabledRequestInput httpapi.SetWatchCodeEnabledRequest
 
@@ -504,17 +470,9 @@ type SetSectionSizesRequestInput struct {
 	SectionSizes    map[string]SectionSize `json:"sectionSizes"`
 }
 
-type ToggleParamSelectedRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	ParamInfoID     string  `json:"paramInfoId"`
-}
+type ToggleParamSelectedRequestInput httpapi.ToggleParamSelectedRequest
 
-type UnselectAllParamsRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-}
+type UnselectAllParamsRequestInput httpapi.UnselectAllParamsRequest
 
 type SectionType string
 
@@ -810,40 +768,15 @@ type UserDefaultSpreadsheetSectionImpl struct{}
 
 type SpreadsheetSectionImpl struct{}
 
-type SetSectionParamFilterRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	Value           string  `json:"value"`
-}
+type SetSectionParamFilterRequestInput httpapi.SetSectionParamFilterRequest
 
-type SetMetaControlShowSectionTitleRequestInput struct {
-	FrontendOpID     *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string  `json:"projectConfigId"`
-	SectionID        string  `json:"sectionId"`
-	ShowSectionTitle bool    `json:"showSectionTitle"`
-}
+type SetMetaControlShowSectionTitleRequestInput httpapi.SetMetaControlShowSectionTitleRequest
 
-type SetSectionColumnWidthRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	ColumnWidth     *float64 `json:"columnWidth"`
-}
+type SetSectionColumnWidthRequestInput httpapi.SetSectionColumnWidthRequest
 
-type SetSectionEdgeInputsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	EdgeInputParams []string `json:"edgeInputParams"`
-}
+type SetSectionEdgeInputsRequestInput httpapi.SetSectionEdgeInputsRequest
 
-type SetSectionEdgeOutputsRequestInput struct {
-	FrontendOpID    *string    `json:"frontendOpId,omitempty"`
-	ProjectConfigID string     `json:"projectConfigId"`
-	SectionID       string     `json:"sectionId"`
-	EdgeOutputPorts []EdgePort `json:"edgeOutputPorts"`
-}
+type SetSectionEdgeOutputsRequestInput httpapi.SetSectionEdgeOutputsRequest
 
 type SetParentDefaultChildSectionTypeRequestInput struct {
 	FrontendOpID            *string     `json:"frontendOpId,omitempty"`
@@ -852,117 +785,35 @@ type SetParentDefaultChildSectionTypeRequestInput struct {
 	DefaultChildSectionType SectionType `json:"defaultChildSectionType"`
 }
 
-type SetListRootViewModeRequestInput struct {
-	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
-	ProjectConfigID string           `json:"projectConfigId"`
-	SectionID       string           `json:"sectionId"`
-	ViewMode        ListRootViewMode `json:"viewMode"`
-}
+type SetListRootViewModeRequestInput httpapi.SetListRootViewModeRequest
 
-type ToggleGroupOrientationRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-}
+type ToggleGroupOrientationRequestInput httpapi.ToggleGroupOrientationRequest
 
-type SetGroupOverflowModeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	OverflowMode    bool    `json:"overflowMode"`
-}
+type SetGroupOverflowModeRequestInput httpapi.SetGroupOverflowModeRequest
 
-type SetBrowserColumnWidthsRequestInput struct {
-	FrontendOpID     *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string   `json:"projectConfigId"`
-	SectionID        string   `json:"sectionId"`
-	ColumnWidth      *float64 `json:"columnWidth"`
-	TypesColumnWidth *float64 `json:"typesColumnWidth"`
-}
+type SetBrowserColumnWidthsRequestInput httpapi.SetBrowserColumnWidthsRequest
 
-type SetBrowserAreaViewModeRequestInput struct {
-	FrontendOpID    *string             `json:"frontendOpId,omitempty"`
-	ProjectConfigID string              `json:"projectConfigId"`
-	SectionID       string              `json:"sectionId"`
-	ViewMode        BrowserAreaViewMode `json:"viewMode"`
-}
+type SetBrowserAreaViewModeRequestInput httpapi.SetBrowserAreaViewModeRequest
 
-type SetBrowserHideColumnRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	HideColumn      bool    `json:"hideColumn"`
-}
+type SetBrowserHideColumnRequestInput httpapi.SetBrowserHideColumnRequest
 
-type SetBrowserSavedSearchesRequestInput struct {
-	FrontendOpID    *string              `json:"frontendOpId,omitempty"`
-	ProjectConfigID string               `json:"projectConfigId"`
-	SectionID       string               `json:"sectionId"`
-	SavedSearches   []BrowserSavedSearch `json:"savedSearches"`
-}
+type SetBrowserSavedSearchesRequestInput httpapi.SetBrowserSavedSearchesRequest
 
-type SetSpreadsheetFilePathRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	FilePath        string  `json:"filePath"`
-	ActiveSheet     *string `json:"activeSheet"`
-}
+type SetSpreadsheetFilePathRequestInput httpapi.SetSpreadsheetFilePathRequest
 
-type SetSpreadsheetSectionSettingsRequestInput struct {
-	FrontendOpID               *string                `json:"frontendOpId,omitempty"`
-	ProjectConfigID            string                 `json:"projectConfigId"`
-	SectionID                  string                 `json:"sectionId"`
-	ReadOnly                   bool                   `json:"readOnly"`
-	ShowRowNumbers             bool                   `json:"showRowNumbers"`
-	Density                    SpreadsheetGridDensity `json:"density"`
-	AutoReloadOnExternalChange bool                   `json:"autoReloadOnExternalChange"`
-}
+type SetSpreadsheetSectionSettingsRequestInput httpapi.SetSpreadsheetSectionSettingsRequest
 
-type SetTaskBoardSectionStateRequestInput struct {
-	FrontendOpID    *string           `json:"frontendOpId,omitempty"`
-	ProjectConfigID string            `json:"projectConfigId"`
-	SectionID       string            `json:"sectionId"`
-	ViewMode        TaskBoardViewMode `json:"viewMode"`
-	Columns         []TaskBoardColumn `json:"columns"`
-	Tasks           []TaskBoardTask   `json:"tasks"`
-}
+type SetTaskBoardSectionStateRequestInput httpapi.SetTaskBoardSectionStateRequest
 
-type SetImageAreaImagePathRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	ImagePath       string  `json:"imagePath"`
-}
+type SetImageAreaImagePathRequestInput httpapi.SetImageAreaImagePathRequest
 
-type SetSocialURLRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	URL             string  `json:"url"`
-}
+type SetSocialURLRequestInput httpapi.SetSocialURLRequest
 
-type AppendDrawAreaLayerItemRequestInput struct {
-	FrontendOpID    *string           `json:"frontendOpId,omitempty"`
-	ProjectConfigID string            `json:"projectConfigId"`
-	SectionID       string            `json:"sectionId"`
-	LayerIdx        int               `json:"layerIdx"`
-	Element         DrawAreaLayerItem `json:"element"`
-}
+type AppendDrawAreaLayerItemRequestInput httpapi.AppendDrawAreaLayerItemRequest
 
-type SetChartAreaDataPathRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	DataPath        string  `json:"dataPath"`
-}
+type SetChartAreaDataPathRequestInput httpapi.SetChartAreaDataPathRequest
 
-type SetChartTypeRequestInput struct {
-	FrontendOpID    *string   `json:"frontendOpId,omitempty"`
-	ProjectConfigID string    `json:"projectConfigId"`
-	SectionID       string    `json:"sectionId"`
-	ChartType       ChartType `json:"chartType"`
-}
+type SetChartTypeRequestInput httpapi.SetChartTypeRequest
 
 type SetChartSettingsRequestInput struct {
 	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
@@ -972,47 +823,17 @@ type SetChartSettingsRequestInput struct {
 	ChangedSettings []string               `json:"changedSettings"`
 }
 
-type SetTextBlockTextRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	Text            string  `json:"text"`
-}
+type SetTextBlockTextRequestInput httpapi.SetTextBlockTextRequest
 
-type SetTextBlockDisplayModeRequestInput struct {
-	FrontendOpID    *string              `json:"frontendOpId,omitempty"`
-	ProjectConfigID string               `json:"projectConfigId"`
-	SectionID       string               `json:"sectionId"`
-	TextDisplayMode TextBlockDisplayMode `json:"textDisplayMode"`
-}
+type SetTextBlockDisplayModeRequestInput httpapi.SetTextBlockDisplayModeRequest
 
-type SetTextBlockFormatRequestInput struct {
-	FrontendOpID    *string         `json:"frontendOpId,omitempty"`
-	ProjectConfigID string          `json:"projectConfigId"`
-	SectionID       string          `json:"sectionId"`
-	Format          TextBlockFormat `json:"format"`
-}
+type SetTextBlockFormatRequestInput httpapi.SetTextBlockFormatRequest
 
-type SetTextBlockHeadingAsSectionNameRequestInput struct {
-	FrontendOpID         *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID      string  `json:"projectConfigId"`
-	SectionID            string  `json:"sectionId"`
-	HeadingAsSectionName bool    `json:"headingAsSectionName"`
-}
+type SetTextBlockHeadingAsSectionNameRequestInput httpapi.SetTextBlockHeadingAsSectionNameRequest
 
-type SetTextBlockMetaControlStyleRequestInput struct {
-	FrontendOpID     *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string  `json:"projectConfigId"`
-	SectionID        string  `json:"sectionId"`
-	MetaControlStyle bool    `json:"metaControlStyle"`
-}
+type SetTextBlockMetaControlStyleRequestInput httpapi.SetTextBlockMetaControlStyleRequest
 
-type SetTextBlockMasterFontSizeRequestInput struct {
-	FrontendOpID     *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string  `json:"projectConfigId"`
-	SectionID        string  `json:"sectionId"`
-	MasterFontSizePx float64 `json:"masterFontSizePx"`
-}
+type SetTextBlockMasterFontSizeRequestInput httpapi.SetTextBlockMasterFontSizeRequest
 
 type SetCodeFileBindingRequestInput httpapi.SetCodeFileBindingRequest
 

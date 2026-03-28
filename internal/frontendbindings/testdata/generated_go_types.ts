@@ -6430,7 +6430,7 @@ export function createFormatCodeRequestInput(options: Partial<FormatCodeRequestI
 
 
 export type SetCallableHideParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   hideParams: boolean;
@@ -6441,7 +6441,7 @@ export function createSetCallableHideParamsRequestInput(options: Partial<SetCall
 
 
 export type SetSectionHideUnpinnedParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   hideUnpinnedParams: boolean;
@@ -6452,7 +6452,7 @@ export function createSetSectionHideUnpinnedParamsRequestInput(options: Partial<
 
 
 export type SetSectionPinnedParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   pinnedParams: Array<string>;
@@ -6489,13 +6489,13 @@ export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 
 export type SetChatSectionSettingsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   managed: boolean;
-  engineConfigId?: string | null;
-  transcriptionProfileId?: string | null;
-  agentProfileId?: string | null;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
   thinking: boolean;
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
@@ -6580,7 +6580,7 @@ export function createSetSectionSizesRequestInput(options: Partial<SetSectionSiz
 
 
 export type ToggleParamSelectedRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -6591,7 +6591,7 @@ export function createToggleParamSelectedRequestInput(options: Partial<TogglePar
 
 
 export type UnselectAllParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
 };
 export function createUnselectAllParamsRequestInput(options: Partial<UnselectAllParamsRequestInput> = {}): UnselectAllParamsRequestInput {
@@ -9328,7 +9328,7 @@ export function createSpreadsheetSectionImpl(
 
 
 export type SetSectionParamFilterRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   value: string;
@@ -9339,7 +9339,7 @@ export function createSetSectionParamFilterRequestInput(options: Partial<SetSect
 
 
 export type SetMetaControlShowSectionTitleRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   showSectionTitle: boolean;
@@ -9350,7 +9350,7 @@ export function createSetMetaControlShowSectionTitleRequestInput(options: Partia
 
 
 export type SetSectionColumnWidthRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
@@ -9361,7 +9361,7 @@ export function createSetSectionColumnWidthRequestInput(options: Partial<SetSect
 
 
 export type SetSectionEdgeInputsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   edgeInputParams: Array<string>;
@@ -9405,7 +9405,7 @@ export function createSetListRootViewModeRequestInput(options: Partial<SetListRo
 
 
 export type ToggleGroupOrientationRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -9415,7 +9415,7 @@ export function createToggleGroupOrientationRequestInput(options: Partial<Toggle
 
 
 export type SetGroupOverflowModeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   overflowMode: boolean;
@@ -9426,7 +9426,7 @@ export function createSetGroupOverflowModeRequestInput(options: Partial<SetGroup
 
 
 export type SetBrowserColumnWidthsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
@@ -9449,7 +9449,7 @@ export function createSetBrowserAreaViewModeRequestInput(options: Partial<SetBro
 
 
 export type SetBrowserHideColumnRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   hideColumn: boolean;
@@ -9471,7 +9471,7 @@ export function createSetBrowserSavedSearchesRequestInput(options: Partial<SetBr
 
 
 export type SetSpreadsheetFilePathRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   filePath: string;
@@ -9510,7 +9510,7 @@ export function createSetTaskBoardSectionStateRequestInput(options: Partial<SetT
 
 
 export type SetImageAreaImagePathRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   imagePath: string;
@@ -9521,7 +9521,7 @@ export function createSetImageAreaImagePathRequestInput(options: Partial<SetImag
 
 
 export type SetSocialURLRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   url: string;
@@ -9544,7 +9544,7 @@ export function createAppendDrawAreaLayerItemRequestInput(options: Partial<Appen
 
 
 export type SetChartAreaDataPathRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   dataPath: string;
@@ -9578,7 +9578,7 @@ export function createSetChartSettingsRequestInput(options: Partial<SetChartSett
 
 
 export type SetTextBlockTextRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   text: string;
@@ -9611,7 +9611,7 @@ export function createSetTextBlockFormatRequestInput(options: Partial<SetTextBlo
 
 
 export type SetTextBlockHeadingAsSectionNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   headingAsSectionName: boolean;
@@ -9622,7 +9622,7 @@ export function createSetTextBlockHeadingAsSectionNameRequestInput(options: Part
 
 
 export type SetTextBlockMetaControlStyleRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   metaControlStyle: boolean;
@@ -9633,7 +9633,7 @@ export function createSetTextBlockMetaControlStyleRequestInput(options: Partial<
 
 
 export type SetTextBlockMasterFontSizeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   masterFontSizePx: number;

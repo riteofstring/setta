@@ -6776,7 +6776,7 @@ export function createFormatCodeRequestInput(
 }
 
 export type SetCallableHideParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   hideParams: boolean;
@@ -6788,7 +6788,7 @@ export function createSetCallableHideParamsRequestInput(
 }
 
 export type SetSectionHideUnpinnedParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   hideUnpinnedParams: boolean;
@@ -6800,7 +6800,7 @@ export function createSetSectionHideUnpinnedParamsRequestInput(
 }
 
 export type SetSectionPinnedParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   pinnedParams: Array<string>;
@@ -6837,13 +6837,13 @@ export const ChatDictationModeEnum = {
 export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export type SetChatSectionSettingsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   managed: boolean;
-  engineConfigId?: string | null;
-  transcriptionProfileId?: string | null;
-  agentProfileId?: string | null;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
   thinking: boolean;
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
@@ -6936,7 +6936,7 @@ export function createSetSectionSizesRequestInput(
 }
 
 export type ToggleParamSelectedRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -6948,7 +6948,7 @@ export function createToggleParamSelectedRequestInput(
 }
 
 export type UnselectAllParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
 };
 export function createUnselectAllParamsRequestInput(
@@ -9721,7 +9721,7 @@ export function createSpreadsheetSectionImpl(
 }
 
 export type SetSectionParamFilterRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   value: string;
@@ -9733,7 +9733,7 @@ export function createSetSectionParamFilterRequestInput(
 }
 
 export type SetMetaControlShowSectionTitleRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   showSectionTitle: boolean;
@@ -9745,7 +9745,7 @@ export function createSetMetaControlShowSectionTitleRequestInput(
 }
 
 export type SetSectionColumnWidthRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
@@ -9757,7 +9757,7 @@ export function createSetSectionColumnWidthRequestInput(
 }
 
 export type SetSectionEdgeInputsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   edgeInputParams: Array<string>;
@@ -9805,7 +9805,7 @@ export function createSetListRootViewModeRequestInput(
 }
 
 export type ToggleGroupOrientationRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -9816,7 +9816,7 @@ export function createToggleGroupOrientationRequestInput(
 }
 
 export type SetGroupOverflowModeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   overflowMode: boolean;
@@ -9828,7 +9828,7 @@ export function createSetGroupOverflowModeRequestInput(
 }
 
 export type SetBrowserColumnWidthsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
@@ -9853,7 +9853,7 @@ export function createSetBrowserAreaViewModeRequestInput(
 }
 
 export type SetBrowserHideColumnRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   hideColumn: boolean;
@@ -9877,7 +9877,7 @@ export function createSetBrowserSavedSearchesRequestInput(
 }
 
 export type SetSpreadsheetFilePathRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   filePath: string;
@@ -9919,7 +9919,7 @@ export function createSetTaskBoardSectionStateRequestInput(
 }
 
 export type SetImageAreaImagePathRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   imagePath: string;
@@ -9931,7 +9931,7 @@ export function createSetImageAreaImagePathRequestInput(
 }
 
 export type SetSocialURLRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   url: string;
@@ -9956,7 +9956,7 @@ export function createAppendDrawAreaLayerItemRequestInput(
 }
 
 export type SetChartAreaDataPathRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   dataPath: string;
@@ -9993,7 +9993,7 @@ export function createSetChartSettingsRequestInput(
 }
 
 export type SetTextBlockTextRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   text: string;
@@ -10029,7 +10029,7 @@ export function createSetTextBlockFormatRequestInput(
 }
 
 export type SetTextBlockHeadingAsSectionNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   headingAsSectionName: boolean;
@@ -10041,7 +10041,7 @@ export function createSetTextBlockHeadingAsSectionNameRequestInput(
 }
 
 export type SetTextBlockMetaControlStyleRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   metaControlStyle: boolean;
@@ -10053,7 +10053,7 @@ export function createSetTextBlockMetaControlStyleRequestInput(
 }
 
 export type SetTextBlockMasterFontSizeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   masterFontSizePx: number;
