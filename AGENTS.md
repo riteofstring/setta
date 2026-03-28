@@ -55,6 +55,7 @@
 - For any visual/UI change, include a final-response line `CDP visual check: done (brief context)` or `CDP visual check: not run (reason)`.
 - Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` for the CDP-only workflow and worktree port guidance.
 - You should never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset`; if chrome-devtools-mcp is needed, the developer runs it first.
+- Exception: inside an automated Ralph iteration, if the current non-main worktree is already mid-task and the only blocker is local lifecycle availability (for example CDP/debug Chrome, bootstrap session, or the worktree app session died), the agent should attempt one bounded self-recovery before declaring `BLOCKED`. Prefer restarting the current worktree with `./aireset.sh`; if that fails, retry once with `./ai.sh`. After restart, refresh the current runtime values with `setta status --connect-info --latest --json --workspace <worktree>` and `pnpm -C frontend cdp-port`, then retry the blocked verification. Do not use this exception for the `main` worktree.
 - Follow `docs/guides/verification-checklist.md` for the standard verification flow.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
 - Treat performance testing as a priority for frontend work; include coverage for large DOM scenarios and guard against costly render/update behavior.
