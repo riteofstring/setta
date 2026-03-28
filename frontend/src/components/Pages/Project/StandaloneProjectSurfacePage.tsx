@@ -10,8 +10,7 @@ import {
   buildStandalonePageProjectChatSurfaceId,
   buildStandalonePageSectionProjectChatSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
-import { SectionContainerNestedSectionsBoundary } from "components/Section/Container/SectionContainerNestedSectionsBoundary";
-import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
+import { StandaloneSectionSurfaceBoundary } from "components/Section/Container/StandaloneSectionSurfaceBoundary";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
@@ -34,7 +33,6 @@ import {
 import { useLoadProjectConfig } from "state/hooks/project";
 import {
   ChatWindowModeEnum,
-  SectionTypeEnum,
   type SectionType,
 } from "utils/generatedTypes";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
@@ -200,30 +198,6 @@ function buildStandaloneSurfaceOwnerKey(
     return `${projectConfigId}:window-space:${target.windowSpaceId}`;
   }
   return null;
-}
-
-function StandaloneSectionBody({
-  sectionId,
-  sectionType,
-}: {
-  sectionId: string;
-  sectionType: SectionType;
-}) {
-  if (
-    sectionType !== SectionTypeEnum.Group &&
-    sectionType !== SectionTypeEnum.ListRoot
-  ) {
-    return null;
-  }
-  return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <SectionContainerNestedSectionsBoundary
-        sectionId={sectionId}
-        isGroup={sectionType === SectionTypeEnum.Group}
-        isJoinedCodeTerminalGroup={false}
-      />
-    </div>
-  );
 }
 
 function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
@@ -619,25 +593,14 @@ export function StandaloneProjectSurfacePageWithLoadState({
         className="flex min-h-0 flex-1 overflow-hidden"
         data-testid="standalone-section-surface"
       >
-        <SectionWindowSurface
+        <StandaloneSectionSurfaceBoundary
           sectionId={target.sectionId}
-          headerActions={null}
-          roundedClassName="rounded-none"
-          chatHost="standalone_page"
+          sectionType={target.sectionType}
           projectChatSurfaceId={buildStandalonePageSectionProjectChatSurfaceId(
             projectConfigId,
             target.sectionId,
           )}
           onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
-          bodyOverride={
-            target.sectionType === SectionTypeEnum.Group ||
-            target.sectionType === SectionTypeEnum.ListRoot ? (
-              <StandaloneSectionBody
-                sectionId={target.sectionId}
-                sectionType={target.sectionType}
-              />
-            ) : undefined
-          }
         />
       </div>
     </StandaloneSurfaceShell>

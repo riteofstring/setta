@@ -215,17 +215,8 @@ function MockUnifiedChatSurface({
   );
 }
 
-vi.mock(
-  "components/Section/Container/SectionContainerNestedSectionsBoundary",
-  () => ({
-    SectionContainerNestedSectionsBoundary: () => (
-      <div data-testid="mock-many-nested-sections" />
-    ),
-  }),
-);
-
-vi.mock("components/Section/Container/SectionWindowSurface", () => ({
-  SectionWindowSurface: ({
+vi.mock("components/Section/Container/StandaloneSectionSurfaceBoundary", () => ({
+  StandaloneSectionSurfaceBoundary: ({
     onProjectChatBlockedErrorCodeChange,
   }: {
     onProjectChatBlockedErrorCodeChange?:
@@ -240,7 +231,7 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
       onProjectChatBlockedErrorCodeChange,
       hoisted.state.projectChatBlockedErrorCode,
     ]);
-    return <div data-testid="mock-section-window-surface" />;
+    return <div data-testid="mock-standalone-section-surface-boundary" />;
   },
 }));
 

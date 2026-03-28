@@ -3321,3 +3321,29 @@ Record:
     - representative requests returned `200`, including `/settings`, `/api/loadSettings`, `/api/loadProjectConfig`, `/api/backendInitStatus`, and `/api/authRefreshStatus`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining standalone-section caller one level higher above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`, before any broad Pixi node drawing lands.
+
+## 2026-03-27 121
+
+- Item: Lift the remaining standalone-section caller one level higher above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx` in the standalone project surface route.
+- Status: `done`
+- Details:
+  - Added a typed higher-level standalone section surface boundary for the standalone route path:
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` to consume the new boundary instead of wiring `SectionWindowSurface` plus the group/list nested-sections override inline.
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` so the page test now treats the standalone section surface as the caller-owned boundary instead of mocking the lower-level nested-sections + window-surface seam directly.
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping standalone group/list-root section routes on the same nested-sections-only body override path
+    - keeping standalone non-group section routes on the default `SectionWindowSurface` body path
+    - leaving `StandaloneProjectSurfacePage.tsx` focused on route/ownership decisions instead of section-surface assembly details
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings/section/languageserver`) in a fresh sub-agent context
+    - the provided bootstrap token was rejected with `401` in that browser session, so verification reused the existing authenticated worktree session
+    - the standalone section surface loaded successfully on the `languageServer` route and the visible viewport showed the section plus `ARGS` panel with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new standalone section-surface boundary one level higher in the standalone route stack before any broad Pixi node drawing lands.
