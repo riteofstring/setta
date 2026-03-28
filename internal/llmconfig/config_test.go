@@ -29,6 +29,23 @@ func TestLoadDefaultsToSettaServerWhenFileMissing(t *testing.T) {
 	if server.URL != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("unexpected setta server url %q", server.URL)
 	}
+	if configs.DefaultConfigID != "claude-sonnet" {
+		t.Fatalf("expected default config id claude-sonnet, got %#v", configs)
+	}
+	claudeConfig, ok := configs.Configs["claude-sonnet"]
+	if !ok {
+		t.Fatalf("expected default claude config, got %#v", configs.Configs)
+	}
+	if claudeConfig.Model != "claude-sonnet-4-5-20250929" || claudeConfig.Provider != "anthropic" || claudeConfig.APIKeyEnv != "ANTHROPIC_API_KEY" {
+		t.Fatalf("unexpected default claude config %#v", claudeConfig)
+	}
+	whisperConfig, ok := configs.Configs["openai-whisper-1"]
+	if !ok {
+		t.Fatalf("expected default whisper config, got %#v", configs.Configs)
+	}
+	if whisperConfig.Model != "whisper-1" || whisperConfig.Provider != "openai" || whisperConfig.APIKeyEnv != "OPENAI_API_KEY" {
+		t.Fatalf("unexpected default whisper config %#v", whisperConfig)
+	}
 }
 
 func TestLoadDerivesConfigIDsAndResolvesServerSets(t *testing.T) {

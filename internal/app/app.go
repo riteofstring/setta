@@ -886,6 +886,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		if err := externalConfigService.SeedDefaultConfigsIfMissing(); err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
 			WorkspaceRoot:          cfg.Paths.WorkspaceRoot,
 			ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
@@ -943,6 +947,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			LLM: llmRuntime,
 		})
 		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		if err := agentruns.SeedDefaultEngineConfigsIfMissing(engineStore); err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		if err := agentprofiles.SeedDefaultProfilesIfMissing(agentProfileStore); err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		if err := transcriptionProfiles.SeedDefaultProfilesIfMissing(); err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}

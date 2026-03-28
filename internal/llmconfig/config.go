@@ -464,20 +464,31 @@ func (c AllConfigs) normalized() (AllConfigs, error) {
 }
 
 func defaultConfigs(opts LoadOptions) AllConfigs {
-	if strings.TrimSpace(opts.SettaServerURL) == "" {
-		return AllConfigs{
-			Configs:    map[string]Config{},
-			MCPServers: map[string]ServerConfig{},
+	configs := map[string]Config{
+		"claude-sonnet": {
+			ID:        "claude-sonnet",
+			Model:     "claude-sonnet-4-5-20250929",
+			Provider:  "anthropic",
+			APIKeyEnv: "ANTHROPIC_API_KEY",
+		},
+		"openai-whisper-1": {
+			ID:        "openai-whisper-1",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}
+	servers := map[string]ServerConfig{}
+	if strings.TrimSpace(opts.SettaServerURL) != "" {
+		servers[DefaultServerID] = ServerConfig{
+			Transport: TransportSSE,
+			URL:       strings.TrimSpace(opts.SettaServerURL),
 		}
 	}
 	return AllConfigs{
-		Configs: map[string]Config{},
-		MCPServers: map[string]ServerConfig{
-			DefaultServerID: {
-				Transport: TransportSSE,
-				URL:       strings.TrimSpace(opts.SettaServerURL),
-			},
-		},
+		Configs:         configs,
+		MCPServers:      servers,
+		DefaultConfigID: "claude-sonnet",
 	}
 }
 
