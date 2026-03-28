@@ -13,7 +13,6 @@ import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
-import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
@@ -36,7 +35,11 @@ import {
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
-import { route_clear_text_field_completion } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_clear_text_field_completion,
+  route_set_callable,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
@@ -431,8 +434,9 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  const updated = await setCallableAndRefreshProjectState(payload);
-  if (updated) {
+  const res = await route_set_callable(payload);
+  if (res200(res)) {
+    // state update occurs by websocket
     setToNotWaiting();
   }
 }

@@ -1,4 +1,12 @@
 import random
+from typing import Iterable
+
+
+def generate_memorable_available_string(taken_strings: Iterable[str]):
+    name = None
+    while (not name) or name in taken_strings:
+        name = generate_memorable_string()
+    return name
 
 
 def generate_memorable_string(num_words=2, separator="_"):
