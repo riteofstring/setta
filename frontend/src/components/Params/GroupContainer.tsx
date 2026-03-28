@@ -50,8 +50,13 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import type { LiveDictAreaEdgeStripVisualPacket } from "./groupContainerEdgeStripVisualPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
+import {
+  buildLiveDictAreaNodeSurfacePacket,
+  type LiveDictAreaEdgeStripSurfacePacket,
+  type LiveDictAreaPinnedParamAreaSurfacePacket,
+  type LiveDictAreaUnpinnedParamAreaSurfacePacket,
+} from "./groupContainerNodeSurfacePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
@@ -327,10 +332,27 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
+  const liveDictAreaNodeSurfacePacket = useMemo(
+    () =>
+      buildLiveDictAreaNodeSurfacePacket({
+        bgColor,
+        nodeScenePacket: liveDictAreaNodeScenePacket,
+        positionAndSizeLocked,
+        sectionTypeName,
+        styleColor,
+      }),
+    [
+      bgColor,
+      liveDictAreaNodeScenePacket,
+      positionAndSizeLocked,
+      sectionTypeName,
+      styleColor,
+    ],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeScenePacket.visualPacket.maxNestedDepth);
-  }, [liveDictAreaNodeScenePacket.visualPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeSurfacePacket.maxNestedDepth);
+  }, [liveDictAreaNodeSurfacePacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -343,16 +365,13 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeScenePacket.visualPacket.blocks.map((block) => {
+        {liveDictAreaNodeSurfacePacket.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
-                key={block.mount.frameId}
+                key={block.visualPacket.mount.frameId}
                 sectionId={sectionId}
-                bgColor={bgColor}
-                visualPacket={block}
-                positionAndSizeLocked={positionAndSizeLocked}
-                styleColor={styleColor}
+                surfacePacket={block}
               />
             );
           }
@@ -360,24 +379,20 @@ function _ParamGroupContainer({
           if (block.kind === "pinned-param-area") {
             return (
               <GetPinnedParams
-                key={block.mount.frameId}
+                key={block.visualPacket.mount.frameId}
                 sectionId={sectionId}
-                visualPacket={block}
+                surfacePacket={block}
                 handleColumnResizeStart={handleColumnResizeStart}
-                positionAndSizeLocked={positionAndSizeLocked}
-                sectionTypeName={sectionTypeName}
-                styleColor={styleColor}
               />
             );
           }
 
           return (
             <GetUnpinnedParams
-              key={block.mount.frameId}
+              key={block.visualPacket.mount.frameId}
               sectionId={sectionId}
-              visualPacket={block}
+              surfacePacket={block}
               handleColumnResizeStart={handleColumnResizeStart}
-              styleColor={styleColor}
             />
           );
         })}
@@ -528,17 +543,13 @@ function useMeasuredParamAreaMinHeight({
 
 function EdgesStrip({
   sectionId,
-  bgColor,
-  positionAndSizeLocked,
-  styleColor,
-  visualPacket,
+  surfacePacket,
 }: {
   sectionId: string;
-  bgColor: string;
-  positionAndSizeLocked: boolean;
-  styleColor: string | null;
-  visualPacket: LiveDictAreaEdgeStripVisualPacket;
+  surfacePacket: LiveDictAreaEdgeStripSurfacePacket;
 }) {
+  const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
+    surfacePacket;
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
@@ -773,18 +784,10 @@ function EdgesStrip({
   );
 }
 
-type MaxNestedDepth = {
-  pinned: number;
-  unpinned: number;
-};
-
 type GetPinnedParamsProps = {
   sectionId: string;
-  visualPacket: LiveDictAreaPinnedParamAreaVisualPacket | null;
+  surfacePacket: LiveDictAreaPinnedParamAreaSurfacePacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  positionAndSizeLocked: boolean;
-  sectionTypeName: SectionTypeEnum;
-  styleColor: string | null;
 };
 
 type PinnedParamsAreaProps = {
@@ -801,9 +804,8 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  visualPacket: LiveDictAreaUnpinnedParamAreaVisualPacket | null;
+  surfacePacket: LiveDictAreaUnpinnedParamAreaSurfacePacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  styleColor: string | null;
 };
 
 type UnpinnedParamsAreaProps = {
@@ -844,12 +846,11 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  visualPacket,
+  surfacePacket,
   handleColumnResizeStart,
-  positionAndSizeLocked,
-  sectionTypeName,
-  styleColor,
 }: GetPinnedParamsProps) {
+  const { positionAndSizeLocked, sectionTypeName, styleColor, visualPacket } =
+    surfacePacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -870,26 +871,24 @@ function GetPinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: visualPacket?.list.topLevelParamIds ?? [],
+    paramIds: visualPacket.list.topLevelParamIds,
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    visualPacket && (
-      <PinnedParamsArea
-        sectionId={sectionId}
-        visualPacket={visualPacket}
-        handleColumnResizeStart={handleColumnResizeStart}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        positionAndSizeLocked={positionAndSizeLocked}
-        sectionTypeName={sectionTypeName}
-        contentRef={contentRef}
-        headerRef={headerRef}
-        rowsRef={rowsRef}
-      />
-    )
+    <PinnedParamsArea
+      sectionId={sectionId}
+      visualPacket={visualPacket}
+      handleColumnResizeStart={handleColumnResizeStart}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      positionAndSizeLocked={positionAndSizeLocked}
+      sectionTypeName={sectionTypeName}
+      contentRef={contentRef}
+      headerRef={headerRef}
+      rowsRef={rowsRef}
+    />
   );
 }
 
@@ -968,10 +967,10 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  visualPacket,
+  surfacePacket,
   handleColumnResizeStart,
-  styleColor,
 }: GetUnpinnedParamsProps) {
+  const { styleColor, visualPacket } = surfacePacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -999,22 +998,20 @@ function GetUnpinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: visualPacket?.list.topLevelParamIds ?? [],
+    paramIds: visualPacket.list.topLevelParamIds,
     contentRef: containerRef,
     rowsRef: containerRef,
   });
 
   return (
-    visualPacket && (
-      <UnpinnedParamsArea
-        sectionId={sectionId}
-        visualPacket={visualPacket}
-        handleColumnResizeStart={handleColumnResizeStart}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        isScrollable={isScrollable}
-        setContainerRef={setContainerRef}
-      />
-    )
+    <UnpinnedParamsArea
+      sectionId={sectionId}
+      visualPacket={visualPacket}
+      handleColumnResizeStart={handleColumnResizeStart}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      isScrollable={isScrollable}
+      setContainerRef={setContainerRef}
+    />
   );
 }
 
