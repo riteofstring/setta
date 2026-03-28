@@ -1,9 +1,8 @@
-import { type Page, expect, test } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { type Page, expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
@@ -151,7 +150,8 @@ async function setBrowserPath(
   const normalizedCurrent = normalizePathForComparison(currentValue);
   const normalizedTarget = normalizePathForComparison(targetPath);
   const nextValue =
-    normalizedCurrent === normalizedTarget && !targetPath.endsWith(path.sep)
+    normalizedCurrent === normalizedTarget &&
+    !targetPath.endsWith(path.sep)
       ? `${targetPath}${path.sep}`
       : targetPath;
 
@@ -206,20 +206,22 @@ test("browser opens markdown and text files in text sections", async ({
     );
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -245,7 +247,9 @@ test("browser opens markdown and text files in text sections", async ({
         sectionNode.locator('button[aria-label="Go forward"]'),
       ).toBeVisible();
 
-      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+      await sectionNode
+        .locator('button[aria-label="Carousel view"]')
+        .click();
 
       await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
@@ -261,9 +265,7 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Browser Test",
       });
 
-      const textTile = sectionNode
-        .locator(`button[aria-label="${textName}"]`)
-        .first();
+      const textTile = sectionNode.locator(`button[aria-label="${textName}"]`).first();
       await expect(textTile).toBeVisible({ timeout: 15000 });
       await textTile.dblclick();
 
@@ -297,20 +299,22 @@ test("browser history buttons navigate folders", async ({ page }) => {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -398,20 +402,22 @@ test("browser list view opens folders on double click", async ({ page }) => {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -456,9 +462,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
 
       await expect
         .poll(async () =>
-          normalizePathForComparison(
-            await readCodeMirrorValue(page, pathInputId),
-          ),
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
         )
         .toContain(folderName);
       await expect(backButton).toBeEnabled();
@@ -466,9 +470,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
       await backButton.click();
       await expect
         .poll(async () =>
-          normalizePathForComparison(
-            await readCodeMirrorValue(page, pathInputId),
-          ),
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
         )
         .toContain(normalizedWorkspaceRoot);
 
@@ -476,9 +478,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
       await forwardButton.click();
       await expect
         .poll(async () =>
-          normalizePathForComparison(
-            await readCodeMirrorValue(page, pathInputId),
-          ),
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
         )
         .toContain(folderName);
     } finally {
@@ -507,11 +507,15 @@ test("browser path commits latest value on blur after fast typing", async ({
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
 
-  const browserSection = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType: "Browser",
-    viewportBounds,
-  });
+  const browserSection = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Browser",
+      viewportBounds,
+    },
+  );
   const sectionId = browserSection?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating browser section.");
@@ -527,7 +531,9 @@ test("browser path commits latest value on blur after fast typing", async ({
       `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
-    await sectionNode.locator('button[aria-label="Carousel view"]').click();
+    await sectionNode
+      .locator('button[aria-label="Carousel view"]')
+      .click();
 
     const pathInputId = `CodeMirror-${sectionId}-browser-path`;
     const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
@@ -543,9 +549,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     });
     await expect
       .poll(async () =>
-        normalizePathForComparison(
-          await readCodeMirrorValue(page, pathInputId),
-        ),
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
       )
       .toContain(normalizePathForComparison(workspaceRoot));
 
@@ -561,9 +565,7 @@ test("browser path commits latest value on blur after fast typing", async ({
 
     await expect
       .poll(async () =>
-        normalizePathForComparison(
-          await readCodeMirrorValue(page, pathInputId),
-        ),
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
       )
       .toContain(normalizedFolderPath);
   } finally {
