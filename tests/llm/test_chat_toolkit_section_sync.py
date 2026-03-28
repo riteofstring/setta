@@ -5,18 +5,18 @@ from setta.llm.chat_toolkit.section_sync import (
 from setta.mcp.tool_metadata import ToolArgumentPreviewKind
 from setta.types.chat import (
     AssistantChatMessage,
-    MessageFinalizedEvent,
-    MessageStartEvent,
-    StreamingEventType,
     ToolChatMessage,
-    ToolResultEvent,
 )
 from setta.types.generated.go_shared_types import (
     MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
     MessageTextContent,
     MessageTextDelta,
+    StreamingEventType,
     ToolArgumentPreviewDeltaEvent,
     ToolCallDeltaEvent,
+    ToolResultEvent,
 )
 
 
@@ -30,7 +30,10 @@ class TestChatSectionSync:
 
         started = apply_stream_delta(
             state=state,
-            chunk=MessageStartEvent(message=assistant),
+            chunk=MessageStartEvent(
+                type=StreamingEventType.message_start,
+                message=assistant.model_dump(mode="python"),
+            ),
         )
 
         assert started.waitingForResponse
@@ -57,7 +60,10 @@ class TestChatSectionSync:
 
         started = apply_stream_delta(
             state=state,
-            chunk=MessageStartEvent(message=assistant),
+            chunk=MessageStartEvent(
+                type=StreamingEventType.message_start,
+                message=assistant.model_dump(mode="python"),
+            ),
         )
 
         assistant.content[0].text += "Hi"
@@ -122,7 +128,10 @@ class TestChatSectionSync:
         )
         updated = apply_stream_delta(
             state=state,
-            chunk=ToolResultEvent(result=tool_message),
+            chunk=ToolResultEvent(
+                type=StreamingEventType.tool_result,
+                result=tool_message.model_dump(mode="python"),
+            ),
         )
 
         assert len(updated.messages) == 2
@@ -130,7 +139,10 @@ class TestChatSectionSync:
 
         finalized = apply_stream_delta(
             state=updated,
-            chunk=MessageFinalizedEvent(message=assistant),
+            chunk=MessageFinalizedEvent(
+                type=StreamingEventType.message_finalized,
+                message=assistant.model_dump(mode="python"),
+            ),
         )
 
         assert not finalized.waitingForResponse

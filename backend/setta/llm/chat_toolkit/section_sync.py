@@ -1,15 +1,17 @@
+from pydantic import TypeAdapter
 from setta.types.chat import (
     AssistantChatMessage,
     BaseChatMessageUnion,
+    BaseChatMessageUnionWithDiscriminator,
     ChatSectionBranch,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    MessageFinalizedEvent,
-    MessageStartEvent,
-    ToolResultEvent,
+    ToolChatMessage,
 )
 from setta.types.generated.go_shared_types import (
     MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
     MessageStopEvent,
     MessageTextContent,
     MessageThinkingContent,
@@ -17,8 +19,11 @@ from setta.types.generated.go_shared_types import (
     ToolCall,
     ToolCallDeltaEvent,
     ToolCallFunction,
+    ToolResultEvent,
 )
 from setta.types.id import ID
+
+_CHAT_MESSAGE_TYPE_ADAPTER = TypeAdapter(BaseChatMessageUnionWithDiscriminator)
 
 
 def build_chat_section_state(
@@ -64,7 +69,7 @@ def apply_stream_delta(
         return next_branches
 
     if isinstance(chunk, MessageStartEvent):
-        message = chunk.message
+        message = _coerce_chat_message(chunk.message)
         if isinstance(message, AssistantChatMessage):
             message = message.model_copy(deep=True)
         messages = _upsert_message(messages, message)
@@ -116,7 +121,7 @@ def apply_stream_delta(
         )
 
     if isinstance(chunk, ToolResultEvent):
-        messages = _upsert_message(messages, chunk.result)
+        messages = _upsert_message(messages, ToolChatMessage.model_validate(chunk.result))
         updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
@@ -140,7 +145,7 @@ def apply_stream_delta(
         )
 
     if isinstance(chunk, MessageFinalizedEvent):
-        messages = _upsert_message(messages, chunk.message)
+        messages = _upsert_message(messages, _coerce_chat_message(chunk.message))
         waiting_for_response = False
         tool_call_arguments = {}
         updated_branches = sync_active_branch_messages()
@@ -174,6 +179,10 @@ def _upsert_message(
             updated[index] = message
             return updated
     return list(messages) + [message]
+
+
+def _coerce_chat_message(value: object) -> BaseChatMessageUnion:
+    return _CHAT_MESSAGE_TYPE_ADAPTER.validate_python(value)
 
 
 def _ensure_assistant_message(

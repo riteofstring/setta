@@ -15,7 +15,6 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.generated.go_shared_types import (
     ChatRole,
-    StreamingEventType,
 )
 from setta.types.generated.go_shared_types import (
     ChatSectionBranch as GoChatSectionBranch,
@@ -176,31 +175,14 @@ class ChatSectionState(GoChatSectionState):
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
-class MessageStartEvent(GoMessageStartEvent):
-    type: Literal[StreamingEventType.message_start] = StreamingEventType.message_start
-    message: BaseChatMessageUnionWithDiscriminator
-
-
-class ToolResultEvent(GoToolResultEvent):
-    type: Literal[StreamingEventType.tool_result] = StreamingEventType.tool_result
-    result: ToolChatMessage
-
-
-class MessageFinalizedEvent(GoMessageFinalizedEvent):
-    type: Literal[StreamingEventType.message_finalized] = (
-        StreamingEventType.message_finalized
-    )
-    message: BaseChatMessageUnionWithDiscriminator
-
-
 LLMStreamingResponseChunk = (
-    MessageStartEvent
+    GoMessageStartEvent
     | GoMessageDeltaEvent
     | GoToolCallDeltaEvent
-    | ToolResultEvent
+    | GoToolResultEvent
     | GoToolArgumentPreviewDeltaEvent
     | GoMessageStopEvent
-    | MessageFinalizedEvent
+    | GoMessageFinalizedEvent
 )
 
 

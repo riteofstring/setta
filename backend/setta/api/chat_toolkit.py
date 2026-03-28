@@ -26,12 +26,8 @@ from setta.types.chat import (
     ChatRole,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    MessageFinalizedEvent,
-    MessageStartEvent,
-    StreamingEventType,
     SystemChatMessage,
     ToolChatMessage,
-    ToolResultEvent,
     UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
@@ -39,13 +35,17 @@ from setta.types.generated.go_shared_types import (
     ChatSendEvent,
     ChatStopEvent,
     MessageDeltaEvent,
+    MessageFinalizedEvent,
+    MessageStartEvent,
     MessageStopEvent,
     MessageTextContent,
     MessageTextDelta,
     MessageThinkingDelta,
+    StreamingEventType,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,
+    ToolResultEvent,
 )
 from setta.types.id import ID
 from setta.types.protocol import SectionDependencyKey
@@ -157,7 +157,10 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageStartEvent(message=message),
+            chunk=MessageStartEvent(
+                type=StreamingEventType.message_start,
+                message=message.model_dump(mode="python"),
+            ),
         )
 
     async def emit_text_delta(
@@ -270,7 +273,10 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=ToolResultEvent(result=message),
+            chunk=ToolResultEvent(
+                type=StreamingEventType.tool_result,
+                result=message.model_dump(mode="python"),
+            ),
         )
 
     async def emit_message_stop(
@@ -299,7 +305,10 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageFinalizedEvent(message=message),
+            chunk=MessageFinalizedEvent(
+                type=StreamingEventType.message_finalized,
+                message=message.model_dump(mode="python"),
+            ),
         )
 
     async def _emit(

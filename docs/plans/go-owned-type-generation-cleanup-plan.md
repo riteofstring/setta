@@ -245,6 +245,9 @@ That means:
 - `backend/setta/types/chat.py` no longer keeps handwritten `MessageDeltaEvent` or `ToolArgumentPreviewDeltaEvent` subclasses:
   - those event shapes now use the generated Go-owned models directly
   - explicit `type=` assignment now happens at construction sites instead of through thin Python event wrappers that only supplied discriminator defaults and narrower annotations
+- `backend/setta/types/chat.py` no longer keeps handwritten `MessageStartEvent`, `ToolResultEvent`, or `MessageFinalizedEvent` subclasses:
+  - those event shapes now also use the generated Go-owned models directly
+  - typed chat-message coercion now happens only at the Python sync boundary where it is actually needed, instead of preserving dedicated handwritten event classes just to carry nested typed payload annotations
 - `backend/setta/types/chat.py` no longer keeps a handwritten `ChatMetadata` subclass:
   - callers and tests now use the generated Go-owned `ChatMetadata` model directly
   - the remaining handwritten chat layer is narrower and stays focused on typed message containers, typed event payloads, defaults that still materially affect runtime construction, and OpenAI-format helpers

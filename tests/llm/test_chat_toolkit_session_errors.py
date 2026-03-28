@@ -1,7 +1,6 @@
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 import pytest
-
 from setta.api.chat_toolkit import (
     ChatHistoryClient,
     ChatSectionSyncClient,
@@ -9,29 +8,30 @@ from setta.api.chat_toolkit import (
     ChatStreamEmitterClient,
     ChatToolRunnerClient,
 )
-from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.api.listener import ListenerCallbackContext, SettaListener
-from setta.sdk_contracts.generated import ListenerDependencyCatalog
-from setta.types.generated.go_shared_types import (
-    ChatFileAttachment,
-    ChatSendEvent,
-    LLMConfig,
-    MessageTextContent,
+from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.llm.chat_toolkit.section_sync import (
+    apply_stream_delta,
+    build_chat_section_state,
 )
+from setta.sdk_contracts.generated import ListenerDependencyCatalog
 from setta.types.chat import (
     AssistantChatMessage,
     Chat,
     ChatRole,
     ChatSectionState,
-    MessageFinalizedEvent,
     SystemChatMessage,
     UserChatMessage,
 )
-from setta.llm.chat_toolkit.section_sync import (
-    apply_stream_delta,
-    build_chat_section_state,
+from setta.types.generated.go_shared_types import (
+    ChatFileAttachment,
+    ChatSendEvent,
+    LLMConfig,
+    MessageFinalizedEvent,
+    MessageTextContent,
 )
 from setta.types.id import ID
+
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
 )
@@ -231,7 +231,7 @@ class TestChatSessionErrors:
             if isinstance(chunk, MessageFinalizedEvent)
         ]
         assert finalized_chunks
-        finalized = finalized_chunks[0].message
+        finalized = AssistantChatMessage.model_validate(finalized_chunks[0].message)
         assert isinstance(finalized, AssistantChatMessage)
         assert finalized.content
         assert finalized.content[0].text == "Hello"
