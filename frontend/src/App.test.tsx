@@ -7,7 +7,35 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("owns only the RouterProvider seam below index.tsx", async () => {
+  it("owns the lifted section-boundary seam above router.tsx", async () => {
+    const router = {
+      dispose: vi.fn(),
+      navigate: vi.fn(),
+      revalidate: vi.fn(),
+      subscribe: vi.fn(),
+    };
+    const renderDictArea = vi.fn();
+    const SectionContainerBoundary = vi.fn();
+
+    vi.doMock("components/Pages/router", () => ({
+      createAppRouter: vi.fn(() => router),
+    }));
+    vi.doMock("components/Section/Container/SectionContainerBoundary", () => ({
+      SectionContainerBoundary,
+    }));
+
+    const { buildAppProps } = await import("./App");
+    const { createAppRouter } = await import("components/Pages/router");
+
+    expect(buildAppProps({ renderDictArea })).toEqual({ router });
+    expect(createAppRouter).toHaveBeenCalledOnce();
+    expect(createAppRouter).toHaveBeenCalledWith({
+      SectionBoundary: SectionContainerBoundary,
+      renderDictArea,
+    });
+  });
+
+  it("owns only the final RouterProvider seam below buildAppProps", async () => {
     vi.doMock("react-router-dom", async (importOriginal) => {
       const actual = await importOriginal<typeof import("react-router-dom")>();
       return {

@@ -2,14 +2,13 @@ import "utils/backendOriginOverrideInit";
 import "utils/workspaceHistoryHandoffInit";
 
 import "@glideapps/glide-data-grid/dist/index.css";
-import { createAppRouter } from "components/Pages/router";
 import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "state/subscriptions";
 import "../icons.css";
-import { App } from "./App";
+import { App, buildAppProps } from "./App";
 import "./index.css";
 
 subscribe();
@@ -20,7 +19,7 @@ function renderStandaloneProjectSurfaceRouteDictArea(
   return <SectionContainerAreaDictBoundary {...props} />;
 }
 
-const router = createAppRouter({
+const appProps = buildAppProps({
   renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
 });
 
@@ -31,6 +30,6 @@ if (!container) {
 const root = createRoot(container);
 root.render(
   <StrictMode>
-    <App router={router} />
+    <App {...appProps} />
   </StrictMode>,
 );

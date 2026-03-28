@@ -5605,7 +5605,7 @@ Record:
     - self-recovery was not needed
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
-
+ 
 ## 2026-03-28 191
 
 - Item: Lift the browser-router-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/router.tsx`.
@@ -5767,3 +5767,38 @@ Record:
     - representative successful requests included `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `GET /api/serverMode`, `POST /api/getAIFollowSnapshot`, and `POST /api/getListenerCoverage`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
+
+## 2026-03-28 193
+
+- Item: Lift the router-owned `SectionContainerBoundary` seam into `frontend/src/App.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the app module now owns the default `SectionContainerBoundary` handoff above `frontend/src/components/Pages/router.tsx`:
+    - `frontend/src/App.tsx`
+    - `frontend/src/App.test.tsx`
+    - `frontend/src/components/Pages/router.tsx`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+    - `frontend/src/index.tsx`
+  - Preserved the current non-Pixi behavior for:
+    - `App.tsx` now owning `createAppRouter({ SectionBoundary: SectionContainerBoundary, renderDictArea })` through a new `buildAppProps(...)` boundary while keeping `App` itself as the final `RouterProvider` seam
+    - `router.tsx` shrinking into a thinner caller-owned adapter that accepts `SectionBoundary` plus `renderDictArea` and still builds the same route stack
+    - `index.tsx` shrinking into a thinner top-level handoff that now consumes `buildAppProps(...)` instead of owning direct router construction
+  - Verification notes:
+    - the first Playwright attempt hit a transient global-setup timeout while waiting for the temporary frontend shell; rerunning the same spec passed without code changes
+    - the first fresh-context CDP verifier did not have `chrome-devtools-mcp` available, so per loop policy this slice used the one allowed self-recovery with `./aireset.sh`
+    - the restart reassigned the worktree runtime to frontend `http://127.0.0.1:3045/`, backend `http://127.0.0.1:8045`, and Chrome remote debugging `9267` from the restart output; `setta status --connect-info --latest --json --workspace .` still returned `No matching Setta sessions found.` after the restart, but the retried fresh-context CDP check succeeded against the restarted runtime
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/App.test.tsx src/components/Pages/routerModule.test.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/App.tsx src/App.test.tsx src/index.tsx src/components/Pages/router.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed on rerun after an initial transient global-setup timeout
+  - Chrome DevTools MCP visual check on the restarted worktree app (`http://127.0.0.1:3045`) in a fresh sub-agent context after the one allowed self-recovery with `./aireset.sh`
+    - bootstrap via `http://127.0.0.1:8045/__setta__/bootstrap#token=...` landed on `http://127.0.0.1:3045/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8045`, then `/home` loaded at `http://127.0.0.1:3045/home`
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3045/sitting_selling`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, blank state, or seam-lift-specific regression; representative visible labels included `WORKSPACE BROWSER`, `CREATE PROJECT`, `PROJECT AI CHAT`, `Select A Section to Edit`, and the live project shell/navigation
+    - representative requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, and `POST /api/loadAllProjectMetadata`
+    - remaining console noise was limited to existing React 19 `ref` warnings plus a form-field accessibility issue
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-App-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/App.tsx`, starting with `frontend/src/index.tsx`.

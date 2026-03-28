@@ -6,7 +6,7 @@ afterEach(() => {
 });
 
 describe("router module", () => {
-  it("owns the lifted section-boundary seam above modeWrappedBrowserRouter", async () => {
+  it("accepts a caller-owned section boundary above modeWrappedBrowserRouter", async () => {
     const routerValue = {
       dispose: vi.fn(),
       navigate: vi.fn(),
@@ -14,7 +14,9 @@ describe("router module", () => {
       subscribe: vi.fn(),
     };
     const renderDictArea = vi.fn();
-    const SectionContainerBoundary = vi.fn();
+    const MockSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+      <div data-testid="mock-section-boundary" data-section-id={sectionId} />
+    );
     const routerArgs = {
       renderModeElement: vi.fn(() => null),
       indexRouteElements: {
@@ -60,9 +62,6 @@ describe("router module", () => {
     vi.doMock("./modeWrappedBrowserRouter", () => ({
       createModeWrappedBrowserRouter: vi.fn(() => routerValue),
     }));
-    vi.doMock("components/Section/Container/SectionContainerBoundary", () => ({
-      SectionContainerBoundary,
-    }));
     vi.doMock("./modeWrappedRouterArgs", () => ({
       buildModeWrappedRouterArgs: vi.fn(() => routerArgs),
     }));
@@ -75,11 +74,14 @@ describe("router module", () => {
       "./modeWrappedRouterArgs"
     );
 
-    const router = createAppRouter({ renderDictArea });
+    const router = createAppRouter({
+      SectionBoundary: MockSectionBoundary,
+      renderDictArea,
+    });
     expect(router).toBe(routerValue);
     expect(buildModeWrappedRouterArgs).toHaveBeenCalledOnce();
     expect(buildModeWrappedRouterArgs).toHaveBeenCalledWith({
-      SectionBoundary: SectionContainerBoundary,
+      SectionBoundary: MockSectionBoundary,
     });
     expect(createModeWrappedBrowserRouter).toHaveBeenCalledOnce();
     expect(createModeWrappedBrowserRouter).toHaveBeenCalledWith({
