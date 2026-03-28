@@ -1,6 +1,5 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import type { SetStateAction } from "react";
 import React from "react";
 import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowing";
@@ -36,11 +35,7 @@ import {
   buildSectionContainerAreaView,
   type SectionContainerAreaProps,
 } from "./sectionContainerAreaView";
-import {
-  SectionContainerDictArea,
-  type SectionContainerDictAreaProps,
-} from "./SectionContainerDictArea";
-import { buildSectionContainerAreaDictView } from "./sectionContainerAreaDictView";
+import { SectionContainerAreaDictBoundary } from "./SectionContainerAreaDictBoundary";
 
 function _SectionContainerArea(props: SectionContainerAreaProps) {
   const view = buildSectionContainerAreaView(props);
@@ -49,7 +44,7 @@ function _SectionContainerArea(props: SectionContainerAreaProps) {
     case "callable":
       return <CallableArea {...view.props} />;
     case "dict":
-      return <SectionContainerAreaDictBranch {...view.props} />;
+      return <SectionContainerAreaDictBoundary {...view.props} />;
     case "image":
       return <ImageArea {...view.props} />;
     case "chart":
@@ -113,25 +108,6 @@ function _SectionContainerArea(props: SectionContainerAreaProps) {
 }
 
 export const SectionContainerArea = React.memo(_SectionContainerArea);
-
-function SectionContainerAreaDictBranch(props: SectionContainerDictAreaProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
-  const view = buildSectionContainerAreaDictView({
-    benchmarkActive: benchmark.active,
-    renderFullSectionBody: benchmark.renderFullSectionBody,
-    ...props,
-  });
-
-  if (view.kind === "benchmark") {
-    return (
-      <SettingsAllSettingsBenchmarkDictArea {...view.benchmarkDictAreaProps} />
-    );
-  }
-
-  return (
-    <SectionContainerDictArea {...view.liveSectionContainerDictAreaProps} />
-  );
-}
 
 function ChatSectionArea({
   sectionId,

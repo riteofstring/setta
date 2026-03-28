@@ -2956,6 +2956,35 @@ Record:
 
 ## 2026-03-27 108
 
+- Item: Lift the `SectionContainerDictArea` boundary into the next higher-level dict-area dispatch caller in `frontend/src/components/Section/Container/SectionContainerArea.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated dict-area dispatch boundary above the existing `SectionContainerDictArea` renderer:
+    - `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.test.tsx`
+  - Updated `frontend/src/components/Section/Container/SectionContainerArea.tsx` to consume the new boundary instead of owning the benchmark/live dict branch inline.
+  - Narrowed the higher-level area test so it now verifies dict routing through the lifted boundary instead of re-testing the benchmark/live split there:
+    - `frontend/src/components/Section/Container/SectionContainerArea.test.tsx`
+  - Kept the current non-Pixi DOM path intact while lifting the dict dispatch one caller higher:
+    - the new boundary now owns the `useSettingsAllSettingsBenchmark()` hook plus the `buildSectionContainerAreaDictView(...)` benchmark-vs-live routing
+    - `SectionContainerArea.tsx` now stays focused on section-type dispatch and no longer mixes higher-level area routing with dict benchmark/live switching
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerAreaView.test.ts src/components/Section/Container/SectionContainerAreaDictBoundary.test.tsx src/components/Section/Container/SectionContainerArea.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check required one bounded lifecycle recovery:
+    - the first fresh-context verifier could not attach to a usable browser-devtools page, so the required visual gate could not be completed there
+    - restarted the current non-main worktree once with `./aireset.sh`, which relaunched the worktree app on `http://127.0.0.1:3045/` / `http://127.0.0.1:8045`
+    - retried the CDP check in a fresh sub-agent context against `http://127.0.0.1:3045/settings`
+    - the visible settings shell plus dict/param area then rendered normally with no obvious clipping, overlap, or missing content; representative visible labels and controls included `settings`, `Filter`, `languageServer`, `sectionSizingPolicy`, `shortcuts`, `gui`, `backend`, and the bottom tabs `Core`, `Section Defaults Struct...`, `Section Defaults Conte...`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/serverMode`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`; `GET /settings` returned `304`
+    - the fresh bootstrap token route returned `401` in that browser session, but direct navigation to the restarted worktree settings page still succeeded
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionContainerAreaDictBoundary.tsx` seam into the next higher-level area caller above `SectionContainerArea.tsx`, starting with `frontend/src/components/Section/Container/SectionCanvasArea.tsx`.
+
+## 2026-03-27 108
+
 - Item: Lift the `SectionContainerDictArea` benchmark-vs-live dict routing into `frontend/src/components/Section/Container/SectionContainerArea.tsx`.
 - Status: `done`
 - Details:

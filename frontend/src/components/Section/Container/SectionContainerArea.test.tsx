@@ -1,16 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SectionContainerArea } from "./SectionContainerArea";
-
-let mockBenchmark = {
-  active: false,
-  renderFullSectionBody: true,
-};
-
-vi.mock("components/Pages/Project/settingsAllSettingsBenchmark", () => ({
-  useSettingsAllSettingsBenchmark: () => mockBenchmark,
-}));
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: () => <div data-testid="mock-unified-chat-surface" />,
@@ -79,24 +70,8 @@ vi.mock("../Layouts/TerminalArea", () => ({
 vi.mock("../Layouts/TextBlock", () => ({
   TextBlock: () => <div data-testid="mock-text-block" />,
 }));
-vi.mock("../Layouts/SettingsAllSettingsBenchmarkDictArea", () => ({
-  SettingsAllSettingsBenchmarkDictArea: ({
-    sectionId,
-    bgColor,
-  }: {
-    sectionId: string;
-    bgColor: string;
-  }) => (
-    <div
-      data-testid="mock-benchmark-dict-area"
-      data-section-id={sectionId}
-      data-bg-color={bgColor}
-    />
-  ),
-}));
-
-vi.mock("./SectionContainerDictArea", () => ({
-  SectionContainerDictArea: ({
+vi.mock("./SectionContainerAreaDictBoundary", () => ({
+  SectionContainerAreaDictBoundary: ({
     sectionId,
     bgColor,
   }: {
@@ -112,14 +87,7 @@ vi.mock("./SectionContainerDictArea", () => ({
 }));
 
 describe("SectionContainerArea", () => {
-  beforeEach(() => {
-    mockBenchmark = {
-      active: false,
-      renderFullSectionBody: true,
-    };
-  });
-
-  it("keeps the live dict renderer handoff inside the higher-level area branch when benchmarking is inactive", () => {
+  it("routes dict sections through the dedicated dict-area boundary", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerArea
         sectionId="section-1"
@@ -133,30 +101,5 @@ describe("SectionContainerArea", () => {
     expect(markup).toContain('data-testid="mock-section-container-dict-area"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-bg-color="bg-setta-50"');
-    expect(markup).not.toContain('data-testid="mock-benchmark-dict-area"');
-  });
-
-  it("switches the higher-level area branch to the benchmark dict shell when the full body is disabled", () => {
-    mockBenchmark = {
-      active: true,
-      renderFullSectionBody: false,
-    };
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerArea
-        sectionId="section-2"
-        sectionTypeName={SectionTypeEnum.Dict}
-        bgColor="bg-transparent"
-        isMinimized={false}
-        isUserView={false}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="mock-benchmark-dict-area"');
-    expect(markup).toContain('data-section-id="section-2"');
-    expect(markup).toContain('data-bg-color="bg-transparent"');
-    expect(markup).not.toContain(
-      'data-testid="mock-section-container-dict-area"',
-    );
   });
 });
