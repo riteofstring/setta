@@ -9,10 +9,7 @@ import { StandaloneProjectSurfacePageRouteStateBoundary } from "./StandaloneProj
 
 const hoisted = vi.hoisted(() => ({
   targetBoundaryMock: vi.fn(),
-}));
-
-vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
-  SectionContainerAreaDictBoundary: () => null,
+  renderDictArea: () => null,
 }));
 
 vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
@@ -43,7 +40,7 @@ vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
       chatId,
       windowSpaceSlug,
       navigate,
-      hasRenderDictArea: Boolean(renderDictArea),
+      renderDictArea,
     });
     return <div data-testid="mock-standalone-project-surface-target-boundary" />;
   },
@@ -55,6 +52,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
 
   beforeEach(() => {
     hoisted.targetBoundaryMock.mockClear();
+    hoisted.renderDictArea = () => null;
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -80,6 +78,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
                 <StandaloneProjectSurfacePageRouteStateBoundary
                   doneLoading={false}
                   is404
+                  renderDictArea={hoisted.renderDictArea}
                 />
               }
             />
@@ -97,7 +96,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
         sectionSlug: undefined,
         windowSpaceSlug: undefined,
         navigate: expect.any(Function),
-        hasRenderDictArea: true,
+        renderDictArea: hoisted.renderDictArea,
       }),
     );
   });
@@ -113,6 +112,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
                 <StandaloneProjectSurfacePageRouteStateBoundary
                   doneLoading
                   is404={false}
+                  renderDictArea={hoisted.renderDictArea}
                 />
               }
             />
@@ -130,7 +130,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
         chatId: undefined,
         windowSpaceSlug: undefined,
         navigate: expect.any(Function),
-        hasRenderDictArea: true,
+        renderDictArea: hoisted.renderDictArea,
       }),
     );
   });

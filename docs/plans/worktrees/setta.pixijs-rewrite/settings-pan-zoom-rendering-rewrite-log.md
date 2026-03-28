@@ -4649,3 +4649,32 @@ Record:
     - representative successful requests visible in DevTools included `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`.
+
+## 2026-03-28 162
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone page-load dict-area handoff one caller higher so `StandaloneProjectSurfacePageLoadBoundary.tsx` now owns the dict renderer seam above `StandaloneProjectSurfacePageRouteStateBoundary.tsx`:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`
+  - Updated focused coverage to pin the higher ownership boundary and verify the route-state boundary now forwards the caller-owned renderer unchanged while it still derives route params and navigation:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - keeping `StandaloneProjectSurfacePageLoadBoundary.tsx` on the same `useLoadProjectConfig` / CodeMirror-style-loader / mouse-listener / plugin-bootstrap path while also providing the shared `SectionContainerAreaDictBoundary` renderer from that higher caller
+    - keeping `StandaloneProjectSurfacePageRouteStateBoundary.tsx` on the same standalone route-param and navigation path while accepting the dict renderer from its caller
+    - leaving the standalone settings dict/param DOM path intact while shrinking `StandaloneProjectSurfacePageRouteStateBoundary.tsx` ownership further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - the initial check on `http://127.0.0.1:3044/settings/section/gui` failed closed on a stale authenticated session and rendered `settings · Section Not Found`
+    - used the one allowed lifecycle self-recovery via `./aireset.sh`, which restarted the current worktree on `http://127.0.0.1:3046/` and `http://127.0.0.1:8046` with a new bootstrap URL from the live script output
+    - `pnpm -C frontend cdp-port` returned `9267` after the restart; `source activate.sh && setta status --connect-info --latest --json --workspace .` still returned `Error: No matching Setta sessions found.`
+    - on the restarted app, `http://127.0.0.1:3046/settings/section/gui` rendered normally after bootstrap with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `gui`, `ARGS`, `Remove arg`, `Add arg`, `Pin selected args`, `Delete selected args`, `Grid Color`, `Grid Pattern`, `Pan On Scroll`, and `Zoom On Scroll`
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`.

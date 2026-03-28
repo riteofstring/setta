@@ -1,23 +1,16 @@
-import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
-import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { memo, type ComponentProps } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { StandaloneProjectSurfacePageTargetBoundary } from "./StandaloneProjectSurfacePageTargetBoundary";
 
 export type StandaloneProjectSurfacePageRouteStateBoundaryProps = Pick<
   ComponentProps<typeof StandaloneProjectSurfacePageTargetBoundary>,
-  "doneLoading" | "is404"
+  "doneLoading" | "is404" | "renderDictArea"
 >;
-
-function renderStandaloneProjectSurfacePageRouteStateDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
 
 function _StandaloneProjectSurfacePageRouteStateBoundary({
   doneLoading,
   is404,
+  renderDictArea,
 }: StandaloneProjectSurfacePageRouteStateBoundaryProps) {
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
@@ -32,7 +25,7 @@ function _StandaloneProjectSurfacePageRouteStateBoundary({
       chatId={chatId}
       windowSpaceSlug={windowSpaceSlug}
       navigate={navigate}
-      renderDictArea={renderStandaloneProjectSurfacePageRouteStateDictArea}
+      renderDictArea={renderDictArea}
     />
   );
 }

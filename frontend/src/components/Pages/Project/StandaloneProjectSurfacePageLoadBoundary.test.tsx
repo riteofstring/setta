@@ -22,6 +22,10 @@ vi.mock("state/hooks/project", () => ({
   useLoadProjectConfig: () => hoisted.loadProjectConfigResult,
 }));
 
+vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
+  SectionContainerAreaDictBoundary: () => null,
+}));
+
 vi.mock("forks/xyflow/core/utils/mouseLocation", () => ({
   useAddMouseLocationListener: hoisted.addMouseLocationListenerMock,
 }));
@@ -38,13 +42,16 @@ vi.mock("./StandaloneProjectSurfacePageRouteStateBoundary", () => ({
   StandaloneProjectSurfacePageRouteStateBoundary: ({
     doneLoading,
     is404,
+    renderDictArea,
   }: {
     doneLoading: boolean;
     is404: boolean;
+    renderDictArea: unknown;
   }) => {
     hoisted.routeStateBoundaryMock({
       doneLoading,
       is404,
+      hasRenderDictArea: Boolean(renderDictArea),
     });
     return (
       <div data-testid="mock-standalone-project-surface-route-state-boundary" />
@@ -96,8 +103,9 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     expect(hoisted.addMouseLocationListenerMock).toHaveBeenCalledTimes(1);
     expect(hoisted.pluginRuntimeBootstrapMock).toHaveBeenCalledWith(false);
     expect(hoisted.routeStateBoundaryMock).toHaveBeenLastCalledWith({
-        doneLoading: false,
-        is404: true,
+      doneLoading: false,
+      is404: true,
+      hasRenderDictArea: true,
     });
   });
 
@@ -126,6 +134,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     expect(hoisted.routeStateBoundaryMock).toHaveBeenLastCalledWith({
       doneLoading: true,
       is404: false,
+      hasRenderDictArea: true,
     });
   });
 });
