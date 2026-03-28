@@ -3427,3 +3427,30 @@ Record:
     - console status was clean apart from a preexisting accessibility warning about form fields lacking `id` or `name`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining standalone target-resolution/store-selection seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 125
+
+- Item: Lift the remaining standalone target-resolution/store-selection seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed higher-level standalone target boundary above the lifted page-state boundary:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` to hand off the remaining standalone target-resolution and store-selection work into the new boundary instead of owning it inline.
+  - The new boundary now owns the non-Pixi standalone page seam for:
+    - resolving route params into the lifted `StandaloneSurfaceTarget` for project-chat, section, and window-space routes
+    - selecting the store-backed `projectConfigId`, standalone window-space config, and managed-chat authority inputs needed by the lower page-state boundary
+    - deriving `canUseManagedChat` from the share session and building project-chat history entries for the lifted standalone route state
+  - The refactor preserves the existing non-Pixi behavior while leaving `StandaloneProjectSurfacePage.tsx` focused on route params, config-load state, navigation, and the page-level lifecycle hooks.
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts`
+    - result: passed (`38` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - `http://127.0.0.1:3044/settings/chat` rendered cleanly with visible controls including `Search conversations`, `New Chat`, `View Threads`, `Project AI Settings`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, and `PLAN NEXT STEPS`
+    - `http://127.0.0.1:3044/settings/section/languageserver` rendered cleanly with visible labels and controls including `languageServer`, `ARGS`, `Filter`, `basedpyright`, and the arg rows
+    - no obvious clipping, overlap, or missing content was visible in either route
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining standalone route-param/load-state seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` before any broad Pixi node drawing lands.
