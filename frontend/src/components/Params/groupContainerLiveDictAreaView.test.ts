@@ -1,5 +1,6 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
+import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
 import { buildLiveDictAreaRenderBoundary } from "./groupContainerLiveDictAreaRenderBoundary";
 import { buildLiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import { buildLiveDictAreaSurface } from "./groupContainerLiveDictAreaSurface";
@@ -52,16 +53,40 @@ describe("buildLiveDictAreaView", () => {
       },
     };
 
+    const expectedBoundary = buildLiveDictAreaBoundary({
+      bgColor: input.bgColor,
+      canConnect: input.canConnect,
+      edgeInputParams: input.edgeInputParams,
+      getParamDisplayName: input.getParamDisplayName,
+      hideUnpinnedParams: input.hideUnpinnedParams,
+      inputPorts: input.inputPorts,
+      isSelectingParams: input.isSelectingParams,
+      outputPorts: input.outputPorts,
+      paramFilter: input.paramFilter,
+      pinned: input.pinned,
+      positionAndSizeLocked: input.positionAndSizeLocked,
+      sectionTypeName: input.sectionTypeName,
+      selectedParamIds: input.selectedParamIds,
+      styleColor: input.styleColor,
+      unpinned: input.unpinned,
+    });
     const expectedRenderBoundary = buildLiveDictAreaRenderBoundary(input);
     const expectedSceneBoundary = buildLiveDictAreaSceneBoundary({
-      liveDictAreaBoundary: expectedRenderBoundary.liveDictAreaBoundary,
+      liveDictAreaBoundary: expectedBoundary,
     });
     const expectedSurface = buildLiveDictAreaSurface(input);
     const result = buildLiveDictAreaView({ input });
 
+    expect(result.liveDictAreaBoundary).toEqual(expectedBoundary);
     expect(result.liveDictAreaRenderBoundary).toEqual(expectedRenderBoundary);
     expect(result.liveDictAreaSceneBoundary).toEqual(expectedSceneBoundary);
     expect(result.liveDictAreaSurface).toEqual(expectedSurface);
     expect(result.maxNestedDepth).toEqual(expectedSurface.maxNestedDepth);
+    expect(result.liveDictAreaRenderBoundary.liveDictAreaBoundary).toBe(
+      result.liveDictAreaBoundary,
+    );
+    expect(result.liveDictAreaSceneBoundary.liveDictAreaBoundary).toBe(
+      result.liveDictAreaBoundary,
+    );
   });
 });

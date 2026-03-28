@@ -1,7 +1,10 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
-import { buildLiveDictAreaRenderBoundary } from "./groupContainerLiveDictAreaRenderBoundary";
+import {
+  buildLiveDictAreaRenderBoundary,
+  buildLiveDictAreaRenderBoundaryFromBoundary,
+} from "./groupContainerLiveDictAreaRenderBoundary";
 
 describe("buildLiveDictAreaRenderBoundary", () => {
   it("composes the live dict-area boundary and renderer through one higher-level helper", () => {
@@ -106,6 +109,58 @@ describe("buildLiveDictAreaRenderBoundary", () => {
       "section-1",
     ]);
     expect(result.maxNestedDepth).toEqual({ pinned: 2, unpinned: 2 });
+  });
+
+  it("reuses the supplied live dict-area boundary when the caller already lifted it", () => {
+    const handleColumnResizeStart = vi.fn();
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      getParamDisplayName: (paramId: string) =>
+        ({ leaf: "Leaf" })[paramId] ?? paramId,
+      hideUnpinnedParams: false,
+      inputPorts: [],
+      isSelectingParams: false,
+      outputPorts: [],
+      paramFilter: "",
+      pinned: {
+        requiredParamIdsToPaths: {
+          leaf: ["leaf"],
+        },
+        topLevelParamIds: ["leaf"],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: "amber",
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 48,
+        pinnedRequiredParamIdsToPaths: {
+          leaf: ["leaf"],
+        },
+        pinnedTopLevelParamIds: ["leaf"],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          other: ["other"],
+        },
+        topLevelParamIds: ["other"],
+      },
+    });
+
+    const result = buildLiveDictAreaRenderBoundaryFromBoundary({
+      handleColumnResizeStart,
+      liveDictAreaBoundary,
+      sectionId: "section-3",
+    });
+
+    expect(result.liveDictAreaBoundary).toBe(liveDictAreaBoundary);
+    expect(result.blocks.map((block) => block.sectionId)).toEqual([
+      "section-3",
+      "section-3",
+    ]);
+    expect(result.maxNestedDepth).toEqual({ pinned: 1, unpinned: 1 });
   });
 
   it("keeps the higher-level render boundary sparse when only the pinned block survives", () => {

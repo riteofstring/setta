@@ -18,14 +18,15 @@ export type LiveDictAreaRenderBoundary = LiveDictAreaRenderer & {
   liveDictAreaBoundary: LiveDictAreaBoundary;
 };
 
-export function buildLiveDictAreaRenderBoundary({
+export function buildLiveDictAreaRenderBoundaryFromBoundary({
   handleColumnResizeStart,
+  liveDictAreaBoundary,
   sectionId,
-  ...liveDictAreaBoundaryInput
-}: LiveDictAreaRenderBoundaryInput): LiveDictAreaRenderBoundary {
-  const liveDictAreaBoundary = buildLiveDictAreaBoundary(
-    liveDictAreaBoundaryInput,
-  );
+}: {
+  handleColumnResizeStart: MouseEventHandler<HTMLDivElement>;
+  liveDictAreaBoundary: LiveDictAreaBoundary;
+  sectionId: string;
+}): LiveDictAreaRenderBoundary {
   const liveDictAreaRenderer = buildLiveDictAreaRenderer({
     handleColumnResizeStart,
     liveDictAreaBoundary,
@@ -36,4 +37,20 @@ export function buildLiveDictAreaRenderBoundary({
     ...liveDictAreaRenderer,
     liveDictAreaBoundary,
   };
+}
+
+export function buildLiveDictAreaRenderBoundary({
+  handleColumnResizeStart,
+  sectionId,
+  ...liveDictAreaBoundaryInput
+}: LiveDictAreaRenderBoundaryInput): LiveDictAreaRenderBoundary {
+  const liveDictAreaBoundary = buildLiveDictAreaBoundary(
+    liveDictAreaBoundaryInput,
+  );
+
+  return buildLiveDictAreaRenderBoundaryFromBoundary({
+    handleColumnResizeStart,
+    liveDictAreaBoundary,
+    sectionId,
+  });
 }

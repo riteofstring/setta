@@ -2080,6 +2080,44 @@ Record:
 
 ## 2026-03-27 076
 
+- Item: Lift the live dict-area boundary into the next higher-level shared view boundary above `groupContainerLiveDictAreaBoundary.ts`.
+- Status: `done`
+- Details:
+  - Deepened the live dict-area helper chain so the higher-level view now owns one shared `LiveDictAreaBoundary` instance instead of reaching it indirectly through `liveDictAreaRenderBoundary`:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaView.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderBoundary.test.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaView.test.ts`
+  - Added a reusable render-boundary entrypoint:
+    - `buildLiveDictAreaRenderBoundaryFromBoundary(...)`
+    - this lets higher-level helpers consume an already-lifted `LiveDictAreaBoundary` without rebuilding or rethreading it indirectly
+  - Updated `buildLiveDictAreaView(...)` to:
+    - build `LiveDictAreaBoundary` once
+    - reuse that same boundary for both `buildLiveDictAreaRenderBoundaryFromBoundary(...)` and `buildLiveDictAreaSceneBoundary(...)`
+    - expose `liveDictAreaBoundary` directly from the higher-level view contract so later boundaries can keep lifting from the same shared object
+  - Locked the new shared-boundary contract in tests:
+    - render-boundary tests now cover the reuse path for a caller that already lifted the boundary
+    - view tests now assert the render boundary and scene boundary both point at the same shared `liveDictAreaBoundary`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaRenderBoundary.test.ts src/components/Params/groupContainerLiveDictAreaView.test.ts src/components/Params/groupContainerLiveDictAreaMountBoundary.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Note:
+    - a single combined Playwright run of all three specs timed out in the benchmark spec while opening the staged settings canvas after the edge/scroll specs had already run in the same session
+    - rerunning the benchmark spec alone in a fresh isolated workspace passed, so this iteration records the split clean-batch verification instead of the contaminated combined batch
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the fresh bootstrap consume attempt returned `401`, so verification fell back to an already-authenticated `/settings` tab
+    - `All Settings` was visible and selected, and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `settings`, `Filter`, `TAG`, `shortcuts`, `sectionSizingPolicy`, `backend`, `languageServer`, `gui`, `chatSectionDefault`, `dictSectionDefault`, and `stateMachineStartSectionDefault`
+    - relevant requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `GET /api/getAgentRuns`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting this shared live dict-area view boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaView.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 076
+
 - Item: Lift the live dict-area boundary into one higher-level scene-owned renderer above `groupContainerLiveDictAreaBoundary.ts`.
 - Status: `done`
 - Details:
