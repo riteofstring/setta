@@ -107,6 +107,10 @@ const hoisted = vi.hoisted(() => {
 
 const stateBoundaryMock = vi.fn();
 
+vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
+  SectionContainerAreaDictBoundary: () => null,
+}));
+
 vi.mock("state/actions/chatHistory", () => ({
   buildChatHistoryEntries: hoisted.buildChatHistoryEntriesMock,
 }));
@@ -125,6 +129,7 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
     canUseManagedChat,
     projectChatHistoryEntries,
     managedChatAuthorityState,
+    renderDictArea,
   }: {
     projectConfigId: string;
     target: { kind: string };
@@ -137,6 +142,7 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
       };
       sections: Record<string, unknown>;
     };
+    renderDictArea: unknown;
   }) => {
     stateBoundaryMock({
       projectConfigId,
@@ -145,6 +151,7 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
       canUseManagedChat,
       projectChatHistoryEntries,
       managedChatAuthorityState,
+      hasRenderDictArea: Boolean(renderDictArea),
     });
     return <div data-testid="mock-standalone-project-surface-page-state" />;
   },
@@ -255,6 +262,7 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
     );
     expect(stateBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        hasRenderDictArea: true,
         projectConfigId: "project-config-1",
         target: {
           kind: "project_chat_thread",
@@ -298,6 +306,7 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
 
     expect(stateBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        hasRenderDictArea: true,
         target: {
           kind: "section",
           sectionId: "section-1",
@@ -345,6 +354,7 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
 
     expect(stateBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        hasRenderDictArea: true,
         target: {
           kind: "window_space",
           windowSpaceId: "window-space-1",

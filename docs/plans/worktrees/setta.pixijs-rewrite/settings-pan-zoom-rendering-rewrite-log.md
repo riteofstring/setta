@@ -4587,3 +4587,34 @@ Record:
     - representative requests returned `200`, including `POST /api/loadAllProjectMetadata` and `POST /api/loadProjectConfig` with `projectConfigName=settings`
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`.
+
+## 2026-03-28 160
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone page-target dict-area handoff one caller higher so `StandaloneProjectSurfacePageTargetBoundary` now owns the dict renderer seam above `StandaloneProjectSurfacePageStateBoundary`:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.tsx`
+  - Updated the focused coverage to pin the higher ownership boundary on both sides of the seam:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - keeping `StandaloneProjectSurfacePageStateBoundary` on the same title/error/chat-state path while accepting the dict renderer from its caller
+    - routing standalone section surfaces through the same `SectionContainerAreaDictBoundary` renderer from the higher-level page-target caller via `renderDictArea(...)`
+    - leaving the standalone settings dict/param DOM path intact while shrinking `StandaloneProjectSurfacePageStateBoundary.tsx` ownership further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed
+  - Chrome DevTools MCP visual check:
+    - the initial check on `http://127.0.0.1:3044/settings/section/gui` stalled during init with repeated `Maximum update depth exceeded` console errors, so the GUI surface never rendered
+    - used the one allowed lifecycle self-recovery via `./aireset.sh`, which restarted the worktree on `http://127.0.0.1:3046/` and `http://127.0.0.1:8046`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .` still returned `Error: No matching Setta sessions found.`, so the retry used the live restart output for the refreshed URLs
+    - on the restarted app, `http://127.0.0.1:3046/settings/section/gui` rendered normally after bootstrap with no obvious clipping, overlap, or missing content
+    - representative visible labels included `gui`, `ARGS`, `Filter`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Show Grid Lines`, `Zoom On Pinch`, and `Wire Color`
+    - representative successful requests visible in DevTools included `GET /api/serverMode`, `POST /api/loadSettings`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`.

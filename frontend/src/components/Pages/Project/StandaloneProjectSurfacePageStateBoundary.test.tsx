@@ -9,10 +9,6 @@ import { StandaloneProjectSurfacePageStateBoundary } from "./StandaloneProjectSu
 
 const pageBoundaryMock = vi.fn();
 
-vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
-  SectionContainerAreaDictBoundary: () => null,
-}));
-
 vi.mock("./StandaloneProjectSurfacePageBoundary", () => ({
   StandaloneProjectSurfacePageBoundary: ({
     projectChatThreadTitle,
@@ -87,6 +83,7 @@ function createBaseProps() {
       },
     ],
     navigate: vi.fn(),
+    renderDictArea: () => null,
   };
 }
 

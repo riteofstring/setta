@@ -2,6 +2,8 @@ import {
   canUseManagedChatLLM,
   type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { type ComponentProps, useMemo } from "react";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import {
@@ -75,11 +77,18 @@ export type StandaloneProjectSurfacePageTargetBoundaryProps = Omit<
   | "managedChatAuthorityState"
   | "canUseManagedChat"
   | "projectChatHistoryEntries"
+  | "renderDictArea"
 > & {
   sectionSlug: string | undefined;
   chatId: string | undefined;
   windowSpaceSlug: string | undefined;
 };
+
+function renderStandaloneProjectSurfacePageTargetDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
 
 function _StandaloneProjectSurfacePageTargetBoundary({
   sectionSlug,
@@ -155,6 +164,7 @@ function _StandaloneProjectSurfacePageTargetBoundary({
       managedChatAuthorityState={managedChatAuthorityState}
       canUseManagedChat={canUseManagedChat}
       projectChatHistoryEntries={projectChatHistoryEntries}
+      renderDictArea={renderStandaloneProjectSurfacePageTargetDictArea}
     />
   );
 }
