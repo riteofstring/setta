@@ -19,20 +19,29 @@ import {
 } from "state/definitions";
 import {
   HOME_ROUTER_PATH,
+  INDEX_ROUTER_PATH,
+  PROJECT_CHAT_STANDALONE_ROUTER_PATH,
+  PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
+  SECTION_STANDALONE_ROUTER_PATH,
+  VIEW_MODE_ROUTER_PATH,
+  WINDOW_SPACE_STANDALONE_ROUTER_PATH,
+  WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
-import type { ProjectConfig } from "utils/generatedTypes";
 import {
   resolveWorkspaceLaunchRouteKind,
   type WorkspaceLaunchRouteKind,
 } from "utils/serverModeBoundaryPolicy";
+import { resolveDefaultProjectConfigName } from "./defaultProjectRouting";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
-import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
 import { MainContainer } from "./Project/MainContainer";
+import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
+import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
+import { APP_ROUTE_IDS } from "./routeConfig";
 
 const LazyAppWrapper = lazy(async () => {
   const mod = await import("components/Pages/App/AppWrapper");
@@ -68,21 +77,6 @@ function resolveShareHomeContent(doneLoading: boolean, is404: boolean) {
     return <NotFound />;
   }
   return <HomePage />;
-}
-
-function resolveDefaultProjectConfigName(
-  defaultProjectConfigId: string | null,
-  projectMetadata: Array<ProjectConfig>,
-): string | null {
-  if (!defaultProjectConfigId) {
-    return null;
-  }
-  for (const config of projectMetadata) {
-    if (config.id === defaultProjectConfigId) {
-      return config.name;
-    }
-  }
-  return null;
 }
 
 function ShareIndexRedirect() {
@@ -204,6 +198,18 @@ const ideProjectRouteElement = (
   </GlobalWrapper>
 );
 
+const ideStandaloneProjectRouteElement = (
+  <GlobalWrapper>
+    <ModalContainer>
+      <StandaloneProjectSurfacePage />
+    </ModalContainer>
+  </GlobalWrapper>
+);
+
+const shareStandaloneProjectRouteElement = (
+  <ShareStandaloneProjectSurfacePage />
+);
+
 const ideWorkspaceLaunchRouteElement = (
   <GlobalWrapper>
     <WorkspaceLaunchPage />
@@ -301,6 +307,123 @@ const shareNotFoundRouteElement = (
   </ShareWrapper>
 );
 
+const indexRoute = {
+  id: APP_ROUTE_IDS.index,
+  path: INDEX_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideIndexRouteElement}
+      share={shareIndexRouteElement}
+      app={appRouteElement}
+      launcher={launcherHomeRouteElement}
+    />
+  ),
+};
+
+const homeRoute = {
+  id: APP_ROUTE_IDS.home,
+  path: HOME_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideHomeRouteElement}
+      share={shareHomeRouteElement}
+      app={appRouteElement}
+      launcher={launcherHomeRouteElement}
+    />
+  ),
+};
+
+const projectRoute = {
+  id: APP_ROUTE_IDS.project,
+  path: PROJECT_CONFIG_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideProjectRouteElement}
+      share={shareProjectRouteElement}
+      app={appRouteElement}
+      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
+    />
+  ),
+};
+
+const viewModeRoute = {
+  id: APP_ROUTE_IDS.viewMode,
+  path: VIEW_MODE_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideProjectRouteElement}
+      share={shareProjectRouteElement}
+      app={appRouteElement}
+      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
+    />
+  ),
+};
+
+const projectChatStandaloneRoute = {
+  id: APP_ROUTE_IDS.projectChatStandalone,
+  path: PROJECT_CHAT_STANDALONE_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideStandaloneProjectRouteElement}
+      share={shareStandaloneProjectRouteElement}
+      app={appRouteElement}
+      launcher={<ProjectRootRedirect />}
+    />
+  ),
+};
+
+const projectChatThreadStandaloneRoute = {
+  id: APP_ROUTE_IDS.projectChatThreadStandalone,
+  path: PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideStandaloneProjectRouteElement}
+      share={shareStandaloneProjectRouteElement}
+      app={appRouteElement}
+      launcher={<ProjectRootRedirect />}
+    />
+  ),
+};
+
+const windowSpaceStandaloneRoute = {
+  id: APP_ROUTE_IDS.windowSpaceStandalone,
+  path: WINDOW_SPACE_STANDALONE_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideStandaloneProjectRouteElement}
+      share={shareStandaloneProjectRouteElement}
+      app={appRouteElement}
+      launcher={<ProjectRootRedirect />}
+    />
+  ),
+};
+
+const sectionStandaloneRoute = {
+  id: APP_ROUTE_IDS.sectionStandalone,
+  path: SECTION_STANDALONE_ROUTER_PATH,
+  element: (
+    <ModeWrapper
+      ide={ideStandaloneProjectRouteElement}
+      share={shareStandaloneProjectRouteElement}
+      app={appRouteElement}
+      launcher={<ProjectRootRedirect />}
+    />
+  ),
+};
+
+const catchAllRoute = {
+  id: APP_ROUTE_IDS.catchAll,
+  path: "*",
+  element: (
+    <ModeWrapper
+      ide={ideNotFoundRouteElement}
+      share={shareNotFoundRouteElement}
+      app={appRouteElement}
+      launcher={launcherHomeRouteElement}
+    />
+  ),
+};
+
 const workspaceLaunchBlockedRouteElement = (
   <Navigate to={HOME_ROUTER_PATH} replace />
 );
@@ -329,41 +452,23 @@ const workspaceLaunchRouteElements: ModeRouteElements = {
   launcher: resolveWorkspaceLaunchRouteElement("launcher"),
 };
 
-const appRoutes = buildModeWrappedAppRouteStack({
-  renderModeElement: (routeElements) => <ModeWrapper {...routeElements} />,
-  indexRouteElements: {
-    ide: ideIndexRouteElement,
-    share: shareIndexRouteElement,
-    app: appRouteElement,
-    launcher: launcherHomeRouteElement,
-  },
-  homeRouteElements: {
-    ide: ideHomeRouteElement,
-    share: shareHomeRouteElement,
-    app: appRouteElement,
-    launcher: launcherHomeRouteElement,
-  },
-  workspaceLaunchRouteElements,
-  projectRouteElements: {
-    ide: ideProjectRouteElement,
-    share: shareProjectRouteElement,
-    app: appRouteElement,
-    launcher: <Navigate to={HOME_ROUTER_PATH} replace />,
-  },
-  viewModeRouteElements: {
-    ide: ideProjectRouteElement,
-    share: shareProjectRouteElement,
-    app: appRouteElement,
-    launcher: <Navigate to={HOME_ROUTER_PATH} replace />,
-  },
-  catchAllRouteElements: {
-    ide: ideNotFoundRouteElement,
-    share: shareNotFoundRouteElement,
-    app: appRouteElement,
-    launcher: launcherHomeRouteElement,
-  },
-  standaloneAppRouteElement: appRouteElement,
-  standaloneLauncherRouteElement: <ProjectRootRedirect />,
-});
+const workspaceLaunchRoute = {
+  id: APP_ROUTE_IDS.workspaceLaunch,
+  path: WORKSPACE_LAUNCH_ROUTER_PATH,
+  element: <ModeWrapper {...workspaceLaunchRouteElements} />,
+};
+
+const appRoutes = [
+  indexRoute,
+  homeRoute,
+  workspaceLaunchRoute,
+  projectChatThreadStandaloneRoute,
+  projectChatStandaloneRoute,
+  windowSpaceStandaloneRoute,
+  viewModeRoute,
+  sectionStandaloneRoute,
+  projectRoute,
+  catchAllRoute,
+];
 
 export const router = createBrowserRouter(appRoutes);

@@ -12,7 +12,7 @@ function isPythonCodegenTarget(
   return target.language === ProjectCodegenLanguageEnum.python;
 }
 
-export function isPluginCodegenTarget(
+function isPluginCodegenTarget(
   target: ProjectCodegenTarget,
 ): target is ProjectCodegenPluginTarget {
   return !isPythonCodegenTarget(target);
