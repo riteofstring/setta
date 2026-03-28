@@ -1,26 +1,11 @@
-import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import React from "react";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import { GroupContainerShell } from "./groupContainerShell";
+import {
+  GroupContainerWrapper,
+  type GroupContainerWrapperProps,
+} from "./groupContainerWrapper";
 
-function _ParamGroupContainer({
-  sectionId,
-  bgColor,
-  sectionTypeName,
-}: {
-  sectionId: string;
-  bgColor: string;
-  sectionTypeName: SectionTypeEnum;
-}) {
-  return (
-    <ParamDndContext>
-      <GroupContainerShell
-        bgColor={bgColor}
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-      />
-    </ParamDndContext>
-  );
+function _ParamGroupContainer(props: GroupContainerWrapperProps) {
+  return <GroupContainerWrapper {...props} />;
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);

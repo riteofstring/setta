@@ -2232,3 +2232,31 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `POST /api/getFileBrowserRoot`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerShell.tsx` boundary into the next higher-level `GroupContainer` wrapper above the remaining `ParamDndContext` boundary before any broad Pixi node drawing lands.
+
+## 2026-03-27 084
+
+- Item: Lift the new `groupContainerShell.tsx` boundary into one higher-level `GroupContainer` wrapper above the remaining `ParamDndContext` boundary.
+- Status: `done`
+- Details:
+  - Added a typed `GroupContainer` wrapper boundary above the existing shell boundary:
+    - `frontend/src/components/Params/groupContainerWrapper.tsx`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new wrapper boundary instead of owning the final `ParamDndContext` shell handoff inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - Updated focused coverage so the wrapper boundary is exercised directly on the live dict-area path:
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - The new wrapper boundary now deterministically:
+    - composes the remaining param DnD provider hop from one deeper component boundary above `GroupContainerShell`
+    - keeps the current shell-backed dict/param DOM path intact while hiding the last `ParamDndContext` wiring hop behind one higher-level boundary
+    - preserves the existing non-Pixi dict/param structure while shrinking `GroupContainer.tsx` to a thin memoized export
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - bootstrapped auth through the current worktree backend and opened `/settings` with `All Settings` selected
+    - the settings list and dict/param stack rendered normally with no obvious clipping, overlap, or missing blocks after the new wrapper-boundary wiring
+    - representative visible entries included `stateMachineGateSectionDefault`, `dictSectionDefault`, `backend`, and `languageServer`
+    - representative requests returned `200`, including `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerWrapper.tsx` boundary into the next higher-level live dict/param caller in `frontend/src/components/Section/Layouts/DictArea.tsx` before any broad Pixi node drawing lands.

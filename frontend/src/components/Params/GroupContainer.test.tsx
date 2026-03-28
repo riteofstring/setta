@@ -2,7 +2,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  type BaseCodeObjImplUnion,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
   ParamNameTypeEnum,
@@ -10,12 +9,14 @@ import {
   SectionTypeEnum,
   createProjectConfig,
   createSettingsState,
+  type BaseCodeObjImplUnion,
   type Core,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ParamGroupContainer } from "./GroupContainer";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
+import { GroupContainerWrapper } from "./groupContainerWrapper";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -230,6 +231,37 @@ describe("ParamGroupContainer layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
+  });
+
+  it("provides the param DnD wrapper for the shell-backed live dict area path", () => {
+    const sectionId = "section-wrapper";
+
+    seedParamGroupContainerState({
+      sectionId,
+      edgeInputParamIds: ["edge-param"],
+      edgeOutputPorts: [{ accessor: "Result", id: "out-1" }],
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+
+    const markup = renderToStaticMarkup(
+      <GroupContainerWrapper
+        sectionId={sectionId}
+        bgColor="bg-transparent"
+        sectionTypeName={SectionTypeEnum.Dict}
+      />,
+    );
+
+    expect(markup).toContain("section-row-pin-main");
+    expect(markup).toContain(
+      'data-dict-area-block-frame-id="dict-area-block:edges"',
+    );
+    expect(markup).toContain(
+      'data-dict-area-block-frame-id="dict-area-block:pinned"',
+    );
+    expect(markup).toContain(
+      'data-dict-area-block-frame-id="dict-area-block:unpinned"',
+    );
   });
 
   it("mounts ordered dict-area block frames for the live DOM path", () => {
