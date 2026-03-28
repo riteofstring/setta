@@ -1879,3 +1879,32 @@ Record:
     - repeated React 19 `element.ref` console messages were observed, but they did not block rendering or this verification
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the first block-specific helper above `groupContainerNodeCanaryRenderer.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
+
+## 2026-03-27 071
+
+- Item: Extract the edge-strip block into the first block-specific helper above `groupContainerNodeCanaryRenderer.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-renderer helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripCanaryRenderer.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripCanaryRenderer.test.ts`
+  - Updated the higher-level node canary renderer boundary to compose through the new edge-strip helper instead of leaving the edge renderer block inline:
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderer.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderer.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the live edge-strip canary render view into one explicit renderer block while retaining the paired canary view payload
+    - keeping `groupContainerNodeCanaryRenderer.ts` focused on higher-level block composition instead of mixed composition-plus-edge-renderer shaping
+    - leaving the current DOM edge-strip surface intact while deepening the first scene-owned canary renderer contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripCanaryRenderer.test.ts src/components/Params/groupContainerNodeCanaryRenderer.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in an authenticated worktree session with `All Settings` visible and styled active
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new edge-strip canary-renderer helper extraction
+    - representative visible labels and controls included `settings`, `Filter`, `shortcuts`, `backend`, `languageServer`, `gui`, `Core`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, and `GET /api/backendInitStatus`
+    - the provided bootstrap URL was rejected in that browser session, but the already-authenticated `/settings` tab stayed usable for verification
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryRenderer.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.

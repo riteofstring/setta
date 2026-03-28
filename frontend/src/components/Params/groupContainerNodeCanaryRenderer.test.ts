@@ -1,5 +1,6 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+import { buildLiveDictAreaEdgeStripCanaryRenderer } from "./groupContainerEdgeStripCanaryRenderer";
 import { buildLiveDictAreaNodeCanaryPacket } from "./groupContainerNodeCanaryPacket";
 import { buildLiveDictAreaNodeCanaryRenderer } from "./groupContainerNodeCanaryRenderer";
 import { buildLiveDictAreaNodeCanaryRenderView } from "./groupContainerNodeCanaryRenderView";
@@ -64,16 +65,27 @@ describe("buildLiveDictAreaNodeCanaryRenderer", () => {
     const renderView = buildLiveDictAreaNodeCanaryRenderView({
       nodeCanaryView: canaryView,
     });
+    const edgeStripRenderer = canaryView.edgeStripBlock
+      ? buildLiveDictAreaEdgeStripCanaryRenderer({
+          canaryView: canaryView.edgeStripBlock,
+        })
+      : null;
 
     expect(result.canaryPacket).toEqual(nodeCanaryPacket);
     expect(result.canaryView).toEqual(canaryView);
-    expect(result.blocks).toEqual(renderView.blocks);
+    expect(result.blocks).toEqual([
+      edgeStripRenderer,
+      renderView.pinnedParamAreaBlock,
+      renderView.unpinnedParamAreaBlock,
+    ]);
     expect(result.edgeStrip).toEqual(renderView.edgeStrip);
+    expect(result.edgeStripBlock).toEqual(edgeStripRenderer);
     expect(result.scenePacket).toEqual(renderView.scenePacket);
     expect(result.maxNestedDepth).toEqual({
       pinned: 2,
       unpinned: 2,
     });
+    expect(result.edgeStripBlock?.canaryView).toEqual(canaryView.edgeStripBlock);
     expect(result.blocks.map((block) => block.key)).toEqual([
       "dict-area-block:edges",
       "dict-area-block:pinned",
