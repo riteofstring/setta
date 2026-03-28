@@ -13,7 +13,7 @@ export type SectionContainerAreaDictView =
     }
   | {
       kind: "live";
-      liveSectionContainerDictAreaProps: DictAreaProps;
+      liveDictAreaProps: DictAreaProps;
     };
 
 export function buildSectionContainerAreaDictView({
@@ -38,6 +38,6 @@ export function buildSectionContainerAreaDictView({
 
   return {
     kind: "live",
-    liveSectionContainerDictAreaProps: props,
+    liveDictAreaProps: props,
   };
 }

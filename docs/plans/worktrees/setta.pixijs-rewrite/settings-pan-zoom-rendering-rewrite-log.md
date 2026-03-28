@@ -4362,3 +4362,33 @@ Record:
     - representative requests returned `200`, including `loadSettings`, `loadProjectConfig`, and `setTopLevelSectionLayout`
 - Next action:
   - Continue the retained-scene seam lift by moving the live dict-area handoff one level higher above `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`, starting with the `SectionContainerAreaDictBoundary` path.
+
+## 2026-03-27 152
+
+- Item: Lift the live dict-area seam into `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the dict-area handoff above the thin section-container wrapper so the dict boundary now depends on `DictArea` and its exported `DictAreaProps` contract directly:
+    - `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerAreaDictView.ts`
+  - Updated the focused coverage to pin the higher seam and renamed the live-view payload away from the deleted wrapper terminology:
+    - `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerAreaDictView.test.ts`
+  - Removed the now-dead wrapper file:
+    - `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`
+  - This keeps the retained-scene seam moving upward through the dict-area call chain while preserving the existing non-Pixi DOM path for:
+    - the benchmark-vs-live routing inside the section-container dict boundary
+    - the live `DictArea` handoff into `DictAreaLiveBoundary`
+    - the `All Settings` dict/param surface under the same benchmark gating behavior
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerAreaDictBoundary.test.tsx src/components/Section/Container/sectionContainerAreaDictView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - first run timed out waiting for `.react-flow__pane` in the temporary E2E workspace
+    - reran the same spec immediately without code changes; second run passed (`1 passed (2.5m)`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in the authenticated frontend tab with `All Settings` visible
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `loadSettings`, `loadProjectConfig`, and `backendInitStatus`
+- Next action:
+  - Continue the retained-scene seam lift by moving the live dict-area handoff one level higher above `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.tsx`, starting with the `SectionContainerArea.tsx` path.

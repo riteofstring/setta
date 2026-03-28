@@ -1,13 +1,10 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
+import { DictArea, type DictAreaProps } from "../Layouts/DictArea";
 import { SettingsAllSettingsBenchmarkDictArea } from "../Layouts/SettingsAllSettingsBenchmarkDictArea";
-import {
-  SectionContainerDictArea,
-  type SectionContainerDictAreaProps,
-} from "./SectionContainerDictArea";
 import { buildSectionContainerAreaDictView } from "./sectionContainerAreaDictView";
 
-function _SectionContainerAreaDictBoundary(props: SectionContainerDictAreaProps) {
+function _SectionContainerAreaDictBoundary(props: DictAreaProps) {
   const benchmark = useSettingsAllSettingsBenchmark();
   const view = buildSectionContainerAreaDictView({
     benchmarkActive: benchmark.active,
@@ -21,9 +18,7 @@ function _SectionContainerAreaDictBoundary(props: SectionContainerDictAreaProps)
     );
   }
 
-  return (
-    <SectionContainerDictArea {...view.liveSectionContainerDictAreaProps} />
-  );
+  return <DictArea {...view.liveDictAreaProps} />;
 }
 
 export const SectionContainerAreaDictBoundary = React.memo(

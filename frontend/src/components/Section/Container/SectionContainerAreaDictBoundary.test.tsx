@@ -27,8 +27,8 @@ vi.mock("../Layouts/SettingsAllSettingsBenchmarkDictArea", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerDictArea", () => ({
-  SectionContainerDictArea: ({
+vi.mock("../Layouts/DictArea", () => ({
+  DictArea: ({
     sectionId,
     bgColor,
   }: {
@@ -36,7 +36,7 @@ vi.mock("./SectionContainerDictArea", () => ({
     bgColor: string;
   }) => (
     <div
-      data-testid="mock-section-container-dict-area"
+      data-testid="mock-dict-area"
       data-section-id={sectionId}
       data-bg-color={bgColor}
     />
@@ -51,7 +51,7 @@ describe("SectionContainerAreaDictBoundary", () => {
     };
   });
 
-  it("keeps the live dict renderer handoff in the dedicated dict boundary when benchmarking is inactive", () => {
+  it("keeps the live dict renderer handoff on DictArea when benchmarking is inactive", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerAreaDictBoundary
         sectionId="section-1"
@@ -59,7 +59,7 @@ describe("SectionContainerAreaDictBoundary", () => {
       />,
     );
 
-    expect(markup).toContain('data-testid="mock-section-container-dict-area"');
+    expect(markup).toContain('data-testid="mock-dict-area"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-bg-color="bg-setta-50"');
     expect(markup).not.toContain('data-testid="mock-benchmark-dict-area"');
@@ -81,8 +81,6 @@ describe("SectionContainerAreaDictBoundary", () => {
     expect(markup).toContain('data-testid="mock-benchmark-dict-area"');
     expect(markup).toContain('data-section-id="section-2"');
     expect(markup).toContain('data-bg-color="bg-transparent"');
-    expect(markup).not.toContain(
-      'data-testid="mock-section-container-dict-area"',
-    );
+    expect(markup).not.toContain('data-testid="mock-dict-area"');
   });
 });
