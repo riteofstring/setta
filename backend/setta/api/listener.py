@@ -70,7 +70,6 @@ from setta.types.generated.go_shared_types import (
 from setta.types.listener import (
     DependencyEvent,
     ListenerDependencyEventContent,
-    ListenerInitContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
@@ -1287,14 +1286,17 @@ class SettaListener:
 
     async def _send_bootstrap_init(self) -> None:
         """Send an initial bootstrap handshake to identify the target project."""
-        content = ListenerInitContent(
-            projectConfigId=self._project_config_id,
-            projectName=self._project_name,
-            useTemporaryIds=self._use_temporary_ids,
-        )
+        if self._project_config_id is None and self._project_name is None:
+            raise ValueError(
+                "Listener bootstrap init requires either projectConfigId or projectName"
+            )
         message = ListenerInitMessage(
             messageType=ListenerMessageType.ListenerInit,
-            content=content.model_dump(mode="python"),
+            content={
+                "projectConfigId": self._project_config_id,
+                "projectName": self._project_name,
+                "useTemporaryIds": self._use_temporary_ids,
+            },
         )
         payload = message.model_dump_json()
         logger.debug("Listener %s sending bootstrap init", self._log_identifier)

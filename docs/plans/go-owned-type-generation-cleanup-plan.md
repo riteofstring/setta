@@ -365,6 +365,9 @@ That means:
   - `ListenerInit`
   - `ListenerFrontendEmit`
   - those message variants now also use the generated Go-owned websocket envelope models directly, while Python keeps validation or artifact typing only at the real boundary that still needs it
+- `backend/setta/types/listener.py` no longer keeps a handwritten `ListenerInitContent` wrapper:
+  - the generated Go-owned init request/message models now carry the wire shape directly
+  - the only remaining bootstrap requirement, that either `projectConfigId` or `projectName` must be provided, is enforced at the actual listener bootstrap call site instead of through a separate Python schema subclass
 - `backend/setta/types/listener.py` has also dropped a private no-behavior union alias:
   - `PythonScriptWebsocketMsgUnionWithDiscriminator = PythonScriptWebsocketMsgUnion` is gone
   - the type adapter now points at the real union directly instead of preserving an internal rename layer

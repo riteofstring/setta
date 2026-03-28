@@ -6,7 +6,6 @@ from pydantic import (
     PrivateAttr,
     Tag,
     TypeAdapter,
-    model_validator,
 )
 from setta.sdk_contracts.generated import (
     ListenerDependencyEvent as SDKListenerDependencyEvent,
@@ -17,7 +16,6 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerForceRefreshEvent as SDKListenerForceRefreshEvent,
 )
-from setta.sdk_contracts.generated import ListenerInitRequest as SDKListenerInitRequest
 from setta.sdk_contracts.generated import (
     ListenerRealtimeDelta as SDKListenerRealtimeDelta,
 )
@@ -48,19 +46,6 @@ from setta.types.generated.go_shared_types import (
 from setta.types.generated.go_shared_types import (
     ListenerRegisterMessage as GoListenerRegisterMessage,
 )
-from setta.types.id import ID
-
-
-class ListenerInitContent(SDKListenerInitRequest):
-    projectConfigId: ID | None = None
-
-    @model_validator(mode="after")
-    def _validate_identifier(self):
-        if self.projectConfigId is None and self.projectName is None:
-            raise ValueError(
-                "ListenerInitContent requires either projectConfigId or projectName"
-            )
-        return self
 
 
 class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
