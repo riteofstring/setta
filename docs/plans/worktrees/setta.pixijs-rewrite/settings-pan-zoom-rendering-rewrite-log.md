@@ -490,3 +490,29 @@ Record:
       - relevant backend/auth/settings requests returned `200`, including `api/serverMode`, `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/getDefaultConfigName`, `api/getFileBrowserRoot`, `api/loadAllProjectMetadata`, `api/loadProjectConfig`, and `api/llm/config`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the xyflow container cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`.
+
+## 2026-03-26 020
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `NodeRenderer` container decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its wrapper visibility/draggability shaping and resize-observer setup inline in the component:
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/nodeRendererView.ts`
+    - `frontend/src/forks/xyflow/core/container/nodeRendererView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - keeping every rendered node wrapper draggable only while the pan-activation key is not pressed
+    - keeping wrapper visibility tied to the existing fit-view readiness gate
+    - creating the same resize observer that forwards node resize entries through `getNodeUpdateInformation(..., true)` into `updateNodeDimensions(...)`
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/nodeRendererView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` loaded cleanly at `http://127.0.0.1:3044/settings` with `All Settings` visible
+      - the settings/tag list and canvas shell rendered normally without obvious overlap, clipping, or missing content
+      - representative visible labels and rows included `backend`, `shortcuts`, `languageServer`, `gui`, `sectionSizingPolicy`, `Auto Backup`, `autobackupFreq 300`, `Completion Guard Enabled`, and `defaultTerminalShell null`
+      - relevant backend/auth/settings requests returned `200`, including `api/serverMode`, `api/backendInitStatus`, `api/loadSettings`, and `api/authRefreshStatus`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the xyflow container cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`.
