@@ -1717,3 +1717,30 @@ Record:
     - representative requests returned `200`, including `POST /api/getFolderContents`, `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, `GET /api/getAgentRuns`, and `GET /api/getFileBrowserRoot`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryView.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-27 065
+
+- Item: Extract the unpinned param-area block into the next block-specific helper above `groupContainerNodeCanaryView.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-view helper for the live dict-area unpinned param area:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaCanaryView.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaCanaryView.test.ts`
+  - Updated the higher-level node canary view boundary to compose through the new unpinned helper instead of shaping the unpinned canary view block inline:
+    - `frontend/src/components/Params/groupContainerNodeCanaryView.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the unpinned param-area DOM/scene pairing into one explicit canary-view block with stable `blockId`, `kind`, and mount metadata
+    - keeping `groupContainerNodeCanaryView.ts` as the higher-level composition boundary instead of a mixed composition-plus-unpinned-block-view module
+    - leaving the current DOM unpinned param-area surface intact while deepening the first scene-owned canary view contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaCanaryView.test.ts src/components/Params/groupContainerNodeCanaryView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated with `All Settings` visible/selected
+    - the visible settings shell plus dict/param area rendered normally after the new unpinned canary-view helper extraction
+    - representative visible labels and controls included `Open section in floating window`, `Lock position and size`, `Minimize section`, `Delete section`, `Add arg`, and param fields such as `Core Name`, `Type`, and `Value`
+    - representative requests returned `200`, including `POST /api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific helpers into the next higher-level scene-owned boundary above `groupContainerNodeCanaryView.ts` before any broad Pixi node drawing lands.
