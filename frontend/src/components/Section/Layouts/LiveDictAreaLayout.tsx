@@ -1,23 +1,14 @@
 import React from "react";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
-import { buildLiveDictAreaLayoutView } from "./dictAreaView";
+import type { LiveDictAreaLayoutView } from "./dictAreaView";
 
-export type LiveDictAreaLayoutProps = {
-  bgColor: string;
-  sectionId: string;
-};
+export type LiveDictAreaLayoutProps = LiveDictAreaLayoutView;
 
 function _LiveDictAreaLayout({
-  bgColor,
-  sectionId,
+  kwargsControlsProps,
+  paramGroupContainerProps,
 }: LiveDictAreaLayoutProps) {
-  const { kwargsControlsProps, paramGroupContainerProps } =
-    buildLiveDictAreaLayoutView({
-      bgColor,
-      sectionId,
-    });
-
   return (
     <>
       <KwargsControls {...kwargsControlsProps} />

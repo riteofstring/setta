@@ -2864,3 +2864,35 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `groupContainerLiveDictAreaView.ts` boundary into the next higher-level caller above `groupContainerLiveDictArea.tsx`.
+
+## 2026-03-27 107
+
+- Item: Lift the live dict-area layout wiring into the higher-level `DictArea` and section-container callers above the current live dict-area path.
+- Status: `done`
+- Details:
+  - Added a typed live dict-area boundary in `Section/Layouts` above the current layout renderer:
+    - `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx`
+    - `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.test.tsx`
+  - Updated the existing live layout renderer to accept already-built layout props instead of rebuilding them inline:
+    - `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`
+  - Routed both higher-level live dict-area callers through the new boundary so the last live-layout-view-to-renderer hop is hidden behind one deeper module:
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerDictAreaView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerDictAreaView.test.ts`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping the current `KwargsControls` plus `ParamGroupContainer` DOM path intact while moving the live dict-area layout-view wiring into one higher-level boundary
+    - keeping the benchmark dict-area branch untouched while aligning the live section-container path with the new `DictAreaLiveBoundary` contract
+    - shrinking both `DictArea.tsx` and `SectionContainerDictArea.tsx` so they no longer own the last live dict-area layout wiring hop inline
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/DictAreaLiveBoundary.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/dictAreaView.test.ts src/components/Section/Container/sectionContainerDictAreaView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the provided bootstrap token was rejected in that browser session, so the verifier reused the existing authenticated `/settings` tab
+    - `All Settings` stayed visible and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new boundary wiring
+    - representative visible labels and controls included `toggle agentic edges`, `toggle arg edges`, `toggle snap to grid`, `Create chat window`, `Create project`, `Summarize codebase`, `Plan next steps`, the tabs `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`, plus the dict/param cards `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/llm/config`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getEngineConfigs`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionContainerDictArea` boundary into the next higher-level dict-area dispatch caller in `frontend/src/components/Section/Container/SectionContainerArea.tsx` before any broad Pixi node drawing lands.

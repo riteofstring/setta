@@ -1,13 +1,13 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
 import {
-  LiveDictAreaLayout,
-  type LiveDictAreaLayoutProps,
-} from "../Layouts/LiveDictAreaLayout";
+  DictAreaLiveBoundary,
+  type DictAreaLiveBoundaryProps,
+} from "../Layouts/DictAreaLiveBoundary";
 import { SettingsAllSettingsBenchmarkDictArea } from "../Layouts/SettingsAllSettingsBenchmarkDictArea";
 import { buildSectionContainerDictAreaView } from "./sectionContainerDictAreaView";
 
-export type SectionContainerDictAreaProps = LiveDictAreaLayoutProps;
+export type SectionContainerDictAreaProps = DictAreaLiveBoundaryProps;
 
 function _SectionContainerDictArea({
   bgColor,
@@ -27,7 +27,7 @@ function _SectionContainerDictArea({
     );
   }
 
-  return <LiveDictAreaLayout {...view.liveDictAreaLayoutProps} />;
+  return <DictAreaLiveBoundary {...view.liveDictAreaBoundaryProps} />;
 }
 
 export const SectionContainerDictArea = React.memo(_SectionContainerDictArea);

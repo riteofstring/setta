@@ -29,7 +29,7 @@ describe("buildSectionContainerDictAreaView", () => {
       }),
     ).toEqual({
       kind: "live",
-      liveDictAreaLayoutProps: {
+      liveDictAreaBoundaryProps: {
         bgColor: "bg-transparent",
         sectionId: "section-2",
       },

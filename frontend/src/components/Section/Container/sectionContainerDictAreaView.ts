@@ -1,7 +1,7 @@
-import type { LiveDictAreaLayoutProps } from "../Layouts/LiveDictAreaLayout";
+import type { DictAreaLiveBoundaryProps } from "../Layouts/DictAreaLiveBoundary";
 import { resolveDictAreaRenderMode } from "../Layouts/dictAreaView";
 
-type BuildSectionContainerDictAreaViewArgs = LiveDictAreaLayoutProps & {
+type BuildSectionContainerDictAreaViewArgs = DictAreaLiveBoundaryProps & {
   benchmarkActive: boolean;
   renderFullSectionBody: boolean;
 };
@@ -9,11 +9,11 @@ type BuildSectionContainerDictAreaViewArgs = LiveDictAreaLayoutProps & {
 export type SectionContainerDictAreaView =
   | {
       kind: "benchmark";
-      benchmarkDictAreaProps: LiveDictAreaLayoutProps;
+      benchmarkDictAreaProps: DictAreaLiveBoundaryProps;
     }
   | {
       kind: "live";
-      liveDictAreaLayoutProps: LiveDictAreaLayoutProps;
+      liveDictAreaBoundaryProps: DictAreaLiveBoundaryProps;
     };
 
 export function buildSectionContainerDictAreaView({
@@ -38,6 +38,6 @@ export function buildSectionContainerDictAreaView({
 
   return {
     kind: "live",
-    liveDictAreaLayoutProps: props,
+    liveDictAreaBoundaryProps: props,
   };
 }

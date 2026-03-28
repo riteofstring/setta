@@ -1,5 +1,5 @@
 import React from "react";
-import { LiveDictAreaLayout } from "./LiveDictAreaLayout";
+import { DictAreaLiveBoundary } from "./DictAreaLiveBoundary";
 
 type DictAreaProps = {
   sectionId: string;
@@ -7,7 +7,7 @@ type DictAreaProps = {
 };
 
 function _DictArea({ sectionId, bgColor }: DictAreaProps) {
-  return <LiveDictAreaLayout sectionId={sectionId} bgColor={bgColor} />;
+  return <DictAreaLiveBoundary sectionId={sectionId} bgColor={bgColor} />;
 }
 
 export const DictArea = React.memo(_DictArea);
