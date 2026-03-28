@@ -1338,3 +1338,30 @@ Record:
     - relevant requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned mount helper from `groupContainerNodeMountPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
+
+## 2026-03-26 051
+
+- Item: Extract the edge-strip block into the first block-specific scene-owned mount helper.
+- Status: `done`
+- Details:
+  - Added a pure typed mount-packet helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripMountPacket.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripMountPacket.test.ts`
+  - Updated the higher-level node mount packet boundary to compose through the new edge-strip helper instead of passing the edge-strip canvas packet through inline:
+    - `frontend/src/components/Params/groupContainerNodeMountPacket.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip canvas block into one explicit mount packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node mount packet as a composition boundary instead of a mixed composition-plus-edge-strip-shaping module
+    - leaving the current DOM edge-strip mount path intact while deepening the future retained-scene block-specific mount contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripMountPacket.test.ts src/components/Params/groupContainerNodeMountPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - after bootstrapping, `/settings` rendered normally and `All Settings` was visible
+    - the visible settings/dict-param area looked structurally intact with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `settings`, `shortcuts`, `backend`, `sectionSizingPolicy`, `gui`, `languageServer`, and the `All` filter control
+    - relevant network responses on a fresh reload returned `200`, including `GET /settings`, `GET /index.css`, `GET /@vite/client`, `GET /src/index.tsx`, `GET /@react-refresh`, and `GET /src/App.tsx`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned mount helper from `groupContainerNodeMountPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
