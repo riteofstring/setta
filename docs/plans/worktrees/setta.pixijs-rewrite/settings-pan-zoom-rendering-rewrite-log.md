@@ -1008,3 +1008,31 @@ Record:
     - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/authRefreshStatus`, `/api/plugins/runtime`, and `/api/llm/config`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned draw packet from `groupContainerNodeDrawPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
+
+## 2026-03-26 039
+
+- Item: Extract the edge-strip block into the first block-specific scene-owned draw packet helper.
+- Status: `done`
+- Details:
+  - Added a pure typed draw-packet helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripDrawPacket.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripDrawPacket.test.ts`
+  - Updated the higher-level node draw packet boundary to compose through the new edge-strip helper instead of building the edge draw block inline:
+    - `frontend/src/components/Params/groupContainerNodeDrawPacket.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip surface block into one explicit draw packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node draw packet as a composition boundary instead of a mixed composition-plus-edge-shaping module
+    - leaving the current DOM edge-strip mount path intact while deepening the future retained-scene block-specific draw contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripDrawPacket.test.ts src/components/Params/groupContainerNodeDrawPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check after one allowed lifecycle self-recovery with `./aireset.sh`
+    - restart reassigned the worktree session to `http://127.0.0.1:3045/` and `http://127.0.0.1:8045`
+    - bootstrap via `http://127.0.0.1:8045/__setta__/bootstrap#token=...` redirected into the frontend successfully
+    - `/settings` loaded with `All Settings` visible and the dict/param area still rendered normally
+    - representative visible labels and controls included `All Settings`, `Param Defaults`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Add arg`, `Remove arg`, `Pin selected args`, `Convert to edge connectors`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Pan On Scroll Mode`, `Wire Color`, and `showParamUITypeTabShortcut`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `GET /api/getAgentRuns`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned draw packet from `groupContainerNodeDrawPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
