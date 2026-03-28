@@ -244,6 +244,8 @@ That means:
   - `internal/artifacts.ChartDataValue`
 - `backend/setta/types/artifact.py` no longer hand-owns chart-settings field layouts:
   - the Python chart-settings classes now subclass Go-generated models and only keep discriminator literals
+- `backend/setta/types/artifact.py` no longer keeps pass-through aliases for generated chart-settings models:
+  - the file now imports and uses `LineChartSettings` and `ScatterChartSettings` from `go_shared_types.py` directly instead of preserving a local rename layer
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
   - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
   - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)

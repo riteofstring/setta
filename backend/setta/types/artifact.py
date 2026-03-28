@@ -37,10 +37,8 @@ from setta.types.generated.go_shared_types import (
     ImageArtifact as GoImageArtifact,
 )
 from setta.types.generated.go_shared_types import (
-    LineChartSettings as GoLineChartSettings,
-)
-from setta.types.generated.go_shared_types import (
-    ScatterChartSettings as GoScatterChartSettings,
+    LineChartSettings,
+    ScatterChartSettings,
 )
 from setta.types.id import create_new_id
 from setta.utils.constants import C
@@ -71,9 +69,6 @@ def create_file_artifact_id(extension: str = ".bin"):
 ChartData = dict[str, list[str | float]]
 CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
-LineChartSettings = GoLineChartSettings
-ScatterChartSettings = GoScatterChartSettings
-
 
 class BrushStroke(GoBrushStroke):
     lineCap: DrawAreaBrushShape
