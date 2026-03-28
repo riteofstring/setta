@@ -1,3 +1,4 @@
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
@@ -20,7 +21,7 @@ export function UIPage() {
     <SettingsAllSettingsBenchmarkProvider>
       <SectionDndContext>
         <div className="relative h-full min-h-0 w-full min-w-0">
-          <ReactFlow />
+          <ReactFlow SectionBoundary={SectionContainerBoundary} />
           <PaneContextMenu />
           <SelectionContextMenu />
           <TypeErrorContextMenu />

@@ -3,15 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import ReactFlow from "./ReactFlow";
 
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-section-container-boundary"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("components/Pages/Project/settingsAllSettingsBenchmark", () => ({
   useSettingsAllSettingsBenchmark: () => ({
     active: false,
@@ -118,8 +109,16 @@ vi.mock("forks/xyflow/background/Background", () => ({
 }));
 
 describe("ReactFlow", () => {
-  it("owns the top-level section boundary above NodeRenderer", () => {
-    const markup = renderToStaticMarkup(<ReactFlow />);
+  it("keeps the top-level section boundary caller-owned above NodeRenderer", () => {
+    const TestSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+      <div
+        data-testid="mock-section-container-boundary"
+        data-section-id={sectionId}
+      />
+    );
+    const markup = renderToStaticMarkup(
+      <ReactFlow SectionBoundary={TestSectionBoundary} />,
+    );
 
     expect(markup).toContain('data-testid="mock-flow-renderer"');
     expect(markup).toContain('data-testid="mock-viewport-wrapper"');

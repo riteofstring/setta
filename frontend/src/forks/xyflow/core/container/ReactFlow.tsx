@@ -1,11 +1,11 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
 import {
   useEffect,
   useRef,
   useState,
+  type ComponentType,
   type CSSProperties,
   type RefObject,
   type UIEvent,
@@ -37,7 +37,11 @@ const wrapperStyle: CSSProperties = {
   overflowAnchor: "none",
 };
 
-const ReactFlow = () => {
+type ReactFlowProps = {
+  SectionBoundary: ComponentType<{ sectionId: string }>;
+};
+
+const ReactFlow = ({ SectionBoundary }: ReactFlowProps) => {
   const benchmark = useSettingsAllSettingsBenchmark();
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
@@ -110,7 +114,7 @@ const ReactFlow = () => {
                 <EdgeRenderer />
                 <AgenticEdgeRenderer />
                 <StateMachineEdgeRenderer />
-                <NodeRenderer SectionBoundary={SectionContainerBoundary} />
+                <NodeRenderer SectionBoundary={SectionBoundary} />
               </>
             )}
           </ViewportWrapper>
