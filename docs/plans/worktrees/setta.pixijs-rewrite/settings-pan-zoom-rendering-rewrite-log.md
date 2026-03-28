@@ -5029,3 +5029,38 @@ Record:
     - because the targeted seam still serves the standalone section dict-area path and the live worktree runtime still exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/App.tsx`, starting with `frontend/src/index.tsx`, while keeping the live standalone-section canary issue explicit for later resolution.
+
+## 2026-03-28 172
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/index.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone/share dict-area renderer seam one caller higher so `index.tsx` now owns the shared `renderDictArea(...)` handoff above `frontend/src/App.tsx`:
+    - `frontend/src/index.tsx`
+    - `frontend/src/App.tsx`
+  - Added focused coverage to pin the new entrypoint ownership boundary and keep `App.tsx` on a pure caller-owned router seam:
+    - `frontend/src/index.test.tsx`
+    - `frontend/src/App.test.tsx`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - the app entrypoint still subscribing to state and mounting one top-level router before rendering the shell
+    - the standalone/share route stack still receiving the same `SectionContainerAreaDictBoundary` renderer, now supplied by `index.tsx` instead of `App.tsx`
+    - `App.tsx` staying focused on the final `RouterProvider` handoff instead of mixed router creation plus dict-renderer ownership
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/App.test.tsx src/index.test.tsx src/components/Pages/routerModule.test.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-routing.spec.ts --grep "app routes select the configured UI root"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` in a fresh sub-agent context:
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with visible controls including `Search conv...`, `New`, `Hide Threads`, `Search in conversation`, `Settings`, `Start a new thread`, `Type a message...`, and the send control
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, and `GET /api/getAgentRuns`
+    - the live standalone section-route canary is still not trustworthy on this worktree runtime:
+      - `http://127.0.0.1:3044/settings/section/gui` failed into the `Unhandled Thrown Error!` overlay
+      - the visible stack pointed at `getCurrSectionVariantId` in `src/state/actions/sectionInfos.ts` during `buildLiveDictAreaSectionState` initialization
+    - because the targeted seam still serves the standalone section dict-area path and the live worktree runtime still exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
+- Next action:
+  - Treat the caller-owned dict-area renderer seam as lifted to the app entrypoint and continue the retained-scene seam lift from the next higher bootstrap/runtime boundary while keeping the live standalone-section canary issue explicit.
