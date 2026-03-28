@@ -209,7 +209,9 @@ function GroupContainerShellBoundaryHarness({
   visibleLabels?: string[];
 }) {
   const {
-    liveDictAreaSectionContainerProps,
+    liveDictAreaMountProps,
+    liveDictAreaSceneBoundary,
+    maxNestedDepth,
     setOuterRef,
     waitingForResult,
   } = useGroupContainerShellBoundary({
@@ -221,9 +223,14 @@ function GroupContainerShellBoundaryHarness({
   return (
     <div
       className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
-      data-bg-color={liveDictAreaSectionContainerProps.bgColor}
-      data-section-id={liveDictAreaSectionContainerProps.sectionId}
-      data-section-type={liveDictAreaSectionContainerProps.sectionTypeName}
+      data-bg-color={bgColor}
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-block-kinds={liveDictAreaMountProps.liveDictAreaSurface.blocks
+        .map((block) => block.kind)
+        .join(",")}
+      data-max-nested-depth={JSON.stringify(maxNestedDepth)}
+      data-scene-renderer-packet-count={liveDictAreaSceneBoundary.blocks.length}
       data-waiting-for-result={waitingForResult}
       ref={setOuterRef}
     >
@@ -314,7 +321,7 @@ describe("useGroupContainerShellBoundary", () => {
     }
   }
 
-  it("lifts the shell-level measurement boundary above LiveDictAreaSectionContainer", async () => {
+  it("lifts the live dict-area mount seam into the shell boundary layer", async () => {
     const sectionId = "section-group-container-shell-boundary-height";
 
     seedGroupContainerShellBoundaryState({
@@ -339,6 +346,13 @@ describe("useGroupContainerShellBoundary", () => {
     expect(shell?.dataset.bgColor).toBe("bg-transparent");
     expect(shell?.dataset.sectionId).toBe(sectionId);
     expect(shell?.dataset.sectionType).toBe(SectionTypeEnum.Dict);
+    expect(shell?.dataset.blockKinds).toBe(
+      "edge-strip,pinned-param-area,unpinned-param-area",
+    );
+    expect(shell?.dataset.maxNestedDepth).toBe(
+      JSON.stringify({ pinned: 1, unpinned: 1 }),
+    );
+    expect(Number(shell?.dataset.sceneRendererPacketCount)).toBeGreaterThan(0);
     Object.defineProperty(shell, "clientWidth", {
       configurable: true,
       value: 480,
@@ -375,7 +389,7 @@ describe("useGroupContainerShellBoundary", () => {
     expect(mutationObservers.length).toBeGreaterThan(0);
   });
 
-  it("keeps the LSP waiting flag on the shell boundary above LiveDictAreaSectionContainer", async () => {
+  it("keeps the LSP waiting flag on the shell boundary above the live dict-area mount seam", async () => {
     const sectionId = "section-group-container-shell-boundary-waiting";
 
     seedGroupContainerShellBoundaryState({

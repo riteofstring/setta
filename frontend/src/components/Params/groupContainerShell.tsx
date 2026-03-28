@@ -1,5 +1,5 @@
 import React from "react";
-import { LiveDictAreaSectionContainer } from "./groupContainerLiveDictAreaSectionContainer";
+import { LiveDictAreaMount } from "./groupContainerLiveDictAreaMount";
 import {
   useGroupContainerShellBoundary,
   type GroupContainerShellBoundaryInput,
@@ -12,15 +12,12 @@ export function GroupContainerShell({
   bgColor,
   sectionTypeName,
 }: GroupContainerShellProps) {
-  const {
-    liveDictAreaSectionContainerProps,
-    setOuterRef,
-    waitingForResult,
-  } = useGroupContainerShellBoundary({
-    bgColor,
-    sectionId,
-    sectionTypeName,
-  });
+  const { liveDictAreaMountProps, setOuterRef, waitingForResult } =
+    useGroupContainerShellBoundary({
+      bgColor,
+      sectionId,
+      sectionTypeName,
+    });
 
   return (
     <div
@@ -32,7 +29,7 @@ export function GroupContainerShell({
           <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
         </div>
       )}
-      <LiveDictAreaSectionContainer {...liveDictAreaSectionContainerProps} />
+      <LiveDictAreaMount {...liveDictAreaMountProps} />
     </div>
   );
 }

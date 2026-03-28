@@ -4134,3 +4134,28 @@ Record:
       - caveat: the provided bootstrap token was rejected with `POST /__setta__/bootstrap/consume` `401`, so the check reused the already-authenticated settings tab instead
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx`, starting with the shell boundary layer before any broad Pixi node drawing lands.
+
+## 2026-03-27 146
+
+- Item: Lift the live dict-area mount seam into the shell boundary layer above `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Moved the live dict-area mount-boundary ownership up into the shell boundary hook so `GroupContainerShell` now mounts `LiveDictAreaMount` directly while the shell boundary owns both the fixed-height measurement seam and the retained-scene mount seam:
+    - `frontend/src/components/Params/groupContainerShellBoundary.ts`
+    - `frontend/src/components/Params/groupContainerShell.tsx`
+    - `frontend/src/components/Params/groupContainerShellBoundary.test.tsx`
+  - Removed the now-redundant `LiveDictAreaSectionContainer` wrapper and its dedicated integration test after confirming the shell boundary layer now owns that responsibility cleanly:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx`
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerShellBoundary.test.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+      - `/settings` loaded authenticated with `All Settings` visible
+      - the visible app chrome, settings overview/sidebar, central settings canvas, and bottom section tabs rendered without obvious clipping, overlap, or missing content
+      - sampled requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/backendInitStatus`
+      - caveat: the verifier checked the live viewport state and sampled requests, but did not traverse every nested settings subpanel in this pass
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerShell.tsx`, starting with the shell caller above the shell boundary before any broad Pixi node drawing lands.

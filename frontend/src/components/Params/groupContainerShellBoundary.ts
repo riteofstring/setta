@@ -2,15 +2,18 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useTemporaryMiscState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamsFixedHeightKey } from "utils/constants";
-import type { LiveDictAreaSectionContainerProps } from "./groupContainerLiveDictAreaSectionContainer";
+import {
+  useLiveDictAreaSectionContainerBoundary,
+  type LiveDictAreaSectionContainerBoundary,
+  type LiveDictAreaSectionContainerBoundaryInput,
+} from "./groupContainerLiveDictAreaSectionContainerBoundary";
 
 export type GroupContainerShellBoundaryInput = Pick<
-  LiveDictAreaSectionContainerProps,
+  LiveDictAreaSectionContainerBoundaryInput,
   "bgColor" | "sectionId" | "sectionTypeName"
 >;
 
-export type GroupContainerShellBoundary = {
-  liveDictAreaSectionContainerProps: LiveDictAreaSectionContainerProps;
+export type GroupContainerShellBoundary = LiveDictAreaSectionContainerBoundary & {
   setOuterRef: (node: HTMLDivElement | null) => void;
   waitingForResult: boolean;
 };
@@ -140,13 +143,15 @@ export function useGroupContainerShellBoundary({
     });
   }, [paramsFixedHeightKey, waitingForResult]);
 
+  const liveDictAreaMountBoundary = useLiveDictAreaSectionContainerBoundary({
+    bgColor,
+    outerRef,
+    sectionId,
+    sectionTypeName,
+  });
+
   return {
-    liveDictAreaSectionContainerProps: {
-      bgColor,
-      outerRef,
-      sectionId,
-      sectionTypeName,
-    },
+    ...liveDictAreaMountBoundary,
     setOuterRef,
     waitingForResult,
   };
