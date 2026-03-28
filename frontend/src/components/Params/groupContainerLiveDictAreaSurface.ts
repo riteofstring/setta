@@ -3,15 +3,14 @@ import {
   type LiveDictAreaEdgeStripSurfaceBlock,
 } from "./groupContainerEdgeStripSurfaceBlock";
 import {
-  buildLiveDictAreaPinnedParamAreaSurfaceBlock,
-  type LiveDictAreaPinnedParamAreaSurfaceBlock,
-  type LiveDictAreaPinnedParamAreaSurfaceProps,
-} from "./groupContainerPinnedParamAreaSurfaceBlock";
-import {
   buildLiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundaryInput,
 } from "./groupContainerLiveDictAreaRenderBoundary";
+import {
+  buildLiveDictAreaPinnedParamAreaSurfaceBlock,
+  type LiveDictAreaPinnedParamAreaSurfaceBlock,
+} from "./groupContainerPinnedParamAreaSurfaceBlock";
 import {
   buildLiveDictAreaUnpinnedParamAreaSurfaceBlock,
   type LiveDictAreaUnpinnedParamAreaSurfaceBlock,
@@ -40,11 +39,11 @@ export type LiveDictAreaSurface = Omit<LiveDictAreaRenderBoundary, "blocks"> & {
   liveDictAreaRenderBoundary: LiveDictAreaRenderBoundary;
 };
 
-export function buildLiveDictAreaSurface(
-  input: LiveDictAreaRenderBoundaryInput,
-): LiveDictAreaSurface {
-  const liveDictAreaRenderBoundary = buildLiveDictAreaRenderBoundary(input);
-
+export function buildLiveDictAreaSurfaceFromRenderBoundary({
+  liveDictAreaRenderBoundary,
+}: {
+  liveDictAreaRenderBoundary: LiveDictAreaRenderBoundary;
+}): LiveDictAreaSurface {
   return {
     ...liveDictAreaRenderBoundary,
     blocks: liveDictAreaRenderBoundary.blocks.map(
@@ -52,6 +51,16 @@ export function buildLiveDictAreaSurface(
     ),
     liveDictAreaRenderBoundary,
   };
+}
+
+export function buildLiveDictAreaSurface(
+  input: LiveDictAreaRenderBoundaryInput,
+): LiveDictAreaSurface {
+  const liveDictAreaRenderBoundary = buildLiveDictAreaRenderBoundary(input);
+
+  return buildLiveDictAreaSurfaceFromRenderBoundary({
+    liveDictAreaRenderBoundary,
+  });
 }
 
 function buildLiveDictAreaSurfaceBlock(

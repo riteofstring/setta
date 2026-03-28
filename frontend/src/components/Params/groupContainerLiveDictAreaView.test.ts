@@ -1,10 +1,12 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
+import { buildLiveDictAreaRenderBoundary } from "./groupContainerLiveDictAreaRenderBoundary";
+import { buildLiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import { buildLiveDictAreaSurface } from "./groupContainerLiveDictAreaSurface";
 import { buildLiveDictAreaView } from "./groupContainerLiveDictAreaView";
 
 describe("buildLiveDictAreaView", () => {
-  it("lifts the live dict-area surface into one higher-level view boundary", () => {
+  it("lifts the live dict-area surface and scene packets into one higher-level view boundary", () => {
     const input = {
       bgColor: "bg-surface",
       canConnect: true,
@@ -50,9 +52,15 @@ describe("buildLiveDictAreaView", () => {
       },
     };
 
+    const expectedRenderBoundary = buildLiveDictAreaRenderBoundary(input);
+    const expectedSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary: expectedRenderBoundary.liveDictAreaBoundary,
+    });
     const expectedSurface = buildLiveDictAreaSurface(input);
     const result = buildLiveDictAreaView({ input });
 
+    expect(result.liveDictAreaRenderBoundary).toEqual(expectedRenderBoundary);
+    expect(result.liveDictAreaSceneBoundary).toEqual(expectedSceneBoundary);
     expect(result.liveDictAreaSurface).toEqual(expectedSurface);
     expect(result.maxNestedDepth).toEqual(expectedSurface.maxNestedDepth);
   });

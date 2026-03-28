@@ -4018,6 +4018,35 @@ Record:
   - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
     - bootstrap-authenticated `/settings` loaded cleanly and `All Settings` stayed visible
     - the visible settings/dict-param area plus canvas shell looked structurally intact with no obvious overlap or clipping
-    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
+      - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Return to the retained-scene rewrite sequence with the next bounded Pixi-side canary step before any broad node drawing lands.
+
+## 2026-03-27 142
+
+- Item: Lift the live dict-area scene renderer packet chain into a dedicated scene boundary and expose it from `buildLiveDictAreaView`.
+- Status: `done`
+- Details:
+  - Added a higher-level scene boundary for the first retained-scene canary path:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSceneBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSceneBoundary.test.ts`
+  - Updated the live dict-area view/surface composition so the cleaned DOM surface path and the explicit scene-renderer packet path are both available from one higher-level view boundary without changing visible behavior:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSurface.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaView.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaView.test.ts`
+  - The new scene boundary now owns the bounded Pixi-side canary seam for:
+    - rebuilding the deterministic `nodeLayoutView` from the already-cleaned live dict-area boundary
+    - normalizing that layout into explicit scene block views
+    - lifting those blocks into stable scene renderer packets beside the existing DOM surface path
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSceneBoundary.test.ts src/components/Params/groupContainerLiveDictAreaView.test.ts src/components/Params/groupContainerLiveDictAreaSurface.test.ts src/components/Params/groupContainerLiveDictArea.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+      - `/settings` loaded successfully after bootstrap and `All Settings` stayed visible and selected
+      - the visible dict/param stack rendered without obvious clipping, overlap, or missing content
+      - representative visible labels/rows included `sectionSizingPolicy`, `groupSectionDefault`, `genPythonCodeSectionDefault`, `shortcuts`, `backend`, `languageServer`, and `gui`
+      - relevant requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/llm/config`, `GET /api/plugins/runtime`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the retained-scene canary by lifting the next scene-owned bridge above `buildLiveDictAreaView`, starting with a dedicated mount/consumer boundary for the scene renderer packets before any broad Pixi node drawing lands.
