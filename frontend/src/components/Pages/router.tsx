@@ -35,9 +35,7 @@ import {
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
-import { buildStandaloneProjectSurfaceAppRoutes } from "./Project/StandaloneProjectSurfaceAppRoutes";
-import { buildStandaloneProjectSurfaceRouteElements } from "./Project/StandaloneProjectSurfaceRouteElements";
-import { buildStandaloneProjectSurfaceRoutes } from "./Project/StandaloneProjectSurfaceRoutes";
+import { buildStandaloneProjectSurfaceAppRouteStack } from "./Project/StandaloneProjectSurfaceAppRouteStack";
 import { APP_ROUTE_IDS } from "./routeConfig";
 
 const LazyAppWrapper = lazy(async () => {
@@ -307,17 +305,6 @@ const shareNotFoundRouteElement = (
   </ShareWrapper>
 );
 
-const standaloneProjectSurfaceRouteElements =
-  buildStandaloneProjectSurfaceRouteElements({
-    app: appRouteElement,
-    launcher: <ProjectRootRedirect />,
-  });
-
-const standaloneProjectSurfaceRoutes = buildStandaloneProjectSurfaceRoutes({
-  routeElements: standaloneProjectSurfaceRouteElements,
-  renderModeElement: (routeElements) => <ModeWrapper {...routeElements} />,
-});
-
 const indexRoute = {
   id: APP_ROUTE_IDS.index,
   path: INDEX_ROUTER_PATH,
@@ -417,11 +404,13 @@ const workspaceLaunchRoute = {
   element: <ModeWrapper {...workspaceLaunchRouteElements} />,
 };
 
-const appRoutes = buildStandaloneProjectSurfaceAppRoutes({
+const appRoutes = buildStandaloneProjectSurfaceAppRouteStack({
+  app: appRouteElement,
+  launcher: <ProjectRootRedirect />,
+  renderModeElement: (routeElements) => <ModeWrapper {...routeElements} />,
   indexRoute,
   homeRoute,
   workspaceLaunchRoute,
-  standaloneProjectSurfaceRoutes,
   viewModeRoute,
   projectRoute,
   catchAllRoute,

@@ -3586,3 +3586,35 @@ Record:
     - representative requests returned `200`, including `GET /settings/chat`, `GET /settings/section/languageserver`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining standalone/share route-stack creation seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still assembles `standaloneProjectSurfaceRouteElements`, `standaloneProjectSurfaceRoutes`, and the new standalone app-routes helper input before any broad Pixi node drawing lands.
+
+## 2026-03-27 131
+
+- Item: Lift the remaining standalone/share route-stack creation seam out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed higher-level standalone app-route-stack helper above the previously lifted route-elements, route-definition, and app-routes helpers:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of directly assembling:
+    - `buildStandaloneProjectSurfaceRouteElements(...)`
+    - `buildStandaloneProjectSurfaceRoutes(...)`
+    - `buildStandaloneProjectSurfaceAppRoutes(...)`
+  - The new helper now owns the non-Pixi standalone/share route-stack creation seam for:
+    - composing the lifted standalone/share route elements from the caller-owned `app` and `launcher` route elements
+    - rendering the canonical standalone route objects through the caller-owned mode boundary
+    - inserting the resulting standalone route stack into the top-level app route list between workspace launch and view mode
+  - The refactor preserves the existing non-Pixi behavior while leaving `router.tsx` focused on the remaining top-level route definitions and router creation instead of the lifted standalone route-stack assembly chain.
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRoutes.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceAppRoutes.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`3` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context after bootstrapping with the provided token
+    - `http://127.0.0.1:3044/settings/chat` rendered cleanly with visible controls including `Search conversations`, `New Group`, `New Chat`, `View Threads`, `Project AI Settings`, `Start a new thread`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Type a message...`, and `Send message`
+    - `http://127.0.0.1:3044/settings/section/languageserver` rendered cleanly with visible labels and controls including `languageServer`, `ARGS`, `Remove arg`, `Add arg`, `Pin selected args`, `Convert to edge connectors`, `Delete selected args`, `Filter`, and the visible `basedpyright` arg rows
+    - no obvious clipping, overlap, or missing content was visible in either route
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, `POST /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining route-group assembly seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still combines the lifted standalone app-route stack with the top-level non-standalone route definitions before any broad Pixi node drawing lands.
