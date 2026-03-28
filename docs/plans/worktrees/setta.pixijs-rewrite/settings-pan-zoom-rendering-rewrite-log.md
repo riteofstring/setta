@@ -2363,3 +2363,28 @@ Record:
     - notable console noise was limited to existing accessibility warnings and repeated React 19 `element.ref` deprecation messages; the earlier `Maximum update depth exceeded` symptom did not reappear in this bounded verification
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionContainerBoundary.ts` boundary into the next higher-level scene-owned boundary above `LiveDictAreaSectionContainer` before any broad Pixi node drawing lands.
+
+## 2026-03-27 089
+
+- Item: Lift the remaining `GroupContainerShell` shell-level wiring into one higher-level boundary above `LiveDictAreaSectionContainer`.
+- Status: `done`
+- Details:
+  - Added a new typed shell boundary above the existing live dict-area section-container boundary:
+    - `frontend/src/components/Params/groupContainerShellBoundary.ts`
+    - `frontend/src/components/Params/groupContainerShellBoundary.test.tsx`
+  - Updated `frontend/src/components/Params/groupContainerShell.tsx` to consume the new boundary instead of owning the outer-ref, fixed-height measurement, pending-height flush, and waiting-state wiring inline.
+  - Kept the current non-Pixi DOM path intact while shrinking `GroupContainerShell` further:
+    - the new boundary now owns the deterministic composition from shell props into the `LiveDictAreaSectionContainer` input plus the waiting overlay signal
+    - `GroupContainerShell` now remains a thin render wrapper over the shell boundary and the existing `LiveDictAreaSectionContainer`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerShellBoundary.test.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated and `All Settings` remained visible
+    - the visible settings shell plus dict/param area rendered normally after the shell-boundary extraction, with representative visible labels and controls including `Select A Section to Edit`, `Auto Backup`, `Grid Color`, `Param Defaults`, and `Section Defaults Content and Media`
+    - representative requests returned `200`, including `GET /settings`, `GET /@vite/client`, `GET /index.css`, `GET /src/App.tsx?...`, `GET /api/getFileBrowserRoot`, and `GET /api/getFolderContents`
+    - notable console noise was limited to existing React 19 `element.ref` warnings; no obvious clipping, overlap, or missing content was observed in the captured viewport
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerShellBoundary.ts` boundary into the next higher-level live dict-area caller in `frontend/src/components/Section/Layouts/DictArea.tsx` before any broad Pixi node drawing lands.
