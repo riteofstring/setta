@@ -1,8 +1,10 @@
-import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { route_get_folder_contents } from "utils/generatedEndpoints";
-import type { FolderContentItem } from "utils/generatedTypes";
+import { dedupeInFlightJson } from "utils/dedupeInFlight";
 
-type WorkspaceRootEntry = Pick<FolderContentItem, "name" | "type">;
+type WorkspaceRootEntry = {
+  name: string;
+  type: string;
+};
 
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
@@ -141,11 +143,7 @@ export function loadWorkspacePythonSignal({
     ({ rootPath: nextRootPath }) => nextRootPath,
   ).then((hasPythonSignals) => {
     if (hasPythonSignals !== null) {
-      setCachedWorkspacePythonSignal(
-        cache,
-        normalizedRootPath,
-        hasPythonSignals,
-      );
+      setCachedWorkspacePythonSignal(cache, normalizedRootPath, hasPythonSignals);
     }
     return hasPythonSignals;
   });

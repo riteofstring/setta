@@ -4,27 +4,34 @@ import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorCon
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
-import { useEffect } from "react";
+import { useEffect, type ComponentType } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
+import { SettingsAllSettingsBenchmarkProvider } from "./settingsAllSettingsBenchmark";
 
-export function UIPage() {
+type UIPageProps = {
+  SectionBoundary: ComponentType<{ sectionId: string }>;
+};
+
+export function UIPage({ SectionBoundary }: UIPageProps) {
   useInitGlobalKeyEventListeners();
   useLastMouseDownMouseUpLocation();
   const showMiniMap = useLocalStorage((x) => x.showMinimap);
 
   return (
-    <SectionDndContext>
-      <div className="relative h-full min-h-0 w-full min-w-0">
-        <ReactFlow />
-        <PaneContextMenu />
-        <SelectionContextMenu />
-        <TypeErrorContextMenu />
-        {showMiniMap && <ResponsiveMiniMap />}
-      </div>
-    </SectionDndContext>
+    <SettingsAllSettingsBenchmarkProvider>
+      <SectionDndContext>
+        <div className="relative h-full min-h-0 w-full min-w-0">
+          <ReactFlow SectionBoundary={SectionBoundary} />
+          <PaneContextMenu />
+          <SelectionContextMenu />
+          <TypeErrorContextMenu />
+          {showMiniMap && <ResponsiveMiniMap />}
+        </div>
+      </SectionDndContext>
+    </SettingsAllSettingsBenchmarkProvider>
   );
 }
 
