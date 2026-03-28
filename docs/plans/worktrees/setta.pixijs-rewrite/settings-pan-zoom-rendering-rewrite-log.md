@@ -4078,3 +4078,31 @@ Record:
     - caveat: that verification pass only exposed a small set of page requests in the Network panel, so the sampled request list was correspondingly narrow
 - Next action:
   - Continue the retained-scene canary by lifting the new `groupContainerLiveDictAreaMountBoundary.ts` seam into the next higher-level live dict-area caller so the scene-renderer packets keep moving upward before any broad Pixi node drawing lands.
+
+## 2026-03-27 144
+
+- Item: Lift the `groupContainerLiveDictAreaMountBoundary.ts` seam into `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`.
+- Status: `done`
+- Details:
+  - Moved the live dict-area mount-boundary ownership up one caller so `LiveDictAreaSection` now builds and consumes the mount boundary directly instead of routing through a one-off wrapper component:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+  - Removed the now-redundant `LiveDictArea` wrapper and its dedicated test after confirming nothing else depended on that extra layer:
+    - `frontend/src/components/Params/groupContainerLiveDictArea.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictArea.test.tsx`
+  - The retained-scene canary seam now sits one level higher in the live dict-area call chain while preserving the existing non-Pixi behavior for:
+    - memoizing the higher-level mount boundary from the section store input
+    - relaying `maxNestedDepth` updates through the same callback contract
+    - mounting the existing DOM dict-area surface through `LiveDictAreaMount` without changing visible block order
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaMountBoundary.test.ts src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated after bootstrap
+    - `All Settings` stayed visible and selected
+    - the dict/param area rendered normally without obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `/api/authRefreshStatus`, `/api/loadSettings`, `/api/loadProjectConfig`, and `/api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`, starting with the section-container layer before any broad Pixi node drawing lands.
