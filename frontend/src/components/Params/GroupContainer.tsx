@@ -56,8 +56,7 @@ import {
   type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
-import { buildLiveDictAreaNodeCanaryView } from "./groupContainerNodeCanaryView";
-import { buildLiveDictAreaNodeCanaryRenderView } from "./groupContainerNodeCanaryRenderView";
+import { buildLiveDictAreaNodeCanaryRenderer } from "./groupContainerNodeCanaryRenderer";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
@@ -353,24 +352,17 @@ function _ParamGroupContainer({
       styleColor,
     ],
   );
-  const liveDictAreaNodeCanaryView = useMemo(
+  const liveDictAreaNodeCanaryRenderer = useMemo(
     () =>
-      buildLiveDictAreaNodeCanaryView({
+      buildLiveDictAreaNodeCanaryRenderer({
         nodeCanaryPacket: liveDictAreaNodeCanaryPacket,
       }),
     [liveDictAreaNodeCanaryPacket],
   );
-  const liveDictAreaNodeCanaryRenderView = useMemo(
-    () =>
-      buildLiveDictAreaNodeCanaryRenderView({
-        nodeCanaryView: liveDictAreaNodeCanaryView,
-      }),
-    [liveDictAreaNodeCanaryView],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeCanaryRenderView.maxNestedDepth);
-  }, [liveDictAreaNodeCanaryRenderView.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeCanaryRenderer.maxNestedDepth);
+  }, [liveDictAreaNodeCanaryRenderer.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -383,7 +375,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeCanaryRenderView.blocks.map((block) => {
+        {liveDictAreaNodeCanaryRenderer.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip

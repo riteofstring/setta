@@ -1852,3 +1852,30 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/plugins/runtime`, `GET /api/getFileBrowserRoot`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific canary-render helpers into the next higher-level scene-owned boundary above `groupContainerNodeCanaryRenderView.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 070
+
+- Item: Compose the block-specific canary-render helpers into a node canary renderer above `groupContainerNodeCanaryRenderView.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed node-canary renderer helper above the existing block-specific canary-render helpers:
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderer.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderer.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new node canary renderer instead of manually building and wiring `groupContainerNodeCanaryView.ts` plus `groupContainerNodeCanaryRenderView.ts` inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the existing node canary packet, canary view, and canary render view into one higher-level scene-owned boundary
+    - keeps the current DOM block mount order and `maxNestedDepth` handling stable while hiding the render-chain composition inside one deeper helper
+    - preserves the existing non-Pixi DOM edge-strip and pinned/unpinned param-area surfaces while exposing both the canary packet and canary view from the same higher-level boundary for the next retained-scene slice
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeCanaryRenderer.test.ts src/components/Params/groupContainerNodeCanaryRenderView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in the authenticated worktree session with `All Settings` visible and selected
+    - the visible settings shell plus dict/param area rendered normally after the new renderer boundary wiring, with representative labels and controls including `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `Grid Color`, `Pan On Drag`, `Selection Mode`, and `Wire Color`
+    - representative requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `POST /api/checkWorkspaceInitialized`
+    - repeated React 19 `element.ref` console messages were observed, but they did not block rendering or this verification
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first block-specific helper above `groupContainerNodeCanaryRenderer.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
