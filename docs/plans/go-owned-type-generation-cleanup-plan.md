@@ -412,6 +412,21 @@ That means:
     - `SetupLauncherRequestInput`
     - `SetupLauncherWorkspaceBehavior`
     - `LauncherInstallSource`
+  - the backend-init/auth-refresh/setta-home status contracts now point at exact `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `BackendInitEvent -> httpapi.BackendInitEvent`
+    - `BackendInitStatusResponse -> httpapi.BackendInitStatusResponse`
+    - `AuthRefreshStatusResponse -> httpapi.AuthRefreshStatusResponse`
+    - `SettaHomeInfoResponse -> httpapi.SettaHomeInfoResponse`
+  - the workspace-launch request/response family now points at exact `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `LaunchSettaFilesLocation -> httpapi.LaunchSettaFilesLocation`
+    - `LaunchResolvedSettaFilesLocation -> httpapi.LaunchResolvedSettaFilesLocation`
+    - `LaunchRequestInput -> httpapi.LaunchRequest`
+    - `CreateWorkspaceLaunchIntentRequestInput -> httpapi.CreateWorkspaceLaunchIntentRequest`
+    - `LaunchErrorPayload -> httpapi.WorkspaceLaunchErrorPayload`
+    - `CreateWorkspaceLaunchIntentResponse -> httpapi.CreateWorkspaceLaunchIntentResponse`
+    - `LaunchSessionInfo -> httpapi.LaunchSessionInfo`
+    - `LaunchResponse -> httpapi.LaunchResponse`
+  - `internal/httpapi/workspace_launch_routes.go` now owns the frontend-facing launch enum wrappers and request/response contracts that used to live only in `frontendbindings`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -447,6 +462,8 @@ This has improved for the project-state/view/windowing family, the project/deplo
 It has also improved for the `git`, `filebrowser`, terminal-runtime, and detached/transcription/state-machine route-response families that previously still carried small mirror structs in separate support files.
 
 It has now also improved for the launcher status / update and most launcher-home route families; the remaining launcher-local surface is the intentional setup/install request payload mismatch rather than another accidental mirror owner.
+
+It has also improved for the backend-init/auth-refresh/setta-home status contracts and the workspace-launch request/response family; those route-level shapes now live in `httpapi` instead of `frontendbindings`.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

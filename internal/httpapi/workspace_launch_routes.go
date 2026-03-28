@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/config"
 	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 	"setta/internal/workspacelaunch"
@@ -21,41 +23,115 @@ type WorkspaceLaunchRouteDependencies struct {
 	Launch     *workspacelaunch.LocalLaunchService
 }
 
-type workspaceLaunchErrorPayload struct {
+type WorkspaceLaunchErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
-type createWorkspaceLaunchIntentRequest struct {
-	LaunchRequest workspacelaunch.Request `json:"launchRequest"`
-	ReturnURL     string                  `json:"returnUrl"`
+type LaunchSettaFilesLocation config.FilesLocation
+
+const (
+	LaunchSettaFilesLocationAuto   LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationAuto)
+	LaunchSettaFilesLocationLocal  LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationLocal)
+	LaunchSettaFilesLocationGlobal LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationGlobal)
+)
+
+type LaunchResolvedSettaFilesLocation config.ResolvedFilesLocation
+
+const (
+	LaunchResolvedSettaFilesLocationLocal  LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(config.ResolvedFilesLocationLocal)
+	LaunchResolvedSettaFilesLocationGlobal LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(config.ResolvedFilesLocationGlobal)
+)
+
+type LaunchRequest struct {
+	LaunchIntentToken  *string                   `json:"launchIntentToken,omitempty"`
+	WorkspaceRoot      *string                   `json:"workspaceRoot,omitempty"`
+	Profile            *string                   `json:"profile,omitempty"`
+	SettaHome          *string                   `json:"settaHome,omitempty"`
+	SettaFilesRoot     *string                   `json:"settaFilesRoot,omitempty"`
+	SettaFilesLocation *LaunchSettaFilesLocation `json:"settaFilesLocation,omitempty"`
+	RuntimeRoot        *string                   `json:"runtimeRoot,omitempty"`
+	SSHTarget          *string                   `json:"sshTarget,omitempty"`
+	SSHArgs            *string                   `json:"sshArgs,omitempty"`
+	RemoteCmd          *string                   `json:"remoteCmd,omitempty"`
+	LocalPort          *int                      `json:"localPort,omitempty"`
+
+	request workspacelaunch.Request
 }
 
-type createWorkspaceLaunchIntentResponse struct {
+func (r *LaunchRequest) UnmarshalJSON(data []byte) error {
+	type launchRequestPayload struct {
+		LaunchIntentToken  *string                   `json:"launchIntentToken"`
+		WorkspaceRoot      *string                   `json:"workspaceRoot"`
+		Profile            *string                   `json:"profile"`
+		SettaHome          *string                   `json:"settaHome"`
+		SettaFilesRoot     *string                   `json:"settaFilesRoot"`
+		SettaFilesLocation *LaunchSettaFilesLocation `json:"settaFilesLocation"`
+		RuntimeRoot        *string                   `json:"runtimeRoot"`
+		SSHTarget          *string                   `json:"sshTarget"`
+		SSHArgs            *string                   `json:"sshArgs"`
+		RemoteCmd          *string                   `json:"remoteCmd"`
+		LocalPort          *int                      `json:"localPort"`
+	}
+
+	var decoded launchRequestPayload
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var request workspacelaunch.Request
+	if err := json.Unmarshal(data, &request); err != nil {
+		return err
+	}
+
+	r.LaunchIntentToken = decoded.LaunchIntentToken
+	r.WorkspaceRoot = decoded.WorkspaceRoot
+	r.Profile = decoded.Profile
+	r.SettaHome = decoded.SettaHome
+	r.SettaFilesRoot = decoded.SettaFilesRoot
+	r.SettaFilesLocation = decoded.SettaFilesLocation
+	r.RuntimeRoot = decoded.RuntimeRoot
+	r.SSHTarget = decoded.SSHTarget
+	r.SSHArgs = decoded.SSHArgs
+	r.RemoteCmd = decoded.RemoteCmd
+	r.LocalPort = decoded.LocalPort
+	r.request = request
+	return nil
+}
+
+func (r LaunchRequest) toWorkspaceLaunchRequest() workspacelaunch.Request {
+	return r.request
+}
+
+type CreateWorkspaceLaunchIntentRequest struct {
+	LaunchRequest LaunchRequest `json:"launchRequest"`
+	ReturnURL     string        `json:"returnUrl"`
+}
+
+type CreateWorkspaceLaunchIntentResponse struct {
 	Ok                bool                         `json:"ok"`
 	LaunchIntentToken *string                      `json:"launchIntentToken"`
 	RequestedAt       *int64                       `json:"requestedAt"`
-	Error             *workspaceLaunchErrorPayload `json:"error"`
+	Error             *WorkspaceLaunchErrorPayload `json:"error"`
 }
 
-type launchResponse struct {
-	Ok                   bool                         `json:"ok"`
-	BootstrapURLFragment *string                      `json:"bootstrapUrlFragment"`
-	ReturnURL            *string                      `json:"returnUrl"`
-	WorkspaceRoot        *string                      `json:"workspaceRoot"`
-	SettaFilesLocation   *string                      `json:"settaFilesLocation"`
-	SettaFilesRoot       *string                      `json:"settaFilesRoot"`
-	RuntimeRoot          *string                      `json:"runtimeRoot"`
-	SettaHome            *string                      `json:"settaHome"`
-	Profile              *string                      `json:"profile"`
-	SessionID            *string                      `json:"sessionId"`
-	StartedNew           *bool                        `json:"startedNew"`
-	Session              *launchSessionInfoResponse   `json:"session"`
-	RemoteCmdResolved    *string                      `json:"remoteCmdResolved"`
-	Error                *workspaceLaunchErrorPayload `json:"error"`
+type LaunchResponse struct {
+	Ok                   bool                              `json:"ok"`
+	BootstrapURLFragment *string                           `json:"bootstrapUrlFragment"`
+	ReturnURL            *string                           `json:"returnUrl"`
+	WorkspaceRoot        *string                           `json:"workspaceRoot"`
+	SettaFilesLocation   *LaunchResolvedSettaFilesLocation `json:"settaFilesLocation"`
+	SettaFilesRoot       *string                           `json:"settaFilesRoot"`
+	RuntimeRoot          *string                           `json:"runtimeRoot"`
+	SettaHome            *string                           `json:"settaHome"`
+	Profile              *string                           `json:"profile"`
+	SessionID            *string                           `json:"sessionId"`
+	StartedNew           *bool                             `json:"startedNew"`
+	Session              *LaunchSessionInfo                `json:"session"`
+	RemoteCmdResolved    *string                           `json:"remoteCmdResolved"`
+	Error                *WorkspaceLaunchErrorPayload      `json:"error"`
 }
 
-type launchSessionInfoResponse struct {
+type LaunchSessionInfo struct {
 	ID                     string `json:"id"`
 	WorkspacePath          string `json:"workspacePath"`
 	WorkspacePathCanonical string `json:"workspacePathCanonical"`
@@ -89,7 +165,7 @@ func RegisterWorkspaceLaunchRoutes(router chi.Router, deps WorkspaceLaunchRouteD
 
 func createWorkspaceLaunchIntentHandler(authService *auth.Service, intentService *workspacelaunch.IntentService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[createWorkspaceLaunchIntentRequest](r)
+		payload, err := decodeJSONBody[CreateWorkspaceLaunchIntentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -97,9 +173,9 @@ func createWorkspaceLaunchIntentHandler(authService *auth.Service, intentService
 
 		currentSession, ok := authService.CurrentSession()
 		if !ok {
-			writeJSON(w, http.StatusOK, createWorkspaceLaunchIntentResponse{
+			writeJSON(w, http.StatusOK, CreateWorkspaceLaunchIntentResponse{
 				Ok: false,
-				Error: &workspaceLaunchErrorPayload{
+				Error: &WorkspaceLaunchErrorPayload{
 					Code:    "Unauthorized",
 					Message: "Missing session.",
 				},
@@ -108,7 +184,7 @@ func createWorkspaceLaunchIntentHandler(authService *auth.Service, intentService
 		}
 
 		result, err := intentService.CreateIntent(workspacelaunch.CreateIntentInput{
-			Request:        payload.LaunchRequest,
+			Request:        payload.LaunchRequest.toWorkspaceLaunchRequest(),
 			ReturnURL:      payload.ReturnURL,
 			RequestOrigin:  frontendorigins.ResolveRequestOrigin(r, true),
 			CurrentSession: currentSession,
@@ -119,9 +195,9 @@ func createWorkspaceLaunchIntentHandler(authService *auth.Service, intentService
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 				return
 			}
-			writeJSON(w, http.StatusOK, createWorkspaceLaunchIntentResponse{
+			writeJSON(w, http.StatusOK, CreateWorkspaceLaunchIntentResponse{
 				Ok: false,
-				Error: &workspaceLaunchErrorPayload{
+				Error: &WorkspaceLaunchErrorPayload{
 					Code:    intentErr.Code,
 					Message: intentErr.Message,
 				},
@@ -129,7 +205,7 @@ func createWorkspaceLaunchIntentHandler(authService *auth.Service, intentService
 			return
 		}
 
-		writeJSON(w, http.StatusOK, createWorkspaceLaunchIntentResponse{
+		writeJSON(w, http.StatusOK, CreateWorkspaceLaunchIntentResponse{
 			Ok:                true,
 			LaunchIntentToken: &result.LaunchIntentToken,
 			RequestedAt:       &result.RequestedAt,
@@ -140,7 +216,7 @@ func createWorkspaceLaunchIntentHandler(authService *auth.Service, intentService
 
 func launchWorkspaceHandler(authService *auth.Service, launchService *workspacelaunch.LocalLaunchService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[workspacelaunch.Request](r)
+		payload, err := decodeJSONBody[LaunchRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -149,10 +225,10 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 		currentSession, ok := authService.CurrentSession()
 		if !ok {
 			returnURL := frontendorigins.ResolveRequestOrigin(r, true)
-			writeJSON(w, http.StatusOK, launchResponse{
+			writeJSON(w, http.StatusOK, LaunchResponse{
 				Ok:        false,
 				ReturnURL: stringPointer(workspacelaunchBuildSafeLaunchReturnURL(returnURL)),
-				Error: &workspaceLaunchErrorPayload{
+				Error: &WorkspaceLaunchErrorPayload{
 					Code:    "Unauthorized",
 					Message: "Missing session.",
 				},
@@ -161,7 +237,7 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 		}
 
 		result, err := launchService.Launch(workspacelaunch.LocalLaunchInput{
-			Request:        payload,
+			Request:        payload.toWorkspaceLaunchRequest(),
 			RequestOrigin:  frontendorigins.ResolveRequestOrigin(r, true),
 			CurrentSession: currentSession,
 		})
@@ -171,10 +247,10 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 				return
 			}
-			writeJSON(w, http.StatusOK, launchResponse{
+			writeJSON(w, http.StatusOK, LaunchResponse{
 				Ok:        false,
 				ReturnURL: stringPointer(launchErr.ReturnURL),
-				Error: &workspaceLaunchErrorPayload{
+				Error: &WorkspaceLaunchErrorPayload{
 					Code:    launchErr.Code,
 					Message: launchErr.Message,
 				},
@@ -182,7 +258,7 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 			return
 		}
 
-		writeJSON(w, http.StatusOK, launchResponse{
+		writeJSON(w, http.StatusOK, LaunchResponse{
 			Ok:                   true,
 			BootstrapURLFragment: stringPointer(result.BootstrapURLFragment),
 			ReturnURL:            stringPointer(result.ReturnURL),
@@ -194,7 +270,7 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 			Profile:              result.Profile,
 			SessionID:            stringPointer(result.SessionID),
 			StartedNew:           boolPointer(result.StartedNew),
-			Session: &launchSessionInfoResponse{
+			Session: &LaunchSessionInfo{
 				ID:                     result.Session.ID,
 				WorkspacePath:          result.Session.WorkspacePath,
 				WorkspacePathCanonical: result.Session.WorkspacePathCanonical,
@@ -209,11 +285,12 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 	}
 }
 
-func launchSettaFilesLocationPointer(result workspacelaunch.LocalLaunchResult) *string {
+func launchSettaFilesLocationPointer(result workspacelaunch.LocalLaunchResult) *LaunchResolvedSettaFilesLocation {
 	if result.UsesExplicitSettaFiles {
 		return nil
 	}
-	return stringPointer(result.SettaFilesLocation)
+	location := LaunchResolvedSettaFilesLocation(result.SettaFilesLocation)
+	return &location
 }
 
 func workspacelaunchBuildSafeLaunchReturnURL(requestOrigin string) string {

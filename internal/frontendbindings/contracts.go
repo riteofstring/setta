@@ -1,8 +1,6 @@
 package frontendbindings
 
 import (
-	"time"
-
 	"setta/internal/appgenskills"
 	"setta/internal/appspec"
 	binarypayload "setta/internal/binary"
@@ -15,22 +13,11 @@ import (
 	"setta/internal/realtime"
 )
 
-type BackendInitEvent struct {
-	Message   string    `json:"message"`
-	Timestamp time.Time `json:"timestamp"`
-}
+type BackendInitEvent httpapi.BackendInitEvent
 
-type BackendInitStatusResponse struct {
-	Events                         []BackendInitEvent `json:"events"`
-	IsReady                        bool               `json:"isReady"`
-	Error                          *string            `json:"error"`
-	AuthCookieRefreshWindowSeconds int                `json:"authCookieRefreshWindowSeconds"`
-	WorktreeName                   *string            `json:"worktreeName"`
-}
+type BackendInitStatusResponse httpapi.BackendInitStatusResponse
 
-type AuthRefreshStatusResponse struct {
-	AuthCookieRefreshWindowSeconds int `json:"authCookieRefreshWindowSeconds"`
-}
+type AuthRefreshStatusResponse httpapi.AuthRefreshStatusResponse
 
 type ServerMode config.Mode
 
@@ -45,85 +32,34 @@ type ServerModeResponse struct {
 	Mode ServerMode `json:"mode"`
 }
 
-type SettaHomeInfoResponse struct {
-	SettaHome                string  `json:"settaHome"`
-	GlobalSettaFilesBase     string  `json:"globalSettaFilesBase"`
-	ActiveSettaFilesLocation *string `json:"activeSettaFilesLocation"`
-	LLMConfigPath            string  `json:"llmConfigPath"`
-}
+type SettaHomeInfoResponse httpapi.SettaHomeInfoResponse
 
-type LaunchSettaFilesLocation config.FilesLocation
+type LaunchSettaFilesLocation httpapi.LaunchSettaFilesLocation
 
 const (
-	LaunchSettaFilesLocationAuto   LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationAuto)
-	LaunchSettaFilesLocationLocal  LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationLocal)
-	LaunchSettaFilesLocationGlobal LaunchSettaFilesLocation = LaunchSettaFilesLocation(config.FilesLocationGlobal)
+	LaunchSettaFilesLocationAuto   LaunchSettaFilesLocation = LaunchSettaFilesLocation(httpapi.LaunchSettaFilesLocationAuto)
+	LaunchSettaFilesLocationLocal  LaunchSettaFilesLocation = LaunchSettaFilesLocation(httpapi.LaunchSettaFilesLocationLocal)
+	LaunchSettaFilesLocationGlobal LaunchSettaFilesLocation = LaunchSettaFilesLocation(httpapi.LaunchSettaFilesLocationGlobal)
 )
 
-type LaunchResolvedSettaFilesLocation config.ResolvedFilesLocation
+type LaunchResolvedSettaFilesLocation httpapi.LaunchResolvedSettaFilesLocation
 
 const (
-	LaunchResolvedSettaFilesLocationLocal  LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(config.ResolvedFilesLocationLocal)
-	LaunchResolvedSettaFilesLocationGlobal LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(config.ResolvedFilesLocationGlobal)
+	LaunchResolvedSettaFilesLocationLocal  LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(httpapi.LaunchResolvedSettaFilesLocationLocal)
+	LaunchResolvedSettaFilesLocationGlobal LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(httpapi.LaunchResolvedSettaFilesLocationGlobal)
 )
 
-type LaunchRequestInput struct {
-	LaunchIntentToken  *string                   `json:"launchIntentToken,omitempty"`
-	WorkspaceRoot      *string                   `json:"workspaceRoot,omitempty"`
-	Profile            *string                   `json:"profile,omitempty"`
-	SettaHome          *string                   `json:"settaHome,omitempty"`
-	SettaFilesRoot     *string                   `json:"settaFilesRoot,omitempty"`
-	SettaFilesLocation *LaunchSettaFilesLocation `json:"settaFilesLocation,omitempty"`
-	RuntimeRoot        *string                   `json:"runtimeRoot,omitempty"`
-	SSHTarget          *string                   `json:"sshTarget,omitempty"`
-	SSHArgs            *string                   `json:"sshArgs,omitempty"`
-	RemoteCmd          *string                   `json:"remoteCmd,omitempty"`
-	LocalPort          *int                      `json:"localPort,omitempty"`
-}
+type LaunchRequestInput httpapi.LaunchRequest
 
-type CreateWorkspaceLaunchIntentRequestInput struct {
-	LaunchRequest LaunchRequestInput `json:"launchRequest"`
-	ReturnURL     string             `json:"returnUrl"`
-}
+type CreateWorkspaceLaunchIntentRequestInput httpapi.CreateWorkspaceLaunchIntentRequest
 
-type LaunchErrorPayload struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
+type LaunchErrorPayload httpapi.WorkspaceLaunchErrorPayload
 
-type CreateWorkspaceLaunchIntentResponse struct {
-	Ok                bool                `json:"ok"`
-	LaunchIntentToken *string             `json:"launchIntentToken"`
-	RequestedAt       *int64              `json:"requestedAt"`
-	Error             *LaunchErrorPayload `json:"error"`
-}
+type CreateWorkspaceLaunchIntentResponse httpapi.CreateWorkspaceLaunchIntentResponse
 
-type LaunchSessionInfo struct {
-	ID                     string `json:"id"`
-	WorkspacePath          string `json:"workspacePath"`
-	WorkspacePathCanonical string `json:"workspacePathCanonical"`
-	Host                   string `json:"host"`
-	Port                   int    `json:"port"`
-	PID                    int    `json:"pid"`
-	StartedAt              string `json:"startedAt"`
-}
+type LaunchSessionInfo httpapi.LaunchSessionInfo
 
-type LaunchResponse struct {
-	Ok                   bool                              `json:"ok"`
-	BootstrapURLFragment *string                           `json:"bootstrapUrlFragment"`
-	ReturnURL            *string                           `json:"returnUrl"`
-	WorkspaceRoot        *string                           `json:"workspaceRoot"`
-	SettaFilesLocation   *LaunchResolvedSettaFilesLocation `json:"settaFilesLocation"`
-	SettaFilesRoot       *string                           `json:"settaFilesRoot"`
-	RuntimeRoot          *string                           `json:"runtimeRoot"`
-	SettaHome            *string                           `json:"settaHome"`
-	Profile              *string                           `json:"profile"`
-	SessionID            *string                           `json:"sessionId"`
-	StartedNew           *bool                             `json:"startedNew"`
-	Session              *LaunchSessionInfo                `json:"session"`
-	RemoteCmdResolved    *string                           `json:"remoteCmdResolved"`
-	Error                *LaunchErrorPayload               `json:"error"`
-}
+type LaunchResponse httpapi.LaunchResponse
 
 type LauncherHomeErrorPayload httpapi.LauncherHomeErrorPayload
 

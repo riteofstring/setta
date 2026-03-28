@@ -93,7 +93,7 @@ func TestRegisterWorkspaceLaunchRoutesCreatesIntent(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload createWorkspaceLaunchIntentResponse
+	var payload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestRegisterWorkspaceLaunchRoutesRejectsNestedIntentToken(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload createWorkspaceLaunchIntentResponse
+	var payload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentValidatesWorkspaceAndReturnURL
 				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 			}
 
-			var payload createWorkspaceLaunchIntentResponse
+			var payload CreateWorkspaceLaunchIntentResponse
 			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
@@ -255,7 +255,7 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentAllowsTrustedReturnURLOrigin(t
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload createWorkspaceLaunchIntentResponse
+	var payload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentMapsTypedStoreErrors(t *testin
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
-		var payload createWorkspaceLaunchIntentResponse
+		var payload CreateWorkspaceLaunchIntentResponse
 		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 			t.Fatalf("decode response: %v", err)
 		}
@@ -353,7 +353,7 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentMapsTypedStoreErrors(t *testin
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
-		var payload createWorkspaceLaunchIntentResponse
+		var payload CreateWorkspaceLaunchIntentResponse
 		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 			t.Fatalf("decode response: %v", err)
 		}
@@ -385,7 +385,7 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentMapsTypedStoreErrors(t *testin
 			t.Fatalf("register workspace launch routes: %v", err)
 		}
 
-		makeRequest := func() createWorkspaceLaunchIntentResponse {
+		makeRequest := func() CreateWorkspaceLaunchIntentResponse {
 			request := httptest.NewRequest(
 				http.MethodPost,
 				RouteCreateWorkspaceLaunchIntent,
@@ -399,7 +399,7 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentMapsTypedStoreErrors(t *testin
 			if response.Code != http.StatusOK {
 				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 			}
-			var payload createWorkspaceLaunchIntentResponse
+			var payload CreateWorkspaceLaunchIntentResponse
 			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
@@ -443,7 +443,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent(t *testing.T) 
 		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
 	}
 
-	var intentPayload createWorkspaceLaunchIntentResponse
+	var intentPayload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
 		t.Fatalf("decode intent response: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent(t *testing.T) 
 		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}
@@ -510,7 +510,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchUsesStoredRequestFromIntent(t *testi
 		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
 	}
 
-	var intentPayload createWorkspaceLaunchIntentResponse
+	var intentPayload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
 		t.Fatalf("decode intent response: %v", err)
 	}
@@ -531,7 +531,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchUsesStoredRequestFromIntent(t *testi
 		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}
@@ -587,7 +587,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRo
 		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
 	}
 
-	var intentPayload createWorkspaceLaunchIntentResponse
+	var intentPayload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
 		t.Fatalf("decode intent response: %v", err)
 	}
@@ -608,7 +608,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchOmitsSettaFilesLocationForExplicitRo
 		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}
@@ -681,7 +681,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchesRemoteWorkspaceFromIntent(t *testi
 		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
 	}
 
-	var intentPayload createWorkspaceLaunchIntentResponse
+	var intentPayload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
 		t.Fatalf("decode intent response: %v", err)
 	}
@@ -702,7 +702,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchesRemoteWorkspaceFromIntent(t *testi
 		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}
@@ -752,7 +752,7 @@ func TestRegisterWorkspaceLaunchRoutesRequiresIntentToken(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}
@@ -796,7 +796,7 @@ func TestRegisterWorkspaceLaunchRoutesRejectsInlineOverrides(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}
@@ -840,7 +840,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchMapsTypedOutdatedSettingsError(t *te
 		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
 	}
 
-	var intentPayload createWorkspaceLaunchIntentResponse
+	var intentPayload CreateWorkspaceLaunchIntentResponse
 	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
 		t.Fatalf("decode intent response: %v", err)
 	}
@@ -861,7 +861,7 @@ func TestRegisterWorkspaceLaunchRoutesLaunchMapsTypedOutdatedSettingsError(t *te
 		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
 	}
 
-	var payload launchResponse
+	var payload LaunchResponse
 	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launch response: %v", err)
 	}

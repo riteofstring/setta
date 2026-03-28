@@ -1812,12 +1812,20 @@ export function createLauncherListDirectoryResponse(options: Partial<LauncherLis
 }
 
 
+export const FilesLocationEnum = {
+  auto: "auto",
+  local: "local",
+  global: "global",
+} as const;
+export type FilesLocation = ObjectValues<typeof FilesLocationEnum>;
+
+
 export type LauncherOpenWorkspaceRequestInput = {
   workspaceRoot: string;
   settaHome: string | null;
   profile: string | null;
   settaFilesRoot: string | null;
-  settaFilesLocation: LaunchSettaFilesLocation | null;
+  settaFilesLocation: FilesLocation | null;
   runtimeRoot: string | null;
   createIfMissing: boolean;
 };
@@ -1826,11 +1834,18 @@ export function createLauncherOpenWorkspaceRequestInput(options: Partial<Launche
 }
 
 
+export const ResolvedFilesLocationEnum = {
+  local: "local",
+  global: "global",
+} as const;
+export type ResolvedFilesLocation = ObjectValues<typeof ResolvedFilesLocationEnum>;
+
+
 export type LauncherOpenWorkspaceResponse = {
   ok: boolean;
   bootstrapUrlFragment: string | null;
   workspaceRoot: string | null;
-  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesLocation: ResolvedFilesLocation | null;
   settaFilesRoot: string | null;
   runtimeRoot: string | null;
   settaHome: string | null;

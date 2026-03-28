@@ -41,7 +41,7 @@ func TestRegisterStatusRoutesReturnsBackendInitStatus(t *testing.T) {
 		t.Fatalf("expected backend init status 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload backendInitStatusResponse
+	var payload BackendInitStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode backend init status payload: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName(t *test
 		t.Fatalf("expected backend init status 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload backendInitStatusResponse
+	var payload BackendInitStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode backend init status payload: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestRegisterStatusRoutesReturnsAuthRefreshStatus(t *testing.T) {
 		t.Fatalf("expected auth refresh status 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload authRefreshStatusResponse
+	var payload AuthRefreshStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode auth refresh status payload: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestRegisterStatusRoutesReturnsSettaHomeInfoInIDEMode(t *testing.T) {
 		t.Fatalf("expected setta home info 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload settaHomeInfoResponse
+	var payload SettaHomeInfoResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode setta home info payload: %v", err)
 	}

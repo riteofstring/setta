@@ -33,24 +33,24 @@ type StatusRouteDependencies struct {
 	ReadyAt                  time.Time
 }
 
-type backendInitEvent struct {
+type BackendInitEvent struct {
 	Message   string    `json:"message"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
-type backendInitStatusResponse struct {
-	Events                         []backendInitEvent `json:"events"`
+type BackendInitStatusResponse struct {
+	Events                         []BackendInitEvent `json:"events"`
 	IsReady                        bool               `json:"isReady"`
 	Error                          *string            `json:"error"`
 	AuthCookieRefreshWindowSeconds int                `json:"authCookieRefreshWindowSeconds"`
 	WorktreeName                   *string            `json:"worktreeName"`
 }
 
-type authRefreshStatusResponse struct {
+type AuthRefreshStatusResponse struct {
 	AuthCookieRefreshWindowSeconds int `json:"authCookieRefreshWindowSeconds"`
 }
 
-type settaHomeInfoResponse struct {
+type SettaHomeInfoResponse struct {
 	SettaHome                string  `json:"settaHome"`
 	GlobalSettaFilesBase     string  `json:"globalSettaFilesBase"`
 	ActiveSettaFilesLocation *string `json:"activeSettaFilesLocation"`
@@ -81,13 +81,13 @@ func RegisterStatusRoutes(router chi.Router, deps StatusRouteDependencies) error
 func getBackendInitStatusHandler(deps StatusRouteDependencies) http.HandlerFunc {
 	readyAt := deps.ReadyAt.UTC()
 	worktreeName := optionalTrimmedString(deps.WorktreeName)
-	events := []backendInitEvent{{
+	events := []BackendInitEvent{{
 		Message:   "Go backend ready",
 		Timestamp: readyAt,
 	}}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, backendInitStatusResponse{
+		writeJSON(w, http.StatusOK, BackendInitStatusResponse{
 			Events:                         events,
 			IsReady:                        true,
 			Error:                          nil,
@@ -99,7 +99,7 @@ func getBackendInitStatusHandler(deps StatusRouteDependencies) http.HandlerFunc 
 
 func getAuthRefreshStatusHandler(deps StatusRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, authRefreshStatusResponse{
+		writeJSON(w, http.StatusOK, AuthRefreshStatusResponse{
 			AuthCookieRefreshWindowSeconds: deps.AuthRefreshWindowSeconds,
 		})
 	}
@@ -112,7 +112,7 @@ func getSettaHomeInfoHandler(deps StatusRouteDependencies) http.HandlerFunc {
 	llmConfigPath := filepath.Join(strings.TrimSpace(deps.SettaFilesRoot), "llm_config.json")
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, settaHomeInfoResponse{
+		writeJSON(w, http.StatusOK, SettaHomeInfoResponse{
 			SettaHome:                settaHome,
 			GlobalSettaFilesBase:     globalSettaFilesBase,
 			ActiveSettaFilesLocation: activeSettaFilesLocation,
