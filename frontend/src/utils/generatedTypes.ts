@@ -4217,7 +4217,7 @@ export function createSaveProjectRequestInput(
 }
 
 export type SaveAsNewProjectConfigRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   newConfigName: string;
   withRefs: boolean;

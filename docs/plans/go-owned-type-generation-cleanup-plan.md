@@ -478,6 +478,16 @@ That means:
   - the exact terminal route request shapes now also point at `httpapi` owners instead of mirrored `frontendbindings` structs:
     - `DeleteTerminalsRequestInput -> httpapi.DeleteTerminalsRequest`
     - `InterruptTerminalProcessesRequestInput -> httpapi.InterruptTerminalProcessesRequest`
+  - the exact project-shell request shapes now also point at `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `LoadProjectConfigRequestInput -> httpapi.ProjectLoadRequest`
+    - `SaveProjectRequestInput -> httpapi.ManualSaveRequest`
+    - `SaveAsNewProjectConfigRequestInput -> httpapi.SaveAsNewProjectConfigRequest`
+    - `CreateProjectConfigRequestInput -> httpapi.CreateProjectConfigRequest`
+    - `DeleteProjectConfigsRequestInput -> httpapi.DeleteProjectConfigsRequest`
+    - `SetProjectConfigNameRequestInput -> httpapi.SetProjectConfigNameRequest`
+    - `SetAsDefaultProjectRequestInput -> httpapi.SetDefaultProjectConfigRequest`
+    - `GetNotificationsRequestInput -> httpapi.GetNotificationsRequest`
+    - `DeleteNotificationRequestInput -> httpapi.DeleteNotificationRequest`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -523,6 +533,8 @@ It has also improved for the detached-run, state-machine-run, and chat-section-s
 It has also improved for the exact terminal delete/interrupt request contracts; only the looser `RunCodeRequestInput` wrapper remains in `terminal_support.go`.
 
 It has also improved for the simple AI CRUD/lookup route contracts and run-chain input models; those now come from `httpapi` / `runchains` instead of `frontendbindings`.
+
+It has also improved for the project-shell request family; those exact request contracts no longer need local `project_state_support.go` mirrors.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

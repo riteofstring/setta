@@ -102,49 +102,27 @@ type PublishAppDeploymentRequestInput struct {
 	ListenerEnabled    bool         `json:"listenerEnabled"`
 }
 
-type LoadProjectConfigRequestInput struct {
-	ProjectConfigName string `json:"projectConfigName"`
-}
+type LoadProjectConfigRequestInput httpapi.ProjectLoadRequest
 
-type SaveProjectRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type SaveProjectRequestInput httpapi.ManualSaveRequest
 
-type SaveAsNewProjectConfigRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	NewConfigName   string  `json:"newConfigName"`
-	WithRefs        bool    `json:"withRefs"`
-}
+type SaveAsNewProjectConfigRequestInput httpapi.SaveAsNewProjectConfigRequest
 
-type CreateProjectConfigRequestInput struct {
-	PreviewImgColor string `json:"previewImgColor"`
-}
+type CreateProjectConfigRequestInput httpapi.CreateProjectConfigRequest
 
 type CreateProjectConfigResponse string
 
-type DeleteProjectConfigsRequestInput struct {
-	IDs []string `json:"ids"`
-}
+type DeleteProjectConfigsRequestInput httpapi.DeleteProjectConfigsRequest
 
 type DeleteProjectConfigsResponse httpapi.DeleteProjectConfigsResponse
 
-type SetProjectConfigNameRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	NewName         string `json:"newName"`
-}
+type SetProjectConfigNameRequestInput httpapi.SetProjectConfigNameRequest
 
-type SetAsDefaultProjectRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type SetAsDefaultProjectRequestInput httpapi.SetDefaultProjectConfigRequest
 
-type GetNotificationsRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type GetNotificationsRequestInput httpapi.GetNotificationsRequest
 
-type DeleteNotificationRequestInput struct {
-	NotificationID string `json:"notificationId"`
-}
+type DeleteNotificationRequestInput httpapi.DeleteNotificationRequest
 
 type NotificationsResponse []SettaNotification
 
