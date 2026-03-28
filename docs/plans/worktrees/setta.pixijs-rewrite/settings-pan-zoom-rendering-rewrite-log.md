@@ -2321,6 +2321,32 @@ Record:
 
 ## 2026-03-27 086
 
+- Item: Extract the remaining store-backed `LiveDictAreaSection` selector into a dedicated boundary hook.
+- Status: `done`
+- Details:
+  - Added a typed store-backed boundary above the pure section builder:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx`
+  - Updated `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx` to consume the new hook instead of owning the share-capability, misc, settings, and project-store selection inline.
+  - The new boundary preserves the existing non-Pixi behavior for:
+    - composing `useShareCapabilities`, `useMisc`, `useSettings`, and `useProjectState(..., _.isEqual)` through one hook boundary
+    - keeping the existing pure `groupContainerLiveDictAreaSectionBoundary.ts` contract and live dict/param DOM path unchanged
+    - shrinking `LiveDictAreaSection.tsx` to a thin render wrapper above the live dict-area surface
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated after the bootstrap handoff and `All Settings` was visible/selectable
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, `languageServer`, and `All Settings`
+    - representative `200` responses included the `/settings` document plus Vite/frontend asset requests such as `index.css`, `@vite/client`, `src/index.tsx`, `src/App.tsx`, and `src/components/Pages/router.tsx`
+- Next action:
+  - Continue the cleanup-first pass by lifting the new `groupContainerLiveDictAreaSectionStoreBoundary.ts` hook into the next higher-level live dict-area caller above `groupContainerLiveDictAreaSection.tsx` before moving the retained-scene canary higher.
+
+## 2026-03-27 086
+
 - Item: Deepen the live dict-area section boundary by extracting the remaining store-backed section-state selector from `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`.
 - Status: `done`
 - Details:

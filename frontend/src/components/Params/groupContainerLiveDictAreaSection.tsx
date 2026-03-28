@@ -1,13 +1,10 @@
-import _ from "lodash";
-import { useMisc, useProjectState, useSettings } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   LiveDictArea,
   type LiveDictAreaProps,
 } from "./groupContainerLiveDictArea";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
-import { buildLiveDictAreaSectionBoundary } from "./groupContainerLiveDictAreaSectionBoundary";
+import { useLiveDictAreaSectionStoreBoundary } from "./groupContainerLiveDictAreaSectionStoreBoundary";
 
 export type LiveDictAreaSectionProps = {
   bgColor: string;
@@ -24,26 +21,12 @@ export function LiveDictAreaSection({
   sectionId,
   sectionTypeName,
 }: LiveDictAreaSectionProps) {
-  const { canEditLayout, canEditStructure } = useShareCapabilities();
-  const isSelectingParams = useMisc((state) => state.isSelectingParams);
-  const unpinnedParamsAreaMinHeight = useSettings(
-    (state) => state.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
-  );
-  const liveDictAreaInput = useProjectState(
-    (state) =>
-      buildLiveDictAreaSectionBoundary({
-        bgColor,
-        canEditLayout,
-        canEditStructure,
-        handleColumnResizeStart,
-        isSelectingParams,
-        sectionId,
-        sectionTypeName,
-        state,
-        unpinnedParamsAreaMinHeight,
-      }),
-    _.isEqual,
-  );
+  const liveDictAreaInput = useLiveDictAreaSectionStoreBoundary({
+    bgColor,
+    handleColumnResizeStart,
+    sectionId,
+    sectionTypeName,
+  });
 
   return (
     <LiveDictArea
