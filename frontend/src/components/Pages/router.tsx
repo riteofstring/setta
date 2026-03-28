@@ -1,42 +1,15 @@
-import { HeaderContainer } from "components/AppHeader/Header";
-import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
-import { LauncherHomePage } from "components/Pages/Launcher/LauncherHomePage";
-import { LoadingSpinner } from "components/Pages/LoadingSpinner";
-import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { useEffect } from "react";
 import { initializeServerMode } from "state/actions/serverMode";
 import { useServerMode } from "state/definitions";
-import { HOME_ROUTER_PATH } from "utils/constants";
-import {
-  ModeWrappedRouteGridContainer,
-  buildModeWrappedHomeProjectCatchAllRouteElements,
-} from "./modeWrappedHomeProjectCatchAllRouteElements";
-import { buildModeWrappedIndexWorkspaceLaunchRouteElements } from "./modeWrappedIndexWorkspaceLaunchRouteElements";
 import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
-
-const LazyAppWrapper = lazy(async () => {
-  const mod = await import("components/Pages/App/AppWrapper");
-  return { default: mod.AppWrapper };
-});
-
-const LazyAppMainContainer = lazy(async () => {
-  const mod = await import("components/Pages/App/AppMainContainer");
-  return { default: mod.AppMainContainer };
-});
-
-function ProjectRootRedirect() {
-  const { projectConfigName } = useParams();
-  if (!projectConfigName) {
-    return <Navigate to={HOME_ROUTER_PATH} replace />;
-  }
-  return <Navigate to={`/${encodeURIComponent(projectConfigName)}`} replace />;
-}
+import { buildModeWrappedHomeProjectCatchAllRouteElements } from "./modeWrappedHomeProjectCatchAllRouteElements";
+import { buildModeWrappedIndexWorkspaceLaunchRouteElements } from "./modeWrappedIndexWorkspaceLaunchRouteElements";
+import { buildModeWrappedStandaloneAppLauncherRouteElements } from "./modeWrappedStandaloneAppLauncherRouteElements";
 
 type ModeWrapperProps = ModeRouteElements;
 
@@ -106,35 +79,18 @@ function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
   });
 }
 
-const launcherHomeRouteElement = (
-  <AppShell isLoading={false} loadingContent={null}>
-    <ModalContainer>
-      <HeaderContainer path={HOME_ROUTER_PATH} />
-      <ModeWrappedRouteGridContainer>
-        <LauncherHomePage />
-      </ModeWrappedRouteGridContainer>
-    </ModalContainer>
-  </AppShell>
-);
-
-const appRouteElement = (
-  <Suspense fallback={<LoadingSpinner />}>
-    <LazyAppWrapper>
-      {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
-        <LazyAppMainContainer doneLoading={doneLoading} is404={is404} />
-      )}
-    </LazyAppWrapper>
-  </Suspense>
-);
-
 const {
-  homeRouteElements,
-  projectRouteElements,
-  catchAllRouteElements,
-} = buildModeWrappedHomeProjectCatchAllRouteElements({
   appRouteElement,
   launcherHomeRouteElement,
-});
+  standaloneAppRouteElement,
+  standaloneLauncherRouteElement,
+} = buildModeWrappedStandaloneAppLauncherRouteElements();
+
+const { homeRouteElements, projectRouteElements, catchAllRouteElements } =
+  buildModeWrappedHomeProjectCatchAllRouteElements({
+    appRouteElement,
+    launcherHomeRouteElement,
+  });
 const { indexRouteElements, workspaceLaunchRouteElements } =
   buildModeWrappedIndexWorkspaceLaunchRouteElements({
     appRouteElement,
@@ -149,6 +105,6 @@ export const router = createModeWrappedBrowserRouter({
   projectRouteElements,
   viewModeRouteElements: projectRouteElements,
   catchAllRouteElements,
-  standaloneAppRouteElement: appRouteElement,
-  standaloneLauncherRouteElement: <ProjectRootRedirect />,
+  standaloneAppRouteElement,
+  standaloneLauncherRouteElement,
 });

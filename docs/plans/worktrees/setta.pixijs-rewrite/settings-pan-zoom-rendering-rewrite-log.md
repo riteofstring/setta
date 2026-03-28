@@ -3793,3 +3793,35 @@ Record:
     - console noise was limited to existing React 19 `element.ref` warnings and existing accessibility warnings; no route-breaking console errors appeared during verification
 - Next action:
   - Continue the live dict-area surface pass by lifting the next remaining route-element ownership seam above `frontend/src/components/Pages/router.tsx`, starting with the remaining standalone app/launcher route elements and mode-wrapper-owned JSX before any broad Pixi node drawing lands.
+
+## 2026-03-27 137
+
+- Item: Lift the remaining standalone app/launcher route elements out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated helper boundary for the remaining standalone app/launcher route-element seam:
+    - `frontend/src/components/Pages/modeWrappedStandaloneAppLauncherRouteElements.tsx`
+    - `frontend/src/components/Pages/modeWrappedStandaloneAppLauncherRouteElements.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of owning:
+    - the lazy app route element
+    - the launcher home route element
+    - the standalone app route element handoff
+    - the standalone launcher redirect element handoff
+  - The new helper now owns the non-Pixi standalone app/launcher seam for:
+    - building the shared lazy app route element once and reusing it for standalone app routes
+    - building the launcher home route element through the existing route-grid shell
+    - owning the project-root redirect element used by the standalone launcher route
+    - leaving `router.tsx` focused on the remaining mode-wrapper JSX and helper composition instead of the last standalone app/launcher element bundle
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedStandaloneAppLauncherRouteElements.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-routing.spec.ts frontend/tests/e2e/launcher/launcher-home.spec.ts --grep "app routes select the configured UI root|app mode blocks direct /launching navigation|launcher mode resolves /launching intent-token handoffs"`
+    - result: passed (`3` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - the provided bootstrap token was rejected in that browser session (`POST /__setta__/bootstrap/consume 401`), but the existing authenticated app tab remained usable for verification
+    - `http://127.0.0.1:3044/settings` rendered normally in the existing session with no obvious clipping, overlap, or missing content; the visible page was sparse in that session (`Connected to server`, home link), but structurally intact
+    - `http://127.0.0.1:3044/launching` rendered a clean launch-failure surface (`Launch failed`, `Missing pending workspace launch request.`) without obvious clipping or overlap
+    - representative requests returned `200`, including `/settings`, `/launching`, `/api/loadSettings`, `/api/backendInitStatus`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, and `/api/serverMode`
+    - console noise was limited to the existing React 19 `element.ref` warnings plus the expected bootstrap `401` error in the rejected bootstrap tab
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining mode-wrapper-owned JSX out of `frontend/src/components/Pages/router.tsx` before any broad Pixi node drawing lands.
