@@ -99,7 +99,9 @@ test.describe.serial("section variants single-item handle", () => {
 
       const secondLabel = rows.nth(1).locator("p.section-key");
       await expect(secondLabel).toHaveText(/\S/);
-      expect(await secondLabel.textContent()).not.toBe(initialName);
+      const secondName = await secondLabel.textContent();
+      expect(secondName).not.toBe(initialName);
+      expect(secondName).not.toBe(`${initialName}_2`);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

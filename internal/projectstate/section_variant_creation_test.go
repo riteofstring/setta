@@ -153,6 +153,8 @@ func TestProjectCreateNewSectionVariantDuplicatesParamVariantStateAndEdges(t *te
 		t.Fatal("expected normalized source variant name")
 	} else if newVariant.Name == sourceVariantName {
 		t.Fatalf("expected created variant name to differ from source variant name %q", sourceVariantName)
+	} else if newVariant.Name == sourceVariantName+"_2" {
+		t.Fatalf("expected created variant name not to reuse suffixed source naming, got %q", newVariant.Name)
 	}
 
 	originalPayload, err := effectiveSectionPayload(project, "source-section", "source-variant")

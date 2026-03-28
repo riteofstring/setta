@@ -91,11 +91,7 @@ func (p *Project) CreateNewSectionVariant(input CreateNewSectionVariantInput) (C
 		ID: newVariantID,
 	}
 	existingVariantNames := collectSectionVariantNames(section, p.SectionVariants)
-	preferredVariantName := sourceVariant.Name
-	if strings.TrimSpace(preferredVariantName) == "" {
-		preferredVariantName = section.Name
-	}
-	newVariant.Name, err = nextAvailableSectionVariantName(existingVariantNames, preferredVariantName)
+	newVariant.Name, err = nextAvailableCreatedSectionVariantName(existingVariantNames)
 	if err != nil {
 		return CreateNewSectionVariantResult{}, err
 	}

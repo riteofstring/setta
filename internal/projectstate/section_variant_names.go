@@ -1,12 +1,12 @@
 package projectstate
 
 import (
-	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-func nextAvailableSectionVariantName(existingNames []string, preferredName string) (string, error) {
+func nextAvailableCreatedSectionVariantName(existingNames []string) (string, error) {
 	usedNames := make(map[string]struct{}, len(existingNames))
 	for _, name := range existingNames {
 		trimmed := strings.TrimSpace(name)
@@ -16,23 +16,37 @@ func nextAvailableSectionVariantName(existingNames []string, preferredName strin
 		usedNames[trimmed] = struct{}{}
 	}
 
-	trimmedPreferred := strings.TrimSpace(preferredName)
-	if trimmedPreferred != "" {
-		if _, exists := usedNames[trimmedPreferred]; !exists {
-			return trimmedPreferred, nil
-		}
-		for suffix := 2; ; suffix++ {
-			candidate := fmt.Sprintf("%s_%d", trimmedPreferred, suffix)
-			if _, exists := usedNames[candidate]; !exists {
-				return candidate, nil
-			}
-		}
-	}
-
 	return nextAvailableMemorableName(func(candidate string) (bool, error) {
 		_, exists := usedNames[candidate]
 		return !exists, nil
 	})
+}
+
+func nextAvailableRepairedSectionVariantName(existingNames []string, preferredName string) (string, error) {
+	trimmedPreferred := strings.TrimSpace(preferredName)
+	if trimmedPreferred == "" {
+		return nextAvailableCreatedSectionVariantName(existingNames)
+	}
+
+	usedNames := make(map[string]struct{}, len(existingNames))
+	for _, name := range existingNames {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			continue
+		}
+		usedNames[trimmed] = struct{}{}
+	}
+
+	if _, exists := usedNames[trimmedPreferred]; !exists {
+		return trimmedPreferred, nil
+	}
+
+	for suffix := 2; ; suffix++ {
+		candidate := trimmedPreferred + "_" + strconv.Itoa(suffix)
+		if _, exists := usedNames[candidate]; !exists {
+			return candidate, nil
+		}
+	}
 }
 
 func collectSectionVariantNames(section Section, variants map[string]SectionVariant) []string {
@@ -76,7 +90,7 @@ func (p *Project) ensureSectionVariantNames() error {
 			if strings.TrimSpace(variant.Name) != "" {
 				continue
 			}
-			nextName, err := nextAvailableSectionVariantName(existingNames, section.Name)
+			nextName, err := nextAvailableRepairedSectionVariantName(existingNames, section.Name)
 			if err != nil {
 				return err
 			}
