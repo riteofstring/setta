@@ -2046,3 +2046,30 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the live dict-area renderer into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaRenderer.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 077
+
+- Item: Lift the live dict-area renderer into one higher-level scene-owned render boundary above `groupContainerLiveDictAreaRenderer.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live dict-area render-boundary helper above the existing live dict-area renderer:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderBoundary.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new render-boundary helper instead of building `groupContainerLiveDictAreaBoundary.ts` and then `groupContainerLiveDictAreaRenderer.ts` in separate steps:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the raw live dict-area inputs, the existing live dict-area boundary, and the live dict-area renderer from one deeper module
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while hiding the last boundary-to-renderer wiring hop behind one higher-level boundary
+    - preserves the existing non-Pixi block order and `maxNestedDepth` behavior while exposing the same live dict-area boundary payload from the new helper
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaRenderBoundary.test.ts src/components/Params/groupContainerLiveDictAreaRenderer.test.ts src/components/Params/groupContainerLiveDictAreaBoundary.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - reused the already-authenticated `/settings` tab; bootstrap was not needed in that browser session
+    - `All Settings` was visible and reachable in the bottom tab strip, and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new render-boundary wiring
+    - representative visible labels and controls included `settings`, `Filter`, `TAG`, `listRootSectionDefault`, `dictSectionDefault`, `groupSectionDefault`, `Param Defaults`, `All Settings`, `Open section in floating window`, `Lock position and size`, and `Minimize section`
+    - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/serverMode`, and `/api/authRefreshStatus`; non-200 responses were limited to expected cached `304` asset/module requests
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the live dict-area render boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaRenderBoundary.ts` before any broad Pixi node drawing lands.

@@ -50,8 +50,7 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
-import { buildLiveDictAreaRenderer } from "./groupContainerLiveDictAreaRenderer";
+import { buildLiveDictAreaRenderBoundary } from "./groupContainerLiveDictAreaRenderBoundary";
 import {
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
@@ -288,9 +287,9 @@ function _ParamGroupContainer({
       }),
     _.isEqual,
   );
-  const liveDictAreaBoundary = useMemo(
+  const liveDictAreaRenderBoundary = useMemo(
     () =>
-      buildLiveDictAreaBoundary({
+      buildLiveDictAreaRenderBoundary({
         bgColor,
         canConnect: canEditStructure && !isSelectingParams,
         edgeInputParams,
@@ -298,6 +297,7 @@ function _ParamGroupContainer({
         paramFilter,
         getParamDisplayName: (paramId: string) =>
           displayNamesById[paramId] ?? paramId,
+        handleColumnResizeStart,
         inputPorts: edgeInputPorts,
         isSelectingParams,
         outputPorts: edgeOutputPorts,
@@ -306,6 +306,7 @@ function _ParamGroupContainer({
           topLevelParamIds: pinnedTopLevelParamIds,
         },
         positionAndSizeLocked,
+        sectionId,
         sectionTypeName,
         selectedParamIds: selectedParams,
         styleColor,
@@ -327,12 +328,14 @@ function _ParamGroupContainer({
       edgeInputParams,
       edgeInputPorts,
       edgeOutputPorts,
+      handleColumnResizeStart,
       hideUnpinnedParams,
       isSelectingParams,
       paramFilter,
       pinnedRequiredParamIdsToPaths,
       pinnedTopLevelParamIds,
       positionAndSizeLocked,
+      sectionId,
       sectionTypeName,
       selectedParams,
       styleColor,
@@ -341,19 +344,10 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
-  const liveDictAreaRenderer = useMemo(
-    () =>
-      buildLiveDictAreaRenderer({
-        handleColumnResizeStart,
-        liveDictAreaBoundary,
-        sectionId,
-      }),
-    [handleColumnResizeStart, liveDictAreaBoundary, sectionId],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaRenderer.maxNestedDepth);
-  }, [liveDictAreaRenderer.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaRenderBoundary.maxNestedDepth);
+  }, [liveDictAreaRenderBoundary.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -366,7 +360,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaRenderer.blocks.map((block) => {
+        {liveDictAreaRenderBoundary.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
