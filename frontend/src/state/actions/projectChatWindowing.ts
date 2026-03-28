@@ -17,7 +17,7 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,
   route_set_project_chat_windowing_state,
@@ -1401,14 +1401,14 @@ type PendingProjectChatWindowingMutation = {
 };
 
 type ProjectChatWindowingWriteResponse =
-  | Awaited<ReturnType<typeof route_set_project_chat_windowing_state>>
-  | Awaited<ReturnType<typeof route_set_project_chat_window_chat_id>>;
+  ResponseDataAndStatus<ProjectChatWindowingState>;
 
-type SyntheticProjectChatWindowingWriteResponse = {
-  data: ProjectChatWindowingState;
-  hasResponse: true;
-  status: 200;
-};
+type SyntheticProjectChatWindowingWriteResponse =
+  ProjectChatWindowingWriteResponse & {
+    data: ProjectChatWindowingState;
+    hasResponse: true;
+    status: 200;
+  };
 
 type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse
