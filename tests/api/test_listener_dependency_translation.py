@@ -1,12 +1,13 @@
+import json
+
 import pytest
 
 from setta.api.listener import SettaListener
-from setta.sdk_contracts.generated import ListenerDependencyCatalogEntry
-from setta.types.id import ID
-from setta.types.listener import (
-    PythonScriptWebsocketMsgTypeAdapter,
-    WebsocketMsgListenerRegister,
+from setta.sdk_contracts.generated import (
+    ListenerDependencyCatalogEntry,
+    ListenerRegisterRequest,
 )
+from setta.types.id import ID
 from setta.types.protocol import create_dep_key
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_entries,
@@ -78,11 +79,12 @@ class TestSettaListenerDependencyTranslation:
         await listener._send_listener_register()
 
         assert len(sent_payloads) == 1
-        register_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
-            sent_payloads[0]
+        raw_message = json.loads(sent_payloads[0])
+        assert raw_message["messageType"] == "ListenerRegister"
+        register_request = ListenerRegisterRequest.model_validate(
+            raw_message["content"]
         )
-        assert isinstance(register_message, WebsocketMsgListenerRegister)
-        callback_payload = next(iter(register_message.content.callbacks.values()))
+        callback_payload = next(iter(register_request.callbacks.values()))
         dependency = callback_payload.dependencies[0]
 
         assert dependency == original_dep_key
@@ -118,11 +120,12 @@ class TestSettaListenerDependencyTranslation:
         await listener._send_listener_register()
 
         assert len(sent_payloads) == 1
-        register_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
-            sent_payloads[0]
+        raw_message = json.loads(sent_payloads[0])
+        assert raw_message["messageType"] == "ListenerRegister"
+        register_request = ListenerRegisterRequest.model_validate(
+            raw_message["content"]
         )
-        assert isinstance(register_message, WebsocketMsgListenerRegister)
-        callback_payload = next(iter(register_message.content.callbacks.values()))
+        callback_payload = next(iter(register_request.callbacks.values()))
         dependencies = callback_payload.dependencies
 
         assert len(dependencies) == 2

@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 
@@ -10,16 +11,13 @@ from setta.api.listener import (
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
+    ListenerRegisterRequest,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
 from setta.types.generated.go_shared_types import CodeObjType
 from setta.types.id import ID
-from setta.types.listener import (
-    PythonScriptWebsocketMsgTypeAdapter,
-    WebsocketMsgListenerRegister,
-)
 from setta.types.protocol import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -88,9 +86,9 @@ async def test_listener_register_accepts_dep_ids() -> None:
     await listener._send_listener_register()
 
     assert len(sent_payloads) == 1
-    parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent_payloads[0])
-    assert isinstance(parsed_message, WebsocketMsgListenerRegister)
-    content = parsed_message.content
+    raw_message = json.loads(sent_payloads[0])
+    assert raw_message["messageType"] == "ListenerRegister"
+    content = ListenerRegisterRequest.model_validate(raw_message["content"])
 
     for spec in listener._callbacks.values():
         callback = content.callbacks[spec.callback_id]
@@ -261,6 +259,7 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
 
     with pytest.raises(RuntimeError, match="metadata-backed callback state"):
         _ = getattr(state, dependency_name)
+
 
 @pytest.mark.asyncio
 async def test_listener_context_prefers_catalog_dependency_names() -> None:

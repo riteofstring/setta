@@ -2,6 +2,7 @@ import asyncio
 import base64
 import contextlib
 import inspect
+import json
 import logging
 import os
 from ast import literal_eval
@@ -76,7 +77,6 @@ from setta.types.listener import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
-    WebsocketMsgListenerRegister,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -1330,11 +1330,12 @@ class SettaListener:
         content = ListenerRegisterRequest(
             projectConfigId=self._require_project_id(), callbacks=callbacks
         )
-        message = WebsocketMsgListenerRegister(
-            messageType=ListenerMessageType.ListenerRegister,
-            content=content,
+        payload = json.dumps(
+            {
+                "messageType": ListenerMessageType.ListenerRegister.value,
+                "content": content.model_dump(mode="json"),
+            }
         )
-        payload = message.model_dump_json()
         logger.debug(
             "Listener %s registering %d callbacks",
             self._log_identifier,

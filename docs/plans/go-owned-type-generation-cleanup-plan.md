@@ -375,6 +375,9 @@ That means:
   - `ListenerInit`
   - `ListenerFrontendEmit`
   - those message variants now also use the generated Go-owned websocket envelope models directly, while Python keeps validation or artifact typing only at the real boundary that still needs it
+- `backend/setta/types/listener.py` no longer keeps a handwritten `WebsocketMsgListenerRegister` envelope or treats register payloads as part of the inbound websocket decode union:
+  - listener registration is a Python-originated send path, not a server-originated websocket message family that needs `PythonScriptWebsocketMsgTypeAdapter`
+  - the outbound register payload now sends `messageType` plus the generated `ListenerRegisterRequest` content directly, and the register-inspection tests validate that SDK contract payload instead of routing it back through the inbound listener adapter
 - `backend/setta/types/listener.py` no longer keeps a handwritten `ListenerInitContent` wrapper:
   - the generated Go-owned init request/message models now carry the wire shape directly
   - the only remaining bootstrap requirement, that either `projectConfigId` or `projectName` must be provided, is enforced at the actual listener bootstrap call site instead of through a separate Python schema subclass
