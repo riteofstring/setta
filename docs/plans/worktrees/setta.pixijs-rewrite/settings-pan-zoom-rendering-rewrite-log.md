@@ -171,3 +171,38 @@ Record:
       - confirmed the stage visuals stepped from minimal placeholders to static benchmark rows to real param containers
 - Next action:
   - Start the cleanup-first non-Pixi pass on the dict/param cluster, using the restored branch-local harness as the baseline verification path for the first vertical slice.
+
+## 2026-03-26 007
+
+- Item: Capture the pre-edit CDP baseline for the first dict/param cleanup slice.
+- Status: `blocked`
+- Details:
+  - Intended subtask:
+    - start the cleanup-first non-Pixi pass on `frontend/src/components/Params/ParamContainer.tsx`
+    - use the branch-local `All Settings` benchmark harness as the pre-edit visual baseline before changing code
+  - CDP itself was reachable, but the running worktree app on `http://127.0.0.1:3043/settings` did not reach the benchmark surface.
+  - The page failed during app load with:
+    - `Failed to check server mode (status 401)`
+  - Because `/settings` never finished loading, the `All Settings` benchmark view and its dict/param rows were unavailable.
+  - Per the repo verification rules, the required CDP visual baseline could not be completed, so the cleanup refactor was not started in this iteration.
+- Next action:
+  - Restart `ai.sh` for this worktree so the `/settings` app session can load cleanly, then retry the pre-edit CDP baseline before touching the dict/param cluster.
+
+## 2026-03-26 008
+
+- Item: Retry the pre-edit CDP baseline gate for the first dict/param cleanup slice after worktree restart.
+- Status: `done`
+- Details:
+  - Used the current worktree bootstrap URL to establish the authenticated app session:
+    - `http://127.0.0.1:8043/__setta__/bootstrap#token=...`
+  - Confirmed the bootstrap redirect landed on the current worktree frontend origin:
+    - `http://127.0.0.1:3043/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8043`
+  - Opened `http://127.0.0.1:3043/settings` and verified the earlier `Failed to check server mode (status 401)` issue was no longer present.
+  - Verified via Chrome DevTools MCP that:
+    - `/settings` loaded successfully
+    - backend calls relevant to settings/auth refresh returned `200`
+    - the `All Settings` view was open
+    - the pre-edit baseline surface for the first slice was present, including the dict/param area and benchmark rows such as `Dict` and `Param Defaults`
+  - This satisfies the pre-edit CDP visual baseline gate required before starting the cleanup-first non-Pixi pass on the dict/param cluster.
+- Next action:
+  - Start the cleanup-first non-Pixi pass on `frontend/src/components/Params/ParamContainer.tsx`, with tests added or updated before behavior changes.
