@@ -250,12 +250,7 @@ type CreateChildSectionsViaIncrementerRequestInput struct {
 
 type CreateChildSectionsResponse projectstate.CreateChildSectionsResult
 
-type DeleteChildSectionsViaDecrementerRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	CalledBy        string  `json:"calledBy"`
-	NumChildren     int     `json:"numChildren"`
-}
+type DeleteChildSectionsViaDecrementerRequestInput httpapi.DeleteChildSectionsViaDecrementerRequest
 
 type DeleteChildSectionsViaDecrementerResponse projectstate.DeleteSectionsResult
 
@@ -272,17 +267,9 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
-type PrepareSectionsForCopyRequestInput struct {
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionIDs      []string `json:"sectionIds"`
-}
+type PrepareSectionsForCopyRequestInput httpapi.PrepareSectionsForCopyRequest
 
-type PasteSectionsRequestInput struct {
-	ProjectConfigID string                                         `json:"projectConfigId"`
-	Data            ClipboardProjectStateCoreWithSectionVariantMap `json:"data"`
-	Position        Position                                       `json:"position"`
-	AsRef           bool                                           `json:"asRef"`
-}
+type PasteSectionsRequestInput httpapi.PasteSectionsRequest
 
 type SectionsClipboardDataResponse struct{}
 
@@ -583,17 +570,7 @@ type ProjectConfig = projectview.ProjectConfig
 
 type ClipboardProjectStateCoreWithSectionVariantMap = projectstate.ClipboardProjectStateCoreWithSectionVariantMap
 
-type CreateTopLevelSectionRequestInput struct {
-	FrontendOpID       *string                               `json:"frontendOpId,omitempty"`
-	ProjectConfigID    string                                `json:"projectConfigId"`
-	ImplType           string                                `json:"implType"`
-	ControlCodeObjType *string                               `json:"controlCodeObjType,omitempty"`
-	ImplOverrides      *map[string]any                       `json:"implOverrides,omitempty"`
-	Position           *Position                             `json:"position,omitempty"`
-	Name               *string                               `json:"name,omitempty"`
-	TopLevelSections   map[string]TopLevelSectionLayoutInput `json:"topLevelSections,omitempty"`
-	ViewportBounds     *ViewportBoundsInput                  `json:"viewportBounds,omitempty"`
-}
+type CreateTopLevelSectionRequestInput httpapi.CreateTopLevelSectionRequest
 
 type CreateTopLevelSectionResponse projectstate.CreateTopLevelSectionResult
 
@@ -1286,44 +1263,17 @@ type SetCodeFileBindingRequestInput struct {
 	Binding         CodeFileBindingUpdate `json:"binding"`
 }
 
-type ViewportInput struct {
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
-	Zoom float64 `json:"zoom"`
-}
+type ViewportInput projectstate.Viewport
 
-type ViewportBoundsInput struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	W float64 `json:"w"`
-	H float64 `json:"h"`
-}
+type ViewportBoundsInput projectstate.ViewportBounds
 
-type TopLevelSectionLayoutInput struct {
-	X      float64  `json:"x"`
-	Y      float64  `json:"y"`
-	ZIndex int      `json:"zIndex,omitempty"`
-	W      *float64 `json:"w,omitempty"`
-	H      *float64 `json:"h,omitempty"`
-}
+type TopLevelSectionLayoutInput projectstate.TopLevelSectionLayout
 
-type SetTopLevelSectionLayoutRequestInput struct {
-	FrontendOpID     *string                               `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string                                `json:"projectConfigId"`
-	TopLevelSections map[string]TopLevelSectionLayoutInput `json:"topLevelSections"`
-}
+type SetTopLevelSectionLayoutRequestInput httpapi.SetTopLevelSectionLayoutRequest
 
-type SetViewportRequestInput struct {
-	FrontendOpID    *string        `json:"frontendOpId,omitempty"`
-	ProjectConfigID string         `json:"projectConfigId"`
-	Viewport        *ViewportInput `json:"viewport"`
-}
+type SetViewportRequestInput httpapi.SetViewportRequest
 
-type SetActiveIDsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	ActiveIDs       []string `json:"activeIds"`
-}
+type SetActiveIDsRequestInput httpapi.SetActiveIDsRequest
 
 type generatedTypeSetSpec struct {
 	Name     string

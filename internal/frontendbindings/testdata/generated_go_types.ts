@@ -6086,15 +6086,24 @@ export function createClipboardProjectStateCoreWithSectionVariantMap(options: Pa
 }
 
 
-export type TopLevelSectionLayoutInput = {
+export type TopLevelSectionLayout = {
   x: number;
   y: number;
   zIndex?: number;
   w?: number | null;
   h?: number | null;
 };
-export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
-  return options as TopLevelSectionLayoutInput;
+export function createTopLevelSectionLayout(options: Partial<TopLevelSectionLayout> = {}): TopLevelSectionLayout {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
 }
 
 
@@ -6110,15 +6119,15 @@ export function createViewportBoundsInput(options: Partial<ViewportBoundsInput> 
 
 
 export type CreateTopLevelSectionRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   implType: string;
-  controlCodeObjType?: string | null;
-  implOverrides?: Record<string, unknown> | null;
-  position?: Position | null;
-  name?: string | null;
-  topLevelSections?: Record<string, TopLevelSectionLayoutInput>;
-  viewportBounds?: ViewportBoundsInput | null;
+  controlCodeObjType: string | null;
+  implOverrides: Record<string, unknown>;
+  position: Position | null;
+  name: string | null;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  viewportBounds: ViewportBoundsInput | null;
 };
 export function createCreateTopLevelSectionRequestInput(options: Partial<CreateTopLevelSectionRequestInput> = {}): CreateTopLevelSectionRequestInput {
   return options as CreateTopLevelSectionRequestInput;
@@ -7283,27 +7292,6 @@ export type Viewport = {
 };
 export function createViewport(options: Partial<Viewport> = {}): Viewport {
   return options as Viewport;
-}
-
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(options: Partial<TopLevelSectionLayout> = {}): TopLevelSectionLayout {
-  return mergeGeneratedOptions(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
 }
 
 
@@ -9661,10 +9649,22 @@ export function createViewportInput(options: Partial<ViewportInput> = {}): Viewp
 }
 
 
+export type TopLevelSectionLayoutInput = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
+  return options as TopLevelSectionLayoutInput;
+}
+
+
 export type SetTopLevelSectionLayoutRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
-  topLevelSections: Record<string, TopLevelSectionLayoutInput>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
 };
 export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetTopLevelSectionLayoutRequestInput> = {}): SetTopLevelSectionLayoutRequestInput {
   return options as SetTopLevelSectionLayoutRequestInput;
@@ -9672,9 +9672,9 @@ export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetT
 
 
 export type SetViewportRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
-  viewport: ViewportInput | null;
+  viewport: Viewport | null;
 };
 export function createSetViewportRequestInput(options: Partial<SetViewportRequestInput> = {}): SetViewportRequestInput {
   return options as SetViewportRequestInput;
@@ -9682,7 +9682,7 @@ export function createSetViewportRequestInput(options: Partial<SetViewportReques
 
 
 export type SetActiveIDsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   activeIds: Array<string>;
 };
