@@ -4,13 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
-SETTA_CLI_HELPER="${ROOT_DIR}/scripts/lib/setta_cli_command.sh"
-if [[ ! -f "${SETTA_CLI_HELPER}" ]]; then
-  echo "Missing Setta CLI helper: ${SETTA_CLI_HELPER}" >&2
-  exit 1
-fi
-# shellcheck source=/dev/null
-. "${SETTA_CLI_HELPER}"
 
 stop_setta_sessions() {
   if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
@@ -18,9 +11,9 @@ stop_setta_sessions() {
     source "${ROOT_DIR}/activate.sh"
   fi
 
-  if setta_cli_command_init "${ROOT_DIR}"; then
+  if command -v setta >/dev/null 2>&1; then
     local stop_output=""
-    if ! stop_output="$("${SETTA_CLI_CMD[@]}" stop --all -w "${WORKTREE_ROOT}" 2>&1)"; then
+    if ! stop_output="$(setta stop --all -w "${WORKTREE_ROOT}" 2>&1)"; then
       if [[ "${stop_output}" == *"No matching Setta sessions found."* ]]; then
         echo "No matching Setta sessions found."
       else
@@ -30,7 +23,7 @@ stop_setta_sessions() {
       echo "${stop_output}"
     fi
   else
-    echo "Unable to resolve Setta CLI; skipping session stop." >&2
+    echo "setta not on PATH; skipping session stop." >&2
   fi
 }
 
