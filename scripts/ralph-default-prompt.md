@@ -8,8 +8,6 @@ Execution rules:
 - Make a descriptive git commit after each concrete completed subtask.
 - Prefer the narrowest relevant tests and verification for the work you changed.
 - For UI work, do not claim visual verification without the required CDP check.
-- Never work in the `main` worktree or on the `main` branch. `main` is a pristine reference only.
-- Make changes only in the current non-main worktree.
 
 Sub-agent rules:
 - Use sub-agents for any Chrome DevTools MCP or CDP verification so the main chat context stays clean.
