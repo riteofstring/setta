@@ -6555,7 +6555,7 @@ export function createDeleteViewModeRequestInput(
 }
 
 export type SetSectionNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   name: string;
@@ -6587,7 +6587,7 @@ export function createDeclineRenameRefactorRequestInput(
 }
 
 export type ToggleSectionVisibilityRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
@@ -6609,7 +6609,7 @@ export function createAutoLayoutTopLevelSectionsRequestInput(
 }
 
 export type SetShowParamDisplayNamesRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   showParamDisplayNames: boolean;
 };
@@ -6620,7 +6620,7 @@ export function createSetShowParamDisplayNamesRequestInput(
 }
 
 export type TogglePositionLocksRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
@@ -6631,7 +6631,7 @@ export function createTogglePositionLocksRequestInput(
 }
 
 export type ToggleMinimizedRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -6642,10 +6642,10 @@ export function createToggleMinimizedRequestInput(
 }
 
 export type SetSectionTagColorRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
-  tagColor?: string | null;
+  tagColor: string | null;
 };
 export function createSetSectionTagColorRequestInput(
   options: Partial<SetSectionTagColorRequestInput> = {},
@@ -6654,10 +6654,10 @@ export function createSetSectionTagColorRequestInput(
 }
 
 export type SetSectionStyleColorRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
-  styleColor?: string | null;
+  styleColor: string | null;
 };
 export function createSetSectionStyleColorRequestInput(
   options: Partial<SetSectionStyleColorRequestInput> = {},
@@ -6666,7 +6666,7 @@ export function createSetSectionStyleColorRequestInput(
 }
 
 export type GetLatestProjectStateRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
 };
 export function createGetLatestProjectStateRequestInput(
@@ -6724,7 +6724,7 @@ export function createSetCallableResponse(
 }
 
 export type SetCallableRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   callableName: string;
@@ -6737,7 +6737,7 @@ export function createSetCallableRequestInput(
 }
 
 export type SetCodeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   code: string;
@@ -6749,7 +6749,7 @@ export function createSetCodeRequestInput(
 }
 
 export type FormatCodeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
 };

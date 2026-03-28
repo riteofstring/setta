@@ -355,20 +355,11 @@ type SettaProjectConfigDiagnostics projectstate.ProjectConfigDiagnostics
 
 type SettaLspDiagnosticsPayload projectstate.LSPDiagnosticsPayload
 
-type GetLatestLspDiagnosticsRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type GetLatestLspDiagnosticsRequestInput httpapi.GetLatestLSPDiagnosticsRequest
 
-type TypeCheckRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type TypeCheckRequestInput httpapi.TypeCheckRequest
 
-type SetTypeErrorIgnoreRequestInput struct {
-	ProjectConfigID  string  `json:"projectConfigId"`
-	SectionID        string  `json:"sectionId"`
-	ParamInfoID      *string `json:"paramInfoId"`
-	IgnoreTypeErrors bool    `json:"ignoreTypeErrors"`
-}
+type SetTypeErrorIgnoreRequestInput httpapi.SetTypeErrorIgnoreRequest
 
 type AppGenSkillEntry appgenskills.SkillEntry
 
@@ -378,11 +369,7 @@ type GetAppGenSkillContentRequestInput httpapi.GetAppGenSkillContentRequest
 
 type AppGenSkillContent appgenskills.SkillContent
 
-type UpsertAppGenCustomSkillRequestInput struct {
-	SkillID      *string `json:"skillId"`
-	RelativePath *string `json:"relativePath"`
-	Content      string  `json:"content"`
-}
+type UpsertAppGenCustomSkillRequestInput httpapi.UpsertAppGenCustomSkillRequest
 
 type UpsertAppGenCustomSkillResponse appgenskills.UpsertCustomSkillResponse
 

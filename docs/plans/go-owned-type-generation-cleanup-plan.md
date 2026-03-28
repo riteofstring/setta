@@ -337,8 +337,28 @@ That means:
     - `GetAppGenSkillsResponse -> appgenskills.GetSkillsResponse`
     - `GetAppGenSkillContentRequestInput -> httpapi.GetAppGenSkillContentRequest`
     - `AppGenSkillContent -> appgenskills.SkillContent`
+    - `UpsertAppGenCustomSkillRequestInput -> httpapi.UpsertAppGenCustomSkillRequest`
     - `UpsertAppGenCustomSkillResponse -> appgenskills.UpsertCustomSkillResponse`
   - `internal/httpapi` now exports the app-gen skill route request structs, so `frontendbindings` can alias the real route-contract owners instead of repeating those request shapes locally
+  - more exported LSP and project-route request contracts now also point at exact `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `GetLatestLspDiagnosticsRequestInput -> httpapi.GetLatestLSPDiagnosticsRequest`
+    - `TypeCheckRequestInput -> httpapi.TypeCheckRequest`
+    - `SetTypeErrorIgnoreRequestInput -> httpapi.SetTypeErrorIgnoreRequest`
+    - `GetLatestProjectStateRequestInput -> httpapi.GetLatestProjectStateRequest`
+    - `UndoRequestInput -> httpapi.UndoRequest`
+    - `RedoRequestInput -> httpapi.RedoRequest`
+    - `SetSectionNameRequestInput -> httpapi.SetSectionNameRequest`
+    - `AcceptRenameRefactorRequestInput -> httpapi.AcceptRenameRefactorRequest`
+    - `DeclineRenameRefactorRequestInput -> httpapi.DeclineRenameRefactorRequest`
+    - `ToggleSectionVisibilityRequestInput -> httpapi.ToggleSectionVisibilityRequest`
+    - `SetShowParamDisplayNamesRequestInput -> httpapi.SetShowParamDisplayNamesRequest`
+    - `TogglePositionLocksRequestInput -> httpapi.TogglePositionLocksRequest`
+    - `ToggleMinimizedRequestInput -> httpapi.ToggleMinimizedRequest`
+    - `SetSectionTagColorRequestInput -> httpapi.SetSectionTagColorRequest`
+    - `SetSectionStyleColorRequestInput -> httpapi.SetSectionStyleColorRequest`
+    - `SetCallableRequestInput -> httpapi.SetCallableRequest`
+    - `SetCodeRequestInput -> httpapi.SetCodeRequest`
+    - `FormatCodeRequestInput -> httpapi.FormatCodeRequest`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

@@ -664,28 +664,13 @@ type DeleteViewModeRequestInput struct {
 	ViewModeID      string  `json:"viewModeId"`
 }
 
-type SetSectionNameRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	Name            string  `json:"name"`
-}
+type SetSectionNameRequestInput httpapi.SetSectionNameRequest
 
-type AcceptRenameRefactorRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	FrontendOpID    string `json:"frontendOpId"`
-}
+type AcceptRenameRefactorRequestInput httpapi.AcceptRenameRefactorRequest
 
-type DeclineRenameRefactorRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	FrontendOpID    string `json:"frontendOpId"`
-}
+type DeclineRenameRefactorRequestInput httpapi.DeclineRenameRefactorRequest
 
-type ToggleSectionVisibilityRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionIDs      []string `json:"sectionIds"`
-}
+type ToggleSectionVisibilityRequestInput httpapi.ToggleSectionVisibilityRequest
 
 type AutoLayoutTopLevelSectionsRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -693,52 +678,21 @@ type AutoLayoutTopLevelSectionsRequestInput struct {
 	Margin          *int    `json:"margin,omitempty"`
 }
 
-type SetShowParamDisplayNamesRequestInput struct {
-	FrontendOpID          *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID       string  `json:"projectConfigId"`
-	ShowParamDisplayNames bool    `json:"showParamDisplayNames"`
-}
+type SetShowParamDisplayNamesRequestInput httpapi.SetShowParamDisplayNamesRequest
 
-type TogglePositionLocksRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionIDs      []string `json:"sectionIds"`
-}
+type TogglePositionLocksRequestInput httpapi.TogglePositionLocksRequest
 
-type ToggleMinimizedRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-}
+type ToggleMinimizedRequestInput httpapi.ToggleMinimizedRequest
 
-type SetSectionTagColorRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	TagColor        *string `json:"tagColor,omitempty"`
-}
+type SetSectionTagColorRequestInput httpapi.SetSectionTagColorRequest
 
-type SetSectionStyleColorRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	StyleColor      *string `json:"styleColor,omitempty"`
-}
+type SetSectionStyleColorRequestInput httpapi.SetSectionStyleColorRequest
 
-type GetLatestProjectStateRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-}
+type GetLatestProjectStateRequestInput httpapi.GetLatestProjectStateRequest
 
-type UndoRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	Steps           int    `json:"steps"`
-}
+type UndoRequestInput httpapi.UndoRequest
 
-type RedoRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	Steps           int    `json:"steps"`
-}
+type RedoRequestInput httpapi.RedoRequest
 
 type SetCallableChildCodeObj projectstate.SetCallableChildCodeObj
 
@@ -746,26 +700,11 @@ type SignatureHelpStatus projectstate.SignatureHelpStatus
 
 type SetCallableResponse projectstate.SetCallableResponse
 
-type SetCallableRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	CallableName    string  `json:"callableName"`
-	RefetchParams   bool    `json:"refetchParams"`
-}
+type SetCallableRequestInput httpapi.SetCallableRequest
 
-type SetCodeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	Code            string  `json:"code"`
-}
+type SetCodeRequestInput httpapi.SetCodeRequest
 
-type FormatCodeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-}
+type FormatCodeRequestInput httpapi.FormatCodeRequest
 
 type SetCallableHideParamsRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
