@@ -3598,6 +3598,43 @@ Record:
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining standalone target-resolution/store-selection seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` before any broad Pixi node drawing lands.
 
+## 2026-03-28 125
+
+- Item: Lift the remaining standalone target-resolution/store-selection seam into a pure helper above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`.
+- Status: `blocked`
+- Details:
+  - Added a pure typed target-state helper under the standalone page target boundary:
+    - `frontend/src/components/Pages/Project/standaloneProjectSurfacePageTargetState.ts`
+    - `frontend/src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx` to:
+    - select the required project/share/AI slices once
+    - delegate standalone chat / section / window-space target resolution plus page-state input shaping through the new helper
+  - Verification before the blocker:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+      - result: passed
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts`
+      - first result: failed
+      - failure: later unrelated case `re-hydrates the same standalone thread id when navigating across project configs`
+      - note: the first three standalone-route cases had already passed before the run stopped on the unrelated failure
+    - Playwright rerun with the narrow relevant route slice:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+      - result: passed (`3 passed`)
+  - Required Chrome DevTools MCP visual gate:
+    - fresh sub-agent check on the current worktree app at `http://127.0.0.1:3044`
+      - `http://127.0.0.1:3044/settings/chat` rendered normally
+      - `http://127.0.0.1:3044/settings/section/languageserver` did not render normally and was covered by the React error overlay
+      - the visible stack pointed at `getCurrSectionVariantId` / `buildLiveDictAreaSectionState`
+    - attempted the one allowed local self-recovery with `./aireset.sh`
+      - restarted the worktree session on `http://127.0.0.1:3046/` and `http://127.0.0.1:8046`
+      - retry CDP check after bootstrap on the restarted session:
+        - `http://127.0.0.1:3046/settings/chat` rendered normally
+        - `http://127.0.0.1:3046/settings/section/languageserver` still hit the same React error overlay
+  - Because the required live CDP gate still fails after the one allowed self-recovery, this slice is not being marked complete or committed in this iteration.
+- Next action:
+  - Investigate and fix the live standalone section-route failure on the `languageserver` route (stack starting at `getCurrSectionVariantId` / `buildLiveDictAreaSectionState`), then rerun the narrowed standalone-route Playwright slice plus CDP verification before committing the target-boundary extraction.
+
 ## 2026-03-27 125
 
 - Item: Lift the remaining standalone target-resolution/store-selection seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`.
@@ -5538,3 +5575,33 @@ Record:
     - representative successful requests included `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `GET /api/getAgentRuns`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`, starting with `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`.
+
+## 2026-03-28 187
+
+- Item: Lift the route-bundle-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the router route-element bundle now owns the default `SectionContainerBoundary` handoff above the home/project/share/catch-all route-element builder:
+    - `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`
+    - `frontend/src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`
+    - `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `modeWrappedRouterRouteElements.ts` now explicitly owning the default project/share `SectionContainerBoundary` dependency while still assembling the same route-element bundles
+    - `modeWrappedHomeProjectCatchAllRouteElements.tsx` shrinking into a thinner route-element builder that receives a caller-owned `SectionBoundary` and still produces the same home, project, share, and catch-all route bundles
+    - the project/share route elements still passing the same boundary through to `MainContainer` and `ShareMainContainer`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx src/components/Pages/modeWrappedRouterRouteElements.ts src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - the verifier created a fresh project from `/home` and verified the resulting live project route `http://127.0.0.1:3044/rapid_gentle`
+    - the visible `/home` and live project shells rendered cleanly with no obvious unintended clipping or overlap; the floating chat window overlap on the project route was expected
+    - representative visible labels included `WORKSPACE BROWSER`, `WORKSPACE PROJECTS`, `Create a New Project!`, `Project`, `Edit`, `Run`, `pixijs-rewrite`, `GENERATED PYTHON CODE`, `Chat Window 1`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, and `Select A Section to Edit`
+    - representative successful requests included `POST /api/createProjectConfig`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`, all returning `200`
+    - self-recovery was not needed
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.

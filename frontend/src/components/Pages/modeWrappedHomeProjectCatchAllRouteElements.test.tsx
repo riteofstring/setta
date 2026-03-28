@@ -34,15 +34,6 @@ vi.mock("components/Pages/NotFound/NotFound", () => ({
   NotFound: () => <div data-testid="mock-not-found" />,
 }));
 
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-section-container-boundary"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("components/Pages/Share/ShareMainContainer", () => ({
   ShareMainContainer: ({
     doneLoading,
@@ -102,10 +93,18 @@ vi.mock("./Project/MainContainer", () => ({
 }));
 
 describe("buildModeWrappedHomeProjectCatchAllRouteElements", () => {
+  const MockSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+    <div
+      data-testid="mock-section-container-boundary"
+      data-section-id={sectionId}
+    />
+  );
+
   it("owns the lifted home/project/catch-all route-element bundles above router.tsx", () => {
     const routeElements = buildModeWrappedHomeProjectCatchAllRouteElements({
       appRouteElement: <div data-testid="mock-app-route" />,
       launcherHomeRouteElement: <div data-testid="mock-launcher-route" />,
+      SectionBoundary: MockSectionBoundary,
     });
 
     const ideHomeMarkup = renderToStaticMarkup(

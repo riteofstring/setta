@@ -1,3 +1,4 @@
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import type { BuildModeWrappedAppRouteStackArgs } from "./modeWrappedAppRouteStack";
 import { buildModeWrappedHomeProjectCatchAllRouteElements } from "./modeWrappedHomeProjectCatchAllRouteElements";
 import { buildModeWrappedIndexWorkspaceLaunchRouteElements } from "./modeWrappedIndexWorkspaceLaunchRouteElements";
@@ -25,6 +26,7 @@ export function buildModeWrappedRouterRouteElements(): ModeWrappedRouterRouteEle
     buildModeWrappedHomeProjectCatchAllRouteElements({
       appRouteElement,
       launcherHomeRouteElement,
+      SectionBoundary: SectionContainerBoundary,
     });
   const { indexRouteElements, workspaceLaunchRouteElements } =
     buildModeWrappedIndexWorkspaceLaunchRouteElements({

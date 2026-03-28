@@ -5,8 +5,7 @@ import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { memo } from "react";
 import { Navigate } from "react-router-dom";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
@@ -22,6 +21,7 @@ type ShareRouteRenderState = {
 type BuildModeWrappedHomeProjectCatchAllRouteElementsArgs = {
   appRouteElement: ReactNode;
   launcherHomeRouteElement: ReactNode;
+  SectionBoundary: ComponentType<{ sectionId: string }>;
 };
 
 type ModeWrappedHomeProjectCatchAllRouteElements = Pick<
@@ -69,13 +69,17 @@ function _IdeHomeRouteElement() {
 
 const IdeHomeRouteElement = memo(_IdeHomeRouteElement);
 
-function _IdeProjectRouteElement() {
+function _IdeProjectRouteElement({
+  SectionBoundary,
+}: {
+  SectionBoundary: ComponentType<{ sectionId: string }>;
+}) {
   return (
     <GlobalWrapper>
       <ModalContainer>
         <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
         <ModeWrappedRouteGridContainer>
-          <MainContainer SectionBoundary={SectionContainerBoundary} />
+          <MainContainer SectionBoundary={SectionBoundary} />
         </ModeWrappedRouteGridContainer>
       </ModalContainer>
     </GlobalWrapper>
@@ -84,7 +88,11 @@ function _IdeProjectRouteElement() {
 
 const IdeProjectRouteElement = memo(_IdeProjectRouteElement);
 
-function _ShareProjectRouteElement() {
+function _ShareProjectRouteElement({
+  SectionBoundary,
+}: {
+  SectionBoundary: ComponentType<{ sectionId: string }>;
+}) {
   return (
     <ShareWrapper>
       {({ doneLoading, is404 }: ShareRouteRenderState) => (
@@ -94,7 +102,7 @@ function _ShareProjectRouteElement() {
             <ShareMainContainer
               doneLoading={doneLoading}
               is404={is404}
-              SectionBoundary={SectionContainerBoundary}
+              SectionBoundary={SectionBoundary}
             />
           </ModeWrappedRouteGridContainer>
         </ModalContainer>
@@ -157,6 +165,7 @@ const ShareNotFoundRouteElement = memo(_ShareNotFoundRouteElement);
 export function buildModeWrappedHomeProjectCatchAllRouteElements({
   appRouteElement,
   launcherHomeRouteElement,
+  SectionBoundary,
 }: BuildModeWrappedHomeProjectCatchAllRouteElementsArgs): ModeWrappedHomeProjectCatchAllRouteElements {
   return {
     homeRouteElements: {
@@ -166,8 +175,8 @@ export function buildModeWrappedHomeProjectCatchAllRouteElements({
       launcher: launcherHomeRouteElement,
     },
     projectRouteElements: {
-      ide: <IdeProjectRouteElement />,
-      share: <ShareProjectRouteElement />,
+      ide: <IdeProjectRouteElement SectionBoundary={SectionBoundary} />,
+      share: <ShareProjectRouteElement SectionBoundary={SectionBoundary} />,
       app: appRouteElement,
       launcher: <Navigate to={HOME_ROUTER_PATH} replace />,
     },

@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import type { ModeRouteElements } from "./modeRouteResolver";
 import { buildModeWrappedHomeProjectCatchAllRouteElements } from "./modeWrappedHomeProjectCatchAllRouteElements";
 import { buildModeWrappedIndexWorkspaceLaunchRouteElements } from "./modeWrappedIndexWorkspaceLaunchRouteElements";
@@ -19,6 +19,10 @@ vi.mock("./modeWrappedIndexWorkspaceLaunchRouteElements", () => ({
   buildModeWrappedIndexWorkspaceLaunchRouteElements: vi.fn(),
 }));
 
+vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
+  SectionContainerBoundary: vi.fn(),
+}));
+
 function createModeRouteElements(label: string): ModeRouteElements {
   return {
     ide: <div data-testid={`${label}-ide`} />,
@@ -29,11 +33,9 @@ function createModeRouteElements(label: string): ModeRouteElements {
 }
 
 describe("buildModeWrappedRouterRouteElements", () => {
-  it("owns the lifted route-element bundle assembly above modeWrappedRouterArgs.tsx", () => {
+  it("owns the lifted route-element bundle assembly and section-boundary seam above modeWrappedRouterArgs.tsx", () => {
     const appRouteElement = <div data-testid="standalone-app-route" />;
-    const launcherHomeRouteElement = (
-      <div data-testid="launcher-home-route" />
-    );
+    const launcherHomeRouteElement = <div data-testid="launcher-home-route" />;
     const standaloneAppRouteElement = (
       <div data-testid="standalone-app-route-copy" />
     );
@@ -55,13 +57,13 @@ describe("buildModeWrappedRouterRouteElements", () => {
       standaloneAppRouteElement,
       standaloneLauncherRouteElement,
     });
-    vi.mocked(
-      buildModeWrappedHomeProjectCatchAllRouteElements,
-    ).mockReturnValue({
-      homeRouteElements,
-      projectRouteElements,
-      catchAllRouteElements,
-    });
+    vi.mocked(buildModeWrappedHomeProjectCatchAllRouteElements).mockReturnValue(
+      {
+        homeRouteElements,
+        projectRouteElements,
+        catchAllRouteElements,
+      },
+    );
     vi.mocked(
       buildModeWrappedIndexWorkspaceLaunchRouteElements,
     ).mockReturnValue({
@@ -79,6 +81,7 @@ describe("buildModeWrappedRouterRouteElements", () => {
     ).toHaveBeenCalledWith({
       appRouteElement,
       launcherHomeRouteElement,
+      SectionBoundary: SectionContainerBoundary,
     });
     expect(
       buildModeWrappedIndexWorkspaceLaunchRouteElements,
