@@ -2,16 +2,14 @@ import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindow
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AreaSwitch,
-  SectionContainerCoreResizable,
-} from "./SectionContainerCoreResizabe";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
+import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import { SectionCanvasBody } from "./SectionCanvasBody";
 
 type MockProjectState = {
   projectConfig: {
@@ -20,12 +18,26 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
+let mockBenchmark = {
+  active: false,
+  stage: "full" as const,
+  renderSectionHeader: true,
+  renderSectionBody: true,
+  renderFullSectionBody: true,
+  renderStaticParamList: false,
+  renderSectionHandles: true,
+};
+
 let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-1",
   },
   projectChatWindowing: createProjectChatWindowingState(),
 };
+
+vi.mock("components/Pages/Project/settingsAllSettingsBenchmark", () => ({
+  useSettingsAllSettingsBenchmark: () => mockBenchmark,
+}));
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -130,8 +142,27 @@ vi.mock("../Layouts/CallableArea", () => ({
 vi.mock("../Layouts/ChartArea/ChartArea", () => ({
   ChartArea: () => <div data-testid="mock-chart-area" />,
 }));
-vi.mock("../Layouts/DictArea", () => ({
-  DictArea: () => <div data-testid="mock-dict-area" />,
+vi.mock("../Layouts/LiveDictAreaLayout", () => ({
+  LiveDictAreaLayout: ({
+    paramGroupContainerProps,
+  }: {
+    paramGroupContainerProps: {
+      sectionId: string;
+    };
+  }) => (
+    <div data-testid="mock-live-dict-area-layout">
+      live-dict:{paramGroupContainerProps.sectionId}
+    </div>
+  ),
+}));
+vi.mock("../Layouts/SettingsAllSettingsBenchmarkDictArea", () => ({
+  SettingsAllSettingsBenchmarkDictArea: ({
+    sectionId,
+  }: {
+    sectionId: string;
+  }) => (
+    <div data-testid="mock-benchmark-dict-area">benchmark-dict:{sectionId}</div>
+  ),
 }));
 vi.mock("../Layouts/DrawArea/DrawArea", () => ({
   DrawArea: () => <div data-testid="mock-draw-area" />,
@@ -183,6 +214,15 @@ vi.mock("./TextBlockMetaControlMenuButton", () => ({
 
 describe("SectionContainerCoreResizable", () => {
   beforeEach(() => {
+    mockBenchmark = {
+      active: false,
+      stage: "full",
+      renderSectionHeader: true,
+      renderSectionBody: true,
+      renderFullSectionBody: true,
+      renderStaticParamList: false,
+      renderSectionHandles: true,
+    };
     mockProjectState = {
       projectConfig: {
         id: "project-1",
@@ -211,13 +251,12 @@ describe("SectionContainerCoreResizable", () => {
     };
 
     const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
+      <SectionContainerCoreCanvasBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
+        bgColor="bg-setta-50"
+        isMinimized={false}
         isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
       />,
     );
 
@@ -226,22 +265,39 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-testid="mock-code-area"');
   });
 
-  it("routes workspace section windows through the section-owned surface id", () => {
+  it("renders children inside the resizable shell after lifting the core body boundary", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        bgColor="bg-setta-50"
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+        textBlockMetaControlStyle={false}
+      >
+        <div data-testid="mock-core-body">body:section-123</div>
+      </SectionContainerCoreResizable>,
+    );
+
+    expect(markup).toContain('data-testid="mock-core-body"');
+    expect(markup).toContain("body:section-123");
+  });
+
+  it("routes chat sections through the section-owned surface id on the section layout host", () => {
+    const markup = renderToStaticMarkup(
+      <SectionCanvasBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
         isMinimized={false}
         isUserView={false}
-        chatHost={ChatWindowPlacementEnum.floating}
-        chatModeOverride={ChatWindowModeEnum.section_mode}
       />,
     );
 
     expect(markup).toContain('data-testid="mock-unified-chat-surface"');
-    expect(markup).toContain('data-mode="section_mode"');
-    expect(markup).toContain('data-host="floating"');
+    expect(markup).toContain('data-host="section_layout"');
     expect(markup).toContain('data-section-id="section-123"');
     expect(markup).toContain(
       `data-surface-id="${buildWorkspaceSectionProjectChatSurfaceId("project-1", "section-123")}"`,
@@ -250,27 +306,59 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-project-chat-controlled="false"');
   });
 
-  it("preserves explicit standalone thread ownership overrides", () => {
+  it("suppresses minimized section bodies that stay on the main canvas", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionCanvasBody
         sectionId="section-123"
-        sectionTypeName={SectionTypeEnum.Chat}
+        sectionTypeName={SectionTypeEnum.Code}
         bgColor="bg-setta-50"
-        isMinimized={false}
+        isMinimized={true}
         isUserView={false}
-        chatHost="standalone_page"
-        chatModeOverride={ChatWindowModeEnum.section_mode}
-        projectChatSurfaceId="standalone-window-space:project-1:space-1:window-1"
-        projectChatId="saved-thread"
-        setProjectChatId={() => {}}
       />,
     );
 
-    expect(markup).toContain('data-host="standalone_page"');
-    expect(markup).toContain(
-      'data-surface-id="standalone-window-space:project-1:space-1:window-1"',
+    expect(markup).toBe("");
+  });
+
+  it("routes dict sections through the live dict layout outside the reduced benchmark shell", () => {
+    const markup = renderToStaticMarkup(
+      <SectionCanvasBody
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Dict}
+        bgColor="bg-setta-50"
+        isMinimized={false}
+        isUserView={false}
+      />,
     );
-    expect(markup).toContain('data-project-chat-id="saved-thread"');
-    expect(markup).toContain('data-project-chat-controlled="true"');
+
+    expect(markup).toContain('data-testid="mock-live-dict-area-layout"');
+    expect(markup).toContain("live-dict:section-123");
+    expect(markup).not.toContain('data-testid="mock-benchmark-dict-area"');
+  });
+
+  it("routes dict sections through the benchmark shell when the benchmark disables the full body", () => {
+    mockBenchmark = {
+      active: true,
+      stage: "section-body-shell",
+      renderSectionHeader: true,
+      renderSectionBody: true,
+      renderFullSectionBody: false,
+      renderStaticParamList: false,
+      renderSectionHandles: false,
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionCanvasBody
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Dict}
+        bgColor="bg-setta-50"
+        isMinimized={false}
+        isUserView={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-benchmark-dict-area"');
+    expect(markup).toContain("benchmark-dict:section-123");
+    expect(markup).not.toContain('data-testid="mock-live-dict-area-layout"');
   });
 });
