@@ -57,6 +57,8 @@ from setta.types.generated.go_shared_types import (
     CodeObjType,
     ListenerDependencyMode,
     ListenerErrorMessage,
+    ListenerFrontendEmitMessage,
+    ListenerInitMessage,
     ListenerMessageType,
     ListenerRegisterAckMessage,
     ListenerRouterEndpointCallContent,
@@ -74,8 +76,6 @@ from setta.types.listener import (
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerForceRefresh,
-    WebsocketMsgListenerFrontendEmit,
-    WebsocketMsgListenerInit,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
 )
@@ -1292,7 +1292,10 @@ class SettaListener:
             projectName=self._project_name,
             useTemporaryIds=self._use_temporary_ids,
         )
-        message = WebsocketMsgListenerInit(content=content)
+        message = ListenerInitMessage(
+            messageType=ListenerMessageType.ListenerInit,
+            content=content.model_dump(mode="python"),
+        )
         payload = message.model_dump_json()
         logger.debug("Listener %s sending bootstrap init", self._log_identifier)
         try:
@@ -1929,12 +1932,13 @@ class SettaListener:
                 "emit_to_frontend requires at least one dependency value or artifact update"
             )
         project_config_id = self._require_project_id()
-        message = WebsocketMsgListenerFrontendEmit(
+        message = ListenerFrontendEmitMessage(
+            messageType=ListenerMessageType.ListenerFrontendEmit,
             content=ListenerFrontendEmitRequest(
                 projectConfigId=project_config_id,
                 dependencyValues=serialized_values,
                 artifactUpdates=serialized_artifact_updates,
-            )
+            ).model_dump(mode="python"),
         )
         logger.debug(
             "Listener %s emitting dependency overrides %s and artifact updates %s",

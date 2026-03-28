@@ -22,6 +22,7 @@ from setta.sdk_contracts.generated import (
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
+from setta.types.artifact import BaseArtifactTypeAdapter
 from setta.types.generated.go_shared_types import (
     BinaryContentRef,
     BinaryDependencyValue,
@@ -30,6 +31,7 @@ from setta.types.generated.go_shared_types import (
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerErrorMessage,
+    ListenerFrontendEmitMessage,
     ListenerMessageType,
     LiteralDependencyValue,
     ParameterPassingStyle,
@@ -44,7 +46,6 @@ from setta.types.listener import (
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerForceRefresh,
-    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.project_config import (
@@ -388,14 +389,14 @@ class TestSettaListenerRealtimeIntegration:
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        assert isinstance(parsed_message, WebsocketMsgListenerFrontendEmit)
+        assert isinstance(parsed_message, ListenerFrontendEmitMessage)
         assert parsed_message.content.dependencyValues == {}
         assert len(parsed_message.content.artifactUpdates) == 1
-        assert parsed_message.content.artifactUpdates[0].id == "listener/new-image.png"
-        assert (
-            parsed_message.content.artifactUpdates[0].value.contentId
-            == "listener-image"
+        artifact = BaseArtifactTypeAdapter.validate_python(
+            parsed_message.content.artifactUpdates[0].model_dump(mode="python")
         )
+        assert artifact.id == "listener/new-image.png"
+        assert artifact.value.contentId == "listener-image"
 
     async def test_emit_to_frontend_rejects_invalid_artifact_update_shape(
         self,

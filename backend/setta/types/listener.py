@@ -17,12 +17,7 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerForceRefreshEvent as SDKListenerForceRefreshEvent,
 )
-from setta.sdk_contracts.generated import (
-    ListenerFrontendEmitRequest as SDKListenerFrontendEmitRequest,
-)
-from setta.sdk_contracts.generated import (
-    ListenerInitRequest as SDKListenerInitRequest,
-)
+from setta.sdk_contracts.generated import ListenerInitRequest as SDKListenerInitRequest
 from setta.sdk_contracts.generated import (
     ListenerRealtimeDelta as SDKListenerRealtimeDelta,
 )
@@ -37,6 +32,8 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.generated.go_shared_types import (
     ListenerErrorMessage,
+    ListenerFrontendEmitMessage,
+    ListenerInitMessage,
     ListenerMessageType,
     ListenerRegisterAckMessage,
     ListenerRouterEndpointCallMessage,
@@ -44,12 +41,6 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.generated.go_shared_types import (
     ListenerForceRefreshMessage as GoListenerForceRefreshMessage,
-)
-from setta.types.generated.go_shared_types import (
-    ListenerFrontendEmitMessage as GoListenerFrontendEmitMessage,
-)
-from setta.types.generated.go_shared_types import (
-    ListenerInitMessage as GoListenerInitMessage,
 )
 from setta.types.generated.go_shared_types import (
     ListenerRealtimeEventMessage as GoListenerRealtimeEventMessage,
@@ -125,24 +116,10 @@ class WebsocketMsgListenerForceRefresh(GoListenerForceRefreshMessage):
     )
 
 
-class WebsocketMsgListenerFrontendEmit(GoListenerFrontendEmitMessage):
-    content: SDKListenerFrontendEmitRequest
-    messageType: Literal[ListenerMessageType.ListenerFrontendEmit] = (
-        ListenerMessageType.ListenerFrontendEmit
-    )
-
-
 class WebsocketMsgListenerRegister(GoListenerRegisterMessage):
     content: SDKListenerRegisterRequest
     messageType: Literal[ListenerMessageType.ListenerRegister] = (
         ListenerMessageType.ListenerRegister
-    )
-
-
-class WebsocketMsgListenerInit(GoListenerInitMessage):
-    content: ListenerInitContent
-    messageType: Literal[ListenerMessageType.ListenerInit] = (
-        ListenerMessageType.ListenerInit
     )
 
 
@@ -170,7 +147,7 @@ PythonScriptWebsocketMsgUnion = Annotated[
     ]
     | Annotated[ListenerErrorMessage, Tag(ListenerMessageType.ListenerError.value)]
     | Annotated[
-        WebsocketMsgListenerFrontendEmit,
+        ListenerFrontendEmitMessage,
         Tag(ListenerMessageType.ListenerFrontendEmit.value),
     ]
     | Annotated[
@@ -189,7 +166,7 @@ PythonScriptWebsocketMsgUnion = Annotated[
         ListenerRegisterAckMessage,
         Tag(ListenerMessageType.ListenerRegisterAck.value),
     ]
-    | Annotated[WebsocketMsgListenerInit, Tag(ListenerMessageType.ListenerInit.value)],
+    | Annotated[ListenerInitMessage, Tag(ListenerMessageType.ListenerInit.value)],
     Discriminator(_listener_message_type),
 ]
 

@@ -361,6 +361,10 @@ That means:
   - `ListenerRouterEndpointCall`
   - `ListenerRouterEndpointResult`
   - those message variants now use the generated Go-owned websocket envelope models directly, while the handwritten listener layer keeps only the envelopes that still add typed SDK content or validation
+- `backend/setta/types/listener.py` no longer keeps handwritten websocket envelope subclasses for:
+  - `ListenerInit`
+  - `ListenerFrontendEmit`
+  - those message variants now also use the generated Go-owned websocket envelope models directly, while Python keeps validation or artifact typing only at the real boundary that still needs it
 - `backend/setta/types/listener.py` has also dropped a private no-behavior union alias:
   - `PythonScriptWebsocketMsgUnionWithDiscriminator = PythonScriptWebsocketMsgUnion` is gone
   - the type adapter now points at the real union directly instead of preserving an internal rename layer
