@@ -222,16 +222,6 @@ def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
 
 
-def normalize_state_path(
-    path: Path | str, setta_files_root: Path | None = None
-) -> Path:
-    root = setta_files_root or get_setta_paths().setta_files_root
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate.expanduser().resolve(strict=False)
-    return (root / candidate).resolve(strict=False)
-
-
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     sanitized_leaf = _sanitize_leaf(workspace_root.name)
     # Keep the computed directory name comfortably under common filesystem name

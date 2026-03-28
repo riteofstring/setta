@@ -87,12 +87,6 @@ class ListenerForceRefreshEvent(SettaSDKContractBaseModel):
     refreshKind: str | None = None
 
 
-class ListenerInitRequest(SettaSDKContractBaseModel):
-    projectConfigId: str | None = None
-    projectName: str | None = None
-    useTemporaryIds: bool = False
-
-
 class ListenerRegisterCallbackSpec(SettaSDKContractBaseModel):
     dependencies: list[BaseDependencyKeyUnionWithDiscriminator] = Field(
         default_factory=list
@@ -108,43 +102,10 @@ class ListenerRegisterRequest(SettaSDKContractBaseModel):
     callbacks: dict[str, ListenerRegisterCallbackSpec] = Field(default_factory=dict)
 
 
-class ListenerRegisterAckStatus(SettaSDKContractBaseModel):
-    status: Literal["accepted", "rejected"]
-    message: str | None = None
-
-
-class ListenerRegisterAckEvent(SettaSDKContractBaseModel):
-    projectConfigId: str
-    shareSessionId: str | None = None
-    callbacks: dict[str, ListenerRegisterAckStatus] = Field(default_factory=dict)
-
-
-class ListenerErrorEvent(SettaSDKContractBaseModel):
-    error: str
-    details: dict[str, Any] = Field(default_factory=dict)
-
-
 class ListenerFrontendEmitRequest(SettaSDKContractBaseModel):
     projectConfigId: str
     dependencyValues: dict[str, Any] = Field(default_factory=dict)
     artifactUpdates: list[BaseArtifactUnion] = Field(default_factory=list)
-
-
-class ListenerRouterEndpointCall(SettaSDKContractBaseModel):
-    projectConfigId: str
-    callId: str
-    endpointName: str
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-
-class ListenerRouterEndpointResult(SettaSDKContractBaseModel):
-    projectConfigId: str
-    callId: str
-    ok: bool
-    result: Any | None = None
-    error: str | None = None
-    details: dict[str, Any] = Field(default_factory=dict)
-
 
 class ListenerRealtimeDelta(SettaSDKContractBaseModel):
     dependency: BaseDependencyKeyUnionWithDiscriminator
@@ -227,15 +188,9 @@ __all__ = [
     "ListenerRenderedDependencyValues",
     "ListenerSnapshot",
     "ListenerForceRefreshEvent",
-    "ListenerInitRequest",
     "ListenerRegisterCallbackSpec",
     "ListenerRegisterRequest",
-    "ListenerRegisterAckStatus",
-    "ListenerRegisterAckEvent",
-    "ListenerErrorEvent",
     "ListenerFrontendEmitRequest",
-    "ListenerRouterEndpointCall",
-    "ListenerRouterEndpointResult",
     "ListenerRealtimeDelta",
     "ListenerRealtimeEvent",
     "ListenerDependencyEventEntry",
