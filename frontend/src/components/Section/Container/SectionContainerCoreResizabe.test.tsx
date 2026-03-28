@@ -142,16 +142,14 @@ vi.mock("../Layouts/CallableArea", () => ({
 vi.mock("../Layouts/ChartArea/ChartArea", () => ({
   ChartArea: () => <div data-testid="mock-chart-area" />,
 }));
-vi.mock("../Layouts/LiveDictAreaLayout", () => ({
-  LiveDictAreaLayout: ({
-    paramGroupContainerProps,
+vi.mock("../Layouts/DictAreaLiveBoundary", () => ({
+  DictAreaLiveBoundary: ({
+    sectionId,
   }: {
-    paramGroupContainerProps: {
-      sectionId: string;
-    };
+    sectionId: string;
   }) => (
     <div data-testid="mock-live-dict-area-layout">
-      live-dict:{paramGroupContainerProps.sectionId}
+      live-dict:{sectionId}
     </div>
   ),
 }));

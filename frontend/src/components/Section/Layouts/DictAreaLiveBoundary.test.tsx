@@ -157,7 +157,7 @@ describe("DictAreaLiveBoundary", () => {
     resetProjectStores();
   });
 
-  it("keeps the live DictArea DOM path intact above the GroupContainer wrapper", () => {
+  it("keeps the live DictArea DOM path intact above the DictArea boundary seam", () => {
     seedMinimalDictAreaState();
 
     const markup = renderToStaticMarkup(
@@ -167,8 +167,15 @@ describe("DictAreaLiveBoundary", () => {
       />,
     );
 
+    const match = markup.match(
+      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-scroll[^\"]*)\"/,
+    );
+
+    expect(match).not.toBeNull();
+    const classes = (match?.[1] ?? "").split(" ");
+    expect(classes).toContain("section-args-nested");
+    expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
-    expect(markup).toContain("section-args-nested");
     expect(markup).not.toContain("Benchmark shell");
   });
 });

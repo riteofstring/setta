@@ -4280,3 +4280,36 @@ Record:
     - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getAgentRuns`, and `/api/setTopLevelSectionLayout`
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`, starting with `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 150
+
+- Item: Lift the live dict-area mount seam into `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Moved the `useGroupContainerShellBoundary(...)` ownership up into `DictAreaLiveBoundary` so the boundary now builds the shell seam for the live dict-area path and `LiveDictAreaLayout` is a pure view over:
+    - `kwargsControlsProps`
+    - `groupContainerWrapperProps`
+  - Updated the focused coverage to pin the new ownership boundary at `DictAreaLiveBoundary` and removed the now-redundant lower integration test file:
+    - `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.test.tsx`
+    - `frontend/src/components/Section/Layouts/LiveDictAreaLayout.test.tsx`
+    - `frontend/src/components/Section/Layouts/dictAreaView.test.ts`
+  - Updated the neighboring container test mock to follow the higher seam after `DictAreaLiveBoundary` became the relevant integration boundary:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - This keeps the retained-scene mount seam moving upward through the live dict-area call chain while preserving the existing non-Pixi DOM mount path for:
+    - `KwargsControls`
+    - the shell-backed dict/param surface under the DnD wrapper
+    - the ordered edge/pinned/unpinned block mount behavior
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/DictAreaLiveBoundary.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/dictAreaView.test.ts`
+    - result: passed
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the verifier bootstrapped a fresh page with the provided worktree session and confirmed `All Settings` stayed visible
+    - the visible settings shell plus dict/param content rendered without obvious clipping, overlap, or missing panels
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, and `GET /api/serverMode`
+    - no repo-level lifecycle recovery was needed
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerDictArea.tsx` before any broad Pixi node drawing lands.

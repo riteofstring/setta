@@ -59,7 +59,7 @@ describe("dictAreaView", () => {
     ]);
   });
 
-  it("builds the live DictArea layout props above the layout-owned group-container seam", () => {
+  it("builds the live DictArea layout view for the higher DictArea boundary seam", () => {
     expect(
       buildLiveDictAreaLayoutView({
         bgColor: "bg-transparent",

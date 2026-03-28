@@ -3,41 +3,24 @@ import {
   GroupContainerWrapper,
   type GroupContainerWrapperProps,
 } from "../../Params/groupContainerWrapper";
-import {
-  useGroupContainerShellBoundary,
-  type GroupContainerShellBoundary,
-} from "../../Params/groupContainerShellBoundary";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import type { LiveDictAreaLayoutView } from "./dictAreaView";
 
-export type LiveDictAreaLayoutProps = LiveDictAreaLayoutView;
-
-function buildGroupContainerWrapperProps({
-  liveDictAreaMountProps,
-  setOuterRef,
-  waitingForResult,
-}: GroupContainerShellBoundary): GroupContainerWrapperProps {
-  return {
-    liveDictAreaMountProps,
-    setOuterRef,
-    waitingForResult,
-  };
-}
+export type LiveDictAreaLayoutProps = Pick<
+  LiveDictAreaLayoutView,
+  "kwargsControlsProps"
+> & {
+  groupContainerWrapperProps: GroupContainerWrapperProps;
+};
 
 function _LiveDictAreaLayout({
+  groupContainerWrapperProps,
   kwargsControlsProps,
-  paramGroupContainerProps,
 }: LiveDictAreaLayoutProps) {
-  const groupContainerShellBoundary = useGroupContainerShellBoundary(
-    paramGroupContainerProps,
-  );
-
   return (
     <>
       <KwargsControls {...kwargsControlsProps} />
-      <GroupContainerWrapper
-        {...buildGroupContainerWrapperProps(groupContainerShellBoundary)}
-      />
+      <GroupContainerWrapper {...groupContainerWrapperProps} />
     </>
   );
 }
