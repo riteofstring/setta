@@ -5470,7 +5470,40 @@ Record:
     - result: passed
   - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
     - the verifier re-authenticated via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` and verified the live project route `http://127.0.0.1:3044/rare_sending`
-    - the live project shell rendered normally with the expected top nav, left project/chat sidebar, dotted canvas background, generated Python code panel, and floating chat window, with no obvious overlap or clipping in the visible viewport
-    - representative successful requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, and `GET /api/plugins/runtime`
+      - the live project shell rendered normally with the expected top nav, left project/chat sidebar, dotted canvas background, generated Python code panel, and floating chat window, with no obvious overlap or clipping in the visible viewport
+      - representative successful requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`MainContainerCore`-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/MainContainerCore.tsx`.
+
+## 2026-03-28 185
+
+- Item: Complete the `MainContainerCore` seam lift with the live project-route visual gate deferred.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the direct route-entry callers now own the default `SectionContainerBoundary` handoff above `MainContainerCore.tsx` instead of keeping that ownership inside the shared page-frame shell:
+    - `frontend/src/components/Pages/MainContainerCore.tsx`
+    - `frontend/src/components/Pages/MainContainerCore.test.tsx`
+    - `frontend/src/components/Pages/Project/MainContainer.tsx`
+    - `frontend/src/components/Pages/Project/MainContainer.test.tsx`
+    - `frontend/src/components/Pages/Share/ShareMainContainer.tsx`
+    - `frontend/src/components/Pages/Share/ShareMainContainer.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `MainContainerCore.tsx` shrinking into a thinner shared page-frame shell that only owns loading/not-found gating, overview/editor/chat overlays, and the caller-owned `UIPage` mount
+    - `Project/MainContainer.tsx` owning the project-route `SectionContainerBoundary` handoff above the shared shell while still reading the same `useLoadProjectConfig()` state
+    - `Share/ShareMainContainer.tsx` owning the same boundary handoff for the share route while keeping its existing loading/not-found props untouched
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/MainContainerCore.test.tsx src/components/Pages/Project/MainContainer.test.tsx src/components/Pages/Share/ShareMainContainer.test.tsx`
+      - result: passed
+    - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/MainContainerCore.tsx src/components/Pages/MainContainerCore.test.tsx src/components/Pages/Project/MainContainer.tsx src/components/Pages/Project/MainContainer.test.tsx src/components/Pages/Share/ShareMainContainer.tsx src/components/Pages/Share/ShareMainContainer.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app in fresh sub-agent contexts:
+      - first verification attempt on the original `http://127.0.0.1:3043` runtime could reach `/home`, but `/api/loadAllProjectMetadata` returned an empty project list and candidate project routes such as `/apple_jumping`, `/palm_wood`, and `/rare_sending` all resolved to `Project Not Found`
+      - per the loop recovery rule, attempted one bounded self-recovery with `./aireset.sh`, which restarted the worktree stack on `http://127.0.0.1:3044` / `http://127.0.0.1:8044`
+      - the retried verifier successfully bootstrapped and confirmed the `/home` shell rendered cleanly with the workspace browser, empty selected-project pane, and `Create a New Project!` empty state, with no obvious clipping or overlap in the visible viewport
+      - representative successful requests during the retried CDP check included `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, and `POST /api/checkWorkspaceInitialized`
+      - the live project-route canary remains untrustworthy after self-recovery because `loadAllProjectMetadata` still returned an empty `projectMetadata` array and candidate routes such as `/rare_sending` and `/walking_sand` still resolved to `Project Not Found`
+      - because this seam specifically affects the live project/share route shell above `MainContainerCore.tsx` and the running worktree currently exposes no trustworthy live project route in CDP, this slice is being treated as code-complete with the live project-route visual gate deferred rather than falsely marked visually verified
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-route-entry-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/Project/MainContainer.tsx` and `frontend/src/components/Pages/Share/ShareMainContainer.tsx`, starting with `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`.

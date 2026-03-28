@@ -2,12 +2,12 @@ import { ProjectChatBottomDock } from "components/ChatWindowing/ProjectChatBotto
 import { GitOverlayLayer } from "components/Git/GitOverlayLayer";
 import { Overview } from "components/Panes/Overview/Overview";
 import { UiEditor } from "components/Panes/UiEditor/UiEditor";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
+import { type ComponentType } from "react";
 import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
@@ -23,11 +23,13 @@ import { ViewModeTabs } from "./Project/ViewModeTabs";
 type MainContainerCoreProps = {
   doneLoading: boolean;
   is404: boolean;
+  SectionBoundary: ComponentType<{ sectionId: string }>;
 };
 
 export function MainContainerCore({
   doneLoading,
   is404,
+  SectionBoundary,
 }: MainContainerCoreProps) {
   const isAppPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
   useCodeMirrorStyleLoader(doneLoading, is404);
@@ -53,7 +55,7 @@ export function MainContainerCore({
         {isAppPreviewEnabled ? (
           <AppPreview />
         ) : (
-          <UIPage SectionBoundary={SectionContainerBoundary} />
+          <UIPage SectionBoundary={SectionBoundary} />
         )}
       </GridWrapper>
       <ProjectChatBottomDock />

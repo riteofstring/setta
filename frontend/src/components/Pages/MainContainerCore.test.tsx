@@ -4,15 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MainContainerCore } from "./MainContainerCore";
 
 let isPreviewEnabled = false;
-
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
+function TestSectionBoundary({ sectionId }: { sectionId: string }) {
+  return (
     <div
-      data-testid="mock-section-container-boundary"
+      data-testid="test-section-container-boundary"
       data-section-id={sectionId}
     />
-  ),
-}));
+  );
+}
 
 vi.mock("components/ChatWindowing/ProjectChatBottomDock", () => ({
   ProjectChatBottomDock: () => (
@@ -104,7 +103,11 @@ describe("MainContainerCore", () => {
 
   it("renders the loading spinner before the project surface loads", () => {
     const markup = renderToStaticMarkup(
-      <MainContainerCore doneLoading={false} is404={false} />,
+      <MainContainerCore
+        doneLoading={false}
+        is404={false}
+        SectionBoundary={TestSectionBoundary}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-loading-spinner"');
@@ -113,7 +116,11 @@ describe("MainContainerCore", () => {
 
   it("renders the not-found surface for missing projects", () => {
     const markup = renderToStaticMarkup(
-      <MainContainerCore doneLoading is404 />,
+      <MainContainerCore
+        doneLoading
+        is404
+        SectionBoundary={TestSectionBoundary}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-not-found"');
@@ -122,14 +129,18 @@ describe("MainContainerCore", () => {
 
   it("owns the lifted top-level section boundary above UIPage", () => {
     const markup = renderToStaticMarkup(
-      <MainContainerCore doneLoading is404={false} />,
+      <MainContainerCore
+        doneLoading
+        is404={false}
+        SectionBoundary={TestSectionBoundary}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-overview"');
     expect(markup).toContain('data-testid="mock-ui-editor"');
     expect(markup).toContain('data-testid="mock-grid-wrapper"');
     expect(markup).toContain('data-testid="mock-ui-page"');
-    expect(markup).toContain('data-testid="mock-section-container-boundary"');
+    expect(markup).toContain('data-testid="test-section-container-boundary"');
     expect(markup).toContain('data-section-id="section-a"');
     expect(markup).toContain('data-testid="mock-project-chat-bottom-dock"');
     expect(markup).toContain('data-testid="mock-view-mode-tabs"');
@@ -142,7 +153,11 @@ describe("MainContainerCore", () => {
     isPreviewEnabled = true;
 
     const markup = renderToStaticMarkup(
-      <MainContainerCore doneLoading is404={false} />,
+      <MainContainerCore
+        doneLoading
+        is404={false}
+        SectionBoundary={TestSectionBoundary}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-app-preview"');
