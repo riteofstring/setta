@@ -4,25 +4,25 @@ import {
   type LiveDictAreaEdgeStripSurfaceBlock,
 } from "./groupContainerEdgeStripSurfaceBlock";
 import {
+  buildLiveDictAreaPinnedParamAreaSurfaceBlock,
+  type LiveDictAreaPinnedParamAreaSurfaceBlock,
+  type LiveDictAreaPinnedParamAreaSurfaceProps,
+} from "./groupContainerPinnedParamAreaSurfaceBlock";
+import {
   buildLiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundaryInput,
 } from "./groupContainerLiveDictAreaRenderBoundary";
-import type {
-  LiveDictAreaPinnedParamAreaDomPacket,
-  LiveDictAreaUnpinnedParamAreaDomPacket,
-} from "./groupContainerNodeCanaryPacket";
+import type { LiveDictAreaUnpinnedParamAreaDomPacket } from "./groupContainerNodeCanaryPacket";
 
 export type {
   LiveDictAreaEdgeStripSurfaceBlock,
   LiveDictAreaEdgeStripSurfaceProps,
 } from "./groupContainerEdgeStripSurfaceBlock";
-
-export type LiveDictAreaPinnedParamAreaSurfaceProps = {
-  domPacket: LiveDictAreaPinnedParamAreaDomPacket;
-  handleColumnResizeStart: MouseEventHandler<HTMLDivElement>;
-  sectionId: string;
-};
+export type {
+  LiveDictAreaPinnedParamAreaSurfaceBlock,
+  LiveDictAreaPinnedParamAreaSurfaceProps,
+} from "./groupContainerPinnedParamAreaSurfaceBlock";
 
 export type LiveDictAreaUnpinnedParamAreaSurfaceProps = {
   domPacket: LiveDictAreaUnpinnedParamAreaDomPacket;
@@ -32,11 +32,7 @@ export type LiveDictAreaUnpinnedParamAreaSurfaceProps = {
 
 export type LiveDictAreaSurfaceBlock =
   | LiveDictAreaEdgeStripSurfaceBlock
-  | {
-      key: string;
-      kind: "pinned-param-area";
-      props: LiveDictAreaPinnedParamAreaSurfaceProps;
-    }
+  | LiveDictAreaPinnedParamAreaSurfaceBlock
   | {
       key: string;
       kind: "unpinned-param-area";
@@ -72,15 +68,9 @@ function buildLiveDictAreaSurfaceBlock(
   }
 
   if (block.kind === "pinned-param-area") {
-    return {
-      key: block.key,
-      kind: block.kind,
-      props: {
-        domPacket: block.domPacket,
-        handleColumnResizeStart: block.handleColumnResizeStart,
-        sectionId: block.sectionId,
-      },
-    };
+    return buildLiveDictAreaPinnedParamAreaSurfaceBlock({
+      rendererBlock: block,
+    });
   }
 
   return {

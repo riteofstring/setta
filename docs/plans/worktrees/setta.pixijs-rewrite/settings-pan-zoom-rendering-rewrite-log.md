@@ -2782,3 +2782,31 @@ Record:
     - representative requests returned `200`, including `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getEngineConfigs`, and `/api/setTopLevelSectionLayout`
 - Next action:
   - Continue the live dict-area surface pass by extracting the pinned param-area block into the next block-specific surface helper above `groupContainerLiveDictAreaSurface.ts`.
+
+## 2026-03-27 104
+
+- Item: Extract the pinned param-area block into the next block-specific live surface helper above `groupContainerLiveDictAreaSurface.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live-surface helper for the dict-area pinned param area:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaSurfaceBlock.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaSurfaceBlock.test.ts`
+  - Updated the higher-level `LiveDictAreaSurface` builder to compose through the new pinned helper instead of shaping the pinned param-area surface block inline:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSurface.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the pinned param-area renderer block into explicit component-facing surface props with stable `key`, `kind`, and `sectionId` wiring
+    - keeping `groupContainerLiveDictAreaSurface.ts` focused on higher-level block composition instead of mixed composition-plus-pinned-param-area shaping
+    - leaving the current DOM pinned param-area mount path intact while deepening the live dict-area surface contract above the renderer boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaSurfaceBlock.test.ts src/components/Params/groupContainerLiveDictAreaSurface.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043/settings`) in a fresh sub-agent context
+    - the supplied bootstrap token was rejected in that browser session, but the active authenticated runtime session remained usable for verification
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new pinned surface helper extraction
+    - representative visible labels and controls included `PROJECT AI CHAT`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `All Settings`, `Project AI Settings`, `toggle snap to grid`, `toggle minimap`, and `Type a message...`
+    - representative dict/param content remained visible, including `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `defaultZoomLevel 1.0`, `Grid Color`, `Pan On Drag`, and `basedpyright analysis ...`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the live dict-area surface pass by extracting the unpinned param-area block into the next block-specific surface helper above `groupContainerLiveDictAreaSurface.ts`.
