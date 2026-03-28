@@ -1,10 +1,8 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
-import {
-  buildLiveDictAreaRenderer,
-  type LiveDictAreaUnpinnedParamAreaRendererBlock,
-} from "./groupContainerLiveDictAreaRenderer";
+import { buildLiveDictAreaRenderer } from "./groupContainerLiveDictAreaRenderer";
+import type { LiveDictAreaUnpinnedParamAreaRendererBlock } from "./groupContainerUnpinnedParamAreaRendererBlock";
 import {
   buildLiveDictAreaUnpinnedParamAreaSurfaceBlock,
 } from "./groupContainerUnpinnedParamAreaSurfaceBlock";

@@ -1,4 +1,4 @@
-import type { LiveDictAreaUnpinnedParamAreaRendererBlock } from "./groupContainerLiveDictAreaRenderer";
+import type { LiveDictAreaUnpinnedParamAreaRendererBlock } from "./groupContainerUnpinnedParamAreaRendererBlock";
 
 export type LiveDictAreaUnpinnedParamAreaSurfaceProps = {
   domPacket: LiveDictAreaUnpinnedParamAreaRendererBlock["domPacket"];

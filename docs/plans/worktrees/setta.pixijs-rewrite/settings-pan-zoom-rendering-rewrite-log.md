@@ -1198,6 +1198,33 @@ Record:
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific painter helpers into the next higher-level scene-owned canvas packet above `groupContainerNodePainterPacket.ts` before any broad Pixi node drawing lands.
 
+## 2026-03-27 046
+
+- Item: Extract the live dict-area unpinned renderer block into its own helper boundary.
+- Status: `done`
+- Details:
+  - Completed the next bounded live dict-area renderer cleanup step by extracting the remaining unpinned block shaping out of `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.ts`:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaRendererBlock.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaRendererBlock.test.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.test.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaSurfaceBlock.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaSurfaceBlock.test.ts`
+  - The renderer layer now matches the existing edge-strip and pinned patterns:
+    - `groupContainerLiveDictAreaRenderer.ts` composes through dedicated edge, pinned, and unpinned renderer-block helpers instead of leaving the unpinned block inline
+    - the unpinned surface block now depends on the extracted renderer-block helper type directly instead of reaching back through the higher-level renderer module
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaRendererBlock.test.ts src/components/Params/groupContainerLiveDictAreaRenderer.test.ts src/components/Params/groupContainerUnpinnedParamAreaSurfaceBlock.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - the authenticated worktree settings tab rendered cleanly with the top bar, left rail, `pixijs-rewrite` project label, `settings`, `Filter`, the tag list (`shortcuts`, `gui`, `sectionSizingPolicy`, `languageServer`, `backend`), the `All` selector, and the bottom tabs including `Param Defaults` and `All Settings`
+      - no obvious clipping, overlap, or missing content was visible in the dict/param area; the only truncation in view was the expected ellipsis on long bottom-tab labels
+      - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/llm/config`, and `GET /api/getAgentRuns`
+- Next action:
+  - Continue the retained-scene dict/param path by lifting the next higher-level boundary above `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.ts` now that all three live renderer blocks are isolated.
+
 ## 2026-03-26 046
 
 - Item: Lift the live dict-area painter boundary into one higher-level node canvas packet above `groupContainerNodePainterPacket.ts`.

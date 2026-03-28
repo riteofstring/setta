@@ -4,6 +4,7 @@ import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary"
 import { buildLiveDictAreaEdgeStripRendererBlock } from "./groupContainerEdgeStripRendererBlock";
 import { buildLiveDictAreaPinnedParamAreaRendererBlock } from "./groupContainerPinnedParamAreaRendererBlock";
 import { buildLiveDictAreaRenderer } from "./groupContainerLiveDictAreaRenderer";
+import { buildLiveDictAreaUnpinnedParamAreaRendererBlock } from "./groupContainerUnpinnedParamAreaRendererBlock";
 
 describe("buildLiveDictAreaRenderer", () => {
   it("lifts the live dict-area boundary into renderer blocks with section props", () => {
@@ -69,6 +70,13 @@ describe("buildLiveDictAreaRenderer", () => {
           sectionId: "section-1",
         })
       : null;
+    const unpinnedParamAreaBlock = liveDictAreaBoundary.unpinnedParamAreaBlock
+      ? buildLiveDictAreaUnpinnedParamAreaRendererBlock({
+          canaryRenderer: liveDictAreaBoundary.unpinnedParamAreaBlock,
+          handleColumnResizeStart,
+          sectionId: "section-1",
+        })
+      : null;
 
     expect(result.nodeScenePacket).toEqual(liveDictAreaBoundary.nodeScenePacket);
     expect(result.canaryPacket).toEqual(liveDictAreaBoundary.canaryPacket);
@@ -79,6 +87,9 @@ describe("buildLiveDictAreaRenderer", () => {
     expect(
       result.blocks.find((block) => block.kind === "pinned-param-area"),
     ).toEqual(pinnedParamAreaBlock);
+    expect(
+      result.blocks.find((block) => block.kind === "unpinned-param-area"),
+    ).toEqual(unpinnedParamAreaBlock);
     expect(result.blocks.map((block) => block.key)).toEqual([
       "dict-area-block:edges",
       "dict-area-block:pinned",
