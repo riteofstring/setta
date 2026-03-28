@@ -319,6 +319,9 @@ That means:
 - `backend/setta/types/listener.py` no longer keeps pass-through aliases for plain listener SDK contract models:
   - listener callers/tests now import `ListenerDependencyCatalog`, `ListenerDependencyCatalogEntry`, `ListenerRenderedDependencyValue`, `ListenerRenderedDependencyValues`, `ListenerSnapshot`, `ListenerForceRefreshEvent`, `ListenerErrorEvent`, `ListenerRouterEndpointCall`, and related SDK DTOs from `backend/setta/sdk_contracts/generated.py` directly
   - the handwritten listener module now keeps only the pieces that still add Python-specific behavior: init validation, binary-payload side channels, typed nested realtime/dependency wrappers, and websocket envelope decoding
+- `backend/setta/types/protocol.py` and `backend/setta/types/listener.py` have also been trimmed further by deleting duplicate inherited field lines that no longer changed behavior:
+  - the dependency-value wrappers in `protocol.py` now keep only their discriminator literals, not duplicate `payload` annotations
+  - `ListenerRealtimeEventContent` no longer restates the inherited `dependencyValues` field from the generated SDK contract model
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line

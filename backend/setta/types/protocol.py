@@ -2,7 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field
 from setta.types.generated.go_shared_types import (
-    BinaryContentRef,
     DependencyKeyType,
     DependencyValueType,
 )
@@ -54,17 +53,14 @@ BaseDependencyKeyUnionWithDiscriminator = Annotated[
 
 class LiteralDependencyValue(GoLiteralDependencyValue):
     type: Literal[DependencyValueType.Literal] = DependencyValueType.Literal
-    payload: str
 
 
 class FileReadDependencyValue(GoFileReadDependencyValue):
     type: Literal[DependencyValueType.FileRead] = DependencyValueType.FileRead
-    payload: str
 
 
 class BinaryDependencyValue(GoBinaryDependencyValue):
     type: Literal[DependencyValueType.Binary] = DependencyValueType.Binary
-    payload: BinaryContentRef
 
 
 BaseDependencyValueUnion = (

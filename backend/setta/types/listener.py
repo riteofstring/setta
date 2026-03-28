@@ -32,9 +32,6 @@ from setta.sdk_contracts.generated import (
     ListenerRegisterRequest as SDKListenerRegisterRequest,
 )
 from setta.sdk_contracts.generated import (
-    ListenerRenderedDependencyValues as SDKListenerRenderedDependencyValues,
-)
-from setta.sdk_contracts.generated import (
     ListenerRouterEndpointCall as SDKListenerRouterEndpointCall,
 )
 from setta.sdk_contracts.generated import (
@@ -90,7 +87,6 @@ class ListenerInitContent(SDKListenerInitRequest):
 
 class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
     deltas: list["ListenerRealtimeDelta"] = Field(default_factory=list)
-    dependencyValues: SDKListenerRenderedDependencyValues | None = None
 
 
 class DependencyEvent(SDKListenerDependencyEventEntry):
@@ -119,6 +115,7 @@ class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     @binaryPayload.setter
     def binaryPayload(self, value: bytes | None) -> None:
         self._binary_payload = value
+
 
 class WebsocketMsgListenerRealtimeEvent(GoListenerRealtimeEventMessage):
     content: ListenerRealtimeEventContent
