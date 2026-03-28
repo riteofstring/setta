@@ -260,6 +260,9 @@ That means:
 - `backend/setta/types/artifact.py` no longer keeps handwritten `ImageArtifact`, `ChartDataArtifact`, or `FileArtifact` subclasses:
   - those artifact variants now use the generated Go-owned models directly
   - the remaining artifact union discrimination is handled by a tagged/custom discriminator instead of literal-only Python subclasses
+- `backend/setta/types/artifact.py` no longer keeps handwritten draw-area artifact model subclasses at all:
+  - `BrushStroke`, `BrushStrokeWithTransform`, `DrawAreaLayerItemTransform`, `BrushStrokeArtifact`, and `DrawAreaLayerItemTransformArtifact` now also come directly from the generated Go-owned models
+  - the module now exists only as the public artifact union/type-adapter boundary used by the listener/runtime path
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
   - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
   - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)
@@ -711,7 +714,7 @@ Final classification:
 - `listener.py`: keep. The remaining code is Python SDK/runtime glue: binary payload storage via `PrivateAttr`, stricter init validation, and typed websocket adapters over generated SDK contracts.
 - `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
 - `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
-- `artifact.py`: keep. The remaining code is Python-only artifact/runtime glue: artifact-id factories, tuple aliases, discriminator defaults, and the adapter/type-adapter layer used by the listener runtime.
+- `artifact.py`: keep for now. The file is now just the Python-side artifact union/type-adapter boundary used by the listener runtime; it no longer owns handwritten artifact model wrappers.
 - `project_config.py`: keep for now. The remaining code is Python-only defaulting and validation over generated Go-owned project-state/codegen models, but the Python-side materialization of Go-owned defaults is still unfinished cleanup.
 - there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.
 
