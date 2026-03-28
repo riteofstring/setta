@@ -265,23 +265,24 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-testid="mock-code-area"');
   });
 
-  it("renders the lifted core canvas body path inside the resizable shell", () => {
+  it("renders children inside the resizable shell after lifting the core body boundary", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Code}
         bgColor="bg-setta-50"
-        isMinimized={false}
         isInOtherProjectConfigs={false}
         isUserView={false}
         positionAndSizeLocked={false}
         hasSectionStyleTheme={false}
         textBlockMetaControlStyle={false}
-      />,
+      >
+        <div data-testid="mock-core-body">body:section-123</div>
+      </SectionContainerCoreResizable>,
     );
 
-    expect(markup).toContain('data-testid="mock-code-area"');
-    expect(markup).toContain("code:section-123");
+    expect(markup).toContain('data-testid="mock-core-body"');
+    expect(markup).toContain("body:section-123");
   });
 
   it("routes chat sections through the section-owned surface id on the section layout host", () => {

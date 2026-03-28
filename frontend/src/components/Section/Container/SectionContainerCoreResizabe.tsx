@@ -10,7 +10,6 @@ import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import { buildSectionContainerCoreResizableView } from "./sectionContainerCoreResizableView";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 
@@ -18,26 +17,26 @@ type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
-  isMinimized: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   textBlockMetaControlStyle: boolean;
   hideHeader?: boolean;
+  children: React.ReactNode;
 };
 
 function _SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   bgColor,
-  isMinimized,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
   hasSectionStyleTheme,
   textBlockMetaControlStyle,
   hideHeader = false,
+  children,
 }: SectionContainerCoreResizableProps) {
   const benchmark = useSettingsAllSettingsBenchmark();
   const { hasEmbeddedTerminal } = useProjectState((x) => {
@@ -123,13 +122,7 @@ function _SectionContainerCoreResizable({
       {view.shouldRenderIncrementer ? (
         <Incrementer sectionId={sectionId} isRoot={view.isRoot} />
       ) : null}
-      <SectionContainerCoreCanvasBody
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {children}
     </CustomResizable>
   );
 }

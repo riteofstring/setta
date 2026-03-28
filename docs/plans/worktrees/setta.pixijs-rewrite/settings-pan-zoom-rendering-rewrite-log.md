@@ -3017,3 +3017,32 @@ Record:
     - representative requests returned `200`, including `/api/serverMode`, `/api/loadSettings`, `/api/backendInitStatus`, and `/api/authRefreshStatus`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SectionContainerCoreResizabe.tsx` body boundary into the next higher-level section core caller in `frontend/src/components/Section/Container/SectionContainerCore.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 112
+
+- Item: Lift the `SectionContainerCoreResizabe.tsx` body boundary into the next higher-level section core caller in `frontend/src/components/Section/Container/SectionContainerCore.tsx`.
+- Status: `done`
+- Details:
+  - Updated `SectionContainerCore.tsx` to own the live `SectionContainerCoreCanvasBody` handoff directly instead of leaving that ownership inside the resizable shell:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - Shrunk `SectionContainerCoreResizabe.tsx` back down to a pure shell that renders `children`, removing the lower body-renderer ownership from that module:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - Added focused coverage for the lifted ownership boundary and updated the resizable-shell test to pin its new child-rendering contract:
+    - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionContainerCore.tsx` as the higher-level owner of the core canvas-body boundary
+    - leaving `SectionContainerCoreResizabe.tsx` responsible only for the resizable shell, header/meta-menu, and incrementer chrome
+    - keeping the current DOM/live canvas path intact while deepening the section-core contract above `SectionContainerCoreResizabe.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` stayed authenticated and the page remained usable
+    - the visible settings shell and dict/param area rendered normally with no obvious clipping, overlap, or missing content after the lifted body boundary
+    - representative visible labels and controls included `Project`, `Edit`, `Run`, `Open settings`, `Select A Section to Edit`, `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `Grid Color`, `Zoom On Scroll`, `Core`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionContainerCore.tsx` body boundary into the next higher-level caller in `frontend/src/components/Section/Container/SectionContainer.tsx` before any broad Pixi node drawing lands.

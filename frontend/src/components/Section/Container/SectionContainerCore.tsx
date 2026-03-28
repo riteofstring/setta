@@ -24,6 +24,7 @@ import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
@@ -196,14 +197,15 @@ function _SectionContainerCore({
         sectionId={sectionId}
         sectionTypeName={bodyProps.sectionTypeName}
         bgColor={bodyProps.bgColor}
-        isMinimized={bodyProps.isMinimized}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
         textBlockMetaControlStyle={textBlockMetaControlStyle}
-      />
+      >
+        <SectionContainerCoreCanvasBody {...bodyProps} />
+      </SectionContainerCoreResizable>
     </section>
   );
 }
