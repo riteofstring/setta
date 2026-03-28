@@ -72,8 +72,8 @@ func Build() (GeneratedContracts, error) {
 	if len(externalImports) > 0 {
 		builder.WriteString("\n")
 	}
-	for _, line := range sortedGroupedImportLines(externalImports) {
-		builder.WriteString(renderImportLine(line))
+	for _, line := range sortedImportNames(externalImports) {
+		builder.WriteString(line)
 		builder.WriteString("\n")
 	}
 	builder.WriteString("\n")
@@ -92,8 +92,15 @@ func Build() (GeneratedContracts, error) {
 			continue
 		}
 		for _, field := range model.Fields {
-			renderedField := renderFieldLine(field)
-			builder.WriteString(renderedField)
+			builder.WriteString("    ")
+			builder.WriteString(field.Name)
+			builder.WriteString(": ")
+			builder.WriteString(field.TypeExpr)
+			if field.DefaultExpr != "" {
+				builder.WriteString(" = ")
+				builder.WriteString(field.DefaultExpr)
+			}
+			builder.WriteString("\n")
 		}
 	}
 	builder.WriteString("\n\n")
@@ -109,59 +116,6 @@ func Build() (GeneratedContracts, error) {
 	return GeneratedContracts{
 		PythonModule: builder.String(),
 	}, nil
-}
-
-func renderImportLine(line string) string {
-	trimmed := strings.TrimSpace(line)
-	if !strings.HasPrefix(trimmed, "from ") || !strings.Contains(trimmed, " import ") {
-		return trimmed
-	}
-	module, names, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
-	if !ok {
-		return trimmed
-	}
-	importNames := strings.Split(strings.TrimSpace(names), ",")
-	cleanedNames := make([]string, 0, len(importNames))
-	for _, name := range importNames {
-		cleaned := strings.TrimSpace(name)
-		if cleaned == "" {
-			continue
-		}
-		cleanedNames = append(cleanedNames, cleaned)
-	}
-	if len(cleanedNames) == 0 {
-		return trimmed
-	}
-	if len("from "+module+" import "+strings.Join(cleanedNames, ", ")) <= 88 {
-		return "from " + module + " import " + strings.Join(cleanedNames, ", ")
-	}
-	var builder strings.Builder
-	builder.WriteString("from ")
-	builder.WriteString(module)
-	builder.WriteString(" import (\n")
-	for _, name := range cleanedNames {
-		builder.WriteString("    ")
-		builder.WriteString(name)
-		builder.WriteString(",\n")
-	}
-	builder.WriteString(")")
-	return builder.String()
-}
-
-func renderFieldLine(field fieldSpec) string {
-	line := "    " + field.Name + ": " + field.TypeExpr
-	if field.DefaultExpr == "" {
-		return line + "\n"
-	}
-	if !strings.HasPrefix(field.DefaultExpr, "Field(") {
-		return line + " = " + field.DefaultExpr + "\n"
-	}
-	oneLine := line + " = " + field.DefaultExpr
-	if len(oneLine) <= 88 {
-		return oneLine + "\n"
-	}
-	inner := strings.TrimSuffix(strings.TrimPrefix(field.DefaultExpr, "Field("), ")")
-	return line + " = Field(\n        " + inner + "\n    )\n"
 }
 
 func buildModelSpec(modelType reflect.Type) (modelSpec, error) {
@@ -295,41 +249,4 @@ func sortedImportNames(imports map[string]struct{}) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-func sortedGroupedImportLines(imports map[string]struct{}) []string {
-	groupedImports := map[string]map[string]struct{}{}
-	ungroupedImports := map[string]struct{}{}
-	for line := range imports {
-		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "from ") || !strings.Contains(trimmed, " import ") {
-			ungroupedImports[trimmed] = struct{}{}
-			continue
-		}
-		module, names, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
-		if !ok {
-			ungroupedImports[trimmed] = struct{}{}
-			continue
-		}
-		nameSet := groupedImports[module]
-		if nameSet == nil {
-			nameSet = map[string]struct{}{}
-			groupedImports[module] = nameSet
-		}
-		for _, name := range strings.Split(names, ",") {
-			cleanedName := strings.TrimSpace(name)
-			if cleanedName == "" {
-				continue
-			}
-			nameSet[cleanedName] = struct{}{}
-		}
-	}
-	lines := make([]string, 0, len(groupedImports)+len(ungroupedImports))
-	for module, nameSet := range groupedImports {
-		importNames := sortedImportNames(nameSet)
-		lines = append(lines, "from "+module+" import "+strings.Join(importNames, ", "))
-	}
-	lines = append(lines, sortedImportNames(ungroupedImports)...)
-	sort.Strings(lines)
-	return lines
 }
