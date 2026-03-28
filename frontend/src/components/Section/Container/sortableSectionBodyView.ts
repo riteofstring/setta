@@ -1,11 +1,18 @@
+import type { ReactElement } from "react";
 import { isTempSection } from "forks/dnd-kit/dndState";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
 export type SortableSectionDragListeners = Record<string, unknown>;
+
+export type SortableSectionNestedSectionsRenderer = (
+  props: SectionContainerNestedSectionsProps,
+) => ReactElement | null;
 
 export type SortableSectionBodyProps = {
   sectionId: string;
   applyTransform: boolean;
   listeners: SortableSectionDragListeners;
+  renderNestedSections: SortableSectionNestedSectionsRenderer;
 };
 
 type SectionContainerViewProps = {

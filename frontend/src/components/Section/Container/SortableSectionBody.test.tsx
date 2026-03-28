@@ -3,27 +3,10 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SortableSectionBody } from "./SortableSectionBody";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
 vi.mock("forks/dnd-kit/DummySection", () => ({
   TempDNDSection: () => <div data-testid="mock-temp-dnd-section" />,
-}));
-
-vi.mock("./SectionContainerNestedSections", () => ({
-  renderSectionContainerNestedSections: ({
-    layoutVariant,
-    isJoinedCodeTerminalGroup,
-  }: {
-    layoutVariant: "default" | "tight";
-    isJoinedCodeTerminalGroup: boolean;
-  }) => (
-    <div
-      data-testid="mock-section-container-nested-sections"
-      data-layout-variant={layoutVariant}
-      data-is-joined-code-terminal-group={
-        isJoinedCodeTerminalGroup ? "true" : "false"
-      }
-    />
-  ),
 }));
 
 vi.mock("./SectionContainer", () => ({
@@ -56,6 +39,23 @@ vi.mock("./SectionContainer", () => ({
   ),
 }));
 
+function renderNestedSections({
+  sectionId,
+  layoutVariant,
+  isJoinedCodeTerminalGroup,
+}: SectionContainerNestedSectionsProps) {
+  return (
+    <div
+      data-testid="mock-section-container-nested-sections"
+      data-section-id={sectionId}
+      data-layout-variant={layoutVariant}
+      data-is-joined-code-terminal-group={
+        isJoinedCodeTerminalGroup ? "true" : "false"
+      }
+    />
+  );
+}
+
 describe("SortableSectionBody", () => {
   it("renders the temp placeholder for temp sections while their transform is applied", () => {
     const markup = renderToStaticMarkup(
@@ -63,6 +63,7 @@ describe("SortableSectionBody", () => {
         sectionId={getDndSectionId("section-1")}
         applyTransform={true}
         listeners={{}}
+        renderNestedSections={renderNestedSections}
       />,
     );
 
@@ -76,6 +77,7 @@ describe("SortableSectionBody", () => {
         sectionId={getDndSectionId("section-1")}
         applyTransform={false}
         listeners={{}}
+        renderNestedSections={renderNestedSections}
       />,
     );
 
@@ -88,6 +90,7 @@ describe("SortableSectionBody", () => {
         sectionId="section-1"
         applyTransform={false}
         listeners={{ onPointerDown: "listener" }}
+        renderNestedSections={renderNestedSections}
       />,
     );
 

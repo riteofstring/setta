@@ -2697,3 +2697,32 @@ Record:
     - remaining console noise was limited to existing React 19 `element.ref` deprecation warnings
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the nested-sections renderer seam one caller higher above `SortableSectionBody.tsx` in the next section-surface caller before any broad Pixi node drawing lands.
+
+## 2026-03-27 101
+
+- Item: Lift the nested-sections renderer seam one caller higher into `frontend/src/components/Section/Container/SortableSectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Turned `SortableSectionBody` into a pure injected seam for nested-section rendering:
+    - `frontend/src/components/Section/Container/SortableSectionBody.tsx`
+    - `frontend/src/components/Section/Container/sortableSectionBodyView.ts`
+  - Updated `frontend/src/components/Section/Container/SortableSectionContainer.tsx` to own the standard `renderSectionContainerNestedSections(...)` handoff instead of leaving that import hardcoded inside `SortableSectionBody.tsx`.
+  - Added focused coverage to pin both sides of the lifted seam:
+    - `frontend/src/components/Section/Container/SortableSectionBody.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionContainer.test.tsx`
+  - Kept the current non-Pixi nested-section DOM path intact while lifting the renderer one caller higher:
+    - `SortableSectionBody` now only decides temp vs live section-body routing and delegates nested-section rendering entirely through its injected contract
+    - `SortableSectionContainer` now owns the explicit default nested-section renderer handoff for sortable nested sections
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionBody.test.tsx src/components/Section/Container/SortableSectionContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` was already authenticated and usable without consuming the provided bootstrap URL
+    - the visible settings shell plus nested section / dict-param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `OVERVIEW`, `settings`, `All Settings`, `Param Defaults`, `Dictation Mode`, `Config Language`, `Open section in floating window`, `Lock position and size`, `Minimize section`, `Delete section`, and `Show Row Numbers`
+    - representative requests returned `200`, including `POST /api/getFolderContents`, `GET /api/getAgentRuns`, and `POST /api/getFileBrowserRoot`
+    - remaining console noise was limited to existing accessibility warnings about missing form `id/name` attributes and broken `aria-labelledby` targets
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the nested-sections renderer seam one caller higher above `SortableSectionContainer.tsx` in `frontend/src/components/Section/Container/ManyNestedSectionsBody.tsx` before any broad Pixi node drawing lands.
