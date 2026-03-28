@@ -52,11 +52,11 @@ import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket";
 import {
-  buildLiveDictAreaNodePainterPacket,
+  buildLiveDictAreaNodeCanvasPacket,
   type LiveDictAreaEdgeStripPainterPacket,
   type LiveDictAreaPinnedParamAreaPainterPacket,
   type LiveDictAreaUnpinnedParamAreaPainterPacket,
-} from "./groupContainerNodePainterPacket";
+} from "./groupContainerNodeCanvasPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import {
   buildLiveDictAreaNodeSurfacePacket,
@@ -360,17 +360,17 @@ function _ParamGroupContainer({
       }),
     [liveDictAreaNodeSurfacePacket],
   );
-  const liveDictAreaNodePainterPacket = useMemo(
+  const liveDictAreaNodeCanvasPacket = useMemo(
     () =>
-      buildLiveDictAreaNodePainterPacket({
+      buildLiveDictAreaNodeCanvasPacket({
         nodeDrawPacket: liveDictAreaNodeDrawPacket,
       }),
     [liveDictAreaNodeDrawPacket],
   );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodePainterPacket.maxNestedDepth);
-  }, [liveDictAreaNodePainterPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeCanvasPacket.maxNestedDepth);
+  }, [liveDictAreaNodeCanvasPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -383,7 +383,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodePainterPacket.blocks.map((block) => {
+        {liveDictAreaNodeCanvasPacket.domBlocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip

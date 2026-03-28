@@ -1197,3 +1197,30 @@ Record:
     - relevant requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific painter helpers into the next higher-level scene-owned canvas packet above `groupContainerNodePainterPacket.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-26 046
+
+- Item: Lift the live dict-area painter boundary into one higher-level node canvas packet above `groupContainerNodePainterPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed node-canvas packet helper above the existing node painter boundary:
+    - `frontend/src/components/Params/groupContainerNodeCanvasPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanvasPacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` mount path to consume the new node-canvas packet instead of branching directly on the node painter packet:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts the ordered edge, pinned, and unpinned painter blocks into one `domBlocks` boundary for the current live DOM path
+    - keeps the current DOM block mount order and max-nested-depth handling stable while hiding the node painter composition inside one deeper helper
+    - exposes the retained-scene `scenePacket` plus edge-strip scene data from the same node-level boundary so the future canvas renderer can consume one deeper dict-area input
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeCanvasPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerNodePainterPacket.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+    - `All Settings` was visible and active, and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, `toggle agentic edges`, `toggle arg edges`, `toggle snap to grid`, `Show chat windows`, and the `Create project` / `Summarize codebase` / `Plan next steps` chat controls
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `POST /api/getLatestLspDiagnostics`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned canvas helper from `groupContainerNodeCanvasPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
