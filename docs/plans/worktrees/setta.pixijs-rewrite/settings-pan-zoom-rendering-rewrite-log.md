@@ -3881,3 +3881,31 @@ Record:
     - console noise was limited to the existing React 19 `element.ref` warnings plus the expected bootstrap `401` error in the rejected bootstrap tab
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining mode-wrapper-owned JSX out of `frontend/src/components/Pages/router.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 138
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `EdgeRenderer` container decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its edge-component fallback and reconnect-hit-target sizing inline in the component:
+    - `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.ts`
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - keeping the edge layer gated on positive canvas dimensions before mounting the edge SVG
+    - defaulting unknown/custom edge types back to the wrapped bezier renderer while preserving the original edge `type` prop passed through to the wrapper
+    - centralizing the always-selectable / always-reconnectable edge props plus the reconnect hit-target sizing instead of repeating them inline in the container
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/edgeRendererView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/edge-visibility-toggles.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated and `All Settings` stayed visible
+    - `svg.react-flow__edges` was present and the visible settings/canvas area showed no obvious visual regression
+    - representative visible labels and rows included `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, `languageServer`, `defaultZoomLevel 1.0`, `Grid Color`, `Pan On Drag`, `Auto Refetch Callable Params On LSP Mismatch`, and `Autosave`
+    - relevant requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
+- Next action:
+  - Resume the current live dict-area surface pass by lifting the remaining mode-wrapper-owned JSX out of `frontend/src/components/Pages/router.tsx` before any broad Pixi node drawing lands.

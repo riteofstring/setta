@@ -13,16 +13,11 @@ import {
   buildEdgeRendererView,
   shouldRenderEdgeRendererContents,
 } from "./edgeRendererView";
-import {
-  EDGE_INTERACTION_WIDTH,
-  EDGE_RECONNECT_RADIUS,
-} from "./edgeScenePackets";
 
 const WrappedBezierEdge = wrapEdge(BezierEdge);
 const WrappedStraightEdge = wrapEdge(StraightEdge);
 
-const edgeTypes = {
-  default: WrappedBezierEdge,
+const edgeComponentsByType = {
   bezier: WrappedBezierEdge,
   straight: WrappedStraightEdge,
 };
@@ -67,8 +62,8 @@ const EdgeRenderer = () => {
       >
         <g>
           {edgeView.renderedEdges.map((edge) => {
-            const EdgeComponent =
-              edgeTypes[edge.type ?? "default"] ?? WrappedBezierEdge;
+            const { componentType, ...edgeProps } = edge;
+            const EdgeComponent = edgeComponentsByType[componentType];
             const onReconnect = (connection: Connection) => {
               reconnectEdgeFromConnection(edge.id, connection);
             };
@@ -76,29 +71,8 @@ const EdgeRenderer = () => {
             return (
               <EdgeComponent
                 key={edge.id}
-                id={edge.id}
-                type={edge.type}
-                data={edge.data}
-                selected={edge.selected}
-                animated={edge.animated}
-                hidden={edge.hidden}
-                label={edge.label}
-                style={edge.style}
-                source={edge.source}
-                target={edge.target}
-                sourceHandleId={edge.sourceHandleId}
-                targetHandleId={edge.targetHandleId}
-                sourceX={edge.sourceX}
-                sourceY={edge.sourceY}
-                targetX={edge.targetX}
-                targetY={edge.targetY}
-                sourcePosition={edge.sourcePosition}
-                targetPosition={edge.targetPosition}
-                elementsSelectable={true}
+                {...edgeProps}
                 onReconnect={onReconnect}
-                reconnectRadius={EDGE_RECONNECT_RADIUS}
-                isReconnectable={true}
-                interactionWidth={EDGE_INTERACTION_WIDTH}
               />
             );
           })}

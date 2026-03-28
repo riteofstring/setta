@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { HandlePosition } from "../types";
 import {
+  EDGE_INTERACTION_WIDTH,
+  EDGE_RECONNECT_RADIUS,
+} from "./edgeScenePackets";
+import {
   buildEdgeRendererView,
   shouldRenderEdgeRendererContents,
 } from "./edgeRendererView";
@@ -153,10 +157,15 @@ describe("buildEdgeRendererView", () => {
       renderedEdges: [
         {
           animated: true,
+          componentType: "bezier",
           data: { token: "visible" },
+          elementsSelectable: true,
           hidden: false,
           id: "edge-visible",
+          interactionWidth: EDGE_INTERACTION_WIDTH,
+          isReconnectable: true,
           label: undefined,
+          reconnectRadius: EDGE_RECONNECT_RADIUS,
           selected: true,
           source: "section-a",
           sourceHandleId: "out-a",
@@ -173,10 +182,15 @@ describe("buildEdgeRendererView", () => {
         },
         {
           animated: false,
+          componentType: "straight",
           data: { token: "later" },
+          elementsSelectable: true,
           hidden: false,
           id: "edge-late",
+          interactionWidth: EDGE_INTERACTION_WIDTH,
+          isReconnectable: true,
           label: "Later edge",
+          reconnectRadius: EDGE_RECONNECT_RADIUS,
           selected: false,
           source: "section-b",
           sourceHandleId: "out-b",
@@ -193,5 +207,52 @@ describe("buildEdgeRendererView", () => {
         },
       ],
     });
+  });
+
+  it("falls back unknown edge types to the bezier renderer while keeping the original edge type prop", () => {
+    expect(
+      buildEdgeRendererView({
+        edges: [
+          {
+            animated: false,
+            data: null,
+            hidden: false,
+            id: "edge-custom",
+            label: "Custom edge",
+            selected: false,
+            sourcePortId: "out-a",
+            sourceSectionId: "section-a",
+            sourceVariantId: "variant-a",
+            style: null,
+            targetPortId: "in-a",
+            targetSectionId: "section-b",
+            targetVariantId: "variant-b",
+            type: "custom",
+            zIndex: 1,
+          },
+        ],
+        positions: {
+          "section-a:out-a:source": {
+            side: HandlePosition.Right,
+            x: 10,
+            y: 20,
+          },
+          "section-b:in-a:target": {
+            side: HandlePosition.Left,
+            x: 110,
+            y: 120,
+          },
+        },
+        sectionVariantMap: {
+          "section-a": "variant-a",
+          "section-b": "variant-b",
+        },
+      }).renderedEdges,
+    ).toEqual([
+      expect.objectContaining({
+        componentType: "bezier",
+        type: "custom",
+      }),
+    ]);
   });
 });

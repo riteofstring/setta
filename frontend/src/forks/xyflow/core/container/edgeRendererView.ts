@@ -1,4 +1,6 @@
 import {
+  EDGE_INTERACTION_WIDTH,
+  EDGE_RECONNECT_RADIUS,
   buildEdgeScenePackets,
   buildRenderedEdgeView,
   type EdgeRendererPositions,
@@ -6,8 +8,18 @@ import {
   type RenderedEdgeView,
 } from "./edgeScenePackets";
 
+export type EdgeRendererComponentType = "bezier" | "straight";
+
+export type EdgeRendererRenderableEdge = RenderedEdgeView & {
+  componentType: EdgeRendererComponentType;
+  elementsSelectable: true;
+  interactionWidth: number;
+  isReconnectable: true;
+  reconnectRadius: number;
+};
+
 export type EdgeRendererView = {
-  renderedEdges: RenderedEdgeView[];
+  renderedEdges: EdgeRendererRenderableEdge[];
 };
 
 export function shouldRenderEdgeRendererContents({
@@ -18,6 +30,12 @@ export function shouldRenderEdgeRendererContents({
   height: number;
 }): boolean {
   return width > 0 && height > 0;
+}
+
+function resolveEdgeRendererComponentType(
+  edgeType: string | null | undefined,
+): EdgeRendererComponentType {
+  return edgeType === "straight" ? "straight" : "bezier";
 }
 
 export function buildEdgeRendererView({
@@ -34,6 +52,17 @@ export function buildEdgeRendererView({
       edges,
       positions,
       sectionVariantMap,
-    }).map(buildRenderedEdgeView),
+    }).map((packet) => {
+      const renderedEdge = buildRenderedEdgeView(packet);
+
+      return {
+        ...renderedEdge,
+        componentType: resolveEdgeRendererComponentType(renderedEdge.type),
+        elementsSelectable: true,
+        interactionWidth: EDGE_INTERACTION_WIDTH,
+        isReconnectable: true,
+        reconnectRadius: EDGE_RECONNECT_RADIUS,
+      };
+    }),
   };
 }
