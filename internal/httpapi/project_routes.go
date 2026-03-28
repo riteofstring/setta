@@ -2981,13 +2981,23 @@ func deleteSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		if _, _, err := deps.ProjectState.DeleteSections(
+		snapshot, _, err := runtime.DeleteSections(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.DeleteSectionsInput{SectionIDs: payload.SectionIDs},
-		); err != nil {
+		)
+		if err != nil {
 			writeDeleteSectionsError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
