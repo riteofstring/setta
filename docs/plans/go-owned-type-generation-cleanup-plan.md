@@ -306,7 +306,10 @@ That means:
   - the remaining union discrimination is handled by a tagged/custom discriminator instead of literal-only Python subclasses
 - `backend/setta/types/protocol.py` no longer relies on field-based key discrimination that forced literal-only `type` fields:
   - `BaseDependencyKeyUnionWithDiscriminator` now also uses tagged/custom discriminator logic
-  - `SectionDependencyKey` and `SectionParamDependencyKey` now keep only the frozen/hashable ID-typed wrapper behavior, while construction sites set the concrete key type explicitly
+  - `SectionDependencyKey` and `SectionParamDependencyKey` now keep only the frozen/hashable wrapper behavior, while construction sites set the concrete key type explicitly
+- the generated dependency-key models now own `ID` typing directly:
+  - `go_shared_types.py` now emits `sectionId: ID` / `codeObjId: ID` for `SectionDependencyKey` and `SectionParamDependencyKey`
+  - `backend/setta/types/protocol.py` no longer needs handwritten `sectionId` / `codeObjId` field redeclarations just to preserve Python-side `ID` annotations
 - the frontend-facing project codegen policy family now has a real Go owner in `internal/projectview` instead of empty `frontendbindings` placeholders:
   - `ProjectCodegenLanguage`
   - `SectionCodegenMode`

@@ -17,13 +17,13 @@ const (
 
 type SectionDependencyKey struct {
 	Type      DependencyKeyType `json:"type"`
-	SectionID string            `json:"sectionId"`
+	SectionID string            `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
 
 type SectionParamDependencyKey struct {
 	Type      DependencyKeyType `json:"type"`
-	SectionID string            `json:"sectionId"`
-	CodeObjID string            `json:"codeObjId"`
+	SectionID string            `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	CodeObjID string            `json:"codeObjId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
 
 type DependencyValueType string

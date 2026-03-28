@@ -26,14 +26,9 @@ from setta.types.id import ID
 class SectionDependencyKey(GoSectionDependencyKey):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    sectionId: ID
-
 
 class SectionParamDependencyKey(GoSectionParamDependencyKey):
     model_config = ConfigDict(extra="forbid", frozen=True)
-
-    sectionId: ID
-    codeObjId: ID
 
 
 def create_dep_key(sectionId: ID, codeObjId: ID | None = None):
