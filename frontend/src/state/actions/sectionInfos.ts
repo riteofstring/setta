@@ -981,6 +981,15 @@ export function getSectionDescendants(
   return ids;
 }
 
+export function getSectionImplChildren(
+  sectionImpl: BaseSectionImplUnion,
+): Array<string> {
+  if (!isBaseParentSectionImpl(sectionImpl)) {
+    return [];
+  }
+  return [...sectionImpl.children];
+}
+
 export function manualDndChildrenReset() {
   updateDndChildren(
     getDisplayedSectionIdToChildren(useProjectState.getState()),
@@ -1008,6 +1017,39 @@ function getComparableProjectState(
   });
 }
 
+function pruneProjectChatWindowingForExistingSections(
+  projectState: ProjectStateSingleConfig,
+): ProjectStateSingleConfig {
+  const existingSectionIds = new Set(Object.keys(projectState.sections));
+  let changed = false;
+  const nextInstancesById = Object.fromEntries(
+    Object.entries(projectState.projectChatWindowing.instancesById).filter(
+      ([, instance]) => {
+        const sectionId = instance.sectionIdOrNull;
+        if (!sectionId || existingSectionIds.has(sectionId)) {
+          return true;
+        }
+        changed = true;
+        return false;
+      },
+    ),
+  );
+  if (!changed) {
+    return projectState;
+  }
+  const nextOrder = projectState.projectChatWindowing.order.filter(
+    (instanceId) => instanceId in nextInstancesById,
+  );
+  return {
+    ...projectState,
+    projectChatWindowing: {
+      ...projectState.projectChatWindowing,
+      instancesById: nextInstancesById,
+      order: nextOrder,
+    },
+  };
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1017,6 +1059,7 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  x.projectState = pruneProjectChatWindowingForExistingSections(x.projectState);
   recordAuthoritativeProjectChatWindowingState(
     x.projectState.projectConfig.id,
     x.projectState.projectChatWindowing,
@@ -1110,14 +1153,23 @@ function applyViewportFromProjectState(
   projectState: ProjectStateSingleConfig,
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentConfig = useProjectState.getState().projectConfig;
+  const currentState = useProjectState.getState();
+  const currentConfig = currentState.projectConfig;
   const viewModeChanged =
     currentConfig.activeViewModeId !==
     projectState.projectConfig.activeViewModeId;
   const viewportChanged =
     !_.isEqual(currentConfig.viewport, viewport) ||
     currentConfig.viewportInitialized !== viewportInitialized;
-  if (!viewportChanged && !viewModeChanged) {
+  const visibleTopLevelSectionIdsChanged = !_.isEqual(
+    getVisibleTopLevelSectionIdsForAutoFit(currentState),
+    getVisibleTopLevelSectionIdsForAutoFit(projectState),
+  );
+  if (
+    !viewportChanged &&
+    !viewModeChanged &&
+    (!(!viewport || !viewportInitialized) || !visibleTopLevelSectionIdsChanged)
+  ) {
     return false;
   }
   if (!viewport || !viewportInitialized) {
@@ -1135,6 +1187,25 @@ function applyViewportFromProjectState(
     transform: [viewport.x, viewport.y, viewport.zoom],
   });
   return false;
+}
+
+function getVisibleTopLevelSectionIdsForAutoFit(
+  projectState: ProjectStateSingleConfig,
+): string[] {
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const orderedSectionIds = Object.keys(topLevelSections);
+  const { activeViewModeId, isEditingViewMode, viewModes } =
+    projectState.projectConfig;
+  if (isEditingViewMode || !activeViewModeId) {
+    return orderedSectionIds;
+  }
+  const activeViewMode = viewModes[activeViewModeId];
+  if (!activeViewMode) {
+    return orderedSectionIds;
+  }
+  return orderedSectionIds.filter(
+    (sectionId) => activeViewMode.visibilityBySectionId[sectionId],
+  );
 }
 
 function getFitViewOptionsForVisibleSections(
@@ -1759,7 +1830,10 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
+  route_ungroup_groups({
+    projectConfigId: getCurrProjectConfigId(),
+    groupIds,
+  });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {
@@ -2028,3 +2102,8 @@ export const debouncedDispatchViewportUpdate = _.debounce(
   () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
   1000,
 );
+
+export function dispatchViewportUpdateImmediately() {
+  debouncedDispatchViewportUpdate.cancel();
+  dispatchViewportUpdate(getCurrProjectConfigViewport());
+}
