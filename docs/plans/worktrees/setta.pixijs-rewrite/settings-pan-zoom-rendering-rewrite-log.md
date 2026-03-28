@@ -1685,8 +1685,35 @@ Record:
   - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
     - result: passed
   - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
-    - `/settings` loaded after bootstrap and `All Settings` was visible
-    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
-    - representative requests returned `200`, including `loadSettings`, `authRefreshStatus`, `backendInitStatus`, and `loadProjectConfig`
+      - `/settings` loaded after bootstrap and `All Settings` was visible
+      - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+      - representative requests returned `200`, including `loadSettings`, `authRefreshStatus`, `backendInitStatus`, and `loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryView.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-27 064
+
+- Item: Extract the pinned param-area block into the next block-specific helper above `groupContainerNodeCanaryView.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-view helper for the live dict-area pinned param area:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaCanaryView.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaCanaryView.test.ts`
+  - Updated the higher-level node canary view boundary to compose through the new pinned helper instead of shaping the pinned canary view block inline:
+    - `frontend/src/components/Params/groupContainerNodeCanaryView.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the pinned param-area DOM/scene pairing into one explicit canary-view block with stable `blockId`, `kind`, and mount metadata
+    - keeping `groupContainerNodeCanaryView.ts` as the higher-level composition boundary instead of a mixed composition-plus-pinned-block-view module
+    - leaving the current DOM pinned param-area surface intact while deepening the first scene-owned canary view contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaCanaryView.test.ts src/components/Params/groupContainerNodeCanaryView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated with `All Settings` visible
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new pinned canary-view helper extraction
+    - representative visible labels and controls included `settings`, `Filter`, the tag list, `Core`, `Param Defaults`, `All Settings`, `Open settings`, and the top toolbar controls
+    - representative requests returned `200`, including `POST /api/getFolderContents`, `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, `GET /api/getAgentRuns`, and `GET /api/getFileBrowserRoot`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryView.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.
