@@ -2,7 +2,7 @@ import { HandlePosition } from "forks/xyflow/core/types";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import type { LiveDictAreaEdgeStripRendererPacket } from "./groupContainerSceneRendererPackets";
 
-type EdgeStripPortInput = {
+export type LiveDictAreaEdgeStripPortInput = {
   id: string;
   label: string;
 };
@@ -56,9 +56,9 @@ export function buildLiveDictAreaEdgeStripVisualPacket({
   shouldRoundBottom,
 }: {
   canConnect: boolean;
-  inputPorts: EdgeStripPortInput[];
+  inputPorts: LiveDictAreaEdgeStripPortInput[];
   isSelectingParams: boolean;
-  outputPorts: EdgeStripPortInput[];
+  outputPorts: LiveDictAreaEdgeStripPortInput[];
   rendererPacket: LiveDictAreaEdgeStripRendererPacket;
   selectedParamIds: string[];
   shouldRoundBottom: boolean;

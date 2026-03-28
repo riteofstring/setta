@@ -50,22 +50,17 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import { buildLiveDictAreaEdgeStripVisualPacket } from "./groupContainerEdgeStripVisualPacket";
+import type { LiveDictAreaEdgeStripVisualPacket } from "./groupContainerEdgeStripVisualPacket";
 import { buildLiveDictAreaNodeLayoutView } from "./groupContainerNodeLayoutView";
-import { buildLiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
+import { buildLiveDictAreaNodeVisualPacket } from "./groupContainerNodeVisualPacket";
+import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
 import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
 import {
   buildLiveDictAreaSceneRendererPackets,
-  type LiveDictAreaEdgeStripRendererPacket,
-  type LiveDictAreaPinnedParamAreaRendererPacket,
-  type LiveDictAreaUnpinnedParamAreaRendererPacket,
 } from "./groupContainerSceneRendererPackets";
-import { buildLiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
-import {
-  buildFilteredParamListView,
-  getPinnedParamsBgClassName,
-} from "./groupContainerView";
+import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
+import { getPinnedParamsBgClassName } from "./groupContainerView";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
@@ -216,13 +211,15 @@ function _ParamGroupContainer({
   }, [paramsFixedHeightKey, waitingForResult]);
 
   const {
+    edgeInputPorts,
     hideUnpinnedParams,
     paramFilter,
     positionAndSizeLocked,
     edgeInputParams,
-    edgeOutputPortCount,
+    edgeOutputPorts,
     pinnedRequiredParamIdsToPaths,
     pinnedTopLevelParamIds,
+    selectedParams,
     unpinnedRequiredParamIdsToPaths,
     unpinnedTopLevelParamIds,
     styleColor,
@@ -236,19 +233,36 @@ function _ParamGroupContainer({
     const unpinned = getCurrShownParamIds(state, sectionId, false, true);
 
     return {
+      edgeInputPorts: impl.edgeInputParams.map((paramId) => {
+        const path = {
+          ...pinned.requiredParamIdsToPaths,
+          ...unpinned.requiredParamIdsToPaths,
+        }[paramId];
+        const rawLabel = path
+          ? paramNameFromPathArray(state, sectionId, path)
+          : getParamDisplayName(state, sectionId, paramId);
+        const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
+        return { id: paramId, label };
+      }),
       hideUnpinnedParams: impl.hideUnpinnedParams,
       paramFilter: impl.paramFilter,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       edgeInputParams: impl.edgeInputParams,
-      edgeOutputPortCount: impl.edgeOutputPorts.length,
+      edgeOutputPorts: impl.edgeOutputPorts.map((port) => ({
+        id: port.id,
+        label:
+          port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
+      })),
       pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
       pinnedTopLevelParamIds: pinned.topLevelParamIds,
+      selectedParams: impl.selectedParams ?? [],
       unpinnedRequiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
       unpinnedTopLevelParamIds: unpinned.topLevelParamIds,
       styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
-  const { canEditLayout } = useShareCapabilities();
+  const { canEditLayout, canEditStructure } = useShareCapabilities();
+  const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const unpinnedParamsAreaMinHeight = useSettings(
     (state) => state.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
   );
@@ -277,7 +291,7 @@ function _ParamGroupContainer({
     () =>
       buildLiveDictAreaNodeLayoutView({
         inputPortCount: edgeInputParams.length,
-        outputPortCount: edgeOutputPortCount,
+        outputPortCount: edgeOutputPorts.length,
         liveScenePacket: buildLiveDictAreaScenePacket({
           edgeInputParams,
           hideUnpinnedParams,
@@ -302,8 +316,8 @@ function _ParamGroupContainer({
     [
       canEditLayout,
       displayNamesById,
+      edgeOutputPorts.length,
       edgeInputParams,
-      edgeOutputPortCount,
       hideUnpinnedParams,
       paramFilter,
       pinnedRequiredParamIdsToPaths,
@@ -328,10 +342,31 @@ function _ParamGroupContainer({
       }),
     [liveDictAreaSceneBlockView],
   );
+  const liveDictAreaNodeVisualPacket = useMemo(
+    () =>
+      buildLiveDictAreaNodeVisualPacket({
+        edgeStrip: {
+          canConnect: canEditStructure && !isSelectingParams,
+          inputPorts: edgeInputPorts,
+          isSelectingParams,
+          outputPorts: edgeOutputPorts,
+          selectedParamIds: selectedParams,
+        },
+        rendererPackets: liveDictAreaSceneRendererPackets,
+      }),
+    [
+      canEditStructure,
+      edgeInputPorts,
+      edgeOutputPorts,
+      isSelectingParams,
+      liveDictAreaSceneRendererPackets,
+      selectedParams,
+    ],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaSceneRendererPackets.maxNestedDepth);
-  }, [liveDictAreaSceneRendererPackets.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeVisualPacket.maxNestedDepth);
+  }, [liveDictAreaNodeVisualPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -344,14 +379,16 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaSceneRendererPackets.blocks.map((block) => {
+        {liveDictAreaNodeVisualPacket.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
                 key={block.mount.frameId}
                 sectionId={sectionId}
                 bgColor={bgColor}
-                rendererPacket={block}
+                visualPacket={block}
+                positionAndSizeLocked={positionAndSizeLocked}
+                styleColor={styleColor}
               />
             );
           }
@@ -361,7 +398,7 @@ function _ParamGroupContainer({
               <GetPinnedParams
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                rendererPacket={block}
+                visualPacket={block}
                 handleColumnResizeStart={handleColumnResizeStart}
                 positionAndSizeLocked={positionAndSizeLocked}
                 sectionTypeName={sectionTypeName}
@@ -374,7 +411,7 @@ function _ParamGroupContainer({
             <GetUnpinnedParams
               key={block.mount.frameId}
               sectionId={sectionId}
-              rendererPacket={block}
+              visualPacket={block}
               handleColumnResizeStart={handleColumnResizeStart}
               styleColor={styleColor}
             />
@@ -528,67 +565,20 @@ function useMeasuredParamAreaMinHeight({
 function EdgesStrip({
   sectionId,
   bgColor,
-  rendererPacket,
+  positionAndSizeLocked,
+  styleColor,
+  visualPacket,
 }: {
   sectionId: string;
   bgColor: string;
-  rendererPacket: LiveDictAreaEdgeStripRendererPacket;
+  positionAndSizeLocked: boolean;
+  styleColor: string | null;
+  visualPacket: LiveDictAreaEdgeStripVisualPacket;
 }) {
-  const { canEditStructure } = useShareCapabilities();
-  const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const heightKey = getEdgesStripHeightKey(sectionId);
-  const {
-    inputPorts,
-    outputPorts,
-    shouldRoundBottom,
-    positionAndSizeLocked,
-    selectedParams,
-    styleColor,
-  } = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const selectedParams = impl.selectedParams ?? [];
-    const pinned = getCurrShownParamIds(state, sectionId, true, true);
-    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-    const requiredParamIdsToPaths = {
-      ...pinned.requiredParamIdsToPaths,
-      ...unpinned.requiredParamIdsToPaths,
-    };
-    const inputPorts = impl.edgeInputParams.map((paramId) => {
-      const path = requiredParamIdsToPaths[paramId];
-      const rawLabel = path
-        ? paramNameFromPathArray(state, sectionId, path)
-        : getParamDisplayName(state, sectionId, paramId);
-      const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
-      return { id: paramId, label };
-    });
-    const outputPorts = impl.edgeOutputPorts.map((port) => ({
-      id: port.id,
-      label:
-        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-    }));
-    const pinnedView = buildFilteredParamListView({
-      requiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
-      topLevelParamIds: pinned.topLevelParamIds,
-      edgeInputParams: impl.edgeInputParams,
-    });
-    const hasPinnedParams = pinnedView.topLevelParamIds.length > 0;
-    const showsUnpinnedParams = !impl.hideUnpinnedParams;
-    return {
-      inputPorts,
-      outputPorts,
-      shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      selectedParams,
-      styleColor: impl.styleColor ?? null,
-    };
-  }, _.isEqual);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -601,35 +591,17 @@ function EdgesStrip({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
-
-  const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
-  const canConnect = canEditStructure && !isSelectingParams;
-  const edgeStripVisualPacket = useMemo(
-    () =>
-      buildLiveDictAreaEdgeStripVisualPacket({
-        canConnect,
-        inputPorts,
-        isSelectingParams,
-        outputPorts,
-        rendererPacket,
-        selectedParamIds: selectedParams,
-        shouldRoundBottom,
-      }),
-    [
-      canConnect,
-      inputPorts,
-      isSelectingParams,
-      outputPorts,
-      rendererPacket,
-      selectedParams,
-      shouldRoundBottom,
-    ],
-  );
+  const hasEdges =
+    visualPacket.inputPortCount > 0 || visualPacket.outputPortCount > 0;
   const handlePreventSectionClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
-  const rowPreventSectionClassName = isSelectingParams
+  const rowPreventSectionClassName = visualPacket.inputColumn.ports.some(
+    (port) => port.isSelectable,
+  )
     ? handlePreventSectionClassName
     : "";
-  const handleSelectableClassName = isSelectingParams
+  const handleSelectableClassName = visualPacket.inputColumn.ports.some(
+    (port) => port.isSelectable,
+  )
     ? "arg-edge-handle--selecting"
     : "";
   const stripBorderColorClassName = hasSectionStyleTheme
@@ -688,7 +660,7 @@ function EdgesStrip({
       }
       resizeObserver.disconnect();
     };
-  }, [hasEdges, inputPorts.length, outputPorts.length]);
+  }, [hasEdges, visualPacket.inputPortCount, visualPacket.outputPortCount]);
 
   useEffect(() => {
     if (!hasEdges) {
@@ -700,8 +672,8 @@ function EdgesStrip({
     }
     const nextHeight = resolveEdgeStripHeight({
       measuredHeight,
-      inputPortCount: inputPorts.length,
-      outputPortCount: outputPorts.length,
+      inputPortCount: visualPacket.inputPortCount,
+      outputPortCount: visualPacket.outputPortCount,
     });
     if (nextHeight === lastHeightRef.current) {
       return;
@@ -711,9 +683,9 @@ function EdgesStrip({
   }, [
     hasEdges,
     heightKey,
-    inputPorts.length,
+    visualPacket.inputPortCount,
     measuredHeight,
-    outputPorts.length,
+    visualPacket.outputPortCount,
   ]);
 
   useEffect(() => {
@@ -725,12 +697,8 @@ function EdgesStrip({
     };
   }, [heightKey]);
 
-  if (!edgeStripVisualPacket) {
-    return null;
-  }
-
   let roundedBottomClassName = "";
-  if (edgeStripVisualPacket.shouldRoundBottom) {
+  if (visualPacket.shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
       ? "rounded-b-sm"
       : "rounded-b-xl";
@@ -742,8 +710,8 @@ function EdgesStrip({
       ref={stripRef}
       data-params-fixed="true"
       {...getDictAreaBlockFrameDataProps({
-        blockId: edgeStripVisualPacket.blockId,
-        frame: edgeStripVisualPacket.mount,
+        blockId: visualPacket.blockId,
+        frame: visualPacket.mount,
       })}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
@@ -751,10 +719,10 @@ function EdgesStrip({
           <div
             className={`text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
-            {edgeStripVisualPacket.inputColumn.title}
+            {visualPacket.inputColumn.title}
           </div>
           <div className="-ml-2 flex flex-col gap-1 pt-1">
-            {edgeStripVisualPacket.inputColumn.ports.map((port) => (
+            {visualPacket.inputColumn.ports.map((port) => (
               <div
                 key={port.id}
                 className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowHoverClassName} ${
@@ -785,9 +753,9 @@ function EdgesStrip({
                   position={port.handlePosition}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={edgeStripVisualPacket.canConnect}
-                  isConnectableStart={edgeStripVisualPacket.canConnect}
-                  isConnectableEnd={edgeStripVisualPacket.canConnect}
+                  isConnectable={visualPacket.canConnect}
+                  isConnectableStart={visualPacket.canConnect}
+                  isConnectableEnd={visualPacket.canConnect}
                   className={`arg-edge-handle arg-edge-handle--target ${handlePreventSectionClassName} ${handleSelectableClassName}`}
                   onClick={(e) => {
                     if (!port.isSelectable) {
@@ -812,10 +780,10 @@ function EdgesStrip({
           <div
             className={`text-right text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
-            {edgeStripVisualPacket.outputColumn.title}
+            {visualPacket.outputColumn.title}
           </div>
           <div className="-mr-2 flex flex-col gap-1 pt-1">
-            {edgeStripVisualPacket.outputColumn.ports.map((port) => (
+            {visualPacket.outputColumn.ports.map((port) => (
               <div
                 key={port.id}
                 className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowTextColorClassName} ${edgeRowHoverClassName}`}
@@ -827,9 +795,9 @@ function EdgesStrip({
                   position={port.handlePosition}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={edgeStripVisualPacket.canConnect}
-                  isConnectableStart={edgeStripVisualPacket.canConnect}
-                  isConnectableEnd={edgeStripVisualPacket.canConnect}
+                  isConnectable={visualPacket.canConnect}
+                  isConnectableStart={visualPacket.canConnect}
+                  isConnectableEnd={visualPacket.canConnect}
                   className={`arg-edge-handle arg-edge-handle--source ${handlePreventSectionClassName}`}
                 />
               </div>
@@ -848,7 +816,7 @@ type MaxNestedDepth = {
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  rendererPacket: LiveDictAreaPinnedParamAreaRendererPacket | null;
+  visualPacket: LiveDictAreaPinnedParamAreaVisualPacket | null;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
@@ -857,7 +825,7 @@ type GetPinnedParamsProps = {
 
 type PinnedParamsAreaProps = {
   sectionId: string;
-  visualPacket: ReturnType<typeof buildLiveDictAreaPinnedParamAreaVisualPacket>;
+  visualPacket: LiveDictAreaPinnedParamAreaVisualPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
@@ -869,16 +837,14 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  rendererPacket: LiveDictAreaUnpinnedParamAreaRendererPacket | null;
+  visualPacket: LiveDictAreaUnpinnedParamAreaVisualPacket | null;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   styleColor: string | null;
 };
 
 type UnpinnedParamsAreaProps = {
   sectionId: string;
-  visualPacket: ReturnType<
-    typeof buildLiveDictAreaUnpinnedParamAreaVisualPacket
-  >;
+  visualPacket: LiveDictAreaUnpinnedParamAreaVisualPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
   isScrollable: boolean;
@@ -914,7 +880,7 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  rendererPacket,
+  visualPacket,
   handleColumnResizeStart,
   positionAndSizeLocked,
   sectionTypeName,
@@ -936,30 +902,21 @@ function GetPinnedParams({
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getPinnedParamsAreaHeightKey(sectionId);
-  const pinnedParamAreaVisualPacket = useMemo(
-    () =>
-      rendererPacket
-        ? buildLiveDictAreaPinnedParamAreaVisualPacket({
-            rendererPacket,
-          })
-        : null,
-    [rendererPacket],
-  );
 
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: pinnedParamAreaVisualPacket?.list.topLevelParamIds ?? [],
+    paramIds: visualPacket?.list.topLevelParamIds ?? [],
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    pinnedParamAreaVisualPacket && (
+    visualPacket && (
       <PinnedParamsArea
         sectionId={sectionId}
-        visualPacket={pinnedParamAreaVisualPacket}
+        visualPacket={visualPacket}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
         positionAndSizeLocked={positionAndSizeLocked}
@@ -1047,7 +1004,7 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  rendererPacket,
+  visualPacket,
   handleColumnResizeStart,
   styleColor,
 }: GetUnpinnedParamsProps) {
@@ -1066,15 +1023,6 @@ function GetUnpinnedParams({
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
-  const unpinnedParamAreaVisualPacket = useMemo(
-    () =>
-      rendererPacket
-        ? buildLiveDictAreaUnpinnedParamAreaVisualPacket({
-            rendererPacket,
-          })
-        : null,
-    [rendererPacket],
-  );
 
   const setContainerRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -1087,16 +1035,16 @@ function GetUnpinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: unpinnedParamAreaVisualPacket?.list.topLevelParamIds ?? [],
+    paramIds: visualPacket?.list.topLevelParamIds ?? [],
     contentRef: containerRef,
     rowsRef: containerRef,
   });
 
   return (
-    unpinnedParamAreaVisualPacket && (
+    visualPacket && (
       <UnpinnedParamsArea
         sectionId={sectionId}
-        visualPacket={unpinnedParamAreaVisualPacket}
+        visualPacket={visualPacket}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
         isScrollable={isScrollable}

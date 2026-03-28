@@ -899,3 +899,32 @@ Record:
     - relevant requests returned `200`, including `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, `api/getListenerCoverage`, `api/plugins/runtime`, `api/llm/apiKeys`, `api/llm/config`, `api/getAgentProfiles`, `api/getPromptTemplates`, `api/getExternalAgentConfigs`, `api/getExternalAgentHealth`, `api/getEngineConfigs`, `api/getTranscriptionProfiles`, `api/setProjectChatWindowingState`, `api/getFileBrowserRoot`, `api/getFolderContents`, `api/setTopLevelSectionLayout`, and `api/setActiveViewMode`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the extracted edge, pinned, and unpinned block visuals into a higher-level dict-area node visual packet before any broad Pixi node drawing lands.
+
+## 2026-03-26 035
+
+- Item: Compose the extracted dict-area block visuals into a node-level visual packet for the live mount path.
+- Status: `done`
+- Details:
+  - Added a pure typed node-level visual packet helper above the existing edge, pinned, and unpinned block visuals:
+    - `frontend/src/components/Params/groupContainerNodeVisualPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeVisualPacket.test.ts`
+  - Exported the shared edge-port input type from the edge-strip visual helper so the new node-level packet can compose the live edge-strip payload without rebuilding ad hoc shapes:
+    - `frontend/src/components/Params/groupContainerEdgeStripVisualPacket.ts`
+  - Updated the production non-Pixi `GroupContainer` path to build one live dict-area node visual packet and route the current DOM mount surfaces through it instead of composing each block visual independently at the mount site:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - keeping the ordered edge/pinned/unpinned block mount sequence deterministic while exposing one higher-level node visual contract
+    - deriving the edge-strip visual state from the same selected-port and connectability inputs while suppressing empty edge visuals
+    - leaving the existing DOM edge-strip and pinned/unpinned param-area surfaces intact while deepening the retained-scene packet boundary above the block visuals
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeVisualPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+    - `All Settings` was visible and the settings/dict/param stack rendered normally without obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `Core`, `Param Defaults`, `All Settings`, `Grid Color`, `Pan On Drag`, and `Zoom On Scroll`
+    - relevant requests returned `200`, including `/api/serverMode`, `/api/loadSettings`, `/api/backendInitStatus`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, and `/api/getLatestLspDiagnostics`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next node-level scene-owned packet above this dict-area visual boundary before any broad Pixi node drawing lands.
