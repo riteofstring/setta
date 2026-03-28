@@ -12,6 +12,7 @@ import { clamp, isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
+import { fitView } from "../store/utils";
 import type { CoordinateExtent, ReactFlowState, Viewport } from "../types";
 import { getWheelDelta } from "../utils";
 
@@ -123,6 +124,9 @@ const selector = (s: ReactFlowState) => ({
   d3Selection: s.d3Selection,
   d3ZoomHandler: s.d3ZoomHandler,
   userSelectionActive: s.userSelectionActive,
+  fitViewOnInit: s.fitViewOnInit,
+  fitViewOnInitDone: s.fitViewOnInitDone,
+  fitViewOnInitOptions: s.fitViewOnInitOptions,
 });
 
 const ZoomPane = ({
@@ -141,8 +145,15 @@ const ZoomPane = ({
 }: ZoomPaneProps) => {
   const isZoomingOrPanning = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
-  const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
-    useReactFlow(selector, shallow);
+  const {
+    d3Zoom,
+    d3Selection,
+    d3ZoomHandler,
+    userSelectionActive,
+    fitViewOnInit,
+    fitViewOnInitDone,
+    fitViewOnInitOptions,
+  } = useReactFlow(selector, shallow);
   const isPanScrolling = useRef(false);
   const isWheelZooming = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -509,6 +520,25 @@ const ZoomPane = ({
     zoomOnDoubleClick,
     panOnDrag,
     zoomActivationKeyPressed,
+  ]);
+
+  useEffect(() => {
+    if (!d3Zoom || !d3Selection || !fitViewOnInit || fitViewOnInitDone) {
+      return;
+    }
+    const didCompleteInitialFit = fitView({
+      initial: true,
+      ...fitViewOnInitOptions,
+    });
+    if (didCompleteInitialFit) {
+      useReactFlow.setState({ fitViewOnInitDone: true });
+    }
+  }, [
+    d3Selection,
+    d3Zoom,
+    fitViewOnInit,
+    fitViewOnInitDone,
+    fitViewOnInitOptions,
   ]);
 
   return (
