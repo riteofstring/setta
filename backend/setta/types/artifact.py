@@ -3,8 +3,6 @@ from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter
 from setta.types.generated.go_shared_types import (
     ArtifactType,
-    BinaryContentRef,
-    DrawAreaBrushShape,
 )
 from setta.types.generated.go_shared_types import (
     BrushStroke as GoBrushStroke,
@@ -69,6 +67,7 @@ def create_file_artifact_id(extension: str = ".bin"):
 ChartData = dict[str, list[str | float]]
 CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
+
 
 class BrushStroke(GoBrushStroke):
     points: list[CanvasPoint | Literal["BREAK"]] = Field(default_factory=list)

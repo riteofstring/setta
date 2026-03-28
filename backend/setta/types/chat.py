@@ -22,7 +22,6 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.generated.go_shared_types import (
     ChatRole,
-    LLMConfig,
     StreamingEventType,
 )
 from setta.types.generated.go_shared_types import (
@@ -36,9 +35,6 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.generated.go_shared_types import (
     MessageFinalizedEvent as GoMessageFinalizedEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageImageURL as GoMessageImageURL,
 )
 from setta.types.generated.go_shared_types import (
     MessageImageURLContent as GoMessageImageURLContent,
