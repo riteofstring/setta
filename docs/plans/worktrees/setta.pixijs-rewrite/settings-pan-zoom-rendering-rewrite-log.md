@@ -5606,6 +5606,35 @@ Record:
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
 
+## 2026-03-28 189
+
+- Item: Lift the route-bundle-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the router-args layer now owns the default `SectionContainerBoundary` handoff above the route-element bundle builder:
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`
+    - `frontend/src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `modeWrappedRouterArgs.tsx` now explicitly owning the project/share `SectionContainerBoundary` dependency while still assembling the same route elements plus route-boundary args for the browser-router stack
+    - `modeWrappedRouterRouteElements.ts` shrinking into a thinner route-element bundle builder that receives a caller-owned `SectionBoundary` and still produces the same home, project, catch-all, workspace-launch, and standalone route elements
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/modeWrappedRouterArgs.tsx src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/modeWrappedRouterRouteElements.ts src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - `/home` stayed authenticated without needing a new bootstrap handoff and relevant requests such as `GET /api/authRefreshStatus` returned `200`
+    - the verifier created a fresh project from `/home` and verified the resulting live project route `http://127.0.0.1:3044/wandering_speaking`
+    - the visible `/home` and fresh project shells rendered normally with no obvious clipping, broken overlap, or route-shell regression in the viewport
+    - representative visible labels included `PROJECT AI CHAT`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Chat Window 1`, `GENERATED PYTHON CODE`, and `Type a message...`
+    - representative successful requests included `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, `POST /api/getFileBrowserRoot`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-router-args-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`, starting with `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`.
+
 ## 2026-03-28 188
 
 - Item: Close the previously blocked standalone target-resolution/store-selection lift by fixing the live dict-area shell seam under `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`.

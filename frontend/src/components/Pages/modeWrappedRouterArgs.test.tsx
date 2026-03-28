@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
-import { buildModeWrappedRouteBoundaryArgs } from "./modeWrappedRouteBoundaryArgs";
-import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import type { ModeRouteElements } from "./modeRouteResolver";
+import { buildModeWrappedRouteBoundaryArgs } from "./modeWrappedRouteBoundaryArgs";
+import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
+import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
+
+vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
+  SectionContainerBoundary: vi.fn(),
+}));
 
 vi.mock("./modeWrappedRouteBoundaryArgs", () => ({
   buildModeWrappedRouteBoundaryArgs: vi.fn(),
@@ -22,7 +27,7 @@ function createModeRouteElements(label: string): ModeRouteElements {
 }
 
 describe("buildModeWrappedRouterArgs", () => {
-  it("owns the remaining router-args seam above router.tsx", () => {
+  it("owns the lifted section-boundary seam above modeWrappedRouterRouteElements.ts", () => {
     const standaloneAppRouteElement = (
       <div data-testid="standalone-app-route-copy" />
     );
@@ -56,6 +61,9 @@ describe("buildModeWrappedRouterArgs", () => {
     const args = buildModeWrappedRouterArgs();
 
     expect(buildModeWrappedRouterRouteElements).toHaveBeenCalledOnce();
+    expect(buildModeWrappedRouterRouteElements).toHaveBeenCalledWith({
+      SectionBoundary: SectionContainerBoundary,
+    });
     expect(buildModeWrappedRouteBoundaryArgs).toHaveBeenCalledOnce();
     expect(buildModeWrappedRouteBoundaryArgs).toHaveBeenCalledWith({
       projectRouteElements,
