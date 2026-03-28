@@ -299,26 +299,57 @@ launch_session_name() {
   printf 'ralph-%s-%s-%s\n' "${target_name}" "${suffix}" "${label}"
 }
 
-build_logged_shell_command() {
+build_logged_shell_script() {
   local target_root="$1"
   local session_name="$2"
   local command_body="$3"
   local log_path="$4"
+  local script_path="$5"
+  local status_file="${6:-}"
   local shell_path=""
   local target_root_quoted=""
   local log_path_quoted=""
   local shell_path_quoted=""
   local session_name_quoted=""
-  local inner_command=""
+  local script_dir=""
+  local status_file_quoted=""
 
   shell_path="${SHELL:-/bin/zsh}"
   target_root_quoted="$(printf '%q' "${target_root}")"
   log_path_quoted="$(printf '%q' "${log_path}")"
   shell_path_quoted="$(printf '%q' "${shell_path}")"
   session_name_quoted="$(printf '%q' "${session_name}")"
+  script_dir="$(dirname "${script_path}")"
 
-  inner_command="printf '\\033]0;%s\\007' ${session_name_quoted}; cd ${target_root_quoted} && ( ${command_body} ) 2>&1 | tee ${log_path_quoted}; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${session_name} exited with code' \$exit_code; exec ${shell_path_quoted} -l"
-  shell_join_args "${shell_path}" "-lc" "${inner_command}"
+  mkdir -p "${script_dir}"
+  cat > "${script_path}" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+
+printf '\\033]0;%s\\007' ${session_name_quoted}
+cd ${target_root_quoted}
+
+set +e
+( ${command_body} ) 2>&1 | tee ${log_path_quoted}
+exit_code=\${PIPESTATUS[0]}
+set -e
+EOF
+
+  if [[ -n "${status_file}" ]]; then
+    status_file_quoted="$(printf '%q' "${status_file}")"
+    cat >> "${script_path}" <<EOF
+printf '%s\n' "\${exit_code}" > ${status_file_quoted}
+EOF
+  fi
+
+  cat >> "${script_path}" <<EOF
+echo
+echo '[ralph] ${session_name} exited with code' "\${exit_code}"
+exec ${shell_path_quoted} -l
+EOF
+
+  chmod +x "${script_path}"
+  printf '%s\n' "${script_path}"
 }
 
 start_command_in_tmux_window() {
@@ -328,9 +359,10 @@ start_command_in_tmux_window() {
   local command_display="$4"
   local command_body="$5"
   local run_dir="$6"
+  local status_file="${7:-}"
   local session_name=""
   local log_path=""
-  local terminal_command=""
+  local launch_script=""
 
   if ! command -v tmux >/dev/null 2>&1 || [[ -z "${TMUX:-}" ]]; then
     echo "tmux window launch requested, but tmux is unavailable in this shell." >&2
@@ -339,10 +371,10 @@ start_command_in_tmux_window() {
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
   log_path="${run_dir}/${target_name}-${label}.log"
-  terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
+  launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}")"
 
   echo "[bootstrap] ${target_name}: opening tmux window ${session_name} for ${command_display}"
-  tmux new-window -n "${session_name}" "${terminal_command}"
+  tmux new-window -n "${session_name}" "$(shell_join_args "${launch_script}")"
 }
 
 start_command_in_cmux_surface() {
@@ -352,9 +384,10 @@ start_command_in_cmux_surface() {
   local command_display="$4"
   local command_body="$5"
   local run_dir="$6"
+  local status_file="${7:-}"
   local session_name=""
   local log_path=""
-  local terminal_command=""
+  local launch_script=""
   local surface_ref=""
   local surface_output=""
 
@@ -365,7 +398,7 @@ start_command_in_cmux_surface() {
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
   log_path="${run_dir}/${target_name}-${label}.log"
-  terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
+  launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}")"
 
   echo "[bootstrap] ${target_name}: opening cmux tab ${session_name} for ${command_display}"
   surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
@@ -373,7 +406,7 @@ start_command_in_cmux_surface() {
   if [[ -n "${surface_ref}" ]]; then
     cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
     sleep 1
-    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${terminal_command}" >/dev/null 2>&1
+    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "$(shell_join_args "${launch_script}")" >/dev/null 2>&1
     cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1
   else
     echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
@@ -388,9 +421,10 @@ start_command_in_terminal_window() {
   local command_display="$4"
   local command_body="$5"
   local run_dir="$6"
+  local status_file="${7:-}"
   local session_name=""
   local log_path=""
-  local terminal_command=""
+  local launch_script=""
 
   if [[ "${OSTYPE:-}" != darwin* ]] || ! command -v osascript >/dev/null 2>&1; then
     echo "macOS Terminal launch requested, but AppleScript automation is unavailable." >&2
@@ -399,10 +433,10 @@ start_command_in_terminal_window() {
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
   log_path="${run_dir}/${target_name}-${label}.log"
-  terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
+  launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}")"
 
   echo "[bootstrap] ${target_name}: opening Terminal window ${session_name} for ${command_display}"
-  osascript - "${terminal_command}" <<'EOF' >/dev/null
+  osascript - "$(shell_join_args "${launch_script}")" <<'EOF' >/dev/null
 on run argv
 tell application "Terminal"
   activate
@@ -420,16 +454,17 @@ start_command_in_visible_terminal() {
   local command_display="$5"
   local command_body="$6"
   local run_dir="$7"
+  local status_file="${8:-}"
 
   case "${resolved_mode}" in
     tmux)
-      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}" "${status_file}"
       ;;
     cmux)
-      start_command_in_cmux_surface "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      start_command_in_cmux_surface "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}" "${status_file}"
       ;;
     terminal)
-      start_command_in_terminal_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      start_command_in_terminal_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}" "${status_file}"
       ;;
     *)
       echo "Unsupported visible terminal mode: ${resolved_mode}" >&2
@@ -736,27 +771,20 @@ launch_self_in_visible_terminal() {
   local program_name=""
   local command_body=""
   local status_file=""
-  local status_file_quoted=""
 
   program_name="${RALPH_PROGRAM_NAME:-$(basename "$0")}"
   build_self_exec_args
   status_file="${run_dir}/codex-loop.exit"
-  status_file_quoted="$(printf '%q' "${status_file}")"
   command_body="$(
     shell_join_args \
-      bash \
-      -lc \
-      "$(
-        shell_join_args \
-          env \
-          "RALPH_PROGRAM_NAME=${program_name}" \
-          "RALPH_VISIBLE_LAUNCHED=1" \
-          "${SCRIPT_DIR}/run-codex-loop.sh" \
-          "${SELF_EXEC_ARGS[@]}"
-      ); exit_code=\$?; printf '%s\n' \"\$exit_code\" > ${status_file_quoted}; exit \$exit_code"
+      env \
+      "RALPH_PROGRAM_NAME=${program_name}" \
+      "RALPH_VISIBLE_LAUNCHED=1" \
+      "${SCRIPT_DIR}/run-codex-loop.sh" \
+      "${SELF_EXEC_ARGS[@]}"
   )"
 
-  start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}"
+  start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}" "${status_file}"
 }
 
 follow_visible_launch_output() {
