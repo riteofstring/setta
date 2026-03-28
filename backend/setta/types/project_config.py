@@ -32,39 +32,6 @@ from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-def default_section_allowlist() -> list[SectionType]:
-    return [
-        SectionType.Callable,
-        SectionType.Dict,
-        SectionType.ListRoot,
-        SectionType.Group,
-        SectionType.GlobalVariables,
-        SectionType.TextBlock,
-        SectionType.Draw,
-        SectionType.MetaControl,
-        SectionType.TaskBoard,
-        SectionType.Spreadsheet,
-    ]
-
-
-def default_meta_control_allowlist() -> list[CodeObjType]:
-    return [
-        CodeObjType.CodeParam,
-        CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
-        CodeObjType.TextAreaParam,
-        CodeObjType.SliderParam,
-        CodeObjType.RotaryParam,
-        CodeObjType.SwitchParam,
-        CodeObjType.ColorPickerParam,
-        CodeObjType.DropdownParam,
-        CodeObjType.PasswordParam,
-        CodeObjType.ButtonParam,
-        CodeObjType.DropzoneParam,
-    ]
-
-
 def default_section_representation(
     section_type: SectionType,
 ) -> SectionRepresentationMode:
@@ -78,26 +45,16 @@ def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolic
     for section_type in SectionType:
         policies[section_type] = SectionTypeCodegenPolicy(
             mode=SectionCodegenMode.inherit,
-            representation=default_section_representation(section_type)
+            representation=default_section_representation(section_type),
         )
     return policies
-
-
-def default_section_codegen_policy() -> SectionCodegenPolicy:
-    return SectionCodegenPolicy(
-        allowlist=default_section_allowlist(),
-        metaControlAllowlist=default_meta_control_allowlist(),
-        exclude=[],
-        typePolicies=default_section_type_policies(),
-        sectionOverrides={},
-    )
 
 
 def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
     policies: dict[CodeObjType, CodeObjTypeValuePolicy] = {}
     for code_obj_type in CodeObjType:
         policies[code_obj_type] = CodeObjTypeValuePolicy(
-            representation=default_code_obj_representation(code_obj_type)
+            representation=default_code_obj_representation(code_obj_type),
         )
     return policies
 
@@ -119,29 +76,59 @@ def default_code_obj_representation(
     return CodeObjValueRepresentationMode.expression
 
 
-def default_code_obj_value_policy() -> CodeObjValuePolicy:
-    return CodeObjValuePolicy(
-        typePolicies=default_code_obj_type_value_policies(),
-        codeObjOverrides={},
-    )
-
-
-def default_python_codegen_target() -> ProjectCodegenPythonTarget:
-    return ProjectCodegenPythonTarget(
-        language=ProjectCodegenLanguage.python,
-        genCodePrefix="",
-        genCodeSuffix=f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()",
-        generateMetadata=False,
-        sectionPolicy=default_section_codegen_policy(),
-        codeObjValuePolicy=default_code_obj_value_policy(),
-    )
-
-
 ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
 
 
+_DEFAULT_SECTION_ALLOWLIST: tuple[SectionType, ...] = (
+    SectionType.Callable,
+    SectionType.Dict,
+    SectionType.ListRoot,
+    SectionType.Group,
+    SectionType.GlobalVariables,
+    SectionType.TextBlock,
+    SectionType.Draw,
+    SectionType.MetaControl,
+    SectionType.TaskBoard,
+    SectionType.Spreadsheet,
+)
+
+_DEFAULT_META_CONTROL_ALLOWLIST: tuple[CodeObjType, ...] = (
+    CodeObjType.CodeParam,
+    CodeObjType.TextParam,
+    CodeObjType.DateParam,
+    CodeObjType.TimeParam,
+    CodeObjType.TextAreaParam,
+    CodeObjType.SliderParam,
+    CodeObjType.RotaryParam,
+    CodeObjType.SwitchParam,
+    CodeObjType.ColorPickerParam,
+    CodeObjType.DropdownParam,
+    CodeObjType.PasswordParam,
+    CodeObjType.ButtonParam,
+    CodeObjType.DropzoneParam,
+)
+
+
 def default_codegen_targets() -> list[ProjectCodegenTarget]:
-    return [default_python_codegen_target()]
+    return [
+        ProjectCodegenPythonTarget(
+            language=ProjectCodegenLanguage.python,
+            genCodePrefix="",
+            genCodeSuffix=f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()",
+            generateMetadata=False,
+            sectionPolicy=SectionCodegenPolicy(
+                allowlist=list(_DEFAULT_SECTION_ALLOWLIST),
+                metaControlAllowlist=list(_DEFAULT_META_CONTROL_ALLOWLIST),
+                exclude=[],
+                typePolicies=default_section_type_policies(),
+                sectionOverrides={},
+            ),
+            codeObjValuePolicy=CodeObjValuePolicy(
+                typePolicies=default_code_obj_type_value_policies(),
+                codeObjOverrides={},
+            ),
+        )
+    ]
 
 
 class ProjectConfig(GoProjectConfig, extra="forbid"):
@@ -187,8 +174,6 @@ class ProjectConfig(GoProjectConfig, extra="forbid"):
                     target.language = normalized
                 language = normalized
             if language in seen:
-                raise ValueError(
-                    f"Duplicate codegen target language: {language}"
-                )
+                raise ValueError(f"Duplicate codegen target language: {language}")
             seen.add(language)
         return self

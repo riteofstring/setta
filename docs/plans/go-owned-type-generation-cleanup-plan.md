@@ -354,6 +354,9 @@ That means:
 - the dead Python-only project-config policy helper layer has been removed:
   - deleted unused `resolve_*codegen_policy` / `get_*codegen_target` helpers
   - deleted the test that existed only to exercise that dead helper layer
+- `backend/setta/types/project_config.py` has also been trimmed by collapsing tiny default-materialization helpers:
+  - small functions such as `default_section_allowlist()` and `default_meta_control_allowlist()` no longer exist as separate helper layers
+  - that reduces Python-side helper fragmentation, but it does not change the larger unfinished problem that Python still materializes the Go-owned default codegen payload locally
 - `backend/setta/types/listener.py` now also owns the handwritten websocket envelope adapters:
   - the Python message classes subclass Go-generated listener message models and only keep the Python-side typed content wrappers, discriminator literals, and `TypeAdapter`
 - the listener register/ack transport family has been reduced further:
