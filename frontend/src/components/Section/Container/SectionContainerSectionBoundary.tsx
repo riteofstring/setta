@@ -1,16 +1,17 @@
 import React from "react";
 import {
-  SectionContainerSection,
-  type SectionContainerSectionBoundaryProps,
-} from "./SectionContainerSection";
-import {
   renderDefaultSectionContainerCoreBody,
   renderDefaultSectionContainerNestedSections,
 } from "./sectionContainerDefaultRenderers";
+import {
+  SectionContainerSection,
+  type SectionContainerSectionBoundaryProps,
+} from "./SectionContainerSection";
+import { SortableSectionSection } from "./SortableSectionSection";
 
 export type SectionContainerSectionBoundaryOnlyProps = Omit<
   SectionContainerSectionBoundaryProps,
-  "renderCoreBody" | "renderNestedSections"
+  "SectionBoundary" | "renderCoreBody" | "renderNestedSections"
 >;
 
 function _SectionContainerSectionBoundary(
@@ -19,6 +20,7 @@ function _SectionContainerSectionBoundary(
   return (
     <SectionContainerSection
       {...props}
+      SectionBoundary={SortableSectionSection}
       renderCoreBody={renderDefaultSectionContainerCoreBody}
       renderNestedSections={renderDefaultSectionContainerNestedSections}
     />

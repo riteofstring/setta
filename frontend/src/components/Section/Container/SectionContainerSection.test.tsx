@@ -6,15 +6,6 @@ import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyVi
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
-vi.mock("./SortableSectionSection", () => ({
-  SortableSectionSection: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-sortable-section-section"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("./SectionContainer", () => ({
   SectionContainer: ({
     sectionId,
@@ -135,10 +126,21 @@ describe("SectionContainerSection", () => {
         data-is-joined-code-terminal-group={String(isJoinedCodeTerminalGroup)}
       />
     );
+    function MockSectionBoundary({
+      sectionId,
+    }: SortableSectionBodySectionBoundaryProps) {
+      return (
+        <div
+          data-testid="mock-sortable-section-boundary"
+          data-section-id={sectionId}
+        />
+      );
+    }
     const markup = renderToStaticMarkup(
       <SectionContainerSection
         sectionId="section-1"
         isTopLevel={true}
+        SectionBoundary={MockSectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
@@ -148,7 +150,7 @@ describe("SectionContainerSection", () => {
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-is-top-level="true"');
     expect(markup).toContain('data-has-section-boundary="true"');
-    expect(markup).toContain('data-testid="mock-sortable-section-section"');
+    expect(markup).toContain('data-testid="mock-sortable-section-boundary"');
     expect(markup).toContain('data-section-id="section-1-nested"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain(

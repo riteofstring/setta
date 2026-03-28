@@ -4,6 +4,32 @@ import {
   SectionContainerSectionBoundary,
   type SectionContainerSectionBoundaryOnlyProps,
 } from "./SectionContainerSectionBoundary";
+import { SortableSectionSection } from "./SortableSectionSection";
+
+const mockSectionContainerSection = vi.fn(
+  ({
+    sectionId,
+    isTopLevel,
+    dragListeners,
+    SectionBoundary,
+    renderCoreBody,
+    renderNestedSections,
+  }: SectionContainerSectionBoundaryOnlyProps & {
+    SectionBoundary: unknown;
+    renderCoreBody: unknown;
+    renderNestedSections: unknown;
+  }) => (
+    <div
+      data-testid="mock-section-container-section"
+      data-section-id={sectionId}
+      data-is-top-level={String(isTopLevel)}
+      data-has-drag-listeners={String(Boolean(dragListeners))}
+      data-has-section-boundary={String(Boolean(SectionBoundary))}
+      data-has-render-core-body={String(Boolean(renderCoreBody))}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
+    />
+  ),
+);
 
 vi.mock("./SectionContainerCoreCanvasBody", () => ({
   SectionContainerCoreCanvasBody: () => null,
@@ -14,25 +40,13 @@ vi.mock("./SectionContainerNestedSections", () => ({
 }));
 
 vi.mock("./SectionContainerSection", () => ({
-  SectionContainerSection: ({
-    sectionId,
-    isTopLevel,
-    dragListeners,
-    renderCoreBody,
-    renderNestedSections,
-  }: SectionContainerSectionBoundaryOnlyProps & {
-    renderCoreBody: unknown;
-    renderNestedSections: unknown;
-  }) => (
-    <div
-      data-testid="mock-section-container-section"
-      data-section-id={sectionId}
-      data-is-top-level={String(isTopLevel)}
-      data-has-drag-listeners={String(Boolean(dragListeners))}
-      data-has-render-core-body={String(Boolean(renderCoreBody))}
-      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
-    />
-  ),
+  SectionContainerSection: (
+    props: Parameters<typeof mockSectionContainerSection>[0],
+  ) => mockSectionContainerSection(props),
+}));
+
+vi.mock("./SortableSectionSection", () => ({
+  SortableSectionSection: () => null,
 }));
 
 describe("SectionContainerSectionBoundary", () => {
@@ -43,12 +57,15 @@ describe("SectionContainerSectionBoundary", () => {
         isTopLevel={true}
       />,
     );
+    const forwardedProps = mockSectionContainerSection.mock.calls[0]?.[0];
 
     expect(markup).toContain('data-testid="mock-section-container-section"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-is-top-level="true"');
     expect(markup).toContain('data-has-drag-listeners="false"');
+    expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
+    expect(forwardedProps?.SectionBoundary).toBe(SortableSectionSection);
   });
 });

@@ -1,7 +1,9 @@
 import React, { type ComponentProps } from "react";
 import { SectionContainer } from "./SectionContainer";
-import { SortableSectionSection } from "./SortableSectionSection";
-import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
+import type {
+  SortableSectionBodySectionBoundary,
+  SortableSectionBodySectionBoundaryProps,
+} from "./sortableSectionBodyView";
 
 export type SectionContainerSectionProps = Pick<
   ComponentProps<typeof SectionContainer>,
@@ -12,9 +14,12 @@ export type SectionContainerSectionBoundaryProps =
     Pick<
       SortableSectionBodySectionBoundaryProps,
       "renderCoreBody" | "renderNestedSections"
-    >;
+    > & {
+      SectionBoundary: SortableSectionBodySectionBoundary;
+    };
 
 function _SectionContainerSection({
+  SectionBoundary,
   renderCoreBody,
   renderNestedSections,
   ...props
@@ -22,7 +27,7 @@ function _SectionContainerSection({
   return (
     <SectionContainer
       {...props}
-      SectionBoundary={SortableSectionSection}
+      SectionBoundary={SectionBoundary}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}
     />

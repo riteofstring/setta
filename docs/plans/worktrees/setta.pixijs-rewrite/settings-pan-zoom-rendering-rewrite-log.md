@@ -6249,3 +6249,43 @@ Record:
     - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/moveSections`, `POST /api/loadProjectConfig`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-caller-owned `SectionBoundary` ownership one layer higher above `frontend/src/components/Section/Container/SectionContainerSection.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerSectionBoundary.tsx`, while keeping the unstable live `/settings` canary explicit.
+
+## 2026-03-28 207
+
+- Item: Lift the `SectionBoundary` handoff above `frontend/src/components/Section/Container/SectionContainerSection.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerSectionBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Moved the `SortableSectionSection` ownership out of `SectionContainerSection.tsx` so the lower section wrapper is now a thinner caller-owned seam:
+    - `frontend/src/components/Section/Container/SectionContainerSection.tsx`
+  - Updated the direct callers that still depend on the recursive nested-section boundary so they now inject `SectionBoundary={SortableSectionSection}` explicitly instead of depending on a hardcoded lower-level import:
+    - `frontend/src/components/Section/Container/SectionContainerSectionBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.tsx`
+  - Refreshed focused coverage so the lifted handoff is pinned on the generic section wrapper, the nested/default boundary wrapper, the top-level boundary wrapper, and the sortable recursive caller:
+    - `frontend/src/components/Section/Container/SectionContainerSection.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerSectionBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.test.tsx`
+  - This keeps the current DOM behavior intact while making the seam more explicit:
+    - `SectionContainerSection.tsx` now depends on a caller-provided `SectionBoundary`
+    - `SectionContainerSectionBoundary.tsx` now explicitly owns the default recursive `SortableSectionSection` handoff plus the default core/nested renderers
+    - `SectionContainerBoundary.tsx` and `SortableSectionSection.tsx` now explicitly forward the same recursive boundary on their production paths
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx src/components/Section/Container/SectionContainerSectionBoundary.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerSection.tsx src/components/Section/Container/SectionContainerSectionBoundary.tsx src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SortableSectionSection.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerSectionBoundary.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+      - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<current worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - the provided bootstrap token was rejected in that browser session, so the verifier reused the existing authenticated app tab at `http://127.0.0.1:3044/finding_drake`
+    - the live nested section surface rendered normally with no obvious blank state, clipping, overlap, or missing child section body
+    - representative visible labels included `GENERATED PYTHON CODE`, `GENERATED READ-ONLY`, `Chat Window 1`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, and `PLAN NEXT STEPS`
+    - representative requests returned `200`, including `POST /api/getFolderContents`, `POST /api/getFileBrowserRoot`, and `POST /api/setProjectChatWindowingState`
+    - the unstable live `/settings` canary remains explicit; this slice used the live nested-section project surface instead
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-`SectionContainerBoundary`-owned `SectionBoundary` handoff into the next caller layer above `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.tsx`, while keeping the unstable live `/settings` canary explicit.

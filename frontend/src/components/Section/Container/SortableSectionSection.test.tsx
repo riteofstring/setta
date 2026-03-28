@@ -8,6 +8,7 @@ vi.mock("./SectionContainerSection", () => ({
     sectionId,
     isTopLevel,
     dragListeners,
+    SectionBoundary,
     renderCoreBody,
     renderNestedSections,
   }: SectionContainerSectionBoundaryProps) => (
@@ -16,6 +17,7 @@ vi.mock("./SectionContainerSection", () => ({
       data-section-id={sectionId}
       data-is-top-level={String(isTopLevel)}
       data-has-drag-listeners={dragListeners ? "true" : "false"}
+      data-has-section-boundary={String(Boolean(SectionBoundary))}
       data-has-render-core-body={String(Boolean(renderCoreBody))}
       data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     />
@@ -37,6 +39,7 @@ describe("SortableSectionSection", () => {
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-is-top-level="false"');
     expect(markup).toContain('data-has-drag-listeners="true"');
+    expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
   });
