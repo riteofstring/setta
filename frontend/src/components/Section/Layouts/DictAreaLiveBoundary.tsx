@@ -6,6 +6,10 @@ import {
 } from "../../Params/groupContainerShellBoundary";
 import { LiveDictAreaLayout } from "./LiveDictAreaLayout";
 import { buildLiveDictAreaLayoutView } from "./dictAreaView";
+import {
+  readLiveDictAreaRendererModeFromWindow,
+  type LiveDictAreaRendererMode,
+} from "./liveDictAreaRendererMode";
 
 export type DictAreaLiveBoundaryProps = {
   bgColor: string;
@@ -14,11 +18,17 @@ export type DictAreaLiveBoundaryProps = {
 
 function buildGroupContainerShellProps({
   liveDictAreaMountProps,
+  liveDictAreaSceneBoundary,
+  renderMode,
   setOuterRef,
   waitingForResult,
-}: GroupContainerShellBoundary): GroupContainerShellProps {
+}: GroupContainerShellBoundary & {
+  renderMode: LiveDictAreaRendererMode;
+}): GroupContainerShellProps {
   return {
     liveDictAreaMountProps,
+    liveDictAreaSceneBoundary,
+    renderMode,
     setOuterRef,
     waitingForResult,
   };
@@ -28,19 +38,22 @@ function _DictAreaLiveBoundary({
   bgColor,
   sectionId,
 }: DictAreaLiveBoundaryProps) {
+  const renderMode = readLiveDictAreaRendererModeFromWindow();
   const liveDictAreaLayoutView = buildLiveDictAreaLayoutView({
     bgColor,
     sectionId,
   });
-  const groupContainerShellBoundary = useGroupContainerShellBoundary(
-    liveDictAreaLayoutView.paramGroupContainerProps,
-  );
+  const groupContainerShellBoundary = useGroupContainerShellBoundary({
+    ...liveDictAreaLayoutView.paramGroupContainerProps,
+    renderMode,
+  });
 
   return (
     <LiveDictAreaLayout
-      groupContainerShellProps={buildGroupContainerShellProps(
-        groupContainerShellBoundary,
-      )}
+      groupContainerShellProps={buildGroupContainerShellProps({
+        ...groupContainerShellBoundary,
+        renderMode,
+      })}
       kwargsControlsProps={liveDictAreaLayoutView.kwargsControlsProps}
     />
   );

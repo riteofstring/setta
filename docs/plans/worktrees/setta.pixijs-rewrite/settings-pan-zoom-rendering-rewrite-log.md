@@ -6425,3 +6425,51 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
 - Next action:
   - Continue the first retained-scene/Pixi slice by reusing the existing live dict-area scene boundary on the real canary path, starting with a non-interactive Pixi node-body mount above the cleaned live dict/param shell before any editor-overlay or drag handoff work lands.
+
+## 2026-03-28 211
+
+- Item: Stabilize the live `pixi-node-body` dict-area canary so the real Settings path mounts canvases without the shell measurement loop.
+- Status: `done`
+- Details:
+  - Kept the live canary on the real Settings dict/param path and fixed the first mount-time feedback loops instead of continuing seam-lift churn:
+    - `frontend/src/components/Pages/Project/UiPage.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.ts`
+    - `frontend/src/components/Params/groupContainerShell.tsx`
+    - `frontend/src/components/Params/groupContainerShellBoundary.ts`
+    - `frontend/src/components/Params/groupContainerWrapper.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx`
+    - `frontend/src/components/Section/Layouts/liveDictAreaRendererMode.ts`
+  - Added scene-backed fixed-height measurement markers for the Pixi canary so the shell boundary can keep computing `paramsFixedHeight` without relying on the old live DOM block frames:
+    - the Pixi shell now emits explicit fixed markers for the non-grow edge/pinned blocks
+    - `useGroupContainerShellBoundary(...)` now switches to those markers and disables subtree mutation tracking on the Pixi path so canvas child churn no longer retriggers the fixed-height writer
+  - Tightened the Pixi scene mount loop itself:
+    - the host resize observer now schedules rerenders only when width changes
+    - redundant `replaceChildren(...)` / height writes are suppressed when the canvas host is already current
+  - Tightened the nested-depth feedback path:
+    - `useLiveDictAreaSectionContainerBoundary(...)` now copies `maxNestedDepth` into local state only when the pinned/unpinned values actually change
+  - Kept the renderer-mode opt-in stable across the generic live param-group path:
+    - `UiPage.tsx` persists the explicit query-param opt-in into session storage early
+    - both `GroupContainerWrapper` and `DictAreaLiveBoundary` now pass the resolved mode down into the shell boundary so the same mode controls both the visible shell and its measurement behavior
+  - Added and updated focused coverage for the live canary wiring:
+    - `frontend/src/components/Params/groupContainerShellBoundary.test.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Section/Layouts/liveDictAreaRendererMode.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/groupContainerShellBoundary.test.tsx src/components/Params/groupContainerLiveDictAreaSectionContainerBoundary.test.tsx src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/groupContainerShell.test.tsx src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/liveDictAreaRendererMode.test.ts src/components/Pages/Project/UiPage.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context:
+    - set `sessionStorage["setta.liveDictAreaRendererMode"] = "pixi-node-body"` before loading `/settings`, then opened `All Settings`
+    - no `Maximum update depth exceeded` console error appeared after the view switch
+    - `[data-live-dict-area-render-mode="pixi-node-body"]` and `[data-live-dict-area-scene="pixi"]` were present, and `canvas` elements were mounted with non-zero size
+    - the visible settings body showed populated settings content with no obvious blank or clipped node-body state in the checked viewport
+    - relevant requests returned `200`, including `POST /api/loadSettings` and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the live retained-scene slice by starting the first focused editor-overlay or interaction handoff on top of the now-stable non-interactive Pixi node-body canary.

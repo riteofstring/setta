@@ -1,5 +1,9 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import {
+  readLiveDictAreaRendererModeFromWindow,
+  type LiveDictAreaRendererMode,
+} from "../Section/Layouts/liveDictAreaRendererMode";
+import {
   GroupContainerShell,
   type GroupContainerShellProps,
 } from "./groupContainerShell";
@@ -13,23 +17,36 @@ export type GroupContainerWrapperProps = GroupContainerShellBoundaryInput;
 
 function buildGroupContainerShellProps({
   liveDictAreaMountProps,
+  liveDictAreaSceneBoundary,
+  renderMode,
   setOuterRef,
   waitingForResult,
-}: GroupContainerShellBoundary): GroupContainerShellProps {
+}: GroupContainerShellBoundary & {
+  renderMode: LiveDictAreaRendererMode;
+}): GroupContainerShellProps {
   return {
     liveDictAreaMountProps,
+    liveDictAreaSceneBoundary,
+    renderMode,
     setOuterRef,
     waitingForResult,
   };
 }
 
 export function GroupContainerWrapper(props: GroupContainerWrapperProps) {
-  const groupContainerShellBoundary = useGroupContainerShellBoundary(props);
+  const renderMode = readLiveDictAreaRendererModeFromWindow();
+  const groupContainerShellBoundary = useGroupContainerShellBoundary({
+    ...props,
+    renderMode,
+  });
 
   return (
     <ParamDndContext>
       <GroupContainerShell
-        {...buildGroupContainerShellProps(groupContainerShellBoundary)}
+        {...buildGroupContainerShellProps({
+          ...groupContainerShellBoundary,
+          renderMode,
+        })}
       />
     </ParamDndContext>
   );

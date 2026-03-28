@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import {
   buildLiveDictAreaMountBoundary,
@@ -25,20 +25,6 @@ export function useLiveDictAreaSectionContainerBoundary({
     pinned: 1,
     unpinned: 1,
   });
-  const handleMaxNestedDepthChange = useCallback<
-    (nextMaxNestedDepth: LiveDictAreaMountBoundary["maxNestedDepth"]) => void
-  >((nextMaxNestedDepth) => {
-    onMaxNestedDepthChange((currentMaxNestedDepth) => {
-      if (
-        currentMaxNestedDepth.pinned === nextMaxNestedDepth.pinned &&
-        currentMaxNestedDepth.unpinned === nextMaxNestedDepth.unpinned
-      ) {
-        return currentMaxNestedDepth;
-      }
-
-      return nextMaxNestedDepth;
-    });
-  }, []);
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
     outerRef,
@@ -54,10 +40,29 @@ export function useLiveDictAreaSectionContainerBoundary({
     () => buildLiveDictAreaMountBoundary({ input: liveDictAreaInput }),
     [liveDictAreaInput],
   );
+  const nextPinnedMaxNestedDepth =
+    liveDictAreaMountBoundary.maxNestedDepth.pinned;
+  const nextUnpinnedMaxNestedDepth =
+    liveDictAreaMountBoundary.maxNestedDepth.unpinned;
 
   useEffect(() => {
-    handleMaxNestedDepthChange(liveDictAreaMountBoundary.maxNestedDepth);
-  }, [handleMaxNestedDepthChange, liveDictAreaMountBoundary.maxNestedDepth]);
+    if (
+      maxNestedDepth.pinned === nextPinnedMaxNestedDepth &&
+      maxNestedDepth.unpinned === nextUnpinnedMaxNestedDepth
+    ) {
+      return;
+    }
+
+    onMaxNestedDepthChange({
+      pinned: nextPinnedMaxNestedDepth,
+      unpinned: nextUnpinnedMaxNestedDepth,
+    });
+  }, [
+    maxNestedDepth.pinned,
+    maxNestedDepth.unpinned,
+    nextPinnedMaxNestedDepth,
+    nextUnpinnedMaxNestedDepth,
+  ]);
 
   return liveDictAreaMountBoundary;
 }

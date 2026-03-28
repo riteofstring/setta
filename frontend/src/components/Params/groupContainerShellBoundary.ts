@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useTemporaryMiscState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamsFixedHeightKey } from "utils/constants";
+import type { LiveDictAreaRendererMode } from "../Section/Layouts/liveDictAreaRendererMode";
 import {
   useLiveDictAreaSectionContainerBoundary,
   type LiveDictAreaSectionContainerBoundary,
@@ -11,15 +12,19 @@ import {
 export type GroupContainerShellBoundaryInput = Pick<
   LiveDictAreaSectionContainerBoundaryInput,
   "bgColor" | "sectionId" | "sectionTypeName"
->;
-
-export type GroupContainerShellBoundary = LiveDictAreaSectionContainerBoundary & {
-  setOuterRef: (node: HTMLDivElement | null) => void;
-  waitingForResult: boolean;
+> & {
+  renderMode?: LiveDictAreaRendererMode;
 };
+
+export type GroupContainerShellBoundary =
+  LiveDictAreaSectionContainerBoundary & {
+    setOuterRef: (node: HTMLDivElement | null) => void;
+    waitingForResult: boolean;
+  };
 
 export function useGroupContainerShellBoundary({
   bgColor,
+  renderMode = "dom",
   sectionId,
   sectionTypeName,
 }: GroupContainerShellBoundaryInput): GroupContainerShellBoundary {
@@ -29,6 +34,10 @@ export function useGroupContainerShellBoundary({
   const pendingFixedHeightRef = useRef<number | null>(null);
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   const waitingForResultRef = useRef(waitingForResult);
+  const fixedMeasurementSelector =
+    renderMode === "pixi-node-body"
+      ? "[data-live-dict-area-fixed-measurement]"
+      : '[data-params-fixed="true"]';
 
   const setOuterRef = useCallback((node: HTMLDivElement | null) => {
     outerRef.current = node;
@@ -53,7 +62,7 @@ export function useGroupContainerShellBoundary({
 
     const updateObserved = () => {
       const fixedElements = Array.from(
-        outer.querySelectorAll<HTMLElement>('[data-params-fixed="true"]'),
+        outer.querySelectorAll<HTMLElement>(fixedMeasurementSelector),
       );
       const nextSet = new Set(fixedElements);
       for (const element of observed) {
@@ -109,7 +118,10 @@ export function useGroupContainerShellBoundary({
       frameId = requestAnimationFrame(updateFixedHeight);
     };
 
-    mutationObserver.observe(outer, { childList: true, subtree: true });
+    mutationObserver.observe(outer, {
+      childList: true,
+      subtree: renderMode !== "pixi-node-body",
+    });
     scheduleMeasure();
 
     return () => {
@@ -123,7 +135,7 @@ export function useGroupContainerShellBoundary({
       pendingFixedHeightRef.current = null;
       useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
     };
-  }, [paramsFixedHeightKey]);
+  }, [fixedMeasurementSelector, paramsFixedHeightKey, renderMode]);
 
   useEffect(() => {
     if (waitingForResult) {

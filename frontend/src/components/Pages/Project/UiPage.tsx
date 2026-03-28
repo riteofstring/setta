@@ -7,6 +7,7 @@ import "forks/xyflow/core/styles/style.css";
 import { useEffect, type ComponentType } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
+import { syncLiveDictAreaRendererModeFromSearch } from "../../Section/Layouts/liveDictAreaRendererMode";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SettingsAllSettingsBenchmarkProvider } from "./settingsAllSettingsBenchmark";
@@ -18,6 +19,7 @@ type UIPageProps = {
 export function UIPage({ SectionBoundary }: UIPageProps) {
   useInitGlobalKeyEventListeners();
   useLastMouseDownMouseUpLocation();
+  useSyncLiveDictAreaRendererMode();
   const showMiniMap = useLocalStorage((x) => x.showMinimap);
 
   return (
@@ -33,6 +35,14 @@ export function UIPage({ SectionBoundary }: UIPageProps) {
       </SectionDndContext>
     </SettingsAllSettingsBenchmarkProvider>
   );
+}
+
+function useSyncLiveDictAreaRendererMode() {
+  useEffect(() => {
+    syncLiveDictAreaRendererModeFromSearch(
+      typeof globalThis.location === "object" ? globalThis.location.search : "",
+    );
+  }, []);
 }
 
 function useInitGlobalKeyEventListeners() {

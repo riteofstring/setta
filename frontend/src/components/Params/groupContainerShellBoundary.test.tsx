@@ -9,8 +9,8 @@ import {
   useWaitingForLSPResult,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { getParamsFixedHeightKey } from "utils/constants";
 import "testUtils/reactRefreshPreamble";
+import { getParamsFixedHeightKey } from "utils/constants";
 import {
   CodeObjTypeEnum,
   ConfigLanguageEnum,
@@ -24,6 +24,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { LiveDictAreaRendererMode } from "../Section/Layouts/liveDictAreaRendererMode";
 import { useGroupContainerShellBoundary } from "./groupContainerShellBoundary";
 
 function syncStoreInitialState(store: {
@@ -198,12 +199,14 @@ type TestMutationObserverInstance = {
 function GroupContainerShellBoundaryHarness({
   bgColor,
   includeFixedBlocks = true,
+  renderMode = "dom",
   sectionId,
   sectionTypeName,
   visibleLabels = [],
 }: {
   bgColor: string;
   includeFixedBlocks?: boolean;
+  renderMode?: LiveDictAreaRendererMode;
   sectionId: string;
   sectionTypeName: SectionTypeEnum;
   visibleLabels?: string[];
@@ -216,6 +219,7 @@ function GroupContainerShellBoundaryHarness({
     waitingForResult,
   } = useGroupContainerShellBoundary({
     bgColor,
+    renderMode,
     sectionId,
     sectionTypeName,
   });
@@ -234,13 +238,28 @@ function GroupContainerShellBoundaryHarness({
       data-waiting-for-result={waitingForResult}
       ref={setOuterRef}
     >
-      {includeFixedBlocks && (
+      {renderMode === "pixi-node-body" ? (
+        <>
+          <div
+            data-live-dict-area-fixed-measurement="edges"
+            data-params-fixed="true"
+          >
+            edge-measure
+          </div>
+          <div
+            data-live-dict-area-fixed-measurement="pinned"
+            data-params-fixed="true"
+          >
+            pinned-measure
+          </div>
+        </>
+      ) : includeFixedBlocks ? (
         <>
           <div data-params-fixed="true">edge-block</div>
           <div data-params-fixed="true">pinned-block</div>
           <div>unpinned-block</div>
         </>
-      )}
+      ) : null}
       {visibleLabels.map((label) => (
         <div key={label}>{label}</div>
       ))}
@@ -378,7 +397,8 @@ describe("useGroupContainerShellBoundary", () => {
     const expectedHeight =
       10 +
       fixedBlocks.reduce(
-        (total, _block, index) => total + 20 + index * 5 + index + 1 + index + 2,
+        (total, _block, index) =>
+          total + 20 + index * 5 + index + 1 + index + 2,
         0,
       );
 
@@ -418,5 +438,64 @@ describe("useGroupContainerShellBoundary", () => {
     expect(shell?.dataset.waitingForResult).toBe("true");
     expect(shell?.textContent).toContain("pinned-param");
     expect(shell?.textContent).toContain("unpinned-param");
+  });
+
+  it("uses explicit Pixi fixed-height markers without subtree mutation tracking on the canary path", async () => {
+    const sectionId = "section-group-container-shell-boundary-pixi";
+
+    seedGroupContainerShellBoundaryState({
+      sectionId,
+      edgeInputParamIds: ["edge-param"],
+      edgeOutputPorts: [{ accessor: "Result", id: "out-1" }],
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+
+    await act(async () => {
+      root.render(
+        <GroupContainerShellBoundaryHarness
+          bgColor="bg-transparent"
+          renderMode="pixi-node-body"
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    const shell = host.querySelector<HTMLElement>(".section-row-pin-main");
+    expect(shell).not.toBeNull();
+    Object.defineProperty(shell!, "clientWidth", {
+      configurable: true,
+      value: 480,
+    });
+    shell?.style.setProperty("padding-top", "4px");
+    shell?.style.setProperty("padding-bottom", "6px");
+
+    const measurementMarkers = Array.from(
+      host.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-fixed-measurement]",
+      ),
+    );
+    expect(
+      measurementMarkers.map(
+        (element) => element.dataset.liveDictAreaFixedMeasurement,
+      ),
+    ).toEqual(["edges", "pinned"]);
+    measurementMarkers.forEach((block, index) => {
+      Object.defineProperty(block, "offsetHeight", {
+        configurable: true,
+        value: 24 + index * 6,
+      });
+    });
+
+    await flushAnimationFrames();
+
+    expect(
+      useTemporaryMiscState.getState()[getParamsFixedHeightKey(sectionId)],
+    ).toBe(10 + 24 + 30);
+    expect(mutationObservers[0]?.observe).toHaveBeenCalledWith(shell, {
+      childList: true,
+      subtree: false,
+    });
   });
 });
