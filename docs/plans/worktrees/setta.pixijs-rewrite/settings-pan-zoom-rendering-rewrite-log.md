@@ -3078,3 +3078,36 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, and `GET /api/backendInitStatus`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SectionContainer.tsx` body boundary into the next higher-level caller, starting with `frontend/src/components/Section/Container/SortableSectionBody.tsx`, before any broad Pixi node drawing lands.
+
+## 2026-03-27 114
+
+- Item: Lift the `SectionContainer.tsx` body boundary into the next higher-level caller, starting with `frontend/src/components/Section/Container/SortableSectionBody.tsx`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/SectionContainer.tsx` so it no longer instantiates `SectionContainerCoreCanvasBody` inline:
+    - the section container now accepts a typed `renderCoreBody(...)` boundary and remains responsible for the higher-level section shell plus nested-section routing
+  - Lifted the live core-canvas-body handoff into the sortable section caller:
+    - `frontend/src/components/Section/Container/SortableSectionBody.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionBody.test.tsx`
+  - Updated focused coverage for the lifted section-container seam:
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+  - Fixed the remaining direct production caller introduced by the new contract so the live node path still renders on the canvas:
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SortableSectionBody.tsx` as the higher-level owner of the live `SectionContainerCoreCanvasBody` boundary for sortable sections
+    - leaving `SectionContainer.tsx` focused on the section shell, joined code-terminal wrapper, and nested-section routing instead of mixed shell-plus-body ownership
+    - keeping the current DOM/live canvas path intact for both sortable sections and the direct xyflow node wrapper while deepening the section-container contract above `SectionContainer.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SortableSectionBody.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - first result: failed
+    - cause: the lifted `renderCoreBody(...)` contract surfaced one remaining direct production caller in `frontend/src/forks/xyflow/core/components/wrapNode.tsx` with runtime error `renderCoreBody is not a function`
+    - rerun after patching `wrapNode.tsx`: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded and the settings shell rendered normally with tabs `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings` visible
+    - representative visible labels and controls included `Project`, `Edit`, `Run`, `Open settings`, `Auto Backup`, `Pan On Drag`, `Grid Color`, and `Project AI Settings`
+    - no obvious clipping, overlap, or missing content was observed in the visible viewport
+    - representative requests returned `200`, including `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, and related bootstrap calls
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SortableSectionBody.tsx` body boundary into the next higher-level sortable caller in `frontend/src/components/Section/Container/SortableSectionContainer.tsx` before any broad Pixi node drawing lands.

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
+import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
 type MockEmbeddedTerminal = {
@@ -144,31 +145,6 @@ vi.mock("./SectionContainerCore", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerCoreCanvasBody", () => ({
-  SectionContainerCoreCanvasBody: ({
-    sectionId,
-    sectionTypeName,
-    bgColor,
-    isMinimized,
-    isUserView,
-  }: {
-    sectionId: string;
-    sectionTypeName: string;
-    bgColor: string;
-    isMinimized: boolean;
-    isUserView: boolean;
-  }) => (
-    <div
-      data-testid="mock-section-container-core-body"
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-bg-color={bgColor}
-      data-is-minimized={isMinimized ? "true" : "false"}
-      data-is-user-view={isUserView ? "true" : "false"}
-    />
-  ),
-}));
-
 vi.mock("./AgenticEdgeHandles", () => ({
   AgenticEdgeHandles: ({ isUserView }: { isUserView: boolean }) => (
     <div
@@ -198,6 +174,25 @@ function renderNestedSections({
       data-is-joined-code-terminal-group={
         isJoinedCodeTerminalGroup ? "true" : "false"
       }
+    />
+  );
+}
+
+function renderCoreBody({
+  sectionId,
+  sectionTypeName,
+  bgColor,
+  isMinimized,
+  isUserView,
+}: SectionContainerCoreBodyProps) {
+  return (
+    <div
+      data-testid="mock-section-container-core-body"
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-bg-color={bgColor}
+      data-is-minimized={isMinimized ? "true" : "false"}
+      data-is-user-view={isUserView ? "true" : "false"}
     />
   );
 }
@@ -235,6 +230,7 @@ describe("SectionContainer", () => {
         sectionId="section-1"
         isTopLevel={false}
         dragListeners={undefined}
+        renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
     );
@@ -263,6 +259,7 @@ describe("SectionContainer", () => {
         sectionId="section-2"
         isTopLevel={true}
         dragListeners={undefined}
+        renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
     );

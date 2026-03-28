@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SortableSectionBody } from "./SortableSectionBody";
+import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
 vi.mock("forks/dnd-kit/DummySection", () => ({
@@ -13,10 +14,12 @@ vi.mock("./SectionContainer", () => ({
   SectionContainer: ({
     sectionId,
     dragListeners,
+    renderCoreBody,
     renderNestedSections,
   }: {
     sectionId: string;
     dragListeners?: Record<string, unknown>;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: (props: {
       sectionId: string;
       isGroup: boolean;
@@ -29,6 +32,13 @@ vi.mock("./SectionContainer", () => ({
       data-section-id={sectionId}
       data-has-drag-listeners={dragListeners ? "true" : "false"}
     >
+      {renderCoreBody({
+        sectionId,
+        sectionTypeName: "Code",
+        bgColor: "bg:white",
+        isMinimized: false,
+        isUserView: false,
+      })}
       {renderNestedSections({
         sectionId,
         isGroup: false,
@@ -36,6 +46,21 @@ vi.mock("./SectionContainer", () => ({
         isJoinedCodeTerminalGroup: false,
       })}
     </div>
+  ),
+}));
+
+vi.mock("./SectionContainerCoreCanvasBody", () => ({
+  SectionContainerCoreCanvasBody: ({
+    sectionId,
+    sectionTypeName,
+    bgColor,
+  }: SectionContainerCoreBodyProps) => (
+    <div
+      data-testid="mock-section-container-core-body"
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-bg-color={bgColor}
+    />
   ),
 }));
 
@@ -95,6 +120,7 @@ describe("SortableSectionBody", () => {
     );
 
     expect(markup).toContain('data-testid="mock-section-container"');
+    expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-has-drag-listeners="true"');
     expect(markup).toContain(

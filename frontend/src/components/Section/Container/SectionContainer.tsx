@@ -1,6 +1,6 @@
 import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
-import React from "react";
+import React, { type ReactElement } from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
@@ -19,16 +19,21 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
-import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
+import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { buildSectionContainerView } from "./sectionContainerView";
 import { getOutlineColor } from "./utils";
+
+export type SectionContainerCoreBodyRenderer = (
+  props: SectionContainerCoreBodyProps,
+) => ReactElement | null;
 
 function _SectionContainer({
   sectionId,
   isTopLevel,
   dragListeners,
   renderNestedSections,
+  renderCoreBody,
 }: {
   sectionId: string;
   isTopLevel: boolean;
@@ -36,6 +41,7 @@ function _SectionContainer({
   renderNestedSections: (
     props: SectionContainerNestedSectionsProps,
   ) => React.ReactElement | null;
+  renderCoreBody: SectionContainerCoreBodyRenderer;
 }) {
   const {
     visibility,
@@ -126,7 +132,7 @@ function _SectionContainer({
   });
   const core = view.core ? (
     <SectionContainerCore {...view.core.props}>
-      <SectionContainerCoreCanvasBody {...view.core.bodyProps} />
+      {renderCoreBody(view.core.bodyProps)}
     </SectionContainerCore>
   ) : null;
 
@@ -171,6 +177,7 @@ function _SectionContainer({
 export const SectionContainer = React.memo(
   _SectionContainer,
   (p, n) =>
+    p.renderCoreBody === n.renderCoreBody &&
     p.renderNestedSections === n.renderNestedSections &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );

@@ -1,10 +1,18 @@
 import React from "react";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
-import { SectionContainer } from "./SectionContainer";
+import {
+  SectionContainer,
+  type SectionContainerCoreBodyRenderer,
+} from "./SectionContainer";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import {
   buildSortableSectionBodyView,
   type SortableSectionBodyProps,
 } from "./sortableSectionBodyView";
+
+const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
+  props,
+) => <SectionContainerCoreCanvasBody {...props} />;
 
 function _SortableSectionBody(props: SortableSectionBodyProps) {
   const view = buildSortableSectionBodyView(props);
@@ -16,6 +24,7 @@ function _SortableSectionBody(props: SortableSectionBodyProps) {
       return (
         <SectionContainer
           {...view.props}
+          renderCoreBody={renderSectionContainerCoreBody}
           renderNestedSections={props.renderNestedSections}
         />
       );
