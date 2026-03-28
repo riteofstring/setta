@@ -2447,3 +2447,30 @@ Record:
     - representative requests returned `200`, including `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/loadSettings`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `SectionContainerDictArea.tsx` boundary into the next higher-level section-area routing boundary above `AreaSwitch` before any broad Pixi node drawing lands.
+
+## 2026-03-27 092
+
+- Item: Lift the `SectionContainerDictArea.tsx` boundary into the higher-level section-area routing boundary above `AreaSwitch`.
+- Status: `done`
+- Details:
+  - Added a typed section-area routing boundary above the existing dict-area branch:
+    - `frontend/src/components/Section/Container/SectionContainerArea.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerAreaView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerAreaView.test.ts`
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so `AreaSwitch` is now a thin minimized/null gate plus delegation boundary instead of owning the direct section-type switch, chat-surface wiring, and dict-area handoff inline.
+  - Kept the current non-Pixi DOM path intact while lifting the dict-area route one level higher:
+    - the new section-area boundary now owns the deterministic section-type-to-area routing above `SectionContainerDictArea`
+    - `AreaSwitch` still preserves the existing minimized behavior and default `chatHost="section_layout"` contract for its callers
+    - chat, dict, and null-routing behavior now have a direct pure helper boundary instead of being tested only through the large render switch
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerAreaView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded with the worktree session authenticated enough for `api/authRefreshStatus`, `api/loadSettings`, and `api/backendInitStatus` to return `200`
+    - `All Settings` remained visible/reachable and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `settings`, `TAG`, `gui`, `languageServer`, `backend`, `sectionSizingPolicy`, `shortcuts`, `Core`, `Param Defaults`, and `All Settings`
+    - non-blocking console noise was limited to existing React 19 `element.ref` deprecation messages plus accessibility warnings about missing form `id/name` attributes and broken `aria-labelledby` targets
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `SectionContainerArea.tsx` boundary into the next higher-level section-window/body caller above `AreaSwitch` before any broad Pixi node drawing lands.
