@@ -88,11 +88,14 @@ func TestNormalizeToolAllowlistParsesNamesServersAndRequiredCompletionStatus(t *
 	if _, ok := allowlist.toolBasenames["tool.beta"]; !ok {
 		t.Fatalf("expected basename allowlist entry, got %#v", allowlist.toolBasenames)
 	}
-	if _, ok := allowlist.serverIDs["server-a"]; !ok {
-		t.Fatalf("expected server-a in server allowlist, got %#v", allowlist.serverIDs)
+	if _, ok := allowlist.referencedServerIDs["server-a"]; !ok {
+		t.Fatalf("expected server-a in referenced server set, got %#v", allowlist.referencedServerIDs)
 	}
 	if _, ok := allowlist.serverIDs["server-b"]; !ok {
 		t.Fatalf("expected server-b in server allowlist, got %#v", allowlist.serverIDs)
+	}
+	if _, ok := allowlist.serverIDs["server-a"]; ok {
+		t.Fatalf("did not expect namespaced tool entry to broaden server-a allowlist, got %#v", allowlist.serverIDs)
 	}
 	if _, ok := allowlist.serverIDs[mcpx.DefaultServerID]; ok {
 		t.Fatalf("did not expect default server id to be forced into unavailable servers, got %#v", allowlist.serverIDs)
@@ -179,6 +182,31 @@ func TestIsToolAllowedAllowsNonDefaultCompletionStatusWhenGuardDisabled(t *testi
 	}
 }
 
+func TestIsToolAllowedDoesNotExpandNamespacedToolEntryToWholeServer(t *testing.T) {
+	t.Parallel()
+
+	allowlist, err := normalizeToolAllowlist(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: false,
+		Profile: agentprofiles.Profile{
+			ToolAllowlist: []string{mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalize tool allowlist: %v", err)
+	}
+	if allowlist == nil {
+		t.Fatal("expected normalized allowlist")
+	}
+
+	if !isToolAllowed("setta__getProjectConfigNamesAndIds", allowlist, false) {
+		t.Fatalf("expected namespaced tool to remain allowed, got %#v", allowlist)
+	}
+	if isToolAllowed("setta__set_app_definition", allowlist, false) {
+		t.Fatalf("expected unrelated tool on same server to stay blocked, got %#v", allowlist)
+	}
+}
+
 func TestBuildToolDefinitionsKeepsDefaultCompletionStatusWhenAllowlistNarrowsServerIDs(t *testing.T) {
 	t.Parallel()
 
@@ -213,6 +241,45 @@ func TestBuildToolDefinitionsKeepsDefaultCompletionStatusWhenAllowlistNarrowsSer
 
 	got := toolNamesFromPayload(payload)
 	want := []string{"other__tool_alpha", "setta__report_completion_status"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected tool names %#v", got)
+	}
+}
+
+func TestBuildToolDefinitionsNarrowsNamespacedToolAllowlistToSingleTool(t *testing.T) {
+	t.Parallel()
+
+	payload, _, allowlist, err := buildToolDefinitions(agentruns.ExecutionRequest{
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: false,
+		Profile: agentprofiles.Profile{
+			ToolAllowlist: []string{mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")},
+		},
+	}, &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__getProjectConfigNamesAndIds": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__getProjectConfigNamesAndIds",
+				RemoteName:     "getProjectConfigNamesAndIds",
+				InputSchema:    map[string]any{},
+			},
+			"setta__set_app_definition": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__set_app_definition",
+				RemoteName:     "set_app_definition",
+				InputSchema:    map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tool definitions: %v", err)
+	}
+	if allowlist == nil {
+		t.Fatal("expected normalized allowlist")
+	}
+
+	got := toolNamesFromPayload(payload)
+	want := []string{"setta__getProjectConfigNamesAndIds"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected tool names %#v", got)
 	}

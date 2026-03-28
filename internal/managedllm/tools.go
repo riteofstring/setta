@@ -44,9 +44,10 @@ type ToolClient interface {
 }
 
 type toolAllowlist struct {
-	toolNames     map[string]struct{}
-	toolBasenames map[string]struct{}
-	serverIDs     map[string]struct{}
+	toolNames           map[string]struct{}
+	toolBasenames       map[string]struct{}
+	serverIDs           map[string]struct{}
+	referencedServerIDs map[string]struct{}
 }
 
 type toolCallState struct {
@@ -263,9 +264,10 @@ func normalizeToolAllowlist(request agentruns.ExecutionRequest) (*toolAllowlist,
 		availableServers[trimmed] = struct{}{}
 	}
 	result := &toolAllowlist{
-		toolNames:     map[string]struct{}{},
-		toolBasenames: map[string]struct{}{},
-		serverIDs:     map[string]struct{}{},
+		toolNames:           map[string]struct{}{},
+		toolBasenames:       map[string]struct{}{},
+		serverIDs:           map[string]struct{}{},
+		referencedServerIDs: map[string]struct{}{},
 	}
 	for _, entry := range request.Profile.ToolAllowlist {
 		normalized := strings.TrimSpace(entry)
@@ -281,7 +283,7 @@ func normalizeToolAllowlist(request agentruns.ExecutionRequest) (*toolAllowlist,
 				return nil, fmt.Errorf("%w: unavailable MCP server %q in toolAllowlist", ErrToolsUnsupported, serverID)
 			}
 			result.toolNames[normalized] = struct{}{}
-			result.serverIDs[serverID] = struct{}{}
+			result.referencedServerIDs[serverID] = struct{}{}
 			continue
 		}
 		if _, ok := availableServers[normalized]; ok {
@@ -295,7 +297,7 @@ func normalizeToolAllowlist(request agentruns.ExecutionRequest) (*toolAllowlist,
 		serverID, _, ok := mcpx.SplitNamespacedToolName(requiredToolName)
 		if ok {
 			if _, present := availableServers[serverID]; present {
-				result.serverIDs[serverID] = struct{}{}
+				result.referencedServerIDs[serverID] = struct{}{}
 			}
 		}
 	}
@@ -303,7 +305,17 @@ func normalizeToolAllowlist(request agentruns.ExecutionRequest) (*toolAllowlist,
 }
 
 func resolveAllowedServerIDs(serverIDs []string, allowlist *toolAllowlist) []string {
-	if allowlist == nil || len(allowlist.serverIDs) == 0 {
+	if allowlist == nil {
+		return cloneStringSlice(serverIDs)
+	}
+	allowedServerIDs := make(map[string]struct{}, len(allowlist.serverIDs)+len(allowlist.referencedServerIDs))
+	for serverID := range allowlist.serverIDs {
+		allowedServerIDs[serverID] = struct{}{}
+	}
+	for serverID := range allowlist.referencedServerIDs {
+		allowedServerIDs[serverID] = struct{}{}
+	}
+	if len(allowedServerIDs) == 0 {
 		return cloneStringSlice(serverIDs)
 	}
 	filtered := make([]string, 0, len(serverIDs))
@@ -312,7 +324,7 @@ func resolveAllowedServerIDs(serverIDs []string, allowlist *toolAllowlist) []str
 		if trimmed == "" {
 			continue
 		}
-		if _, ok := allowlist.serverIDs[trimmed]; !ok {
+		if _, ok := allowedServerIDs[trimmed]; !ok {
 			continue
 		}
 		filtered = append(filtered, trimmed)
