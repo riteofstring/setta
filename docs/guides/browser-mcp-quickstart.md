@@ -72,3 +72,60 @@ Optional overrides:
 If browser installs fail with permissions under `~/Library/Caches`, install to a
 repo-local path:
 `PLAYWRIGHT_BROWSERS_PATH=setta_files/runtime/playwright-browsers npx playwright install`
+
+## Playwright recording (manual repro capture)
+
+Use the recorder helper when you want a saved Playwright codegen output while
+starting Setta the normal dev way:
+- `SETTA_HOME=~/.setta-development`
+- `SETTA_FILES_ROOT=<worktree>/setta_files_dev`
+- initial route `/home`
+
+`./scripts/record-playwright-e2e.sh`
+
+Artifacts are written under `${TMPDIR:-/tmp}/setta-playwright-recordings/<repo>/recording-<timestamp>/` by default.
+Use `--artifact-dir <dir>` or `SETTA_E2E_RECORD_ROOT_DIR=<dir>` to override.
+Use `--reset` to clear the active dev `setta_files_dev` state first, matching the
+same reset step used by the normal `reset.sh` flow.
+
+Bundle contents:
+- `recording.spec.ts`: generated Playwright script
+- `network.har`: captured network activity
+- `bootstrap-storage-state.json`: auth/bootstrap state loaded into the recorder
+- `final-storage-state.json`: storage state after you finish the recording
+- `session.json`: metadata describing the recording bundle
+- `logs/`: backend/frontend/bootstrap logs for the disposable session
+
+Pass extra `playwright codegen` flags directly, for example:
+`./scripts/record-playwright-e2e.sh --browser chromium`
+
+## Chrome repro recording (repo-owned extension)
+
+Use this when you want a simpler headed Chrome recording flow without the
+Playwright Inspector UI:
+
+`./scripts/record-chrome-repro.sh`
+
+Behavior:
+- starts Setta with the normal dev-state defaults
+- prefers Playwright's bundled Chrome for Testing when available
+- launches a dedicated browser profile with a local recording extension
+- captures browser events into `${TMPDIR:-/tmp}/setta-chrome-recordings/<repo>/recording-<timestamp>/`
+- fails early if the recorder extension did not actually attach
+- finalizes the bundle when that Chrome window exits
+
+Options:
+- `--artifact-dir <dir>` to override the output directory
+- `--reset` to clear the active dev `setta_files_dev` state first
+
+Bundle contents:
+- `recording.json`: finalized event recording payload
+- `events.ndjson`: raw event stream
+- `session.json`: recording summary metadata
+- `launcher.json`: launcher/bootstrap metadata
+- `extension/`: the generated unpacked extension used for that session
+- `logs/`: dev-instance, collector, and browser logs
+
+Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
+running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
+skip bootstrap URL discovery.
