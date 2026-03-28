@@ -4927,3 +4927,39 @@ Record:
       - because the targeted seam only affects the standalone section dict-area path and the live app currently exposes no valid standalone settings section canary despite the route test passing in Playwright, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked visually verified
 - Next action:
   - Continue the retained-scene seam lift sequence from the plan, while keeping the missing live standalone-section canary explicit for a later iteration to resolve independently of this completed seam lift.
+
+## 2026-03-28 169
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`.
+- Status: `done`
+- Details:
+  - Raised the standalone/share dict-area renderer seam one caller higher so `modeWrappedBrowserRouter.ts` now owns the shared `renderDictArea(...)` handoff above `modeWrappedAppRouteStack.ts`:
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`
+  - Updated focused coverage to pin the new ownership boundary and keep `modeWrappedAppRouteStack.ts` on a caller-owned pass-through seam:
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.test.tsx`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - the top-level browser-router creation path still assembling the same mode-wrapped route stack before `router.tsx`
+    - the standalone/share route stack still receiving the same `SectionContainerAreaDictBoundary` renderer, now supplied by `modeWrappedBrowserRouter.ts` instead of `modeWrappedAppRouteStack.ts`
+    - `modeWrappedAppRouteStack.ts` staying focused on route-object assembly instead of mixed route assembly plus dict-renderer ownership
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedAppRouteStack.test.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-routing.spec.ts --grep "app routes select the configured UI root"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with the left conversation rail, empty-state actions (`CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`), and the message composer
+    - `http://127.0.0.1:3044/settings/section/gui` is still not a trustworthy standalone-section canary on this worktree runtime:
+      - after the loading shell it crashed into the React error overlay with `Unhandled Thrown Error!`
+      - the stack pointed at `getCurrSectionVariantId` in `src/state/actions/sectionInfos.ts`
+      - the console also reported repeated `Maximum update depth exceeded` errors
+    - representative requests on the live app still returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getListenerCoverage`
+    - because the targeted seam still serves the standalone section dict-area path and the live worktree app currently exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`, starting with `frontend/src/components/Pages/router.tsx`, while keeping the live standalone-section canary issue explicit for later resolution.

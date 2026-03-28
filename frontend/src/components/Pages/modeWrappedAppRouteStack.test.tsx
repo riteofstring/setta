@@ -13,25 +13,6 @@ import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
 import { buildStandaloneProjectSurfaceAppRouteStack } from "./Project/StandaloneProjectSurfaceAppRouteStack";
 import { APP_ROUTE_IDS } from "./routeConfig";
 
-vi.mock(
-  "components/Section/Container/SectionContainerAreaDictBoundary",
-  () => ({
-    SectionContainerAreaDictBoundary: ({
-      bgColor,
-      sectionId,
-    }: {
-      bgColor: string;
-      sectionId: string;
-    }) => (
-      <div
-        data-testid="mock-section-container-area-dict-boundary"
-        data-bg-color={bgColor}
-        data-section-id={sectionId}
-      />
-    ),
-  }),
-);
-
 vi.mock("./Project/StandaloneProjectSurfaceAppRouteStack", () => ({
   buildStandaloneProjectSurfaceAppRouteStack: vi.fn(),
 }));
@@ -76,6 +57,21 @@ describe("buildModeWrappedAppRouteStack", () => {
     const standaloneLauncherRouteElement = (
       <div data-testid="standalone-launcher-route" />
     );
+    const renderDictArea = vi.fn(
+      ({
+        bgColor,
+        sectionId,
+      }: {
+        bgColor: string;
+        sectionId: string;
+      }) => (
+        <div
+          data-testid="caller-owned-render-dict-area"
+          data-bg-color={bgColor}
+          data-section-id={sectionId}
+        />
+      ),
+    );
     let renderCount = 0;
     const renderModeElement = vi.fn(
       (routeElements: ModeRouteElements): ReactNode => {
@@ -93,6 +89,7 @@ describe("buildModeWrappedAppRouteStack", () => {
     );
 
     const routes = buildModeWrappedAppRouteStack({
+      renderDictArea,
       renderModeElement,
       indexRouteElements,
       homeRouteElements,
@@ -125,7 +122,7 @@ describe("buildModeWrappedAppRouteStack", () => {
     ).toHaveBeenCalledWith({
       app: standaloneAppRouteElement,
       launcher: standaloneLauncherRouteElement,
-      renderDictArea: expect.any(Function),
+      renderDictArea,
       renderModeElement,
       indexRoute: {
         id: APP_ROUTE_IDS.index,
@@ -161,36 +158,7 @@ describe("buildModeWrappedAppRouteStack", () => {
 
     const routedArgs =
       mockedBuildStandaloneProjectSurfaceAppRouteStack.mock.calls[0][0];
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-section-id="section-1"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-bg-color="#123456"');
+    expect(routedArgs.renderDictArea).toBe(renderDictArea);
     expect(
       renderToStaticMarkup(<>{routedArgs.indexRoute.element}</>),
     ).toContain('data-testid="wrapped-route-1"');

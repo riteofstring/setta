@@ -1,10 +1,30 @@
 import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { createBrowserRouter } from "react-router-dom";
 import type { ModeRouteElements } from "./modeRouteResolver";
 import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
 import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
+
+vi.mock(
+  "components/Section/Container/SectionContainerAreaDictBoundary",
+  () => ({
+    SectionContainerAreaDictBoundary: ({
+      bgColor,
+      sectionId,
+    }: {
+      bgColor: string;
+      sectionId: string;
+    }) => (
+      <div
+        data-testid="mock-section-container-area-dict-boundary"
+        data-bg-color={bgColor}
+        data-section-id={sectionId}
+      />
+    ),
+  }),
+);
 
 vi.mock("./modeWrappedAppRouteStack", () => ({
   buildModeWrappedAppRouteStack: vi.fn(),
@@ -73,8 +93,43 @@ describe("createModeWrappedBrowserRouter", () => {
 
     expect(router).toBe(browserRouter);
     expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledOnce();
-    expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledWith(args);
+    expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledWith({
+      ...args,
+      renderDictArea: expect.any(Function),
+    });
     expect(mockedCreateBrowserRouter).toHaveBeenCalledOnce();
     expect(mockedCreateBrowserRouter).toHaveBeenCalledWith(builtRouteStack);
+
+    const routedArgs = mockedBuildModeWrappedAppRouteStack.mock.calls[0][0];
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-section-id="section-1"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-bg-color="#123456"');
   });
 });
