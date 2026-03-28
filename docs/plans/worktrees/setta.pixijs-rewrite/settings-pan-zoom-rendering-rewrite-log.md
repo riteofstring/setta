@@ -2837,3 +2837,30 @@ Record:
     - remaining console noise was limited to existing React 19 `element.ref` deprecation warnings
 - Next action:
   - Continue the live dict-area surface pass by lifting the now fully block-composed `LiveDictAreaSurface` builder into the next higher-level caller above `groupContainerLiveDictAreaSurface.ts`.
+
+## 2026-03-27 106
+
+- Item: Lift the block-composed `LiveDictAreaSurface` builder into a higher-level `LiveDictArea` view helper.
+- Status: `done`
+- Details:
+  - Added a pure typed higher-level view helper above the existing surface boundary:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaView.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaView.test.ts`
+  - Updated `LiveDictArea` to consume the new view helper instead of calling `buildLiveDictAreaSurface(...)` directly:
+    - `frontend/src/components/Params/groupContainerLiveDictArea.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictArea.test.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the already block-composed surface plus its `maxNestedDepth` into one higher-level caller boundary
+    - keeping `LiveDictArea` focused on React memo/effect wiring plus mount handoff instead of mixed composition-plus-surface-building work
+    - leaving the current DOM mount path intact while deepening the live dict-area surface contract one caller above `groupContainerLiveDictAreaSurface.ts`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaView.test.ts src/components/Params/groupContainerLiveDictArea.test.tsx src/components/Params/groupContainerLiveDictAreaSurface.test.ts src/components/Params/groupContainerLiveDictAreaMount.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated without a login/bootstrap blocker
+    - representative visible labels and controls included `Select A Section to Edit`, `Param Defaults`, `All Settings`, `Grid Color`, `Pan On Drag`, `Auto Backup`, `Autosave`, and `Completion Guard Enabled`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `groupContainerLiveDictAreaView.ts` boundary into the next higher-level caller above `groupContainerLiveDictArea.tsx`.

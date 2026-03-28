@@ -18,7 +18,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildLiveDictAreaSurface } from "./groupContainerLiveDictAreaSurface";
+import { buildLiveDictAreaView } from "./groupContainerLiveDictAreaView";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -263,7 +263,7 @@ describe("LiveDictArea", () => {
         topLevelParamIds: ["unpinned-param"],
       },
     };
-    const expectedSurface = buildLiveDictAreaSurface(input);
+    const expectedView = buildLiveDictAreaView({ input });
     const onMaxNestedDepthChange = vi.fn();
 
     await act(async () => {
@@ -288,7 +288,7 @@ describe("LiveDictArea", () => {
       "dict-area-block:unpinned",
     ]);
     expect(onMaxNestedDepthChange).toHaveBeenCalledWith(
-      expectedSurface.maxNestedDepth,
+      expectedView.maxNestedDepth,
     );
   });
 });

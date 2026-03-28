@@ -1,10 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { LiveDictAreaMount } from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
-import {
-  buildLiveDictAreaSurface,
-  type LiveDictAreaSurface,
-} from "./groupContainerLiveDictAreaSurface";
+import type { LiveDictAreaSurface } from "./groupContainerLiveDictAreaSurface";
+import { buildLiveDictAreaView } from "./groupContainerLiveDictAreaView";
 
 export type LiveDictAreaProps = {
   input: LiveDictAreaRenderBoundaryInput;
@@ -17,14 +15,18 @@ export function LiveDictArea({
   input,
   onMaxNestedDepthChange,
 }: LiveDictAreaProps) {
-  const liveDictAreaSurface = useMemo(
-    () => buildLiveDictAreaSurface(input),
+  const liveDictAreaView = useMemo(
+    () => buildLiveDictAreaView({ input }),
     [input],
   );
 
   useEffect(() => {
-    onMaxNestedDepthChange?.(liveDictAreaSurface.maxNestedDepth);
-  }, [liveDictAreaSurface.maxNestedDepth, onMaxNestedDepthChange]);
+    onMaxNestedDepthChange?.(liveDictAreaView.maxNestedDepth);
+  }, [liveDictAreaView.maxNestedDepth, onMaxNestedDepthChange]);
 
-  return <LiveDictAreaMount liveDictAreaSurface={liveDictAreaSurface} />;
+  return (
+    <LiveDictAreaMount
+      liveDictAreaSurface={liveDictAreaView.liveDictAreaSurface}
+    />
+  );
 }
