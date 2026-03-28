@@ -3,12 +3,10 @@ plan_path: docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering
 log_path: docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-log.md
 prompt_file: scripts/ralph-default-prompt.md
 workdir: .
-main_worktree_root: auto
 iterations: 100
 new_session_every: 1
 yolo: true
 worktree_lifecycle: none
-main_lifecycle: none
 terminal_mode: auto
 verify_command: Choose the narrowest relevant verification for the current subtask. For frontend or visual work, run the relevant tests and include the required Chrome DevTools MCP check before claiming completion.
 ---
@@ -30,6 +28,7 @@ This file is the reusable loop entrypoint for this worktree.
 - Make frequent descriptive commits.
 - Default entrypoint: `./ralph.sh`
 - Yolo mode defaults on for this worktree config.
+- Never run the Ralph loop in the `main` worktree. `main` must remain pristine and untouched.
 
 ## Sub-agents
 
@@ -45,7 +44,7 @@ This file is the reusable loop entrypoint for this worktree.
 ## Lifecycle bootstrap
 
 - `./ralph.sh` can optionally run one-time lifecycle actions before the loop starts.
-- Supported lifecycle modes for the current worktree and the `main` worktree:
+- Supported lifecycle modes for the current worktree only:
   - `none`
   - `kill`
   - `ai`
@@ -57,4 +56,4 @@ This file is the reusable loop entrypoint for this worktree.
   - `background` always launches lifecycle processes in the background with logs under the loop output dir
   - `tmux` requires a live tmux/cmux shell and opens lifecycle processes in new tmux windows
 - Example:
-  - `./ralph.sh --terminal-mode tmux --worktree-lifecycle restart-aireset --main-lifecycle restart-ai`
+  - `./ralph.sh --terminal-mode tmux --worktree-lifecycle restart-aireset`
