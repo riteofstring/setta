@@ -1,21 +1,13 @@
 import type {
-  LiveDictAreaEdgeStripDrawPacket,
   LiveDictAreaNodeDrawBlock,
   LiveDictAreaNodeDrawPacket,
   LiveDictAreaPinnedParamAreaDrawPacket,
   LiveDictAreaUnpinnedParamAreaDrawPacket,
 } from "./groupContainerNodeDrawPacket";
-
-export type LiveDictAreaEdgeStripPainterPacket = {
-  bgColor: LiveDictAreaEdgeStripDrawPacket["surfacePacket"]["bgColor"];
-  blockId: LiveDictAreaEdgeStripDrawPacket["blockId"];
-  kind: LiveDictAreaEdgeStripDrawPacket["kind"];
-  mount: LiveDictAreaEdgeStripDrawPacket["mount"];
-  positionAndSizeLocked:
-    LiveDictAreaEdgeStripDrawPacket["surfacePacket"]["positionAndSizeLocked"];
-  styleColor: LiveDictAreaEdgeStripDrawPacket["surfacePacket"]["styleColor"];
-  visualPacket: LiveDictAreaEdgeStripDrawPacket["surfacePacket"]["visualPacket"];
-};
+import {
+  buildLiveDictAreaEdgeStripPainterPacket,
+  type LiveDictAreaEdgeStripPainterPacket,
+} from "./groupContainerEdgeStripPainterPacket";
 
 export type LiveDictAreaPinnedParamAreaPainterPacket = {
   blockId: LiveDictAreaPinnedParamAreaDrawPacket["blockId"];
@@ -62,7 +54,9 @@ export function buildLiveDictAreaNodePainterPacket({
   nodeDrawPacket: LiveDictAreaNodeDrawPacket;
 }): LiveDictAreaNodePainterPacket {
   const edgeStripBlock = nodeDrawPacket.edgeStripBlock
-    ? buildEdgeStripPainterPacket(nodeDrawPacket.edgeStripBlock)
+    ? buildLiveDictAreaEdgeStripPainterPacket({
+        drawPacket: nodeDrawPacket.edgeStripBlock,
+      })
     : null;
   const pinnedParamAreaBlock = nodeDrawPacket.pinnedParamAreaBlock
     ? buildPinnedParamAreaPainterPacket(nodeDrawPacket.pinnedParamAreaBlock)
@@ -112,21 +106,6 @@ function buildNodePainterBlock({
 
   return unpinnedParamAreaBlock;
 }
-
-function buildEdgeStripPainterPacket(
-  drawPacket: LiveDictAreaEdgeStripDrawPacket,
-): LiveDictAreaEdgeStripPainterPacket {
-  return {
-    bgColor: drawPacket.surfacePacket.bgColor,
-    blockId: drawPacket.blockId,
-    kind: drawPacket.kind,
-    mount: drawPacket.mount,
-    positionAndSizeLocked: drawPacket.surfacePacket.positionAndSizeLocked,
-    styleColor: drawPacket.surfacePacket.styleColor,
-    visualPacket: drawPacket.surfacePacket.visualPacket,
-  };
-}
-
 function buildPinnedParamAreaPainterPacket(
   drawPacket: LiveDictAreaPinnedParamAreaDrawPacket,
 ): LiveDictAreaPinnedParamAreaPainterPacket {

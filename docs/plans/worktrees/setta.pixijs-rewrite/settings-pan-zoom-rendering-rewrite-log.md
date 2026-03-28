@@ -1116,3 +1116,30 @@ Record:
     - relevant requests returned `200`, including `/api/serverMode`, `/api/authRefreshStatus`, `/api/loadSettings`, `/api/backendInitStatus`, `/api/getDefaultConfigName`, and `/api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned painter helper from `groupContainerNodePainterPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
+
+## 2026-03-26 043
+
+- Item: Extract the edge-strip block into the first block-specific scene-owned painter helper.
+- Status: `done`
+- Details:
+  - Added a pure typed painter-packet helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripPainterPacket.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripPainterPacket.test.ts`
+  - Updated the higher-level node painter packet boundary to compose through the new edge-strip helper instead of building the edge-strip painter block inline:
+    - `frontend/src/components/Params/groupContainerNodePainterPacket.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip draw block into one explicit painter packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node painter packet as a composition boundary instead of a mixed composition-plus-edge-strip-shaping module
+    - leaving the current DOM edge-strip mount path intact while deepening the future retained-scene block-specific painter contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripPainterPacket.test.ts src/components/Params/groupContainerNodePainterPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - bootstrap redirected into `http://127.0.0.1:3044/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8044`, then `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+    - the visible settings shell and dict/param area rendered normally with representative context including `Project`, `Edit`, `Run`, the worktree label `pixijs-rewrite`, bottom tabs including `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`, plus visible rows such as `Grid Color`, `Grid Pattern`, `Pan On Scroll Mode`, `selectionKeyCode`, and `diagnosticSeverityOverrides`
+    - no obvious clipping, overlap, or missing content was observed in the visible viewport
+    - representative requests returned `200`, including `GET /api/backendInitStatus`, `POST /api/loadSettings`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned painter helper from `groupContainerNodePainterPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
