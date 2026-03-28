@@ -8,11 +8,7 @@ import BezierEdge from "../components/Edges/BezierEdge";
 import StraightEdge from "../components/Edges/StraightEdge";
 import wrapEdge from "../components/Edges/wrapEdge";
 import { useReactFlow } from "../store";
-import type { Connection } from "../types";
-import {
-  buildEdgeRendererView,
-  shouldRenderEdgeRendererContents,
-} from "./edgeRendererView";
+import { buildEdgeRendererView } from "./edgeRendererView";
 
 const WrappedBezierEdge = wrapEdge(BezierEdge);
 const WrappedStraightEdge = wrapEdge(StraightEdge);
@@ -43,38 +39,32 @@ const EdgeRenderer = () => {
     recomputeEdgeHandlePositions();
   }, [edges, width, height, topLevelSections]);
 
-  if (!shouldRenderEdgeRendererContents({ width, height })) {
-    return null;
-  }
-
   const edgeView = buildEdgeRendererView({
+    width,
+    height,
     edges,
     positions,
+    reconnectEdge: reconnectEdgeFromConnection,
     sectionVariantMap,
   });
+
+  if (!edgeView) {
+    return null;
+  }
 
   return (
     <>
       <svg
-        width={width}
-        height={height}
-        className="react-flow__edges react-flow__container"
+        width={edgeView.svgWidth}
+        height={edgeView.svgHeight}
+        className={edgeView.svgClassName}
       >
         <g>
           {edgeView.renderedEdges.map((edge) => {
             const { componentType, ...edgeProps } = edge;
             const EdgeComponent = edgeComponentsByType[componentType];
-            const onReconnect = (connection: Connection) => {
-              reconnectEdgeFromConnection(edge.id, connection);
-            };
 
-            return (
-              <EdgeComponent
-                key={edge.id}
-                {...edgeProps}
-                onReconnect={onReconnect}
-              />
-            );
+            return <EdgeComponent key={edge.id} {...edgeProps} />;
           })}
         </g>
       </svg>

@@ -5,6 +5,7 @@ import {
   EDGE_RECONNECT_RADIUS,
 } from "./edgeScenePackets";
 import {
+  EDGE_RENDERER_SVG_CLASS_NAME,
   buildEdgeRendererView,
   shouldRenderEdgeRendererContents,
 } from "./edgeRendererView";
@@ -34,126 +35,160 @@ describe("shouldRenderEdgeRendererContents", () => {
 });
 
 describe("buildEdgeRendererView", () => {
-  it("sorts visible edges by z-index and keeps only edges whose variants and handle positions are active", () => {
-    // Preserve the normal render ordering while suppressing hidden, stale-variant, and positionless edges.
+  it("returns null until the edge svg has positive canvas dimensions", () => {
     expect(
       buildEdgeRendererView({
-        edges: [
-          {
-            animated: false,
-            data: { token: "later" },
-            hidden: false,
-            id: "edge-late",
-            label: "Later edge",
-            selected: false,
-            sourcePortId: "out-b",
-            sourceSectionId: "section-b",
-            sourceVariantId: "variant-b",
-            style: null,
-            targetPortId: "in-b",
-            targetSectionId: "section-c",
-            targetVariantId: "variant-c",
-            type: "straight",
-            zIndex: 5,
-          },
-          {
-            animated: true,
-            data: { token: "visible" },
-            hidden: false,
-            id: "edge-visible",
-            label: null,
-            selected: true,
-            sourcePortId: "out-a",
-            sourceSectionId: "section-a",
-            sourceVariantId: "variant-a",
-            style: { strokeWidth: 3 },
-            targetPortId: "in-a",
-            targetSectionId: "section-b",
-            targetVariantId: "variant-b",
-            type: "bezier",
-            zIndex: 2,
-          },
-          {
-            animated: false,
-            data: null,
-            hidden: true,
-            id: "edge-hidden",
-            label: "Hidden edge",
-            selected: false,
-            sourcePortId: "out-a",
-            sourceSectionId: "section-a",
-            sourceVariantId: "variant-a",
-            style: null,
-            targetPortId: "missing",
-            targetSectionId: "section-missing",
-            targetVariantId: "variant-missing",
-            type: "default",
-            zIndex: 1,
-          },
-          {
-            animated: false,
-            data: null,
-            hidden: false,
-            id: "edge-stale-variant",
-            label: "Stale variant",
-            selected: false,
-            sourcePortId: "out-a",
-            sourceSectionId: "section-a",
-            sourceVariantId: "variant-old",
-            style: null,
-            targetPortId: "in-a",
-            targetSectionId: "section-b",
-            targetVariantId: "variant-b",
-            type: "default",
-            zIndex: 0,
-          },
-          {
-            animated: false,
-            data: null,
-            hidden: false,
-            id: "edge-missing-position",
-            label: "Missing position",
-            selected: false,
-            sourcePortId: "out-a",
-            sourceSectionId: "section-a",
-            sourceVariantId: "variant-a",
-            style: null,
-            targetPortId: "missing",
-            targetSectionId: "section-c",
-            targetVariantId: "variant-c",
-            type: "default",
-            zIndex: 3,
-          },
-        ],
-        positions: {
-          "section-a:out-a:source": {
-            side: HandlePosition.Right,
-            x: 10,
-            y: 20,
-          },
-          "section-b:in-a:target": {
-            side: HandlePosition.Left,
-            x: 110,
-            y: 120,
-          },
-          "section-b:out-b:source": {
-            side: HandlePosition.Bottom,
-            x: 210,
-            y: 220,
-          },
-          "section-c:in-b:target": {
-            side: HandlePosition.Top,
-            x: 310,
-            y: 320,
-          },
-        },
-        sectionVariantMap: {
-          "section-a": "variant-a",
-          "section-b": "variant-b",
-          "section-c": "variant-c",
-        },
+        width: 0,
+        height: 240,
+        edges: [],
+        positions: {},
+        reconnectEdge: () => undefined,
+        sectionVariantMap: {},
       }),
+    ).toBeNull();
+  });
+
+  it("sorts visible edges by z-index and keeps only edges whose variants and handle positions are active", () => {
+    // Preserve the normal render ordering while suppressing hidden, stale-variant, and positionless edges.
+    const reconnectCalls: Array<{
+      connection: {
+        source: string | null;
+        target: string | null;
+        sourceHandle: string | null;
+        targetHandle: string | null;
+      };
+      edgeId: string;
+    }> = [];
+
+    const view = buildEdgeRendererView({
+      width: 320,
+      height: 240,
+      edges: [
+        {
+          animated: false,
+          data: { token: "later" },
+          hidden: false,
+          id: "edge-late",
+          label: "Later edge",
+          selected: false,
+          sourcePortId: "out-b",
+          sourceSectionId: "section-b",
+          sourceVariantId: "variant-b",
+          style: null,
+          targetPortId: "in-b",
+          targetSectionId: "section-c",
+          targetVariantId: "variant-c",
+          type: "straight",
+          zIndex: 5,
+        },
+        {
+          animated: true,
+          data: { token: "visible" },
+          hidden: false,
+          id: "edge-visible",
+          label: null,
+          selected: true,
+          sourcePortId: "out-a",
+          sourceSectionId: "section-a",
+          sourceVariantId: "variant-a",
+          style: { strokeWidth: 3 },
+          targetPortId: "in-a",
+          targetSectionId: "section-b",
+          targetVariantId: "variant-b",
+          type: "bezier",
+          zIndex: 2,
+        },
+        {
+          animated: false,
+          data: null,
+          hidden: true,
+          id: "edge-hidden",
+          label: "Hidden edge",
+          selected: false,
+          sourcePortId: "out-a",
+          sourceSectionId: "section-a",
+          sourceVariantId: "variant-a",
+          style: null,
+          targetPortId: "missing",
+          targetSectionId: "section-missing",
+          targetVariantId: "variant-missing",
+          type: "default",
+          zIndex: 1,
+        },
+        {
+          animated: false,
+          data: null,
+          hidden: false,
+          id: "edge-stale-variant",
+          label: "Stale variant",
+          selected: false,
+          sourcePortId: "out-a",
+          sourceSectionId: "section-a",
+          sourceVariantId: "variant-old",
+          style: null,
+          targetPortId: "in-a",
+          targetSectionId: "section-b",
+          targetVariantId: "variant-b",
+          type: "default",
+          zIndex: 0,
+        },
+        {
+          animated: false,
+          data: null,
+          hidden: false,
+          id: "edge-missing-position",
+          label: "Missing position",
+          selected: false,
+          sourcePortId: "out-a",
+          sourceSectionId: "section-a",
+          sourceVariantId: "variant-a",
+          style: null,
+          targetPortId: "missing",
+          targetSectionId: "section-c",
+          targetVariantId: "variant-c",
+          type: "default",
+          zIndex: 3,
+        },
+      ],
+      positions: {
+        "section-a:out-a:source": {
+          side: HandlePosition.Right,
+          x: 10,
+          y: 20,
+        },
+        "section-b:in-a:target": {
+          side: HandlePosition.Left,
+          x: 110,
+          y: 120,
+        },
+        "section-b:out-b:source": {
+          side: HandlePosition.Bottom,
+          x: 210,
+          y: 220,
+        },
+        "section-c:in-b:target": {
+          side: HandlePosition.Top,
+          x: 310,
+          y: 320,
+        },
+      },
+      reconnectEdge: (edgeId, connection) => {
+        reconnectCalls.push({ connection, edgeId });
+      },
+      sectionVariantMap: {
+        "section-a": "variant-a",
+        "section-b": "variant-b",
+        "section-c": "variant-c",
+      },
+    });
+
+    expect(view).not.toBeNull();
+    expect(
+      view,
     ).toEqual({
+      svgClassName: EDGE_RENDERER_SVG_CLASS_NAME,
+      svgHeight: 240,
+      svgWidth: 320,
       renderedEdges: [
         {
           animated: true,
@@ -165,6 +200,7 @@ describe("buildEdgeRendererView", () => {
           interactionWidth: EDGE_INTERACTION_WIDTH,
           isReconnectable: true,
           label: undefined,
+          onReconnect: expect.any(Function),
           reconnectRadius: EDGE_RECONNECT_RADIUS,
           selected: true,
           source: "section-a",
@@ -190,6 +226,7 @@ describe("buildEdgeRendererView", () => {
           interactionWidth: EDGE_INTERACTION_WIDTH,
           isReconnectable: true,
           label: "Later edge",
+          onReconnect: expect.any(Function),
           reconnectRadius: EDGE_RECONNECT_RADIUS,
           selected: false,
           source: "section-b",
@@ -207,11 +244,32 @@ describe("buildEdgeRendererView", () => {
         },
       ],
     });
+
+    view?.renderedEdges[0]?.onReconnect?.({
+      source: "section-a",
+      target: "section-b",
+      sourceHandle: "out-a",
+      targetHandle: "in-a",
+    });
+
+    expect(reconnectCalls).toEqual([
+      {
+        connection: {
+          source: "section-a",
+          target: "section-b",
+          sourceHandle: "out-a",
+          targetHandle: "in-a",
+        },
+        edgeId: "edge-visible",
+      },
+    ]);
   });
 
   it("falls back unknown edge types to the bezier renderer while keeping the original edge type prop", () => {
     expect(
       buildEdgeRendererView({
+        width: 320,
+        height: 240,
         edges: [
           {
             animated: false,
@@ -243,14 +301,16 @@ describe("buildEdgeRendererView", () => {
             y: 120,
           },
         },
+        reconnectEdge: () => undefined,
         sectionVariantMap: {
           "section-a": "variant-a",
           "section-b": "variant-b",
         },
-      }).renderedEdges,
+      })?.renderedEdges,
     ).toEqual([
       expect.objectContaining({
         componentType: "bezier",
+        onReconnect: expect.any(Function),
         type: "custom",
       }),
     ]);

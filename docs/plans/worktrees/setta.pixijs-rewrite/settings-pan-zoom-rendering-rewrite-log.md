@@ -3996,3 +3996,28 @@ Record:
     - representative requests returned `200`, including `GET /__setta__/bootstrap`, `POST /__setta__/bootstrap/consume`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
 - Next action:
   - Treat the `router.tsx` cleanup pass as complete and return to the retained-scene rewrite sequence with the next bounded Pixi-side canary step before any broad node drawing lands.
+
+## 2026-03-27 141
+
+- Item: Deepen the `EdgeRenderer` helper boundary so it also owns SVG mount metadata and reconnect callback wiring.
+- Status: `done`
+- Details:
+  - Followed up the earlier `EdgeRenderer` cleanup by moving the remaining SVG/null-gate and reconnect closure shaping into the typed helper boundary:
+    - `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.ts`
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.test.ts`
+  - The helper now owns the remaining non-Pixi container policy for:
+    - returning `null` until the edge layer has positive canvas dimensions
+    - passing stable SVG class/size metadata back to the container instead of leaving the shell props inline
+    - wiring per-edge reconnect callbacks inside the helper so the container stays a thin wrapped-edge mapper
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/edgeRendererView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/sections/edge-visibility-toggles.spec.ts`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - bootstrap-authenticated `/settings` loaded cleanly and `All Settings` stayed visible
+    - the visible settings/dict-param area plus canvas shell looked structurally intact with no obvious overlap or clipping
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Return to the retained-scene rewrite sequence with the next bounded Pixi-side canary step before any broad node drawing lands.

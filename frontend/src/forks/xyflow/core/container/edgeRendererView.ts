@@ -7,10 +7,20 @@ import {
   type EdgeRendererProjectEdge,
   type RenderedEdgeView,
 } from "./edgeScenePackets";
+import type { Connection, WrapEdgeProps } from "../types";
+
+export const EDGE_RENDERER_SVG_CLASS_NAME =
+  "react-flow__edges react-flow__container";
 
 export type EdgeRendererComponentType = "bezier" | "straight";
 
-export type EdgeRendererRenderableEdge = RenderedEdgeView & {
+export type EdgeRendererReconnectEdge = (
+  edgeId: string,
+  connection: Connection,
+) => void;
+
+export type EdgeRendererRenderableEdge = WrapEdgeProps &
+  RenderedEdgeView & {
   componentType: EdgeRendererComponentType;
   elementsSelectable: true;
   interactionWidth: number;
@@ -20,6 +30,9 @@ export type EdgeRendererRenderableEdge = RenderedEdgeView & {
 
 export type EdgeRendererView = {
   renderedEdges: EdgeRendererRenderableEdge[];
+  svgClassName: string;
+  svgHeight: number;
+  svgWidth: number;
 };
 
 export function shouldRenderEdgeRendererContents({
@@ -38,16 +51,41 @@ function resolveEdgeRendererComponentType(
   return edgeType === "straight" ? "straight" : "bezier";
 }
 
+function createEdgeReconnectHandler({
+  edgeId,
+  reconnectEdge,
+}: {
+  edgeId: string;
+  reconnectEdge: EdgeRendererReconnectEdge;
+}) {
+  return (connection: Connection) => {
+    reconnectEdge(edgeId, connection);
+  };
+}
+
 export function buildEdgeRendererView({
+  width,
+  height,
   edges,
   positions,
+  reconnectEdge,
   sectionVariantMap,
 }: {
+  width: number;
+  height: number;
   edges: EdgeRendererProjectEdge[];
   positions: EdgeRendererPositions;
+  reconnectEdge: EdgeRendererReconnectEdge;
   sectionVariantMap: Record<string, string>;
-}): EdgeRendererView {
+}): EdgeRendererView | null {
+  if (!shouldRenderEdgeRendererContents({ width, height })) {
+    return null;
+  }
+
   return {
+    svgClassName: EDGE_RENDERER_SVG_CLASS_NAME,
+    svgHeight: height,
+    svgWidth: width,
     renderedEdges: buildEdgeScenePackets({
       edges,
       positions,
@@ -61,6 +99,10 @@ export function buildEdgeRendererView({
         elementsSelectable: true,
         interactionWidth: EDGE_INTERACTION_WIDTH,
         isReconnectable: true,
+        onReconnect: createEdgeReconnectHandler({
+          edgeId: renderedEdge.id,
+          reconnectEdge,
+        }),
         reconnectRadius: EDGE_RECONNECT_RADIUS,
       };
     }),
