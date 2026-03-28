@@ -35,6 +35,11 @@ That means:
   restate discriminator literals, duplicate defaults already present on the
   generated base, or narrow Python unions without adding meaningful runtime
   behavior.
+- Some surviving handwritten names also do not need to exist even as
+  pass-through aliases. Assignments like
+  `ProjectCodegenPythonTarget = GoProjectCodegenPythonTarget` keep a separate
+  Python-owned naming layer alive without adding behavior, and they make the
+  cleanup look more finished than it really is.
 - Example: `backend/setta/types/chat.py::MessageThinkingDelta` currently exists
   as a handwritten subclass of the generated `MessageThinkingDelta`, but the
   generated base already owns the actual fields. The remaining handwritten
@@ -46,6 +51,8 @@ That means:
 - Similar remaining work likely includes:
   - literal-only subclasses
   - duplicate field/default redeclarations that do not change behavior
+  - pass-through alias assignments that only rename generated models without
+    adding Python-only behavior
   - Python-side public unions and wrappers that only exist because callers have
     not yet been updated to consume the generated Go-owned surface directly
 
@@ -53,6 +60,9 @@ That means:
 - Audit every surviving handwritten class in `backend/setta/types/` and delete
   any class that only restates generated structure without meaningful
   Python-only behavior.
+- Audit surviving pass-through aliases in `backend/setta/types/` and delete any
+  alias that only renames a generated model instead of providing a real
+  Python-only adapter boundary.
 - Adapt Python callers and tests to consume generated Go-owned models directly
   wherever possible instead of preserving legacy handwritten wrapper surfaces.
 - Keep handwritten code only when it is genuinely Python-only runtime glue, for
@@ -69,6 +79,8 @@ That means:
 - Completion should mean that no handwritten class remains solely to narrow a
   discriminator, restate a generated default, or preserve a legacy Python type
   surface when the Go-owned generated type can be used directly.
+- Completion should also mean that no pointless `Foo = GoFoo` alias remains
+  merely to preserve a legacy Python-owned name for a generated model.
 
 ### Completed
 - Go type discovery is no longer driven by a hand-maintained frontend root manifest.
