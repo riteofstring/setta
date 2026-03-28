@@ -4,9 +4,12 @@ import {
   type LiveDictAreaEdgeStripCanaryPacket,
 } from "./groupContainerEdgeStripCanaryPacket";
 import {
+  buildLiveDictAreaPinnedParamAreaCanaryPacket,
+  type LiveDictAreaPinnedParamAreaCanaryPacket,
+} from "./groupContainerPinnedParamAreaCanaryPacket";
+import {
   buildLiveDictAreaNodeDomPacket,
   type LiveDictAreaNodeDomPacket,
-  type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
 import type { LiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
@@ -19,13 +22,7 @@ export type {
   LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
 export type { LiveDictAreaEdgeStripCanaryPacket } from "./groupContainerEdgeStripCanaryPacket";
-
-export type LiveDictAreaPinnedParamAreaCanaryPacket = {
-  blockId: LiveDictAreaPinnedParamAreaDomPacket["blockId"];
-  domPacket: LiveDictAreaPinnedParamAreaDomPacket;
-  kind: "pinned-param-area";
-  scenePacket: LiveDictAreaSceneParamAreaPacket;
-};
+export type { LiveDictAreaPinnedParamAreaCanaryPacket } from "./groupContainerPinnedParamAreaCanaryPacket";
 
 export type LiveDictAreaUnpinnedParamAreaCanaryPacket = {
   blockId: LiveDictAreaUnpinnedParamAreaDomPacket["blockId"];
@@ -78,15 +75,13 @@ export function buildLiveDictAreaNodeCanaryPacket({
       })
     : null;
   const pinnedParamAreaBlock = nodeDomPacket.domPinnedParamAreaBlock
-    ? {
-        blockId: nodeDomPacket.domPinnedParamAreaBlock.blockId,
+    ? buildLiveDictAreaPinnedParamAreaCanaryPacket({
         domPacket: nodeDomPacket.domPinnedParamAreaBlock,
-        kind: "pinned-param-area" as const,
         scenePacket: getRequiredSceneParamArea({
           nodeDomPacket,
           paramAreaId: "pinned",
         }),
-      }
+      })
     : null;
   const unpinnedParamAreaBlock = nodeDomPacket.domUnpinnedParamAreaBlock
     ? {
