@@ -199,6 +199,47 @@ def test_playwright_runner_reads_bootstrap_token_from_backend_log() -> None:
     assert "Timed out waiting for bootstrap token in" in script
 
 
+def test_playwright_runner_supports_codegen_recording_mode() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'PROJECT_URL="${SETTA_PROJECT_URL:-}"' in script
+    assert '[[ -z "${PROJECT_URL}" ]] && [[ -n "${SETTA_PROJECT_PATH:-}" ]]' in script
+    assert 'if [[ -n "${SETTA_WORKSPACE_ROOT:-}" ]]; then' in script
+    assert 'if [[ -n "${SETTA_HOME:-}" ]]; then' in script
+    assert "resolve_default_recording_bundle_dir()" in script
+    assert '${SETTA_E2E_RECORD_ROOT_DIR:-${TMPDIR:-/tmp}/setta-playwright-recordings}' in script
+    assert 'case "${SETTA_E2E_PLAYWRIGHT_SUBCOMMAND:-test}" in' in script
+    assert "run_playwright_codegen()" in script
+    assert "pnpm exec playwright codegen" in script
+    assert "--load-storage" in script
+    assert "--save-har" in script
+    assert "prepare_recording_auth_storage_state" in script
+    assert 'target_project_url="$(with_backend_origin_override "${PROJECT_URL}")"' in script
+    assert 'url.pathname !== "/__setta__/bootstrap"' in script
+    assert 'await page.goto(projectUrl, { waitUntil: "domcontentloaded" });' in script
+
+
+def test_record_playwright_wrapper_defaults_to_repo_artifact_bundle() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "record-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'DEFAULT_SETTA_HOME="${HOME}/.setta-development"' in script
+    assert 'DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"' in script
+    assert "resolve_default_recording_root()" in script
+    assert '${TMPDIR:-/tmp}/setta-playwright-recordings' in script
+    assert ': "${SETTA_E2E_SEED_WORKSPACE:=0}"' in script
+    assert 'SETTA_PROJECT_PATH="/home"' in script
+    assert 'SETTA_E2E_PLAYWRIGHT_SUBCOMMAND="codegen"' in script
+    assert 'SETTA_E2E_RECORD_OUTPUT_FILE="${artifact_dir}/recording.spec.ts"' in script
+    assert 'SETTA_E2E_RECORD_HAR_FILE="${artifact_dir}/network.har"' in script
+    assert 'SETTA_E2E_LOG_DIR="${log_dir}"' in script
+    assert "SETTA_E2E_RECORD_ROOT_DIR" in script
+    assert ': "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:=0}"' in script
+
+
 def test_playwright_runner_builds_current_go_cli_binary_by_default() -> None:
     root = repo_root()
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(

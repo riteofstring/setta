@@ -126,15 +126,42 @@ fi
 
 SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN:-http://${SETTA_HOST}:${SETTA_PORT}}"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://${SETTA_DEV_FRONTEND_HOST}:${SETTA_DEV_FRONTEND_PORT}}"
-# Always run e2e in a disposable workspace root to avoid mutating real paths.
-TEMP_WORKSPACE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-XXXXXX")"
-SETTA_WORKSPACE_ROOT="${TEMP_WORKSPACE_ROOT}"
+PROJECT_URL="${SETTA_PROJECT_URL:-}"
+if [[ -z "${PROJECT_URL}" ]] && [[ -n "${SETTA_PROJECT_PATH:-}" ]]; then
+  PROJECT_URL="$(
+    "${PYTHON_BIN}" - "${PLAYWRIGHT_BASE_URL}" "${SETTA_PROJECT_PATH}" <<'PY'
+import sys
+import urllib.parse
+
+base_url = sys.argv[1]
+project_path = sys.argv[2]
+print(urllib.parse.urljoin(base_url.rstrip("/") + "/", project_path))
+PY
+  )"
+fi
+if [[ -z "${PROJECT_URL}" ]]; then
+  PROJECT_URL="${PLAYWRIGHT_BASE_URL}"
+fi
+# Default e2e runs in a disposable workspace root, but callers such as the
+# recorder can opt into an existing dev workspace by exporting SETTA_WORKSPACE_ROOT.
+TEMP_WORKSPACE_ROOT=""
+if [[ -n "${SETTA_WORKSPACE_ROOT:-}" ]]; then
+  mkdir -p "${SETTA_WORKSPACE_ROOT}"
+else
+  TEMP_WORKSPACE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-XXXXXX")"
+  SETTA_WORKSPACE_ROOT="${TEMP_WORKSPACE_ROOT}"
+fi
 mkdir -p "${SETTA_WORKSPACE_ROOT}"
 export SETTA_WORKSPACE_ROOT
 export SETTA_DEV_FRONTEND_HOST
-# Always run e2e with a disposable SETTA_HOME to avoid touching user config.
-TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
+# Default e2e uses a disposable SETTA_HOME, but callers can provide their own.
+TEMP_SETTA_HOME=""
+if [[ -n "${SETTA_HOME:-}" ]]; then
+  mkdir -p "${SETTA_HOME}"
+else
+  TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
+  SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
+fi
 mkdir -p "${SETTA_HOME}"
 export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
@@ -733,19 +760,7 @@ raise SystemExit(f"Timed out waiting for {label} at {url}.")
 PY
 }
 
-seed_workspace
-if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then
-  seed_local_plugin_artifacts
-else
-  log "Skipping local plugin artifact seed for selected Playwright targets."
-fi
-start_backend
-start_frontend
-
-wait_for_url "${PLAYWRIGHT_BASE_URL}" "frontend" 60
-
-log "Minting bootstrap token."
-BOOTSTRAP_TOKEN="$(
+mint_bootstrap_token() {
   "${PYTHON_BIN}" - "${LOG_DIR}/backend.log" "${SETTA_E2E_SESSION_WAIT_SECONDS:-60}" <<'PY'
 import re
 import sys
@@ -769,34 +784,201 @@ while time.monotonic() < deadline:
 
 raise SystemExit(f"Timed out waiting for bootstrap token in {log_path}.")
 PY
-)"
+}
 
-declare -a PLAYWRIGHT_EXTRA_ARGS=()
+with_backend_origin_override() {
+  "${PYTHON_BIN}" - "$1" "${SETTA_BACKEND_ORIGIN}" <<'PY'
+import sys
+import urllib.parse
 
-user_supplied_max_failures=0
-for arg in "$@"; do
-  case "${arg}" in
-    --max-failures|--max-failures=*)
-      user_supplied_max_failures=1
-      break
-      ;;
-  esac
-done
+raw_url = sys.argv[1]
+backend_origin = sys.argv[2]
+parts = urllib.parse.urlsplit(raw_url)
+query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+if not any(key == "__setta_backend_origin" for key, _ in query):
+    query.append(("__setta_backend_origin", backend_origin))
+print(urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query))))
+PY
+}
 
-if [[ "${user_supplied_max_failures}" -eq 0 ]]; then
-  max_failures_raw="${SETTA_E2E_MAX_FAILURES:-1}"
-  if ! [[ "${max_failures_raw}" =~ ^[0-9]+$ ]]; then
-    echo "Invalid SETTA_E2E_MAX_FAILURES: ${max_failures_raw}. Expected a non-negative integer." >&2
-    exit 1
+prepare_recording_auth_storage_state() {
+  local output_file="$1"
+  local target_project_url
+  target_project_url="$(with_backend_origin_override "${PROJECT_URL}")"
+  mkdir -p "$(dirname "${output_file}")"
+  log "Preparing authenticated recorder storage state at ${output_file}."
+  (
+    cd "${ROOT_DIR}/frontend"
+    env \
+      SETTA_RECORD_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
+      SETTA_RECORD_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
+      SETTA_RECORD_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
+      SETTA_RECORD_PROJECT_URL="${target_project_url}" \
+      SETTA_RECORD_STORAGE_STATE_FILE="${output_file}" \
+      pnpm exec node --input-type=module <<'JS'
+import { chromium } from "@playwright/test";
+
+const backendOrigin = process.env.SETTA_RECORD_BACKEND_ORIGIN ?? "";
+const token = process.env.SETTA_RECORD_BOOTSTRAP_TOKEN ?? "";
+const baseUrl = process.env.SETTA_RECORD_BASE_URL ?? "http://127.0.0.1:3000";
+const projectUrl = process.env.SETTA_RECORD_PROJECT_URL ?? baseUrl;
+const storageStatePath = process.env.SETTA_RECORD_STORAGE_STATE_FILE ?? "";
+
+if (!backendOrigin) {
+  throw new Error("Missing SETTA_RECORD_BACKEND_ORIGIN.");
+}
+if (!token) {
+  throw new Error("Missing SETTA_RECORD_BOOTSTRAP_TOKEN.");
+}
+if (!storageStatePath) {
+  throw new Error("Missing SETTA_RECORD_STORAGE_STATE_FILE.");
+}
+
+const browser = await chromium.launch();
+const context = await browser.newContext();
+const page = await context.newPage();
+const pageErrors = [];
+const consoleErrors = [];
+const onPageError = (err) => {
+  const message = err?.stack || err?.message || String(err);
+  if (message && !pageErrors.includes(message)) {
+    pageErrors.push(message);
+  }
+};
+const onConsole = (msg) => {
+  if (msg.type() !== "error") {
+    return;
+  }
+  const message = msg.text();
+  if (message && !consoleErrors.includes(message)) {
+    consoleErrors.push(message);
+  }
+};
+page.on("pageerror", onPageError);
+page.on("console", onConsole);
+
+try {
+  await page.goto(`${backendOrigin}/__setta__/bootstrap#token=${encodeURIComponent(token)}`);
+  const expectedProjectUrl = new URL(projectUrl);
+  await page.waitForURL(
+    (url) =>
+      url.origin === expectedProjectUrl.origin &&
+      url.pathname !== "/__setta__/bootstrap",
+    { waitUntil: "domcontentloaded" },
+  );
+  const currentUrl = new URL(page.url());
+  if (
+    currentUrl.origin !== expectedProjectUrl.origin ||
+    currentUrl.pathname !== expectedProjectUrl.pathname
+  ) {
+    await page.goto(projectUrl, { waitUntil: "domcontentloaded" });
+  }
+  await page.waitForURL(
+    (url) =>
+      url.origin === expectedProjectUrl.origin &&
+      url.pathname === expectedProjectUrl.pathname,
+    { waitUntil: "domcontentloaded" },
+  );
+  await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });
+  await context.storageState({ path: storageStatePath });
+} catch (err) {
+  const debugLines = [`Current URL: ${page.url()}`];
+  if (pageErrors.length) {
+    debugLines.push("", "Page errors:", ...pageErrors.slice(0, 5));
+  }
+  if (consoleErrors.length) {
+    debugLines.push("", "Console errors:", ...consoleErrors.slice(0, 10));
+  }
+  throw new Error(
+    `Recorder bootstrap failed: ${String(err)}\n${debugLines.join("\n")}`,
+  );
+} finally {
+  page.off("pageerror", onPageError);
+  page.off("console", onConsole);
+  await browser.close();
+}
+JS
+  ) >"${LOG_DIR}/record-bootstrap.log" 2>&1
+}
+
+write_recording_session_metadata() {
+  local metadata_file="$1"
+  local artifact_dir="$2"
+  local record_url="$3"
+  local output_file="$4"
+  local auth_storage_file="$5"
+  local final_storage_file="$6"
+  local har_file="$7"
+  shift 7
+  mkdir -p "$(dirname "${metadata_file}")"
+  "${PYTHON_BIN}" - \
+    "${metadata_file}" \
+    "${artifact_dir}" \
+    "${record_url}" \
+    "${output_file}" \
+    "${auth_storage_file}" \
+    "${final_storage_file}" \
+    "${har_file}" \
+    "${LOG_DIR}" \
+    "${PLAYWRIGHT_BASE_URL}" \
+    "${SETTA_BACKEND_ORIGIN}" \
+    "${SETTA_WORKSPACE_ROOT}" \
+    "${SETTA_HOME}" \
+    "$@" <<'PY'
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+metadata_file = Path(sys.argv[1])
+payload = {
+    "createdAt": datetime.now(timezone.utc).isoformat(),
+    "artifactDir": sys.argv[2],
+    "recordUrl": sys.argv[3],
+    "outputFile": sys.argv[4],
+    "authStorageStateFile": sys.argv[5],
+    "finalStorageStateFile": sys.argv[6],
+    "harFile": sys.argv[7],
+    "logDir": sys.argv[8],
+    "playwrightBaseUrl": sys.argv[9],
+    "backendOrigin": sys.argv[10],
+    "workspaceRoot": sys.argv[11],
+    "settaHome": sys.argv[12],
+    "passthroughArgs": sys.argv[13:],
+}
+metadata_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+}
+
+run_playwright_tests() {
+  declare -a PLAYWRIGHT_EXTRA_ARGS=()
+
+  local user_supplied_max_failures=0
+  local arg
+  for arg in "$@"; do
+    case "${arg}" in
+      --max-failures|--max-failures=*)
+        user_supplied_max_failures=1
+        break
+        ;;
+    esac
+  done
+
+  if [[ "${user_supplied_max_failures}" -eq 0 ]]; then
+    local max_failures_raw="${SETTA_E2E_MAX_FAILURES:-1}"
+    if ! [[ "${max_failures_raw}" =~ ^[0-9]+$ ]]; then
+      echo "Invalid SETTA_E2E_MAX_FAILURES: ${max_failures_raw}. Expected a non-negative integer." >&2
+      exit 1
+    fi
+    if [[ "${max_failures_raw}" != "0" ]]; then
+      PLAYWRIGHT_EXTRA_ARGS+=(--max-failures "${max_failures_raw}")
+    fi
   fi
-  if [[ "${max_failures_raw}" != "0" ]]; then
-    PLAYWRIGHT_EXTRA_ARGS+=(--max-failures "${max_failures_raw}")
-  fi
-fi
 
-if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
-  timeout_ms="$(
-    "${PYTHON_BIN}" - <<'PY'
+  if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
+    local timeout_ms
+    timeout_ms="$(
+      "${PYTHON_BIN}" - <<'PY'
 import os
 
 raw = os.environ.get("SETTA_E2E_TEST_TIMEOUT_SECONDS", "").strip()
@@ -810,26 +992,139 @@ if seconds <= 0:
     raise SystemExit("SETTA_E2E_TEST_TIMEOUT_SECONDS must be positive.")
 print(int(seconds * 1000))
 PY
-  )"
-  PLAYWRIGHT_EXTRA_ARGS+=(--timeout "${timeout_ms}")
-fi
-
-if [[ -n "${SETTA_E2E_PW_TRACE:-}" ]]; then
-  trace_value="${SETTA_E2E_PW_TRACE}"
-  if [[ "${trace_value}" == "1" || "${trace_value}" == "true" ]]; then
-    trace_value="on"
+    )"
+    PLAYWRIGHT_EXTRA_ARGS+=(--timeout "${timeout_ms}")
   fi
-  PLAYWRIGHT_EXTRA_ARGS+=(--trace "${trace_value}")
-fi
 
-log "Running Playwright tests."
-cd "${ROOT_DIR}/frontend"
-PLAYWRIGHT_CMD=(pnpm exec playwright test --reporter=line)
-if (( ${#PLAYWRIGHT_EXTRA_ARGS[@]} )); then
-  PLAYWRIGHT_CMD+=("${PLAYWRIGHT_EXTRA_ARGS[@]}")
+  if [[ -n "${SETTA_E2E_PW_TRACE:-}" ]]; then
+    local trace_value="${SETTA_E2E_PW_TRACE}"
+    if [[ "${trace_value}" == "1" || "${trace_value}" == "true" ]]; then
+      trace_value="on"
+    fi
+    PLAYWRIGHT_EXTRA_ARGS+=(--trace "${trace_value}")
+  fi
+
+  log "Running Playwright tests."
+  cd "${ROOT_DIR}/frontend"
+  local -a PLAYWRIGHT_CMD=(pnpm exec playwright test --reporter=line)
+  if (( ${#PLAYWRIGHT_EXTRA_ARGS[@]} )); then
+    PLAYWRIGHT_CMD+=("${PLAYWRIGHT_EXTRA_ARGS[@]}")
+  fi
+  PLAYWRIGHT_CMD+=("$@")
+  PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
+  SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
+  SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
+  "${PLAYWRIGHT_CMD[@]}"
+}
+
+resolve_default_recording_bundle_dir() {
+  local repo_name repo_suffix
+  repo_name="$(basename "${ROOT_DIR}" | tr -cs 'A-Za-z0-9._-' '-')"
+  repo_name="${repo_name#-}"
+  repo_name="${repo_name%-}"
+  if [[ -z "${repo_name}" ]]; then
+    repo_name="setta"
+  fi
+
+  repo_suffix=""
+  if command -v cksum >/dev/null 2>&1; then
+    repo_suffix="-$(printf '%s' "${ROOT_DIR}" | cksum | awk '{print $1}')"
+  fi
+
+  printf '%s/%s%s/session-%s\n' \
+    "${SETTA_E2E_RECORD_ROOT_DIR:-${TMPDIR:-/tmp}/setta-playwright-recordings}" \
+    "${repo_name}" \
+    "${repo_suffix}" \
+    "$(date +%Y%m%d-%H%M%S)"
+}
+
+run_playwright_codegen() {
+  local recording_bundle_dir="${SETTA_E2E_RECORD_ARTIFACT_DIR:-$(resolve_default_recording_bundle_dir)}"
+  local auth_storage_state_file="${SETTA_E2E_RECORD_AUTH_STORAGE_STATE:-${recording_bundle_dir}/bootstrap-storage-state.json}"
+  local final_storage_state_file="${SETTA_E2E_RECORD_FINAL_STORAGE_STATE:-${recording_bundle_dir}/final-storage-state.json}"
+  local output_file="${SETTA_E2E_RECORD_OUTPUT_FILE:-${recording_bundle_dir}/recording.spec.ts}"
+  local har_file="${SETTA_E2E_RECORD_HAR_FILE:-${recording_bundle_dir}/network.har}"
+  local metadata_file="${SETTA_E2E_RECORD_METADATA_FILE:-${recording_bundle_dir}/session.json}"
+  local record_url
+  record_url="$(with_backend_origin_override "${SETTA_E2E_RECORD_URL:-${PROJECT_URL}}")"
+
+  mkdir -p "${recording_bundle_dir}"
+  mkdir -p "$(dirname "${auth_storage_state_file}")"
+  mkdir -p "$(dirname "${final_storage_state_file}")"
+  mkdir -p "$(dirname "${output_file}")"
+  mkdir -p "$(dirname "${har_file}")"
+  mkdir -p "$(dirname "${metadata_file}")"
+
+  prepare_recording_auth_storage_state "${auth_storage_state_file}"
+
+  local -a PLAYWRIGHT_CMD=(
+    pnpm exec playwright codegen
+    --target "${SETTA_E2E_RECORD_TARGET:-playwright-test}"
+    --test-id-attribute "${SETTA_E2E_RECORD_TEST_ID_ATTRIBUTE:-data-testid}"
+    --viewport-size "${SETTA_E2E_RECORD_VIEWPORT_SIZE:-1400,900}"
+    --load-storage "${auth_storage_state_file}"
+    --save-storage "${final_storage_state_file}"
+    --save-har "${har_file}"
+    -o "${output_file}"
+  )
+
+  if [[ -n "${SETTA_E2E_RECORD_BROWSER:-}" ]]; then
+    PLAYWRIGHT_CMD+=(-b "${SETTA_E2E_RECORD_BROWSER}")
+  fi
+  if [[ -n "${SETTA_E2E_RECORD_CHANNEL:-}" ]]; then
+    PLAYWRIGHT_CMD+=(--channel "${SETTA_E2E_RECORD_CHANNEL}")
+  fi
+  if [[ -n "${SETTA_E2E_RECORD_TIMEOUT_MS:-}" ]]; then
+    PLAYWRIGHT_CMD+=(--timeout "${SETTA_E2E_RECORD_TIMEOUT_MS}")
+  fi
+
+  PLAYWRIGHT_CMD+=("$@" "${record_url}")
+
+  log "Starting Playwright recorder."
+  log "Artifacts will be written to ${recording_bundle_dir}."
+  log "Close the recorder browser when you are finished capturing the repro."
+  cd "${ROOT_DIR}/frontend"
+  PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
+  SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
+  SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
+  "${PLAYWRIGHT_CMD[@]}"
+
+  write_recording_session_metadata \
+    "${metadata_file}" \
+    "${recording_bundle_dir}" \
+    "${record_url}" \
+    "${output_file}" \
+    "${auth_storage_state_file}" \
+    "${final_storage_state_file}" \
+    "${har_file}" \
+    "$@"
+
+  log "Recorder artifacts saved in ${recording_bundle_dir}."
+}
+
+seed_workspace
+if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then
+  seed_local_plugin_artifacts
+else
+  log "Skipping local plugin artifact seed for selected Playwright targets."
 fi
-PLAYWRIGHT_CMD+=("$@")
-PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
-SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
-SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-"${PLAYWRIGHT_CMD[@]}"
+start_backend
+start_frontend
+
+wait_for_url "${PLAYWRIGHT_BASE_URL}" "frontend" 60
+
+log "Minting bootstrap token."
+BOOTSTRAP_TOKEN="$(mint_bootstrap_token)"
+
+case "${SETTA_E2E_PLAYWRIGHT_SUBCOMMAND:-test}" in
+  test)
+    run_playwright_tests "$@"
+    ;;
+  codegen)
+    run_playwright_codegen "$@"
+    ;;
+  *)
+    echo "Unsupported SETTA_E2E_PLAYWRIGHT_SUBCOMMAND: ${SETTA_E2E_PLAYWRIGHT_SUBCOMMAND}" >&2
+    exit 1
+    ;;
+esac
