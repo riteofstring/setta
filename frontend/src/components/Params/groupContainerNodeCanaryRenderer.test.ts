@@ -6,6 +6,7 @@ import { buildLiveDictAreaNodeCanaryRenderer } from "./groupContainerNodeCanaryR
 import { buildLiveDictAreaNodeCanaryRenderView } from "./groupContainerNodeCanaryRenderView";
 import { buildLiveDictAreaNodeCanaryView } from "./groupContainerNodeCanaryView";
 import { buildLiveDictAreaPinnedParamAreaCanaryRenderer } from "./groupContainerPinnedParamAreaCanaryRenderer";
+import { buildLiveDictAreaUnpinnedParamAreaCanaryRenderer } from "./groupContainerUnpinnedParamAreaCanaryRenderer";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 
 describe("buildLiveDictAreaNodeCanaryRenderer", () => {
@@ -76,13 +77,18 @@ describe("buildLiveDictAreaNodeCanaryRenderer", () => {
           canaryView: canaryView.pinnedParamAreaBlock,
         })
       : null;
+    const unpinnedParamAreaRenderer = canaryView.unpinnedParamAreaBlock
+      ? buildLiveDictAreaUnpinnedParamAreaCanaryRenderer({
+          canaryView: canaryView.unpinnedParamAreaBlock,
+        })
+      : null;
 
     expect(result.canaryPacket).toEqual(nodeCanaryPacket);
     expect(result.canaryView).toEqual(canaryView);
     expect(result.blocks).toEqual([
       edgeStripRenderer,
       pinnedParamAreaRenderer,
-      renderView.unpinnedParamAreaBlock,
+      unpinnedParamAreaRenderer,
     ]);
     expect(result.edgeStrip).toEqual(renderView.edgeStrip);
     expect(result.edgeStripBlock).toEqual(edgeStripRenderer);
@@ -95,6 +101,9 @@ describe("buildLiveDictAreaNodeCanaryRenderer", () => {
     expect(result.edgeStripBlock?.canaryView).toEqual(canaryView.edgeStripBlock);
     expect(result.pinnedParamAreaBlock?.canaryView).toEqual(
       canaryView.pinnedParamAreaBlock,
+    );
+    expect(result.unpinnedParamAreaBlock?.canaryView).toEqual(
+      canaryView.unpinnedParamAreaBlock,
     );
     expect(result.blocks.map((block) => block.key)).toEqual([
       "dict-area-block:edges",

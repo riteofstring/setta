@@ -1936,3 +1936,31 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/serverMode`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryRenderer.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-27 073
+
+- Item: Extract the unpinned param-area block into the next block-specific helper above `groupContainerNodeCanaryRenderer.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-renderer helper for the live dict-area unpinned param area:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaCanaryRenderer.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaCanaryRenderer.test.ts`
+  - Updated the higher-level node canary renderer boundary to compose through the new unpinned helper instead of leaving the unpinned renderer block inline:
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderer.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderer.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the live unpinned param-area canary render view into one explicit renderer block while retaining the paired canary view payload
+    - keeping `groupContainerNodeCanaryRenderer.ts` focused on higher-level block composition instead of mixed composition-plus-unpinned-renderer shaping
+    - leaving the current DOM unpinned param-area surface intact while deepening the first scene-owned canary renderer contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaCanaryRenderer.test.ts src/components/Params/groupContainerNodeCanaryRenderer.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded with `All Settings` visible and selected
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new unpinned canary-renderer helper extraction
+    - representative visible labels and controls included `Core Name Editable`, `Config Language`, `Hide Unpinned Params`, `Position And Size Locked`, `Grid Color`, and `Wire Color`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/serverMode`, and `GET /src/components/Params/groupContainerUnpinnedParamAreaCanaryRenderer.ts`
+- Next action:
+  - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific helpers into the next higher-level scene-owned boundary above `groupContainerNodeCanaryRenderer.ts` before any broad Pixi node drawing lands.

@@ -8,6 +8,10 @@ import {
   type LiveDictAreaPinnedParamAreaCanaryRenderer,
 } from "./groupContainerPinnedParamAreaCanaryRenderer";
 import {
+  buildLiveDictAreaUnpinnedParamAreaCanaryRenderer,
+  type LiveDictAreaUnpinnedParamAreaCanaryRenderer,
+} from "./groupContainerUnpinnedParamAreaCanaryRenderer";
+import {
   buildLiveDictAreaNodeCanaryRenderView,
   type LiveDictAreaNodeCanaryRenderBlock,
   type LiveDictAreaNodeCanaryRenderView,
@@ -19,14 +23,12 @@ import {
 
 export type { LiveDictAreaEdgeStripCanaryRenderer } from "./groupContainerEdgeStripCanaryRenderer";
 export type { LiveDictAreaPinnedParamAreaCanaryRenderer } from "./groupContainerPinnedParamAreaCanaryRenderer";
+export type { LiveDictAreaUnpinnedParamAreaCanaryRenderer } from "./groupContainerUnpinnedParamAreaCanaryRenderer";
 
 export type LiveDictAreaNodeCanaryRendererBlock =
   | LiveDictAreaEdgeStripCanaryRenderer
   | LiveDictAreaPinnedParamAreaCanaryRenderer
-  | Exclude<
-      LiveDictAreaNodeCanaryRenderBlock,
-      { kind: "edge-strip" | "pinned-param-area" }
-    >;
+  | LiveDictAreaUnpinnedParamAreaCanaryRenderer;
 
 export type LiveDictAreaNodeCanaryRenderer = {
   blocks: LiveDictAreaNodeCanaryRendererBlock[];
@@ -37,7 +39,7 @@ export type LiveDictAreaNodeCanaryRenderer = {
   maxNestedDepth: LiveDictAreaNodeCanaryRenderView["maxNestedDepth"];
   pinnedParamAreaBlock: LiveDictAreaPinnedParamAreaCanaryRenderer | null;
   scenePacket: LiveDictAreaNodeCanaryRenderView["scenePacket"];
-  unpinnedParamAreaBlock: LiveDictAreaNodeCanaryRenderView["unpinnedParamAreaBlock"];
+  unpinnedParamAreaBlock: LiveDictAreaUnpinnedParamAreaCanaryRenderer | null;
 };
 
 export function buildLiveDictAreaNodeCanaryRenderer({
@@ -61,6 +63,11 @@ export function buildLiveDictAreaNodeCanaryRenderer({
         canaryView: canaryView.pinnedParamAreaBlock,
       })
     : null;
+  const unpinnedParamAreaBlock = canaryView.unpinnedParamAreaBlock
+    ? buildLiveDictAreaUnpinnedParamAreaCanaryRenderer({
+        canaryView: canaryView.unpinnedParamAreaBlock,
+      })
+    : null;
 
   return {
     blocks: renderView.blocks.flatMap((block) => {
@@ -68,6 +75,7 @@ export function buildLiveDictAreaNodeCanaryRenderer({
         block,
         edgeStripBlock,
         pinnedParamAreaBlock,
+        unpinnedParamAreaBlock,
       });
 
       return rendererBlock ? [rendererBlock] : [];
@@ -79,7 +87,7 @@ export function buildLiveDictAreaNodeCanaryRenderer({
     maxNestedDepth: renderView.maxNestedDepth,
     pinnedParamAreaBlock,
     scenePacket: renderView.scenePacket,
-    unpinnedParamAreaBlock: renderView.unpinnedParamAreaBlock,
+    unpinnedParamAreaBlock,
   };
 }
 
@@ -87,10 +95,12 @@ function buildNodeCanaryRendererBlock({
   block,
   edgeStripBlock,
   pinnedParamAreaBlock,
+  unpinnedParamAreaBlock,
 }: {
   block: LiveDictAreaNodeCanaryRenderBlock;
   edgeStripBlock: LiveDictAreaEdgeStripCanaryRenderer | null;
   pinnedParamAreaBlock: LiveDictAreaPinnedParamAreaCanaryRenderer | null;
+  unpinnedParamAreaBlock: LiveDictAreaUnpinnedParamAreaCanaryRenderer | null;
 }): LiveDictAreaNodeCanaryRendererBlock | null {
   if (block.kind === "edge-strip") {
     return edgeStripBlock;
@@ -100,5 +110,5 @@ function buildNodeCanaryRendererBlock({
     return pinnedParamAreaBlock;
   }
 
-  return block;
+  return unpinnedParamAreaBlock;
 }
