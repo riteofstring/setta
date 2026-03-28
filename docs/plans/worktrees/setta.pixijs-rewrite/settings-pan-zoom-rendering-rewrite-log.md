@@ -275,3 +275,31 @@ Record:
       - checked backend requests such as `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, and `api/loadProjectConfig`; they returned `200`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file, starting with `frontend/src/components/Params/ParamItems/ParamInput.tsx` before any Pixi renderer code lands.
+
+## 2026-03-26 012
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Params/ParamItems/ParamInput.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the hot `ParamInput` path behind a typed helper boundary while keeping the existing non-Pixi render path intact:
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/paramInputView.ts`
+    - `frontend/src/components/Params/paramInputView.test.ts`
+  - The container now pulls `projectConfigId`, `baseValue`, and `codeObjType` through one typed selector instead of repeating the same guarded lookup, and delegates its change/reveal/dropzone event planning to the pure helper.
+  - The new helper pins the existing behavior for:
+    - value normalization plus realtime/backend update routing
+    - password-reveal eligibility
+    - stateless dropzone dependency event sequencing and payload shaping
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/paramInputView.test.ts src/components/Params/ParamUIs/DropzoneInput.test.tsx src/state/actions/websocketReceive.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/password-param-reveal.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` stayed authenticated at `http://127.0.0.1:3044/settings`
+      - backend requests such as `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/loadProjectConfig`, and `api/getLatestLspDiagnostics` returned `200`
+      - `All Settings` rendered the expected param rows and controls, including `Dropzone Param`, `Nested Param`, `Password Param`, `Rotary Param`, `Slider Param`, `Switch Param`, `Text Area Param`, `Text Param`, and `Time Param`, with no obvious layout breakage
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param path, starting with `frontend/src/components/Section/Layouts/DictArea.tsx` before any Pixi renderer code lands.
