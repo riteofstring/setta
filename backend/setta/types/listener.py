@@ -2,12 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import Field, PrivateAttr, TypeAdapter, model_validator
 from setta.sdk_contracts.generated import (
-    ListenerDependencyCatalog as SDKListenerDependencyCatalog,
-)
-from setta.sdk_contracts.generated import (
-    ListenerDependencyCatalogEntry as SDKListenerDependencyCatalogEntry,
-)
-from setta.sdk_contracts.generated import (
     ListenerDependencyEvent as SDKListenerDependencyEvent,
 )
 from setta.sdk_contracts.generated import (
@@ -35,16 +29,7 @@ from setta.sdk_contracts.generated import (
     ListenerRegisterAckEvent as SDKListenerRegisterAckEvent,
 )
 from setta.sdk_contracts.generated import (
-    ListenerRegisterAckStatus as SDKListenerRegisterAckStatus,
-)
-from setta.sdk_contracts.generated import (
-    ListenerRegisterCallbackSpec as SDKListenerRegisterCallbackSpec,
-)
-from setta.sdk_contracts.generated import (
     ListenerRegisterRequest as SDKListenerRegisterRequest,
-)
-from setta.sdk_contracts.generated import (
-    ListenerRenderedDependencyValue as SDKListenerRenderedDependencyValue,
 )
 from setta.sdk_contracts.generated import (
     ListenerRenderedDependencyValues as SDKListenerRenderedDependencyValues,
@@ -55,14 +40,8 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerRouterEndpointResult as SDKListenerRouterEndpointResult,
 )
-from setta.sdk_contracts.generated import (
-    ListenerSnapshot as SDKListenerSnapshot,
-)
 from setta.types.generated.go_shared_types import (
     ListenerDependencyEventMessage as GoListenerDependencyEventMessage,
-)
-from setta.types.generated.go_shared_types import (
-    ListenerDependencyMode as GeneratedListenerDependencyMode,
 )
 from setta.types.generated.go_shared_types import (
     ListenerErrorMessage as GoListenerErrorMessage,
@@ -97,9 +76,6 @@ from setta.types.generated.go_shared_types import (
 from setta.types.id import ID
 
 
-ListenerDependencyMode = GeneratedListenerDependencyMode
-
-
 class ListenerInitContent(SDKListenerInitRequest):
     projectConfigId: ID | None = None
 
@@ -114,7 +90,7 @@ class ListenerInitContent(SDKListenerInitRequest):
 
 class ListenerRealtimeEventContent(SDKListenerRealtimeEvent):
     deltas: list["ListenerRealtimeDelta"] = Field(default_factory=list)
-    dependencyValues: "ListenerRenderedDependencyValues | None" = None
+    dependencyValues: SDKListenerRenderedDependencyValues | None = None
 
 
 class DependencyEvent(SDKListenerDependencyEventEntry):
@@ -133,20 +109,6 @@ class ListenerDependencyEventContent(SDKListenerDependencyEvent):
     dependencyEvents: list[DependencyEvent] = Field(default_factory=list)
 
 
-ListenerDependencyCatalogEntry = SDKListenerDependencyCatalogEntry
-ListenerDependencyCatalog = SDKListenerDependencyCatalog
-ListenerRenderedDependencyValue = SDKListenerRenderedDependencyValue
-ListenerRenderedDependencyValues = SDKListenerRenderedDependencyValues
-ListenerSnapshot = SDKListenerSnapshot
-ListenerForceRefreshContent = SDKListenerForceRefreshEvent
-
-
-ListenerErrorContent = SDKListenerErrorEvent
-ListenerFrontendEmitRawContent = SDKListenerFrontendEmitRequest
-ListenerRouterEndpointCallContent = SDKListenerRouterEndpointCall
-ListenerRouterEndpointResultContent = SDKListenerRouterEndpointResult
-
-
 class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     _binary_payload: bytes | None = PrivateAttr(default=None)
 
@@ -157,15 +119,6 @@ class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     @binaryPayload.setter
     def binaryPayload(self, value: bytes | None) -> None:
         self._binary_payload = value
-
-
-ListenerRegisterCallback = SDKListenerRegisterCallbackSpec
-
-
-ListenerRegisterAckStatus = SDKListenerRegisterAckStatus
-ListenerRegisterContent = SDKListenerRegisterRequest
-ListenerRegisterAckContent = SDKListenerRegisterAckEvent
-
 
 class WebsocketMsgListenerRealtimeEvent(GoListenerRealtimeEventMessage):
     content: ListenerRealtimeEventContent
@@ -182,49 +135,49 @@ class WebsocketMsgListenerDependencyEvent(GoListenerDependencyEventMessage):
 
 
 class WebsocketMsgListenerForceRefresh(GoListenerForceRefreshMessage):
-    content: ListenerForceRefreshContent
+    content: SDKListenerForceRefreshEvent
     messageType: Literal[ListenerMessageType.ListenerForceRefresh] = (
         ListenerMessageType.ListenerForceRefresh
     )
 
 
 class WebsocketMsgListenerError(GoListenerErrorMessage):
-    content: ListenerErrorContent
+    content: SDKListenerErrorEvent
     messageType: Literal[ListenerMessageType.ListenerError] = (
         ListenerMessageType.ListenerError
     )
 
 
 class WebsocketMsgListenerFrontendEmit(GoListenerFrontendEmitMessage):
-    content: ListenerFrontendEmitRawContent
+    content: SDKListenerFrontendEmitRequest
     messageType: Literal[ListenerMessageType.ListenerFrontendEmit] = (
         ListenerMessageType.ListenerFrontendEmit
     )
 
 
 class WebsocketMsgListenerRouterEndpointCall(GoListenerRouterEndpointCallMessage):
-    content: ListenerRouterEndpointCallContent
+    content: SDKListenerRouterEndpointCall
     messageType: Literal[ListenerMessageType.ListenerRouterEndpointCall] = (
         ListenerMessageType.ListenerRouterEndpointCall
     )
 
 
 class WebsocketMsgListenerRouterEndpointResult(GoListenerRouterEndpointResultMessage):
-    content: ListenerRouterEndpointResultContent
+    content: SDKListenerRouterEndpointResult
     messageType: Literal[ListenerMessageType.ListenerRouterEndpointResult] = (
         ListenerMessageType.ListenerRouterEndpointResult
     )
 
 
 class WebsocketMsgListenerRegister(GoListenerRegisterMessage):
-    content: ListenerRegisterContent
+    content: SDKListenerRegisterRequest
     messageType: Literal[ListenerMessageType.ListenerRegister] = (
         ListenerMessageType.ListenerRegister
     )
 
 
 class WebsocketMsgListenerRegisterAck(GoListenerRegisterAckMessage):
-    content: ListenerRegisterAckContent
+    content: SDKListenerRegisterAckEvent
     messageType: Literal[ListenerMessageType.ListenerRegisterAck] = (
         ListenerMessageType.ListenerRegisterAck
     )

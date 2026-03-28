@@ -37,6 +37,16 @@ from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.sdk_contracts.generated import (
+    ListenerDependencyCatalog,
+    ListenerForceRefreshEvent,
+    ListenerFrontendEmitRequest,
+    ListenerRegisterAckStatus,
+    ListenerRegisterCallbackSpec,
+    ListenerRegisterRequest,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+    ListenerRouterEndpointCall,
+    ListenerSnapshot,
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
@@ -45,24 +55,18 @@ from setta.types.artifact import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnionWithDiscriminator,
 )
-from setta.types.generated.go_shared_types import CodeObjType, Route, SectionType
+from setta.types.generated.go_shared_types import (
+    CodeObjType,
+    ListenerDependencyMode,
+    Route,
+    SectionType,
+)
 from setta.types.listener import (
     DependencyEvent,
-    ListenerDependencyCatalog,
     ListenerDependencyEventContent,
-    ListenerDependencyMode,
-    ListenerForceRefreshContent,
-    ListenerFrontendEmitRawContent,
     ListenerInitContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
-    ListenerRegisterAckStatus,
-    ListenerRegisterCallback,
-    ListenerRegisterContent,
-    ListenerRenderedDependencyValue,
-    ListenerRenderedDependencyValues,
-    ListenerRouterEndpointCallContent,
-    ListenerSnapshot,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -1309,16 +1313,16 @@ class SettaListener:
             )
             return
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-        callbacks: dict[str, ListenerRegisterCallback] = {}
+        callbacks: dict[str, ListenerRegisterCallbackSpec] = {}
         for spec in self._callbacks.values():
-            callbacks[spec.callback_id] = ListenerRegisterCallback(
+            callbacks[spec.callback_id] = ListenerRegisterCallbackSpec(
                 dependencies=list(spec.structured_dependencies),
                 dependencyMode=spec.dependency_mode,
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
                 runOnRefresh=spec.run_on_refresh,
             )
-        content = ListenerRegisterContent(
+        content = ListenerRegisterRequest(
             projectConfigId=self._require_project_id(), callbacks=callbacks
         )
         message = WebsocketMsgListenerRegister(content=content)
@@ -1865,7 +1869,7 @@ class SettaListener:
                 continue
             self._scheduler.submit(spec.callback_id, events=list(events))
 
-    async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
+    async def _handle_force_refresh(self, content: ListenerForceRefreshEvent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
         completed = False
         try:
@@ -1926,7 +1930,7 @@ class SettaListener:
             )
         project_config_id = self._require_project_id()
         message = WebsocketMsgListenerFrontendEmit(
-            content=ListenerFrontendEmitRawContent(
+            content=ListenerFrontendEmitRequest(
                 projectConfigId=project_config_id,
                 dependencyValues=serialized_values,
                 artifactUpdates=serialized_artifact_updates,
@@ -1973,7 +1977,7 @@ class SettaListener:
         else:
             raise ValueError("router endpoint payload must be a dict or pydantic model")
         message = WebsocketMsgListenerRouterEndpointCall(
-            content=ListenerRouterEndpointCallContent(
+            content=ListenerRouterEndpointCall(
                 projectConfigId=project_config_id,
                 callId=call_id,
                 endpointName=endpoint_name,

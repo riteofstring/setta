@@ -11,6 +11,7 @@ from setta.api.chat_toolkit import (
 )
 from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.api.listener import ListenerCallbackContext, SettaListener
+from setta.sdk_contracts.generated import ListenerDependencyCatalog
 from setta.types.generated.go_shared_types import (
     ChatFileAttachment,
     ChatSendEvent,
@@ -31,7 +32,6 @@ from setta.llm.chat_toolkit.section_sync import (
     build_chat_section_state,
 )
 from setta.types.id import ID
-from setta.types.listener import ListenerDependencyCatalog
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
 )

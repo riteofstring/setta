@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from setta.api.listener import ListenerDependencyMetadata
-from setta.types.listener import (
+from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
 )

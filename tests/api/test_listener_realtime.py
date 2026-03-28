@@ -14,26 +14,28 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     SettaListener,
 )
+from setta.sdk_contracts.generated import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+    ListenerErrorEvent,
+    ListenerForceRefreshEvent,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+    ListenerSnapshot,
+)
 from setta.types.generated.go_shared_types import (
     BinaryContentRef,
     CodeObjType,
+    ListenerDependencyMode,
     ParameterPassingStyle,
     SectionType,
 )
 from setta.types.id import ID
 from setta.types.listener import (
     DependencyEvent,
-    ListenerDependencyCatalog,
-    ListenerDependencyCatalogEntry,
     ListenerDependencyEventContent,
-    ListenerDependencyMode,
-    ListenerErrorContent,
-    ListenerForceRefreshContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
-    ListenerRenderedDependencyValue,
-    ListenerRenderedDependencyValues,
-    ListenerSnapshot,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -289,8 +291,8 @@ def _build_force_refresh_content(
     project_state: _TextListenerFixture | _CompositeListenerFixture,
     *,
     share_session_id: str | None = None,
-) -> ListenerForceRefreshContent:
-    return ListenerForceRefreshContent(
+) -> ListenerForceRefreshEvent:
+    return ListenerForceRefreshEvent(
         snapshot=_build_authoritative_listener_snapshot(
             project_state,
             share_session_id=share_session_id,
@@ -1202,7 +1204,7 @@ class TestSettaListenerRealtimeIntegration:
     async def test_listener_error_prints_when_logging_unconfigured(self) -> None:
         listener = SettaListener(project_name="Project Missing")
         error_message = WebsocketMsgListenerError(
-            content=ListenerErrorContent(
+            content=ListenerErrorEvent(
                 error="project_state_unavailable",
                 details={"projectName": "dog"},
             )
@@ -1843,7 +1845,7 @@ class TestSettaListenerBinaryParsing:
     def test_text_force_refresh_round_trips_through_parser(self) -> None:
         listener = SettaListener(project_name="Text Parse")
         dependency = create_dep_key(sectionId=ID("section-1"))
-        content = ListenerForceRefreshContent(
+        content = ListenerForceRefreshEvent(
             snapshot=ListenerSnapshot(
                 projectConfigId=ID("project-1"),
                 dependencyCatalog=ListenerDependencyCatalog(

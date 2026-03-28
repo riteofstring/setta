@@ -3,14 +3,16 @@ import asyncio
 import pytest
 
 from setta.api.listener import SettaListener
+from setta.sdk_contracts.generated import (
+    ListenerDependencyCatalog,
+    ListenerErrorEvent,
+    ListenerForceRefreshEvent,
+    ListenerRenderedDependencyValues,
+    ListenerRouterEndpointResult,
+    ListenerSnapshot,
+)
 from setta.types.id import ID
 from setta.types.listener import (
-    ListenerDependencyCatalog,
-    ListenerErrorContent,
-    ListenerForceRefreshContent,
-    ListenerRenderedDependencyValues,
-    ListenerRouterEndpointResultContent,
-    ListenerSnapshot,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerError,
     WebsocketMsgListenerRouterEndpointCall,
@@ -72,7 +74,7 @@ class TestListenerRouterEndpointCall:
 
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
+                content=ListenerRouterEndpointResult(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=True,
@@ -112,7 +114,7 @@ class TestListenerRouterEndpointCall:
 
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
+                content=ListenerRouterEndpointResult(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=False,
@@ -158,7 +160,7 @@ class TestListenerRouterEndpointCall:
 
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
+                content=ListenerRouterEndpointResult(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=True,
@@ -171,7 +173,7 @@ class TestListenerRouterEndpointCall:
         assert not call_task.done()
 
         await listener._handle_force_refresh(
-            ListenerForceRefreshContent(
+            ListenerForceRefreshEvent(
                 callId=parsed_message.content.callId,
                 snapshot=ListenerSnapshot(
                     projectConfigId=project_config_id,
@@ -214,7 +216,7 @@ class TestListenerRouterEndpointCall:
 
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
+                content=ListenerRouterEndpointResult(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=True,
@@ -224,7 +226,7 @@ class TestListenerRouterEndpointCall:
         )
         listener._handle_listener_error(
             WebsocketMsgListenerError(
-                content=ListenerErrorContent(
+                content=ListenerErrorEvent(
                     error="listener_refresh_failed",
                     details={
                         "callId": parsed_message.content.callId,

@@ -244,10 +244,9 @@ That means:
   - `internal/artifacts.ChartDataValue`
 - `backend/setta/types/artifact.py` no longer hand-owns chart-settings field layouts:
   - the Python chart-settings classes now subclass Go-generated models and only keep discriminator literals
-- `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
-  - `backend/setta/types/listener.py` now re-exports the generated `ListenerDependencyMode` directly
-  - listener callers/tests now use the Go-owned enum member names directly (`always`, `realtime_only`, `refresh_only`) instead of legacy uppercase aliases
+  - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
+  - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)
 - the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
 - the Go -> Python generator now also preserves named Go string-enum field types inside generated models instead of flattening them to plain `str`, which makes the generated Python surface much closer to the real backend schema.
 - `internal/stringenumvalues` now resolves named string wrappers transitively across imported owner types, so the TS generator no longer needs hardcoded enum cases for:
@@ -310,6 +309,9 @@ That means:
 - the listener register/ack transport family has been reduced further:
   - `ListenerRegisterCallback`, `ListenerRegisterContent`, and `ListenerRegisterAckContent` no longer exist as handwritten subclasses in `backend/setta/types/listener.py`
   - that register/ack family now reuses the generated Python SDK contract models directly, while the handwritten listener layer keeps only the websocket envelope/type-adapter glue and the runtime-only pieces
+- `backend/setta/types/listener.py` no longer keeps pass-through aliases for plain listener SDK contract models:
+  - listener callers/tests now import `ListenerDependencyCatalog`, `ListenerDependencyCatalogEntry`, `ListenerRenderedDependencyValue`, `ListenerRenderedDependencyValues`, `ListenerSnapshot`, `ListenerForceRefreshEvent`, `ListenerErrorEvent`, `ListenerRouterEndpointCall`, and related SDK DTOs from `backend/setta/sdk_contracts/generated.py` directly
+  - the handwritten listener module now keeps only the pieces that still add Python-specific behavior: init validation, binary-payload side channels, typed nested realtime/dependency wrappers, and websocket envelope decoding
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line

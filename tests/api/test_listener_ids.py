@@ -7,14 +7,16 @@ from setta.api.listener import (
     ListenerDependencyMetadata,
     ListenerDependencyValues,
 )
-from setta.types.generated.go_shared_types import CodeObjType
-from setta.types.id import ID
-from setta.types.listener import (
+from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
+)
+from setta.types.generated.go_shared_types import CodeObjType
+from setta.types.id import ID
+from setta.types.listener import (
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerRegister,
 )

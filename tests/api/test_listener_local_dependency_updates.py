@@ -4,7 +4,20 @@ import pytest
 
 from setta.api import SettaListener, dep_id
 from setta.api.listener import ListenerCallbackContext
-from setta.types.generated.go_shared_types import MessageTextContent, SectionType
+from setta.sdk_contracts.generated import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+    ListenerForceRefreshEvent,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+    ListenerRouterEndpointResult,
+    ListenerSnapshot,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerDependencyMode,
+    MessageTextContent,
+    SectionType,
+)
 from setta.types.chat import (
     AssistantChatMessage,
     ChatSectionState,
@@ -12,16 +25,8 @@ from setta.types.chat import (
 )
 from setta.types.id import ID
 from setta.types.listener import (
-    ListenerDependencyCatalog,
-    ListenerDependencyCatalogEntry,
-    ListenerDependencyMode,
-    ListenerForceRefreshContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
-    ListenerRenderedDependencyValue,
-    ListenerRenderedDependencyValues,
-    ListenerRouterEndpointResultContent,
-    ListenerSnapshot,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
@@ -92,7 +97,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
             return
         listener._handle_router_endpoint_result(
             WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResultContent(
+                content=ListenerRouterEndpointResult(
                     projectConfigId=project_config_id,
                     callId=message.content.callId,
                     ok=True,
@@ -104,7 +109,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
         await allow_force_refresh.wait()
         await listener._handle_force_refresh(
-            ListenerForceRefreshContent(
+            ListenerForceRefreshEvent(
                 callId=message.content.callId,
                 snapshot=_build_chat_snapshot(
                     project_config_id=project_config_id,

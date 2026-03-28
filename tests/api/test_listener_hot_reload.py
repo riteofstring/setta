@@ -12,14 +12,14 @@ import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
-from setta.types.id import ID
-from setta.types.listener import (
+from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
+from setta.types.id import ID
 from setta.types.protocol import create_dep_key
 from setta.types.generated.go_shared_types import SectionType
 from watchfiles import Change

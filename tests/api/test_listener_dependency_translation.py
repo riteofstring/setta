@@ -1,9 +1,9 @@
 import pytest
 
 from setta.api.listener import SettaListener
+from setta.sdk_contracts.generated import ListenerDependencyCatalogEntry
 from setta.types.id import ID
 from setta.types.listener import (
-    ListenerDependencyCatalogEntry,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerRegister,
 )
