@@ -1020,6 +1020,100 @@ func TestRuntimeCreateChildSectionsViaIncrementerReconcilesGeneratedPythonSectio
 	}
 }
 
+func TestRuntimeSetCallableReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": testRuntimeSemanticMutationPythonProject(t),
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: testRuntimeSemanticMutationPythonGeneratedSectionReconciler(),
+	})
+
+	snapshot, response, err := runtime.SetCallable(
+		context.Background(),
+		"project-alpha",
+		"callable-section",
+		"sorted",
+		false,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("set callable through runtime: %v", err)
+	}
+	if response.CallableID == nil || *response.CallableID != "callable-2" {
+		t.Fatalf("expected callable-2 response, got %#v", response.CallableID)
+	}
+
+	project, err := snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("lookup mutated project: %v", err)
+	}
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after callable mutation, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `callable=sorted`) {
+		t.Fatalf("expected generated python payload to include updated callable, got %q", string(impl.Payload))
+	}
+	if !strings.Contains(string(impl.Payload), `arg=user_value`) {
+		t.Fatalf("expected generated python payload to preserve callable arg value, got %q", string(impl.Payload))
+	}
+}
+
+func TestRuntimeSetSectionCodeObjectValueReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": testRuntimeSemanticMutationPythonProjectWithSelectedCallable(t),
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: testRuntimeSemanticMutationPythonGeneratedSectionReconciler(),
+	})
+
+	snapshot, err := runtime.SetSectionCodeObjectValue(
+		context.Background(),
+		"project-alpha",
+		"callable-section",
+		"param-existing",
+		"3",
+	)
+	if err != nil {
+		t.Fatalf("set section code object value through runtime: %v", err)
+	}
+
+	project, err := snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("lookup mutated project: %v", err)
+	}
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after param mutation, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `callable=sorted`) {
+		t.Fatalf("expected generated python payload to keep selected callable, got %q", string(impl.Payload))
+	}
+	if !strings.Contains(string(impl.Payload), `arg=3`) {
+		t.Fatalf("expected generated python payload to include updated param value, got %q", string(impl.Payload))
+	}
+}
+
 func testRuntimeStructuralMutationPythonProject() Project {
 	defaultWindowing := DefaultProjectChatWindowingState()
 	return Project{
@@ -1112,6 +1206,104 @@ func testRuntimeStructuralMutationPythonGeneratedSectionReconciler() PythonCodeg
 
 		return nil
 	})
+}
+
+func testRuntimeSemanticMutationPythonProject(t *testing.T) Project {
+	t.Helper()
+
+	project := callableTestProject(t)
+	defaultWindowing := DefaultProjectChatWindowingState()
+	project.ID = "project-alpha"
+	project.Name = "Alpha"
+	project.CodegenTargets = []ProjectCodegenTarget{
+		{Language: string(CodeLanguagePython)},
+	}
+	project.ProjectChatWindowing = &defaultWindowing
+	return project
+}
+
+func testRuntimeSemanticMutationPythonProjectWithSelectedCallable(t *testing.T) Project {
+	t.Helper()
+
+	project := testRuntimeSemanticMutationPythonProject(t)
+	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
+		t.Fatalf("set selected callable in semantic mutation fixture: %v", err)
+	}
+	return project
+}
+
+func testRuntimeSemanticMutationPythonGeneratedSectionReconciler() PythonCodegenSectionReconciler {
+	structuralReconciler := testRuntimeStructuralMutationPythonGeneratedSectionReconciler()
+	return PythonCodegenSectionReconcilerFunc(func(ctx context.Context, project *Project) error {
+		if err := structuralReconciler.ReconcileProjectPythonGeneratedSections(ctx, project); err != nil {
+			return err
+		}
+		if project == nil {
+			return ErrProjectNotFound
+		}
+
+		renderedCode, err := testRuntimeSemanticMutationGeneratedCode(project)
+		if err != nil {
+			return err
+		}
+
+		var bindingPayload any
+		if project.GeneratedCodeBinding != nil {
+			bindingPayload = map[string]any{
+				"canonical_path": project.GeneratedCodeBinding.Path,
+				"access_mode":    string(project.GeneratedCodeBinding.AccessMode),
+				"autoBinding":    false,
+			}
+		}
+		payload, err := marshalProjectObject(map[string]any{
+			"id":              GeneratedPythonCodeImplID,
+			"type":            "GenPythonCode",
+			"code":            renderedCode,
+			"codeFileBinding": bindingPayload,
+		})
+		if err != nil {
+			return err
+		}
+
+		impl := project.SectionImpls[GeneratedPythonCodeImplID]
+		impl.Payload = payload
+		project.SectionImpls[GeneratedPythonCodeImplID] = impl
+		return nil
+	})
+}
+
+func testRuntimeSemanticMutationGeneratedCode(project *Project) (string, error) {
+	if project == nil {
+		return "", ErrProjectNotFound
+	}
+
+	sectionPayload, err := project.currentCallableSectionPayload("callable-section")
+	if err != nil {
+		return "", err
+	}
+	callableID := payloadStringField(sectionPayload, "callable")
+	if callableID == "" {
+		return "callable=<none>|arg=<none>", nil
+	}
+
+	callablePayload, callableCodeObj, _, _, err := project.ResolveSectionCodeObject("callable-section", callableID)
+	if err != nil {
+		return "", err
+	}
+	childIDs := payloadStringArrayField(callablePayload, "children")
+	if len(childIDs) == 0 {
+		return fmt.Sprintf("callable=%s|arg=<none>", callableCodeObj.Name), nil
+	}
+
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("callable-section", childIDs[0])
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"callable=%s|arg=%s",
+		callableCodeObj.Name,
+		payloadRawStringField(paramPayload, "value"),
+	), nil
 }
 
 func openTestRuntime(t *testing.T, store *Store) *Runtime {

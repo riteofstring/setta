@@ -242,5 +242,35 @@ describe("typeCheck", () => {
         params: {},
       });
     });
+
+    it("normalizes null callable and params fields instead of crashing", () => {
+      const malformedPayload = JSON.parse(`{
+        "projectConfigId": "project-1",
+        "isGenCode": true,
+        "errors": {
+          "section-1": {
+            "callable": null,
+            "params": null
+          },
+          "section-2": {
+            "callable": [],
+            "params": {
+              "param-1": ["Param error"]
+            }
+          }
+        }
+      }`) as SettaProjectConfigDiagnostics;
+
+      processTypeErrors(malformedPayload);
+
+      expect(useTypeErrors.getState().errors).toEqual({
+        "section-2": {
+          callable: [],
+          params: {
+            "param-1": ["Param error"],
+          },
+        },
+      });
+    });
   });
 });

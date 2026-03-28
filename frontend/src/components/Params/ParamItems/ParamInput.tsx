@@ -13,7 +13,6 @@ import {
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200 } from "utils/endpointUtils";
 import {
   route_get_password_param_value,
   route_set_param_entered_value,

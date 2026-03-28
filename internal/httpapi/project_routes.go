@@ -2130,14 +2130,19 @@ func setParamEnteredValueHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			return
 		}
 
-		if _, err := runtime.SetSectionCodeObjectValue(
+		snapshot, err := runtime.SetSectionCodeObjectValue(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			paramInfoID,
 			payload.Value,
-		); err != nil {
+		)
+		if err != nil {
 			writeParamValueMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4574,7 +4579,7 @@ func setCallableHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		_, response, err := deps.ProjectState.SetCallable(
+		snapshot, response, err := deps.ProjectState.SetCallable(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -4584,6 +4589,10 @@ func setCallableHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 		)
 		if err != nil {
 			writeSetCallableError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, deps.ProjectState, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, response)

@@ -42,6 +42,9 @@ func (r *Runtime) SetSectionCodeObjectValue(ctx context.Context, projectID strin
 		if err := document.SetSectionCodeObjectValue(projectID, sectionID, codeObjID, value); err != nil {
 			return document, err
 		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); err != nil {
+			return document, err
+		}
 		return document, nil
 	})
 }

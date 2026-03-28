@@ -2,7 +2,7 @@ package projectstate
 
 import "context"
 
-func (r *Runtime) reconcileProjectPythonGeneratedSectionsAfterStructuralMutation(
+func (r *Runtime) reconcileProjectPythonGeneratedSectionsAfterProjectMutation(
 	ctx context.Context,
 	document *Document,
 	projectID string,
@@ -29,4 +29,16 @@ func (r *Runtime) reconcileProjectPythonGeneratedSectionsAfterStructuralMutation
 	}
 	document.Projects[projectID] = project
 	return nil
+}
+
+func (r *Runtime) reconcileProjectPythonGeneratedSectionsAfterStructuralMutation(
+	ctx context.Context,
+	document *Document,
+	projectID string,
+) error {
+	return r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(
+		ctx,
+		document,
+		projectID,
+	)
 }

@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
+  createCallableSection,
   createTextBlockSection,
+  createTopLevelSectionFromFrontend,
+  ensureAppReady,
   openIsolatedProject,
   postBackend,
   setCodeObjNameFromFrontend,
@@ -63,6 +65,23 @@ type LoadedCodegenProjectState = {
 type CreateTopLevelSectionResponse = {
   sectionId?: string;
   metaControlParamId?: string | null;
+};
+
+type BackendLspDiagnosticsPayload = {
+  projectConfigId: string;
+  genCode: {
+    projectConfigId: string;
+    isGenCode: boolean;
+    errors: Record<
+      string,
+      {
+        callable: string[];
+        params: Record<string, string[]>;
+      }
+    >;
+  };
+  codeSections: Record<string, unknown[]>;
+  unmappedGenCode: Array<{ message: string }>;
 };
 
 async function expandRunInstructionsAccordion(
@@ -172,6 +191,149 @@ async function createMetaControlCodeParamSection(
     value,
   });
   return { sectionId, paramInfoId };
+}
+
+async function setGenCodePrefixFromFrontend(
+  page: Page,
+  projectConfigId: string,
+  genCodePrefix: string,
+): Promise<void> {
+  await page.evaluate(
+    async ({ targetProjectConfigId, nextPrefix }) => {
+      const { res200 } = await import("/src/utils/endpointUtils");
+      const { processProjectStateUpdateFromBackend } = await import(
+        "/src/state/actions/sectionInfos"
+      );
+      const { route_get_latest_project_state, route_set_gen_code_prefix } =
+        await import("/src/utils/generatedEndpoints");
+
+      const response = await route_set_gen_code_prefix({
+        projectConfigId: targetProjectConfigId,
+        genCodePrefix: nextPrefix,
+        frontendOpId: null,
+      });
+      if (!res200(response)) {
+        throw new Error(
+          `Failed frontend test mutation route_set_gen_code_prefix for ${targetProjectConfigId}: ${response.status}`,
+        );
+      }
+
+      const latestProjectStateResponse = await route_get_latest_project_state({
+        projectConfigId: targetProjectConfigId,
+      });
+      if (!res200(latestProjectStateResponse)) {
+        throw new Error(
+          `Failed to hydrate latest project state for ${targetProjectConfigId}: ${latestProjectStateResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    },
+    { targetProjectConfigId: projectConfigId, nextPrefix: genCodePrefix },
+  );
+}
+
+async function setCallableFromUi(
+  page: Page,
+  sectionId: string,
+  callableName: string,
+): Promise<void> {
+  const callableSearch = page.locator(`[id="${sectionId}-search"]`);
+  await expect(callableSearch).toBeVisible();
+  await callableSearch.click();
+  await page.keyboard.type(callableName);
+  await page.keyboard.press("Enter");
+}
+
+async function getFirstParamInfoId(
+  page: Page,
+  sectionId: string,
+): Promise<string> {
+  const firstParam = page
+    .locator(
+      `.react-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
+    )
+    .first();
+  await expect(firstParam).toBeVisible({ timeout: 20000 });
+  const paramContainerId = await firstParam.getAttribute("id");
+  const prefix = `ParamContainer-${sectionId}-`;
+  if (!paramContainerId || !paramContainerId.startsWith(prefix)) {
+    throw new Error(
+      `Unexpected param container id for ${sectionId}: ${paramContainerId}`,
+    );
+  }
+  return paramContainerId.slice(prefix.length);
+}
+
+async function loadBackendLspDiagnostics(
+  page: Page,
+  projectConfigId: string,
+): Promise<BackendLspDiagnosticsPayload> {
+  const diagnostics = await postBackend<BackendLspDiagnosticsPayload>(
+    page,
+    "/getLatestLspDiagnostics",
+    { projectConfigId },
+  );
+  if (!diagnostics) {
+    throw new Error(
+      `Missing latest LSP diagnostics response for ${projectConfigId}.`,
+    );
+  }
+  return diagnostics;
+}
+
+async function getBackendParamTypeErrorMessage(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  paramInfoId: string,
+): Promise<string | null> {
+  const diagnostics = await loadBackendLspDiagnostics(page, projectConfigId);
+  return (
+    diagnostics.genCode.errors[sectionId]?.params?.[paramInfoId]?.[0] ?? null
+  );
+}
+
+async function setParamValueFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    paramInfoId: string;
+    value: string;
+  },
+): Promise<void> {
+  await page.evaluate(
+    async ({
+      targetProjectConfigId,
+      targetSectionId,
+      targetParamInfoId,
+      nextValue,
+    }) => {
+      const { res200 } = await import("/src/utils/endpointUtils");
+      const { route_set_param_entered_value } = await import(
+        "/src/utils/generatedEndpoints"
+      );
+
+      const response = await route_set_param_entered_value({
+        projectConfigId: targetProjectConfigId,
+        sectionId: targetSectionId,
+        paramInfoId: targetParamInfoId,
+        value: nextValue,
+        frontendOpId: null,
+      });
+      if (!res200(response)) {
+        throw new Error(
+          `Failed frontend test mutation route_set_param_entered_value for ${targetProjectConfigId}: ${response.status}`,
+        );
+      }
+    },
+    {
+      targetProjectConfigId: payload.projectConfigId,
+      targetSectionId: payload.sectionId,
+      targetParamInfoId: payload.paramInfoId,
+      nextValue: payload.value,
+    },
+  );
 }
 
 test("python codegen toggle persists and reconciles the generated code section", async ({
@@ -338,6 +500,94 @@ test("python metadata toggle persists and reconciles the metadata section", asyn
     await expect(
       page.getByTestId("run-instructions-python-metadata-toggle"),
     ).toHaveAttribute("aria-checked", "false");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("generated python updates for callable and param changes and reports missing param type errors", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await setGenCodePrefixFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      "import math\n",
+    );
+
+    const initialState = await loadCodegenProjectState(page);
+    const generatedSectionId = initialState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+    const generatedCodeContent = page.locator(
+      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+    );
+    await expect(generatedCodeContent).toBeVisible();
+
+    const sectionId = await createCallableSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    await setCallableFromUi(page, sectionId, "math.sqrt");
+
+    const paramInfoId = await getFirstParamInfoId(page, sectionId);
+    const paramContainer = page.locator(
+      `[id="ParamContainer-${sectionId}-${paramInfoId}"]`,
+    );
+    await expect(paramContainer).toBeVisible();
+
+    await expect(generatedCodeContent).toContainText("math.sqrt");
+    const generatedCodeAfterCallable =
+      (await generatedCodeContent.textContent()) ?? "";
+    expect(generatedCodeAfterCallable).toContain("math.sqrt");
+
+    await expect
+      .poll(async () =>
+        getBackendParamTypeErrorMessage(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+          paramInfoId,
+        ),
+      )
+      .toMatch(/argument|parameter/i);
+
+    await expect
+      .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
+      .toMatch(/bg-red-200/);
+
+    await setParamValueFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      paramInfoId,
+      value: "3",
+    });
+
+    await expect
+      .poll(async () => (await generatedCodeContent.textContent()) ?? "")
+      .not.toBe(generatedCodeAfterCallable);
+    await expect(generatedCodeContent).toContainText("math.sqrt");
+    await expect(generatedCodeContent).toContainText("3");
+
+    await expect
+      .poll(async () =>
+        getBackendParamTypeErrorMessage(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+          paramInfoId,
+        ),
+      )
+      .toBeNull();
+
+    await expect
+      .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
+      .not.toMatch(/bg-red-200/);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

@@ -110,6 +110,9 @@ func (r *Runtime) SetCallable(
 		if mutationErr != nil {
 			return document, mutationErr
 		}
+		if mutationErr = r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); mutationErr != nil {
+			return document, mutationErr
+		}
 		return document, nil
 	})
 	if err != nil {
