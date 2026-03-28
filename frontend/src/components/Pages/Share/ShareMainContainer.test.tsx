@@ -3,15 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ShareMainContainer } from "./ShareMainContainer";
 
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-section-container-boundary"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("../MainContainerCore", () => ({
   MainContainerCore: ({
     doneLoading,
@@ -33,9 +24,20 @@ vi.mock("../MainContainerCore", () => ({
 }));
 
 describe("ShareMainContainer", () => {
-  it("owns the lifted section boundary handoff above MainContainerCore", () => {
+  const MockSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+    <div
+      data-testid="mock-section-container-boundary"
+      data-section-id={sectionId}
+    />
+  );
+
+  it("passes the caller-owned section boundary through to MainContainerCore", () => {
     const markup = renderToStaticMarkup(
-      <ShareMainContainer doneLoading is404={false} />,
+      <ShareMainContainer
+        doneLoading
+        is404={false}
+        SectionBoundary={MockSectionBoundary}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-main-container-core"');

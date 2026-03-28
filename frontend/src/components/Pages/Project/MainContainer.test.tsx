@@ -6,15 +6,6 @@ import { MainContainer } from "./MainContainer";
 let doneLoading = false;
 let is404 = false;
 
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-section-container-boundary"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("state/hooks/project", () => ({
   useLoadProjectConfig: () => [doneLoading, is404] as const,
 }));
@@ -40,15 +31,24 @@ vi.mock("../MainContainerCore", () => ({
 }));
 
 describe("MainContainer", () => {
+  const MockSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+    <div
+      data-testid="mock-section-container-boundary"
+      data-section-id={sectionId}
+    />
+  );
+
   beforeEach(() => {
     doneLoading = false;
     is404 = false;
   });
 
-  it("owns the lifted section boundary handoff above MainContainerCore", () => {
+  it("passes the caller-owned section boundary through to MainContainerCore", () => {
     doneLoading = true;
 
-    const markup = renderToStaticMarkup(<MainContainer />);
+    const markup = renderToStaticMarkup(
+      <MainContainer SectionBoundary={MockSectionBoundary} />,
+    );
 
     expect(markup).toContain('data-testid="mock-main-container-core"');
     expect(markup).toContain('data-done-loading="true"');
@@ -60,7 +60,9 @@ describe("MainContainer", () => {
   it("passes through the current project loading flags unchanged", () => {
     is404 = true;
 
-    const markup = renderToStaticMarkup(<MainContainer />);
+    const markup = renderToStaticMarkup(
+      <MainContainer SectionBoundary={MockSectionBoundary} />,
+    );
 
     expect(markup).toContain('data-done-loading="false"');
     expect(markup).toContain('data-is-404="true"');

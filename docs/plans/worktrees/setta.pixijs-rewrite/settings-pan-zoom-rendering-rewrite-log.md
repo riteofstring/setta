@@ -5507,3 +5507,34 @@ Record:
       - because this seam specifically affects the live project/share route shell above `MainContainerCore.tsx` and the running worktree currently exposes no trustworthy live project route in CDP, this slice is being treated as code-complete with the live project-route visual gate deferred rather than falsely marked visually verified
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-entry-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/Project/MainContainer.tsx` and `frontend/src/components/Pages/Share/ShareMainContainer.tsx`, starting with `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`.
+
+## 2026-03-28 186
+
+- Item: Lift the route-entry-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the IDE/share route-element layer now owns the default `SectionContainerBoundary` handoff above the project/share main-container wrappers:
+    - `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`
+    - `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx`
+    - `frontend/src/components/Pages/Project/MainContainer.tsx`
+    - `frontend/src/components/Pages/Project/MainContainer.test.tsx`
+    - `frontend/src/components/Pages/Share/ShareMainContainer.tsx`
+    - `frontend/src/components/Pages/Share/ShareMainContainer.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `modeWrappedHomeProjectCatchAllRouteElements.tsx` now explicitly owning the project/share route `SectionContainerBoundary` handoff while still building the same home, project, share, and catch-all route bundles
+    - `Project/MainContainer.tsx` shrinking into a thinner project-route loader that only reads `useLoadProjectConfig()` and passes a caller-owned `SectionBoundary` into `MainContainerCore.tsx`
+    - `Share/ShareMainContainer.tsx` shrinking into the same kind of thin share-route loader that only forwards its loading flags plus a caller-owned `SectionBoundary` into `MainContainerCore.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/MainContainer.test.tsx src/components/Pages/Share/ShareMainContainer.test.tsx src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/Project/MainContainer.tsx src/components/Pages/Share/ShareMainContainer.tsx src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx src/components/Pages/Project/MainContainer.test.tsx src/components/Pages/Share/ShareMainContainer.test.tsx src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - the verifier created a fresh project from `/home` and verified the resulting live project route `http://127.0.0.1:3044/flame_sitting`
+    - the visible project shell rendered cleanly with no obvious unintended clipping or overlap in the viewport; the only overlap present was the expected floating chat window over the canvas
+    - representative visible labels included `PROJECT AI CHAT`, `Chat Window 1`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `GENERATED PYTHON CODE`, `pixijs-rewrite`, `Project`, `Edit`, and `Run`
+    - representative successful requests included `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `GET /api/getAgentRuns`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`, starting with `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`.

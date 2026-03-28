@@ -5,13 +5,11 @@ import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import type { ReactNode } from "react";
 import { memo } from "react";
 import { Navigate } from "react-router-dom";
-import {
-  HOME_ROUTER_PATH,
-  PROJECT_CONFIG_ROUTER_PATH,
-} from "utils/constants";
+import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { GlobalWrapper } from "./GlobalWrapper";
 import type { BuildModeWrappedAppRouteStackArgs } from "./modeWrappedAppRouteStack";
 import { MainContainer } from "./Project/MainContainer";
@@ -43,7 +41,10 @@ export function ModeWrappedRouteGridContainer({
   );
 }
 
-function resolveShareHomeContent({ doneLoading, is404 }: ShareRouteRenderState) {
+function resolveShareHomeContent({
+  doneLoading,
+  is404,
+}: ShareRouteRenderState) {
   if (!doneLoading) {
     return <LoadingSpinner />;
   }
@@ -74,7 +75,7 @@ function _IdeProjectRouteElement() {
       <ModalContainer>
         <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
         <ModeWrappedRouteGridContainer>
-          <MainContainer />
+          <MainContainer SectionBoundary={SectionContainerBoundary} />
         </ModeWrappedRouteGridContainer>
       </ModalContainer>
     </GlobalWrapper>
@@ -90,7 +91,11 @@ function _ShareProjectRouteElement() {
         <ModalContainer>
           <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
           <ModeWrappedRouteGridContainer>
-            <ShareMainContainer doneLoading={doneLoading} is404={is404} />
+            <ShareMainContainer
+              doneLoading={doneLoading}
+              is404={is404}
+              SectionBoundary={SectionContainerBoundary}
+            />
           </ModeWrappedRouteGridContainer>
         </ModalContainer>
       )}

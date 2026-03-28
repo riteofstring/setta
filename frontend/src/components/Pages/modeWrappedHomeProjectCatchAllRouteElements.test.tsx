@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Navigate } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
 import { HOME_ROUTER_PATH } from "utils/constants";
+import { describe, expect, it, vi } from "vitest";
 import { buildModeWrappedHomeProjectCatchAllRouteElements } from "./modeWrappedHomeProjectCatchAllRouteElements";
 
 vi.mock("components/AppHeader/Header", () => ({
@@ -34,19 +34,32 @@ vi.mock("components/Pages/NotFound/NotFound", () => ({
   NotFound: () => <div data-testid="mock-not-found" />,
 }));
 
+vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
+  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
+    <div
+      data-testid="mock-section-container-boundary"
+      data-section-id={sectionId}
+    />
+  ),
+}));
+
 vi.mock("components/Pages/Share/ShareMainContainer", () => ({
   ShareMainContainer: ({
     doneLoading,
     is404,
+    SectionBoundary,
   }: {
     doneLoading: boolean;
     is404: boolean;
+    SectionBoundary: ({ sectionId }: { sectionId: string }) => ReactNode;
   }) => (
     <div
       data-testid="mock-share-main-container"
       data-done-loading={String(doneLoading)}
       data-is404={String(is404)}
-    />
+    >
+      <SectionBoundary sectionId="share-project-section" />
+    </div>
   ),
 }));
 
@@ -77,7 +90,15 @@ vi.mock("./GlobalWrapper", () => ({
 }));
 
 vi.mock("./Project/MainContainer", () => ({
-  MainContainer: () => <div data-testid="mock-main-container" />,
+  MainContainer: ({
+    SectionBoundary,
+  }: {
+    SectionBoundary: ({ sectionId }: { sectionId: string }) => ReactNode;
+  }) => (
+    <div data-testid="mock-main-container">
+      <SectionBoundary sectionId="ide-project-section" />
+    </div>
+  ),
 }));
 
 describe("buildModeWrappedHomeProjectCatchAllRouteElements", () => {
@@ -121,10 +142,20 @@ describe("buildModeWrappedHomeProjectCatchAllRouteElements", () => {
     expect(shareHomeMarkup).toContain('data-testid="mock-home-page"');
 
     expect(ideProjectMarkup).toContain('data-testid="mock-main-container"');
+    expect(ideProjectMarkup).toContain(
+      'data-testid="mock-section-container-boundary"',
+    );
+    expect(ideProjectMarkup).toContain('data-section-id="ide-project-section"');
     expect(shareProjectMarkup).toContain(
       'data-testid="mock-share-main-container"',
     );
     expect(shareProjectMarkup).toContain('data-done-loading="true"');
+    expect(shareProjectMarkup).toContain(
+      'data-testid="mock-section-container-boundary"',
+    );
+    expect(shareProjectMarkup).toContain(
+      'data-section-id="share-project-section"',
+    );
 
     expect(ideCatchAllMarkup).toContain('data-testid="mock-not-found"');
     expect(shareCatchAllMarkup).toContain('data-testid="mock-not-found"');
@@ -135,11 +166,13 @@ describe("buildModeWrappedHomeProjectCatchAllRouteElements", () => {
       'data-testid="mock-launcher-route"',
     );
 
-    const launcherProjectRouteElement = routeElements.projectRouteElements
-      .launcher;
+    const launcherProjectRouteElement =
+      routeElements.projectRouteElements.launcher;
     expect(isValidElement(launcherProjectRouteElement)).toBe(true);
     if (!isValidElement(launcherProjectRouteElement)) {
-      throw new Error("Expected the launcher project route to be a React element");
+      throw new Error(
+        "Expected the launcher project route to be a React element",
+      );
     }
     expect(launcherProjectRouteElement.type).toBe(Navigate);
     expect(launcherProjectRouteElement.props.to).toBe(HOME_ROUTER_PATH);
