@@ -1,5 +1,5 @@
 import cc from "classcat";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
+import { SectionContainer } from "components/Section/Container/SectionContainer";
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
@@ -69,7 +69,7 @@ const _NodeWrapper = ({
       data-id={id}
       data-testid={`rf__node-${id}`}
     >
-      <SectionContainerBoundary sectionId={id} isTopLevel={true} />
+      <SectionContainer sectionId={id} isTopLevel={true} />
     </div>
   );
 };

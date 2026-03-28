@@ -3,7 +3,7 @@ plan_path: docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering
 log_path: docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-log.md
 prompt_file: scripts/ralph-default-prompt.md
 workdir: .
-iterations: until_done
+iterations: 100
 new_session_every: 1
 codex_inactivity_timeout_seconds: 1800
 yolo: true
@@ -27,7 +27,6 @@ This file is the reusable loop entrypoint for this worktree.
 - Start a fresh Codex session each iteration unless there is a specific reason to batch multiple turns.
 - Use the plan plus the append-only log as the durable handoff between conversations.
 - Prefer one bounded subtask per iteration.
-- Iterations default to `until_done`, so the loop keeps going until it reaches `TASK_DONE` or a non-recoverable `BLOCKED` state unless you override `--iterations`.
 - Make frequent descriptive commits.
 - Default entrypoint: `./ralph.sh`
 - Yolo mode defaults on for this worktree config.
@@ -53,7 +52,6 @@ This file is the reusable loop entrypoint for this worktree.
 - Retry the blocked verification after the restart using the refreshed runtime values instead of stale ports or URLs.
 - If the recovery attempt still does not restore CDP/app access, return `BLOCKED`.
 - Do not claim CDP visual verification when CDP access is unavailable.
-- If a rewrite phase temporarily leaves no trustworthy live CDP canary for the gate you need, mark the slice as `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate` so the loop can keep moving while the pending visual gate stays explicit in the log.
 
 ## Lifecycle bootstrap
 
@@ -85,7 +83,5 @@ This file is the reusable loop entrypoint for this worktree.
 - `main` reference startup is asynchronous; Ralph does not block Codex on `main` becoming ready.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
 - If an iteration returns `BLOCKED` with `LOOP_RECOVERY: restart_worktree_lifecycle`, Ralph should continue to the next iteration instead of stopping so the configured worktree bootstrap can retry automatically.
-- If an iteration returns `BLOCKED` with `LOOP_RECOVERY: retry_next_iteration`, Ralph should continue to the next iteration instead of stopping. With `worktree_lifecycle: restart-aireset`, that also reboots the worktree stack before the retry.
-- If an iteration returns `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate`, Ralph should treat the code slice as complete for sequencing purposes and continue to the next planned subtask.
 - Example:
   - `./ralph.sh --terminal-mode cmux --worktree-lifecycle restart-aireset`
