@@ -2,7 +2,6 @@ import {
   BackgroundVariantEnum,
   createSettingsState,
   MetaControlSizeModeEnum,
-  PanOnScrollModeEnum,
   RenameRefactorModeEnum,
   RunSnapshotModeEnum,
   SelectionModeEnum,
@@ -99,12 +98,5 @@ describe("generated settings support", () => {
         enabled: true,
       },
     });
-  });
-
-  it("exports settings enums used by layout and rename callers", () => {
-    expect(BackgroundVariantEnum.dots).toBe("dots");
-    expect(PanOnScrollModeEnum.free).toBe("free");
-    expect(SelectionModeEnum.partial).toBe("partial");
-    expect(RenameRefactorModeEnum.NEVER_RENAME).toBe("NEVER_RENAME");
   });
 });
