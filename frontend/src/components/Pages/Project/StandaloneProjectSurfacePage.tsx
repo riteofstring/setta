@@ -10,7 +10,7 @@ import {
   buildStandalonePageProjectChatSurfaceId,
   buildStandalonePageSectionProjectChatSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
-import { SectionContainerNestedSections } from "components/Section/Container/SectionContainerNestedSections";
+import { SectionContainerNestedSectionsBoundary } from "components/Section/Container/SectionContainerNestedSectionsBoundary";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
@@ -217,7 +217,7 @@ function StandaloneSectionBody({
   }
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <SectionContainerNestedSections
+      <SectionContainerNestedSectionsBoundary
         sectionId={sectionId}
         isGroup={sectionType === SectionTypeEnum.Group}
         isJoinedCodeTerminalGroup={false}

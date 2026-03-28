@@ -3258,3 +3258,39 @@ Record:
     - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getListenerCoverage`, `GET /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the live dict-area surface pass by lifting the now-caller-owned nested-section renderer seam one level higher in the section-container stack before any broad Pixi node drawing lands.
+
+## 2026-03-27 119
+
+- Item: Lift the default nested-section renderer ownership above `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`.
+- Status: `done`
+- Details:
+  - Split the generic wrapped/unwrapped nested-sections view from the live recursive renderer injection:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`
+  - The generic `SectionContainerNestedSections` boundary now only owns:
+    - the `MaybeManyNestedSections` handoff
+    - the joined-code-terminal wrapper decision from `sectionContainerNestedSectionsView.ts`
+    - the caller-owned `renderNestedSections(...)` seam
+  - Lifted the live recursive sortable-section ownership into the new higher-level boundary and routed the current live callers through it:
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+  - Updated focused coverage to pin both sides of the split:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping the recursive `SortableSectionContainer` + `SectionContainerCoreCanvasBody` injection on the live graph path
+    - leaving `SectionContainerNestedSections.tsx` as a thinner renderer boundary that no longer owns the production recursion choice inline
+    - routing both the xyflow node path and the standalone section surface through the same higher-level nested-sections boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - bootstrapped the worktree auth and confirmed `/settings` stayed authenticated with `All Settings` visible
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the boundary lift
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, `defaultZoomLevel 1.0`, `Grid Color`, `Pan On Drag`, and `Auto Backup`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, and `GET /api/llm/apiKeys`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the now-caller-owned nested-section boundary one level higher above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx` before any broad Pixi node drawing lands.

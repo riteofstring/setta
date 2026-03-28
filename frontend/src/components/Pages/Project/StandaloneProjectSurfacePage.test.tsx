@@ -216,9 +216,9 @@ function MockUnifiedChatSurface({
 }
 
 vi.mock(
-  "components/Section/Container/SectionContainerNestedSections",
+  "components/Section/Container/SectionContainerNestedSectionsBoundary",
   () => ({
-    SectionContainerNestedSections: () => (
+    SectionContainerNestedSectionsBoundary: () => (
       <div data-testid="mock-many-nested-sections" />
     ),
   }),

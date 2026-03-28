@@ -3,8 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ManyNestedSectionsRenderer } from "./ManyNestedSectionsBody";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
-import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
-import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
 
 vi.mock("./ManyNestedSections", () => ({
   MaybeManyNestedSections: ({
@@ -32,84 +30,49 @@ vi.mock("./ManyNestedSections", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerCoreCanvasBody", () => ({
-  SectionContainerCoreCanvasBody: ({
-    sectionId,
-    sectionTypeName,
-    bgColor,
-  }: SectionContainerCoreBodyProps) => (
+const renderNestedSections = vi.fn(
+  ({ childIds, childClassName }: { childIds: string[]; childClassName: string }) => (
     <div
-      data-testid="mock-section-container-core-body"
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-bg-color={bgColor}
+      data-testid="mock-render-nested-sections"
+      data-child-ids={childIds.join(",")}
+      data-child-class-name={childClassName}
     />
   ),
-}));
-
-vi.mock("./SortableSectionContainer", () => ({
-  SortableSectionContainer: ({
-    sectionId,
-    className,
-    renderCoreBody,
-    renderNestedSections,
-  }: {
-    sectionId: string;
-    className?: string;
-    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
-    renderNestedSections: SortableSectionNestedSectionsRenderer;
-  }) => (
-    <div
-      data-testid="mock-sortable-section"
-      data-section-id={sectionId}
-      data-class-name={className ?? ""}
-      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
-    >
-      {renderCoreBody({
-        sectionId,
-        sectionTypeName: "Code",
-        bgColor: "bg:white",
-        isMinimized: false,
-        isUserView: false,
-      })}
-    </div>
-  ),
-}));
+);
 
 describe("SectionContainerNestedSections", () => {
-  it("injects the default sortable nested-section renderer into MaybeManyNestedSections", () => {
+  it("routes the caller-owned nested-section renderer into MaybeManyNestedSections", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerNestedSections
         sectionId="section-1"
         isGroup={false}
         layoutVariant="default"
         isJoinedCodeTerminalGroup={false}
+        renderNestedSections={renderNestedSections}
       />,
     );
 
     expect(markup).toContain('data-testid="mock-maybe-many-nested-sections"');
     expect(markup).toContain('data-layout-variant="default"');
-    expect(markup).toContain('data-testid="mock-sortable-section"');
-    expect(markup).toContain('data-section-id="child-a"');
-    expect(markup).toContain('data-class-name="from-section-container"');
-    expect(markup).toContain('data-has-render-nested-sections="true"');
-    expect(markup).toContain('data-testid="mock-section-container-core-body"');
+    expect(markup).toContain('data-testid="mock-render-nested-sections"');
+    expect(markup).toContain('data-child-ids="child-a,child-b"');
+    expect(markup).toContain('data-child-class-name="from-section-container"');
   });
 
-  it("keeps the joined code-terminal wrapper while routing the same renderer", () => {
+  it("keeps the joined code-terminal wrapper while routing the same caller-owned renderer", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerNestedSections
         sectionId="section-2"
         isGroup={true}
         layoutVariant="tight"
         isJoinedCodeTerminalGroup={true}
+        renderNestedSections={renderNestedSections}
       />,
     );
 
     expect(markup).toContain('class="-mt-px"');
     expect(markup).toContain('data-layout-variant="tight"');
-    expect(markup).toContain('data-testid="mock-sortable-section"');
-    expect(markup).toContain('data-class-name="from-section-container"');
-    expect(markup).toContain('data-has-render-nested-sections="true"');
+    expect(markup).toContain('data-testid="mock-render-nested-sections"');
+    expect(markup).toContain('data-child-class-name="from-section-container"');
   });
 });

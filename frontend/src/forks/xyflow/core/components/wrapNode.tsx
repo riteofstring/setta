@@ -4,7 +4,7 @@ import {
   type SectionContainerCoreBodyRenderer,
 } from "components/Section/Container/SectionContainer";
 import { SectionContainerCoreCanvasBody } from "components/Section/Container/SectionContainerCoreCanvasBody";
-import { renderSectionContainerNestedSections } from "components/Section/Container/SectionContainerNestedSections";
+import { renderSectionContainerNestedSections } from "components/Section/Container/SectionContainerNestedSectionsBoundary";
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
