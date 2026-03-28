@@ -36,15 +36,15 @@ Use these first for day-to-day work.
   - If you create multiple worktrees, stays in the current folder (equivalent to `--stay`).
 - `./t.sh`
   - Runs tests (Go suite + Python pytest + frontend Vitest + Playwright).
-  - Flags: `--b` (Go + Python coverage only), `--f` (frontend + Playwright only), `--all` (enables opt-in external agent integration tests).
+  - Flags: `--b` (Go + Python coverage only), `--f` (frontend + Playwright only), `--all` (enables opt-in live-provider integration tests).
   - Logs to `tests.log` at the repo root.
-  - External agent integration tests (Claude/Codex/OpenCode) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
+  - Live-provider integration tests (real OpenAI/Anthropic managed chat checks) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
 - `./gcf.sh`
   - Runs `pnpm gcf` (generate + cleanup + format) with env activation.
   - Logs to `gcf.log` at the repo root.
 - `./gcft.sh`
   - Runs `pnpm gcft` (gcf + tests), with env activation.
-  - Flags: `--all` (enables opt-in external agent integration tests).
+  - Flags: `--all` (enables opt-in live-provider integration tests).
 - `./format_code.sh`
   - Formats Python via Ruff (requires env activation; see notes below).
 - `./build.sh`
@@ -135,7 +135,7 @@ These are the underlying tasks used by the wrappers above.
   - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
   - `pnpm gcf` + `./t.sh`.
-  - To enable opt-in external agent integration tests, prefer `./gcft.sh --all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` when running this directly).
+  - To enable opt-in live-provider integration tests, prefer `./gcft.sh --all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` when running this directly).
 - `pnpm full-cleanup`
   - Knip + Python prune step.
 - `pnpm worktree` / `pnpm worktrees`
