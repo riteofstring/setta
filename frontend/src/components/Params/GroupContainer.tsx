@@ -52,6 +52,7 @@ import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import { buildLiveDictAreaEdgeStripVisualPacket } from "./groupContainerEdgeStripVisualPacket";
 import { buildLiveDictAreaNodeLayoutView } from "./groupContainerNodeLayoutView";
+import { buildLiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
 import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
 import {
@@ -855,12 +856,9 @@ type GetPinnedParamsProps = {
 
 type PinnedParamsAreaProps = {
   sectionId: string;
-  rendererPacket: LiveDictAreaPinnedParamAreaRendererPacket;
-  topLevelParamIds: Array<string>;
-  requiredParamIdsToPaths: Record<string, Array<string>>;
+  visualPacket: ReturnType<typeof buildLiveDictAreaPinnedParamAreaVisualPacket>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
-  shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
   contentRef: React.RefObject<HTMLDivElement>;
@@ -926,26 +924,32 @@ function GetPinnedParams({
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getPinnedParamsAreaHeightKey(sectionId);
+  const pinnedParamAreaVisualPacket = useMemo(
+    () =>
+      rendererPacket
+        ? buildLiveDictAreaPinnedParamAreaVisualPacket({
+            rendererPacket,
+          })
+        : null,
+    [rendererPacket],
+  );
 
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: rendererPacket?.topLevelParamIds ?? [],
+    paramIds: pinnedParamAreaVisualPacket?.list.topLevelParamIds ?? [],
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    rendererPacket && (
+    pinnedParamAreaVisualPacket && (
       <PinnedParamsArea
         sectionId={sectionId}
-        rendererPacket={rendererPacket}
-        topLevelParamIds={rendererPacket.topLevelParamIds}
-        requiredParamIdsToPaths={rendererPacket.requiredParamIdsToPaths}
+        visualPacket={pinnedParamAreaVisualPacket}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        shouldRoundBottom={rendererPacket.shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
         contentRef={contentRef}
@@ -958,12 +962,9 @@ function GetPinnedParams({
 
 function PinnedParamsArea({
   sectionId,
-  rendererPacket,
-  topLevelParamIds,
-  requiredParamIdsToPaths,
+  visualPacket,
   handleColumnResizeStart,
   hasSectionStyleTheme,
-  shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
   contentRef,
@@ -983,7 +984,7 @@ function PinnedParamsArea({
     ? "text-[color:var(--setta-section-style-muted-text)] after:text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500";
   let roundedBottomClassName = "";
-  if (shouldRoundBottom) {
+  if (visualPacket.shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
       ? "rounded-b-sm"
       : "rounded-b-xl";
@@ -994,8 +995,8 @@ function PinnedParamsArea({
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
       {...getDictAreaBlockFrameDataProps({
-        blockId: rendererPacket.blockId,
-        frame: rendererPacket.mount,
+        blockId: visualPacket.blockId,
+        frame: visualPacket.mount,
       })}
     >
       <div
@@ -1009,7 +1010,7 @@ function PinnedParamsArea({
           <p
             className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
           >
-            Pinned Params
+            {visualPacket.header.title}
           </p>
         </header>
 
@@ -1019,11 +1020,11 @@ function PinnedParamsArea({
         >
           <ParamDndList
             sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            paramIds={visualPacket.list.topLevelParamIds}
+            requiredParamIdsToPaths={visualPacket.list.requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
-            listKey="pinned"
+            listKey={visualPacket.list.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         </div>

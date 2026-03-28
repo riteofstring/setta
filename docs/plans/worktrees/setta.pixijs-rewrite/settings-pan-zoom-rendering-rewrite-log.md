@@ -845,3 +845,30 @@ Record:
       - relevant requests returned `200`, including `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/getDefaultConfigName`, `POST /api/loadProjectConfig`, `POST /api/setActiveViewMode`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next bounded scene-owned block visual packet from the renderer boundary, starting with the pinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-26 033
+
+- Item: Extract the pinned param-area visual packet from the dict-area renderer boundary.
+- Status: `done`
+- Details:
+  - Added a pure typed visual-packet helper for the live pinned param-area block:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaVisualPacket.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaVisualPacket.test.ts`
+  - Kept the current non-Pixi pinned DOM surface stable by routing `GetPinnedParams` / `PinnedParamsArea` through the new visual packet instead of passing the raw renderer packet fields through multiple props:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts the pinned block header into an explicit visual header payload
+    - carries the pinned list metadata and row packets in one stable visual contract
+    - preserves the existing DOM mount metadata and bottom-rounding behavior while exposing a cleaner scene-owned surface for the pinned canary block
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaVisualPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerSceneRendererPackets.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` loaded in the authenticated worktree session with `All Settings` visible and selected
+      - the dict/param shell rendered normally with representative labels and controls intact, including `defaultZoomLevel`, `Grid Color`, `Pan On Drag`, `basedpyright analysis`, and the bottom tabs `Core`, `Section Defaults...`, `Param Defaults`, and `All Settings`
+      - no obvious clipping, overlap, or missing content was visible in the current viewport
+      - relevant requests returned `200`, including `api/authRefreshStatus`, `api/loadSettings`, `api/backendInitStatus`, `api/loadProjectConfig`, and `api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next bounded scene-owned block visual packet from the renderer boundary, starting with the unpinned param-area block before any broad Pixi node drawing lands.
