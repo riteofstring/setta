@@ -3,19 +3,15 @@ import {
   buildLiveDictAreaEdgeStripDrawPacket,
   type LiveDictAreaEdgeStripDrawPacket,
 } from "./groupContainerEdgeStripDrawPacket";
+import {
+  buildLiveDictAreaPinnedParamAreaDrawPacket,
+  type LiveDictAreaPinnedParamAreaDrawPacket,
+} from "./groupContainerPinnedParamAreaDrawPacket";
 import type {
   LiveDictAreaNodeSurfaceBlock,
   LiveDictAreaNodeSurfacePacket,
-  LiveDictAreaPinnedParamAreaSurfacePacket,
   LiveDictAreaUnpinnedParamAreaSurfacePacket,
 } from "./groupContainerNodeSurfacePacket";
-
-export type LiveDictAreaPinnedParamAreaDrawPacket = {
-  blockId: "pinned";
-  kind: "pinned-param-area";
-  mount: DictAreaBlockFrameMountPacket;
-  surfacePacket: LiveDictAreaPinnedParamAreaSurfacePacket;
-};
 
 export type LiveDictAreaUnpinnedParamAreaDrawPacket = {
   blockId: "unpinned";
@@ -50,7 +46,9 @@ export function buildLiveDictAreaNodeDrawPacket({
       })
     : null;
   const pinnedParamAreaBlock = nodeSurfacePacket.pinnedParamAreaBlock
-    ? buildPinnedParamAreaDrawPacket(nodeSurfacePacket.pinnedParamAreaBlock)
+    ? buildLiveDictAreaPinnedParamAreaDrawPacket({
+        surfacePacket: nodeSurfacePacket.pinnedParamAreaBlock,
+      })
     : null;
   const unpinnedParamAreaBlock = nodeSurfacePacket.unpinnedParamAreaBlock
     ? buildUnpinnedParamAreaDrawPacket(nodeSurfacePacket.unpinnedParamAreaBlock)
@@ -73,17 +71,6 @@ export function buildLiveDictAreaNodeDrawPacket({
     pinnedParamAreaBlock,
     scenePacket: nodeSurfacePacket.scenePacket,
     unpinnedParamAreaBlock,
-  };
-}
-
-function buildPinnedParamAreaDrawPacket(
-  surfacePacket: LiveDictAreaPinnedParamAreaSurfacePacket,
-): LiveDictAreaPinnedParamAreaDrawPacket {
-  return {
-    blockId: "pinned",
-    kind: "pinned-param-area",
-    mount: surfacePacket.visualPacket.mount,
-    surfacePacket,
   };
 }
 
