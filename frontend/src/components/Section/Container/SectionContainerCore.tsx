@@ -23,9 +23,10 @@ import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
+import { SectionContainerCoreBody } from "./SectionContainerCoreBody";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
-import { getOnSectionClick, useAiSectionHighlight } from "./utils";
+import { getBgColor, getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -51,6 +52,7 @@ function _SectionContainerCore({
     positionAndSizeLocked,
     textBlockMetaControlStyle,
     projectConfigId,
+    isMinimized,
     isAttachedTerminalChild,
     styleColor,
     isJoinedAttachedTerminalChild,
@@ -68,6 +70,7 @@ function _SectionContainerCore({
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       projectConfigId: x.projectConfig.id,
+      isMinimized: impl.isMinimized,
       isAttachedTerminalChild,
       styleColor: impl.styleColor,
       isJoinedAttachedTerminalChild,
@@ -98,6 +101,9 @@ function _SectionContainerCore({
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const bgColor = useMetaControlStyle
+    ? "bg-transparent"
+    : getBgColor(sectionTypeName);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
     (x) => x[styleColorPreviewKey] as string | null | undefined,
@@ -192,11 +198,22 @@ function _SectionContainerCore({
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        textBlockMetaControlStyle={textBlockMetaControlStyle}
+        body={
+          <SectionContainerCoreBody
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            bgColor={bgColor}
+            isMinimized={isMinimized}
+            isUserView={isUserView}
+          />
+        }
       />
     </section>
   );

@@ -2527,3 +2527,29 @@ Record:
     - non-blocking console noise was limited to repeated existing React 19 `element.ref` deprecation messages
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `SectionCanvasBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SectionContainerCore.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 095
+
+- Item: Lift the `SectionCanvasBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SectionContainerCore.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated core-body boundary plus a pure typed helper above the existing on-canvas body renderer:
+    - `frontend/src/components/Section/Container/SectionContainerCoreBody.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerCoreBodyView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerCoreBodyView.test.ts`
+  - Updated `frontend/src/components/Section/Container/SectionContainerCore.tsx` to build the current canvas body once and inject it into the resizable shell instead of leaving the `SectionCanvasBody` / benchmark-placeholder decision inside `SectionContainerCoreResizabe.tsx`.
+  - Shrunk `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so it now stays focused on the resizable shell, chrome, and header/incrementer wiring while consuming an injected `body` prop from the higher-level caller.
+  - Updated the existing section-container resizable test to cover the new injection seam while keeping the on-canvas body routing checks in the same focused test file:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerCoreBodyView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated with the page title `Settings` and visible connection state `Connected to server`
+    - `All Settings` stayed visible/reachable and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new core-body boundary wiring
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Param Defaults`, `Auto Backup`, `Grid Color`, `basedpyright analysis`, `defaultZoomLevel`, `sectionSizingPolicy`, and `Core Name Editable`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getExternalAgentConfigs`, `GET /api/getEngineConfigs`, and `GET /api/getTranscriptionProfiles`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `SectionContainerCoreBody.tsx` boundary into the next higher-level section-container caller in `frontend/src/components/Section/Container/SectionContainer.tsx` before any broad Pixi node drawing lands.

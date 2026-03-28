@@ -2,10 +2,7 @@ import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settin
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import React from "react";
-import {
-  getCurrEffectiveSectionImpl,
-  getEmbeddedAttachedTerminalForCodeSection,
-} from "state/actions/sectionInfos";
+import { getEmbeddedAttachedTerminalForCodeSection } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
@@ -14,46 +11,40 @@ import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { SectionCanvasBody } from "./SectionCanvasBody";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
-import { getBgColor } from "./utils";
 
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
+  bgColor: string;
+  body: React.ReactNode;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
+  textBlockMetaControlStyle: boolean;
   hideHeader?: boolean;
 };
 
 function _SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
+  bgColor,
+  body,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
   hasSectionStyleTheme,
+  textBlockMetaControlStyle,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
   const benchmark = useSettingsAllSettingsBenchmark();
-  const {
-    isMinimized,
-    isYouTube,
-    textBlockMetaControlStyle,
-    hasEmbeddedTerminal,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+  const { hasEmbeddedTerminal } = useProjectState((x) => {
     const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
       x,
       sectionId,
     );
     return {
-      isMinimized: impl.isMinimized,
-      isYouTube: false,
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       hasEmbeddedTerminal:
         embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
     };
@@ -62,9 +53,6 @@ function _SectionContainerCoreResizable({
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
   const shouldRenderMetaMenu = isMetaControl && !isUserView;
   const shouldRenderTextBlockMetaMenu =
     textBlockMetaControlStyle && !isUserView;
@@ -80,22 +68,13 @@ function _SectionContainerCoreResizable({
     !hideHeader && (!benchmark.active || benchmark.renderSectionHeader);
   const shouldRenderIncrementer =
     isRoot && (!benchmark.active || benchmark.renderFullSectionBody);
-  const shouldRenderCanvasSectionBody =
-    !benchmark.active ||
-    benchmark.renderFullSectionBody ||
-    benchmark.renderSectionBody;
-  const shouldRenderBenchmarkPlaceholder =
-    benchmark.active &&
-    !benchmark.renderFullSectionBody &&
-    !benchmark.renderSectionBody &&
-    !isMetaControl;
 
   return (
     <CustomResizable
       sectionId={sectionId}
       as="section"
       bgColor={bgColor}
-      isYouTube={isYouTube}
+      isYouTube={false}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -156,17 +135,7 @@ function _SectionContainerCoreResizable({
       {shouldRenderIncrementer ? (
         <Incrementer sectionId={sectionId} isRoot={isRoot} />
       ) : null}
-      {shouldRenderCanvasSectionBody ? (
-        <SectionCanvasBody
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={bgColor}
-          isMinimized={isMinimized}
-          isUserView={isUserView}
-        />
-      ) : shouldRenderBenchmarkPlaceholder ? (
-        <BenchmarkSectionBodyPlaceholder stage={benchmark.stage} />
-      ) : null}
+      {body}
     </CustomResizable>
   );
 }
@@ -174,23 +143,3 @@ function _SectionContainerCoreResizable({
 export const SectionContainerCoreResizable = React.memo(
   _SectionContainerCoreResizable,
 );
-
-function BenchmarkSectionBodyPlaceholder({
-  stage,
-}: {
-  stage:
-    | "frame-only"
-    | "header-only"
-    | "section-body-shell"
-    | "static-param-list"
-    | "full";
-}) {
-  return (
-    <div
-      className="section-row-pin-main flex min-h-12 w-full items-center justify-center px-3 py-3 text-[0.6rem] uppercase tracking-[0.18em] text-setta-300 dark:text-setta-600"
-      data-settings-benchmark-placeholder={stage}
-    >
-      {stage === "frame-only" ? "Frame only" : "Header only"}
-    </div>
-  );
-}

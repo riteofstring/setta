@@ -7,6 +7,7 @@ import {
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SectionContainerCoreBody } from "./SectionContainerCoreBody";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { SectionCanvasBody } from "./SectionCanvasBody";
 
@@ -242,19 +243,36 @@ describe("SectionContainerCoreResizable", () => {
     };
 
     const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
+      <SectionContainerCoreBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
+        bgColor="bg-setta-50"
+        isMinimized={false}
         isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
       />,
     );
 
     expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
     expect(markup).toContain('data-instance-id="project-chat-window-1"');
     expect(markup).not.toContain('data-testid="mock-code-area"');
+  });
+
+  it("renders the injected body inside the resizable shell", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        bgColor="bg-setta-50"
+        body={<div data-testid="mock-core-body" />}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+        textBlockMetaControlStyle={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-core-body"');
   });
 
   it("routes chat sections through the section-owned surface id on the section layout host", () => {
