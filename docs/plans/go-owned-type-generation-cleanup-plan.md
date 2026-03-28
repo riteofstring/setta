@@ -469,6 +469,11 @@ That means:
     - `RunChainSpecInput -> runchains.SpecInput`
     - `StartRunChainRequestInput -> httpapi.StartRunChainRequest`
     - `StopRunChainRequestInput -> httpapi.StopRunChainRequest`
+  - a few remaining exact AI leaf contracts now also point at backend owners instead of mirrored `frontendbindings` structs:
+    - `SettaNotificationType -> notifications.Type`
+    - `SettaNotification -> notifications.Notification`
+    - `ChatContextUsage -> managedchat.ChatContextUsage`
+    - `StopLLMChatResponse -> managedchat.StopResult`
   - the corresponding `internal/httpapi` route files now export those simple request structs instead of trapping them as route-local implementation details:
     - `agent_profile_routes.go`
     - `prompt_template_routes.go`

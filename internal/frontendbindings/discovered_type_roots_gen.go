@@ -20,7 +20,9 @@ import (
 	launcher "setta/internal/launcher"
 	llmconfig "setta/internal/llmconfig"
 	lspcompletion "setta/internal/lspcompletion"
+	managedchat "setta/internal/managedchat"
 	mcpx "setta/internal/mcpx"
+	notifications "setta/internal/notifications"
 	plugins "setta/internal/plugins"
 	projectshell "setta/internal/projectshell"
 	projectstate "setta/internal/projectstate"
@@ -33,9 +35,9 @@ import (
 
 func DiscoveredConvertibleTypes() []reflect.Type {
 	return []reflect.Type{
-		reflect.TypeOf(SettaNotificationType("")),
-		reflect.TypeOf(SettaNotification{}),
-		reflect.TypeOf(ChatContextUsage{}),
+		reflect.TypeOf((*SettaNotificationType)(nil)).Elem(),
+		reflect.TypeOf((*SettaNotification)(nil)).Elem(),
+		reflect.TypeOf((*ChatContextUsage)(nil)).Elem(),
 		reflect.TypeOf((*ManagedAPIKeysSnapshot)(nil)).Elem(),
 		reflect.TypeOf(SetLLMAPIKeysRequestInput{}),
 		reflect.TypeOf((*CreateAgentProfileRequestInput)(nil)).Elem(),
@@ -54,7 +56,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf((*DeleteExternalAgentConfigRequestInput)(nil)).Elem(),
 		reflect.TypeOf(DeleteTranscriptionProfileRequestInput{}),
 		reflect.TypeOf(GetLLMResponseResponse("")),
-		reflect.TypeOf(StopLLMChatResponse{}),
+		reflect.TypeOf((*StopLLMChatResponse)(nil)).Elem(),
 		reflect.TypeOf((*TranscriptionSessionDeltaResponse)(nil)).Elem(),
 		reflect.TypeOf((*GetAgentRunRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*StartAgentRunRequestInput)(nil)).Elem(),
@@ -744,6 +746,9 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 
 func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	return map[reflect.Type]reflect.Type{
+		reflect.TypeOf((*notifications.Type)(nil)).Elem(): reflect.TypeOf((*SettaNotificationType)(nil)).Elem(),
+		reflect.TypeOf((*notifications.Notification)(nil)).Elem(): reflect.TypeOf((*SettaNotification)(nil)).Elem(),
+		reflect.TypeOf((*managedchat.ChatContextUsage)(nil)).Elem(): reflect.TypeOf((*ChatContextUsage)(nil)).Elem(),
 		reflect.TypeOf((*llmconfig.ManagedAPIKeysSnapshot)(nil)).Elem(): reflect.TypeOf((*ManagedAPIKeysSnapshot)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.CreateAgentProfileRequest)(nil)).Elem(): reflect.TypeOf((*CreateAgentProfileRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.GetAgentProfileRequest)(nil)).Elem(): reflect.TypeOf((*GetAgentProfileRequestInput)(nil)).Elem(),
@@ -753,6 +758,7 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*httpapi.DeletePromptTemplateRequest)(nil)).Elem(): reflect.TypeOf((*DeletePromptTemplateRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.GetExternalAgentConfigRequest)(nil)).Elem(): reflect.TypeOf((*GetExternalAgentConfigRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.DeleteExternalAgentConfigRequest)(nil)).Elem(): reflect.TypeOf((*DeleteExternalAgentConfigRequestInput)(nil)).Elem(),
+		reflect.TypeOf((*managedchat.StopResult)(nil)).Elem(): reflect.TypeOf((*StopLLMChatResponse)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.TranscriptionSessionDeltaResponse)(nil)).Elem(): reflect.TypeOf((*TranscriptionSessionDeltaResponse)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.GetAgentRunRequest)(nil)).Elem(): reflect.TypeOf((*GetAgentRunRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.StartAgentRunRequest)(nil)).Elem(): reflect.TypeOf((*StartAgentRunRequestInput)(nil)).Elem(),

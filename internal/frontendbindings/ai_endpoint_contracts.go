@@ -3,11 +3,12 @@ package frontendbindings
 import (
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
+	"setta/internal/managedchat"
 	"setta/internal/notifications"
 	"setta/internal/runchains"
 )
 
-type SettaNotificationType string
+type SettaNotificationType notifications.Type
 
 const (
 	SettaNotificationTypeError   SettaNotificationType = SettaNotificationType(notifications.TypeError)
@@ -16,22 +17,9 @@ const (
 	SettaNotificationTypeSave    SettaNotificationType = SettaNotificationType(notifications.TypeSave)
 )
 
-type SettaNotification struct {
-	ID              string                `json:"id"`
-	ProjectConfigID string                `json:"projectConfigId"`
-	Type            SettaNotificationType `json:"type"`
-	Message         string                `json:"message"`
-	Temporary       bool                  `json:"temporary"`
-	Timestamp       string                `json:"timestamp"`
-	Metadata        map[string]any        `json:"metadata"`
-	ReadStatus      bool                  `json:"read_status"`
-}
+type SettaNotification notifications.Notification
 
-type ChatContextUsage struct {
-	ContextWindowTokens *int `json:"contextWindowTokens,omitempty"`
-	ContextUsedTokens   *int `json:"contextUsedTokens,omitempty"`
-	Estimated           bool `json:"estimated"`
-}
+type ChatContextUsage managedchat.ChatContextUsage
 
 type ManagedAPIKeysSnapshot llmconfig.ManagedAPIKeysSnapshot
 
@@ -97,11 +85,7 @@ type DeleteTranscriptionProfileRequestInput struct {
 
 type GetLLMResponseResponse string
 
-type StopLLMChatResponse struct {
-	AlreadyStopped   bool    `json:"alreadyStopped"`
-	StoppedRunID     *string `json:"stoppedRunId,omitempty"`
-	StoppedMessageID *string `json:"stoppedMessageId,omitempty"`
-}
+type StopLLMChatResponse managedchat.StopResult
 
 type TranscriptionSessionDeltaResponse httpapi.TranscriptionSessionDeltaResponse
 

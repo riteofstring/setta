@@ -194,8 +194,8 @@ export function createSettaNotification(
 }
 
 export type ChatContextUsage = {
-  contextWindowTokens?: number | null;
-  contextUsedTokens?: number | null;
+  contextWindowTokens: number | null;
+  contextUsedTokens: number | null;
   estimated: boolean;
 };
 export function createChatContextUsage(
@@ -547,8 +547,8 @@ export type GetLLMResponseResponse = string;
 
 export type StopLLMChatResponse = {
   alreadyStopped: boolean;
-  stoppedRunId?: string | null;
-  stoppedMessageId?: string | null;
+  stoppedRunId: string | null;
+  stoppedMessageId: string | null;
 };
 export function createStopLLMChatResponse(
   options: Partial<StopLLMChatResponse> = {},
