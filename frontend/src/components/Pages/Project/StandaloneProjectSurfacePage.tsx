@@ -1,19 +1,11 @@
 import {
   canUseManagedChatLLM,
-  standaloneSectionRequiresManagedChat,
-  standaloneWindowSpaceHasAllowedWindows,
   type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type SetStateAction,
-} from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import {
@@ -25,11 +17,8 @@ import { useLoadProjectConfig } from "state/hooks/project";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
 import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
 import { shallow } from "zustand/shallow";
-import { StandaloneProjectSurfacePageBoundary } from "./StandaloneProjectSurfacePageBoundary";
-import {
-  type StandaloneSurfaceErrorCode,
-  type StandaloneSurfaceTarget,
-} from "./StandaloneProjectSurfaceRouteBoundary";
+import { StandaloneProjectSurfacePageStateBoundary } from "./StandaloneProjectSurfacePageStateBoundary";
+import { type StandaloneSurfaceTarget } from "./StandaloneProjectSurfaceRouteBoundary";
 
 function normalizeStandaloneChatId(
   chatId: string | null | undefined,
@@ -39,17 +28,6 @@ function normalizeStandaloneChatId(
     return null;
   }
   return normalizedChatId;
-}
-
-function buildStandaloneProjectChatPath(
-  projectConfigName: string,
-  chatId: string | null,
-): string {
-  const basePath = `/${encodeURIComponent(projectConfigName)}/chat`;
-  if (chatId === null) {
-    return basePath;
-  }
-  return `${basePath}/${encodeURIComponent(chatId)}`;
 }
 
 function resolveStandaloneSurfaceTarget(
@@ -92,70 +70,6 @@ function resolveStandaloneSurfaceTarget(
     sectionName: resolution.sectionName,
     sectionType: resolution.sectionType,
   };
-}
-
-function resolveStandaloneDocumentTitle(
-  projectConfigName: string | undefined,
-  target: StandaloneSurfaceTarget,
-  is404: boolean,
-  projectChatThreadTitle: string | null,
-): string {
-  if (is404) {
-    return "Not Found";
-  }
-  if (!projectConfigName) {
-    return "setta.dev";
-  }
-  if (target.kind === "project_chat") {
-    return `${projectConfigName} Chat`;
-  }
-  if (target.kind === "project_chat_thread") {
-    if (projectChatThreadTitle) {
-      return `${projectConfigName} · ${projectChatThreadTitle}`;
-    }
-    return `${projectConfigName} Chat`;
-  }
-  if (target.kind === "project_chat_thread_not_found") {
-    return `${projectConfigName} · Thread Not Found`;
-  }
-  if (target.kind === "section") {
-    return `${projectConfigName} · ${target.sectionName}`;
-  }
-  if (target.kind === "window_space") {
-    return `${projectConfigName} · ${target.windowSpaceName}`;
-  }
-  if (target.kind === "window_space_not_found") {
-    return `${projectConfigName} · Window Space Not Found`;
-  }
-  return `${projectConfigName} · Section Not Found`;
-}
-
-function normalizeStandaloneSurfaceErrorCode(
-  errorCode: string | null,
-): StandaloneSurfaceErrorCode | null {
-  if (errorCode === "chat_not_found" || errorCode === "llm_disallowed") {
-    return errorCode;
-  }
-  return null;
-}
-
-function buildStandaloneSurfaceOwnerKey(
-  projectConfigId: string,
-  target: StandaloneSurfaceTarget,
-): string | null {
-  if (target.kind === "project_chat") {
-    return `${projectConfigId}:project-chat`;
-  }
-  if (target.kind === "project_chat_thread") {
-    return `${projectConfigId}:project-chat:${target.chatId}`;
-  }
-  if (target.kind === "section") {
-    return `${projectConfigId}:section:${target.sectionId}`;
-  }
-  if (target.kind === "window_space") {
-    return `${projectConfigId}:window-space:${target.windowSpaceId}`;
-  }
-  return null;
 }
 
 type StandaloneProjectSurfacePageLoadState = {
@@ -234,175 +148,29 @@ export function StandaloneProjectSurfacePageWithLoadState({
       }),
     [agentRuns, projectConfigId],
   );
-  const standaloneProjectChatThreadEntry = useMemo(() => {
-    if (target.kind !== "project_chat_thread") {
-      return null;
-    }
-    return (
-      projectChatHistoryEntries.find(
-        (entry) => entry.chatId === target.chatId,
-      ) ?? null
-    );
-  }, [projectChatHistoryEntries, target]);
-  const projectChatThreadTitle =
-    target.kind === "project_chat_thread"
-      ? standaloneProjectChatThreadEntry?.label ??
-        `Chat ${target.chatId.slice(0, 8)}`
-      : null;
-  const [standaloneSurfaceErrorState, setStandaloneSurfaceErrorState] =
-    useState<{
-      ownerKey: string | null;
-      errorCode: StandaloneSurfaceErrorCode | null;
-    }>({
-      ownerKey: null,
-      errorCode: null,
-    });
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
   const canUseManagedChat = canUseManagedChatLLM({
     isDeploymentMode,
     allowLLM,
   });
-  const standaloneSurfaceOwnerKey = buildStandaloneSurfaceOwnerKey(
-    projectConfigId,
-    target,
-  );
-  const standaloneProjectChatId =
-    target.kind === "project_chat_thread" ? target.chatId : null;
-  const standaloneProjectChatThreadRouteInvalid =
-    target.kind === "project_chat_thread_not_found";
-  const standaloneProjectChatThreadMissing =
-    target.kind === "project_chat_thread" &&
-    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
-    standaloneSurfaceErrorState.errorCode === "chat_not_found";
-  const standaloneTargetRequiresManagedChat =
-    target.kind === "project_chat" || target.kind === "project_chat_thread"
-      ? true
-      : target.kind === "section"
-        ? standaloneSectionRequiresManagedChat(
-            managedChatAuthorityState,
-            target.sectionId,
-          )
-        : false;
-  const standaloneWindowSpaceHasVisibleWindows =
-    target.kind === "window_space" && standaloneWindowSpace
-      ? standaloneWindowSpaceHasAllowedWindows(
-          standaloneWindowSpace,
-          managedChatAuthorityState,
-          canUseManagedChat,
-        )
-      : false;
-  const standaloneManagedChatDenied =
-    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
-    standaloneSurfaceErrorState.errorCode === "llm_disallowed";
-  const shouldBlockStandaloneManagedChat =
-    target.kind === "window_space"
-      ? !canUseManagedChat &&
-        Object.keys(standaloneWindowSpace?.windowsById ?? {}).length > 0 &&
-        !standaloneWindowSpaceHasVisibleWindows
-      : (!canUseManagedChat && standaloneTargetRequiresManagedChat) ||
-        standaloneManagedChatDenied;
-  const previousCanUseManagedChat = useRef(canUseManagedChat);
-
-  const setStandaloneSurfaceErrorCode = (errorCode: string | null) => {
-    const normalizedErrorCode = normalizeStandaloneSurfaceErrorCode(errorCode);
-    setStandaloneSurfaceErrorState((current) => {
-      if (
-        current.ownerKey === standaloneSurfaceOwnerKey &&
-        current.errorCode === normalizedErrorCode
-      ) {
-        return current;
-      }
-      return {
-        ownerKey: standaloneSurfaceOwnerKey,
-        errorCode: normalizedErrorCode,
-      };
-    });
-  };
-
-  useEffect(() => {
-    setStandaloneSurfaceErrorState((current) => {
-      if (current.ownerKey === standaloneSurfaceOwnerKey) {
-        return current;
-      }
-      return {
-        ownerKey: standaloneSurfaceOwnerKey,
-        errorCode: null,
-      };
-    });
-  }, [standaloneSurfaceOwnerKey]);
-
-  useEffect(() => {
-    if (!previousCanUseManagedChat.current && canUseManagedChat) {
-      setStandaloneSurfaceErrorState((current) => {
-        if (current.errorCode !== "llm_disallowed") {
-          return current;
-        }
-        return {
-          ownerKey: standaloneSurfaceOwnerKey,
-          errorCode: null,
-        };
-      });
-    }
-    previousCanUseManagedChat.current = canUseManagedChat;
-  }, [canUseManagedChat, standaloneSurfaceOwnerKey]);
 
   useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
   usePluginRuntimeBootstrap(resolvedDoneLoading && !resolvedIs404);
-  const setStandaloneProjectChatId = (
-    next: SetStateAction<string | null | undefined>,
-  ) => {
-    if (!projectConfigName) {
-      return;
-    }
-    const resolvedChatId =
-      typeof next === "function"
-        ? next(standaloneProjectChatId ?? undefined)
-        : next;
-    navigate(
-      buildStandaloneProjectChatPath(
-        projectConfigName,
-        normalizeStandaloneChatId(resolvedChatId),
-      ),
-    );
-  };
-
-  useEffect(() => {
-    document.title = resolveStandaloneDocumentTitle(
-      projectConfigName,
-      target,
-      resolvedIs404,
-      standaloneProjectChatThreadMissing
-        ? "Thread Not Found"
-        : projectChatThreadTitle,
-    );
-  }, [
-    resolvedIs404,
-    projectConfigName,
-    projectChatThreadTitle,
-    standaloneProjectChatThreadMissing,
-    target,
-  ]);
 
   return (
-    <StandaloneProjectSurfacePageBoundary
+    <StandaloneProjectSurfacePageStateBoundary
       doneLoading={resolvedDoneLoading}
       is404={resolvedIs404}
-      shouldBlockStandaloneManagedChat={shouldBlockStandaloneManagedChat}
+      projectConfigName={projectConfigName}
       projectConfigId={projectConfigId}
       target={target}
       standaloneWindowSpace={standaloneWindowSpace}
       managedChatAuthorityState={managedChatAuthorityState}
       canUseManagedChat={canUseManagedChat}
-      projectChatThreadTitle={projectChatThreadTitle}
-      standaloneProjectChatId={standaloneProjectChatId}
-      standaloneProjectChatThreadRouteInvalid={
-        standaloneProjectChatThreadRouteInvalid
-      }
-      standaloneProjectChatThreadMissing={standaloneProjectChatThreadMissing}
-      setStandaloneProjectChatId={setStandaloneProjectChatId}
-      onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
+      projectChatHistoryEntries={projectChatHistoryEntries}
+      navigate={navigate}
     />
   );
 }
