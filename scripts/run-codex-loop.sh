@@ -52,6 +52,8 @@ Options:
                              none|kill|ai|aireset|restart-ai|restart-aireset
   --main-lifecycle MODE      One-time pre-loop lifecycle for the main worktree:
                              none|kill|ai|aireset|restart-ai|restart-aireset
+  --terminal-mode MODE       Lifecycle launch mode:
+                             auto|background|tmux
   --model NAME               Optional model override passed to `codex exec`
   --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
   --no-yolo                  Disable the default/configured yolo mode
@@ -62,6 +64,7 @@ Options:
 Examples:
   ./__PROGRAM_NAME__ --iterations 3
   ./__PROGRAM_NAME__ --config-file ./RALPH.md --output-dir ./tmp/ralph-loop
+  ./__PROGRAM_NAME__ --terminal-mode tmux --worktree-lifecycle restart-aireset
   ./__PROGRAM_NAME__ --worktree-lifecycle restart-aireset --main-lifecycle restart-ai
   ./__PROGRAM_NAME__ --iterations 20 -- --full-auto
 EOF
@@ -166,11 +169,124 @@ discover_main_worktree_root() {
   '
 }
 
+workspace_setta_status_payload() {
+  local target_root="$1"
+  local status_payload=""
+
+  if [[ -f "${target_root}/activate.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "${target_root}/activate.sh"
+  fi
+
+  if ! command -v setta >/dev/null 2>&1; then
+    return 1
+  fi
+
+  status_payload="$(
+    setta status --connect-info --latest --json --workspace "${target_root}" 2>/dev/null || true
+  )"
+  if [[ "${status_payload}" != __SETTA_JSON_B64__* ]]; then
+    return 1
+  fi
+
+  printf '%s\n' "${status_payload}"
+}
+
+workspace_has_live_setta_session() {
+  local target_root="$1"
+  local status_payload=""
+
+  if status_payload="$(workspace_setta_status_payload "${target_root}")"; then
+    [[ -n "${status_payload}" ]]
+    return 0
+  fi
+
+  return 1
+}
+
+workspace_session_state() {
+  local target_root="$1"
+  if workspace_has_live_setta_session "${target_root}"; then
+    printf 'running\n'
+  else
+    printf 'not_running\n'
+  fi
+}
+
+resolve_terminal_mode() {
+  local requested_mode="$1"
+
+  case "${requested_mode}" in
+    background)
+      printf 'background\n'
+      return 0
+      ;;
+    tmux)
+      if command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
+        printf 'tmux\n'
+        return 0
+      fi
+      echo "Requested terminal mode tmux, but tmux is not available in this shell." >&2
+      exit 1
+      ;;
+    auto|'')
+      if command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
+        printf 'tmux\n'
+      else
+        printf 'background\n'
+      fi
+      return 0
+      ;;
+    *)
+      echo "Unsupported terminal mode: ${requested_mode}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+tmux_window_name() {
+  local target_name="$1"
+  local target_root="$2"
+  local label="$3"
+  local suffix=""
+  suffix="$(basename "${target_root}")"
+  printf 'ralph-%s-%s-%s\n' "${target_name}" "${suffix}" "${label}"
+}
+
+start_command_in_tmux_window() {
+  local target_name="$1"
+  local target_root="$2"
+  local label="$3"
+  local launcher_path="$4"
+  local run_dir="$5"
+  local window_name=""
+  local log_path=""
+  local shell_path=""
+
+  if ! command -v tmux >/dev/null 2>&1 || [[ -z "${TMUX:-}" ]]; then
+    echo "tmux window launch requested, but tmux is unavailable in this shell." >&2
+    exit 1
+  fi
+
+  window_name="$(tmux_window_name "${target_name}" "${target_root}" "${label}")"
+  log_path="${run_dir}/${target_name}-${label}.log"
+  shell_path="${SHELL:-/bin/zsh}"
+
+  echo "[bootstrap] ${target_name}: opening tmux window ${window_name} for $(basename "${launcher_path}")"
+  tmux new-window -n "${window_name}" \
+    "cd '${target_root}' && '${launcher_path}' 2>&1 | tee '${log_path}'; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${window_name} exited with code' \$exit_code; exec '${shell_path}' -l"
+}
+
 run_lifecycle_mode() {
   local target_name="$1"
   local target_root="$2"
   local lifecycle_mode="$3"
   local run_dir="$4"
+  local resolved_terminal_mode="$5"
+  local label=""
+  local launcher_path=""
+  local should_restart="0"
+  local session_state="not_running"
 
   if [[ -z "${lifecycle_mode}" ]] || [[ "${lifecycle_mode}" == "none" ]]; then
     return 0
@@ -185,29 +301,70 @@ run_lifecycle_mode() {
   local ai_script="${target_root}/ai.sh"
   local aireset_script="${target_root}/aireset.sh"
 
-  run_logged_command() {
-    local label="$1"
-    shift
-    local log_path="${run_dir}/${target_name}-${label}.log"
-    echo "[bootstrap] ${target_name}: ${label}"
-    (
-      cd "${target_root}"
-      "$@"
-    ) 2>&1 | tee "${log_path}"
-  }
+  case "${lifecycle_mode}" in
+    kill)
+      local log_path="${run_dir}/${target_name}-kill.log"
+      echo "[bootstrap] ${target_name}: kill"
+      (
+        cd "${target_root}"
+        "${kill_script}"
+      ) 2>&1 | tee "${log_path}"
+      ;;
+    ai)
+      label="ai"
+      launcher_path="${ai_script}"
+      ;;
+    aireset)
+      label="aireset"
+      launcher_path="${aireset_script}"
+      ;;
+    restart-ai)
+      label="ai"
+      launcher_path="${ai_script}"
+      should_restart="1"
+      ;;
+    restart-aireset)
+      label="aireset"
+      launcher_path="${aireset_script}"
+      should_restart="1"
+      ;;
+    *)
+      echo "Unsupported lifecycle mode for ${target_name}: ${lifecycle_mode}" >&2
+      exit 1
+      ;;
+  esac
 
-  start_background_command() {
-    local label="$1"
-    local launcher_path="$2"
-    local log_path="${run_dir}/${target_name}-${label}.log"
-    local pid_path="${run_dir}/${target_name}-${label}.pid"
-    local pid=""
+  if [[ -n "${label}" ]]; then
+    if workspace_has_live_setta_session "${target_root}"; then
+      session_state="running"
+    fi
+    echo "[bootstrap] ${target_name}: session state ${session_state}"
+
+    if [[ "${should_restart}" == "1" ]]; then
+      local kill_log_path="${run_dir}/${target_name}-kill.log"
+      echo "[bootstrap] ${target_name}: restart requested"
+      (
+        cd "${target_root}"
+        "${kill_script}"
+      ) 2>&1 | tee "${kill_log_path}"
+    elif [[ "${session_state}" == "running" ]]; then
+      echo "[bootstrap] ${target_name}: skipping ${label}; a Setta session already exists for ${target_root}"
+      return 0
+    fi
 
     if [[ ! -x "${launcher_path}" ]]; then
       echo "Launcher not found or not executable: ${launcher_path}" >&2
       exit 1
     fi
 
+    if [[ "${resolved_terminal_mode}" == "tmux" ]]; then
+      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${launcher_path}" "${run_dir}"
+      return 0
+    fi
+
+    local log_path="${run_dir}/${target_name}-${label}.log"
+    local pid_path="${run_dir}/${target_name}-${label}.pid"
+    local pid=""
     echo "[bootstrap] ${target_name}: starting $(basename "${launcher_path}") in background"
     pid="$(
       cd "${target_root}"
@@ -224,31 +381,7 @@ run_lifecycle_mode() {
       fi
       exit 1
     fi
-  }
-
-  case "${lifecycle_mode}" in
-    kill)
-      run_logged_command "kill" "${kill_script}"
-      ;;
-    ai)
-      start_background_command "ai" "${ai_script}"
-      ;;
-    aireset)
-      start_background_command "aireset" "${aireset_script}"
-      ;;
-    restart-ai)
-      run_logged_command "kill" "${kill_script}"
-      start_background_command "ai" "${ai_script}"
-      ;;
-    restart-aireset)
-      run_logged_command "kill" "${kill_script}"
-      start_background_command "aireset" "${aireset_script}"
-      ;;
-    *)
-      echo "Unsupported lifecycle mode for ${target_name}: ${lifecycle_mode}" >&2
-      exit 1
-      ;;
-  esac
+  fi
 }
 
 render_prompt() {
@@ -357,6 +490,7 @@ workdir=""
 main_worktree_root=""
 worktree_lifecycle=""
 main_lifecycle=""
+terminal_mode=""
 model=""
 yolo_mode=""
 stop_on_error="0"
@@ -441,6 +575,11 @@ while [[ $# -gt 0 ]]; do
       main_lifecycle="$2"
       shift 2
       ;;
+    --terminal-mode)
+      require_value "$1" "${2:-}"
+      terminal_mode="$2"
+      shift 2
+      ;;
     --model)
       require_value "$1" "${2:-}"
       model="$2"
@@ -499,6 +638,7 @@ config_workdir="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${co
 config_main_worktree_root="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_worktree_root")")")"
 config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "worktree_lifecycle")")")"
 config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
+config_terminal_mode="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "terminal_mode")")")"
 config_model="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "model")")")"
 config_yolo="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "yolo")")")"
 config_stop_on_pre_session_exit_code="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "stop_on_pre_session_exit_code")")")"
@@ -569,6 +709,10 @@ fi
 
 if [[ -z "${main_lifecycle}" ]]; then
   main_lifecycle="${config_main_lifecycle}"
+fi
+
+if [[ -z "${terminal_mode}" ]]; then
+  terminal_mode="${config_terminal_mode}"
 fi
 
 if [[ -z "${model}" ]]; then
@@ -683,6 +827,8 @@ if [[ -n "${main_lifecycle}" ]]; then
   esac
 fi
 
+resolved_terminal_mode="$(resolve_terminal_mode "${terminal_mode}")"
+
 if [[ "${print_prompt_only}" != "1" ]] && ! command -v codex >/dev/null 2>&1; then
   echo "codex CLI not found on PATH" >&2
   exit 1
@@ -715,6 +861,7 @@ echo "Log file: ${log_file}"
 echo "Yolo mode: ${yolo_mode}"
 echo "Worktree lifecycle: ${worktree_lifecycle:-none}"
 echo "Main lifecycle: ${main_lifecycle:-none}"
+echo "Terminal mode: ${resolved_terminal_mode}"
 
 if [[ "${print_prompt_only}" == "1" ]]; then
   cat "${start_prompt_file}"
@@ -729,8 +876,13 @@ if [[ -n "${main_worktree_root}" ]]; then
   echo "Main worktree root: ${main_worktree_root}"
 fi
 
+echo "Worktree session: $(workspace_session_state "${workdir}")"
+if [[ -n "${main_worktree_root}" ]]; then
+  echo "Main session: $(workspace_session_state "${main_worktree_root}")"
+fi
+
 if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
-  run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${output_dir}"
+  run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${output_dir}" "${resolved_terminal_mode}"
 fi
 
 if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
@@ -741,7 +893,7 @@ if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
   if [[ "${main_worktree_root}" == "${workdir}" ]] && [[ "${main_lifecycle}" == "${worktree_lifecycle}" ]]; then
     echo "[bootstrap] main lifecycle matches worktree lifecycle on the same root; skipping duplicate run"
   else
-    run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}"
+    run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}"
   fi
 fi
 
