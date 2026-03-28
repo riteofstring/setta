@@ -3879,6 +3879,38 @@ Record:
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining route-element ownership seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the mode-specific home/project/catch-all route-element bundles before any broad Pixi node drawing lands.
 
+## 2026-03-28 135
+
+- Item: Lift the remaining mode-wrapped route-element bundle assembly seam out of `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed higher-level route-element assembly helper above the existing router-args boundary:
+    - `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`
+    - `frontend/src/components/Pages/modeWrappedRouterRouteElements.test.tsx`
+  - Updated `frontend/src/components/Pages/modeWrappedRouterArgs.tsx` to consume the new helper instead of directly stitching together:
+    - `buildModeWrappedStandaloneAppLauncherRouteElements(...)`
+    - `buildModeWrappedHomeProjectCatchAllRouteElements(...)`
+    - `buildModeWrappedIndexWorkspaceLaunchRouteElements(...)`
+  - Narrowed `frontend/src/components/Pages/modeWrappedRouterArgs.test.tsx` to the remaining ownership seam:
+    - `buildModeWrappedRouterArgs()` now only owns the `renderModeElement(...)` handoff into `ModeWrappedRouteBoundary`
+    - `viewModeRouteElements` still aliases `projectRouteElements` from the lifted route-element bundle
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping the already-lifted standalone app/launcher, home/project/catch-all, and index/workspace-launch route-element builders unchanged
+    - moving their shared composition into one deeper helper above `modeWrappedRouterArgs.tsx`
+    - leaving the lifted router/browser-router stack focused on higher-level route-stack and router creation seams instead of lower-level route-element bundle assembly
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedRouterRouteElements.test.tsx src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts`
+    - result: passed (`39` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - reused the already-open authenticated worktree tabs and confirmed `/settings`, `/settings/chat`, and `/settings/section/languageserver` all rendered normally after the route-element assembly lift
+    - representative visible labels and controls included `OVERVIEW`, `settings`, `All Settings`, `Search conversations`, `New Chat`, `Project AI Settings`, `languageServer`, `ARGS`, `Add arg`, `Remove arg`, and the visible `basedpyright` settings tree
+    - no obvious clipping, overlap, or missing content was observed in the checked routes
+    - representative requests returned `200`, including `GET /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the router cleanup by lifting the remaining `modeWrappedRouterArgs.tsx` ownership seam one level higher above the current helper stack, starting with the `renderModeElement(...)` / `viewModeRouteElements` handoff before any broad Pixi node drawing lands.
+
 ## 2026-03-27 135
 
 - Item: Lift the mode-specific home/project/catch-all route-element bundles out of `frontend/src/components/Pages/router.tsx`.

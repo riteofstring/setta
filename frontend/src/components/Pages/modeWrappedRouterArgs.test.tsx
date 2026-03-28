@@ -3,10 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ModeRouteElements } from "./modeRouteResolver";
-import { buildModeWrappedHomeProjectCatchAllRouteElements } from "./modeWrappedHomeProjectCatchAllRouteElements";
-import { buildModeWrappedIndexWorkspaceLaunchRouteElements } from "./modeWrappedIndexWorkspaceLaunchRouteElements";
 import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
-import { buildModeWrappedStandaloneAppLauncherRouteElements } from "./modeWrappedStandaloneAppLauncherRouteElements";
+import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
 
 vi.mock("./ModeWrappedRouteBoundary", () => ({
   ModeWrappedRouteBoundary: vi.fn(
@@ -32,16 +30,8 @@ vi.mock("./ModeWrappedRouteBoundary", () => ({
   ),
 }));
 
-vi.mock("./modeWrappedStandaloneAppLauncherRouteElements", () => ({
-  buildModeWrappedStandaloneAppLauncherRouteElements: vi.fn(),
-}));
-
-vi.mock("./modeWrappedHomeProjectCatchAllRouteElements", () => ({
-  buildModeWrappedHomeProjectCatchAllRouteElements: vi.fn(),
-}));
-
-vi.mock("./modeWrappedIndexWorkspaceLaunchRouteElements", () => ({
-  buildModeWrappedIndexWorkspaceLaunchRouteElements: vi.fn(),
+vi.mock("./modeWrappedRouterRouteElements", () => ({
+  buildModeWrappedRouterRouteElements: vi.fn(),
 }));
 
 function createModeRouteElements(label: string): ModeRouteElements {
@@ -54,11 +44,7 @@ function createModeRouteElements(label: string): ModeRouteElements {
 }
 
 describe("buildModeWrappedRouterArgs", () => {
-  it("owns the lifted top-level route-element bundle assembly above router.tsx", () => {
-    const appRouteElement = <div data-testid="standalone-app-route" />;
-    const launcherHomeRouteElement = (
-      <div data-testid="launcher-home-route" />
-    );
+  it("owns the remaining router-args seam above router.tsx", () => {
     const standaloneAppRouteElement = (
       <div data-testid="standalone-app-route-copy" />
     );
@@ -72,45 +58,19 @@ describe("buildModeWrappedRouterArgs", () => {
     const workspaceLaunchRouteElements =
       createModeRouteElements("workspace-launch");
 
-    vi.mocked(
-      buildModeWrappedStandaloneAppLauncherRouteElements,
-    ).mockReturnValue({
-      appRouteElement,
-      launcherHomeRouteElement,
-      standaloneAppRouteElement,
-      standaloneLauncherRouteElement,
-    });
-    vi.mocked(
-      buildModeWrappedHomeProjectCatchAllRouteElements,
-    ).mockReturnValue({
+    vi.mocked(buildModeWrappedRouterRouteElements).mockReturnValue({
+      indexRouteElements,
       homeRouteElements,
+      workspaceLaunchRouteElements,
       projectRouteElements,
       catchAllRouteElements,
-    });
-    vi.mocked(
-      buildModeWrappedIndexWorkspaceLaunchRouteElements,
-    ).mockReturnValue({
-      indexRouteElements,
-      workspaceLaunchRouteElements,
+      standaloneAppRouteElement,
+      standaloneLauncherRouteElement,
     });
 
     const args = buildModeWrappedRouterArgs();
 
-    expect(
-      buildModeWrappedStandaloneAppLauncherRouteElements,
-    ).toHaveBeenCalledOnce();
-    expect(
-      buildModeWrappedHomeProjectCatchAllRouteElements,
-    ).toHaveBeenCalledWith({
-      appRouteElement,
-      launcherHomeRouteElement,
-    });
-    expect(
-      buildModeWrappedIndexWorkspaceLaunchRouteElements,
-    ).toHaveBeenCalledWith({
-      appRouteElement,
-      launcherHomeRouteElement,
-    });
+    expect(buildModeWrappedRouterRouteElements).toHaveBeenCalledOnce();
 
     expect(args.indexRouteElements).toBe(indexRouteElements);
     expect(args.homeRouteElements).toBe(homeRouteElements);
