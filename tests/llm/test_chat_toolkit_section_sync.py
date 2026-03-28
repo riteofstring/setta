@@ -1,18 +1,22 @@
-from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
-from setta.mcp.tool_metadata import ToolArgumentPreviewKind
-from setta.types.generated.go_shared_types import (
-    MessageTextContent,
-    MessageTextDelta,
-    ToolCallDeltaEvent,
+from setta.llm.chat_toolkit.section_sync import (
+    apply_stream_delta,
+    build_chat_section_state,
 )
+from setta.mcp.tool_metadata import ToolArgumentPreviewKind
 from setta.types.chat import (
     AssistantChatMessage,
-    MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
+    StreamingEventType,
     ToolChatMessage,
-    ToolArgumentPreviewDeltaEvent,
     ToolResultEvent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageDeltaEvent,
+    MessageTextContent,
+    MessageTextDelta,
+    ToolArgumentPreviewDeltaEvent,
+    ToolCallDeltaEvent,
 )
 
 
@@ -34,6 +38,7 @@ class TestChatSectionSync:
         assert started.messages[0].id == "assistant-1"
 
         delta = MessageDeltaEvent(
+            type=StreamingEventType.delta,
             message_id="assistant-1",
             content=[MessageTextDelta(type="text_delta", index=0, text="Hello")],
         )
@@ -57,6 +62,7 @@ class TestChatSectionSync:
 
         assistant.content[0].text += "Hi"
         delta = MessageDeltaEvent(
+            type=StreamingEventType.delta,
             message_id="assistant-1",
             content=[MessageTextDelta(type="text_delta", index=0, text="Hi")],
         )
@@ -82,6 +88,7 @@ class TestChatSectionSync:
         assert updated.toolCallArguments["tool-1"] == '{"value":'
 
         preview_delta = ToolArgumentPreviewDeltaEvent(
+            type=StreamingEventType.tool_argument_preview_delta,
             message_id="assistant-1",
             tool_call_id="tool-1",
             tool_name="setta__tool",

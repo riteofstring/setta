@@ -4,16 +4,16 @@ from setta.types.chat import (
     ChatSectionBranch,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
-    ToolArgumentPreviewDeltaEvent,
     ToolResultEvent,
 )
 from setta.types.generated.go_shared_types import (
+    MessageDeltaEvent,
     MessageStopEvent,
     MessageTextContent,
     MessageThinkingContent,
+    ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,
     ToolCallFunction,

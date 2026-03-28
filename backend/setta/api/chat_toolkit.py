@@ -27,12 +27,10 @@ from setta.types.chat import (
     ChatRole,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     StreamingEventType,
     SystemChatMessage,
-    ToolArgumentPreviewDeltaEvent,
     ToolChatMessage,
     ToolResultEvent,
     UserChatMessage,
@@ -40,10 +38,12 @@ from setta.types.chat import (
 from setta.types.generated.go_shared_types import (
     ChatSendEvent,
     ChatStopEvent,
+    MessageDeltaEvent,
     MessageStopEvent,
     MessageTextContent,
     MessageTextDelta,
     MessageThinkingDelta,
+    ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,
 )
@@ -173,6 +173,7 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
+                type=StreamingEventType.delta,
                 message_id=message_id,
                 content=[
                     MessageTextDelta(type="text_delta", index=index, text=text)
@@ -195,6 +196,7 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
+                type=StreamingEventType.delta,
                 message_id=message_id,
                 content=[
                     MessageThinkingDelta(
@@ -247,6 +249,7 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=ToolArgumentPreviewDeltaEvent(
+                type=StreamingEventType.tool_argument_preview_delta,
                 message_id=message_id,
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,

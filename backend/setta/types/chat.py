@@ -4,10 +4,6 @@ from typing import Annotated, Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field
-from setta.mcp.tool_metadata import (
-    ToolArgumentPreviewIdType,
-    ToolArgumentPreviewKind,
-)
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage as GoAssistantChatMessage,
 )
@@ -49,13 +45,7 @@ from setta.types.generated.go_shared_types import (
     MessageTextContent as GoMessageTextContent,
 )
 from setta.types.generated.go_shared_types import (
-    MessageTextDelta as GoMessageTextDelta,
-)
-from setta.types.generated.go_shared_types import (
     MessageThinkingContent as GoMessageThinkingContent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageThinkingDelta as GoMessageThinkingDelta,
 )
 from setta.types.generated.go_shared_types import (
     SystemChatMessage as GoSystemChatMessage,
@@ -195,30 +185,14 @@ class ChatSectionState(GoChatSectionState):
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
-MessageContentDelta = GoMessageTextDelta | GoMessageThinkingDelta
-
-
 class MessageStartEvent(GoMessageStartEvent):
     type: Literal[StreamingEventType.message_start] = StreamingEventType.message_start
     message: BaseChatMessageUnionWithDiscriminator
 
 
-class MessageDeltaEvent(GoMessageDeltaEvent):
-    type: Literal[StreamingEventType.delta] = StreamingEventType.delta
-    content: list[MessageContentDelta] | None = None
-
-
 class ToolResultEvent(GoToolResultEvent):
     type: Literal[StreamingEventType.tool_result] = StreamingEventType.tool_result
     result: ToolChatMessage
-
-
-class ToolArgumentPreviewDeltaEvent(GoToolArgumentPreviewDeltaEvent):
-    type: Literal[StreamingEventType.tool_argument_preview_delta] = (
-        StreamingEventType.tool_argument_preview_delta
-    )
-    preview_kind: ToolArgumentPreviewKind
-    target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]]
 
 
 class MessageFinalizedEvent(GoMessageFinalizedEvent):
@@ -230,10 +204,10 @@ class MessageFinalizedEvent(GoMessageFinalizedEvent):
 
 LLMStreamingResponseChunk = (
     MessageStartEvent
-    | MessageDeltaEvent
+    | GoMessageDeltaEvent
     | GoToolCallDeltaEvent
     | ToolResultEvent
-    | ToolArgumentPreviewDeltaEvent
+    | GoToolArgumentPreviewDeltaEvent
     | GoMessageStopEvent
     | MessageFinalizedEvent
 )

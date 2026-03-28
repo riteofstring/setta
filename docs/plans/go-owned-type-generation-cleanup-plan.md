@@ -242,6 +242,9 @@ That means:
 - `backend/setta/types/chat.py` no longer keeps a handwritten `ToolCallFunction` subclass:
   - JSON-string argument parsing now happens in the chat-toolkit builder/accumulator layer instead of in a wrapper around the generated model
   - chat/toolkit callers and tests now construct the generated Go-owned `ToolCallFunction` model directly
+- `backend/setta/types/chat.py` no longer keeps handwritten `MessageDeltaEvent` or `ToolArgumentPreviewDeltaEvent` subclasses:
+  - those event shapes now use the generated Go-owned models directly
+  - explicit `type=` assignment now happens at construction sites instead of through thin Python event wrappers that only supplied discriminator defaults and narrower annotations
 - `backend/setta/types/chat.py` has been trimmed further by deleting duplicate field redeclarations and dead timestamp validators:
   - the generated chat models already parse ISO `lastUpdated` datetimes correctly, so the handwritten `Chat` / `ChatMetadata` validators were unnecessary
   - redundant inherited field lines such as `name`, `llmConfig`, `systemPrompt`, `tool_name`, and `completed_at` have been removed where they no longer changed behavior
