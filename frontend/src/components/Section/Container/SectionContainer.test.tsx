@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
 type MockEmbeddedTerminal = {
   isTerminalMinimized: boolean;
@@ -158,19 +159,6 @@ vi.mock("./SectionContainerCoreBody", () => ({
   ),
 }));
 
-vi.mock("./ManyNestedSections", () => ({
-  MaybeManyNestedSections: ({
-    layoutVariant = "default",
-  }: {
-    layoutVariant?: "default" | "tight";
-  }) => (
-    <div
-      data-testid="mock-many-nested-sections"
-      data-layout-variant={layoutVariant}
-    />
-  ),
-}));
-
 vi.mock("./AgenticEdgeHandles", () => ({
   AgenticEdgeHandles: ({ isUserView }: { isUserView: boolean }) => (
     <div
@@ -184,6 +172,25 @@ vi.mock("./utils", () => ({
   getBgColor: (sectionTypeName: string) => `bg:${sectionTypeName}`,
   getOutlineColor: () => "mock-outline",
 }));
+
+function renderNestedSections({
+  sectionId,
+  isGroup,
+  layoutVariant,
+  isJoinedCodeTerminalGroup,
+}: SectionContainerNestedSectionsProps) {
+  return (
+    <div
+      data-testid="mock-section-container-nested-sections"
+      data-section-id={sectionId}
+      data-is-group={isGroup ? "true" : "false"}
+      data-layout-variant={layoutVariant}
+      data-is-joined-code-terminal-group={
+        isJoinedCodeTerminalGroup ? "true" : "false"
+      }
+    />
+  );
+}
 
 describe("SectionContainer", () => {
   beforeEach(() => {
@@ -218,17 +225,20 @@ describe("SectionContainer", () => {
         sectionId="section-1"
         isTopLevel={false}
         dragListeners={undefined}
+        renderNestedSections={renderNestedSections}
       />,
     );
 
     expect(markup).toContain('data-testid="mock-section-container-core"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
+    expect(markup).toContain(
+      'data-testid="mock-section-container-nested-sections"',
+    );
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain(`data-section-type="${SectionTypeEnum.Code}"`);
     expect(markup).toContain('data-bg-color="bg:Code"');
     expect(markup).toContain('data-layout-variant="tight"');
-    expect(markup).not.toContain("data-joined-code-terminal-group");
-    expect(markup).not.toContain('class="-mt-px"');
+    expect(markup).toContain('data-is-joined-code-terminal-group="false"');
   });
 
   it("keeps the joined code-terminal wrapper and passes the lifted body through the joined core branch", () => {
@@ -243,6 +253,7 @@ describe("SectionContainer", () => {
         sectionId="section-2"
         isTopLevel={true}
         dragListeners={undefined}
+        renderNestedSections={renderNestedSections}
       />,
     );
 
@@ -254,6 +265,6 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-joined-corners="code-terminal-parent"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain('data-layout-variant="tight"');
-    expect(markup).toContain('class="-mt-px"');
+    expect(markup).toContain('data-is-joined-code-terminal-group="true"');
   });
 });

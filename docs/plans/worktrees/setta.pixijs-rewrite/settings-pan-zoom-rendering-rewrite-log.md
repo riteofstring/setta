@@ -2665,3 +2665,35 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `SectionContainerNestedSections.tsx` boundary into the next higher-level caller in `frontend/src/components/Section/Container/SortableSectionBody.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 100
+
+- Item: Lift the `SectionContainerNestedSections.tsx` boundary into the next higher-level caller in `frontend/src/components/Section/Container/SortableSectionBody.tsx`.
+- Status: `done`
+- Details:
+  - Moved the nested-sections mount responsibility out of `SectionContainer.tsx` by turning it into an injected renderer seam:
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`
+  - Updated the higher-level section callers to provide that renderer explicitly:
+    - `frontend/src/components/Section/Container/SortableSectionBody.tsx`
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+  - Updated focused coverage to pin the new seam:
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionBody.test.tsx`
+  - Kept the current non-Pixi DOM path intact while lifting the nested-sections boundary one caller higher:
+    - `SectionContainer` now computes the nested-section props but no longer directly mounts `SectionContainerNestedSections`
+    - `SortableSectionBody` and the direct top-level node wrapper now own the explicit nested-sections renderer handoff
+    - the joined code-terminal nested-section flag still flows through the lifted seam without changing the visible settings surface
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SortableSectionBody.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` was already authenticated and usable without consuming the bootstrap URL
+    - `All Settings` stayed visible/reachable and the dict/param surface rendered normally with no obvious nested-sections regression
+    - representative visible labels and controls included `languageServer`, `dictSectionDefault`, `gui`, `shortcuts`, `aspectRatio`, `Config Language`, `Hide Unpinned Params`, `Is Frozen`, `Is Minimized`, `Position And Size Locked`, `height`, `width`, `Auto Backup`, `Autosave`, and `Rename Refactor Mode`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `POST /api/getLatestLspDiagnostics`
+    - remaining console noise was limited to existing React 19 `element.ref` deprecation warnings
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the nested-sections renderer seam one caller higher above `SortableSectionBody.tsx` in the next section-surface caller before any broad Pixi node drawing lands.

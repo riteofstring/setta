@@ -21,3 +21,9 @@ function _SectionContainerNestedSections(
 export const SectionContainerNestedSections = React.memo(
   _SectionContainerNestedSections,
 );
+
+export function renderSectionContainerNestedSections(
+  props: SectionContainerNestedSectionsProps,
+) {
+  return <SectionContainerNestedSections {...props} />;
+}

@@ -20,7 +20,7 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
 import { SectionContainerCoreBody } from "./SectionContainerCoreBody";
-import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { buildSectionContainerView } from "./sectionContainerView";
 import { getOutlineColor } from "./utils";
 
@@ -28,10 +28,14 @@ function _SectionContainer({
   sectionId,
   isTopLevel,
   dragListeners,
+  renderNestedSections,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   dragListeners?: any;
+  renderNestedSections: (
+    props: SectionContainerNestedSectionsProps,
+  ) => React.ReactElement | null;
 }) {
   const {
     visibility,
@@ -116,12 +120,10 @@ function _SectionContainer({
     return null;
   }
 
-  const nestedSections = (
-    <SectionContainerNestedSections
-      {...view.nestedSectionsProps}
-      isJoinedCodeTerminalGroup={view.kind === "joined-code-terminal-group"}
-    />
-  );
+  const nestedSections = renderNestedSections({
+    ...view.nestedSectionsProps,
+    isJoinedCodeTerminalGroup: view.kind === "joined-code-terminal-group",
+  });
   const core = view.core ? (
     <SectionContainerCore
       {...view.core.props}
@@ -168,5 +170,6 @@ function _SectionContainer({
   );
 }
 export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  p.renderNestedSections === n.renderNestedSections &&
   _.isEqual(p.dragListeners, n.dragListeners),
 );
