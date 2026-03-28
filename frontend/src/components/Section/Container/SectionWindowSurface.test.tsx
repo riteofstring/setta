@@ -60,14 +60,15 @@ vi.mock("../Header/SectionHeader", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerCoreResizabe", () => ({
-  AreaSwitch: ({
+vi.mock("./SectionWindowSurfaceBody", () => ({
+  SectionWindowSurfaceBody: ({
     sectionId,
     chatHost,
     chatModeOverride,
     projectChatSurfaceId,
     projectChatId,
     setProjectChatId,
+    bodyOverride,
   }: {
     sectionId: string;
     chatHost: string;
@@ -75,15 +76,17 @@ vi.mock("./SectionContainerCoreResizabe", () => ({
     projectChatSurfaceId?: string;
     projectChatId?: string | null;
     setProjectChatId?: unknown;
+    bodyOverride?: ReactNode;
   }) => (
     <div
-      data-testid="mock-area-switch"
+      data-testid="mock-section-window-surface-body"
       data-section-id={sectionId}
       data-chat-host={chatHost}
       data-chat-mode-override={chatModeOverride ?? ""}
       data-project-chat-surface-id={projectChatSurfaceId ?? ""}
       data-project-chat-id={projectChatId ?? ""}
       data-project-chat-controlled={setProjectChatId ? "true" : "false"}
+      data-body-override={bodyOverride ? "present" : ""}
     />
   ),
 }));
@@ -106,7 +109,7 @@ describe("SectionWindowSurface", () => {
     };
   });
 
-  it("passes authoritative window mode and chat identity into the section area switch", () => {
+  it("passes authoritative window mode and chat identity into the window surface body boundary", () => {
     const markup = renderToStaticMarkup(
       <SectionWindowSurface
         sectionId="section-1"
@@ -120,7 +123,7 @@ describe("SectionWindowSurface", () => {
       />,
     );
 
-    expect(markup).toContain('data-testid="mock-area-switch"');
+    expect(markup).toContain('data-testid="mock-section-window-surface-body"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-chat-host="floating"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
