@@ -3966,3 +3966,33 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/llm/config`, and `POST /api/getFileBrowserRoot`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining top-level route-helper assembly seam out of `frontend/src/components/Pages/router.tsx`, starting with the precomputed route-element bundles before any broad Pixi node drawing lands.
+
+## 2026-03-27 140
+
+- Item: Lift the top-level precomputed route-element bundle assembly out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated helper boundary for the remaining top-level router assembly seam:
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.test.tsx`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of owning:
+    - standalone app/launcher route-element bundle extraction
+    - home/project/catch-all route-element bundle extraction
+    - index/workspace-launch route-element bundle extraction
+    - the `ModeWrappedRouteBoundary` render callback wiring passed into the browser-router factory
+  - The new helper now owns the non-Pixi top-level route bundle seam for:
+    - assembling the full `BuildModeWrappedAppRouteStackArgs` payload from the already-lifted route-element builders
+    - keeping `viewModeRouteElements` tied to the same project-route bundle
+    - leaving `router.tsx` focused only on the final browser-router creation call
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/routerModule.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts frontend/tests/e2e/app/app-mode-routing.spec.ts frontend/tests/e2e/launcher/launcher-home.spec.ts --grep "settings view tabs filter sections and minimap|app routes select the configured UI root|app mode blocks direct /launching navigation|launcher mode resolves /launching intent-token handoffs"`
+    - result: passed (`4` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - verified `/settings` after bootstrap and confirmed the app shell, navigation, and settings surface rendered without obvious clipping, overlap, or missing primary content
+    - verified `/launching` rendered the expected fallback card surface (`SWITCHING WORKSPACE`, `Launch failed`, `Missing pending workspace launch request.`) cleanly
+    - representative requests returned `200`, including `GET /__setta__/bootstrap`, `POST /__setta__/bootstrap/consume`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Treat the `router.tsx` cleanup pass as complete and return to the retained-scene rewrite sequence with the next bounded Pixi-side canary step before any broad node drawing lands.
