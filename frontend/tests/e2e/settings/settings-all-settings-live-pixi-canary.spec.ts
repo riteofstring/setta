@@ -71,7 +71,7 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result?.localParamContainerCount).toBe(0);
 });
 
-test("all settings canary can hand off from the Pixi scene into the live DOM editor overlay", async ({
+test("all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -98,16 +98,22 @@ test("all settings canary can hand off from the Pixi scene into the live DOM edi
   await allSettingsTab.click();
 
   const handoffButton = page
-    .locator("[data-live-dict-area-editor-handoff='available']")
+    .locator("[data-live-dict-area-editor-handoff='value-row']")
     .first();
   await expect(handoffButton).toBeVisible();
+  const activatedRowId = await handoffButton.getAttribute(
+    "data-live-dict-area-editor-handoff-row-id",
+  );
+  expect(activatedRowId).not.toBeNull();
   await handoffButton.click();
 
-  await page.waitForSelector("[data-live-dict-area-editor-overlay='active']");
+  await page.waitForSelector(
+    `[data-live-dict-area-editor-overlay='active'][data-live-dict-area-editor-overlay-row-id='${activatedRowId}']`,
+  );
 
-  const overlayMetrics = await page.waitForFunction(() => {
+  const overlayMetrics = await page.waitForFunction((rowId) => {
     const overlay = document.querySelector<HTMLElement>(
-      "[data-live-dict-area-editor-overlay='active']",
+      `[data-live-dict-area-editor-overlay='active'][data-live-dict-area-editor-overlay-row-id='${rowId}']`,
     );
     if (!overlay) {
       return null;
@@ -121,11 +127,11 @@ test("all settings canary can hand off from the Pixi scene into the live DOM edi
         "[data-live-dict-area-scene='pixi'] canvas",
       ).length,
     };
-  });
+  }, activatedRowId);
 
   const result = await overlayMetrics.jsonValue();
 
   expect(result).not.toBeNull();
-  expect(result?.localParamContainerCount).toBeGreaterThan(0);
+  expect(result?.localParamContainerCount).toBe(1);
   expect(result?.sceneCanvasCount).toBeGreaterThan(0);
 });

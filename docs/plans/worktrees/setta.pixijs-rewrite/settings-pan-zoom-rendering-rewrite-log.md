@@ -6509,3 +6509,41 @@ Record:
     - no obvious visible regression was observed in the checked viewport
 - Next action:
   - Continue the live retained-scene slice by replacing this whole-shell overlay handoff with the first thinner targeted row/editor overlay on the Pixi canary, starting with a value-row activation path.
+
+## 2026-03-28 213
+
+- Item: Replace the whole-shell Pixi handoff with the first value-row DOM overlay on the live `pixi-node-body` canary.
+- Status: `done`
+- Details:
+  - Replaced the previous full-surface handoff button with explicit value-row activation targets derived from the existing live scene/layout plus DOM packet boundary:
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.test.ts`
+  - Added a row-scoped DOM overlay that mounts only the activated value row through the existing `GetParamSwitch` path instead of mounting the whole live dict-area shell:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+  - Kept the canary bounded and non-heuristic:
+    - only scene rows with `kind === value` get activation hotspots
+    - the hotspot metadata comes from the typed live scene/layout and the existing surface packets
+    - the previous whole-shell overlay remains only as a zero-target fallback path instead of the default handoff
+  - Refreshed focused coverage and the live canary E2E around the thinner overlay path:
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueRowTargets.ts src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - `All Settings` rendered with the live Pixi scene still mounted (`canvasCount=46`)
+    - clicking a `data-live-dict-area-editor-handoff="value-row"` activator opened a row-scoped overlay with `data-live-dict-area-editor-overlay="active"` and a concrete row id
+    - no obvious blank state, clipping, or missing content was observed in the checked viewport
+    - `POST /__setta__/bootstrap/consume` returned `401` in that browser session, but the already-live runtime still rendered successfully for verification
+    - console noise included repeated `Too many active WebGL contexts` warnings plus one Pixi deprecation warning; they did not block this slice
+- Next action:
+  - Continue the live retained-scene slice by tightening this first row-scoped handoff into immediate editor activation for a concrete value-row editor, starting with the first CodeMirror-backed path on the Pixi canary.

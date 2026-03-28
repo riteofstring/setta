@@ -71,12 +71,15 @@ describe("GroupContainerShell", () => {
       'data-live-dict-area-render-mode="pixi-node-body"',
     );
     expect(markup).toContain('data-live-dict-area-scene="pixi"');
-    expect(markup).toContain('data-live-dict-area-editor-handoff="available"');
+    expect(markup).toContain('data-live-dict-area-editor-handoff="value-row"');
     expect(markup).toContain('data-live-dict-area-fixed-measurement="edges"');
     expect(markup).toContain('data-live-dict-area-fixed-measurement="pinned"');
     expect(markup).not.toContain(
       'data-live-dict-area-fixed-measurement="unpinned"',
     );
     expect(markup).not.toContain("data-dict-area-block-frame-id=");
+    expect(markup).not.toContain(
+      'data-live-dict-area-editor-handoff="available"',
+    );
   });
 });

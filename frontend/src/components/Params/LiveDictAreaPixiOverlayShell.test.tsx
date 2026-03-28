@@ -8,13 +8,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
 
+vi.hoisted(() => {
+  class ResizeObserverMock {
+    observe = vi.fn();
+    disconnect = vi.fn();
+    unobserve = vi.fn();
+  }
+
+  globalThis.ResizeObserver =
+    ResizeObserverMock as unknown as typeof ResizeObserver;
+});
+
 vi.mock("./LiveDictAreaPixiScene", () => ({
   LiveDictAreaPixiScene: () => <div data-live-dict-area-scene="pixi" />,
 }));
 
-vi.mock("./groupContainerLiveDictAreaMount", () => ({
-  LiveDictAreaMount: () => (
-    <div data-live-dict-area-editor-overlay-content="mounted" />
+vi.mock("./LiveDictAreaPixiValueRowOverlay", () => ({
+  LiveDictAreaPixiValueRowOverlay: ({
+    target,
+  }: {
+    target: { rowId: string };
+  }) => (
+    <div
+      data-live-dict-area-editor-overlay="active"
+      data-live-dict-area-editor-overlay-row-id={target.rowId}
+    />
   ),
 }));
 
@@ -35,7 +53,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     container.remove();
   });
 
-  it("mounts the DOM editor overlay on demand over the Pixi scene canary", () => {
+  it("mounts a value-row editor overlay on demand over the Pixi scene canary", () => {
     const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
       input: {
         bgColor: "bg-transparent",
@@ -99,34 +117,31 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container.querySelector("[data-live-dict-area-scene='pixi']"),
     ).not.toBeNull();
-    expect(
-      container.querySelector(
-        "[data-live-dict-area-editor-handoff='available']",
+    const handoffButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        "[data-live-dict-area-editor-handoff='value-row']",
       ),
-    ).not.toBeNull();
+    );
+    expect(handoffButtons).toHaveLength(2);
     expect(
       container.querySelector("[data-live-dict-area-editor-overlay='active']"),
     ).toBeNull();
 
+    const activatedRowId =
+      handoffButtons[0]?.getAttribute(
+        "data-live-dict-area-editor-handoff-row-id",
+      ) ?? null;
+
     act(() => {
-      container
-        .querySelector<HTMLButtonElement>(
-          "[data-live-dict-area-editor-handoff='available']",
-        )
-        ?.click();
+      handoffButtons[0]?.click();
     });
 
     expect(
-      container.querySelector(
-        "[data-live-dict-area-editor-handoff='available']",
-      ),
-    ).toBeNull();
-    expect(
       container.querySelector("[data-live-dict-area-editor-overlay='active']"),
     ).not.toBeNull();
     expect(
       container.querySelector(
-        "[data-live-dict-area-editor-overlay-content='mounted']",
+        `[data-live-dict-area-editor-overlay-row-id='${activatedRowId}']`,
       ),
     ).not.toBeNull();
   });
