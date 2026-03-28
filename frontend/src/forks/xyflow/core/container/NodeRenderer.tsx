@@ -1,15 +1,15 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
+import {
+  getNodeUpdateInformation,
+  updateNodeDimensions,
+} from "state/actions/nodeInternals";
 import { useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
-import {
-  buildNodeRendererView,
-  createNodeRendererResizeObserver,
-} from "./nodeRendererView";
 
 const selector = (s: ReactFlowState) => ({
   panActivationKeyPressed: s.panActivationKeyPressed,
@@ -24,27 +24,37 @@ const NodeRenderer = () => {
   // Tried debugging, could not figure out why.
   const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
-  const resizeObserver = useMemo(createNodeRendererResizeObserver, []);
-  const view = buildNodeRendererView({
-    nodeIds,
-    panActivationKeyPressed,
-    readyToBeVisible,
-    resizeObserver,
-  });
+  const resizeObserverRef = useRef<ResizeObserver>();
+  const resizeObserver = useMemo(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return null;
+    }
+
+    const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      const updates = getNodeUpdateInformation(entries, true);
+      updateNodeDimensions(updates);
+    });
+
+    resizeObserverRef.current = observer;
+
+    return observer;
+  }, []);
 
   useEffect(() => {
-    return () => resizeObserver?.disconnect();
-  }, [resizeObserver]);
+    return () => {
+      resizeObserverRef?.current?.disconnect();
+    };
+  }, []);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
-      {view.nodeWrappers.map((nodeWrapper) => (
+      {nodeIds.map((nodeId) => (
         <NodeWrapper
-          key={nodeWrapper.id}
-          id={nodeWrapper.id}
-          isDraggable={nodeWrapper.isDraggable}
-          resizeObserver={nodeWrapper.resizeObserver}
-          visibility={nodeWrapper.visibility}
+          key={nodeId}
+          id={nodeId}
+          isDraggable={!panActivationKeyPressed}
+          resizeObserver={resizeObserver}
+          visibility={readyToBeVisible ? "visible" : "hidden"}
         />
       ))}
     </div>
