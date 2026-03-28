@@ -40,6 +40,12 @@ That means:
   `ProjectCodegenPythonTarget = GoProjectCodegenPythonTarget` keep a separate
   Python-owned naming layer alive without adding behavior, and they make the
   cleanup look more finished than it really is.
+- The project-codegen defaults are a good example of the remaining gap:
+  Go already owns the default policy semantics, but Python still reconstructs
+  the fully materialized default object locally. The generated Python models
+  only expose field shapes; they do not execute the Go defaulting path, so
+  helpers like `default_section_allowlist()` still duplicate the concrete
+  default payload in Python.
 - Example: `backend/setta/types/chat.py::MessageThinkingDelta` currently exists
   as a handwritten subclass of the generated `MessageThinkingDelta`, but the
   generated base already owns the actual fields. The remaining handwritten
@@ -53,6 +59,8 @@ That means:
   - duplicate field/default redeclarations that do not change behavior
   - pass-through alias assignments that only rename generated models without
     adding Python-only behavior
+  - Python-side reconstruction of Go-owned default objects because generated
+    Python models are shape-only and do not apply Go defaulting logic
   - Python-side public unions and wrappers that only exist because callers have
     not yet been updated to consume the generated Go-owned surface directly
 
@@ -63,6 +71,10 @@ That means:
 - Audit surviving pass-through aliases in `backend/setta/types/` and delete any
   alias that only renames a generated model instead of providing a real
   Python-only adapter boundary.
+- For default-heavy surfaces such as project codegen policy, stop duplicating
+  Go-owned defaults as Python object-construction helpers. Either the generated
+  Python surface must carry the Go-owned defaults directly, or Python must
+  consume a Go-produced/defaulted representation instead of rebuilding it.
 - Adapt Python callers and tests to consume generated Go-owned models directly
   wherever possible instead of preserving legacy handwritten wrapper surfaces.
 - Keep handwritten code only when it is genuinely Python-only runtime glue, for
@@ -81,6 +93,9 @@ That means:
   surface when the Go-owned generated type can be used directly.
 - Completion should also mean that no pointless `Foo = GoFoo` alias remains
   merely to preserve a legacy Python-owned name for a generated model.
+- Completion should also mean that Python is no longer re-materializing
+  Go-owned default policy objects from local helper functions when those
+  defaults already exist in Go.
 
 ### Completed
 - Go type discovery is no longer driven by a hand-maintained frontend root manifest.
