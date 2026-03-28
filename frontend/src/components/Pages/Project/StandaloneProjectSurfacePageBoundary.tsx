@@ -1,3 +1,7 @@
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { memo, type ComponentProps } from "react";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
@@ -6,8 +10,9 @@ import {
   StandaloneProjectSurfaceRouteBoundary,
 } from "./StandaloneProjectSurfaceRouteBoundary";
 
-export type StandaloneProjectSurfacePageBoundaryProps = ComponentProps<
-  typeof StandaloneProjectSurfaceRouteBoundary
+export type StandaloneProjectSurfacePageBoundaryProps = Omit<
+  ComponentProps<typeof StandaloneProjectSurfaceRouteBoundary>,
+  "renderCoreBody" | "renderNestedSections"
 > & {
   doneLoading: boolean;
   is404: boolean;
@@ -35,6 +40,8 @@ function _StandaloneProjectSurfacePageBoundary({
   return (
     <StandaloneProjectSurfaceRouteBoundary
       {...routeBoundaryProps}
+      renderCoreBody={renderDefaultSectionContainerCoreBody}
+      renderNestedSections={renderDefaultSectionContainerNestedSections}
     />
   );
 }

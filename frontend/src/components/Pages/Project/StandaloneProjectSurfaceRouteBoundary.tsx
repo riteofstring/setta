@@ -7,13 +7,14 @@ import {
 } from "components/ChatWindowing/projectChatSurfaceIds";
 import { StandaloneSectionSurfaceBoundary } from "components/Section/Container/StandaloneSectionSurfaceBoundary";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
-import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
-import { memo, type ReactNode, type SetStateAction } from "react";
+import {
+  memo,
+  type ComponentProps,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import {
   ChatWindowModeEnum,
   type SectionType,
@@ -94,6 +95,12 @@ type StandaloneProjectSurfaceRouteBoundaryProps = {
   standaloneProjectChatThreadRouteInvalid: boolean;
   standaloneProjectChatThreadMissing: boolean;
   renderDictArea: (props: SectionContainerAreaDictProps) => ReactNode;
+  renderCoreBody: ComponentProps<
+    typeof StandaloneSectionSurfaceBoundary
+  >["renderCoreBody"];
+  renderNestedSections: ComponentProps<
+    typeof StandaloneSectionSurfaceBoundary
+  >["renderNestedSections"];
   setStandaloneProjectChatId: (
     next: SetStateAction<string | null | undefined>,
   ) => void;
@@ -111,6 +118,8 @@ function _StandaloneProjectSurfaceRouteBoundary({
   standaloneProjectChatThreadRouteInvalid,
   standaloneProjectChatThreadMissing,
   renderDictArea,
+  renderCoreBody,
+  renderNestedSections,
   setStandaloneProjectChatId,
   onProjectChatBlockedErrorCodeChange,
 }: StandaloneProjectSurfaceRouteBoundaryProps) {
@@ -251,8 +260,8 @@ function _StandaloneProjectSurfaceRouteBoundary({
             onProjectChatBlockedErrorCodeChange
           }
           renderDictArea={renderDictArea}
-          renderCoreBody={renderDefaultSectionContainerCoreBody}
-          renderNestedSections={renderDefaultSectionContainerNestedSections}
+          renderCoreBody={renderCoreBody}
+          renderNestedSections={renderNestedSections}
         />
       </div>
     </StandaloneSurfaceShell>

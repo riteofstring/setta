@@ -1,7 +1,3 @@
-import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "components/Section/Container/sectionContainerDefaultRenderers";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
@@ -10,15 +6,6 @@ import {
   StandaloneManagedChatBlockedSurface,
   StandaloneProjectSurfaceRouteBoundary,
 } from "./StandaloneProjectSurfaceRouteBoundary";
-const defaultRendererMocks = vi.hoisted(() => ({
-  renderDefaultSectionContainerCoreBody: vi.fn(() => null),
-  renderDefaultSectionContainerNestedSections: vi.fn(() => null),
-}));
-
-vi.mock(
-  "components/Section/Container/sectionContainerDefaultRenderers",
-  () => defaultRendererMocks,
-);
 
 vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
   ProjectChatWindowSurface: ({
@@ -152,6 +139,8 @@ const managedChatAuthorityState = {
 };
 
 const renderDictArea = () => null;
+const renderCoreBody = () => null;
+const renderNestedSections = () => null;
 
 describe("StandaloneProjectSurfaceRouteBoundary", () => {
   it("routes standalone section targets through the lifted section surface boundary", () => {
@@ -173,6 +162,8 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatThreadRouteInvalid={false}
         standaloneProjectChatThreadMissing={false}
         renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
@@ -192,11 +183,11 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
     expect(markup).toContain('data-testid="mock-floating-box"');
     expect(
       mockStandaloneSectionSurfaceBoundary.mock.calls[0]?.[0]?.renderCoreBody,
-    ).toBe(renderDefaultSectionContainerCoreBody);
+    ).toBe(renderCoreBody);
     expect(
       mockStandaloneSectionSurfaceBoundary.mock.calls[0]?.[0]
         ?.renderNestedSections,
-    ).toBe(renderDefaultSectionContainerNestedSections);
+    ).toBe(renderNestedSections);
   });
 
   it("routes standalone chat targets through the lifted project chat frame", () => {
@@ -215,6 +206,8 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatThreadRouteInvalid={false}
         standaloneProjectChatThreadMissing={false}
         renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
@@ -249,6 +242,8 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatThreadRouteInvalid={false}
         standaloneProjectChatThreadMissing={false}
         renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,
@@ -276,6 +271,8 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
         standaloneProjectChatThreadRouteInvalid
         standaloneProjectChatThreadMissing={false}
         renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
         setStandaloneProjectChatId={() => undefined}
         onProjectChatBlockedErrorCodeChange={() => undefined}
       />,

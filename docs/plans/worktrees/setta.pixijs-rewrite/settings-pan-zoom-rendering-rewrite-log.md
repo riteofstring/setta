@@ -6101,3 +6101,39 @@ Record:
     - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, `POST /api/setTextBlockText`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-owned standalone section renderer handoff into the next caller layer above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`.
+
+## 2026-03-28 203
+
+- Item: Lift the standalone section renderer handoff into `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Moved the default recursive section-renderer ownership one caller higher on the standalone section page path:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`
+  - `StandaloneProjectSurfacePageBoundary.tsx` now injects the default recursive renderers directly for loaded standalone surfaces:
+    - `renderDefaultSectionContainerCoreBody`
+    - `renderDefaultSectionContainerNestedSections`
+  - `StandaloneProjectSurfaceRouteBoundary.tsx` is now a thinner caller-owned seam that forwards caller-provided recursive renderers into `StandaloneSectionSurfaceBoundary` instead of owning the default renderer injection itself.
+  - Refreshed focused coverage so both sides of the lifted seam are pinned directly:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+      - result: passed
+  - Playwright:
+    - initial helper and direct runs against the pre-restart `3044/8044` session failed in global setup because the available bootstrap tokens returned `401`
+    - performed the one allowed lifecycle self-recovery with `./aireset.sh`, which reassigned the worktree runtime to `http://127.0.0.1:3046/` and `http://127.0.0.1:8046`
+    - minted a fresh bootstrap token directly from `setta_files_dev/runtime/sessions/d4a9cf/secret` for the restarted session and reran:
+      - `SETTA_BOOTSTRAP_TOKEN=<fresh token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 pnpm -C frontend exec playwright test tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes stay bound to their section thread and keep workspace project chat isolated"`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3046`) in a fresh sub-agent context:
+    - bootstrapped through `http://127.0.0.1:8046/__setta__/bootstrap#token=...`
+    - verified the pre-provisioned standalone route `http://127.0.0.1:3046/speaking_zesty/section/visual_group_1774742450`
+    - the standalone section surface rendered normally with the group label `visual_group_1774742450`, nested child/body text `Nested section body is live.`, and no obvious blank state, clipping, or overlap
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-page-owned standalone section renderer handoff into the next caller layer above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.tsx`.

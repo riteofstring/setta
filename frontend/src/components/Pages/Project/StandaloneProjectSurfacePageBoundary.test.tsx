@@ -1,7 +1,21 @@
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePageBoundary } from "./StandaloneProjectSurfacePageBoundary";
+
+const defaultRendererMocks = vi.hoisted(() => ({
+  renderDefaultSectionContainerCoreBody: vi.fn(() => null),
+  renderDefaultSectionContainerNestedSections: vi.fn(() => null),
+}));
+
+vi.mock(
+  "components/Section/Container/sectionContainerDefaultRenderers",
+  () => defaultRendererMocks,
+);
 
 vi.mock("../LoadingSpinner", () => ({
   LoadingSpinner: () => <div data-testid="mock-loading-spinner" />,
@@ -22,19 +36,20 @@ vi.mock("../NotFound/NotFound", () => ({
   ),
 }));
 
-vi.mock("./StandaloneProjectSurfaceRouteBoundary", () => ({
-  StandaloneManagedChatBlockedSurface: () => (
-    <div data-testid="mock-standalone-managed-chat-blocked" />
-  ),
-  StandaloneProjectSurfaceRouteBoundary: ({
+const mockStandaloneProjectSurfaceRouteBoundary = vi.fn(
+  ({
     projectConfigId,
     target,
     renderDictArea,
+    renderCoreBody,
+    renderNestedSections,
     standaloneProjectChatId,
   }: {
     projectConfigId: string;
     target: { kind: string };
     renderDictArea: unknown;
+    renderCoreBody?: unknown;
+    renderNestedSections?: unknown;
     standaloneProjectChatId: string | null;
   }) => (
     <div
@@ -42,9 +57,25 @@ vi.mock("./StandaloneProjectSurfaceRouteBoundary", () => ({
       data-project-config-id={projectConfigId}
       data-target-kind={target.kind}
       data-has-render-dict-area={String(Boolean(renderDictArea))}
+      data-has-render-core-body={String(Boolean(renderCoreBody))}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
       data-standalone-project-chat-id={standaloneProjectChatId ?? ""}
     />
   ),
+);
+
+vi.mock("./StandaloneProjectSurfaceRouteBoundary", () => ({
+  StandaloneManagedChatBlockedSurface: () => (
+    <div data-testid="mock-standalone-managed-chat-blocked" />
+  ),
+  StandaloneProjectSurfaceRouteBoundary: (props: {
+    projectConfigId: string;
+    target: { kind: string };
+    renderDictArea: unknown;
+    renderCoreBody?: unknown;
+    renderNestedSections?: unknown;
+    standaloneProjectChatId: string | null;
+  }) => mockStandaloneProjectSurfaceRouteBoundary(props),
 }));
 
 const managedChatAuthorityState = {
@@ -128,6 +159,7 @@ describe("StandaloneProjectSurfacePageBoundary", () => {
   });
 
   it("routes the loaded standalone page through the lifted route boundary", () => {
+    mockStandaloneProjectSurfaceRouteBoundary.mockClear();
     const markup = renderToStaticMarkup(
       <StandaloneProjectSurfacePageBoundary
         {...createBaseProps()}
@@ -146,6 +178,16 @@ describe("StandaloneProjectSurfacePageBoundary", () => {
     expect(markup).toContain('data-project-config-id="project-config-1"');
     expect(markup).toContain('data-target-kind="project_chat_thread"');
     expect(markup).toContain('data-has-render-dict-area="true"');
+    expect(markup).toContain('data-has-render-core-body="true"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
     expect(markup).toContain('data-standalone-project-chat-id="chat-alpha"');
+    expect(
+      mockStandaloneProjectSurfaceRouteBoundary.mock.calls[0]?.[0]
+        ?.renderCoreBody,
+    ).toBe(renderDefaultSectionContainerCoreBody);
+    expect(
+      mockStandaloneProjectSurfaceRouteBoundary.mock.calls[0]?.[0]
+        ?.renderNestedSections,
+    ).toBe(renderDefaultSectionContainerNestedSections);
   });
 });
