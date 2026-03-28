@@ -1,21 +1,19 @@
-import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
-import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
+import type { ComponentProps } from "react";
 import {
   StandaloneProjectSurfacePageLoadBoundary,
   StandaloneProjectSurfacePageWithLoadState,
 } from "./StandaloneProjectSurfacePageLoadBoundary";
 
-function renderStandaloneProjectSurfacePageDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
+type StandaloneProjectSurfacePageProps = Pick<
+  ComponentProps<typeof StandaloneProjectSurfacePageLoadBoundary>,
+  "renderDictArea"
+>;
 
-export function StandaloneProjectSurfacePage() {
+export function StandaloneProjectSurfacePage({
+  renderDictArea,
+}: StandaloneProjectSurfacePageProps) {
   return (
-    <StandaloneProjectSurfacePageLoadBoundary
-      renderDictArea={renderStandaloneProjectSurfacePageDictArea}
-    />
+    <StandaloneProjectSurfacePageLoadBoundary renderDictArea={renderDictArea} />
   );
 }
 

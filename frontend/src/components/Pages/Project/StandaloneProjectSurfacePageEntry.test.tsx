@@ -17,8 +17,10 @@ vi.mock("./StandaloneProjectSurfacePageLoadBoundary", () => ({
 }));
 
 describe("StandaloneProjectSurfacePage", () => {
-  it("owns the standalone dict-area renderer seam above the load boundary", () => {
-    const markup = renderToStaticMarkup(<StandaloneProjectSurfacePage />);
+  it("forwards the caller-owned standalone dict-area renderer seam into the load boundary", () => {
+    const markup = renderToStaticMarkup(
+      <StandaloneProjectSurfacePage renderDictArea={() => null} />,
+    );
 
     expect(markup).toContain(
       'data-testid="mock-standalone-project-surface-page-load-boundary"',

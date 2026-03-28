@@ -53,9 +53,13 @@ vi.mock("./StandaloneProjectSurfacePageLoadBoundary", () => ({
 }));
 
 describe("ShareStandaloneProjectSurfacePageBoundary", () => {
+  const renderDictArea = () => null;
+
   it("routes the share wrapper load state through the lifted standalone surface boundary", () => {
     const markup = renderToStaticMarkup(
-      <ShareStandaloneProjectSurfacePageBoundary />,
+      <ShareStandaloneProjectSurfacePageBoundary
+        renderDictArea={renderDictArea}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-share-wrapper"');
@@ -74,6 +78,7 @@ describe("ShareStandaloneProjectSurfacePageBoundary", () => {
       <ShareStandaloneProjectSurfacePageWithShareState
         doneLoading={false}
         is404
+        renderDictArea={renderDictArea}
       />,
     );
 

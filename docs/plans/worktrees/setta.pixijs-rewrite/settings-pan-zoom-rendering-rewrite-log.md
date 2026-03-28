@@ -4772,3 +4772,36 @@ Record:
     - no obvious clipping, overlap, or broken route shell was observed
 - Next action:
   - Treat the remaining `modeWrappedRouterArgs.tsx` cleanup pass as complete and return to the retained-scene rewrite sequence with the next bounded Pixi-side canary step before any broad node drawing lands.
+
+## 2026-03-28 165
+
+- Item: Lift the caller-owned dict-area renderer seam into the standalone/share route entry stack.
+- Status: `done`
+- Details:
+  - Raised the standalone/share route-entry dict-area handoff one caller higher so `StandaloneProjectSurfaceRouteElements.tsx` now owns the shared dict renderer above `StandaloneProjectSurfacePage.tsx` and `ShareStandaloneProjectSurfacePageBoundary.tsx`:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePage.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.tsx`
+  - Updated focused coverage to pin the higher ownership boundary and keep the direct entry components on pass-through seams:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - routing the standalone IDE surface through the same `SectionContainerAreaDictBoundary` renderer from the higher-level route-entry caller via `renderDictArea(...)`
+    - routing the share standalone surface through the same caller-owned dict renderer instead of defining it inside `ShareStandaloneProjectSurfacePageBoundary.tsx`
+    - leaving `StandaloneProjectSurfacePage.tsx` and `ShareStandaloneProjectSurfacePage.tsx` as thin entry pass-throughs instead of mixed entry plus dict-renderer owners
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - `http://127.0.0.1:3044/settings/section/gui` rendered normally with the standalone settings editor surface intact, including `ARGS`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Show Grid Lines`, and `Zoom On Scroll`
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with the shared project-chat frame, the `CREATE PROJECT` / `SUMMARIZE CODEBASE` / `PLAN NEXT STEPS` empty-state actions, and the message composer
+    - representative requests returned `200`, including the document loads plus `loadSettings`, `backendInitStatus`, `authRefreshStatus`, `loadProjectConfig`, `getLatestLspDiagnostics`, `getAIFollowSnapshot`, `getListenerCoverage`, `plugins/runtime`, `serverMode`, and `llm/*`
+    - no restart or recovery was needed
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`.

@@ -19,14 +19,28 @@ vi.mock("../GlobalWrapper", () => ({
 }));
 
 vi.mock("./StandaloneProjectSurfacePage", () => ({
-  StandaloneProjectSurfacePage: () => (
-    <div data-testid="mock-standalone-project-surface-page" />
+  StandaloneProjectSurfacePage: ({
+    renderDictArea,
+  }: {
+    renderDictArea: unknown;
+  }) => (
+    <div
+      data-testid="mock-standalone-project-surface-page"
+      data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
+    />
   ),
 }));
 
 vi.mock("./ShareStandaloneProjectSurfacePage", () => ({
-  ShareStandaloneProjectSurfacePage: () => (
-    <div data-testid="mock-share-standalone-project-surface-page" />
+  ShareStandaloneProjectSurfacePage: ({
+    renderDictArea,
+  }: {
+    renderDictArea: unknown;
+  }) => (
+    <div
+      data-testid="mock-share-standalone-project-surface-page"
+      data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
+    />
   ),
 }));
 
@@ -41,6 +55,7 @@ describe("IdeStandaloneProjectSurfaceRouteElement", () => {
     expect(markup).toContain(
       'data-testid="mock-standalone-project-surface-page"',
     );
+    expect(markup).toContain('data-has-render-dict-area="true"');
   });
 });
 
@@ -57,9 +72,11 @@ describe("buildStandaloneProjectSurfaceRouteElements", () => {
     const launcherMarkup = renderToStaticMarkup(<>{routeElements.launcher}</>);
 
     expect(ideMarkup).toContain('data-testid="mock-global-wrapper"');
+    expect(ideMarkup).toContain('data-has-render-dict-area="true"');
     expect(shareMarkup).toContain(
       'data-testid="mock-share-standalone-project-surface-page"',
     );
+    expect(shareMarkup).toContain('data-has-render-dict-area="true"');
     expect(appMarkup).toContain('data-testid="mock-app-route"');
     expect(launcherMarkup).toContain('data-testid="mock-launcher-route"');
   });
