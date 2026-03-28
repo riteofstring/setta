@@ -4678,3 +4678,34 @@ Record:
     - representative visible labels and controls included `gui`, `ARGS`, `Remove arg`, `Add arg`, `Pin selected args`, `Delete selected args`, `Grid Color`, `Grid Pattern`, `Pan On Scroll`, and `Zoom On Scroll`
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`.
+
+## 2026-03-28 163
+
+- Item: Lift the caller-owned dict-area renderer seam above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx` into its direct higher-level callers.
+- Status: `done`
+- Details:
+  - Raised the standalone page entry seam so `StandaloneProjectSurfacePage.tsx` now owns the shared dict-area renderer above the load boundary:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx`
+  - Raised the share-route entry seam so `ShareStandaloneProjectSurfacePageBoundary.tsx` now owns the same caller-provided dict renderer above `StandaloneProjectSurfacePageWithLoadState`:
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx`
+  - Shrunk `StandaloneProjectSurfacePageLoadBoundary.tsx` down to a pure load/lifecycle pass-through for a caller-owned `renderDictArea(...)` seam instead of owning the renderer inline:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - the standalone section-route dict surface path
+    - the standalone chat/share route path through the same load boundary
+    - the shared `SectionContainerAreaDictBoundary` renderer contract, now supplied by the higher callers instead of the load boundary itself
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - `http://127.0.0.1:3044/settings/section/gui` rendered normally with visible controls including `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Show Grid Lines`, and `Zoom On Scroll`
+    - `http://127.0.0.1:3044/settings/chat` rendered normally after the initial loading shell with visible controls including `Start a new thread`, `New Chat`, `View Threads`, `Project AI Settings`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, and the message composer
+    - no obvious clipping, overlap, or missing content was observed in either route
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` and `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.tsx`, starting with the standalone/share route entry stack before any broad Pixi node drawing lands.

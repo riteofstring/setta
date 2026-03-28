@@ -16,14 +16,11 @@ const hoisted = vi.hoisted(() => ({
   codeMirrorStyleLoaderMock: vi.fn(),
   pluginRuntimeBootstrapMock: vi.fn(),
   routeStateBoundaryMock: vi.fn(),
+  renderDictArea: () => null,
 }));
 
 vi.mock("state/hooks/project", () => ({
   useLoadProjectConfig: () => hoisted.loadProjectConfigResult,
-}));
-
-vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
-  SectionContainerAreaDictBoundary: () => null,
 }));
 
 vi.mock("forks/xyflow/core/utils/mouseLocation", () => ({
@@ -51,7 +48,7 @@ vi.mock("./StandaloneProjectSurfacePageRouteStateBoundary", () => ({
     hoisted.routeStateBoundaryMock({
       doneLoading,
       is404,
-      hasRenderDictArea: Boolean(renderDictArea),
+      renderDictArea,
     });
     return (
       <div data-testid="mock-standalone-project-surface-route-state-boundary" />
@@ -69,6 +66,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     hoisted.codeMirrorStyleLoaderMock.mockClear();
     hoisted.pluginRuntimeBootstrapMock.mockClear();
     hoisted.routeStateBoundaryMock.mockClear();
+    hoisted.renderDictArea = () => null;
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -92,7 +90,11 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={<StandaloneProjectSurfacePageLoadBoundary />}
+              element={
+                <StandaloneProjectSurfacePageLoadBoundary
+                  renderDictArea={hoisted.renderDictArea}
+                />
+              }
             />
           </Routes>
         </MemoryRouter>,
@@ -105,7 +107,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     expect(hoisted.routeStateBoundaryMock).toHaveBeenLastCalledWith({
       doneLoading: false,
       is404: true,
-      hasRenderDictArea: true,
+      renderDictArea: hoisted.renderDictArea,
     });
   });
 
@@ -120,6 +122,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
                 <StandaloneProjectSurfacePageWithLoadState
                   doneLoading
                   is404={false}
+                  renderDictArea={hoisted.renderDictArea}
                 />
               }
             />
@@ -134,7 +137,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     expect(hoisted.routeStateBoundaryMock).toHaveBeenLastCalledWith({
       doneLoading: true,
       is404: false,
-      hasRenderDictArea: true,
+      renderDictArea: hoisted.renderDictArea,
     });
   });
 });

@@ -1,3 +1,5 @@
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import { memo } from "react";
@@ -8,6 +10,12 @@ export type ShareStandaloneProjectSurfacePageShareState = {
   is404: boolean;
 };
 
+function renderShareStandaloneProjectSurfacePageDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
+
 function _ShareStandaloneProjectSurfacePageWithShareState({
   doneLoading,
   is404,
@@ -17,6 +25,7 @@ function _ShareStandaloneProjectSurfacePageWithShareState({
       <StandaloneProjectSurfacePageWithLoadState
         doneLoading={doneLoading}
         is404={is404}
+        renderDictArea={renderShareStandaloneProjectSurfacePageDictArea}
       />
     </ModalContainer>
   );

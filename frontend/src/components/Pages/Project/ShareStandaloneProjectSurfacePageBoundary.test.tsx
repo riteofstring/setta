@@ -37,14 +37,17 @@ vi.mock("./StandaloneProjectSurfacePageLoadBoundary", () => ({
   StandaloneProjectSurfacePageWithLoadState: ({
     doneLoading,
     is404,
+    renderDictArea,
   }: {
     doneLoading: boolean;
     is404: boolean;
+    renderDictArea: unknown;
   }) => (
     <div
       data-testid="mock-standalone-project-surface-page"
       data-done-loading={doneLoading ? "true" : "false"}
       data-is404={is404 ? "true" : "false"}
+      data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
     />
   ),
 }));
@@ -63,6 +66,7 @@ describe("ShareStandaloneProjectSurfacePageBoundary", () => {
     );
     expect(markup).toContain('data-done-loading="true"');
     expect(markup).toContain('data-is404="false"');
+    expect(markup).toContain('data-has-render-dict-area="true"');
   });
 
   it("reuses the same lifted share boundary for caller-supplied share state", () => {
@@ -79,6 +83,7 @@ describe("ShareStandaloneProjectSurfacePageBoundary", () => {
     );
     expect(markup).toContain('data-done-loading="false"');
     expect(markup).toContain('data-is404="true"');
+    expect(markup).toContain('data-has-render-dict-area="true"');
     expect(markup).not.toContain('data-testid="mock-share-wrapper"');
   });
 });
