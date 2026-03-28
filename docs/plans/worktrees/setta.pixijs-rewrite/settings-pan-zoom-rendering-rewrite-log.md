@@ -2287,3 +2287,27 @@ Record:
     - relevant requests returned `200`, including `GET /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the cleanup-first pass on `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx` by extracting the remaining store-backed section-state selector above the new input helper before moving the retained-scene canary higher.
+
+## 2026-03-27 086
+
+- Item: Deepen the live dict-area section boundary by extracting the remaining store-backed section-state selector from `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`.
+- Status: `done`
+- Details:
+  - Added a new pure typed state helper above the existing section input helper:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.test.ts`
+  - Updated `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx` to consume the new helper through a single `useProjectState(...)` selector instead of building the section-state payload and display-name selector inline.
+  - Kept the current non-Pixi DOM path intact while reducing the remaining store-coupled logic in `LiveDictAreaSection`:
+    - the new state helper now owns the deterministic store-backed section payload, including edge input labels, edge output label fallback, selected/style normalization, pinned/unpinned param maps, and display-name collection
+    - the existing input helper still owns the final `LiveDictArea` boundary contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded cleanly and the expected settings shell remained visible, including `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`
+    - the dict/param area rendered normally after the extraction, with representative visible labels and controls including `sectionSizingPolicy`, `backend`, `shortcuts`, `languageServer`, `gui`, `Dict`, `Button Param`, `Code Param`, `Switch Param`, and `Text Param`
+    - representative requests returned `200`, including `GET /__setta__/bootstrap`, `POST /__setta__/bootstrap/consume`, `GET /settings?...`, `GET /index.css`, and `GET /src/App.tsx?...`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionState.ts` boundary into the next higher-level scene-owned boundary above `LiveDictAreaSection` before any broad Pixi node drawing lands.
