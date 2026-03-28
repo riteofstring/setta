@@ -5606,6 +5606,70 @@ Record:
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-route-bundle-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/modeWrappedRouterRouteElements.ts`, starting with `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
 
+## 2026-03-28 191
+
+- Item: Lift the browser-router-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/router.tsx`.
+- Status: `blocked`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so `router.tsx` now owns the default `SectionContainerBoundary` handoff above the browser-router adapter:
+    - `frontend/src/components/Pages/router.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+  - This refactor preserves the intended non-Pixi behavior for:
+    - `router.tsx` now explicitly owning `buildModeWrappedRouterArgs({ SectionBoundary: SectionContainerBoundary })` while still supplying the same `renderDictArea` route-stack input
+    - `modeWrappedBrowserRouter.ts` shrinking into a thinner final adapter that only turns already-built `BuildModeWrappedAppRouteStackArgs` into the browser router
+    - the router tests now pin the lifted seam at `router.tsx` and keep `modeWrappedBrowserRouter.ts` focused on the final route-stack-to-browser-router handoff
+  - Verification completed before the blocker:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/routerModule.test.tsx`
+      - result: passed
+    - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/modeWrappedBrowserRouter.ts src/components/Pages/router.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/routerModule.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+  - Required Chrome DevTools MCP visual verification is still blocked:
+    - an initial fresh-context verifier on the pre-restart runtime could reach `/home`, but the fresh project route stalled in backend initialization instead of reaching a trustworthy steady shell
+    - per the loop recovery rule, attempted one bounded self-recovery with `./aireset.sh`
+    - the restart reassigned the worktree runtime to:
+      - frontend `http://127.0.0.1:3046/`
+      - backend `http://127.0.0.1:8046`
+      - bootstrap `http://127.0.0.1:8046/__setta__/bootstrap#token=...`
+    - `pnpm -C frontend cdp-port` after the restart returned `9267`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .` failed with `Error: No matching Setta sessions found.`
+    - a final fresh-context CDP sub-agent reported that its session did not expose a `chrome-devtools-mcp` server, so it could not perform the required post-restart browser verification on the restarted worktree runtime
+  - Because the post-edit live `/home` plus fresh project-route visual gate could not be completed after the one allowed self-recovery attempt, this slice is not committed in this iteration.
+- Next action:
+  - Retry the required fresh-context Chrome DevTools MCP verification on the restarted `3046/8046` worktree runtime in the next iteration; if the live `/home` and fresh project route render cleanly, then commit this `router.tsx` seam-lift slice.
+
+## 2026-03-28 192
+
+- Item: Complete the browser-router-owned `SectionContainerBoundary` seam lift in `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Kept the top-level section boundary seam lifted one caller higher so `router.tsx` now owns the default `SectionContainerBoundary` handoff above the browser-router adapter:
+    - `frontend/src/components/Pages/router.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+  - This preserves the intended non-Pixi behavior for:
+    - `router.tsx` explicitly owning `buildModeWrappedRouterArgs({ SectionBoundary: SectionContainerBoundary })` while still supplying the same `renderDictArea` route-stack input
+    - `modeWrappedBrowserRouter.ts` staying a thin final adapter that only turns already-built `BuildModeWrappedAppRouteStackArgs` into the browser router
+    - the focused router tests pinning the lifted seam at `router.tsx` while keeping `modeWrappedBrowserRouter.ts` on the final route-stack-to-browser-router handoff
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/routerModule.test.tsx`
+      - result: passed
+    - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/modeWrappedBrowserRouter.ts src/components/Pages/router.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/routerModule.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+      - verified `http://127.0.0.1:3044/home`
+      - created a fresh project from `/home` and verified the resulting live project route `http://127.0.0.1:3044/fine_flame`
+      - both routes rendered cleanly with no obvious clipping, overlap, or missing major content
+      - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-router-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/router.tsx`, starting with `frontend/src/App.tsx`.
+
 ## 2026-03-28 189
 
 - Item: Lift the route-bundle-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.

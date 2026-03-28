@@ -1,22 +1,14 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { createBrowserRouter } from "react-router-dom";
 import type { ModeRouteElements } from "./modeRouteResolver";
+import type { BuildModeWrappedAppRouteStackArgs } from "./modeWrappedAppRouteStack";
 import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
 import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
-import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
-
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: vi.fn(),
-}));
 
 vi.mock("./modeWrappedAppRouteStack", () => ({
   buildModeWrappedAppRouteStack: vi.fn(),
-}));
-vi.mock("./modeWrappedRouterArgs", () => ({
-  buildModeWrappedRouterArgs: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -37,9 +29,9 @@ function createModeRouteElements(label: string): ModeRouteElements {
 }
 
 describe("createModeWrappedBrowserRouter", () => {
-  it("owns the lifted section-boundary seam above modeWrappedRouterArgs.tsx", () => {
-    // The browser-router helper should now own the default section boundary
-    // while still staying on the final route-stack-to-browser-router call.
+  it("owns only the final route-stack-to-browser-router handoff", () => {
+    // The browser-router helper should stay a thin adapter that only turns the
+    // already-built route stack args into react-router routes.
     const builtRouteStack = [
       {
         id: "mock-route",
@@ -61,12 +53,9 @@ describe("createModeWrappedBrowserRouter", () => {
 
     const mockedCreateBrowserRouter = vi.mocked(createBrowserRouter);
     mockedCreateBrowserRouter.mockReturnValue(browserRouter);
-    const mockedBuildModeWrappedRouterArgs = vi.mocked(
-      buildModeWrappedRouterArgs,
-    );
-    const renderDictArea = vi.fn(() => <div data-testid="dict-area" />);
 
-    const routerArgs = {
+    const routeStackArgs: BuildModeWrappedAppRouteStackArgs = {
+      renderDictArea: vi.fn(() => <div data-testid="dict-area" />),
       renderModeElement: (routeElements: ModeRouteElements): ReactNode => (
         <div data-ide-route={routeElements.ide !== null} />
       ),
@@ -81,24 +70,15 @@ describe("createModeWrappedBrowserRouter", () => {
         <div data-testid="standalone-launcher-route" />
       ),
     };
-    mockedBuildModeWrappedRouterArgs.mockReturnValue(routerArgs);
 
-    const router = createModeWrappedBrowserRouter({ renderDictArea });
+    const router = createModeWrappedBrowserRouter(routeStackArgs);
 
     expect(router).toBe(browserRouter);
-    expect(mockedBuildModeWrappedRouterArgs).toHaveBeenCalledOnce();
-    expect(mockedBuildModeWrappedRouterArgs).toHaveBeenCalledWith({
-      SectionBoundary: SectionContainerBoundary,
-    });
     expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledOnce();
-    expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledWith({
-      ...routerArgs,
-      renderDictArea,
-    });
+    expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledWith(
+      routeStackArgs,
+    );
     expect(mockedCreateBrowserRouter).toHaveBeenCalledOnce();
     expect(mockedCreateBrowserRouter).toHaveBeenCalledWith(builtRouteStack);
-
-    const routedArgs = mockedBuildModeWrappedAppRouteStack.mock.calls[0][0];
-    expect(routedArgs.renderDictArea).toBe(renderDictArea);
   });
 });
