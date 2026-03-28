@@ -185,4 +185,4 @@ Keyboard navigation works when the list has focus.
 - Path-navigation helpers: `frontend/src/utils/fileBrowserNavigation.ts`
 - State: `frontend/src/state/definitions.ts`
 - Open file flow: `frontend/src/state/actions/sections/createSections.ts`
-- Backend routes: `backend/setta/routers/artifact.py`
+- Backend routes/services: `internal/httpapi/filebrowser_routes.go`, `internal/filebrowser/service.go`
