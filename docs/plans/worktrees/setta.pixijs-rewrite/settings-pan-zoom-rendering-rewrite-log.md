@@ -1445,3 +1445,31 @@ Record:
     - no console errors were reported, and relevant backend requests returned `200`, including `GET/POST /api/getAgentRuns`, `POST /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node renderer work by using `groupContainerNodeDomPacket.ts` as the single live DOM/scene handoff boundary and start the first scene-owned canary that consumes that deeper node packet before any broad Pixi node drawing lands.
+
+## 2026-03-27 055
+
+- Item: Extract the edge-strip block into the first block-specific DOM helper above `groupContainerNodeDomPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed DOM-packet helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripDomPacket.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripDomPacket.test.ts`
+  - Updated the higher-level node DOM packet boundary to compose through the new edge-strip helper instead of passing the edge-strip mount packet through unchanged:
+    - `frontend/src/components/Params/groupContainerNodeDomPacket.ts`
+  - Updated the production non-Pixi `GroupContainer` edge-strip mount site to consume the new DOM-specific edge-strip packet type while keeping the current DOM path unchanged:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip mount block into one explicit DOM packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node DOM packet as a composition boundary instead of a mixed composition-plus-edge-strip-shaping module
+    - leaving the current DOM edge-strip surface intact while deepening the future retained-scene DOM handoff contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripDomPacket.test.ts src/components/Params/groupContainerNodeDomPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `All Settings` stayed visible and the settings shell plus dict/param area rendered normally after the new edge-strip DOM packet extraction
+    - representative visible labels and controls included `OVERVIEW`, `settings`, `Filter`, tag rows `shortcuts`, `backend`, `sectionSizingPolicy`, `gui`, and `languageServer`, bottom tabs `Core`, `Section Defaults...`, `Param Defaults`, and `All Settings`, settings rows such as `Text Param`, `Time Param`, `Grid Color`, `Pan On Drag`, and `Zoom On Scroll`, plus edge-related controls `toggle agentic edges`, `toggle arg edges`, `toggle shared chat edge mode`, `Add arg`, `Remove arg`, and `Convert to edge connectors`
+    - relevant requests returned `200`, including `GET /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `OPTIONS /api/loadProjectConfig`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific DOM helper from `groupContainerNodeDomPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.

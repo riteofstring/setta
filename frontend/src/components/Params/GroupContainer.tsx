@@ -52,7 +52,7 @@ import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import {
   buildLiveDictAreaNodeDomPacket,
-  type LiveDictAreaEdgeStripMountPacket,
+  type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaMountPacket,
   type LiveDictAreaUnpinnedParamAreaMountPacket,
 } from "./groupContainerNodeDomPacket";
@@ -556,7 +556,7 @@ function EdgesStrip({
   domPacket,
 }: {
   sectionId: string;
-  domPacket: LiveDictAreaEdgeStripMountPacket;
+  domPacket: LiveDictAreaEdgeStripDomPacket;
 }) {
   const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
     domPacket;
