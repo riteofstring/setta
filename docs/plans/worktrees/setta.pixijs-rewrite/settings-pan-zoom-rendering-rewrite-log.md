@@ -765,3 +765,30 @@ Record:
       - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work from this block-frame-driven mount path, starting with the next bounded scene-owned dict-area block step before broad Pixi node drawing lands.
+
+## 2026-03-26 030
+
+- Item: Normalize the ordered dict-area block frames into explicit scene block kinds for the live mount path.
+- Status: `done`
+- Details:
+  - Added a pure typed scene-block view above the ordered block-frame packets so the retained-scene mount path no longer has to branch directly on raw block-frame unions:
+    - `frontend/src/components/Params/groupContainerSceneBlockView.ts`
+    - `frontend/src/components/Params/groupContainerSceneBlockView.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new explicit edge/pinned/unpinned scene block kinds instead of branching directly on `liveDictAreaNodeLayoutView.blockFrames`:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - normalizing the ordered block frames into explicit scene block kinds with stable mount metadata
+    - deriving the same pinned/unpinned `maxNestedDepth` totals from the surviving block set
+    - keeping the current DOM edge-strip and pinned/unpinned param-area surfaces intact while deepening the retained-scene mount contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerSceneBlockView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - reused an already-authenticated tab instead of the bootstrap URL
+    - `All Settings` was visible and the dict/param area still rendered normally
+    - representative visible labels and controls included `Filter`, `Param Defaults`, `All Settings`, `minHeight`, `minWidth`, `Size Mode Height`, and `Size Mode Width`
+    - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first scene-native block renderer packet from this normalized dict-area scene block view before any broad Pixi node drawing lands.

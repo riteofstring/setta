@@ -58,6 +58,7 @@ import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
 import {
   buildLiveDictAreaNodeLayoutView,
 } from "./groupContainerNodeLayoutView";
+import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
 import type {
   DictAreaBlockFrameMountPacket,
   LiveDictAreaEdgeStripFramePacket,
@@ -311,20 +312,17 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
-  const liveDictAreaBlockFrames = liveDictAreaNodeLayoutView.blockFrames;
-  const pinnedFramePacket = liveDictAreaNodeLayoutView.pinnedParamAreaFrame;
-  const unpinnedFramePacket = liveDictAreaNodeLayoutView.unpinnedParamAreaFrame;
+  const liveDictAreaSceneBlockView = useMemo(
+    () =>
+      buildLiveDictAreaSceneBlockView({
+        nodeLayoutView: liveDictAreaNodeLayoutView,
+      }),
+    [liveDictAreaNodeLayoutView],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth({
-      pinned: pinnedFramePacket?.maxNestedDepth ?? 0,
-      unpinned: unpinnedFramePacket?.maxNestedDepth ?? 0,
-    });
-  }, [
-    pinnedFramePacket?.maxNestedDepth,
-    setMaxNestedDepth,
-    unpinnedFramePacket?.maxNestedDepth,
-  ]);
+    setMaxNestedDepth(liveDictAreaSceneBlockView.maxNestedDepth);
+  }, [liveDictAreaSceneBlockView.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -337,24 +335,24 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaBlockFrames.map((blockFrame) => {
-          if (blockFrame.kind === "edge-strip") {
+        {liveDictAreaSceneBlockView.blocks.map((block) => {
+          if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
-                key={blockFrame.frame.frameId}
+                key={block.mount.frameId}
                 sectionId={sectionId}
                 bgColor={bgColor}
-                framePacket={blockFrame}
+                framePacket={block.framePacket}
               />
             );
           }
 
-          if (blockFrame.id === "pinned") {
+          if (block.kind === "pinned-param-area") {
             return (
               <GetPinnedParams
-                key={blockFrame.frame.frameId}
+                key={block.mount.frameId}
                 sectionId={sectionId}
-                framePacket={blockFrame}
+                framePacket={block.framePacket}
                 handleColumnResizeStart={handleColumnResizeStart}
                 positionAndSizeLocked={positionAndSizeLocked}
                 sectionTypeName={sectionTypeName}
@@ -365,9 +363,9 @@ function _ParamGroupContainer({
 
           return (
             <GetUnpinnedParams
-              key={blockFrame.frame.frameId}
+              key={block.mount.frameId}
               sectionId={sectionId}
-              framePacket={blockFrame}
+              framePacket={block.framePacket}
               handleColumnResizeStart={handleColumnResizeStart}
               styleColor={styleColor}
             />
