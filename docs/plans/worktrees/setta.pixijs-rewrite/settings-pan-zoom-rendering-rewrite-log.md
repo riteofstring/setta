@@ -1530,3 +1530,30 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, and the Vite module requests for `groupContainerNodeDomPacket.ts` and `groupContainerUnpinnedParamAreaDomPacket.ts`
 - Next action:
   - Continue the first retained-scene node renderer work by using the fully block-specific `groupContainerNodeDomPacket.ts` boundary as the handoff for the first scene-owned canary consumer above the live DOM path before any broad Pixi node drawing lands.
+
+## 2026-03-27 058
+
+- Item: Compose the first scene-owned canary consumer above `groupContainerNodeDomPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-packet helper above the fully block-specific node DOM boundary:
+    - `frontend/src/components/Params/groupContainerNodeCanaryPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanaryPacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` mount path to consume the new node canary packet instead of stitching the surface packet and DOM packet chain inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - uses `groupContainerNodeDomPacket.ts` as the single DOM handoff boundary for the first scene-owned canary consumer
+    - pairs each surviving edge-strip, pinned, and unpinned DOM block with its matching scene payload from the node scene packet
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while exposing a deeper canary contract above the live DOM path
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeCanaryPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in the authenticated worktree session with `All Settings` visible
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, `GET /api/serverMode`, and `GET /api/getAgentRuns`
+    - the bootstrap token attempt on `http://127.0.0.1:8044/__setta__/bootstrap#token=...` returned `401`, but the existing browser session stayed authenticated during verification
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first block-specific canary helper from `groupContainerNodeCanaryPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.

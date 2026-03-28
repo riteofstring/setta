@@ -51,13 +51,12 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import {
-  buildLiveDictAreaNodeDomPacket,
+  buildLiveDictAreaNodeCanaryPacket,
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaDomPacket,
-} from "./groupContainerNodeDomPacket";
+} from "./groupContainerNodeCanaryPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
-import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
@@ -335,9 +334,9 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
-  const liveDictAreaNodeSurfacePacket = useMemo(
+  const liveDictAreaNodeCanaryPacket = useMemo(
     () =>
-      buildLiveDictAreaNodeSurfacePacket({
+      buildLiveDictAreaNodeCanaryPacket({
         bgColor,
         nodeScenePacket: liveDictAreaNodeScenePacket,
         positionAndSizeLocked,
@@ -352,17 +351,10 @@ function _ParamGroupContainer({
       styleColor,
     ],
   );
-  const liveDictAreaNodeDomPacket = useMemo(
-    () =>
-      buildLiveDictAreaNodeDomPacket({
-        nodeSurfacePacket: liveDictAreaNodeSurfacePacket,
-      }),
-    [liveDictAreaNodeSurfacePacket],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeDomPacket.maxNestedDepth);
-  }, [liveDictAreaNodeDomPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeCanaryPacket.maxNestedDepth);
+  }, [liveDictAreaNodeCanaryPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -375,13 +367,13 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeDomPacket.domBlocks.map((block) => {
+        {liveDictAreaNodeCanaryPacket.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
-                key={block.mount.frameId}
+                key={block.domPacket.mount.frameId}
                 sectionId={sectionId}
-                domPacket={block}
+                domPacket={block.domPacket}
               />
             );
           }
@@ -389,9 +381,9 @@ function _ParamGroupContainer({
           if (block.kind === "pinned-param-area") {
             return (
               <GetPinnedParams
-                key={block.mount.frameId}
+                key={block.domPacket.mount.frameId}
                 sectionId={sectionId}
-                domPacket={block}
+                domPacket={block.domPacket}
                 handleColumnResizeStart={handleColumnResizeStart}
               />
             );
@@ -399,9 +391,9 @@ function _ParamGroupContainer({
 
           return (
             <GetUnpinnedParams
-              key={block.mount.frameId}
+              key={block.domPacket.mount.frameId}
               sectionId={sectionId}
-              domPacket={block}
+              domPacket={block.domPacket}
               handleColumnResizeStart={handleColumnResizeStart}
             />
           );
