@@ -41,7 +41,6 @@ class C:
     # Basic configuration
     DEFAULT_HOST = "127.0.0.1"
     DEFAULT_PORT = 8000
-    SETTINGS_PROJECT_NAME = "settings"
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
@@ -64,80 +63,13 @@ class C:
                 AUTH_COOKIE_NAME,
             )
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12
-    AUTH_COOKIE_REFRESH_WINDOW_SECONDS = 60 * 60
-    AUTH_COOKIE_SAMESITE = "lax"
-    AUTH_COOKIE_SECURE = False
     BOOTSTRAP_TOKEN_TTL_SECONDS = 60 * 10
     LAUNCH_INTENT_TOKEN_TTL_SECONDS = 60 * 5
     SESSION_SECRET_BYTES = 32
 
-    # WebSocket message types
-    WS_TERMINAL_RESIZE = "terminalResize"
-    SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
-
-    BINARY_TTL_SECONDS = int(os.environ.get("SETTA_BINARY_TTL_SECONDS", "21600") or 0)
-    BINARY_UPLOAD_MAX_BYTES = int(
-        os.environ.get("SETTA_BINARY_UPLOAD_MAX_BYTES", str(32 * 1024 * 1024)) or 0
-    )
-    BINARY_CLEANUP_INTERVAL_SECONDS = int(
-        os.environ.get("SETTA_BINARY_CLEANUP_INTERVAL_SECONDS", "60") or 0
-    )
-    BINARY_CLEANUP_WRITE_INTERVAL = int(
-        os.environ.get("SETTA_BINARY_CLEANUP_WRITE_INTERVAL", "50") or 0
-    )
     REALTIME_BINARY_MAX_BYTES = int(
         os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
     )
-    TRANSCRIPTION_FILE_SESSION_MAX_BYTES = int(
-        os.environ.get(
-            "SETTA_TRANSCRIPTION_FILE_SESSION_MAX_BYTES", str(25 * 1024 * 1024)
-        )
-        or 0
-    )
-
-    # Allowed artifact types
-    ALLOWED_ARTIFACT_TYPES = {
-        "DRAW": ["img", "brushStrokes"],
-        "IMAGE": ["img"],
-        "CHART": ["list"],
-        "CHAT": ["chatHistory"],
-    }
-
-    CHAT_ATTACHMENTS_MAX_FILES = 10
-    CHAT_ATTACHMENTS_MAX_FILE_BYTES = 25 * 1024 * 1024
-    CHAT_ATTACHMENTS_MAX_FILE_LABEL = (
-        f"{CHAT_ATTACHMENTS_MAX_FILE_BYTES // (1024 * 1024)} MB"
-    )
-    CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: list[str] = []
-    CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS = 60 * 10
-    DROPZONE_STATEFUL_MAX_FILE_BYTES = 25 * 1024 * 1024
-    DROPZONE_STATEFUL_MAX_FILE_LABEL = (
-        f"{DROPZONE_STATEFUL_MAX_FILE_BYTES // (1024 * 1024)} MB"
-    )
-    DROPZONE_STATELESS_MAX_FILE_BYTES = 5 * 1024 * 1024
-    DROPZONE_STATELESS_MAX_FILE_LABEL = (
-        f"{DROPZONE_STATELESS_MAX_FILE_BYTES // (1024 * 1024)} MB"
-    )
-    DROPZONE_STATELESS_MAX_TOTAL_BYTES = 16 * 1024 * 1024
-    DROPZONE_STATELESS_MAX_TOTAL_LABEL = (
-        f"{DROPZONE_STATELESS_MAX_TOTAL_BYTES // (1024 * 1024)} MB"
-    )
-    DROPZONE_ALLOWED_MIME_PREFIXES: list[str] = []
-
-    NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS"
-
-    # LLM roles and types
-    LLM_TEXT = "text"
-    LLM_THINKING = "thinking"
-
-    MCP_SETTA_STATE_ARG_NAME = "setta_state"
-    SEARCH_MCP_TOOLS_NAME = "search_mcp_tools"
-    MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden"
-    SETTA_MCP_PARAM_NAMES = [
-        MCP_SETTA_STATE_ARG_NAME,
-    ]
-    GEN_CODE_SEPARATOR_NEWLINES = 2
-    EDGE_OUTPUT_BASE_LABEL = "value"
 
     @classproperty
     def BACKEND(cls):

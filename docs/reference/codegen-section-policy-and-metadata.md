@@ -125,7 +125,7 @@ this file as:
 <genCodeSuffix>
 ```
 
-Two blank lines separate each block (`GEN_CODE_SEPARATOR_NEWLINES = 2`).
+Two blank lines separate each block.
 
 The generated body is a `SettaState` wrapper class with assignments in
 `__init__`:

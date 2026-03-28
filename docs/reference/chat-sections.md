@@ -93,9 +93,9 @@ Scriptable mode keeps chat state inside the section:
 
 - Chat inputs support file attachments (drag/drop, Attach button, and the Project picker in IDE mode).
 - Attachments are stored as File artifacts; messages and send payloads carry `attachments` metadata (`id`, `name`, `mimeType`, `size`).
-- Limits use the shared attachment policy scope `chat`, driven by `C.CHAT_ATTACHMENTS_MAX_FILES` (0 disables, negative = unlimited), `C.CHAT_ATTACHMENTS_MAX_FILE_BYTES`, and `C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES`.
+- Limits use the shared attachment policy scope `chat`: max files, max bytes per file, and optional MIME-prefix filtering.
 - In share mode, attachments require `allowParamChanges`; the UI disables attachment actions and the backend enforces the same policy on artifact updates.
-- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after `C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS`.
+- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after the shared attachment-token TTL.
 - The chat UI previews attachments in-place; clicking an attachment opens a preview dialog (images, text, PDF, audio, video). Large files may be truncated or show a "preview unavailable" message.
 - Managed mode inlines attachments into the LLM prompt: text files are inserted as `[Attachment: ...]` blocks, supported images (JPEG/PNG/GIF/WebP) are embedded as data URLs, and other files are represented by metadata placeholders.
 - Unsupported image types are rejected client-side and skipped during attachment import.

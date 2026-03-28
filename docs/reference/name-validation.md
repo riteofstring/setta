@@ -36,8 +36,8 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 - `..` path segments are disallowed.
 - Only letters, numbers, spaces, `_`, and `-` are allowed.
 - Reserved names:
-  - Project: `home` and the Settings project name (`C.SETTINGS_PROJECT_NAME`).
-  - View mode: `home` and the Settings project name (`C.SETTINGS_PROJECT_NAME`).
+  - Project: `home` and the Settings project name (`settings`).
+  - View mode: `home` and the Settings project name (`settings`).
   - Section: currently none (empty reserved list).
 
 ## Project Names

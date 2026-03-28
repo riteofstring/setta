@@ -51,7 +51,7 @@ Relevant code:
 - Draw sections emit binary snapshots via
   `sendRealtimeSectionBinary` -> `WebsocketMsgRealtimeUIChange` with a binary
   websocket frame.
-- If a snapshot exceeds `C.REALTIME_BINARY_MAX_BYTES`, the frontend uploads it
+- If a snapshot exceeds the realtime binary size limit, the frontend uploads it
   via `route_binary_upload` (durable=false) and sends a `BinaryDependencyValue`
   without a binary frame. Listeners receive only metadata and can load bytes
   from the binary store via the `contentId` if needed.
