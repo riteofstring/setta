@@ -150,62 +150,23 @@ type CodeMirrorCompletion lspcompletion.CodeMirrorCompletion
 
 type CodeMirrorCompletionResponse []CodeMirrorCompletion
 
-type CreateNewSectionVariantRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-}
+type CreateNewSectionVariantRequestInput httpapi.CreateNewSectionVariantRequest
 
 type CreateNewSectionVariantResponse projectstate.CreateNewSectionVariantResult
 
-type SetSectionVariantRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	VariantID       string  `json:"variantId"`
-}
+type SetSectionVariantRequestInput httpapi.SetSectionVariantRequest
 
-type SetDefaultSectionVariantRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	VariantID       string  `json:"variantId"`
-}
+type SetDefaultSectionVariantRequestInput httpapi.SetDefaultSectionVariantRequest
 
-type SetSectionVariantSortOrderRequestInput struct {
-	FrontendOpID      *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID   string   `json:"projectConfigId"`
-	SectionID         string   `json:"sectionId"`
-	OrderedVariantIDs []string `json:"orderedVariantIds"`
-}
+type SetSectionVariantSortOrderRequestInput httpapi.SetSectionVariantSortOrderRequest
 
-type ToggleVariantFrozenRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	VariantID       string  `json:"variantId"`
-}
+type ToggleVariantFrozenRequestInput httpapi.ToggleVariantFrozenRequest
 
-type ToggleVariantJSONSourceRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	VariantID       string  `json:"variantId"`
-}
+type ToggleVariantJSONSourceRequestInput httpapi.ToggleVariantJSONSourceRequest
 
-type SetVariantJSONSourceKeysRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	VariantID       string   `json:"variantId"`
-	JSONSourceKeys  []string `json:"jsonSourceKeys"`
-}
+type SetVariantJSONSourceKeysRequestInput httpapi.SetVariantJSONSourceKeysRequest
 
-type SetSectionVariantNameRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	VariantID       string  `json:"variantId"`
-	Name            string  `json:"name"`
-}
+type SetSectionVariantNameRequestInput httpapi.SetSectionVariantNameRequest
 
 type DeleteSectionVariantOrAskResponse string
 
@@ -232,18 +193,9 @@ type DeleteChildSectionsViaDecrementerRequestInput httpapi.DeleteChildSectionsVi
 
 type DeleteChildSectionsViaDecrementerResponse projectstate.DeleteSectionsResult
 
-type DeleteSectionsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionIDs      []string `json:"sectionIds"`
-}
+type DeleteSectionsRequestInput httpapi.DeleteSectionsRequest
 
-type DeleteSelectedParamsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	ParamInfoIDs    []string `json:"paramInfoIds"`
-}
+type DeleteSelectedParamsRequestInput httpapi.DeleteSelectedParamsRequest
 
 type PrepareSectionsForCopyRequestInput httpapi.PrepareSectionsForCopyRequest
 
@@ -269,35 +221,13 @@ type CreateEdgeRequestInput struct {
 	Data            map[string]any `json:"data,omitempty"`
 }
 
-type UpdateEdgeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	Edge            Edge    `json:"edge"`
-}
+type UpdateEdgeRequestInput httpapi.UpdateEdgeRequest
 
-type DeleteEdgesRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	EdgeIDs         []string `json:"edgeIds"`
-}
+type DeleteEdgesRequestInput httpapi.DeleteEdgesRequest
 
-type ReconnectEdgeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	EdgeID          string  `json:"edgeId"`
-	SourceSectionID string  `json:"sourceSectionId"`
-	SourceVariantID string  `json:"sourceVariantId"`
-	SourcePortID    string  `json:"sourcePortId"`
-	TargetSectionID string  `json:"targetSectionId"`
-	TargetVariantID string  `json:"targetVariantId"`
-	TargetPortID    string  `json:"targetPortId"`
-}
+type ReconnectEdgeRequestInput httpapi.ReconnectEdgeRequest
 
-type SetEdgesRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	Edges           []Edge  `json:"edges"`
-}
+type SetEdgesRequestInput httpapi.SetEdgesRequest
 
 type CreateStateMachineEdgeRequestInput struct {
 	FrontendOpID                   *string                                     `json:"frontendOpId,omitempty"`
@@ -317,23 +247,11 @@ type CreateStateMachineEdgeRequestInput struct {
 	Selected                       *bool                                       `json:"selected,omitempty"`
 }
 
-type UpdateStateMachineEdgeRequestInput struct {
-	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
-	ProjectConfigID string           `json:"projectConfigId"`
-	Edge            StateMachineEdge `json:"edge"`
-}
+type UpdateStateMachineEdgeRequestInput httpapi.UpdateStateMachineEdgeRequest
 
-type DeleteStateMachineEdgesRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	EdgeIDs         []string `json:"edgeIds"`
-}
+type DeleteStateMachineEdgesRequestInput httpapi.DeleteStateMachineEdgesRequest
 
-type SetStateMachineEdgesRequestInput struct {
-	FrontendOpID    *string            `json:"frontendOpId,omitempty"`
-	ProjectConfigID string             `json:"projectConfigId"`
-	Edges           []StateMachineEdge `json:"edges"`
-}
+type SetStateMachineEdgesRequestInput httpapi.SetStateMachineEdgesRequest
 
 type CreateAgenticEdgeRequestInput struct {
 	FrontendOpID    *string                 `json:"frontendOpId,omitempty"`
@@ -348,127 +266,41 @@ type CreateAgenticEdgeRequestInput struct {
 	ZIndex          *int                    `json:"zIndex,omitempty"`
 }
 
-type UpdateAgenticEdgeRequestInput struct {
-	FrontendOpID    *string     `json:"frontendOpId,omitempty"`
-	ProjectConfigID string      `json:"projectConfigId"`
-	Edge            AgenticEdge `json:"edge"`
-}
+type UpdateAgenticEdgeRequestInput httpapi.UpdateAgenticEdgeRequest
 
-type DeleteAgenticEdgesRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	EdgeIDs         []string `json:"edgeIds"`
-}
+type DeleteAgenticEdgesRequestInput httpapi.DeleteAgenticEdgesRequest
 
-type SetAgenticEdgesRequestInput struct {
-	FrontendOpID    *string       `json:"frontendOpId,omitempty"`
-	ProjectConfigID string        `json:"projectConfigId"`
-	Edges           []AgenticEdge `json:"edges"`
-}
+type SetAgenticEdgesRequestInput httpapi.SetAgenticEdgesRequest
 
-type MoveSectionsRequestInput struct {
-	FrontendOpID    *string             `json:"frontendOpId,omitempty"`
-	ProjectConfigID string              `json:"projectConfigId"`
-	SectionIDs      []string            `json:"sectionIds"`
-	NewParentID     *string             `json:"newParentId"`
-	NewIndex        *int                `json:"newIndex"`
-	PositionsByID   map[string]Position `json:"positionsById"`
-}
+type MoveSectionsRequestInput httpapi.MoveSectionsRequest
 
-type MoveParamGroup struct {
-	ParamIDs    []string `json:"paramIds"`
-	NewParentID string   `json:"newParentId"`
-	NewIndex    int      `json:"newIndex"`
-}
+type MoveParamGroup httpapi.MoveParamGroupRequest
 
-type MoveParamsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	ParamIDs        []string `json:"paramIds"`
-	NewParentID     string   `json:"newParentId"`
-	NewIndex        int      `json:"newIndex"`
-}
+type MoveParamsRequestInput httpapi.MoveParamsRequest
 
-type MoveParamGroupsRequestInput struct {
-	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
-	ProjectConfigID string           `json:"projectConfigId"`
-	SectionID       string           `json:"sectionId"`
-	Moves           []MoveParamGroup `json:"moves"`
-}
+type MoveParamGroupsRequestInput httpapi.MoveParamGroupsRequest
 
-type IndentParamsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	ParamIDs        []string `json:"paramIds"`
-}
+type IndentParamsRequestInput httpapi.IndentParamsRequest
 
-type UnindentParamsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionID       string   `json:"sectionId"`
-	ParamIDs        []string `json:"paramIds"`
-}
+type UnindentParamsRequestInput httpapi.UnindentParamsRequest
 
-type AddKwargRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	SectionID       string `json:"sectionId"`
-}
+type AddKwargRequestInput httpapi.AddKwargRequest
 
-type DeleteKwargRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	SectionID       string `json:"sectionId"`
-}
+type DeleteKwargRequestInput httpapi.DeleteKwargRequest
 
-type SetParamEnteredValueRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	SectionID       string  `json:"sectionId"`
-	ParamInfoID     string  `json:"paramInfoId"`
-	Value           string  `json:"value"`
-}
+type SetParamEnteredValueRequestInput httpapi.SetParamEnteredValueRequest
 
-type UpdateParamImplConfigRequestInput struct {
-	FrontendOpID    *string        `json:"frontendOpId,omitempty"`
-	ProjectConfigID string         `json:"projectConfigId"`
-	SectionID       string         `json:"sectionId"`
-	ParamInfoID     string         `json:"paramInfoId"`
-	NewConfig       map[string]any `json:"newConfig"`
-}
+type UpdateParamImplConfigRequestInput httpapi.UpdateParamImplConfigRequest
 
-type SetCodeSectionAttachedTerminalRequestInput struct {
-	FrontendOpID      *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID   string  `json:"projectConfigId"`
-	SectionID         string  `json:"sectionId"`
-	TerminalSectionID *string `json:"terminalSectionId,omitempty"`
-}
+type SetCodeSectionAttachedTerminalRequestInput httpapi.SetCodeSectionAttachedTerminalRequest
 
-type SetGenCodePrefixRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	GenCodePrefix   string  `json:"genCodePrefix"`
-}
+type SetGenCodePrefixRequestInput httpapi.SetGenCodePrefixRequest
 
-type SetGenCodeSuffixRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	GenCodeSuffix   string  `json:"genCodeSuffix"`
-}
+type SetGenCodeSuffixRequestInput httpapi.SetGenCodeSuffixRequest
 
-type SetCodeObjNameRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	CodeObjID       string  `json:"codeObjId"`
-	Name            string  `json:"name"`
-}
+type SetCodeObjNameRequestInput httpapi.SetCodeObjNameRequest
 
-type SetCodeObjDisplayNameRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	CodeObjID       string  `json:"codeObjId"`
-	DisplayName     string  `json:"displayName"`
-}
+type SetCodeObjDisplayNameRequestInput httpapi.SetCodeObjDisplayNameRequest
 
 type Position projectstate.Position
 
@@ -658,18 +490,9 @@ type SetStateMachineSectionSettingsRequestInput struct {
 	GateType        *StateMachineGateType `json:"gateType,omitempty"`
 }
 
-type SetWatchCodeEnabledRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	Enabled         bool    `json:"enabled"`
-}
+type SetWatchCodeEnabledRequestInput httpapi.SetWatchCodeEnabledRequest
 
-type SetWatchCodeInputsRequestInput struct {
-	FrontendOpID     *string           `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string            `json:"projectConfigId"`
-	WatchCodeFolders []WatchCodeFolder `json:"watchCodeFolders"`
-	WatchCodeFiles   []string          `json:"watchCodeFiles"`
-}
+type SetWatchCodeInputsRequestInput httpapi.SetWatchCodeInputsRequest
 
 type GroupSectionsRequestInput httpapi.GroupSectionsRequest
 

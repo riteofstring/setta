@@ -488,6 +488,44 @@ That means:
     - `SetAsDefaultProjectRequestInput -> httpapi.SetDefaultProjectConfigRequest`
     - `GetNotificationsRequestInput -> httpapi.GetNotificationsRequest`
     - `DeleteNotificationRequestInput -> httpapi.DeleteNotificationRequest`
+  - a larger exact project-mutation request block now also points at `httpapi` owners instead of mirrored `project_state_support.go` structs:
+    - `CreateNewSectionVariantRequestInput -> httpapi.CreateNewSectionVariantRequest`
+    - `SetSectionVariantRequestInput -> httpapi.SetSectionVariantRequest`
+    - `SetDefaultSectionVariantRequestInput -> httpapi.SetDefaultSectionVariantRequest`
+    - `SetSectionVariantSortOrderRequestInput -> httpapi.SetSectionVariantSortOrderRequest`
+    - `ToggleVariantFrozenRequestInput -> httpapi.ToggleVariantFrozenRequest`
+    - `ToggleVariantJSONSourceRequestInput -> httpapi.ToggleVariantJSONSourceRequest`
+    - `SetVariantJSONSourceKeysRequestInput -> httpapi.SetVariantJSONSourceKeysRequest`
+    - `SetSectionVariantNameRequestInput -> httpapi.SetSectionVariantNameRequest`
+    - `DeleteSectionsRequestInput -> httpapi.DeleteSectionsRequest`
+    - `DeleteSelectedParamsRequestInput -> httpapi.DeleteSelectedParamsRequest`
+    - `UpdateEdgeRequestInput -> httpapi.UpdateEdgeRequest`
+    - `DeleteEdgesRequestInput -> httpapi.DeleteEdgesRequest`
+    - `ReconnectEdgeRequestInput -> httpapi.ReconnectEdgeRequest`
+    - `SetEdgesRequestInput -> httpapi.SetEdgesRequest`
+    - `UpdateStateMachineEdgeRequestInput -> httpapi.UpdateStateMachineEdgeRequest`
+    - `DeleteStateMachineEdgesRequestInput -> httpapi.DeleteStateMachineEdgesRequest`
+    - `SetStateMachineEdgesRequestInput -> httpapi.SetStateMachineEdgesRequest`
+    - `UpdateAgenticEdgeRequestInput -> httpapi.UpdateAgenticEdgeRequest`
+    - `DeleteAgenticEdgesRequestInput -> httpapi.DeleteAgenticEdgesRequest`
+    - `SetAgenticEdgesRequestInput -> httpapi.SetAgenticEdgesRequest`
+    - `MoveSectionsRequestInput -> httpapi.MoveSectionsRequest`
+    - `MoveParamGroup -> httpapi.MoveParamGroupRequest`
+    - `MoveParamsRequestInput -> httpapi.MoveParamsRequest`
+    - `MoveParamGroupsRequestInput -> httpapi.MoveParamGroupsRequest`
+    - `IndentParamsRequestInput -> httpapi.IndentParamsRequest`
+    - `UnindentParamsRequestInput -> httpapi.UnindentParamsRequest`
+    - `AddKwargRequestInput -> httpapi.AddKwargRequest`
+    - `DeleteKwargRequestInput -> httpapi.DeleteKwargRequest`
+    - `SetParamEnteredValueRequestInput -> httpapi.SetParamEnteredValueRequest`
+    - `UpdateParamImplConfigRequestInput -> httpapi.UpdateParamImplConfigRequest`
+    - `SetCodeSectionAttachedTerminalRequestInput -> httpapi.SetCodeSectionAttachedTerminalRequest`
+    - `SetGenCodePrefixRequestInput -> httpapi.SetGenCodePrefixRequest`
+    - `SetGenCodeSuffixRequestInput -> httpapi.SetGenCodeSuffixRequest`
+    - `SetCodeObjNameRequestInput -> httpapi.SetCodeObjNameRequest`
+    - `SetCodeObjDisplayNameRequestInput -> httpapi.SetCodeObjDisplayNameRequest`
+    - `SetWatchCodeEnabledRequestInput -> httpapi.SetWatchCodeEnabledRequest`
+    - `SetWatchCodeInputsRequestInput -> httpapi.SetWatchCodeInputsRequest`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

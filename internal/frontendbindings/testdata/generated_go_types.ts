@@ -4102,7 +4102,7 @@ export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
 
 
 export type CreateNewSectionVariantRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -4120,7 +4120,7 @@ export function createCreateNewSectionVariantResponse(options: Partial<CreateNew
 
 
 export type SetSectionVariantRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4131,7 +4131,7 @@ export function createSetSectionVariantRequestInput(options: Partial<SetSectionV
 
 
 export type SetDefaultSectionVariantRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4142,7 +4142,7 @@ export function createSetDefaultSectionVariantRequestInput(options: Partial<SetD
 
 
 export type SetSectionVariantSortOrderRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   orderedVariantIds: Array<string>;
@@ -4153,7 +4153,7 @@ export function createSetSectionVariantSortOrderRequestInput(options: Partial<Se
 
 
 export type ToggleVariantFrozenRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   variantId: string;
 };
@@ -4163,7 +4163,7 @@ export function createToggleVariantFrozenRequestInput(options: Partial<ToggleVar
 
 
 export type ToggleVariantJSONSourceRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4174,7 +4174,7 @@ export function createToggleVariantJSONSourceRequestInput(options: Partial<Toggl
 
 
 export type SetVariantJSONSourceKeysRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4186,7 +4186,7 @@ export function createSetVariantJSONSourceKeysRequestInput(options: Partial<SetV
 
 
 export type SetSectionVariantNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   variantId: string;
   name: string;
@@ -4252,7 +4252,7 @@ export function createDeleteChildSectionsViaDecrementerResponse(options: Partial
 
 
 export type DeleteSectionsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
@@ -4262,7 +4262,7 @@ export function createDeleteSectionsRequestInput(options: Partial<DeleteSections
 
 
 export type DeleteSelectedParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoIds: Array<string>;
@@ -4486,7 +4486,7 @@ export function createMoveParamGroup(options: Partial<MoveParamGroup> = {}): Mov
 
 
 export type MoveParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -4499,7 +4499,7 @@ export function createMoveParamsRequestInput(options: Partial<MoveParamsRequestI
 
 
 export type MoveParamGroupsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   moves: Array<MoveParamGroup>;
@@ -4510,7 +4510,7 @@ export function createMoveParamGroupsRequestInput(options: Partial<MoveParamGrou
 
 
 export type IndentParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -4521,7 +4521,7 @@ export function createIndentParamsRequestInput(options: Partial<IndentParamsRequ
 
 
 export type UnindentParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -4550,7 +4550,7 @@ export function createDeleteKwargRequestInput(options: Partial<DeleteKwargReques
 
 
 export type SetParamEnteredValueRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -4562,7 +4562,7 @@ export function createSetParamEnteredValueRequestInput(options: Partial<SetParam
 
 
 export type UpdateParamImplConfigRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -4574,10 +4574,10 @@ export function createUpdateParamImplConfigRequestInput(options: Partial<UpdateP
 
 
 export type SetCodeSectionAttachedTerminalRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
-  terminalSectionId?: string | null;
+  terminalSectionId: string | null;
 };
 export function createSetCodeSectionAttachedTerminalRequestInput(options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {}): SetCodeSectionAttachedTerminalRequestInput {
   return options as SetCodeSectionAttachedTerminalRequestInput;
@@ -4585,7 +4585,7 @@ export function createSetCodeSectionAttachedTerminalRequestInput(options: Partia
 
 
 export type SetGenCodePrefixRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   genCodePrefix: string;
 };
@@ -4595,7 +4595,7 @@ export function createSetGenCodePrefixRequestInput(options: Partial<SetGenCodePr
 
 
 export type SetGenCodeSuffixRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   genCodeSuffix: string;
 };
@@ -4605,7 +4605,7 @@ export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSu
 
 
 export type SetCodeObjNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   codeObjId: string;
   name: string;
@@ -4616,7 +4616,7 @@ export function createSetCodeObjNameRequestInput(options: Partial<SetCodeObjName
 
 
 export type SetCodeObjDisplayNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   codeObjId: string;
   displayName: string;
@@ -6520,7 +6520,7 @@ export function createSetStateMachineSectionSettingsRequestInput(options: Partia
 
 
 export type SetWatchCodeEnabledRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   enabled: boolean;
 };
@@ -6539,7 +6539,7 @@ export function createWatchCodeFolder(options: Partial<WatchCodeFolder> = {}): W
 
 
 export type SetWatchCodeInputsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   watchCodeFolders: Array<WatchCodeFolder>;
   watchCodeFiles: Array<string>;

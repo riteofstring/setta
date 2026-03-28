@@ -4353,7 +4353,7 @@ export function createCodeMirrorCompletion(
 export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
 
 export type CreateNewSectionVariantRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -4373,7 +4373,7 @@ export function createCreateNewSectionVariantResponse(
 }
 
 export type SetSectionVariantRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4385,7 +4385,7 @@ export function createSetSectionVariantRequestInput(
 }
 
 export type SetDefaultSectionVariantRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4397,7 +4397,7 @@ export function createSetDefaultSectionVariantRequestInput(
 }
 
 export type SetSectionVariantSortOrderRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   orderedVariantIds: Array<string>;
@@ -4409,7 +4409,7 @@ export function createSetSectionVariantSortOrderRequestInput(
 }
 
 export type ToggleVariantFrozenRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   variantId: string;
 };
@@ -4420,7 +4420,7 @@ export function createToggleVariantFrozenRequestInput(
 }
 
 export type ToggleVariantJSONSourceRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4432,7 +4432,7 @@ export function createToggleVariantJSONSourceRequestInput(
 }
 
 export type SetVariantJSONSourceKeysRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -4445,7 +4445,7 @@ export function createSetVariantJSONSourceKeysRequestInput(
 }
 
 export type SetSectionVariantNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   variantId: string;
   name: string;
@@ -4516,7 +4516,7 @@ export function createDeleteChildSectionsViaDecrementerResponse(
 }
 
 export type DeleteSectionsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
@@ -4527,7 +4527,7 @@ export function createDeleteSectionsRequestInput(
 }
 
 export type DeleteSelectedParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoIds: Array<string>;
@@ -4768,7 +4768,7 @@ export function createMoveParamGroup(
 }
 
 export type MoveParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -4782,7 +4782,7 @@ export function createMoveParamsRequestInput(
 }
 
 export type MoveParamGroupsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   moves: Array<MoveParamGroup>;
@@ -4794,7 +4794,7 @@ export function createMoveParamGroupsRequestInput(
 }
 
 export type IndentParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -4806,7 +4806,7 @@ export function createIndentParamsRequestInput(
 }
 
 export type UnindentParamsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -4838,7 +4838,7 @@ export function createDeleteKwargRequestInput(
 }
 
 export type SetParamEnteredValueRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -4851,7 +4851,7 @@ export function createSetParamEnteredValueRequestInput(
 }
 
 export type UpdateParamImplConfigRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -4864,10 +4864,10 @@ export function createUpdateParamImplConfigRequestInput(
 }
 
 export type SetCodeSectionAttachedTerminalRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
-  terminalSectionId?: string | null;
+  terminalSectionId: string | null;
 };
 export function createSetCodeSectionAttachedTerminalRequestInput(
   options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {},
@@ -4876,7 +4876,7 @@ export function createSetCodeSectionAttachedTerminalRequestInput(
 }
 
 export type SetGenCodePrefixRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   genCodePrefix: string;
 };
@@ -4887,7 +4887,7 @@ export function createSetGenCodePrefixRequestInput(
 }
 
 export type SetGenCodeSuffixRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   genCodeSuffix: string;
 };
@@ -4898,7 +4898,7 @@ export function createSetGenCodeSuffixRequestInput(
 }
 
 export type SetCodeObjNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   codeObjId: string;
   name: string;
@@ -4910,7 +4910,7 @@ export function createSetCodeObjNameRequestInput(
 }
 
 export type SetCodeObjDisplayNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   codeObjId: string;
   displayName: string;
@@ -6870,7 +6870,7 @@ export function createSetStateMachineSectionSettingsRequestInput(
 }
 
 export type SetWatchCodeEnabledRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   enabled: boolean;
 };
@@ -6891,7 +6891,7 @@ export function createWatchCodeFolder(
 }
 
 export type SetWatchCodeInputsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   watchCodeFolders: Array<WatchCodeFolder>;
   watchCodeFiles: Array<string>;
