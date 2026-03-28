@@ -1,106 +1,15 @@
-import { HeaderContainer } from "components/AppHeader/Header";
-import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
-import { HomePage } from "components/Pages/Home/HomePage";
-import { WorkspaceLaunchPage } from "components/Pages/Launch/WorkspaceLaunchPage";
-import { LauncherHomePage } from "components/Pages/Launcher/LauncherHomePage";
-import { LoadingSpinner } from "components/Pages/LoadingSpinner";
-import { NotFound } from "components/Pages/NotFound/NotFound";
-import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
-import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
-import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
+import { useEffect } from "react";
 import { initializeServerMode } from "state/actions/serverMode";
-import {
-  useAllProjectMetadata,
-  useServerMode,
-  useSettings,
-} from "state/definitions";
-import {
-  HOME_ROUTER_PATH,
-  INDEX_ROUTER_PATH,
-  PROJECT_CHAT_STANDALONE_ROUTER_PATH,
-  PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
-  PROJECT_CONFIG_ROUTER_PATH,
-  SECTION_STANDALONE_ROUTER_PATH,
-  VIEW_MODE_ROUTER_PATH,
-  WINDOW_SPACE_STANDALONE_ROUTER_PATH,
-  WORKSPACE_LAUNCH_ROUTER_PATH,
-} from "utils/constants";
-import {
-  resolveWorkspaceLaunchRouteKind,
-  type WorkspaceLaunchRouteKind,
-} from "utils/serverModeBoundaryPolicy";
-import { resolveDefaultProjectConfigName } from "./defaultProjectRouting";
-import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
+import { useServerMode } from "state/definitions";
 import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
-import { MainContainer } from "./Project/MainContainer";
-import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
-import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
-import { APP_ROUTE_IDS } from "./routeConfig";
-
-const LazyAppWrapper = lazy(async () => {
-  const mod = await import("components/Pages/App/AppWrapper");
-  return { default: mod.AppWrapper };
-});
-
-const LazyAppMainContainer = lazy(async () => {
-  const mod = await import("components/Pages/App/AppMainContainer");
-  return { default: mod.AppMainContainer };
-});
-
-function GridContainer({ children }: { children: ReactNode }) {
-  return (
-    <section className="grid min-h-0 w-screen flex-1 grid-cols-[1fr] grid-rows-[min-content_1fr_min-content] overflow-hidden">
-      {children}
-    </section>
-  );
-}
-
-function ProjectRootRedirect() {
-  const { projectConfigName } = useParams();
-  if (!projectConfigName) {
-    return <Navigate to={HOME_ROUTER_PATH} replace />;
-  }
-  return <Navigate to={`/${encodeURIComponent(projectConfigName)}`} replace />;
-}
-
-function resolveShareHomeContent(doneLoading: boolean, is404: boolean) {
-  if (!doneLoading) {
-    return <LoadingSpinner />;
-  }
-  if (is404) {
-    return <NotFound />;
-  }
-  return <HomePage />;
-}
-
-function ShareIndexRedirect() {
-  const showDefaultConfigOnLoad = useSettings(
-    (x) => x.backend.showDefaultConfigOnLoad,
-  );
-  const { defaultProjectConfigId, projectMetadata } = useAllProjectMetadata(
-    (x) => x,
-  );
-  const defaultProjectConfigName = resolveDefaultProjectConfigName(
-    defaultProjectConfigId,
-    projectMetadata,
-  );
-
-  if (
-    !defaultProjectConfigId ||
-    !showDefaultConfigOnLoad ||
-    !defaultProjectConfigName
-  ) {
-    return <Navigate to={HOME_ROUTER_PATH} replace />;
-  }
-
-  return <Navigate to={defaultProjectConfigName} replace />;
-}
+import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
+import { buildModeWrappedHomeProjectCatchAllRouteElements } from "./modeWrappedHomeProjectCatchAllRouteElements";
+import { buildModeWrappedIndexWorkspaceLaunchRouteElements } from "./modeWrappedIndexWorkspaceLaunchRouteElements";
+import { buildModeWrappedStandaloneAppLauncherRouteElements } from "./modeWrappedStandaloneAppLauncherRouteElements";
 
 type ModeWrapperProps = ModeRouteElements;
 
@@ -170,305 +79,32 @@ function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
   });
 }
 
-const ideHomeRouteElement = (
-  <GlobalWrapper>
-    <ModalContainer>
-      <HeaderContainer path={HOME_ROUTER_PATH} />
-      <GridContainer>
-        <HomePage />
-      </GridContainer>
-    </ModalContainer>
-  </GlobalWrapper>
-);
+const {
+  appRouteElement,
+  launcherHomeRouteElement,
+  standaloneAppRouteElement,
+  standaloneLauncherRouteElement,
+} = buildModeWrappedStandaloneAppLauncherRouteElements();
 
-const ideIndexRouteElement = (
-  <GlobalWrapper>
-    <IndexRouteComponent />
-  </GlobalWrapper>
-);
+const { homeRouteElements, projectRouteElements, catchAllRouteElements } =
+  buildModeWrappedHomeProjectCatchAllRouteElements({
+    appRouteElement,
+    launcherHomeRouteElement,
+  });
+const { indexRouteElements, workspaceLaunchRouteElements } =
+  buildModeWrappedIndexWorkspaceLaunchRouteElements({
+    appRouteElement,
+    launcherHomeRouteElement,
+  });
 
-const ideProjectRouteElement = (
-  <GlobalWrapper>
-    <ModalContainer>
-      <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
-      <GridContainer>
-        <MainContainer />
-      </GridContainer>
-    </ModalContainer>
-  </GlobalWrapper>
-);
-
-const ideStandaloneProjectRouteElement = (
-  <GlobalWrapper>
-    <ModalContainer>
-      <StandaloneProjectSurfacePage />
-    </ModalContainer>
-  </GlobalWrapper>
-);
-
-const shareStandaloneProjectRouteElement = (
-  <ShareStandaloneProjectSurfacePage />
-);
-
-const ideWorkspaceLaunchRouteElement = (
-  <GlobalWrapper>
-    <WorkspaceLaunchPage />
-  </GlobalWrapper>
-);
-
-const launcherWorkspaceLaunchRouteElement = (
-  <AppShell isLoading={false} loadingContent={null}>
-    <WorkspaceLaunchPage />
-  </AppShell>
-);
-
-const launcherHomeRouteElement = (
-  <AppShell isLoading={false} loadingContent={null}>
-    <ModalContainer>
-      <HeaderContainer path={HOME_ROUTER_PATH} />
-      <GridContainer>
-        <LauncherHomePage />
-      </GridContainer>
-    </ModalContainer>
-  </AppShell>
-);
-
-const shareProjectRouteElement = (
-  <ShareWrapper>
-    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
-      <ModalContainer>
-        <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
-        <GridContainer>
-          <ShareMainContainer doneLoading={doneLoading} is404={is404} />
-        </GridContainer>
-      </ModalContainer>
-    )}
-  </ShareWrapper>
-);
-
-const appRouteElement = (
-  <Suspense fallback={<LoadingSpinner />}>
-    <LazyAppWrapper>
-      {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
-        <LazyAppMainContainer doneLoading={doneLoading} is404={is404} />
-      )}
-    </LazyAppWrapper>
-  </Suspense>
-);
-
-const shareHomeRouteElement = (
-  <ShareWrapper mode="home">
-    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
-      <ModalContainer>
-        <HeaderContainer path={HOME_ROUTER_PATH} />
-        <GridContainer>
-          {resolveShareHomeContent(doneLoading, is404)}
-        </GridContainer>
-      </ModalContainer>
-    )}
-  </ShareWrapper>
-);
-
-const shareIndexRouteElement = (
-  <ShareWrapper mode="home">
-    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => {
-      if (!doneLoading) {
-        return <LoadingSpinner />;
-      }
-      if (is404) {
-        return <NotFound />;
-      }
-      return <ShareIndexRedirect />;
-    }}
-  </ShareWrapper>
-);
-
-const ideNotFoundRouteElement = (
-  <GlobalWrapper>
-    <ModalContainer>
-      <HeaderContainer path={HOME_ROUTER_PATH} />
-      <GridContainer>
-        <NotFound />
-      </GridContainer>
-    </ModalContainer>
-  </GlobalWrapper>
-);
-
-const shareNotFoundRouteElement = (
-  <ShareWrapper mode="home">
-    {({ doneLoading }: { doneLoading: boolean; is404: boolean }) => (
-      <ModalContainer>
-        <HeaderContainer path={HOME_ROUTER_PATH} />
-        <GridContainer>
-          {doneLoading ? <NotFound /> : <LoadingSpinner />}
-        </GridContainer>
-      </ModalContainer>
-    )}
-  </ShareWrapper>
-);
-
-const indexRoute = {
-  id: APP_ROUTE_IDS.index,
-  path: INDEX_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideIndexRouteElement}
-      share={shareIndexRouteElement}
-      app={appRouteElement}
-      launcher={launcherHomeRouteElement}
-    />
-  ),
-};
-
-const homeRoute = {
-  id: APP_ROUTE_IDS.home,
-  path: HOME_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideHomeRouteElement}
-      share={shareHomeRouteElement}
-      app={appRouteElement}
-      launcher={launcherHomeRouteElement}
-    />
-  ),
-};
-
-const projectRoute = {
-  id: APP_ROUTE_IDS.project,
-  path: PROJECT_CONFIG_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideProjectRouteElement}
-      share={shareProjectRouteElement}
-      app={appRouteElement}
-      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
-    />
-  ),
-};
-
-const viewModeRoute = {
-  id: APP_ROUTE_IDS.viewMode,
-  path: VIEW_MODE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideProjectRouteElement}
-      share={shareProjectRouteElement}
-      app={appRouteElement}
-      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
-    />
-  ),
-};
-
-const projectChatStandaloneRoute = {
-  id: APP_ROUTE_IDS.projectChatStandalone,
-  path: PROJECT_CHAT_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
-};
-
-const projectChatThreadStandaloneRoute = {
-  id: APP_ROUTE_IDS.projectChatThreadStandalone,
-  path: PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
-};
-
-const windowSpaceStandaloneRoute = {
-  id: APP_ROUTE_IDS.windowSpaceStandalone,
-  path: WINDOW_SPACE_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
-};
-
-const sectionStandaloneRoute = {
-  id: APP_ROUTE_IDS.sectionStandalone,
-  path: SECTION_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
-};
-
-const catchAllRoute = {
-  id: APP_ROUTE_IDS.catchAll,
-  path: "*",
-  element: (
-    <ModeWrapper
-      ide={ideNotFoundRouteElement}
-      share={shareNotFoundRouteElement}
-      app={appRouteElement}
-      launcher={launcherHomeRouteElement}
-    />
-  ),
-};
-
-const workspaceLaunchBlockedRouteElement = (
-  <Navigate to={HOME_ROUTER_PATH} replace />
-);
-
-const workspaceLaunchRouteElementsByKind: Record<
-  WorkspaceLaunchRouteKind,
-  ReactNode
-> = {
-  ide: ideWorkspaceLaunchRouteElement,
-  launcher: launcherWorkspaceLaunchRouteElement,
-  blocked: workspaceLaunchBlockedRouteElement,
-};
-
-function resolveWorkspaceLaunchRouteElement(
-  mode: "ide" | "share" | "app" | "launcher",
-) {
-  return workspaceLaunchRouteElementsByKind[
-    resolveWorkspaceLaunchRouteKind(mode)
-  ];
-}
-
-const workspaceLaunchRouteElements: ModeRouteElements = {
-  ide: resolveWorkspaceLaunchRouteElement("ide"),
-  share: resolveWorkspaceLaunchRouteElement("share"),
-  app: resolveWorkspaceLaunchRouteElement("app"),
-  launcher: resolveWorkspaceLaunchRouteElement("launcher"),
-};
-
-const workspaceLaunchRoute = {
-  id: APP_ROUTE_IDS.workspaceLaunch,
-  path: WORKSPACE_LAUNCH_ROUTER_PATH,
-  element: <ModeWrapper {...workspaceLaunchRouteElements} />,
-};
-
-const appRoutes = [
-  indexRoute,
-  homeRoute,
-  workspaceLaunchRoute,
-  projectChatThreadStandaloneRoute,
-  projectChatStandaloneRoute,
-  windowSpaceStandaloneRoute,
-  viewModeRoute,
-  sectionStandaloneRoute,
-  projectRoute,
-  catchAllRoute,
-];
-
-export const router = createBrowserRouter(appRoutes);
+export const router = createModeWrappedBrowserRouter({
+  renderModeElement: (routeElements) => <ModeWrapper {...routeElements} />,
+  indexRouteElements,
+  homeRouteElements,
+  workspaceLaunchRouteElements,
+  projectRouteElements,
+  viewModeRouteElements: projectRouteElements,
+  catchAllRouteElements,
+  standaloneAppRouteElement,
+  standaloneLauncherRouteElement,
+});
