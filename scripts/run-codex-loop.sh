@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+VISIBLE_LAUNCH_HEARTBEAT_SECONDS="${RALPH_VISIBLE_LAUNCH_HEARTBEAT_SECONDS:-15}"
 
 usage() {
   local program_name
@@ -356,7 +357,7 @@ extract_cmux_ref() {
   ref="$(printf '%s\n' "${payload}" | sed -nE "s/.*(${ref_prefix}:[0-9]+).*/\\1/p" | head -n1)"
   if [[ -z "${ref}" ]]; then
     echo "Unable to parse ${ref_prefix} ref from cmux output: ${payload}" >&2
-    exit 1
+    return 1
   fi
 
   printf '%s\n' "${ref}"
@@ -605,7 +606,7 @@ start_command_in_tmux_window() {
 
   if ! command -v tmux >/dev/null 2>&1 || [[ -z "${TMUX:-}" ]]; then
     echo "tmux window launch requested, but tmux is unavailable in this shell." >&2
-    exit 1
+    return 1
   fi
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
@@ -633,7 +634,7 @@ start_command_in_cmux_surface() {
 
   if ! command -v cmux >/dev/null 2>&1 || [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
     echo "cmux launch requested, but this shell is not running inside cmux." >&2
-    exit 1
+    return 1
   fi
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
@@ -641,16 +642,25 @@ start_command_in_cmux_surface() {
   launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}" "${close_on_exit}")"
 
   echo "[bootstrap] ${target_name}: opening cmux tab ${session_name} for ${command_display}"
-  surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
-  surface_ref="$(extract_cmux_ref "${surface_output}" "surface")"
-  if [[ -n "${surface_ref}" ]]; then
-    cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
-    sleep 1
-    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "$(shell_join_args "${launch_script}")" >/dev/null 2>&1
-    cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1
-  else
+  if ! surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"; then
     echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
-    exit 1
+    return 1
+  fi
+
+  if ! surface_ref="$(extract_cmux_ref "${surface_output}" "surface")"; then
+    echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
+    return 1
+  fi
+
+  cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
+  sleep 1
+  if ! cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "$(shell_join_args "${launch_script}")" >/dev/null 2>&1; then
+    echo "Failed to send launch command to cmux tab ${session_name}" >&2
+    return 1
+  fi
+  if ! cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1; then
+    echo "Failed to send Enter to cmux tab ${session_name}" >&2
+    return 1
   fi
 }
 
@@ -669,7 +679,7 @@ start_command_in_terminal_window() {
 
   if [[ "${OSTYPE:-}" != darwin* ]] || ! command -v osascript >/dev/null 2>&1; then
     echo "macOS Terminal launch requested, but AppleScript automation is unavailable." >&2
-    exit 1
+    return 1
   fi
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
@@ -682,9 +692,63 @@ on run argv
 tell application "Terminal"
   activate
   do script (item 1 of argv)
-end tell
+  end tell
 end run
 EOF
+}
+
+wait_for_launch_heartbeat() {
+  local log_path="$1"
+  local status_file="$2"
+  local timeout_seconds="$3"
+  local start_ts=""
+  local elapsed=""
+
+  start_ts="$(date +%s)"
+  while true; do
+    if [[ -f "${log_path}" ]]; then
+      return 0
+    fi
+    if [[ -n "${status_file}" ]] && [[ -f "${status_file}" ]]; then
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      return 1
+    fi
+
+    sleep 1
+  done
+}
+
+start_command_in_background() {
+  local target_name="$1"
+  local target_root="$2"
+  local label="$3"
+  local command_display="$4"
+  local command_body="$5"
+  local run_dir="$6"
+  local log_path="${run_dir}/${target_name}-${label}.log"
+  local pid_path="${run_dir}/${target_name}-${label}.pid"
+  local pid=""
+
+  echo "[bootstrap] ${target_name}: starting ${command_display} in background"
+  pid="$(
+    cd "${target_root}"
+    nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
+    echo $!
+  )"
+  printf '%s\n' "${pid}" > "${pid_path}"
+  sleep 3
+  if ! kill -0 "${pid}" 2>/dev/null; then
+    echo "Background startup failed for ${target_name} via ${command_display}" >&2
+    if [[ -f "${log_path}" ]]; then
+      echo "Last log lines from ${log_path}:" >&2
+      tail -n 40 "${log_path}" >&2 || true
+    fi
+    return 1
+  fi
 }
 
 start_command_in_visible_terminal() {
@@ -710,7 +774,7 @@ start_command_in_visible_terminal() {
       ;;
     *)
       echo "Unsupported visible terminal mode: ${resolved_mode}" >&2
-      exit 1
+      return 1
       ;;
   esac
 }
@@ -867,6 +931,7 @@ run_lifecycle_mode() {
   local command_body=""
   local should_restart="0"
   local session_state="not_running"
+  local log_path=""
 
   if [[ -z "${lifecycle_mode}" ]] || [[ "${lifecycle_mode}" == "none" ]]; then
     return 0
@@ -947,7 +1012,7 @@ run_lifecycle_mode() {
       exit 1
     fi
 
-    local log_path="${run_dir}/${target_name}-${label}.log"
+    log_path="${run_dir}/${target_name}-${label}.log"
     if [[ "${resolved_terminal_mode}" == "background" ]]; then
       start_command_in_background "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
     else
@@ -1133,10 +1198,12 @@ launch_self_in_visible_terminal() {
   local program_name=""
   local command_body=""
   local status_file=""
+  local log_path=""
 
   program_name="${RALPH_PROGRAM_NAME:-$(basename "$0")}"
   build_self_exec_args
   status_file="${run_dir}/codex-loop.exit"
+  log_path="${run_dir}/codex-loop.log"
   command_body="$(
     shell_join_args \
       env \
@@ -1146,7 +1213,15 @@ launch_self_in_visible_terminal() {
       "${SELF_EXEC_ARGS[@]}"
   )"
 
-  start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}" "${status_file}"
+  if ! start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}" "${status_file}"; then
+    echo "[bootstrap] codex: ${resolved_mode} launch failed; continuing in the current shell" >&2
+    return 2
+  fi
+
+  if ! wait_for_launch_heartbeat "${log_path}" "${status_file}" "${VISIBLE_LAUNCH_HEARTBEAT_SECONDS}"; then
+    echo "[bootstrap] codex: no visible-launch heartbeat after ${VISIBLE_LAUNCH_HEARTBEAT_SECONDS}s; continuing in the current shell" >&2
+    return 2
+  fi
 }
 
 follow_visible_launch_output() {
@@ -1602,10 +1677,22 @@ if [[ "${print_prompt_only}" == "1" ]]; then
 fi
 
 if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUNCHED:-0}" != "1" ]]; then
+  set +e
   launch_self_in_visible_terminal "${resolved_terminal_mode}" "${output_dir}"
-  echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
-  follow_visible_launch_output "${output_dir}"
-  exit $?
+  launch_self_exit_code="$?"
+  set -e
+
+  if [[ "${launch_self_exit_code}" -eq 0 ]]; then
+    echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
+    follow_visible_launch_output "${output_dir}"
+    exit $?
+  fi
+
+  if [[ "${launch_self_exit_code}" -ne 2 ]]; then
+    exit "${launch_self_exit_code}"
+  fi
+
+  echo "[bootstrap] codex: visible launch fallback engaged; continuing in the current shell"
 fi
 
 echo "Worktree session: $(workspace_session_state "${workdir}")"
