@@ -51,12 +51,11 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import {
-  buildLiveDictAreaNodeCanaryPacket,
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
-import { buildLiveDictAreaNodeCanaryRenderer } from "./groupContainerNodeCanaryRenderer";
+import { buildLiveDictAreaNodeCanaryBoundary } from "./groupContainerNodeCanaryBoundary";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
@@ -335,9 +334,9 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
-  const liveDictAreaNodeCanaryPacket = useMemo(
+  const liveDictAreaNodeCanaryBoundary = useMemo(
     () =>
-      buildLiveDictAreaNodeCanaryPacket({
+      buildLiveDictAreaNodeCanaryBoundary({
         bgColor,
         nodeScenePacket: liveDictAreaNodeScenePacket,
         positionAndSizeLocked,
@@ -352,17 +351,10 @@ function _ParamGroupContainer({
       styleColor,
     ],
   );
-  const liveDictAreaNodeCanaryRenderer = useMemo(
-    () =>
-      buildLiveDictAreaNodeCanaryRenderer({
-        nodeCanaryPacket: liveDictAreaNodeCanaryPacket,
-      }),
-    [liveDictAreaNodeCanaryPacket],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeCanaryRenderer.maxNestedDepth);
-  }, [liveDictAreaNodeCanaryRenderer.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeCanaryBoundary.maxNestedDepth);
+  }, [liveDictAreaNodeCanaryBoundary.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -375,7 +367,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeCanaryRenderer.blocks.map((block) => {
+        {liveDictAreaNodeCanaryBoundary.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip

@@ -1964,3 +1964,30 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/serverMode`, and `GET /src/components/Params/groupContainerUnpinnedParamAreaCanaryRenderer.ts`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific helpers into the next higher-level scene-owned boundary above `groupContainerNodeCanaryRenderer.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 074
+
+- Item: Compose the edge, pinned, and unpinned block-specific helpers into the next higher-level scene-owned boundary above `groupContainerNodeCanaryRenderer.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live dict-area canary boundary above the existing node canary packet and renderer chain:
+    - `frontend/src/components/Params/groupContainerNodeCanaryBoundary.ts`
+    - `frontend/src/components/Params/groupContainerNodeCanaryBoundary.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new higher-level canary boundary instead of manually building the node canary packet and then the node canary renderer inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the existing node-scene packet, node canary packet, and node canary renderer from one higher-level boundary
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while hiding the last packet-to-renderer wiring hop behind one deeper module
+    - preserves the existing non-Pixi block order and `maxNestedDepth` behavior while exposing the deeper node-scene input from the same boundary for the next retained-scene slice
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeCanaryBoundary.test.ts src/components/Params/groupContainerNodeCanaryRenderer.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<current worktree token> pnpm -C frontend exec playwright test frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+    - note: `./scripts/run-playwright-e2e.sh` minted a bootstrap token that hit `401` in Playwright global setup during this iteration, so the verification reran directly against the already-running worktree session with the current bootstrap token
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` was authenticated and `All Settings` was visible in the tab row
+    - the visible dict/param area rendered normally after the new canary boundary wiring, with representative labels and controls including `Auto Backup`, `Date Control Mode`, `Core Name Type`, and `Open section in floating window`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the live dict-area canary boundary into the next higher-level scene-owned boundary above `groupContainerNodeCanaryBoundary.ts` before any broad Pixi node drawing lands.
