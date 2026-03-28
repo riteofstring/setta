@@ -2125,3 +2125,30 @@ Record:
     - representative requests returned `200`, including `loadSettings`, `backendInitStatus`, `authRefreshStatus`, and `loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the live dict-area mount boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaMount.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 080
+
+- Item: Lift the live dict-area mount boundary into one higher-level scene-owned boundary above `groupContainerLiveDictAreaMount.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed top-level live dict-area boundary above the existing surface and mount layers:
+    - `frontend/src/components/Params/groupContainerLiveDictArea.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictArea.test.tsx`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new live dict-area boundary instead of building the surface and mounting it inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new boundary now deterministically:
+    - composes the existing live dict-area surface builder and mount module from one deeper component boundary
+    - relays `maxNestedDepth` back to `GroupContainer` from the deeper surface result so the current column-width and measurement flow stays intact
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while hiding the last surface-to-mount wiring hop behind one higher-level boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictArea.test.tsx src/components/Params/groupContainerLiveDictAreaMount.test.tsx src/components/Params/groupContainerLiveDictAreaSurface.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in an authenticated worktree session and `All Settings` remained visible and reachable
+    - the visible settings shell plus dict/param area rendered normally after the new higher-level boundary wiring, with representative labels and controls including `toggle agentic edges`, `toggle arg edges`, `watch code settings`, `zoom in`, `zoom out`, `fit view`, `toggle minimap`, `Create chat window`, `Core`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `/api/serverMode`, `/api/loadSettings`, `/api/backendInitStatus`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getAgentRuns`, and `/api/plugins/runtime`
+    - caveat: the provided bootstrap URL token was rejected in that verifier session, but the already-authenticated `/settings` tab remained usable for the required visual verification
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictArea.tsx` boundary into the next higher-level scene-owned boundary before any broad Pixi node drawing lands.

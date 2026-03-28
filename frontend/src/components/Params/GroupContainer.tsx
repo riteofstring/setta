@@ -30,8 +30,7 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { LiveDictAreaMount } from "./groupContainerLiveDictAreaMount";
-import { buildLiveDictAreaSurface } from "./groupContainerLiveDictAreaSurface";
+import { LiveDictArea } from "./groupContainerLiveDictArea";
 
 function _ParamGroupContainer({
   sectionId,
@@ -254,39 +253,38 @@ function _ParamGroupContainer({
       }),
     _.isEqual,
   );
-  const liveDictAreaSurface = useMemo(
-    () =>
-      buildLiveDictAreaSurface({
-        bgColor,
-        canConnect: canEditStructure && !isSelectingParams,
-        edgeInputParams,
-        hideUnpinnedParams,
-        paramFilter,
-        getParamDisplayName: (paramId: string) =>
-          displayNamesById[paramId] ?? paramId,
-        handleColumnResizeStart,
-        inputPorts: edgeInputPorts,
-        isSelectingParams,
-        outputPorts: edgeOutputPorts,
-        pinned: {
-          requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
-          topLevelParamIds: pinnedTopLevelParamIds,
-        },
+  const liveDictAreaInput = useMemo(
+    () => ({
+      bgColor,
+      canConnect: canEditStructure && !isSelectingParams,
+      edgeInputParams,
+      hideUnpinnedParams,
+      paramFilter,
+      getParamDisplayName: (paramId: string) =>
+        displayNamesById[paramId] ?? paramId,
+      handleColumnResizeStart,
+      inputPorts: edgeInputPorts,
+      isSelectingParams,
+      outputPorts: edgeOutputPorts,
+      pinned: {
+        requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
+        topLevelParamIds: pinnedTopLevelParamIds,
+      },
+      positionAndSizeLocked,
+      sectionId,
+      sectionTypeName,
+      selectedParamIds: selectedParams,
+      styleColor,
+      unpinned: {
+        canEditLayout,
+        configuredMinHeight: unpinnedParamsAreaMinHeight,
+        pinnedRequiredParamIdsToPaths,
+        pinnedTopLevelParamIds,
         positionAndSizeLocked,
-        sectionId,
-        sectionTypeName,
-        selectedParamIds: selectedParams,
-        styleColor,
-        unpinned: {
-          canEditLayout,
-          configuredMinHeight: unpinnedParamsAreaMinHeight,
-          pinnedRequiredParamIdsToPaths,
-          pinnedTopLevelParamIds,
-          positionAndSizeLocked,
-          requiredParamIdsToPaths: unpinnedRequiredParamIdsToPaths,
-          topLevelParamIds: unpinnedTopLevelParamIds,
-        },
-      }),
+        requiredParamIdsToPaths: unpinnedRequiredParamIdsToPaths,
+        topLevelParamIds: unpinnedTopLevelParamIds,
+      },
+    }),
     [
       bgColor,
       canEditLayout,
@@ -312,10 +310,6 @@ function _ParamGroupContainer({
     ],
   );
 
-  useEffect(() => {
-    setMaxNestedDepth(liveDictAreaSurface.maxNestedDepth);
-  }, [liveDictAreaSurface.maxNestedDepth, setMaxNestedDepth]);
-
   return (
     <ParamDndContext>
       <div
@@ -327,7 +321,10 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        <LiveDictAreaMount liveDictAreaSurface={liveDictAreaSurface} />
+        <LiveDictArea
+          input={liveDictAreaInput}
+          onMaxNestedDepthChange={setMaxNestedDepth}
+        />
       </div>
     </ParamDndContext>
   );
