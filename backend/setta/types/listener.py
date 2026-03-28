@@ -1,12 +1,4 @@
-from typing import Annotated, Any
-
-from pydantic import (
-    Discriminator,
-    Field,
-    PrivateAttr,
-    Tag,
-    TypeAdapter,
-)
+from pydantic import Field, PrivateAttr
 from setta.sdk_contracts.generated import (
     ListenerDependencyEvent as SDKListenerDependencyEvent,
 )
@@ -18,15 +10,6 @@ from setta.sdk_contracts.generated import (
 )
 from setta.sdk_contracts.generated import (
     ListenerRealtimeEvent as SDKListenerRealtimeEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ListenerErrorMessage,
-    ListenerFrontendEmitMessage,
-    ListenerInitMessage,
-    ListenerMessageType,
-    ListenerRegisterAckMessage,
-    ListenerRouterEndpointCallMessage,
-    ListenerRouterEndpointResultMessage,
 )
 
 
@@ -60,41 +43,3 @@ class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
     @binaryPayload.setter
     def binaryPayload(self, value: bytes | None) -> None:
         self._binary_payload = value
-
-
-def _listener_message_type(value: Any) -> str | None:
-    raw_type = (
-        value.get("messageType")
-        if isinstance(value, dict)
-        else getattr(value, "messageType", None)
-    )
-    if isinstance(raw_type, ListenerMessageType):
-        return raw_type.value
-    if isinstance(raw_type, str):
-        return raw_type
-    return None
-
-
-PythonScriptWebsocketMsgUnion = Annotated[
-    Annotated[ListenerErrorMessage, Tag(ListenerMessageType.ListenerError.value)]
-    | Annotated[
-        ListenerFrontendEmitMessage,
-        Tag(ListenerMessageType.ListenerFrontendEmit.value),
-    ]
-    | Annotated[
-        ListenerRouterEndpointCallMessage,
-        Tag(ListenerMessageType.ListenerRouterEndpointCall.value),
-    ]
-    | Annotated[
-        ListenerRouterEndpointResultMessage,
-        Tag(ListenerMessageType.ListenerRouterEndpointResult.value),
-    ]
-    | Annotated[
-        ListenerRegisterAckMessage,
-        Tag(ListenerMessageType.ListenerRegisterAck.value),
-    ]
-    | Annotated[ListenerInitMessage, Tag(ListenerMessageType.ListenerInit.value)],
-    Discriminator(_listener_message_type),
-]
-
-PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(PythonScriptWebsocketMsgUnion)

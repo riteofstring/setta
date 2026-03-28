@@ -43,7 +43,6 @@ from setta.types.listener import (
     ListenerDependencyEventContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
-    PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -383,7 +382,7 @@ class TestSettaListenerRealtimeIntegration:
         )
 
         assert len(sent_payloads) == 1
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+        parsed_message = ListenerFrontendEmitMessage.model_validate_json(
             sent_payloads[0]
         )
         assert isinstance(parsed_message, ListenerFrontendEmitMessage)

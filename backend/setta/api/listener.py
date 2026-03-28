@@ -73,7 +73,6 @@ from setta.types.listener import (
     ListenerDependencyEventContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
-    PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -102,6 +101,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
+_GENERATED_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
+    ListenerMessageType.ListenerError.value: ListenerErrorMessage,
+    ListenerMessageType.ListenerFrontendEmit.value: ListenerFrontendEmitMessage,
+    ListenerMessageType.ListenerInit.value: ListenerInitMessage,
+    ListenerMessageType.ListenerRegisterAck.value: ListenerRegisterAckMessage,
+    ListenerMessageType.ListenerRouterEndpointCall.value: ListenerRouterEndpointCallMessage,
+    ListenerMessageType.ListenerRouterEndpointResult.value: ListenerRouterEndpointResultMessage,
+}
 
 FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE = (
     "frontendAffinityToken must be a non-empty string when provided."
@@ -117,6 +124,22 @@ def parse_frontend_affinity_token(value: Any) -> str | None:
     if normalized == "":
         raise ValueError(FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE)
     return normalized
+
+
+def _validate_generated_listener_message(raw_message: Any) -> BaseModel | None:
+    if not isinstance(raw_message, dict):
+        return None
+    raw_type = raw_message.get("messageType")
+    if isinstance(raw_type, ListenerMessageType):
+        message_type = raw_type.value
+    elif isinstance(raw_type, str):
+        message_type = raw_type
+    else:
+        return None
+    model = _GENERATED_LISTENER_MESSAGE_MODELS.get(message_type)
+    if model is None:
+        return None
+    return model.model_validate(raw_message)
 
 
 # Listener callbacks may either complete synchronously or return an awaitable.
@@ -1045,8 +1068,11 @@ class SettaListener:
             )
             return message
         try:
-            message = PythonScriptWebsocketMsgTypeAdapter.validate_python(raw_message)
+            message = _validate_generated_listener_message(raw_message)
         except ValidationError:
+            logger.warning("Received malformed listener payload: %s", payload)
+            return None
+        if message is None:
             logger.warning("Received malformed listener payload: %s", payload)
             return None
         logger.debug(

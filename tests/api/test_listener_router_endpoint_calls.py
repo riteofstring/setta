@@ -17,9 +17,6 @@ from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointResultMessage,
 )
 from setta.types.id import ID
-from setta.types.listener import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
@@ -64,7 +61,7 @@ class TestListenerRouterEndpointCall:
         await asyncio.sleep(0)
 
         assert len(sent_payloads) == 1
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+        parsed_message = ListenerRouterEndpointCallMessage.model_validate_json(
             sent_payloads[0]
         )
         assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
@@ -83,7 +80,7 @@ class TestListenerRouterEndpointCall:
                     callId=parsed_message.content.callId,
                     ok=True,
                     result={"status": "ok"},
-                )
+                ),
             )
         )
 
@@ -111,7 +108,7 @@ class TestListenerRouterEndpointCall:
 
         await asyncio.sleep(0)
 
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+        parsed_message = ListenerRouterEndpointCallMessage.model_validate_json(
             sent_payloads[0]
         )
         assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
@@ -125,7 +122,7 @@ class TestListenerRouterEndpointCall:
                     ok=False,
                     error="listener_call_failed",
                     details={"message": "boom"},
-                )
+                ),
             )
         )
 
@@ -158,7 +155,7 @@ class TestListenerRouterEndpointCall:
 
         await asyncio.sleep(0)
 
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+        parsed_message = ListenerRouterEndpointCallMessage.model_validate_json(
             sent_payloads[0]
         )
         assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
@@ -171,7 +168,7 @@ class TestListenerRouterEndpointCall:
                     callId=parsed_message.content.callId,
                     ok=True,
                     result=None,
-                )
+                ),
             )
         )
 
@@ -215,7 +212,7 @@ class TestListenerRouterEndpointCall:
 
         await asyncio.sleep(0)
 
-        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+        parsed_message = ListenerRouterEndpointCallMessage.model_validate_json(
             sent_payloads[0]
         )
         assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
@@ -228,7 +225,7 @@ class TestListenerRouterEndpointCall:
                     callId=parsed_message.content.callId,
                     ok=True,
                     result=None,
-                )
+                ),
             )
         )
         listener._handle_listener_error(
@@ -240,7 +237,7 @@ class TestListenerRouterEndpointCall:
                         "callId": parsed_message.content.callId,
                         "message": "snapshot rebuild failed",
                     },
-                )
+                ),
             )
         )
 

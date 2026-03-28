@@ -31,7 +31,6 @@ from setta.types.id import ID
 from setta.types.listener import (
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
-    PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.project_config import SectionRepresentationMode
 from setta.types.protocol import create_dep_key
@@ -95,9 +94,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
     allow_force_refresh = asyncio.Event()
 
     async def capture(payload: str) -> None:
-        message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
-        if not isinstance(message, ListenerRouterEndpointCallMessage):
-            return
+        message = ListenerRouterEndpointCallMessage.model_validate_json(payload)
         listener._handle_router_endpoint_result(
             ListenerRouterEndpointResultMessage(
                 messageType=ListenerMessageType.ListenerRouterEndpointResult,
@@ -106,7 +103,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
                     callId=message.content.callId,
                     ok=True,
                     result={"ok": True},
-                )
+                ),
             )
         )
         router_result_sent.set()
