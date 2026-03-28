@@ -51,6 +51,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
+import { buildLiveDictAreaRenderer } from "./groupContainerLiveDictAreaRenderer";
 import {
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
@@ -340,10 +341,19 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
+  const liveDictAreaRenderer = useMemo(
+    () =>
+      buildLiveDictAreaRenderer({
+        handleColumnResizeStart,
+        liveDictAreaBoundary,
+        sectionId,
+      }),
+    [handleColumnResizeStart, liveDictAreaBoundary, sectionId],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaBoundary.maxNestedDepth);
-  }, [liveDictAreaBoundary.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaRenderer.maxNestedDepth);
+  }, [liveDictAreaRenderer.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -356,12 +366,12 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaBoundary.blocks.map((block) => {
+        {liveDictAreaRenderer.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
                 key={block.key}
-                sectionId={sectionId}
+                sectionId={block.sectionId}
                 domPacket={block.domPacket}
               />
             );
@@ -371,9 +381,9 @@ function _ParamGroupContainer({
             return (
               <GetPinnedParams
                 key={block.key}
-                sectionId={sectionId}
+                sectionId={block.sectionId}
                 domPacket={block.domPacket}
-                handleColumnResizeStart={handleColumnResizeStart}
+                handleColumnResizeStart={block.handleColumnResizeStart}
               />
             );
           }
@@ -381,9 +391,9 @@ function _ParamGroupContainer({
           return (
             <GetUnpinnedParams
               key={block.key}
-              sectionId={sectionId}
+              sectionId={block.sectionId}
               domPacket={block.domPacket}
-              handleColumnResizeStart={handleColumnResizeStart}
+              handleColumnResizeStart={block.handleColumnResizeStart}
             />
           );
         })}

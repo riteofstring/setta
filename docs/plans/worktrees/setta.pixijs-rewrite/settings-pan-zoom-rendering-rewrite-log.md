@@ -2019,3 +2019,30 @@ Record:
     - console showed the existing React 19 `Accessing element.ref was removed...` messages, but they did not block rendering or this verification
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the live dict-area boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaBoundary.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 076
+
+- Item: Lift the live dict-area boundary into one higher-level scene-owned renderer above `groupContainerLiveDictAreaBoundary.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live dict-area renderer helper above the existing live dict-area boundary:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new renderer boundary instead of attaching `sectionId` and `handleColumnResizeStart` directly while iterating the raw live dict-area boundary blocks:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts each surviving live dict-area block into a renderer block with the section-level render props required by the current DOM surfaces
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while hiding the last boundary-to-render-props wiring hop behind one deeper helper
+    - preserves the existing non-Pixi block order and `maxNestedDepth` behavior while exposing the same live dict-area boundary payload from the new renderer
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaRenderer.test.ts src/components/Params/groupContainerLiveDictAreaBoundary.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the existing authenticated `/settings` session loaded successfully without needing bootstrap
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, missing content, or broken mount order after the new renderer boundary wiring
+    - representative visible labels and controls included `OVERVIEW`, `settings`, the left tag list, the bottom tabs `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`, plus visible rows, switches, comboboxes, and value widgets in `Param Defaults` / `All Settings`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the live dict-area renderer into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaRenderer.ts` before any broad Pixi node drawing lands.
