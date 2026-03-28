@@ -510,6 +510,36 @@ wait_for_workspace_session_state() {
   done
 }
 
+wait_for_dev_stack_ready() {
+  local target_name="$1"
+  local log_path="$2"
+  local timeout_seconds="$3"
+  local start_ts=""
+  local elapsed=""
+
+  start_ts="$(date +%s)"
+  while true; do
+    if [[ -f "${log_path}" ]] \
+      && grep -q "Ready: http://" "${log_path}" \
+      && grep -q "Local:[[:space:]]*http://" "${log_path}"; then
+      echo "[bootstrap] ${target_name}: dev stack ready"
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      echo "Timed out waiting for ${target_name} dev stack readiness." >&2
+      if [[ -f "${log_path}" ]]; then
+        echo "Last log lines from ${log_path}:" >&2
+        tail -n 60 "${log_path}" >&2 || true
+      fi
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
 run_lifecycle_mode() {
   local target_name="$1"
   local target_root="$2"
@@ -628,7 +658,11 @@ run_lifecycle_mode() {
     fi
 
     if [[ "${wait_for_running}" == "1" ]]; then
-      wait_for_workspace_session_state "${target_name}" "${target_root}" "running" "180" "${run_dir}" "${label}"
+      if [[ "${label}" == "ai" ]] || [[ "${label}" == "aireset" ]]; then
+        wait_for_dev_stack_ready "${target_name}" "${log_path}" "180"
+      else
+        wait_for_workspace_session_state "${target_name}" "${target_root}" "running" "180" "${run_dir}" "${label}"
+      fi
     else
       echo "[bootstrap] ${target_name}: continuing without blocking on session readiness"
     fi
