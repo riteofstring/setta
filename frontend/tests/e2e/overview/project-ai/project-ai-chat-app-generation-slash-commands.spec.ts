@@ -23,7 +23,12 @@ type ChatSubmitRequest = {
 };
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
 }
 
 async function mockProjectChatSubmitCapture(
