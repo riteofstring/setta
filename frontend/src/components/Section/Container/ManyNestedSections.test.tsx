@@ -4,6 +4,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import type { ManyNestedSectionsRenderer } from "./ManyNestedSectionsBody";
+import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 
 let mockDndChildrenMap: Record<string, string[]> = {
   "section-1": ["child-a", "child-b"],
@@ -60,19 +61,46 @@ vi.mock("./utils", () => ({
   useHasTempNested: () => mockHasTempNested,
 }));
 
+vi.mock("./SectionContainerCoreCanvasBody", () => ({
+  SectionContainerCoreCanvasBody: ({
+    sectionId,
+    sectionTypeName,
+    bgColor,
+  }: SectionContainerCoreBodyProps) => (
+    <div
+      data-testid="mock-section-container-core-body"
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-bg-color={bgColor}
+    />
+  ),
+}));
+
 vi.mock("./SortableSectionContainer", () => ({
   SortableSectionContainer: ({
     sectionId,
     className,
+    renderCoreBody,
   }: {
     sectionId: string;
     className?: string;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
   }) => (
     <div
       data-testid="mock-sortable-section"
       data-section-id={sectionId}
       data-class-name={className ?? ""}
-    />
+    >
+      <div data-testid="mock-sortable-core-body">
+        {renderCoreBody({
+          sectionId,
+          sectionTypeName: "Code",
+          bgColor: "bg:white",
+          isMinimized: false,
+          isUserView: false,
+        })}
+      </div>
+    </div>
   ),
 }));
 
@@ -127,6 +155,8 @@ describe("MaybeManyNestedSections", () => {
     expect(markup).toContain('data-testid="mock-many-nested-sections-body"');
     expect(markup).toContain('data-child-ids="child-a|child-b"');
     expect(markup).toContain('data-testid="mock-sortable-section"');
+    expect(markup).toContain('data-testid="mock-sortable-core-body"');
+    expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain('data-class-name="from-body"');
   });
 });

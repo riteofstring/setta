@@ -11,9 +11,15 @@ import {
   ManyNestedSectionsBody,
   type ManyNestedSectionsRenderer,
 } from "./ManyNestedSectionsBody";
+import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import type { ManyNestedSectionsRendererProps } from "./manyNestedSectionsView";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
+
+const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
+  props,
+) => <SectionContainerCoreCanvasBody {...props} />;
 
 const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
   childIds,
@@ -24,6 +30,7 @@ const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
       sectionId={childId}
       key={`Nested-Sec-${childId}`}
       className={childClassName}
+      renderCoreBody={renderSectionContainerCoreBody}
     />
   ));
 

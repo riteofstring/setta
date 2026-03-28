@@ -57,21 +57,6 @@ vi.mock("./SectionContainerNestedSections", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerCoreCanvasBody", () => ({
-  SectionContainerCoreCanvasBody: ({
-    sectionId,
-    sectionTypeName,
-    bgColor,
-  }: SectionContainerCoreBodyProps) => (
-    <div
-      data-testid="mock-section-container-core-body"
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-bg-color={bgColor}
-    />
-  ),
-}));
-
 vi.mock("./SortableSectionBody", () => ({
   SortableSectionBody: ({
     sectionId,
@@ -126,10 +111,23 @@ describe("SortableSectionContainer", () => {
   });
 
   it("passes the standard nested-sections renderer through the sortable body boundary", () => {
+    const renderCoreBody = ({
+      sectionId,
+      sectionTypeName,
+      bgColor,
+    }: SectionContainerCoreBodyProps) => (
+      <div
+        data-testid="mock-section-container-core-body"
+        data-section-id={sectionId}
+        data-section-type={sectionTypeName}
+        data-bg-color={bgColor}
+      />
+    );
     const markup = renderToStaticMarkup(
       <SortableSectionContainer
         sectionId="section-1"
         className="child-class-name"
+        renderCoreBody={renderCoreBody}
       />,
     );
 

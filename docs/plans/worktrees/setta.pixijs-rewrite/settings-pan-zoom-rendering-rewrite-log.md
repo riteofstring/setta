@@ -3172,3 +3172,32 @@ Record:
     - representative requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/getLatestLspDiagnostics`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SortableSectionContainer.tsx` body boundary into the next higher-level sortable caller before any broad Pixi node drawing lands.
+
+## 2026-03-27 116
+
+- Item: Lift the `SortableSectionContainer.tsx` body boundary into the next higher-level sortable caller in `frontend/src/components/Section/Container/ManyNestedSections.tsx`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/ManyNestedSections.tsx` to own the live `SectionContainerCoreCanvasBody` handoff for nested sortable sections instead of leaving that default core-body renderer hardcoded inside `SortableSectionContainer.tsx`:
+    - `frontend/src/components/Section/Container/ManyNestedSections.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionContainer.tsx`
+  - The sortable container now accepts the typed `renderCoreBody(...)` prop from its caller and forwards it through the temp/regular sortable path down to `SortableSectionBody`.
+  - Updated focused coverage to pin the lifted ownership seam:
+    - `frontend/src/components/Section/Container/ManyNestedSections.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionContainer.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `ManyNestedSections.tsx` as the higher-level owner of the live `SectionContainerCoreCanvasBody` boundary for nested sortable sections
+    - leaving `SortableSectionContainer.tsx` focused on sortable transform state, z-indexing, edge-handle scheduling, and routing the caller-provided body renderer through the sortable shell
+    - keeping the current DOM/live canvas path intact while deepening the nested-sortable contract above `SortableSectionContainer.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/ManyNestedSections.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the bootstrap token was rejected in the fresh bootstrap tab, so verification used the already-open authenticated live `/settings` session
+    - `All Settings` remained visible and the settings shell, visible dict/param area, and canvas path rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `Autosave`, `Grid Color`, `Pan On Drag`, `By Type Browser`, and `Callable`
+    - representative requests returned `200`, including `POST /api/getFolderContents` and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the nested sortable-section body boundary into the next higher-level caller above `ManyNestedSections.tsx` before any broad Pixi node drawing lands.
