@@ -2958,3 +2958,28 @@ Record:
     - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SectionCanvasArea.tsx` boundary into the next higher-level section body caller in `frontend/src/components/Section/Container/SectionContainerCoreBody.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 110
+
+- Item: Lift the `SectionCanvasArea.tsx` boundary into the next higher-level section body caller in `frontend/src/components/Section/Container/SectionContainerCoreBody.tsx`.
+- Status: `done`
+- Details:
+  - Added a higher-level core-body boundary above the existing canvas-body renderer:
+    - `frontend/src/components/Section/Container/SectionContainerCoreCanvasBody.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreCanvasBody.test.tsx`
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreBody.tsx` to hand off its live section-body path through the new boundary instead of owning the benchmark-to-canvas switch inline.
+  - Kept the current non-Pixi DOM path intact while shrinking `SectionContainerCoreBody` further:
+    - the new boundary now owns the benchmark placeholder vs live `SectionCanvasBody` renderer split
+    - `SectionContainerCoreBody.tsx` now remains a thin wrapper over the higher-level boundary and the existing typed view contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreCanvasBody.test.tsx src/components/Section/Container/sectionContainerCoreBodyView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the settings shell loaded normally and the core/body layout stayed intact after the refactor
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Param Defaults`, `All Settings`, `Auto Refetch Callable Params On LSP Mismatch`, and `Auto Backup`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, and `GET /api/llm/config`
+    - no console errors were present during the check
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionContainerCoreCanvasBody.tsx` boundary into the next higher-level section core caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` before any broad Pixi node drawing lands.
