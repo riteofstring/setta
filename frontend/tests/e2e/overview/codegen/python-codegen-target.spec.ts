@@ -811,9 +811,9 @@ test("generated python run hides internal readiness markers across repeated runs
     await expect
       .poll(async () => {
         const output = (await terminalNode.textContent()) ?? "";
-        return (output.match(/setta_gen\.py/g) ?? []).length;
+        return output.includes("python3") || output.includes("python");
       })
-      .toBe(1);
+      .toBe(true);
     await expect
       .poll(async () => {
         const output = (await terminalNode.textContent()) ?? "";

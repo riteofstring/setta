@@ -27,6 +27,25 @@ func TestBuildTerminalID(t *testing.T) {
 	}
 }
 
+func TestResolveDefaultCommandUsesRealShellPathVerbatim(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	shellPath := requireCommand(t, "bash")
+	command, err := resolveDefaultCommand(func(key string) (string, bool) {
+		if key == "SHELL" {
+			return shellPath, true
+		}
+		return "", false
+	})
+	if err != nil {
+		t.Fatalf("resolve default command: %v", err)
+	}
+	if len(command) != 1 || command[0] != shellPath {
+		t.Fatalf("expected resolved shell path %q, got %#v", shellPath, command)
+	}
+}
+
 func TestServiceListFiltersByShareSession(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
@@ -450,6 +469,38 @@ func TestServiceRunCommandBeforeFirstAttachKeepsPromptReadyProbeOutOfHistory(t *
 	}
 }
 
+func TestServiceRunCommandBeforeFirstAttachStartsVisibleTranscriptWithTheCommand(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-pre-attach-first-line", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	commandText := "printf 'FIRST_VISIBLE_LINE_OK\\n'\n"
+	if err := service.RunCommand(sessionID, []byte(commandText)); err != nil {
+		t.Fatalf("run command before attach: %v", err)
+	}
+
+	history := waitForTerminalHistory(t, service, sessionID, func(history string) bool {
+		renderedHistory := renderVisibleTerminalHistory(history)
+		return strings.Contains(renderedHistory, "FIRST_VISIBLE_LINE_OK")
+	})
+	renderedHistory := renderVisibleTerminalHistory(history)
+	firstLine := firstNonEmptyLine(renderedHistory)
+	if !strings.Contains(firstLine, "printf 'FIRST_VISIBLE_LINE_OK\\n'") {
+		t.Fatalf("expected first visible line to contain the echoed command, got %q in %q", firstLine, renderedHistory)
+	}
+}
+
 func TestServiceRunCommandBeforeFirstAttachPreservesRegularShellTranscript(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
@@ -717,6 +768,7 @@ func newTestService(t *testing.T) *Service {
 
 	return newTestServiceWithOptions(t, Options{
 		Logger: observability.NewLogger(0, io.Discard),
+		Shell:  interactiveBashCommand(t),
 	})
 }
 
@@ -898,6 +950,16 @@ func renderVisibleTerminalHistory(history string) string {
 	}
 	normalized, _ := normalizeTerminalSearchBuffer(raw)
 	return string(normalized)
+}
+
+func firstNonEmptyLine(history string) string {
+	for _, line := range strings.Split(history, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		return line
+	}
+	return ""
 }
 
 func waitForOutputContains(t *testing.T, attachment *Attachment, needle string) string {

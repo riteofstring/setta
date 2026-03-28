@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -132,6 +131,10 @@ type session struct {
 	exited      bool
 	history     historyBuffer
 	attachments map[string]chan []byte
+
+	managedDefaultShell           bool
+	attachedOnce                  bool
+	preAttachBackendRunNormalized bool
 
 	promptReadyOnce                  sync.Once
 	promptReadyStart                 sync.Once
@@ -265,9 +268,10 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 		history: historyBuffer{
 			limit: s.historyLimit,
 		},
-		attachments:       make(map[string]chan []byte),
-		promptReady:       promptReady,
-		promptReadyMarker: promptReadyMarker,
+		attachments:         make(map[string]chan []byte),
+		managedDefaultShell: usesDefaultCommand,
+		promptReady:         promptReady,
+		promptReadyMarker:   promptReadyMarker,
 	}
 	s.sessions[session.id] = session
 
@@ -353,6 +357,7 @@ func (s *Service) Attach(sessionID string) (*Attachment, error) {
 
 	session.mu.Lock()
 	history := session.history.Bytes()
+	session.attachedOnce = true
 	if session.exited {
 		session.mu.Unlock()
 		output := make(chan []byte)
@@ -440,6 +445,9 @@ func (s *Service) runCommand(session *session, data []byte) error {
 	command := make([]byte, 0, len(data)+1)
 	if session.takePendingPromptInput() {
 		command = append(command, 0x15)
+	}
+	if session.consumePreAttachBackendRunNormalization() {
+		command = append(command, '\f')
 	}
 	command = append(command, data...)
 	return s.writeToSession(session, command, false)
@@ -1111,6 +1119,17 @@ func (session *session) takePendingPromptInput() bool {
 	return pending
 }
 
+func (session *session) consumePreAttachBackendRunNormalization() bool {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	if !session.managedDefaultShell || session.attachedOnce || session.preAttachBackendRunNormalized {
+		return false
+	}
+	session.preAttachBackendRunNormalized = true
+	return true
+}
+
 func resolveDefaultCommand(envLookup func(string) (string, bool)) ([]string, error) {
 	var candidates []string
 	switch runtime.GOOS {
@@ -1134,25 +1153,11 @@ func resolveDefaultCommand(envLookup func(string) (string, bool)) ([]string, err
 	for _, candidate := range candidates {
 		resolved, err := exec.LookPath(strings.TrimSpace(candidate))
 		if err == nil {
-			return stableInteractiveShellCommand(resolved), nil
+			return []string{resolved}, nil
 		}
 	}
 
 	return nil, fmt.Errorf("resolve default terminal command: no supported shell found")
-}
-
-func stableInteractiveShellCommand(path string) []string {
-	base := strings.ToLower(filepath.Base(strings.TrimSpace(path)))
-	switch base {
-	case "bash":
-		return []string{path, "--noprofile", "--norc", "-i"}
-	case "zsh":
-		return []string{path, "-f", "-i"}
-	case "sh", "dash", "ash", "ksh":
-		return []string{path, "-i"}
-	default:
-		return []string{path}
-	}
 }
 
 func resolveCommand(command []string) ([]string, error) {
