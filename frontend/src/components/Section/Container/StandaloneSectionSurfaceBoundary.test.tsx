@@ -12,6 +12,7 @@ vi.mock("./SectionWindowSurface", () => ({
     projectChatSurfaceId,
     onProjectChatBlockedErrorCodeChange,
     bodyOverride,
+    renderDictArea,
   }: {
     sectionId: string;
     chatHost: string;
@@ -21,6 +22,7 @@ vi.mock("./SectionWindowSurface", () => ({
       | ((errorCode: string | null) => void)
       | undefined;
     bodyOverride?: ReactNode;
+    renderDictArea?: unknown;
   }) => (
     <div
       data-testid="mock-section-window-surface"
@@ -32,6 +34,7 @@ vi.mock("./SectionWindowSurface", () => ({
         Boolean(onProjectChatBlockedErrorCodeChange),
       )}
       data-has-body-override={String(bodyOverride !== undefined)}
+      data-has-render-dict-area={String(Boolean(renderDictArea))}
     >
       {bodyOverride}
     </div>
@@ -75,6 +78,7 @@ describe("StandaloneSectionSurfaceBoundary", () => {
     expect(markup).toContain('data-project-chat-surface-id="surface-1"');
     expect(markup).toContain('data-has-error-callback="true"');
     expect(markup).toContain('data-has-body-override="true"');
+    expect(markup).toContain('data-has-render-dict-area="true"');
     expect(markup).toContain(
       'class="min-h-0 flex-1 overflow-auto"',
     );
@@ -99,6 +103,7 @@ describe("StandaloneSectionSurfaceBoundary", () => {
     expect(markup).toContain('data-testid="mock-section-window-surface"');
     expect(markup).toContain('data-section-id="section-2"');
     expect(markup).toContain('data-has-body-override="false"');
+    expect(markup).toContain('data-has-render-dict-area="true"');
     expect(markup).not.toContain(
       'mock-section-container-nested-sections-boundary',
     );

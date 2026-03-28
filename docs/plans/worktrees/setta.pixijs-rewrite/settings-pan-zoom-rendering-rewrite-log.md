@@ -4473,3 +4473,32 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `OPTIONS /api/loadProjectConfig`, and `GET /settings`
 - Next action:
   - Continue the retained-scene seam lift by moving the remaining caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionWindowSurface.tsx`, starting with `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
+
+## 2026-03-28 156
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone section-route dict-area handoff one caller higher so `StandaloneSectionSurfaceBoundary` now owns the dict renderer seam above `SectionWindowSurface`:
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+  - Updated focused coverage to pin the higher ownership boundary on the standalone route surface:
+    - `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionWindowSurface` on the same shared window-surface path while allowing callers to supply the dict renderer explicitly
+    - routing standalone section surfaces through `SectionContainerAreaDictBoundary` from the higher-level standalone caller via `renderDictArea(...)`
+    - leaving the standalone `gui` settings dict/param DOM path intact while shrinking `SectionWindowSurface.tsx` ownership further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/StandaloneSectionSurfaceBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - first run failed before assertions with backend `ECONNRESET` during isolated-project setup in the temporary E2E workspace
+    - reran the same spec immediately without code changes; second run passed (`1 passed (1.3m)`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings/section/gui`) in a fresh sub-agent context
+    - the standalone `gui` dict surface rendered normally after the initial loading spinner resolved
+    - representative visible controls and labels included `defaultZoomLevel`, `Grid Color`, `Grid Color Dark Mode`, `Grid Pattern`, `gridPatternSize`, `Left Side Pane Shifts Map`, `maxZoom`, `minZoom`, `Pan On Drag`, `Pan On Scroll`, and `Pan On Scroll Mode`
+    - no obvious clipping, overlap, or missing content was observed in the standalone dict/param surface
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/loadSettings`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`.

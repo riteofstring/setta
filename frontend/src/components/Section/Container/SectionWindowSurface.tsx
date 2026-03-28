@@ -40,6 +40,7 @@ type SectionWindowSurfaceProps = {
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
   bodyOverride?: React.ReactNode;
+  renderDictArea?: (props: SectionContainerAreaDictProps) => React.ReactNode;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
@@ -57,6 +58,7 @@ export function SectionWindowSurface({
   setProjectChatId,
   onProjectChatBlockedErrorCodeChange,
   bodyOverride = null,
+  renderDictArea = renderSectionWindowSurfaceDictArea,
   headerProps,
 }: SectionWindowSurfaceProps) {
   const isStandalonePage = chatHost === "standalone_page";
@@ -169,7 +171,7 @@ export function SectionWindowSurface({
               onProjectChatBlockedErrorCodeChange
             }
             bodyOverride={bodyOverride}
-            renderDictArea={renderSectionWindowSurfaceDictArea}
+            renderDictArea={renderDictArea}
           />
         </div>
       </div>
