@@ -573,3 +573,29 @@ Record:
       - relevant requests returned `200`, including `api/loadSettings`, `api/authRefreshStatus`, `api/backendInitStatus`, `api/getDefaultConfigName`, `api/getFileBrowserRoot`, `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, and `api/getListenerCoverage`
 - Next action:
   - Continue workstream `3. Scene Packet And Edge Packet Extraction` with the next bounded first-slice packet boundary, starting with deterministic node-visual packet extraction for the dict/param canary path before any Pixi renderer mounting lands.
+
+## 2026-03-26 023
+
+- Item: Extract deterministic benchmark dict-area scene packets for the first node-visual canary slice.
+- Status: `done`
+- Details:
+  - Added a pure typed packet boundary for the benchmark dict/param shell on the canary path:
+    - `frontend/src/components/Section/Layouts/dictAreaScenePackets.ts`
+    - `frontend/src/components/Section/Layouts/dictAreaScenePackets.test.ts`
+  - Kept the current benchmark DOM stable by routing `SettingsAllSettingsBenchmarkDictArea` through the new packet helper instead of rendering directly from ad hoc row data:
+    - `frontend/src/components/Section/Layouts/SettingsAllSettingsBenchmarkDictArea.tsx`
+  - The new helper now deterministically:
+    - emits typed edge-summary packets for the benchmark shell
+    - emits pinned/unpinned param-area packets in stable order
+    - maps flattened benchmark param rows into semantic row packets with explicit `group` vs `value` kinds for future scene rendering
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/dictAreaScenePackets.test.ts src/components/Section/Layouts/dictAreaView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?settingsBenchmarkStage=static-param-list`)
+      - `All Settings` stayed active and the benchmark shell rendered normally in the settings canvas
+      - static param content remained visible, including rows such as `minHeight`, `minWidth`, `Size Mode Height`, and `Size Mode Width`, plus representative settings labels such as `backend`, `languageServer`, `gui`, and `sectionSizingPolicy`
+      - relevant requests returned `200`, including `GET /settings?settingsBenchmarkStage=static-param-list`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue workstream `3. Scene Packet And Edge Packet Extraction` with the next bounded node-visual packet boundary, extending from the benchmark shell into the live dict/param canary rendering path before any Pixi mounting lands.

@@ -9,6 +9,10 @@ import {
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { buildBenchmarkParamRows, type BenchmarkParamRow } from "./dictAreaView";
+import {
+  buildBenchmarkDictAreaScenePacket,
+  type BenchmarkDictAreaSceneParamRowPacket,
+} from "./dictAreaScenePackets";
 
 export function SettingsAllSettingsBenchmarkDictArea({
   sectionId,
@@ -18,13 +22,7 @@ export function SettingsAllSettingsBenchmarkDictArea({
   bgColor: string;
 }) {
   const benchmark = useSettingsAllSettingsBenchmark();
-  const {
-    inputPortCount,
-    outputPortCount,
-    pinnedRows,
-    unpinnedRows,
-    hideUnpinnedParams,
-  } = useProjectState((state) => {
+  const scenePacket = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
       sectionId,
@@ -52,18 +50,19 @@ export function SettingsAllSettingsBenchmarkDictArea({
       });
     };
 
-    return {
+    return buildBenchmarkDictAreaScenePacket({
+      hideUnpinnedParams: impl.hideUnpinnedParams,
       inputPortCount: impl.edgeInputParams.length,
       outputPortCount: impl.edgeOutputPorts.length,
       pinnedRows: toRows(
         pinned.topLevelParamIds,
         pinned.requiredParamIdsToPaths,
       ),
-      unpinnedRows: impl.hideUnpinnedParams
-        ? []
-        : toRows(unpinned.topLevelParamIds, unpinned.requiredParamIdsToPaths),
-      hideUnpinnedParams: impl.hideUnpinnedParams,
-    };
+      unpinnedRows: toRows(
+        unpinned.topLevelParamIds,
+        unpinned.requiredParamIdsToPaths,
+      ),
+    });
   }, _.isEqual);
 
   return (
@@ -82,23 +81,19 @@ export function SettingsAllSettingsBenchmarkDictArea({
         data-settings-benchmark-shell="edges"
       >
         <div className="flex items-center justify-between gap-4">
-          <span>Inputs: {inputPortCount}</span>
-          <span>Outputs: {outputPortCount}</span>
+          <span>Inputs: {scenePacket.edgeSummary.inputPortCount}</span>
+          <span>Outputs: {scenePacket.edgeSummary.outputPortCount}</span>
         </div>
       </section>
-      <BenchmarkParamArea
-        title="Pinned Params"
-        rows={pinnedRows}
-        renderRows={benchmark.renderStaticParamList}
-      />
-      {!hideUnpinnedParams ? (
+      {scenePacket.paramAreas.map((paramArea) => (
         <BenchmarkParamArea
-          title="Params"
-          rows={unpinnedRows}
+          key={paramArea.id}
+          title={paramArea.title}
+          rows={paramArea.rows}
           renderRows={benchmark.renderStaticParamList}
-          grow
+          grow={paramArea.grow}
         />
-      ) : null}
+      ))}
     </section>
   );
 }
@@ -110,7 +105,7 @@ function BenchmarkParamArea({
   grow = false,
 }: {
   title: string;
-  rows: BenchmarkParamRow[];
+  rows: BenchmarkDictAreaSceneParamRowPacket[];
   renderRows: boolean;
   grow?: boolean;
 }) {
@@ -144,7 +139,7 @@ function BenchmarkParamArea({
               >
                 <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-setta-300 dark:bg-setta-600" />
                 <span className="truncate">{row.label}</span>
-                {row.isParent ? (
+                {row.kind === "group" ? (
                   <span className="ml-auto text-[0.5rem] uppercase tracking-[0.16em] text-setta-400 dark:text-setta-500">
                     Group
                   </span>
