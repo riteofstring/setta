@@ -4,7 +4,11 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import { route_format_code } from "utils/generatedEndpoints";
 import {
   CodeFileAccessModeEnum,
@@ -25,6 +29,8 @@ import {
 
 const FORMATTER_SUCCESS_MESSAGE = "Ran formatter.";
 const FORMATTER_FAILURE_MESSAGE = "Failed to run formatter.";
+
+type FormatCodeRouteResponse = ResponseDataAndStatus<null>;
 
 const LOCATION_COLON_RE = /:(\d+):(\d+)(?::|\s)/;
 const LOCATION_TEXT_RE = /line\s+(\d+).*column\s+(\d+)/i;
@@ -158,7 +164,7 @@ export async function formatActiveCodeSection(): Promise<void> {
     await flushPendingCodeUpdate(sectionId);
   }
 
-  const res = await route_format_code({
+  const res: FormatCodeRouteResponse = await route_format_code({
     projectConfigId: getCurrProjectConfigId(),
     sectionId,
   });

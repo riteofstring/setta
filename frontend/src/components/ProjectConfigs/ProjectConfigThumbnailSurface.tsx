@@ -10,8 +10,8 @@ export function ProjectConfigThumbnailSurface({
   previewContainerProps,
   scalePreview = true,
 }: {
-  previewImgColor: string;
-  topLevelSections: ProjectConfig["topLevelSections"];
+  previewImgColor?: string;
+  topLevelSections?: ProjectConfig["topLevelSections"] | null;
   className?: string;
   overlay?: ReactNode;
   previewContainerProps?: HTMLAttributes<HTMLDivElement>;
@@ -28,7 +28,7 @@ export function ProjectConfigThumbnailSurface({
 
   return (
     <div
-      className={`col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${previewImgColor} ${className}`}
+      className={`col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${previewImgColor ?? ""} ${className}`}
     >
       {overlay}
       <div {...previewContainerProps} className={previewContainerClassName}>

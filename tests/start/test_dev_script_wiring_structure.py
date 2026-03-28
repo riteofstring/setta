@@ -19,6 +19,15 @@ def test_backend_start_uses_shared_setta_path_flag_parser() -> None:
     assert "setta_path_flags_seed_from_env" in backend_start
 
 
+def test_backend_start_uses_go_entrypoint() -> None:
+    root = repo_root()
+    backend_start = (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
+    assert 'SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")' in backend_start
+    assert '/dev/tty' in backend_start
+    assert "SETTA_PYTHON_BIN" not in backend_start
+    assert ". ./activate.sh" not in backend_start
+
+
 def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     root = repo_root()
     reset_script = (root / "scripts" / "reset-setta-state.sh").read_text(
@@ -26,6 +35,28 @@ def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     )
     assert "scripts/lib/setta_path_flags.sh" in reset_script
     assert "setta_path_flags_try_parse" in reset_script
+    assert "paths --env" in reset_script
+    assert ". ./activate.sh" not in reset_script
+
+
+def test_browser_bootstrap_scripts_use_shared_setta_cli_helper() -> None:
+    root = repo_root()
+    for rel_path in (
+        "scripts/start-browser-mcp.sh",
+        "scripts/bootstrap-url.sh",
+        "scripts/kill-setta.sh",
+    ):
+        script = (root / rel_path).read_text(encoding="utf-8")
+        assert "scripts/lib/setta_cli_command.sh" in script
+        assert "setta_cli_command_init" in script
+
+
+def test_frontend_postinstall_uses_node_xterm_patch() -> None:
+    root = repo_root()
+    package_json = json.loads((root / "frontend" / "package.json").read_text())
+    postinstall = package_json["scripts"]["postinstall"]
+    assert "node ./scripts/fix_xterm.mjs" in postinstall
+    assert "python fix_xterm.py" not in postinstall
 
 
 def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:
@@ -147,6 +178,80 @@ def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> No
     assert existing_workspace_line != -1
     assert fixture_seed_guard_line != -1
     assert existing_workspace_line < fixture_seed_guard_line
+
+
+def test_playwright_runner_overwrites_seeded_project_state_with_go_runtime_shape() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "./scripts/go.sh run ./cmd/setta-seed-playwright-workspace" in script
+    assert '--setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"' in script
+
+
+def test_playwright_runner_reads_bootstrap_token_from_backend_log() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '"${PYTHON_BIN}" - "${LOG_DIR}/backend.log"' in script
+    assert 'token_pattern = re.compile(r"^\\s*Token:\\s+(\\S+)\\s*$")' in script
+    assert "Timed out waiting for bootstrap token in" in script
+
+
+def test_playwright_runner_supports_codegen_recording_mode() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'PROJECT_URL="${SETTA_PROJECT_URL:-}"' in script
+    assert '[[ -z "${PROJECT_URL}" ]] && [[ -n "${SETTA_PROJECT_PATH:-}" ]]' in script
+    assert 'if [[ -n "${SETTA_WORKSPACE_ROOT:-}" ]]; then' in script
+    assert 'if [[ -n "${SETTA_HOME:-}" ]]; then' in script
+    assert "resolve_default_recording_bundle_dir()" in script
+    assert '${SETTA_E2E_RECORD_ROOT_DIR:-${TMPDIR:-/tmp}/setta-playwright-recordings}' in script
+    assert 'case "${SETTA_E2E_PLAYWRIGHT_SUBCOMMAND:-test}" in' in script
+    assert "run_playwright_codegen()" in script
+    assert "pnpm exec playwright codegen" in script
+    assert "--load-storage" in script
+    assert "--save-har" in script
+    assert "prepare_recording_auth_storage_state" in script
+    assert 'target_project_url="$(with_backend_origin_override "${PROJECT_URL}")"' in script
+    assert 'url.pathname !== "/__setta__/bootstrap"' in script
+    assert 'await page.goto(projectUrl, { waitUntil: "domcontentloaded" });' in script
+
+
+def test_record_playwright_wrapper_defaults_to_repo_artifact_bundle() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "record-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'DEFAULT_SETTA_HOME="${HOME}/.setta-development"' in script
+    assert 'DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"' in script
+    assert "resolve_default_recording_root()" in script
+    assert '${TMPDIR:-/tmp}/setta-playwright-recordings' in script
+    assert ': "${SETTA_E2E_SEED_WORKSPACE:=0}"' in script
+    assert 'SETTA_PROJECT_PATH="/home"' in script
+    assert 'SETTA_E2E_PLAYWRIGHT_SUBCOMMAND="codegen"' in script
+    assert 'SETTA_E2E_RECORD_OUTPUT_FILE="${artifact_dir}/recording.spec.ts"' in script
+    assert 'SETTA_E2E_RECORD_HAR_FILE="${artifact_dir}/network.har"' in script
+    assert 'SETTA_E2E_LOG_DIR="${log_dir}"' in script
+    assert "SETTA_E2E_RECORD_ROOT_DIR" in script
+    assert ': "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:=0}"' in script
+
+
+def test_playwright_runner_builds_current_go_cli_binary_by_default() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "prepare_current_setta_cli()" in script
+    assert "./scripts/go.sh build -o" in script
+    assert "./cmd/setta" in script
+    assert "./cmd/setta-server" in script
+    assert 'export SETTA_GO_CLI_BIN="${current_setta_go_bin}"' in script
+    assert 'export SETTA_SERVER_BIN="${current_setta_server_bin}"' in script
+    assert '"${SETTA_GO_CLI_BIN}" --host "${SETTA_HOST}" --port "${SETTA_PORT}"' in script
 
 
 def test_plugin_fixture_link_script_defaults_to_no_rescan_and_unlink_wrapper_removed() -> None:
