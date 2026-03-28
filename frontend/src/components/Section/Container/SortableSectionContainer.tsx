@@ -9,7 +9,13 @@ import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { renderSectionContainerNestedSections } from "./SectionContainerNestedSections";
+import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import { SortableSectionBody } from "./SortableSectionBody";
+
+const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
+  props,
+) => <SectionContainerCoreCanvasBody {...props} />;
 
 function _SortableSectionContainer({ sectionId, className }) {
   return isTempSection(sectionId) ? (
@@ -146,6 +152,7 @@ function _SortableCore({
         sectionId={sectionId}
         applyTransform={applyTransform}
         listeners={listeners}
+        renderCoreBody={renderSectionContainerCoreBody}
         renderNestedSections={renderSectionContainerNestedSections}
       />
     </div>

@@ -3142,3 +3142,33 @@ Record:
     - representative requests returned `200`, including `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, and related bootstrap calls
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SortableSectionBody.tsx` body boundary into the next higher-level sortable caller in `frontend/src/components/Section/Container/SortableSectionContainer.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 115
+
+- Item: Lift the `SortableSectionBody.tsx` body boundary into the next higher-level sortable caller in `frontend/src/components/Section/Container/SortableSectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/SortableSectionContainer.tsx` to own the live `SectionContainerCoreCanvasBody` handoff directly instead of leaving that ownership inside `SortableSectionBody.tsx`:
+    - the sortable container now provides the typed `renderCoreBody(...)` boundary alongside the existing nested-sections renderer
+  - Shrunk `frontend/src/components/Section/Container/SortableSectionBody.tsx` down to a thinner sortable/body adapter that only routes its caller-provided body renderer into `SectionContainer`
+  - Extended the sortable body prop contract to carry the lifted body-renderer seam:
+    - `frontend/src/components/Section/Container/sortableSectionBodyView.ts`
+  - Updated focused coverage to pin the new ownership boundary:
+    - `frontend/src/components/Section/Container/SortableSectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionBody.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SortableSectionContainer.tsx` as the higher-level owner of the live `SectionContainerCoreCanvasBody` boundary for sortable sections
+    - leaving `SortableSectionBody.tsx` focused on temp-section suppression and `SectionContainer` routing instead of mixed routing-plus-body ownership
+    - keeping the current DOM/live canvas path intact while deepening the sortable-section contract above `SortableSectionBody.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/SortableSectionBody.test.tsx src/components/Section/Container/sortableSectionBodyView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` stayed authenticated after bootstrap and `All Settings` remained visible
+    - the visible settings shell and dict/param area showed no obvious clipping, overlap, or missing content after the lifted sortable boundary
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `Grid Color`, `Pan On Drag`, `Auto Backup`, and `Autosave`
+    - representative requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/getLatestLspDiagnostics`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SortableSectionContainer.tsx` body boundary into the next higher-level sortable caller before any broad Pixi node drawing lands.

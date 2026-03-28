@@ -49,21 +49,6 @@ vi.mock("./SectionContainer", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerCoreCanvasBody", () => ({
-  SectionContainerCoreCanvasBody: ({
-    sectionId,
-    sectionTypeName,
-    bgColor,
-  }: SectionContainerCoreBodyProps) => (
-    <div
-      data-testid="mock-section-container-core-body"
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-bg-color={bgColor}
-    />
-  ),
-}));
-
 function renderNestedSections({
   sectionId,
   layoutVariant,
@@ -88,6 +73,7 @@ describe("SortableSectionBody", () => {
         sectionId={getDndSectionId("section-1")}
         applyTransform={true}
         listeners={{}}
+        renderCoreBody={() => <div data-testid="unused-render-core-body" />}
         renderNestedSections={renderNestedSections}
       />,
     );
@@ -102,6 +88,7 @@ describe("SortableSectionBody", () => {
         sectionId={getDndSectionId("section-1")}
         applyTransform={false}
         listeners={{}}
+        renderCoreBody={() => <div data-testid="unused-render-core-body" />}
         renderNestedSections={renderNestedSections}
       />,
     );
@@ -110,11 +97,25 @@ describe("SortableSectionBody", () => {
   });
 
   it("delegates regular sections into the SectionContainer boundary", () => {
+    const renderCoreBody = ({
+      sectionId,
+      sectionTypeName,
+      bgColor,
+    }: SectionContainerCoreBodyProps) => (
+      <div
+        data-testid="mock-section-container-core-body"
+        data-section-id={sectionId}
+        data-section-type={sectionTypeName}
+        data-bg-color={bgColor}
+      />
+    );
+
     const markup = renderToStaticMarkup(
       <SortableSectionBody
         sectionId="section-1"
         applyTransform={false}
         listeners={{ onPointerDown: "listener" }}
+        renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
     );

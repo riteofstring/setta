@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 
 const mockUseSortable = vi.fn();
@@ -56,14 +57,31 @@ vi.mock("./SectionContainerNestedSections", () => ({
   ),
 }));
 
+vi.mock("./SectionContainerCoreCanvasBody", () => ({
+  SectionContainerCoreCanvasBody: ({
+    sectionId,
+    sectionTypeName,
+    bgColor,
+  }: SectionContainerCoreBodyProps) => (
+    <div
+      data-testid="mock-section-container-core-body"
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-bg-color={bgColor}
+    />
+  ),
+}));
+
 vi.mock("./SortableSectionBody", () => ({
   SortableSectionBody: ({
     sectionId,
     listeners,
+    renderCoreBody,
     renderNestedSections,
   }: {
     sectionId: string;
     listeners: Record<string, unknown>;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: (props: {
       sectionId: string;
       isGroup: boolean;
@@ -76,6 +94,13 @@ vi.mock("./SortableSectionBody", () => ({
       data-section-id={sectionId}
       data-has-listeners={listeners ? "true" : "false"}
     >
+      {renderCoreBody({
+        sectionId,
+        sectionTypeName: "Code",
+        bgColor: "bg:white",
+        isMinimized: false,
+        isUserView: false,
+      })}
       {renderNestedSections({
         sectionId,
         isGroup: false,
@@ -111,6 +136,7 @@ describe("SortableSectionContainer", () => {
     expect(markup).toContain('data-sortable-section-id="section-1"');
     expect(markup).toContain('data-testid="mock-sortable-section-body"');
     expect(markup).toContain('data-has-listeners="true"');
+    expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain(
       'data-testid="mock-section-container-nested-sections"',
     );
