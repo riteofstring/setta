@@ -6289,3 +6289,39 @@ Record:
     - the unstable live `/settings` canary remains explicit; this slice used the live nested-section project surface instead
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`SectionContainerBoundary`-owned `SectionBoundary` handoff into the next caller layer above `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.tsx`, while keeping the unstable live `/settings` canary explicit.
+
+## 2026-03-28 208
+
+- Item: Lift the `SectionBoundary` handoff above `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`, starting with `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Moved the default top-level `SortableSectionSection` ownership one caller higher so `SectionContainerBoundary.tsx` is now a thinner caller-owned seam for `SectionBoundary`:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+  - Updated `SectionContainerDefaultBoundary.tsx` to own both default top-level injections instead of only the recursive renderers:
+    - `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.tsx`
+    - `SectionBoundary={SortableSectionSection}`
+    - `renderDefaultSectionContainerCoreBody`
+    - `renderDefaultSectionContainerNestedSections`
+  - Refreshed focused coverage so both sides of the lifted seam are pinned directly:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx`
+  - This keeps the current DOM behavior intact while making the default top-level boundary ownership more explicit:
+    - `SectionContainerBoundary.tsx` now depends on a caller-provided `SectionBoundary`
+    - `SectionContainerDefaultBoundary.tsx` now explicitly owns the default top-level `SortableSectionSection` handoff plus the default core/nested renderers
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SectionContainerDefaultBoundary.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerDefaultBoundary.test.tsx`
+      - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<current worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - used the live nested-section project surface `http://127.0.0.1:3044/rose_small` because the rewrite runtime still treats `/settings` as an unstable canary
+    - the nested section surface rendered normally with no obvious blank state, clipping, or overlap
+    - representative visible labels included `GENERATED PYTHON CODE`, `Chat Window 1`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, and `SettaState`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getAIFollowSnapshot`, `GET /api/getAgentProfiles`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-`SectionContainerDefaultBoundary`-owned `SectionBoundary` handoff into the next caller layer above `frontend/src/components/Section/Container/SectionContainerDefaultBoundary.tsx`, while keeping the unstable live `/settings` canary explicit.

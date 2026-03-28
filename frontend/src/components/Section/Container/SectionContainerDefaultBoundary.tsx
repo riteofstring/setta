@@ -1,5 +1,6 @@
 import React, { type ComponentProps } from "react";
 import { SectionContainerBoundary } from "./SectionContainerBoundary";
+import { SortableSectionSection } from "./SortableSectionSection";
 import {
   renderDefaultSectionContainerCoreBody,
   renderDefaultSectionContainerNestedSections,
@@ -7,7 +8,7 @@ import {
 
 export type SectionContainerDefaultBoundaryProps = Omit<
   ComponentProps<typeof SectionContainerBoundary>,
-  "renderCoreBody" | "renderNestedSections"
+  "renderCoreBody" | "renderNestedSections" | "SectionBoundary"
 >;
 
 function _SectionContainerDefaultBoundary(
@@ -16,6 +17,7 @@ function _SectionContainerDefaultBoundary(
   return (
     <SectionContainerBoundary
       {...props}
+      SectionBoundary={SortableSectionSection}
       renderCoreBody={renderDefaultSectionContainerCoreBody}
       renderNestedSections={renderDefaultSectionContainerNestedSections}
     />

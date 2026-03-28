@@ -3,21 +3,14 @@ import {
   SectionContainerSection,
   type SectionContainerSectionBoundaryProps,
 } from "./SectionContainerSection";
-import { SortableSectionSection } from "./SortableSectionSection";
 
 export type SectionContainerBoundaryProps = Omit<
   SectionContainerSectionBoundaryProps,
-  "isTopLevel" | "SectionBoundary"
+  "isTopLevel"
 >;
 
 function _SectionContainerBoundary(props: SectionContainerBoundaryProps) {
-  return (
-    <SectionContainerSection
-      {...props}
-      SectionBoundary={SortableSectionSection}
-      isTopLevel={true}
-    />
-  );
+  return <SectionContainerSection {...props} isTopLevel={true} />;
 }
 
 export const SectionContainerBoundary = React.memo(_SectionContainerBoundary);
