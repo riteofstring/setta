@@ -59,7 +59,6 @@ Context is stored in a contextvar and rendered as a logfmt-like string:
 - Primary helpers:
   - `logging_context(...)` (context manager)
   - `push_logging_context(...)` / `reset_logging_context(...)`
-  - `get_logging_context()` (snapshot for consumers)
 
 Values are normalized and sanitized:
 

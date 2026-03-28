@@ -5,13 +5,14 @@ from contextlib import contextmanager
 
 import pytest
 
-from setta.logging.context import (
-    get_logging_context,
-    push_logging_context,
-    reset_logging_context,
-)
+from setta.logging import context as logging_context_module
+from setta.logging.context import push_logging_context, reset_logging_context
 from setta.logging.errors import run_safely
 from setta.logging.tasks import spawn_background_task
+
+
+def _current_context() -> dict[str, str]:
+    return dict(logging_context_module._LOGGING_CONTEXT_VAR.get().data)
 
 
 @contextmanager
@@ -122,7 +123,7 @@ async def test_spawn_background_task_sets_context() -> None:
     token = push_logging_context(replace=True)
     try:
         async def capture_context() -> dict[str, str]:
-            return get_logging_context()
+            return _current_context()
 
         task = spawn_background_task(
             capture_context(),
