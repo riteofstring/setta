@@ -8,7 +8,7 @@ import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ParamSwitch } from "./ParamSwitch";
-import { resolveVisibleParamIds } from "./paramSwitchView";
+import { buildVisibleParamScenePackets } from "./paramSwitchScenePackets";
 
 export function GetParamSwitch({
   sectionId,
@@ -56,9 +56,9 @@ export function GetParamSwitch({
     }),
     shallow,
   );
-  const filteredIds = useMemo(() => {
+  const scenePackets = useMemo(() => {
     const state = useProjectState.getState();
-    return resolveVisibleParamIds({
+    return buildVisibleParamScenePackets({
       paramIds,
       requiredParamIdsToPaths,
       paramFilter: paramsImpl.paramFilter,
@@ -80,11 +80,11 @@ export function GetParamSwitch({
     showParamDisplayNames,
   ]);
 
-  return filteredIds.map((paramId, idx) => (
+  return scenePackets.map((packet, idx) => (
     <ParamSwitch
-      key={paramId}
+      key={packet.id}
       sectionId={sectionId}
-      paramInfoId={paramId}
+      paramInfoId={packet.id}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}

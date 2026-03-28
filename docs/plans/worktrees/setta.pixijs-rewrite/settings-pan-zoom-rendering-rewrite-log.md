@@ -599,3 +599,30 @@ Record:
       - relevant requests returned `200`, including `GET /settings?settingsBenchmarkStage=static-param-list`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue workstream `3. Scene Packet And Edge Packet Extraction` with the next bounded node-visual packet boundary, extending from the benchmark shell into the live dict/param canary rendering path before any Pixi mounting lands.
+
+## 2026-03-26 024
+
+- Item: Extract deterministic live param-row scene packets for the dict/param canary path.
+- Status: `done`
+- Details:
+  - Added a pure typed packet boundary for the live visible param-row path:
+    - `frontend/src/components/Params/paramSwitchScenePackets.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.test.ts`
+  - Kept the current non-Pixi DOM renderer stable by routing `GetParamSwitch` through the new packet helper and mapping packet ids back into the existing `ParamSwitch` surface:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+  - The new helper now deterministically:
+    - preserves visible param-row ordering through the existing filter logic
+    - expands matched leaf rows back through their visible ancestor paths
+    - infers stable `group` vs `value` row kinds from the path data
+    - keeps temp DnD placeholder rows visible as explicit `placeholder` packets when filtering hides real params
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/paramSwitchScenePackets.test.ts src/components/Params/paramSwitchView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` loaded authenticated with `All Settings` visible
+      - the dict/param stack still looked structurally intact in the live app, with visible context including `Dict`, `Param Defaults`, and surrounding settings controls
+      - relevant requests returned `200`, including `api/getAgentRuns`, `api/getEngineConfigs`, `api/getPromptTemplates`, `api/getExternalAgentHealth`, `api/plugins/runtime`, `api/llm/config`, `api/llm/apiKeys`, `api/loadProjectConfig`, `api/getFileBrowserRoot`, and `api/getFolderContents`
+- Next action:
+  - Continue workstream `3. Scene Packet And Edge Packet Extraction` by lifting the pinned/unpinned live param-area shell into a higher-level dict/param scene packet before any Pixi mounting lands.
