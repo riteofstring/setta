@@ -181,20 +181,21 @@ test.describe.serial("section color tags", () => {
       const overviewTagFilter = overviewPane.getByLabel("Tag filter").first();
       await expect(overviewTagFilter).toBeVisible();
 
-      await overviewTagFilter.click();
-      await page
-        .getByRole("menuitem", { name: "Untagged" })
-        .evaluate((element: HTMLElement) => element.click());
+      await overviewTagFilter.locator("i").click();
+      const untaggedOption = page.getByRole("option", { name: "Untagged" });
+      await expect(untaggedOption).toBeVisible();
+      await untaggedOption.click();
       await expect(
         overviewPane.locator(`[id="${sectionId}-OverviewListItem"]`),
       ).toHaveCount(0);
 
       await overviewTagFilter.click();
-      await page
-        .getByRole("menuitem")
+      const blueTagOption = page
+        .getByRole("option")
         .filter({ hasText: "Blue" })
-        .first()
-        .evaluate((element: HTMLElement) => element.click());
+        .first();
+      await expect(blueTagOption).toBeVisible();
+      await blueTagOption.click();
       const overviewItem = overviewPane.locator(
         `[id="${sectionId}-OverviewListItem"]`,
       );
@@ -204,9 +205,9 @@ test.describe.serial("section color tags", () => {
       ).toBeVisible();
 
       await overviewTagFilter.click();
-      await page
-        .getByRole("menuitem", { name: "All" })
-        .evaluate((element: HTMLElement) => element.click());
+      const allOption = page.getByRole("option", { name: "All" });
+      await expect(allOption).toBeVisible();
+      await allOption.click();
       await expect(overviewItem).toBeVisible();
 
       await expect

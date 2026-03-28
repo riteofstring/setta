@@ -1,4 +1,4 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
@@ -175,63 +175,101 @@ function TagFilterDropdown({
     value === TAG_FILTER_ALL
       ? "ring-setta-300/60 dark:ring-setta-700/60"
       : "ring-black/10 dark:ring-white/10";
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerClassName =
+    "flex items-center gap-2 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
+  const menuContentClassName =
+    "z-50 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-850";
+  const menuItemClassName =
+    "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
+  const menuItemTextClassName =
+    "max-w-48 truncate text-xs text-setta-700 dark:text-setta-200";
 
   return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger
-        aria-label="Tag filter"
-        className="flex items-center gap-2 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850"
-      >
-        <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ${selectedDotRingClassName}`}
-          style={{ backgroundColor: selectedDotColor }}
-          aria-hidden="true"
-        />
-        <span className="max-w-28 truncate">{selectedLabel}</span>
-        <i
-          className="gg-chevron-down !scale-75 opacity-70"
-          aria-hidden="true"
-        />
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-850"
-          align="end"
-          sideOffset={6}
+    <StandardPopover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      contentClasses={menuContentClassName}
+      contentProps={{
+        align: "end",
+        sideOffset: 6,
+      }}
+      trigger={
+        <button
+          type="button"
+          aria-label="Tag filter"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          className={triggerClassName}
         >
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center rounded px-2 py-1 text-xs text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-700"
-            onSelect={() => onChange(TAG_FILTER_ALL)}
-          >
-            All
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center rounded px-2 py-1 text-xs text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-700"
-            onSelect={() => onChange(TAG_FILTER_UNTAGGED)}
-          >
-            Untagged
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator className="my-1 h-px bg-setta-200/80 dark:bg-setta-700/60" />
+          <span
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ${selectedDotRingClassName}`}
+            style={{ backgroundColor: selectedDotColor }}
+            aria-hidden="true"
+          />
+          <span className="max-w-28 truncate">{selectedLabel}</span>
+          <i
+            className="gg-chevron-down !scale-75 opacity-70"
+            aria-hidden="true"
+          />
+        </button>
+      }
+    >
+      <div
+        role="listbox"
+        aria-label="Available tag filters"
+        className="flex flex-col"
+      >
+        <button
+          type="button"
+          role="option"
+          aria-selected={value === TAG_FILTER_ALL}
+          className={`${menuItemClassName} ${menuItemTextClassName}`}
+          onClick={() => {
+            onChange(TAG_FILTER_ALL);
+            setIsOpen(false);
+          }}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          role="option"
+          aria-selected={value === TAG_FILTER_UNTAGGED}
+          className={`${menuItemClassName} ${menuItemTextClassName}`}
+          onClick={() => {
+            onChange(TAG_FILTER_UNTAGGED);
+            setIsOpen(false);
+          }}
+        >
+          Untagged
+        </button>
+        <div className="my-1 h-px bg-setta-200/80 dark:bg-setta-700/60" />
 
-          {colorChoices.map((item, index) => (
-            <DropdownMenu.Item
-              key={index}
-              className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
-              onSelect={() => onChange(item.color)}
-            >
-              <span
-                className="mr-2 h-4 w-4 rounded-full ring-1 ring-black/10 dark:ring-white/10"
-                style={{ backgroundColor: item.color }}
-                aria-hidden="true"
-              />
-              <span className="max-w-48 truncate text-xs text-setta-700 dark:text-setta-200">
-                {item.description || item.color}
-              </span>
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+        {colorChoices.map((item, index) => (
+          <button
+            key={index}
+            type="button"
+            role="option"
+            aria-selected={value === item.color}
+            className={menuItemClassName}
+            onClick={() => {
+              onChange(item.color);
+              setIsOpen(false);
+            }}
+          >
+            <span
+              className="mr-2 h-4 w-4 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+              style={{ backgroundColor: item.color }}
+              aria-hidden="true"
+            ></span>
+            <span className={menuItemTextClassName}>
+              {item.description || item.color}
+            </span>
+          </button>
+        ))}
+      </div>
+    </StandardPopover>
   );
 }
 
