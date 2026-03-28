@@ -350,15 +350,15 @@ func buildExternalAgentHealthResponse(status externalagentconfigs.Status) Extern
 		RunMode:     status.RunMode,
 		Supported:   status.Supported,
 		Available:   status.Available,
-		Issues:      append([]string(nil), status.Issues...),
+		Issues:      cloneStringSlice(status.Issues),
 		BaseURL:     cloneOptionalString(status.BaseURL),
 		WorkingDir:  cloneOptionalString(status.WorkingDir),
 		NodeVersion: cloneOptionalString(status.NodeVersion),
 		SDKVersion:  cloneOptionalString(status.SDKVersion),
 		CLIVersion:  cloneOptionalString(status.CLIVersion),
 		EnvVars: externalagentconfigs.EnvVarStatus{
-			Present: append([]string(nil), status.EnvVars.Present...),
-			Missing: append([]string(nil), status.EnvVars.Missing...),
+			Present: cloneStringSlice(status.EnvVars.Present),
+			Missing: cloneStringSlice(status.EnvVars.Missing),
 		},
 	}
 	if status.ToolType == externalagentconfigs.ToolTypeOpenCode {
@@ -438,6 +438,13 @@ func cloneOptionalBool(value *bool) *bool {
 	}
 	cloned := *value
 	return &cloned
+}
+
+func cloneStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	return append([]string(nil), values...)
 }
 
 func cloneExternalAgentSettingsManagedBlock(

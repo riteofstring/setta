@@ -238,11 +238,73 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if payload[1].CLIVersion == nil || *payload[1].CLIVersion != cliVersion {
 		t.Fatalf("expected codex cliVersion mapping, got %#v", payload[1])
 	}
+	if payload[1].Issues == nil {
+		t.Fatalf("expected empty issues to serialize as [], got %#v", payload[1])
+	}
 	if got := payload[0].EnvVars; len(got.Present) != 1 || got.Present[0] != "OPENAI_API_KEY" || len(got.Missing) != 1 || got.Missing[0] != "ANTHROPIC_API_KEY" {
 		t.Fatalf("expected envVars mapping from checker status, got %#v", got)
 	}
+	if payload[1].EnvVars.Present == nil || payload[1].EnvVars.Missing == nil {
+		t.Fatalf("expected empty env var lists to serialize as [], got %#v", payload[1].EnvVars)
+	}
 	if len(checker.seenConfigIDs) != 2 || checker.seenConfigIDs[0] != "config-1" || checker.seenConfigIDs[1] != "config-2" {
 		t.Fatalf("expected checker calls in config order, got %#v", checker.seenConfigIDs)
+	}
+}
+
+func TestRegisterExternalAgentConfigRoutesHealthUsesWorkspaceDotEnvFallbackForWhitelistedKeys(t *testing.T) {
+	t.Parallel()
+
+	store, service, workspaceRoot := newExternalAgentConfigRouteTestServiceWithWorkspace(t)
+	commandPath := writeExternalAgentConfigRouteExecutableFixture(t, "codex")
+	if err := store.Write([]externalagentconfigs.Config{
+		{
+			ID:                 "config-codex",
+			Name:               "Codex",
+			ToolType:           externalagentconfigs.ToolTypeCodex,
+			RunMode:            externalagentconfigs.RunModeAppServer,
+			CommandPath:        &commandPath,
+			EnvVarWhitelist:    []string{"OPENAI_API_KEY"},
+			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		},
+	}); err != nil {
+		t.Fatalf("write configs: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(workspaceRoot, ".env"),
+		[]byte("OPENAI_API_KEY=workspace-openai-secret\n"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write workspace .env: %v", err)
+	}
+	checker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
+		WorkspaceRoot: workspaceRoot,
+		ProcessEnv:    map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, checker)
+
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetExternalAgentHealth, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload []ExternalAgentPreflightStatus
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode health payload: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one health entry, got %#v", payload)
+	}
+	if !payload[0].Available {
+		t.Fatalf("expected workspace .env fallback to satisfy API key requirement, got %#v", payload[0])
+	}
+	if got := payload[0].EnvVars; len(got.Present) != 1 || got.Present[0] != "OPENAI_API_KEY" || len(got.Missing) != 0 {
+		t.Fatalf("expected OPENAI_API_KEY to be present via workspace .env, got %#v", got)
 	}
 }
 
@@ -822,4 +884,14 @@ func newExternalAgentConfigRouteTestServiceWithWorkspace(t *testing.T) (*externa
 		t.Fatalf("new external agent config service: %v", err)
 	}
 	return store, service, workspaceRoot
+}
+
+func writeExternalAgentConfigRouteExecutableFixture(t *testing.T, name string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte("#!/bin/sh\necho '"+name+" 0.0.0'\n"), 0o755); err != nil {
+		t.Fatalf("write executable fixture: %v", err)
+	}
+	return path
 }

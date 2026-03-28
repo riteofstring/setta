@@ -65,7 +65,7 @@ func TestResolveWhitelistedEnvVarsUsesManagedFallbackForWhitespaceProcessValue(t
 	}
 }
 
-func TestResolveWhitelistedEnvVarsIgnoresDotEnvOnlyKeysWithoutManagedIndex(t *testing.T) {
+func TestResolveWhitelistedEnvVarsUsesWorkspaceDotEnvFallbackWithoutManagedIndex(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
@@ -80,14 +80,14 @@ func TestResolveWhitelistedEnvVarsIgnoresDotEnvOnlyKeysWithoutManagedIndex(t *te
 		[]string{"PLAIN_KEY", "MISSING_KEY"},
 	)
 
-	if len(resolution.EnvVars) != 0 {
-		t.Fatalf("expected no resolved env vars for plain dotenv-only keys, got %#v", resolution.EnvVars)
+	if !reflect.DeepEqual(resolution.EnvVars, map[string]string{"PLAIN_KEY": "plain-dot-env-value"}) {
+		t.Fatalf("expected plain dotenv fallback for whitelisted keys, got %#v", resolution.EnvVars)
 	}
-	if len(resolution.Status.Present) != 0 {
-		t.Fatalf("expected no present env vars, got %#v", resolution.Status)
+	if !reflect.DeepEqual(resolution.Status.Present, []string{"PLAIN_KEY"}) {
+		t.Fatalf("expected plain dotenv key to be present, got %#v", resolution.Status)
 	}
-	if !reflect.DeepEqual(resolution.Status.Missing, []string{"MISSING_KEY", "PLAIN_KEY"}) {
-		t.Fatalf("expected plain dotenv-only and missing keys to stay missing, got %#v", resolution.Status)
+	if !reflect.DeepEqual(resolution.Status.Missing, []string{"MISSING_KEY"}) {
+		t.Fatalf("expected only missing keys to remain missing, got %#v", resolution.Status)
 	}
 	if resolution.CorruptionIssue != "" || resolution.UnavailableIssue != "" {
 		t.Fatalf("expected no managed-store issues, got %#v", resolution)

@@ -36,6 +36,7 @@ func ResolveWhitelistedEnvVars(workspaceRoot string, managedAPIKeysLockRoot stri
 		return resolution
 	}
 
+	workspaceEnv, workspaceEnvErr := llmconfig.ReadEnvFile(llmconfig.ManagedAPIKeysPath(workspaceRoot))
 	managedAPIKeysResult := llmconfig.ReadManagedAPIKeysWithStatusInLockRoot(
 		llmconfig.ManagedAPIKeysPath(workspaceRoot),
 		managedAPIKeysLockRoot,
@@ -50,6 +51,12 @@ func ResolveWhitelistedEnvVars(workspaceRoot string, managedAPIKeysLockRoot stri
 		managedValue := managedAPIKeysResult.APIKeys[name]
 		if strings.TrimSpace(managedValue) != "" {
 			resolution.EnvVars[name] = managedValue
+			resolution.Status.Present = append(resolution.Status.Present, name)
+			continue
+		}
+		workspaceValue := workspaceEnv[name]
+		if workspaceEnvErr == nil && strings.TrimSpace(workspaceValue) != "" {
+			resolution.EnvVars[name] = workspaceValue
 			resolution.Status.Present = append(resolution.Status.Present, name)
 			continue
 		}

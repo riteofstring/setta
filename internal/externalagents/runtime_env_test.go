@@ -9,7 +9,7 @@ import (
 	"setta/internal/llmconfig"
 )
 
-func TestBuildRuntimeEnvUsesManagedAPIKeysForWhitelistedVars(t *testing.T) {
+func TestBuildRuntimeEnvUsesWorkspaceDotEnvFallbackForWhitelistedVars(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
@@ -78,8 +78,8 @@ func TestBuildRuntimeEnvUsesManagedAPIKeysForWhitelistedVars(t *testing.T) {
 		if got := test.env["WHITESPACE_KEY"]; got != "managed-fallback" {
 			t.Fatalf("%s: expected managed fallback for whitespace process env, got %#v", test.name, test.env)
 		}
-		if _, ok := test.env["PLAIN_KEY"]; ok {
-			t.Fatalf("%s: expected plain dot-env key to stay excluded, got %#v", test.name, test.env)
+		if got := test.env["PLAIN_KEY"]; got != "plain-dot-env-value" {
+			t.Fatalf("%s: expected plain dot-env fallback, got %#v", test.name, test.env)
 		}
 		if _, ok := test.env["MISSING_KEY"]; ok {
 			t.Fatalf("%s: expected missing key to stay excluded, got %#v", test.name, test.env)
