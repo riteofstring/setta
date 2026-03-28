@@ -43,7 +43,7 @@ This file is the reusable loop entrypoint for this worktree.
 
 ## Lifecycle bootstrap
 
-- `./ralph.sh` can optionally run one-time lifecycle actions before the loop starts.
+- `./ralph.sh` can run lifecycle actions before each iteration so every Codex pass starts from a fresh app session.
 - Default bootstrap for this worktree is `restart-aireset`.
 - Supported lifecycle modes for the current worktree only:
   - `none`
@@ -53,9 +53,12 @@ This file is the reusable loop entrypoint for this worktree.
   - `restart-ai`
   - `restart-aireset`
 - Terminal mode:
-  - `auto` uses tmux/cmux windows when `tmux` is available in the current shell, otherwise background launch
+  - `auto` relaunches Ralph visibly when possible: `cmux` in a cmux shell, `tmux` in a tmux shell, `Terminal.app` in Apple Terminal, otherwise background launch
   - `background` always launches lifecycle processes in the background with logs under the loop output dir
-  - `tmux` requires a live tmux/cmux shell and opens lifecycle processes in new tmux windows
+  - `tmux` requires a live tmux shell and opens lifecycle processes in new tmux windows
+  - `cmux` requires a live cmux shell and opens lifecycle processes in new cmux workspaces
+  - `terminal` opens lifecycle processes in new macOS Terminal windows
 - `aireset` and `restart-aireset` fall back to `ai.sh` if `aireset.sh` fails.
+- Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
 - Example:
-  - `./ralph.sh --terminal-mode tmux --worktree-lifecycle restart-aireset`
+  - `./ralph.sh --terminal-mode cmux --worktree-lifecycle restart-aireset`

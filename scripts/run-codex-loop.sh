@@ -46,10 +46,10 @@ Options:
                              Default: mktemp dir
   --workdir PATH             Working directory passed to `codex exec --cd`.
                              Default: config or repo root
-  --worktree-lifecycle MODE  One-time pre-loop lifecycle for this worktree:
+  --worktree-lifecycle MODE  Per-iteration lifecycle for this worktree:
                              none|kill|ai|aireset|restart-ai|restart-aireset
-  --terminal-mode MODE       Lifecycle launch mode:
-                             auto|background|tmux
+  --terminal-mode MODE       Visible launch mode for Ralph and lifecycle:
+                             auto|background|tmux|cmux|terminal
   --model NAME               Optional model override passed to `codex exec`
   --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
   --no-yolo                  Disable the default/configured yolo mode
@@ -60,7 +60,8 @@ Options:
 Examples:
   ./__PROGRAM_NAME__ --iterations 3
   ./__PROGRAM_NAME__ --config-file ./RALPH.md --output-dir ./tmp/ralph-loop
-  ./__PROGRAM_NAME__ --terminal-mode tmux --worktree-lifecycle restart-aireset
+  ./__PROGRAM_NAME__ --terminal-mode cmux --worktree-lifecycle restart-aireset
+  ./__PROGRAM_NAME__ --terminal-mode terminal --worktree-lifecycle restart-aireset
   ./__PROGRAM_NAME__ --iterations 20 -- --full-auto
 EOF
 }
@@ -156,6 +157,18 @@ sanitize_single_line() {
   printf '%s\n' "${value}"
 }
 
+shell_join_args() {
+  local joined=""
+  local arg=""
+  for arg in "$@"; do
+    if [[ -n "${joined}" ]]; then
+      joined+=" "
+    fi
+    joined+="$(printf '%q' "${arg}")"
+  done
+  printf '%s\n' "${joined}"
+}
+
 discover_main_worktree_root() {
   local repo_root="$1"
   git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
@@ -216,6 +229,14 @@ resolve_terminal_mode() {
       printf 'background\n'
       return 0
       ;;
+    cmux)
+      if command -v cmux >/dev/null 2>&1 && [[ -n "${CMUX_WORKSPACE_ID:-}" ]]; then
+        printf 'cmux\n'
+        return 0
+      fi
+      echo "Requested terminal mode cmux, but this shell is not running inside cmux." >&2
+      exit 1
+      ;;
     tmux)
       if command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
         printf 'tmux\n'
@@ -224,9 +245,25 @@ resolve_terminal_mode() {
       echo "Requested terminal mode tmux, but tmux is not available in this shell." >&2
       exit 1
       ;;
+    terminal)
+      if [[ "${OSTYPE:-}" == darwin* ]] && command -v osascript >/dev/null 2>&1 \
+        && osascript -e 'id of application "Terminal"' >/dev/null 2>&1; then
+        printf 'terminal\n'
+        return 0
+      fi
+      echo "Requested terminal mode terminal, but macOS Terminal automation is unavailable." >&2
+      exit 1
+      ;;
     auto|'')
-      if command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
+      if command -v cmux >/dev/null 2>&1 && [[ -n "${CMUX_WORKSPACE_ID:-}" ]]; then
+        printf 'cmux\n'
+      elif command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
         printf 'tmux\n'
+      elif [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]] \
+        && [[ "${OSTYPE:-}" == darwin* ]] \
+        && command -v osascript >/dev/null 2>&1 \
+        && osascript -e 'id of application "Terminal"' >/dev/null 2>&1; then
+        printf 'terminal\n'
       else
         printf 'background\n'
       fi
@@ -239,13 +276,35 @@ resolve_terminal_mode() {
   esac
 }
 
-tmux_window_name() {
+launch_session_name() {
   local target_name="$1"
   local target_root="$2"
   local label="$3"
   local suffix=""
   suffix="$(basename "${target_root}")"
   printf 'ralph-%s-%s-%s\n' "${target_name}" "${suffix}" "${label}"
+}
+
+build_logged_shell_command() {
+  local target_root="$1"
+  local session_name="$2"
+  local command_body="$3"
+  local log_path="$4"
+  local shell_path=""
+  local target_root_quoted=""
+  local log_path_quoted=""
+  local shell_path_quoted=""
+  local session_name_quoted=""
+  local inner_command=""
+
+  shell_path="${SHELL:-/bin/zsh}"
+  target_root_quoted="$(printf '%q' "${target_root}")"
+  log_path_quoted="$(printf '%q' "${log_path}")"
+  shell_path_quoted="$(printf '%q' "${shell_path}")"
+  session_name_quoted="$(printf '%q' "${session_name}")"
+
+  inner_command="printf '\\033]0;%s\\007' ${session_name_quoted}; cd ${target_root_quoted} && ( ${command_body} ) 2>&1 | tee ${log_path_quoted}; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${session_name} exited with code' \$exit_code; exec ${shell_path_quoted} -l"
+  shell_join_args "${shell_path}" "-lc" "${inner_command}"
 }
 
 start_command_in_tmux_window() {
@@ -255,22 +314,140 @@ start_command_in_tmux_window() {
   local command_display="$4"
   local command_body="$5"
   local run_dir="$6"
-  local window_name=""
+  local session_name=""
   local log_path=""
-  local shell_path=""
+  local terminal_command=""
 
   if ! command -v tmux >/dev/null 2>&1 || [[ -z "${TMUX:-}" ]]; then
     echo "tmux window launch requested, but tmux is unavailable in this shell." >&2
     exit 1
   fi
 
-  window_name="$(tmux_window_name "${target_name}" "${target_root}" "${label}")"
+  session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
   log_path="${run_dir}/${target_name}-${label}.log"
-  shell_path="${SHELL:-/bin/zsh}"
+  terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
 
-  echo "[bootstrap] ${target_name}: opening tmux window ${window_name} for ${command_display}"
-  tmux new-window -n "${window_name}" \
-    "cd '${target_root}' && ( ${command_body} ) 2>&1 | tee '${log_path}'; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${window_name} exited with code' \$exit_code; exec '${shell_path}' -l"
+  echo "[bootstrap] ${target_name}: opening tmux window ${session_name} for ${command_display}"
+  tmux new-window -n "${session_name}" "${terminal_command}"
+}
+
+start_command_in_cmux_workspace() {
+  local target_name="$1"
+  local target_root="$2"
+  local label="$3"
+  local command_display="$4"
+  local command_body="$5"
+  local run_dir="$6"
+  local session_name=""
+  local log_path=""
+  local terminal_command=""
+  local workspace_ref=""
+
+  if ! command -v cmux >/dev/null 2>&1 || [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
+    echo "cmux launch requested, but this shell is not running inside cmux." >&2
+    exit 1
+  fi
+
+  session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
+  log_path="${run_dir}/${target_name}-${label}.log"
+  terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
+
+  echo "[bootstrap] ${target_name}: opening cmux workspace ${session_name} for ${command_display}"
+  workspace_ref="$(cmux new-workspace --cwd "${target_root}" --command "${terminal_command}" || true)"
+  if [[ -n "${workspace_ref}" ]]; then
+    cmux rename-workspace --workspace "${workspace_ref}" "${session_name}" >/dev/null 2>&1 || true
+  fi
+}
+
+start_command_in_terminal_window() {
+  local target_name="$1"
+  local target_root="$2"
+  local label="$3"
+  local command_display="$4"
+  local command_body="$5"
+  local run_dir="$6"
+  local session_name=""
+  local log_path=""
+  local terminal_command=""
+
+  if [[ "${OSTYPE:-}" != darwin* ]] || ! command -v osascript >/dev/null 2>&1; then
+    echo "macOS Terminal launch requested, but AppleScript automation is unavailable." >&2
+    exit 1
+  fi
+
+  session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
+  log_path="${run_dir}/${target_name}-${label}.log"
+  terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
+
+  echo "[bootstrap] ${target_name}: opening Terminal window ${session_name} for ${command_display}"
+  osascript - "${terminal_command}" <<'EOF' >/dev/null
+on run argv
+tell application "Terminal"
+  activate
+  do script (item 1 of argv)
+end tell
+end run
+EOF
+}
+
+start_command_in_visible_terminal() {
+  local resolved_mode="$1"
+  local target_name="$2"
+  local target_root="$3"
+  local label="$4"
+  local command_display="$5"
+  local command_body="$6"
+  local run_dir="$7"
+
+  case "${resolved_mode}" in
+    tmux)
+      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      ;;
+    cmux)
+      start_command_in_cmux_workspace "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      ;;
+    terminal)
+      start_command_in_terminal_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      ;;
+    *)
+      echo "Unsupported visible terminal mode: ${resolved_mode}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+wait_for_workspace_session_state() {
+  local target_name="$1"
+  local target_root="$2"
+  local expected_state="$3"
+  local timeout_seconds="$4"
+  local run_dir="$5"
+  local label="$6"
+  local start_ts=""
+  local elapsed=""
+  local current_state=""
+  local log_path="${run_dir}/${target_name}-${label}.log"
+
+  start_ts="$(date +%s)"
+  while true; do
+    current_state="$(workspace_session_state "${target_root}")"
+    if [[ "${current_state}" == "${expected_state}" ]]; then
+      echo "[bootstrap] ${target_name}: session state ${expected_state}"
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      echo "Timed out waiting for ${target_name} session state ${expected_state} at ${target_root}" >&2
+      if [[ -f "${log_path}" ]]; then
+        echo "Last log lines from ${log_path}:" >&2
+        tail -n 60 "${log_path}" >&2 || true
+      fi
+      return 1
+    fi
+
+    sleep 2
+  done
 }
 
 run_lifecycle_mode() {
@@ -307,6 +484,7 @@ run_lifecycle_mode() {
         cd "${target_root}"
         "${kill_script}"
       ) 2>&1 | tee "${log_path}"
+      wait_for_workspace_session_state "${target_name}" "${target_root}" "not_running" "60" "${run_dir}" "kill"
       ;;
     ai)
       label="ai"
@@ -353,6 +531,7 @@ run_lifecycle_mode() {
         cd "${target_root}"
         "${kill_script}"
       ) 2>&1 | tee "${kill_log_path}"
+      wait_for_workspace_session_state "${target_name}" "${target_root}" "not_running" "60" "${run_dir}" "kill"
     elif [[ "${session_state}" == "running" ]]; then
       echo "[bootstrap] ${target_name}: skipping ${label}; a Setta session already exists for ${target_root}"
       return 0
@@ -363,30 +542,31 @@ run_lifecycle_mode() {
       exit 1
     fi
 
-    if [[ "${resolved_terminal_mode}" == "tmux" ]]; then
-      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
-      return 0
-    fi
-
     local log_path="${run_dir}/${target_name}-${label}.log"
     local pid_path="${run_dir}/${target_name}-${label}.pid"
     local pid=""
-    echo "[bootstrap] ${target_name}: starting ${command_display} in background"
-    pid="$(
-      cd "${target_root}"
-      nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
-      echo $!
-    )"
-    printf '%s\n' "${pid}" > "${pid_path}"
-    sleep 3
-    if ! kill -0 "${pid}" 2>/dev/null; then
-      echo "Background startup failed for ${target_name} via ${launcher_path}" >&2
-      if [[ -f "${log_path}" ]]; then
-        echo "Last log lines from ${log_path}:" >&2
-        tail -n 40 "${log_path}" >&2 || true
+    if [[ "${resolved_terminal_mode}" == "background" ]]; then
+      echo "[bootstrap] ${target_name}: starting ${command_display} in background"
+      pid="$(
+        cd "${target_root}"
+        nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
+        echo $!
+      )"
+      printf '%s\n' "${pid}" > "${pid_path}"
+      sleep 3
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        echo "Background startup failed for ${target_name} via ${launcher_path}" >&2
+        if [[ -f "${log_path}" ]]; then
+          echo "Last log lines from ${log_path}:" >&2
+          tail -n 40 "${log_path}" >&2 || true
+        fi
+        exit 1
       fi
-      exit 1
+    else
+      start_command_in_visible_terminal "${resolved_terminal_mode}" "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
     fi
+
+    wait_for_workspace_session_state "${target_name}" "${target_root}" "running" "180" "${run_dir}" "${label}"
   fi
 }
 
@@ -480,6 +660,72 @@ write_status_file() {
     printf '%s\n' "$1" >> "${status_path}"
     shift
   done
+}
+
+SELF_EXEC_ARGS=()
+
+build_self_exec_args() {
+  SELF_EXEC_ARGS=(
+    --config-file "${config_file}"
+    --prompt-file "${prompt_file}"
+    --followup-prompt-file "${followup_prompt_file}"
+    --plan-file "${plan_file}"
+    --log-file "${log_file}"
+    --verify-command "${verify_command}"
+    --iterations "${iterations}"
+    --new-session-every "${new_session_every}"
+    --output-dir "${output_dir}"
+    --workdir "${workdir}"
+    --worktree-lifecycle "${worktree_lifecycle:-none}"
+    --terminal-mode "${resolved_terminal_mode}"
+  )
+
+  if [[ -n "${pre_session_command}" ]]; then
+    SELF_EXEC_ARGS+=(--pre-session-command "${pre_session_command}")
+  fi
+
+  if [[ -n "${stop_on_pre_session_exit_code}" ]]; then
+    SELF_EXEC_ARGS+=(--stop-on-pre-session-exit-code "${stop_on_pre_session_exit_code}")
+  fi
+
+  if [[ -n "${model}" ]]; then
+    SELF_EXEC_ARGS+=(--model "${model}")
+  fi
+
+  if [[ "${yolo_mode}" == "1" ]]; then
+    SELF_EXEC_ARGS+=(--yolo)
+  else
+    SELF_EXEC_ARGS+=(--no-yolo)
+  fi
+
+  if [[ "${stop_on_error}" == "1" ]]; then
+    SELF_EXEC_ARGS+=(--stop-on-error)
+  fi
+
+  if [[ ${#codex_extra_args[@]} -gt 0 ]]; then
+    SELF_EXEC_ARGS+=(--)
+    SELF_EXEC_ARGS+=("${codex_extra_args[@]}")
+  fi
+}
+
+launch_self_in_visible_terminal() {
+  local resolved_mode="$1"
+  local run_dir="$2"
+  local program_name=""
+  local command_body=""
+
+  program_name="${RALPH_PROGRAM_NAME:-$(basename "$0")}"
+  build_self_exec_args
+  command_body="$(
+    shell_join_args \
+      env \
+      "RALPH_PROGRAM_NAME=${program_name}" \
+      "RALPH_VISIBLE_LAUNCHED=1" \
+      "${SCRIPT_DIR}/run-codex-loop.sh" \
+      "${SELF_EXEC_ARGS[@]}"
+  )"
+
+  start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}"
 }
 
 config_file="${ROOT_DIR}/RALPH.md"
@@ -830,7 +1076,7 @@ echo "Config file: ${config_file}"
 echo "Plan file: ${plan_file}"
 echo "Log file: ${log_file}"
 echo "Yolo mode: ${yolo_mode}"
-echo "Worktree lifecycle: ${worktree_lifecycle:-none}"
+echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
 echo "Terminal mode: ${resolved_terminal_mode}"
 
 main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
@@ -847,11 +1093,13 @@ if [[ "${print_prompt_only}" == "1" ]]; then
   exit 0
 fi
 
-echo "Worktree session: $(workspace_session_state "${workdir}")"
-
-if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
-  run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${output_dir}" "${resolved_terminal_mode}"
+if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUNCHED:-0}" != "1" ]]; then
+  launch_self_in_visible_terminal "${resolved_terminal_mode}" "${output_dir}"
+  echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
+  exit 0
 fi
+
+echo "Worktree session: $(workspace_session_state "${workdir}")"
 
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   run_dir="$(printf '%s/run-%03d' "${output_dir}" "${iteration}")"
@@ -875,6 +1123,10 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   mkdir -p "${run_dir}"
+  if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
+    echo "[$iteration/$iterations] Bootstrapping worktree (${worktree_lifecycle})"
+    run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${run_dir}" "${resolved_terminal_mode}"
+  fi
   if [[ "${mode}" == "start" ]] && [[ -n "${pre_session_command}" ]]; then
     pre_session_log="${run_dir}/pre-session.log"
     echo "[$iteration/$iterations] Running pre-session command"
