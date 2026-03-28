@@ -11,7 +11,7 @@ type GetStraightPathParams = {
   targetY: number;
 };
 
-export function getStraightPath({
+function getStraightPath({
   sourceX,
   sourceY,
   targetX,

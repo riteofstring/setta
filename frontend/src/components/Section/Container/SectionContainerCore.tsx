@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
@@ -23,15 +22,13 @@ import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
-import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
-import { getBgColor, getOnSectionClick, useAiSectionHighlight } from "./utils";
+import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
-export type SectionContainerCoreProps = {
+type SectionContainerCoreProps = {
   sectionId: string;
   isUserView: boolean;
-  body: React.ReactElement<SectionContainerCoreBodyProps>;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
@@ -41,13 +38,11 @@ export type SectionContainerCoreProps = {
 function _SectionContainerCore({
   sectionId,
   isUserView,
-  body,
   forceHideOutline = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     sectionTypeName,
     isInOtherProjectConfigs,
@@ -101,9 +96,6 @@ function _SectionContainerCore({
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
     (x) => x[styleColorPreviewKey] as string | null | undefined,
@@ -157,9 +149,7 @@ function _SectionContainerCore({
       } as React.CSSProperties)
     : sectionStyleVars;
   const shouldRenderSharedChatHandles =
-    !hideAgenticEdgeHandles &&
-    !isAttachedTerminalChild &&
-    benchmark.renderSectionHandles;
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
   const isWorkflowOnlyNodeSection =
     sectionTypeName === SectionTypeEnum.StateMachineStart ||
     sectionTypeName === SectionTypeEnum.StateMachineGate ||
@@ -192,44 +182,20 @@ function _SectionContainerCore({
       {shouldRenderStateMachineEdgeHandles ? (
         <StateMachineEdgeHandles isUserView={isUserView} />
       ) : null}
-      {benchmark.renderSectionHandles ? (
-        <MinimizedDataEdgeHandles sectionId={sectionId} />
-      ) : null}
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        textBlockMetaControlStyle={textBlockMetaControlStyle}
-        body={body}
       />
     </section>
   );
 }
-
-function areSectionContainerCorePropsEqual(
-  prev: SectionContainerCoreProps,
-  next: SectionContainerCoreProps,
-) {
-  return (
-    prev.sectionId === next.sectionId &&
-    prev.isUserView === next.isUserView &&
-    prev.forceHideOutline === next.forceHideOutline &&
-    prev.hideAgenticEdgeHandles === next.hideAgenticEdgeHandles &&
-    prev.omitAgenticHandleScopeClass === next.omitAgenticHandleScopeClass &&
-    prev.joinedCorners === next.joinedCorners &&
-    prev.body.props.sectionId === next.body.props.sectionId &&
-    prev.body.props.sectionTypeName === next.body.props.sectionTypeName &&
-    prev.body.props.bgColor === next.body.props.bgColor &&
-    prev.body.props.isMinimized === next.body.props.isMinimized &&
-    prev.body.props.isUserView === next.body.props.isUserView
-  );
-}
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  areSectionContainerCorePropsEqual,
+  (p, n) => p.isUserView === n.isUserView,
 );

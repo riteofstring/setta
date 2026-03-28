@@ -4,12 +4,12 @@ import {
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
+import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
-import { renderSectionContainerNestedSections } from "./SectionContainerNestedSections";
-import { SortableSectionBody } from "./SortableSectionBody";
+import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId, className }) {
   return isTempSection(sectionId) ? (
@@ -142,14 +142,24 @@ function _SortableCore({
       {...stackProps}
       tabIndex={-1}
     >
-      <SortableSectionBody
+      <TempSectionOrNot
         sectionId={sectionId}
         applyTransform={applyTransform}
         listeners={listeners}
-        renderNestedSections={renderSectionContainerNestedSections}
       />
     </div>
   );
+}
+
+function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
+  if (isTempSection(sectionId)) {
+    if (applyTransform) {
+      return <TempDNDSection />;
+    }
+    return null;
+  } else {
+    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
+  }
 }
 
 const SortableCore = React.memo(
