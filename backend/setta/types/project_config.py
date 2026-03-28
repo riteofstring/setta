@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
@@ -107,18 +107,17 @@ def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolic
     return policies
 
 
-class SectionCodegenPolicy(GoSectionCodegenPolicy):
-    allowlist: list[SectionType] | None = Field(
-        default_factory=default_section_allowlist
+SectionCodegenPolicy = GoSectionCodegenPolicy
+
+
+def default_section_codegen_policy() -> SectionCodegenPolicy:
+    return SectionCodegenPolicy(
+        allowlist=default_section_allowlist(),
+        metaControlAllowlist=default_meta_control_allowlist(),
+        exclude=[],
+        typePolicies=default_section_type_policies(),
+        sectionOverrides={},
     )
-    metaControlAllowlist: list[CodeObjType] | None = Field(
-        default_factory=default_meta_control_allowlist
-    )
-    exclude: list[ID] = Field(default_factory=list)
-    typePolicies: dict[SectionType, SectionTypeCodegenPolicy] = Field(
-        default_factory=default_section_type_policies
-    )
-    sectionOverrides: dict[ID, SectionCodegenOverride] = Field(default_factory=dict)
 
 
 CodeObjTypeValuePolicy = GoCodeObjTypeValuePolicy
@@ -151,20 +150,28 @@ def default_code_obj_representation(
     return CodeObjValueRepresentationMode.expression
 
 
-class CodeObjValuePolicy(GoCodeObjValuePolicy):
-    typePolicies: dict[CodeObjType, CodeObjTypeValuePolicy] = Field(
-        default_factory=default_code_obj_type_value_policies
+CodeObjValuePolicy = GoCodeObjValuePolicy
+
+
+def default_code_obj_value_policy() -> CodeObjValuePolicy:
+    return CodeObjValuePolicy(
+        typePolicies=default_code_obj_type_value_policies(),
+        codeObjOverrides={},
     )
-    codeObjOverrides: dict[ID, CodeObjValueOverride] = Field(default_factory=dict)
 
 
-class ProjectCodegenPythonTarget(GoProjectCodegenPythonTarget):
-    language: Literal[ProjectCodegenLanguage.python] = ProjectCodegenLanguage.python
-    genCodePrefix: str = ""
-    genCodeSuffix: str = f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()"
-    generateMetadata: bool = False
-    sectionPolicy: SectionCodegenPolicy = Field(default_factory=SectionCodegenPolicy)
-    codeObjValuePolicy: CodeObjValuePolicy = Field(default_factory=CodeObjValuePolicy)
+ProjectCodegenPythonTarget = GoProjectCodegenPythonTarget
+
+
+def default_python_codegen_target() -> ProjectCodegenPythonTarget:
+    return ProjectCodegenPythonTarget(
+        language=ProjectCodegenLanguage.python,
+        genCodePrefix="",
+        genCodeSuffix=f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()",
+        generateMetadata=False,
+        sectionPolicy=default_section_codegen_policy(),
+        codeObjValuePolicy=default_code_obj_value_policy(),
+    )
 
 
 class ProjectCodegenPluginTarget(GoProjectCodegenPluginTarget):
@@ -186,7 +193,7 @@ ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
 
 
 def default_codegen_targets() -> list[ProjectCodegenTarget]:
-    return [ProjectCodegenPythonTarget()]
+    return [default_python_codegen_target()]
 
 
 class ProjectConfig(GoProjectConfig, extra="forbid"):
