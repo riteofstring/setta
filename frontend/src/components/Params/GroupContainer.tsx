@@ -54,7 +54,7 @@ import {
   buildLiveDictAreaNodeDomPacket,
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
-  type LiveDictAreaUnpinnedParamAreaMountPacket,
+  type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
@@ -814,7 +814,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  domPacket: LiveDictAreaUnpinnedParamAreaMountPacket;
+  domPacket: LiveDictAreaUnpinnedParamAreaDomPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
