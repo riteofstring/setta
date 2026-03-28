@@ -1,6 +1,16 @@
+/* @vitest-environment jsdom */
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useProjectState, useSettings } from "state/definitions";
+import {
+  useProjectState,
+  useSettings,
+  useTemporaryMiscState,
+  useWaitingForLSPResult,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   CodeObjTypeEnum,
   ConfigLanguageEnum,
@@ -13,10 +23,8 @@ import {
   type Core,
   type Variant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ParamGroupContainer } from "./GroupContainer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
-import { GroupContainerWrapper } from "./groupContainerWrapper";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -176,6 +184,17 @@ function seedParamGroupContainerState({
   syncStoreInitialState(useProjectState);
 }
 
+type TestResizeObserverInstance = {
+  observe: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  unobserve: ReturnType<typeof vi.fn>;
+};
+
+type TestMutationObserverInstance = {
+  observe: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+};
+
 describe("getPinnedParamsBgClassName", () => {
   it("uses a setta light tint with the dark blue shade", () => {
     const result = getPinnedParamsBgClassName(SectionTypeEnum.Dict);
@@ -203,14 +222,27 @@ describe("ParamGroupContainer layout", () => {
     resetProjectStores();
     useSettings.setState(createSettingsState());
     syncStoreInitialState(useSettings);
+    syncStoreInitialState(useTemporaryMiscState);
+    syncStoreInitialState(useWaitingForLSPResult);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class TestResizeObserver {
+        observe = vi.fn();
+        disconnect = vi.fn();
+        unobserve = vi.fn();
+      },
+    );
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     resetProjectStores();
   });
 
-  it("keeps the unpinned params list scrollable", () => {
+  it("keeps the unpinned params list scrollable", async () => {
     const sectionId = "section-1";
+    const { ParamGroupContainer } = await import("./GroupContainer");
+
     seedParamGroupContainerState({
       sectionId,
       unpinnedParamIds: ["param-1"],
@@ -231,10 +263,11 @@ describe("ParamGroupContainer layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
-  });
+  }, 10000);
 
-  it("provides the param DnD wrapper for the shell-backed live dict area path", () => {
+  it("provides the param DnD wrapper for the shell-backed live dict area path", async () => {
     const sectionId = "section-wrapper";
+    const { ParamGroupContainer } = await import("./GroupContainer");
 
     seedParamGroupContainerState({
       sectionId,
@@ -245,7 +278,7 @@ describe("ParamGroupContainer layout", () => {
     });
 
     const markup = renderToStaticMarkup(
-      <GroupContainerWrapper
+      <ParamGroupContainer
         sectionId={sectionId}
         bgColor="bg-transparent"
         sectionTypeName={SectionTypeEnum.Dict}
@@ -264,8 +297,9 @@ describe("ParamGroupContainer layout", () => {
     );
   });
 
-  it("mounts ordered dict-area block frames for the live DOM path", () => {
+  it("mounts ordered dict-area block frames for the live DOM path", async () => {
     const sectionId = "section-ordered";
+    const { ParamGroupContainer } = await import("./GroupContainer");
 
     seedParamGroupContainerState({
       sectionId,
@@ -301,5 +335,125 @@ describe("ParamGroupContainer layout", () => {
     expect(markup).toMatch(
       /data-dict-area-block-frame-id="dict-area-block:unpinned"[^>]*data-dict-area-block-mount-kind="grow"[^>]*data-dict-area-block-order-index="2"/,
     );
+  });
+});
+
+describe("ParamGroupContainer boundary", () => {
+  let animationFrames: Map<number, FrameRequestCallback>;
+  let host: HTMLDivElement;
+  let mutationObservers: TestMutationObserverInstance[];
+  let nextAnimationFrameId: number;
+  let resizeObservers: TestResizeObserverInstance[];
+  let root: Root;
+
+  beforeEach(() => {
+    resetProjectStores();
+    useSettings.setState(createSettingsState());
+    syncStoreInitialState(useSettings);
+    syncStoreInitialState(useTemporaryMiscState);
+    syncStoreInitialState(useWaitingForLSPResult);
+    animationFrames = new Map();
+    mutationObservers = [];
+    nextAnimationFrameId = 1;
+    resizeObservers = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class TestResizeObserver {
+        observe = vi.fn();
+        disconnect = vi.fn();
+        unobserve = vi.fn();
+
+        constructor(_callback: ResizeObserverCallback) {
+          resizeObservers.push(this);
+        }
+      },
+    );
+    vi.stubGlobal(
+      "MutationObserver",
+      class TestMutationObserver {
+        observe = vi.fn();
+        disconnect = vi.fn();
+
+        constructor(_callback: MutationCallback) {
+          mutationObservers.push(this);
+        }
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const frameId = nextAnimationFrameId++;
+      animationFrames.set(frameId, callback);
+      return frameId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (frameId: number) => {
+      animationFrames.delete(frameId);
+    });
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+    vi.unstubAllGlobals();
+    resetProjectStores();
+  });
+
+  it("owns the shell boundary seam above the pure wrapper view", async () => {
+    const sectionId = "section-group-container-shell";
+    const { ParamGroupContainer } = await import("./GroupContainer");
+
+    seedParamGroupContainerState({
+      sectionId,
+      edgeInputParamIds: ["edge-param"],
+      edgeOutputPorts: [{ accessor: "Result", id: "out-1" }],
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          bgColor="bg-transparent"
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(host.querySelector(".section-row-pin-main")).not.toBeNull();
+    expect(host.querySelector('[data-dict-area-block-frame-id]')).not.toBeNull();
+    expect(resizeObservers.length).toBeGreaterThan(0);
+    expect(mutationObservers.length).toBeGreaterThan(0);
+  });
+
+  it("keeps the waiting overlay on the pure wrapper mount path", async () => {
+    const sectionId = "section-group-container-waiting";
+    const { ParamGroupContainer } = await import("./GroupContainer");
+
+    seedParamGroupContainerState({
+      sectionId,
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+    useWaitingForLSPResult.setState((state) => {
+      state.parametersRequest[sectionId] = true;
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          bgColor="bg-transparent"
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(host.querySelector(".gg-spinner")).not.toBeNull();
+    expect(host.textContent).toContain("pinned-param");
+    expect(host.textContent).toContain("unpinned-param");
   });
 });

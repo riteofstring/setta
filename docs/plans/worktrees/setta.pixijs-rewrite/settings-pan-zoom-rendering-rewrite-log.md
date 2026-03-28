@@ -4223,3 +4223,32 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, and `GET /api/backendInitStatus`
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerWrapper.tsx`, starting with `frontend/src/components/Params/GroupContainer.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 148
+
+- Item: Lift the live dict-area mount seam into `frontend/src/components/Params/GroupContainer.tsx`.
+- Status: `done`
+- Details:
+  - Moved the `useGroupContainerShellBoundary(...)` ownership up into `ParamGroupContainer` so the top-level group-container caller now builds the shell boundary and passes only pure shell props into the lower wrapper:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/groupContainerWrapper.tsx`
+  - Updated the focused coverage to pin the new ownership boundary at `ParamGroupContainer` and removed the now-redundant wrapper-owned integration test file:
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+    - `frontend/src/components/Params/groupContainerWrapper.test.tsx`
+  - This keeps the retained-scene mount seam moving upward through the live dict-area call chain while preserving the existing non-Pixi DOM mount path for:
+    - the DnD wrapper around the shell-backed live dict-area surface
+    - the waiting overlay path
+    - the ordered edge/pinned/unpinned block-frame mount order
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerShellBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` was already authenticated and `All Settings` stayed visible
+    - the visible settings shell, overview/tag list, bottom tabs, and reachable dict/param stack rendered without obvious clipping, overlap, or missing content
+    - representative rows and controls remained reachable, including `backend`, `shortcuts`, `languageServer`, `gui`, `Param Defaults`, `All Settings`, `Config Language`, `Hide Unpinned Params`, `Size height`, `Text Param`, `Time Param`, and `Slider Param`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/getLatestLspDiagnostics`
+    - caveat: the first viewport primarily showed the overview/tag list, so some deeper settings rows were confirmed by scrolling and the accessibility tree rather than the initial fold
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/GroupContainer.tsx`, starting with `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx` before any broad Pixi node drawing lands.
