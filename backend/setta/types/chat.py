@@ -14,9 +14,6 @@ from setta.types.generated.go_shared_types import (
     ChatFileAttachment as GoChatFileAttachment,
 )
 from setta.types.generated.go_shared_types import (
-    ChatMetadata as GoChatMetadata,
-)
-from setta.types.generated.go_shared_types import (
     ChatRole,
     StreamingEventType,
 )
@@ -154,12 +151,6 @@ BaseChatMessageUnion = (
 BaseChatMessageUnionWithDiscriminator = Annotated[
     BaseChatMessageUnion, Field(discriminator="role")
 ]
-
-
-class ChatMetadata(GoChatMetadata):
-    id: ID = Field(default_factory=create_new_id)
-    lastUpdated: datetime = Field(default_factory=get_now_timestamp)
-    projectConfigId: ID | None = None
 
 
 class Chat(GoChat):

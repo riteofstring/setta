@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 from setta.types.chat import (
     AssistantChatMessage,
     Chat,
-    ChatMetadata,
     ToolChatMessage,
     UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
     ChatFileAttachment,
+    ChatMetadata,
     MessageTextContent,
     ToolCall,
     ToolCallFunction,

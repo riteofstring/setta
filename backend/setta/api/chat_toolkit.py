@@ -23,7 +23,6 @@ from setta.types.chat import (
     AssistantChatMessage,
     BaseChatMessageUnion,
     Chat,
-    ChatMetadata,
     ChatRole,
     ChatSectionState,
     LLMStreamingResponseChunk,
@@ -36,6 +35,7 @@ from setta.types.chat import (
     UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
+    ChatMetadata,
     ChatSendEvent,
     ChatStopEvent,
     MessageDeltaEvent,
