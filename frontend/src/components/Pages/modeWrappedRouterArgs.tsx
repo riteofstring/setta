@@ -1,15 +1,15 @@
-import { ModeWrappedRouteBoundary } from "./ModeWrappedRouteBoundary";
 import type { BuildModeWrappedAppRouteStackArgs } from "./modeWrappedAppRouteStack";
+import { buildModeWrappedRouteBoundaryArgs } from "./modeWrappedRouteBoundaryArgs";
 import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
 
 export function buildModeWrappedRouterArgs(): BuildModeWrappedAppRouteStackArgs {
   const routeElements = buildModeWrappedRouterRouteElements();
+  const routeBoundaryArgs = buildModeWrappedRouteBoundaryArgs({
+    projectRouteElements: routeElements.projectRouteElements,
+  });
 
   return {
-    renderModeElement: (routeElements) => (
-      <ModeWrappedRouteBoundary {...routeElements} />
-    ),
     ...routeElements,
-    viewModeRouteElements: routeElements.projectRouteElements,
+    ...routeBoundaryArgs,
   };
 }

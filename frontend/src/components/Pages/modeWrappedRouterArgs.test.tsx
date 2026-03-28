@@ -1,35 +1,13 @@
-import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ModeRouteElements } from "./modeRouteResolver";
 import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
+import { buildModeWrappedRouteBoundaryArgs } from "./modeWrappedRouteBoundaryArgs";
 import { buildModeWrappedRouterRouteElements } from "./modeWrappedRouterRouteElements";
+import type { ModeRouteElements } from "./modeRouteResolver";
 
-vi.mock("./ModeWrappedRouteBoundary", () => ({
-  ModeWrappedRouteBoundary: vi.fn(
-    ({
-      ide,
-      share,
-      app,
-      launcher,
-    }: {
-      ide: ReactNode;
-      share: ReactNode;
-      app: ReactNode;
-      launcher: ReactNode;
-    }) => (
-      <div
-        data-testid="mode-route-boundary"
-        data-app-route={app !== null}
-        data-ide-route={ide !== null}
-        data-launcher-route={launcher !== null}
-        data-share-route={share !== null}
-      />
-    ),
-  ),
+vi.mock("./modeWrappedRouteBoundaryArgs", () => ({
+  buildModeWrappedRouteBoundaryArgs: vi.fn(),
 }));
-
 vi.mock("./modeWrappedRouterRouteElements", () => ({
   buildModeWrappedRouterRouteElements: vi.fn(),
 }));
@@ -57,6 +35,10 @@ describe("buildModeWrappedRouterArgs", () => {
     const indexRouteElements = createModeRouteElements("index");
     const workspaceLaunchRouteElements =
       createModeRouteElements("workspace-launch");
+    const routeBoundaryArgs = {
+      renderModeElement: vi.fn(),
+      viewModeRouteElements: projectRouteElements,
+    };
 
     vi.mocked(buildModeWrappedRouterRouteElements).mockReturnValue({
       indexRouteElements,
@@ -67,10 +49,17 @@ describe("buildModeWrappedRouterArgs", () => {
       standaloneAppRouteElement,
       standaloneLauncherRouteElement,
     });
+    vi.mocked(buildModeWrappedRouteBoundaryArgs).mockReturnValue(
+      routeBoundaryArgs,
+    );
 
     const args = buildModeWrappedRouterArgs();
 
     expect(buildModeWrappedRouterRouteElements).toHaveBeenCalledOnce();
+    expect(buildModeWrappedRouteBoundaryArgs).toHaveBeenCalledOnce();
+    expect(buildModeWrappedRouteBoundaryArgs).toHaveBeenCalledWith({
+      projectRouteElements,
+    });
 
     expect(args.indexRouteElements).toBe(indexRouteElements);
     expect(args.homeRouteElements).toBe(homeRouteElements);
@@ -78,21 +67,14 @@ describe("buildModeWrappedRouterArgs", () => {
       workspaceLaunchRouteElements,
     );
     expect(args.projectRouteElements).toBe(projectRouteElements);
-    expect(args.viewModeRouteElements).toBe(projectRouteElements);
+    expect(args.viewModeRouteElements).toBe(
+      routeBoundaryArgs.viewModeRouteElements,
+    );
     expect(args.catchAllRouteElements).toBe(catchAllRouteElements);
     expect(args.standaloneAppRouteElement).toBe(standaloneAppRouteElement);
     expect(args.standaloneLauncherRouteElement).toBe(
       standaloneLauncherRouteElement,
     );
-
-    const boundaryMarkup = renderToStaticMarkup(
-      <>{args.renderModeElement(createModeRouteElements("mode-boundary"))}</>,
-    );
-
-    expect(boundaryMarkup).toContain('data-testid="mode-route-boundary"');
-    expect(boundaryMarkup).toContain('data-ide-route="true"');
-    expect(boundaryMarkup).toContain('data-share-route="true"');
-    expect(boundaryMarkup).toContain('data-app-route="true"');
-    expect(boundaryMarkup).toContain('data-launcher-route="true"');
+    expect(args.renderModeElement).toBe(routeBoundaryArgs.renderModeElement);
   });
 });

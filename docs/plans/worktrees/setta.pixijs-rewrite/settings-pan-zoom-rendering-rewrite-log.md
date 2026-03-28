@@ -4741,3 +4741,34 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` and `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.tsx`, starting with the standalone/share route entry stack before any broad Pixi node drawing lands.
+
+## 2026-03-28 164
+
+- Item: Lift the remaining mode-route-boundary handoff out of `frontend/src/components/Pages/modeWrappedRouterArgs.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated helper boundary for the remaining mode-route-boundary/router-args seam:
+    - `frontend/src/components/Pages/modeWrappedRouteBoundaryArgs.tsx`
+    - `frontend/src/components/Pages/modeWrappedRouteBoundaryArgs.test.tsx`
+  - Updated `frontend/src/components/Pages/modeWrappedRouterArgs.tsx` to consume the new helper instead of owning:
+    - the `ModeWrappedRouteBoundary` render callback
+    - the `viewModeRouteElements` alias back to `projectRouteElements`
+  - Narrowed the focused router-args coverage to the remaining merge/delegation seam:
+    - `frontend/src/components/Pages/modeWrappedRouterArgs.test.tsx`
+    - `buildModeWrappedRouterArgs()` now only composes the lifted route-element bundle helper with the lifted route-boundary helper
+  - This refactor preserves the existing non-Pixi behavior for:
+    - routing every mode-wrapped route through the same `ModeWrappedRouteBoundary`
+    - keeping view-mode routes tied to the existing project-route element bundle
+    - leaving `modeWrappedRouterArgs.tsx` as a thin composition boundary instead of a mixed composition plus render-policy owner
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedRouteBoundaryArgs.test.tsx src/components/Pages/modeWrappedRouterArgs.test.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts frontend/tests/e2e/app/app-mode-routing.spec.ts --grep "settings view tabs filter sections and minimap|app routes select the configured UI root"`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded cleanly after bootstrap and the visible settings shell stayed structurally intact
+    - representative visible UI included the left settings navigation, the central settings canvas/cards, and the bottom view tabs including `Core` and `All Settings`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/getAgentRuns`, `GET /api/getPromptTemplates`, `GET /api/getExternalAgentHealth`, and `GET /api/llm/config`
+    - no obvious clipping, overlap, or broken route shell was observed
+- Next action:
+  - Treat the remaining `modeWrappedRouterArgs.tsx` cleanup pass as complete and return to the retained-scene rewrite sequence with the next bounded Pixi-side canary step before any broad node drawing lands.
