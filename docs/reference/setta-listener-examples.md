@@ -326,7 +326,6 @@ from pathlib import Path
 from setta.api import SettaListener
 from setta.binary import BinaryStore
 from setta.types.artifact import ImageArtifact
-from setta.utils.constants import C
 
 listener = SettaListener(project_name="Demo Project")
 
@@ -336,7 +335,7 @@ async def mirror_image(state, ctx) -> None:
     if not state.input_image:
         return
     mirrored_bytes = mirror_png_bytes(state.input_image)
-    store = BinaryStore(root=Path("setta_files") / C.BINARY_FOLDER_NAME)
+    store = BinaryStore(root=Path("setta_files") / "binary")
     ref = store.store_bytes(mirrored_bytes, mime_type="image/png")
     await ctx.emit_to_frontend(
         artifact_updates=[

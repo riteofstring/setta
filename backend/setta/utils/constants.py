@@ -2,13 +2,9 @@ import logging
 import os
 from pathlib import Path
 
-from setta.types.generated.go_shared_types import Route
 from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
-
-IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
-BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
 
 _HTTP_TOKEN_SEPARATORS = set("()<>@,;:/[]?={} \t")
 _HTTP_TOKEN_SEPARATORS.update({"\\", '"'})
@@ -31,21 +27,6 @@ def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> st
     return sanitized or default
 
 
-def _normalize_origin(raw_origin: str) -> str:
-    return raw_origin.strip().rstrip("/")
-
-
-def _dedupe_preserving_order(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    output: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        output.append(value)
-    return output
-
-
 class classproperty:
     """Descriptor for creating class-level properties"""
 
@@ -60,73 +41,15 @@ class C:
     # Basic configuration
     DEFAULT_HOST = "127.0.0.1"
     DEFAULT_PORT = 8000
-    DEV_MODE_FRONTEND_PORT = int(
-        os.environ.get("SETTA_DEV_FRONTEND_PORT", "3000") or 3000
-    )
     SETTINGS_PROJECT_NAME = "settings"
-    BACKEND_INIT_DELAY_SECONDS = BACKEND_INIT_DELAY_SECONDS
-    OPEN_BROWSER_ON_START: str | None = None
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
     PORT: int = DEFAULT_PORT
 
     @classproperty
-    def SETTA_FILES_FOLDER(cls) -> Path:
-        return get_setta_paths().setta_files_root
-
-    @classproperty
-    def CODE_FOLDER(cls) -> Path:
-        return get_setta_paths().code_root
-
-    @classproperty
-    def DB_BACKUP_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "backups"
-
-    @classproperty
-    def ARTIFACTS_FOLDER(cls) -> Path:
-        return get_setta_paths().artifacts_root
-
-    @classproperty
-    def RUNTIME_FOLDER(cls) -> Path:
-        return get_setta_paths().runtime_root
-
-    @classproperty
     def RUNTIME_SESSIONS_FOLDER(cls) -> Path:
         return get_setta_paths().runtime_sessions_root
-
-    @classproperty
-    def RUNTIME_LOGS_FOLDER(cls) -> Path:
-        return get_setta_paths().runtime_logs_root
-
-    @classproperty
-    def RUNTIME_MCP_FOLDER(cls) -> Path:
-        return get_setta_paths().runtime_mcp_root
-
-    @classproperty
-    def RUNTIME_SECRETS_FOLDER(cls) -> Path:
-        return get_setta_paths().runtime_secrets_root
-
-    @classproperty
-    def DETACHED_RUNS_FOLDER(cls) -> Path:
-        return get_setta_paths().runtime_detached_runs_root
-
-    BINARY_FOLDER_NAME = "binary"
-
-    @classproperty
-    def BINARY_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / cls.BINARY_FOLDER_NAME
-
-    @classproperty
-    def SHARE_DEPLOYMENTS_FOLDER(cls) -> Path:
-        return get_setta_paths().share_deployments_root
-
-    SHARE_MODE = False
-    SHARE_DEPLOYMENT_ROOT: Path | None = None
-    APP_MODE = False
-    APP_DEPLOYMENT_ROOT: Path | None = None
-    _raw_server_mode = (os.environ.get("SETTA_SERVER_MODE") or "").strip().lower()
-    LAUNCHER_MODE = _raw_server_mode == "launcher"
 
     _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
     AUTH_COOKIE_NAME = normalize_cookie_name(
@@ -217,25 +140,5 @@ class C:
     EDGE_OUTPUT_BASE_LABEL = "value"
 
     @classproperty
-    def FRONTEND_ORIGINS(cls):
-        if IS_DEV_MODE:
-            output: list[str] = [f"http://{cls.HOST}:{cls.DEV_MODE_FRONTEND_PORT}"]
-        else:
-            output: list[str] = [cls.BACKEND]
-        if cls.HOST == "127.0.0.1":
-            output.append(output[0].replace("127.0.0.1", "localhost"))
-        raw_extra_origins = os.environ.get("SETTA_FRONTEND_ORIGINS", "")
-        for raw_origin in raw_extra_origins.split(","):
-            normalized_origin = _normalize_origin(raw_origin)
-            if not normalized_origin:
-                continue
-            output.append(normalized_origin)
-        return _dedupe_preserving_order(output)
-
-    @classproperty
     def BACKEND(cls):
         return f"http://{cls.HOST}:{cls.PORT}"
-
-    @classproperty
-    def WEBSOCKET(cls):
-        return f"ws://{cls.HOST}:{cls.PORT}{Route.PREFIX.value}"
