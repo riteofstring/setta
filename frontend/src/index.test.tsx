@@ -1,0 +1,120 @@
+/* @vitest-environment jsdom */
+
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+  document.body.innerHTML = '<div id="root"></div>';
+});
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  vi.resetModules();
+  vi.clearAllMocks();
+});
+
+describe("index", () => {
+  it("owns the lifted dict-area renderer seam above App.tsx", async () => {
+    const routerValue = {
+      dispose: vi.fn(),
+      navigate: vi.fn(),
+      revalidate: vi.fn(),
+      subscribe: vi.fn(),
+    };
+    const renderRoot = vi.fn();
+    const subscribe = vi.fn();
+    const App = vi.fn(({ router }: { router: unknown }) => (
+      <div
+        data-testid="mock-app"
+        data-has-router={String(Boolean(router))}
+      />
+    ));
+
+    vi.doMock("react-dom/client", () => ({
+      createRoot: vi.fn(() => ({
+        render: renderRoot,
+      })),
+    }));
+    vi.doMock("state/subscriptions", () => ({
+      subscribe,
+    }));
+    vi.doMock("components/Pages/router", () => ({
+      createAppRouter: vi.fn(() => routerValue),
+    }));
+    vi.doMock(
+      "components/Section/Container/SectionContainerAreaDictBoundary",
+      () => ({
+        SectionContainerAreaDictBoundary: ({
+          bgColor,
+          sectionId,
+        }: {
+          bgColor: string;
+          sectionId: string;
+        }) => (
+          <div
+            data-testid="mock-section-container-area-dict-boundary"
+            data-bg-color={bgColor}
+            data-section-id={sectionId}
+          />
+        ),
+      }),
+    );
+    vi.doMock("./App", () => ({
+      App,
+    }));
+
+    await import("./index");
+
+    const { createRoot } = await import("react-dom/client");
+    const { createAppRouter } = await import("components/Pages/router");
+
+    expect(subscribe).toHaveBeenCalledOnce();
+    expect(createAppRouter).toHaveBeenCalledOnce();
+    expect(createAppRouter).toHaveBeenCalledWith({
+      renderDictArea: expect.any(Function),
+    });
+
+    const routedArgs = vi.mocked(createAppRouter).mock.calls[0][0];
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-section-id="section-1"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-bg-color="#123456"');
+
+    expect(createRoot).toHaveBeenCalledOnce();
+    expect(createRoot).toHaveBeenCalledWith(document.getElementById("root"));
+    expect(renderRoot).toHaveBeenCalledOnce();
+
+    const rendered = renderToStaticMarkup(<>{renderRoot.mock.calls[0][0]}</>);
+    expect(rendered).toContain('data-testid="mock-app"');
+    expect(App).toHaveBeenCalledOnce();
+    expect(vi.mocked(App).mock.calls[0][0]).toMatchObject({
+      router: routerValue,
+    });
+  });
+});
