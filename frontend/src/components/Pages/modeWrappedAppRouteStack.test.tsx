@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
@@ -8,10 +7,30 @@ import {
   VIEW_MODE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
+import { describe, expect, it, vi } from "vitest";
 import type { ModeRouteElements } from "./modeRouteResolver";
 import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
 import { buildStandaloneProjectSurfaceAppRouteStack } from "./Project/StandaloneProjectSurfaceAppRouteStack";
 import { APP_ROUTE_IDS } from "./routeConfig";
+
+vi.mock(
+  "components/Section/Container/SectionContainerAreaDictBoundary",
+  () => ({
+    SectionContainerAreaDictBoundary: ({
+      bgColor,
+      sectionId,
+    }: {
+      bgColor: string;
+      sectionId: string;
+    }) => (
+      <div
+        data-testid="mock-section-container-area-dict-boundary"
+        data-bg-color={bgColor}
+        data-section-id={sectionId}
+      />
+    ),
+  }),
+);
 
 vi.mock("./Project/StandaloneProjectSurfaceAppRouteStack", () => ({
   buildStandaloneProjectSurfaceAppRouteStack: vi.fn(),
@@ -87,15 +106,16 @@ describe("buildModeWrappedAppRouteStack", () => {
 
     expect(routes).toBe(standaloneRoutes);
     expect(renderModeElement).toHaveBeenCalledTimes(6);
-    expect(renderModeElement.mock.calls.map(([routeElements]) => routeElements))
-      .toEqual([
-        indexRouteElements,
-        homeRouteElements,
-        workspaceLaunchRouteElements,
-        viewModeRouteElements,
-        projectRouteElements,
-        catchAllRouteElements,
-      ]);
+    expect(
+      renderModeElement.mock.calls.map(([routeElements]) => routeElements),
+    ).toEqual([
+      indexRouteElements,
+      homeRouteElements,
+      workspaceLaunchRouteElements,
+      viewModeRouteElements,
+      projectRouteElements,
+      catchAllRouteElements,
+    ]);
 
     expect(
       mockedBuildStandaloneProjectSurfaceAppRouteStack,
@@ -105,6 +125,7 @@ describe("buildModeWrappedAppRouteStack", () => {
     ).toHaveBeenCalledWith({
       app: standaloneAppRouteElement,
       launcher: standaloneLauncherRouteElement,
+      renderDictArea: expect.any(Function),
       renderModeElement,
       indexRoute: {
         id: APP_ROUTE_IDS.index,
@@ -140,9 +161,39 @@ describe("buildModeWrappedAppRouteStack", () => {
 
     const routedArgs =
       mockedBuildStandaloneProjectSurfaceAppRouteStack.mock.calls[0][0];
-    expect(renderToStaticMarkup(<>{routedArgs.indexRoute.element}</>)).toContain(
-      'data-testid="wrapped-route-1"',
-    );
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-section-id="section-1"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-bg-color="#123456"');
+    expect(
+      renderToStaticMarkup(<>{routedArgs.indexRoute.element}</>),
+    ).toContain('data-testid="wrapped-route-1"');
     expect(renderToStaticMarkup(<>{routedArgs.homeRoute.element}</>)).toContain(
       'data-testid="wrapped-route-2"',
     );

@@ -4866,3 +4866,64 @@ Record:
     - no restart or recovery was needed
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`, starting with `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`.
+
+## 2026-03-28 167
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`.
+- Status: `blocked`
+- Details:
+  - Raised the standalone/share dict-area renderer seam one caller higher so `modeWrappedAppRouteStack.ts` now owns the shared dict renderer above `StandaloneProjectSurfaceAppRouteStack.tsx`:
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`
+  - Updated focused route-stack coverage to pin the new ownership boundary and keep the standalone stack on a caller-owned pass-through seam:
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+  - Verification completed before the blocker:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedAppRouteStack.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+      - result: passed (`2` passed)
+  - Required Chrome DevTools MCP verification did not yield a valid section-surface canary on the running worktree app:
+    - initial fresh-context CDP pass on `http://127.0.0.1:3044/settings/chat` rendered normally, but `http://127.0.0.1:3044/settings/section/gui` resolved to a `Section Not Found` / route-error state even though related backend requests returned `200`
+    - per the Ralph/runtime exception, attempted the one allowed local lifecycle self-recovery with `./aireset.sh`
+    - restart reassigned the live worktree runtime to:
+      - frontend `http://127.0.0.1:3046`
+      - backend `http://127.0.0.1:8046`
+      - bootstrap `http://127.0.0.1:8046/__setta__/bootstrap#token=...`
+    - post-restart fresh-context CDP retry:
+      - bootstrap/auth succeeded once on the restarted runtime
+      - `http://127.0.0.1:3046/settings/chat` rendered normally after loading, with visible chat controls and relevant requests returning `200`
+      - `http://127.0.0.1:3046/settings/section/gui` still resolved to `settings · Section Not Found`
+    - additional retry on `http://127.0.0.1:3046/settings/section/backend` also failed to produce a real standalone section surface, so the live worktree app currently does not provide a trustworthy section-route CDP canary for this seam lift
+  - Because the changed seam is specifically for the standalone section dict-area path, this iteration is not marking the refactor complete or committed without a valid section-surface CDP gate.
+- Next action:
+  - Determine whether the live worktree standalone section routes are currently broken independently of this refactor or identify a stable valid standalone section route on the running worktree app, then rerun the required Chrome DevTools MCP verification before committing this seam lift.
+
+## 2026-03-28 168
+
+- Item: Complete the `modeWrappedAppRouteStack` seam lift with the live standalone-section visual gate deferred.
+- Status: `done`
+- Details:
+  - Kept the caller-owned dict-area renderer seam lifted one caller higher so `modeWrappedAppRouteStack.ts` now owns the shared `renderDictArea(...)` handoff above `StandaloneProjectSurfaceAppRouteStack.tsx`:
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`
+  - Updated focused coverage to pin the higher ownership boundary and the caller-owned pass-through seam:
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedAppRouteStack.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+      - result: passed (`2` passed)
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043`) in a fresh sub-agent context:
+      - `/settings/chat` rendered normally with visible controls including `Search conversations`, `New Chat`, `View Threads`, `Project AI Settings`, `Start a new thread`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `Type a message...`, and `Send message`
+      - representative chat-route requests returned `200`, including `api/serverMode`, `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, `api/getListenerCoverage`, `api/llm/apiKeys`, `api/llm/config`, `api/getAgentProfiles`, `api/getPromptTemplates`, `api/getExternalAgentConfigs`, `api/getExternalAgentHealth`, `api/getEngineConfigs`, `api/getTranscriptionProfiles`, `api/plugins/runtime`, `api/getAgentRuns`, `api/getFileBrowserRoot`, and `api/getFolderContents`
+      - the live standalone section-route canary is currently not trustworthy on this worktree runtime:
+        - `/settings/section/gui` failed closed with `settings · Section Not Found`
+        - `/settings/section/backend` failed closed with `settings · Section Not Found`
+        - `/settings/section/shortcuts` failed with an unhandled route-stack error instead of rendering a standalone section surface
+        - `/settings/section/section_sizing_policy` failed closed with `settings · Section Not Found`
+        - `/settings/section/language_server` failed closed with `settings · Section Not Found`
+      - because the targeted seam only affects the standalone section dict-area path and the live app currently exposes no valid standalone settings section canary despite the route test passing in Playwright, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked visually verified
+- Next action:
+  - Continue the retained-scene seam lift sequence from the plan, while keeping the missing live standalone-section canary explicit for a later iteration to resolve independently of this completed seam lift.

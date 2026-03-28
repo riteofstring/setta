@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ModeRouteElements } from "../modeRouteResolver";
 import { APP_ROUTE_IDS } from "../routeConfig";
 import { buildStandaloneProjectSurfaceAppRouteStack } from "./StandaloneProjectSurfaceAppRouteStack";
+import type { StandaloneProjectSurfaceRouteElementsArgs } from "./StandaloneProjectSurfaceRouteElements";
 
 vi.mock("components/Modals/ModalContainer", () => ({
   ModalContainer: ({ children }: { children: ReactNode }) => (
@@ -75,6 +76,8 @@ describe("buildStandaloneProjectSurfaceAppRouteStack", () => {
     const catchAllRoute = createRoute("catch-all", "*");
     const appRoute = <div data-testid="mock-app-route" />;
     const launcherRoute = <div data-testid="mock-launcher-route" />;
+    const renderDictArea: StandaloneProjectSurfaceRouteElementsArgs["renderDictArea"] =
+      () => <div data-testid="mock-render-dict-area" />;
     let renderCount = 0;
     const ideMarkupByRender = new Array<string>();
     const shareMarkupByRender = new Array<string>();
@@ -96,6 +99,7 @@ describe("buildStandaloneProjectSurfaceAppRouteStack", () => {
     const routes = buildStandaloneProjectSurfaceAppRouteStack({
       app: appRoute,
       launcher: launcherRoute,
+      renderDictArea,
       renderModeElement,
       indexRoute,
       homeRoute,

@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
+import { createElement, type ReactNode } from "react";
 import type { RouteObject } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
@@ -38,6 +40,12 @@ function createModeWrappedRoute(
   };
 }
 
+function renderStandaloneProjectSurfaceRouteDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return createElement(SectionContainerAreaDictBoundary, props);
+}
+
 export function buildModeWrappedAppRouteStack({
   renderModeElement,
   indexRouteElements,
@@ -52,6 +60,7 @@ export function buildModeWrappedAppRouteStack({
   return buildStandaloneProjectSurfaceAppRouteStack({
     app: standaloneAppRouteElement,
     launcher: standaloneLauncherRouteElement,
+    renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
     renderModeElement,
     indexRoute: createModeWrappedRoute(
       APP_ROUTE_IDS.index,
