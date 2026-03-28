@@ -2099,3 +2099,29 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/getDefaultConfigName`, `POST /api/loadAllProjectMetadata`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `POST /api/checkWorkspaceInitialized`; static Vite asset requests showed expected `304` cache hits
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the live dict-area surface boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaSurface.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 079
+
+- Item: Lift the live dict-area surface boundary into one higher-level scene-owned mount boundary above `groupContainerLiveDictAreaSurface.ts`.
+- Status: `done`
+- Details:
+  - Added a typed live dict-area mount module above the existing live dict-area surface boundary:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaMount.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaMount.test.tsx`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new mount module instead of switching over the live dict-area surface blocks inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new mount layer now deterministically:
+    - composes the existing live dict-area surface into the concrete edge-strip, pinned param-area, and unpinned param-area DOM mount path from one deeper module
+    - keeps the current DOM surfaces and measurement behavior intact while hiding the last surface-to-component wiring hop behind one higher-level boundary
+    - preserves the existing non-Pixi block order, block-frame metadata, and `maxNestedDepth` flow while shrinking `GroupContainer.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaMount.test.tsx src/components/Params/groupContainerLiveDictAreaSurface.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded successfully and `All Settings` was visible and reachable in the bottom tab bar
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing blocks after the new mount-boundary wiring
+    - representative requests returned `200`, including `loadSettings`, `backendInitStatus`, `authRefreshStatus`, and `loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the live dict-area mount boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaMount.tsx` before any broad Pixi node drawing lands.
