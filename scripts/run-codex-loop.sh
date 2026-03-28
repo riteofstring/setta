@@ -42,20 +42,14 @@ Options:
   --iterations N             Total loop iterations. Default: config or 100
   --new-session-every N      Start a fresh Codex session every N iterations.
                              Default: config or 1
-  --codex-inactivity-timeout-seconds N
-                             Kill and retry a Codex iteration after N seconds
-                             without transcript activity. 0 disables the
-                             watchdog. Default: config or 1800
   --output-dir PATH          Directory for run logs and responses.
                              Default: mktemp dir
   --workdir PATH             Working directory passed to `codex exec --cd`.
                              Default: config or repo root
-  --worktree-lifecycle MODE  Per-iteration lifecycle for this worktree:
+  --worktree-lifecycle MODE  One-time pre-loop lifecycle for this worktree:
                              none|kill|ai|aireset|restart-ai|restart-aireset
-  --main-lifecycle MODE      One-time read-only reference lifecycle for main:
-                             none|kill|ai|aireset|restart-ai|restart-aireset
-  --terminal-mode MODE       Visible launch mode for Ralph and lifecycle:
-                             auto|background|tmux|cmux|terminal
+  --terminal-mode MODE       Lifecycle launch mode:
+                             auto|background|tmux
   --model NAME               Optional model override passed to `codex exec`
   --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
   --no-yolo                  Disable the default/configured yolo mode
@@ -66,9 +60,7 @@ Options:
 Examples:
   ./__PROGRAM_NAME__ --iterations 3
   ./__PROGRAM_NAME__ --config-file ./RALPH.md --output-dir ./tmp/ralph-loop
-  ./__PROGRAM_NAME__ --terminal-mode cmux --worktree-lifecycle restart-aireset
-  ./__PROGRAM_NAME__ --terminal-mode terminal --worktree-lifecycle restart-aireset
-  ./__PROGRAM_NAME__ --main-lifecycle restart-ai
+  ./__PROGRAM_NAME__ --terminal-mode tmux --worktree-lifecycle restart-aireset
   ./__PROGRAM_NAME__ --iterations 20 -- --full-auto
 EOF
 }
@@ -164,185 +156,6 @@ sanitize_single_line() {
   printf '%s\n' "${value}"
 }
 
-file_mtime_seconds() {
-  local file_path="$1"
-
-  if [[ ! -e "${file_path}" ]]; then
-    return 1
-  fi
-
-  if stat -f '%m' "${file_path}" >/dev/null 2>&1; then
-    stat -f '%m' "${file_path}"
-    return 0
-  fi
-
-  stat -c '%Y' "${file_path}"
-}
-
-latest_activity_epoch() {
-  local fallback_epoch="$1"
-  shift
-  local latest_epoch="${fallback_epoch}"
-  local candidate_epoch=""
-  local candidate_path=""
-
-  for candidate_path in "$@"; do
-    if candidate_epoch="$(file_mtime_seconds "${candidate_path}" 2>/dev/null)"; then
-      if [[ "${candidate_epoch}" -gt "${latest_epoch}" ]]; then
-        latest_epoch="${candidate_epoch}"
-      fi
-    fi
-  done
-
-  printf '%s\n' "${latest_epoch}"
-}
-
-terminate_process_tree() {
-  local target_pid="$1"
-  local signal_name="${2:-TERM}"
-  local child_pid=""
-
-  if ! kill -0 "${target_pid}" >/dev/null 2>&1; then
-    return 0
-  fi
-
-  while IFS= read -r child_pid; do
-    if [[ -n "${child_pid}" ]]; then
-      terminate_process_tree "${child_pid}" "${signal_name}"
-    fi
-  done < <(pgrep -P "${target_pid}" 2>/dev/null || true)
-
-  kill "-${signal_name}" "${target_pid}" >/dev/null 2>&1 || true
-}
-
-wait_for_process_exit() {
-  local target_pid="$1"
-  local timeout_seconds="$2"
-  local start_ts=""
-  local elapsed_seconds=""
-
-  start_ts="$(date +%s)"
-  while kill -0 "${target_pid}" >/dev/null 2>&1; do
-    elapsed_seconds="$(( $(date +%s) - start_ts ))"
-    if [[ "${elapsed_seconds}" -ge "${timeout_seconds}" ]]; then
-      return 1
-    fi
-    sleep 1
-  done
-
-  return 0
-}
-
-CODEX_WATCHDOG_TIMED_OUT="0"
-CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH=""
-
-run_codex_iteration() {
-  local prompt_path="$1"
-  local transcript_path="$2"
-  local response_path="$3"
-  local inactivity_timeout_seconds="$4"
-  local pipe_path="${transcript_path}.pipe"
-  local tee_pid=""
-  local codex_pid=""
-  local exit_code="0"
-  local poll_seconds="30"
-  local restore_errexit="0"
-  local start_ts=""
-  local now_ts=""
-  local last_activity_epoch=""
-
-  CODEX_WATCHDOG_TIMED_OUT="0"
-  CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH=""
-
-  rm -f "${pipe_path}"
-  mkfifo "${pipe_path}"
-  tee "${transcript_path}" < "${pipe_path}" &
-  tee_pid="$!"
-
-  start_ts="$(date +%s)"
-  codex "${codex_args[@]}" < "${prompt_path}" > "${pipe_path}" 2>&1 &
-  codex_pid="$!"
-
-  if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
-    poll_seconds="$(( inactivity_timeout_seconds / 6 ))"
-    if [[ "${poll_seconds}" -lt 1 ]]; then
-      poll_seconds="1"
-    elif [[ "${poll_seconds}" -gt 30 ]]; then
-      poll_seconds="30"
-    fi
-  fi
-
-  while kill -0 "${codex_pid}" >/dev/null 2>&1; do
-    sleep "${poll_seconds}"
-
-    if [[ "${inactivity_timeout_seconds}" -le 0 ]]; then
-      continue
-    fi
-
-    now_ts="$(date +%s)"
-    last_activity_epoch="$(latest_activity_epoch "${start_ts}" "${transcript_path}" "${response_path}")"
-    if [[ $(( now_ts - last_activity_epoch )) -lt "${inactivity_timeout_seconds}" ]]; then
-      continue
-    fi
-
-    CODEX_WATCHDOG_TIMED_OUT="1"
-    CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH="${last_activity_epoch}"
-    printf '%s\n' "[watchdog] No Codex transcript activity for ${inactivity_timeout_seconds}s. Terminating stalled iteration." \
-      | tee -a "${transcript_path}"
-    terminate_process_tree "${codex_pid}" "TERM"
-    if ! wait_for_process_exit "${codex_pid}" "10"; then
-      terminate_process_tree "${codex_pid}" "KILL"
-      wait_for_process_exit "${codex_pid}" "5" || true
-    fi
-    break
-  done
-
-  if [[ $- == *e* ]]; then
-    restore_errexit="1"
-    set +e
-  fi
-  wait "${codex_pid}"
-  exit_code="$?"
-  wait "${tee_pid}"
-  if [[ "${restore_errexit}" == "1" ]]; then
-    set -e
-  fi
-
-  rm -f "${pipe_path}"
-
-  if [[ "${CODEX_WATCHDOG_TIMED_OUT}" == "1" ]]; then
-    return 124
-  fi
-
-  return "${exit_code}"
-}
-
-shell_join_args() {
-  local joined=""
-  local arg=""
-  for arg in "$@"; do
-    if [[ -n "${joined}" ]]; then
-      joined+=" "
-    fi
-    joined+="$(printf '%q' "${arg}")"
-  done
-  printf '%s\n' "${joined}"
-}
-
-extract_cmux_ref() {
-  local payload="$1"
-  local ref_prefix="$2"
-  local ref=""
-
-  ref="$(printf '%s\n' "${payload}" | sed -nE "s/.*(${ref_prefix}:[0-9]+).*/\\1/p" | head -n1)"
-  if [[ -z "${ref}" ]]; then
-    echo "Unable to parse ${ref_prefix} ref from cmux output: ${payload}" >&2
-    exit 1
-  fi
-
-  printf '%s\n' "${ref}"
-}
-
 discover_main_worktree_root() {
   local repo_root="$1"
   git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
@@ -403,14 +216,6 @@ resolve_terminal_mode() {
       printf 'background\n'
       return 0
       ;;
-    cmux)
-      if command -v cmux >/dev/null 2>&1 && [[ -n "${CMUX_WORKSPACE_ID:-}" ]]; then
-        printf 'cmux\n'
-        return 0
-      fi
-      echo "Requested terminal mode cmux, but this shell is not running inside cmux." >&2
-      exit 1
-      ;;
     tmux)
       if command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
         printf 'tmux\n'
@@ -419,25 +224,9 @@ resolve_terminal_mode() {
       echo "Requested terminal mode tmux, but tmux is not available in this shell." >&2
       exit 1
       ;;
-    terminal)
-      if [[ "${OSTYPE:-}" == darwin* ]] && command -v osascript >/dev/null 2>&1 \
-        && osascript -e 'id of application "Terminal"' >/dev/null 2>&1; then
-        printf 'terminal\n'
-        return 0
-      fi
-      echo "Requested terminal mode terminal, but macOS Terminal automation is unavailable." >&2
-      exit 1
-      ;;
     auto|'')
-      if command -v cmux >/dev/null 2>&1 && [[ -n "${CMUX_WORKSPACE_ID:-}" ]]; then
-        printf 'cmux\n'
-      elif command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
+      if command -v tmux >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]; then
         printf 'tmux\n'
-      elif [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" ]] \
-        && [[ "${OSTYPE:-}" == darwin* ]] \
-        && command -v osascript >/dev/null 2>&1 \
-        && osascript -e 'id of application "Terminal"' >/dev/null 2>&1; then
-        printf 'terminal\n'
       else
         printf 'background\n'
       fi
@@ -450,66 +239,13 @@ resolve_terminal_mode() {
   esac
 }
 
-launch_session_name() {
+tmux_window_name() {
   local target_name="$1"
   local target_root="$2"
   local label="$3"
   local suffix=""
   suffix="$(basename "${target_root}")"
   printf 'ralph-%s-%s-%s\n' "${target_name}" "${suffix}" "${label}"
-}
-
-build_logged_shell_script() {
-  local target_root="$1"
-  local session_name="$2"
-  local command_body="$3"
-  local log_path="$4"
-  local script_path="$5"
-  local status_file="${6:-}"
-  local shell_path=""
-  local target_root_quoted=""
-  local log_path_quoted=""
-  local shell_path_quoted=""
-  local session_name_quoted=""
-  local script_dir=""
-  local status_file_quoted=""
-
-  shell_path="${SHELL:-/bin/zsh}"
-  target_root_quoted="$(printf '%q' "${target_root}")"
-  log_path_quoted="$(printf '%q' "${log_path}")"
-  shell_path_quoted="$(printf '%q' "${shell_path}")"
-  session_name_quoted="$(printf '%q' "${session_name}")"
-  script_dir="$(dirname "${script_path}")"
-
-  mkdir -p "${script_dir}"
-  cat > "${script_path}" <<EOF
-#!/usr/bin/env bash
-set -uo pipefail
-
-printf '\\033]0;%s\\007' ${session_name_quoted}
-cd ${target_root_quoted}
-
-set +e
-( ${command_body} ) 2>&1 | tee ${log_path_quoted}
-exit_code=\${PIPESTATUS[0]}
-set -e
-EOF
-
-  if [[ -n "${status_file}" ]]; then
-    status_file_quoted="$(printf '%q' "${status_file}")"
-    cat >> "${script_path}" <<EOF
-printf '%s\n' "\${exit_code}" > ${status_file_quoted}
-EOF
-  fi
-
-  cat >> "${script_path}" <<EOF
-echo
-echo '[ralph] ${session_name} exited with code' "\${exit_code}"
-exec ${shell_path_quoted} -l
-EOF
-
-  chmod +x "${script_path}"
-  printf '%s\n' "${script_path}"
 }
 
 start_command_in_tmux_window() {
@@ -519,257 +255,22 @@ start_command_in_tmux_window() {
   local command_display="$4"
   local command_body="$5"
   local run_dir="$6"
-  local status_file="${7:-}"
-  local session_name=""
+  local window_name=""
   local log_path=""
-  local launch_script=""
+  local shell_path=""
 
   if ! command -v tmux >/dev/null 2>&1 || [[ -z "${TMUX:-}" ]]; then
     echo "tmux window launch requested, but tmux is unavailable in this shell." >&2
     exit 1
   fi
 
-  session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
+  window_name="$(tmux_window_name "${target_name}" "${target_root}" "${label}")"
   log_path="${run_dir}/${target_name}-${label}.log"
-  launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}")"
+  shell_path="${SHELL:-/bin/zsh}"
 
-  echo "[bootstrap] ${target_name}: opening tmux window ${session_name} for ${command_display}"
-  tmux new-window -n "${session_name}" "$(shell_join_args "${launch_script}")"
-}
-
-start_command_in_cmux_surface() {
-  local target_name="$1"
-  local target_root="$2"
-  local label="$3"
-  local command_display="$4"
-  local command_body="$5"
-  local run_dir="$6"
-  local status_file="${7:-}"
-  local session_name=""
-  local log_path=""
-  local launch_script=""
-  local surface_ref=""
-  local surface_output=""
-
-  if ! command -v cmux >/dev/null 2>&1 || [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
-    echo "cmux launch requested, but this shell is not running inside cmux." >&2
-    exit 1
-  fi
-
-  session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
-  log_path="${run_dir}/${target_name}-${label}.log"
-  launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}")"
-
-  echo "[bootstrap] ${target_name}: opening cmux tab ${session_name} for ${command_display}"
-  surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
-  surface_ref="$(extract_cmux_ref "${surface_output}" "surface")"
-  if [[ -n "${surface_ref}" ]]; then
-    cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
-    sleep 1
-    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "$(shell_join_args "${launch_script}")" >/dev/null 2>&1
-    cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1
-  else
-    echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
-    exit 1
-  fi
-}
-
-start_command_in_terminal_window() {
-  local target_name="$1"
-  local target_root="$2"
-  local label="$3"
-  local command_display="$4"
-  local command_body="$5"
-  local run_dir="$6"
-  local status_file="${7:-}"
-  local session_name=""
-  local log_path=""
-  local launch_script=""
-
-  if [[ "${OSTYPE:-}" != darwin* ]] || ! command -v osascript >/dev/null 2>&1; then
-    echo "macOS Terminal launch requested, but AppleScript automation is unavailable." >&2
-    exit 1
-  fi
-
-  session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
-  log_path="${run_dir}/${target_name}-${label}.log"
-  launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}")"
-
-  echo "[bootstrap] ${target_name}: opening Terminal window ${session_name} for ${command_display}"
-  osascript - "$(shell_join_args "${launch_script}")" <<'EOF' >/dev/null
-on run argv
-tell application "Terminal"
-  activate
-  do script (item 1 of argv)
-end tell
-end run
-EOF
-}
-
-start_command_in_visible_terminal() {
-  local resolved_mode="$1"
-  local target_name="$2"
-  local target_root="$3"
-  local label="$4"
-  local command_display="$5"
-  local command_body="$6"
-  local run_dir="$7"
-  local status_file="${8:-}"
-
-  case "${resolved_mode}" in
-    tmux)
-      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}" "${status_file}"
-      ;;
-    cmux)
-      start_command_in_cmux_surface "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}" "${status_file}"
-      ;;
-    terminal)
-      start_command_in_terminal_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}" "${status_file}"
-      ;;
-    *)
-      echo "Unsupported visible terminal mode: ${resolved_mode}" >&2
-      exit 1
-      ;;
-  esac
-}
-
-wait_for_workspace_session_state() {
-  local target_name="$1"
-  local target_root="$2"
-  local expected_state="$3"
-  local timeout_seconds="$4"
-  local run_dir="$5"
-  local label="$6"
-  local start_ts=""
-  local elapsed=""
-  local current_state=""
-  local log_path="${run_dir}/${target_name}-${label}.log"
-
-  start_ts="$(date +%s)"
-  while true; do
-    current_state="$(workspace_session_state "${target_root}")"
-    if [[ "${current_state}" == "${expected_state}" ]]; then
-      echo "[bootstrap] ${target_name}: session state ${expected_state}"
-      return 0
-    fi
-
-    elapsed="$(( $(date +%s) - start_ts ))"
-    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
-      echo "Timed out waiting for ${target_name} session state ${expected_state} at ${target_root}" >&2
-      if [[ -f "${log_path}" ]]; then
-        echo "Last log lines from ${log_path}:" >&2
-        tail -n 60 "${log_path}" >&2 || true
-      fi
-      return 1
-    fi
-
-    sleep 2
-  done
-}
-
-wait_for_dev_stack_ready() {
-  local target_name="$1"
-  local log_path="$2"
-  local timeout_seconds="$3"
-  local start_ts=""
-  local elapsed=""
-
-  start_ts="$(date +%s)"
-  while true; do
-    if [[ -f "${log_path}" ]] \
-      && grep -q "Ready: http://" "${log_path}" \
-      && grep -q "Local:[[:space:]]*http://" "${log_path}"; then
-      echo "[bootstrap] ${target_name}: dev stack ready"
-      return 0
-    fi
-
-    elapsed="$(( $(date +%s) - start_ts ))"
-    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
-      echo "Timed out waiting for ${target_name} dev stack readiness." >&2
-      if [[ -f "${log_path}" ]]; then
-        echo "Last log lines from ${log_path}:" >&2
-        tail -n 60 "${log_path}" >&2 || true
-      fi
-      return 1
-    fi
-
-    sleep 2
-  done
-}
-
-extract_runtime_value_from_log() {
-  local log_path="$1"
-  local pattern="$2"
-  local replacement="$3"
-
-  if [[ ! -f "${log_path}" ]]; then
-    return 1
-  fi
-
-  sed -nE "s/${pattern}/${replacement}/p" "${log_path}" | tail -n1
-}
-
-extract_frontend_url_from_log() {
-  local log_path="$1"
-  extract_runtime_value_from_log "${log_path}" '.*Local:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
-}
-
-extract_backend_url_from_log() {
-  local log_path="$1"
-  extract_runtime_value_from_log "${log_path}" '.*Ready:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
-}
-
-extract_debug_port_from_log() {
-  local log_path="$1"
-  extract_runtime_value_from_log "${log_path}" '.*Starting Chrome with remote debugging on port ([0-9]+).*$' '\1'
-}
-
-extract_bootstrap_url_from_log() {
-  local log_path="$1"
-
-  if [[ ! -f "${log_path}" ]]; then
-    return 1
-  fi
-
-  awk '
-    /Bootstrap URL \(recommended\):/ {
-      want_url = 1
-      next
-    }
-    want_url {
-      if (match($0, /http:\/\/[^[:space:]]+/)) {
-        url = substr($0, RSTART, RLENGTH)
-        want_url = 0
-        next
-      }
-      if ($0 ~ /[^[:space:]]/) {
-        want_url = 0
-      }
-    }
-    END {
-      if (url != "") {
-        print url
-        exit 0
-      }
-      exit 1
-    }
-  ' "${log_path}"
-}
-
-lifecycle_log_label() {
-  local lifecycle_mode="$1"
-
-  case "${lifecycle_mode}" in
-    ai|restart-ai)
-      printf 'ai\n'
-      ;;
-    aireset|restart-aireset)
-      printf 'aireset\n'
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+  echo "[bootstrap] ${target_name}: opening tmux window ${window_name} for ${command_display}"
+  tmux new-window -n "${window_name}" \
+    "cd '${target_root}' && ( ${command_body} ) 2>&1 | tee '${log_path}'; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${window_name} exited with code' \$exit_code; exec '${shell_path}' -l"
 }
 
 run_lifecycle_mode() {
@@ -778,7 +279,6 @@ run_lifecycle_mode() {
   local lifecycle_mode="$3"
   local run_dir="$4"
   local resolved_terminal_mode="$5"
-  local wait_for_running="${6:-1}"
   local label=""
   local launcher_path=""
   local command_display=""
@@ -807,7 +307,6 @@ run_lifecycle_mode() {
         cd "${target_root}"
         "${kill_script}"
       ) 2>&1 | tee "${log_path}"
-      wait_for_workspace_session_state "${target_name}" "${target_root}" "not_running" "60" "${run_dir}" "kill"
       ;;
     ai)
       label="ai"
@@ -854,7 +353,6 @@ run_lifecycle_mode() {
         cd "${target_root}"
         "${kill_script}"
       ) 2>&1 | tee "${kill_log_path}"
-      wait_for_workspace_session_state "${target_name}" "${target_root}" "not_running" "60" "${run_dir}" "kill"
     elif [[ "${session_state}" == "running" ]]; then
       echo "[bootstrap] ${target_name}: skipping ${label}; a Setta session already exists for ${target_root}"
       return 0
@@ -865,38 +363,29 @@ run_lifecycle_mode() {
       exit 1
     fi
 
+    if [[ "${resolved_terminal_mode}" == "tmux" ]]; then
+      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      return 0
+    fi
+
     local log_path="${run_dir}/${target_name}-${label}.log"
     local pid_path="${run_dir}/${target_name}-${label}.pid"
     local pid=""
-    if [[ "${resolved_terminal_mode}" == "background" ]]; then
-      echo "[bootstrap] ${target_name}: starting ${command_display} in background"
-      pid="$(
-        cd "${target_root}"
-        nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
-        echo $!
-      )"
-      printf '%s\n' "${pid}" > "${pid_path}"
-      sleep 3
-      if ! kill -0 "${pid}" 2>/dev/null; then
-        echo "Background startup failed for ${target_name} via ${launcher_path}" >&2
-        if [[ -f "${log_path}" ]]; then
-          echo "Last log lines from ${log_path}:" >&2
-          tail -n 40 "${log_path}" >&2 || true
-        fi
-        exit 1
+    echo "[bootstrap] ${target_name}: starting ${command_display} in background"
+    pid="$(
+      cd "${target_root}"
+      nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
+      echo $!
+    )"
+    printf '%s\n' "${pid}" > "${pid_path}"
+    sleep 3
+    if ! kill -0 "${pid}" 2>/dev/null; then
+      echo "Background startup failed for ${target_name} via ${launcher_path}" >&2
+      if [[ -f "${log_path}" ]]; then
+        echo "Last log lines from ${log_path}:" >&2
+        tail -n 40 "${log_path}" >&2 || true
       fi
-    else
-      start_command_in_visible_terminal "${resolved_terminal_mode}" "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
-    fi
-
-    if [[ "${wait_for_running}" == "1" ]]; then
-      if [[ "${label}" == "ai" ]] || [[ "${label}" == "aireset" ]]; then
-        wait_for_dev_stack_ready "${target_name}" "${log_path}" "180"
-      else
-        wait_for_workspace_session_state "${target_name}" "${target_root}" "running" "180" "${run_dir}" "${label}"
-      fi
-    else
-      echo "[bootstrap] ${target_name}: continuing without blocking on session readiness"
+      exit 1
     fi
   fi
 }
@@ -921,16 +410,6 @@ Loop context:
 - verification guidance: ${verify_command}
 - follow the repository's AGENTS.md instructions as the highest-priority repo policy
 - use the plan and log files as the durable handoff instead of relying on prior chat context
-- current worktree lifecycle mode: ${worktree_lifecycle:-none}
-- current worktree frontend url: ${worktree_frontend_url:-unknown}
-- current worktree backend url: ${worktree_backend_url:-unknown}
-- current worktree bootstrap url: ${worktree_bootstrap_url:-unknown}
-- current worktree debug port: ${worktree_debug_port:-unknown}
-- current worktree runtime log: ${worktree_runtime_log_path:-unknown}
-- use these current runtime values instead of guessing old ports if defaults were reassigned during startup
-- if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
-  - connect info: `setta status --connect-info --latest --json --workspace ${workdir}`
-  - debug port: `pnpm -C frontend cdp-port`
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -944,7 +423,6 @@ LOOP_SUMMARY: <one sentence>
 LOOP_NEXT_ACTION: <one sentence>
 LOOP_VERIFY_COMMAND: <command or none>
 LOOP_VERIFY_RESULT: <pass|fail|not_run|blocked>
-LOOP_RECOVERY: <none|restart_worktree_lifecycle>
 LOOP_COMMIT: <full sha|none>
 EOF
 }
@@ -1004,109 +482,6 @@ write_status_file() {
   done
 }
 
-SELF_EXEC_ARGS=()
-
-build_self_exec_args() {
-  SELF_EXEC_ARGS=(
-    --config-file "${config_file}"
-    --prompt-file "${prompt_file}"
-    --followup-prompt-file "${followup_prompt_file}"
-    --plan-file "${plan_file}"
-    --log-file "${log_file}"
-    --verify-command "${verify_command}"
-    --iterations "${iterations}"
-    --new-session-every "${new_session_every}"
-    --codex-inactivity-timeout-seconds "${codex_inactivity_timeout_seconds}"
-    --output-dir "${output_dir}"
-    --workdir "${workdir}"
-    --worktree-lifecycle "${worktree_lifecycle:-none}"
-    --main-lifecycle "${main_lifecycle:-none}"
-    --terminal-mode "${resolved_terminal_mode}"
-  )
-
-  if [[ -n "${pre_session_command}" ]]; then
-    SELF_EXEC_ARGS+=(--pre-session-command "${pre_session_command}")
-  fi
-
-  if [[ -n "${stop_on_pre_session_exit_code}" ]]; then
-    SELF_EXEC_ARGS+=(--stop-on-pre-session-exit-code "${stop_on_pre_session_exit_code}")
-  fi
-
-  if [[ -n "${model}" ]]; then
-    SELF_EXEC_ARGS+=(--model "${model}")
-  fi
-
-  if [[ "${yolo_mode}" == "1" ]]; then
-    SELF_EXEC_ARGS+=(--yolo)
-  else
-    SELF_EXEC_ARGS+=(--no-yolo)
-  fi
-
-  if [[ "${stop_on_error}" == "1" ]]; then
-    SELF_EXEC_ARGS+=(--stop-on-error)
-  fi
-
-  if [[ ${#codex_extra_args[@]} -gt 0 ]]; then
-    SELF_EXEC_ARGS+=(--)
-    SELF_EXEC_ARGS+=("${codex_extra_args[@]}")
-  fi
-}
-
-launch_self_in_visible_terminal() {
-  local resolved_mode="$1"
-  local run_dir="$2"
-  local program_name=""
-  local command_body=""
-  local status_file=""
-
-  program_name="${RALPH_PROGRAM_NAME:-$(basename "$0")}"
-  build_self_exec_args
-  status_file="${run_dir}/codex-loop.exit"
-  command_body="$(
-    shell_join_args \
-      env \
-      "RALPH_PROGRAM_NAME=${program_name}" \
-      "RALPH_VISIBLE_LAUNCHED=1" \
-      "${SCRIPT_DIR}/run-codex-loop.sh" \
-      "${SELF_EXEC_ARGS[@]}"
-  )"
-
-  start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}" "${status_file}"
-}
-
-follow_visible_launch_output() {
-  local run_dir="$1"
-  local log_path="${run_dir}/codex-loop.log"
-  local status_file="${run_dir}/codex-loop.exit"
-  local tail_pid=""
-  local exit_code=""
-
-  while [[ ! -f "${log_path}" ]] && [[ ! -f "${status_file}" ]]; do
-    sleep 1
-  done
-
-  if [[ -f "${log_path}" ]]; then
-    tail -n +1 -F "${log_path}" &
-    tail_pid=$!
-  fi
-
-  while [[ ! -f "${status_file}" ]]; do
-    sleep 1
-  done
-
-  if [[ -n "${tail_pid}" ]]; then
-    kill "${tail_pid}" >/dev/null 2>&1 || true
-    wait "${tail_pid}" 2>/dev/null || true
-  fi
-
-  exit_code="$(tr -d '[:space:]' < "${status_file}")"
-  if [[ -z "${exit_code}" ]]; then
-    exit_code="1"
-  fi
-
-  return "${exit_code}"
-}
-
 config_file="${ROOT_DIR}/RALPH.md"
 prompt_file=""
 followup_prompt_file=""
@@ -1119,14 +494,12 @@ new_session_every=""
 output_dir=""
 workdir=""
 worktree_lifecycle=""
-main_lifecycle=""
 terminal_mode=""
 model=""
 yolo_mode=""
 stop_on_error="0"
 print_prompt_only="0"
 stop_on_pre_session_exit_code=""
-codex_inactivity_timeout_seconds=""
 codex_extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -1181,11 +554,6 @@ while [[ $# -gt 0 ]]; do
       new_session_every="$2"
       shift 2
       ;;
-    --codex-inactivity-timeout-seconds)
-      require_value "$1" "${2:-}"
-      codex_inactivity_timeout_seconds="$2"
-      shift 2
-      ;;
     --output-dir)
       require_value "$1" "${2:-}"
       output_dir="$2"
@@ -1199,11 +567,6 @@ while [[ $# -gt 0 ]]; do
     --worktree-lifecycle)
       require_value "$1" "${2:-}"
       worktree_lifecycle="$2"
-      shift 2
-      ;;
-    --main-lifecycle)
-      require_value "$1" "${2:-}"
-      main_lifecycle="$2"
       shift 2
       ;;
     --terminal-mode)
@@ -1265,10 +628,8 @@ config_verify_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_valu
 config_pre_session_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "pre_session_command")")")"
 config_iterations="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "iterations")")")"
 config_new_session_every="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "new_session_every")")")"
-config_codex_inactivity_timeout_seconds="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "codex_inactivity_timeout_seconds")")")"
 config_workdir="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "workdir")")")"
 config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "worktree_lifecycle")")")"
-config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
 config_terminal_mode="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "terminal_mode")")")"
 config_model="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "model")")")"
 config_yolo="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "yolo")")")"
@@ -1322,14 +683,6 @@ if [[ -z "${new_session_every}" ]]; then
   fi
 fi
 
-if [[ -z "${codex_inactivity_timeout_seconds}" ]]; then
-  if [[ -n "${config_codex_inactivity_timeout_seconds}" ]]; then
-    codex_inactivity_timeout_seconds="${config_codex_inactivity_timeout_seconds}"
-  else
-    codex_inactivity_timeout_seconds="1800"
-  fi
-fi
-
 if [[ -z "${workdir}" ]]; then
   if [[ -n "${config_workdir}" ]]; then
     workdir="${config_workdir}"
@@ -1340,10 +693,6 @@ fi
 
 if [[ -z "${worktree_lifecycle}" ]]; then
   worktree_lifecycle="${config_worktree_lifecycle}"
-fi
-
-if [[ -z "${main_lifecycle}" ]]; then
-  main_lifecycle="${config_main_lifecycle}"
 fi
 
 if [[ -z "${terminal_mode}" ]]; then
@@ -1425,11 +774,6 @@ if [[ ! "${new_session_every}" =~ ^[0-9]+$ ]] || [[ "${new_session_every}" -lt 1
   exit 1
 fi
 
-if [[ ! "${codex_inactivity_timeout_seconds}" =~ ^[0-9]+$ ]]; then
-  echo "--codex-inactivity-timeout-seconds must be a non-negative integer" >&2
-  exit 1
-fi
-
 if [[ -n "${stop_on_pre_session_exit_code}" ]] && (
   [[ ! "${stop_on_pre_session_exit_code}" =~ ^[0-9]+$ ]] \
   || [[ "${stop_on_pre_session_exit_code}" -lt 0 ]] \
@@ -1454,16 +798,6 @@ if [[ -n "${worktree_lifecycle}" ]]; then
   esac
 fi
 
-if [[ -n "${main_lifecycle}" ]]; then
-  case "${main_lifecycle}" in
-    none|kill|ai|aireset|restart-ai|restart-aireset) ;;
-    *)
-      echo "Unsupported --main-lifecycle value: ${main_lifecycle}" >&2
-      exit 1
-      ;;
-  esac
-fi
-
 resolved_terminal_mode="$(resolve_terminal_mode "${terminal_mode}")"
 
 if [[ "${print_prompt_only}" != "1" ]] && ! command -v codex >/dev/null 2>&1; then
@@ -1476,12 +810,6 @@ if [[ -z "${output_dir}" ]]; then
 fi
 
 mkdir -p "${output_dir}"
-
-worktree_frontend_url=""
-worktree_backend_url=""
-worktree_bootstrap_url=""
-worktree_debug_port=""
-worktree_runtime_log_path=""
 
 start_prompt_file="${output_dir}/rendered-start-prompt.txt"
 followup_rendered_prompt_file="${output_dir}/rendered-followup-prompt.txt"
@@ -1497,14 +825,12 @@ fi
 echo "Output directory: ${output_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: ${new_session_every}"
-echo "Codex inactivity timeout seconds: ${codex_inactivity_timeout_seconds}"
 echo "Workdir: ${workdir}"
 echo "Config file: ${config_file}"
 echo "Plan file: ${plan_file}"
 echo "Log file: ${log_file}"
 echo "Yolo mode: ${yolo_mode}"
-echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
-echo "Main lifecycle: ${main_lifecycle:-none} (reference only)"
+echo "Worktree lifecycle: ${worktree_lifecycle:-none}"
 echo "Terminal mode: ${resolved_terminal_mode}"
 
 main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
@@ -1521,25 +847,10 @@ if [[ "${print_prompt_only}" == "1" ]]; then
   exit 0
 fi
 
-if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUNCHED:-0}" != "1" ]]; then
-  launch_self_in_visible_terminal "${resolved_terminal_mode}" "${output_dir}"
-  echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
-  follow_visible_launch_output "${output_dir}"
-  exit $?
-fi
-
 echo "Worktree session: $(workspace_session_state "${workdir}")"
-if [[ -n "${main_worktree_root}" ]]; then
-  echo "Main session: $(workspace_session_state "${main_worktree_root}")"
-fi
 
-if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
-  if [[ -z "${main_worktree_root}" ]]; then
-    echo "Cannot run main lifecycle; main worktree root could not be discovered." >&2
-    exit 1
-  fi
-  echo "[reference] Bootstrapping main (${main_lifecycle})"
-  run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}" "0"
+if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
+  run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${output_dir}" "${resolved_terminal_mode}"
 fi
 
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
@@ -1564,32 +875,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   mkdir -p "${run_dir}"
-  if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
-    echo "[$iteration/$iterations] Bootstrapping worktree (${worktree_lifecycle})"
-    run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${run_dir}" "${resolved_terminal_mode}"
-  fi
-
-  worktree_frontend_url=""
-  worktree_backend_url=""
-  worktree_bootstrap_url=""
-  worktree_debug_port=""
-  worktree_runtime_log_path=""
-  if worktree_log_label="$(lifecycle_log_label "${worktree_lifecycle:-}")"; then
-    worktree_runtime_log_path="${run_dir}/worktree-${worktree_log_label}.log"
-    worktree_frontend_url="$(extract_frontend_url_from_log "${worktree_runtime_log_path}" || true)"
-    worktree_backend_url="$(extract_backend_url_from_log "${worktree_runtime_log_path}" || true)"
-    worktree_bootstrap_url="$(extract_bootstrap_url_from_log "${worktree_runtime_log_path}" || true)"
-    worktree_debug_port="$(extract_debug_port_from_log "${worktree_runtime_log_path}" || true)"
-  fi
-
-  if [[ "${mode}" == "resume" ]]; then
-    prompt_for_iteration="${run_dir}/rendered-resume-prompt.txt"
-    render_prompt "${followup_prompt_file}" "${prompt_for_iteration}" "resume"
-  else
-    prompt_for_iteration="${run_dir}/rendered-start-prompt.txt"
-    render_prompt "${prompt_file}" "${prompt_for_iteration}" "start"
-  fi
-
   if [[ "${mode}" == "start" ]] && [[ -n "${pre_session_command}" ]]; then
     pre_session_log="${run_dir}/pre-session.log"
     echo "[$iteration/$iterations] Running pre-session command"
@@ -1656,29 +941,14 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   set +e
-  run_codex_iteration "${prompt_for_iteration}" "${transcript_file}" "${response_file}" "${codex_inactivity_timeout_seconds}"
-  exit_code="$?"
+  codex "${codex_args[@]}" < "${prompt_for_iteration}" 2>&1 | tee "${transcript_file}"
+  exit_code="${PIPESTATUS[0]}"
   set -e
 
   if [[ "${mode}" == "start" ]] && [[ "${new_session_every}" -gt 1 ]] && [[ ! -s "${session_id_file}" ]]; then
     if thread_id="$(extract_thread_id "${transcript_file}")"; then
       printf '%s\n' "${thread_id}" > "${session_id_file}"
     fi
-  fi
-
-  if [[ "${exit_code}" -eq 124 ]] && [[ "${CODEX_WATCHDOG_TIMED_OUT}" == "1" ]]; then
-    rm -f "${session_id_file}"
-    write_status_file "${status_file}" \
-      "status=stalled-timeout" \
-      "mode=${mode}" \
-      "exit_code=${exit_code}" \
-      "inactivity_timeout_seconds=${codex_inactivity_timeout_seconds}" \
-      "last_activity_epoch=${CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH}"
-    echo "[$iteration/$iterations] Codex stalled with no transcript activity for ${codex_inactivity_timeout_seconds}s. Cleared session reuse and continuing." >&2
-    if [[ "${stop_on_error}" == "1" ]]; then
-      exit "${exit_code}"
-    fi
-    continue
   fi
 
   if [[ "${exit_code}" -ne 0 ]]; then
@@ -1698,7 +968,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   loop_next_action="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_NEXT_ACTION")")"
   loop_verify_command="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_VERIFY_COMMAND")")"
   loop_verify_result="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_VERIFY_RESULT")")"
-  loop_recovery="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_RECOVERY")")"
   loop_commit="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_COMMIT")")"
 
   if [[ -z "${loop_status}" ]] && [[ -f "${transcript_file}" ]]; then
@@ -1707,12 +976,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     loop_next_action="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_NEXT_ACTION")")"
     loop_verify_command="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_VERIFY_COMMAND")")"
     loop_verify_result="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_VERIFY_RESULT")")"
-    loop_recovery="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_RECOVERY")")"
     loop_commit="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_COMMIT")")"
-  fi
-
-  if [[ -z "${loop_recovery}" ]]; then
-    loop_recovery="none"
   fi
 
   if [[ "${loop_status}" != "SUBTASK_DONE" ]] && [[ "${loop_status}" != "TASK_DONE" ]] && [[ "${loop_status}" != "BLOCKED" ]]; then
@@ -1721,19 +985,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       "mode=${mode}" \
       "loop_status=${loop_status}"
     echo "[$iteration/$iterations] Missing or invalid LOOP_STATUS in the agent output" >&2
-    if [[ "${stop_on_error}" == "1" ]]; then
-      exit 1
-    fi
-    continue
-  fi
-
-  if [[ "${loop_recovery}" != "none" ]] && [[ "${loop_recovery}" != "restart_worktree_lifecycle" ]]; then
-    write_status_file "${status_file}" \
-      "status=invalid-output" \
-      "mode=${mode}" \
-      "loop_status=${loop_status}" \
-      "loop_recovery=${loop_recovery}"
-    echo "[$iteration/$iterations] Missing or invalid LOOP_RECOVERY in the agent output" >&2
     if [[ "${stop_on_error}" == "1" ]]; then
       exit 1
     fi
@@ -1761,7 +1012,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     "loop_next_action=${loop_next_action}" \
     "loop_verify_command=${loop_verify_command}" \
     "loop_verify_result=${loop_verify_result}" \
-    "loop_recovery=${loop_recovery}" \
     "loop_commit=${loop_commit}" \
     "before_head=${before_head}" \
     "after_head=${after_head}"
@@ -1778,10 +1028,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   if [[ "${loop_status}" == "BLOCKED" ]]; then
-    if [[ "${loop_recovery}" == "restart_worktree_lifecycle" ]] && [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
-      echo "[$iteration/$iterations] Recoverable blocker requested fresh worktree bootstrap. Continue to the next iteration."
-      continue
-    fi
     echo "[$iteration/$iterations] Blocked. Stop here and inspect the blocker before starting another conversation."
     break
   fi
