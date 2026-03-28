@@ -8,13 +8,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-
-type BenchmarkParamRow = {
-  depth: number;
-  id: string;
-  isParent: boolean;
-  label: string;
-};
+import { buildBenchmarkParamRows, type BenchmarkParamRow } from "./dictAreaView";
 
 export function SettingsAllSettingsBenchmarkDictArea({
   sectionId,
@@ -52,12 +46,10 @@ export function SettingsAllSettingsBenchmarkDictArea({
         topLevelParamIds,
         requiredParamIdsToPaths,
       );
-      return tree.flat.map((item) => ({
-        depth: item.depth,
-        id: item.id,
-        isParent: item.isParent,
-        label: getParamDisplayName(state, sectionId, item.id),
-      }));
+      return buildBenchmarkParamRows({
+        items: tree.flat,
+        getLabel: (paramId) => getParamDisplayName(state, sectionId, paramId),
+      });
     };
 
     return {

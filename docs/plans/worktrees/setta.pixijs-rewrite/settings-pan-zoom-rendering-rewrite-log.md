@@ -303,3 +303,30 @@ Record:
       - `All Settings` rendered the expected param rows and controls, including `Dropzone Param`, `Nested Param`, `Password Param`, `Rotary Param`, `Slider Param`, `Switch Param`, `Text Area Param`, `Text Param`, and `Time Param`, with no obvious layout breakage
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param path, starting with `frontend/src/components/Section/Layouts/DictArea.tsx` before any Pixi renderer code lands.
+
+## 2026-03-26 013
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Section/Layouts/DictArea.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `DictArea` benchmark/live branch behind a typed helper boundary so the non-Pixi slice no longer leaves its benchmark-shell switch and static-row shaping inline:
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Section/Layouts/SettingsAllSettingsBenchmarkDictArea.tsx`
+    - `frontend/src/components/Section/Layouts/dictAreaView.ts`
+    - `frontend/src/components/Section/Layouts/dictAreaView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - choosing the benchmark renderer only when the benchmark is active and the full section body is intentionally disabled
+    - keeping the live `KwargsControls` + `ParamGroupContainer` path for inactive and full-body benchmark states
+    - mapping flattened benchmark param-tree items into static benchmark rows without leaving the label/depth translation inline in the component body
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/dictAreaView.test.ts src/components/Section/Layouts/DictArea.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` stayed authenticated at `http://127.0.0.1:3044/settings`
+      - verified `All Settings` plus `section-body-shell` and `full` benchmark stages
+      - the reduced stage kept the benchmark shell path without live param containers, and the full stage restored the dict/param tree normally
+      - relevant backend/auth/settings requests visible during verification returned `200`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx` before any Pixi renderer code lands.
