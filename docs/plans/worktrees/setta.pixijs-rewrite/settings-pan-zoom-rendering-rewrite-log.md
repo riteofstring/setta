@@ -1311,3 +1311,30 @@ Record:
     - relevant requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, `GET /api/llm/apiKeys`, `GET /api/llm/config`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getExternalAgentConfigs`, `GET /api/getExternalAgentHealth`, `GET /api/getEngineConfigs`, `GET /api/getTranscriptionProfiles`, `POST /api/setProjectChatWindowingState`, `POST /api/getFileBrowserRoot`, `GET /api/getAgentRuns`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific canvas helpers into the next higher-level scene-owned packet above `groupContainerNodeCanvasPacket.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-26 050
+
+- Item: Compose the edge, pinned, and unpinned block-specific canvas helpers into the next higher-level scene-owned mount packet above `groupContainerNodeCanvasPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed node-level mount packet helper above the existing block-specific canvas helpers:
+    - `frontend/src/components/Params/groupContainerNodeMountPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeMountPacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` mount path to consume the new node-level mount packet instead of composing the node draw plus canvas packet chain inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the extracted edge-strip, pinned, and unpinned canvas helpers into one higher-level mount contract for the live dict-area DOM path
+    - keeps the current `scenePacket`, `edgeStrip`, and `maxNestedDepth` available from the same node-level boundary so the future retained-scene renderer can consume one deeper dict-area input
+    - preserves the existing non-Pixi DOM mount order and block behavior while removing the remaining node-surface to node-canvas packet stitching from `GroupContainer`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeMountPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerNodeCanvasPacket.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - `/settings` loaded authenticated on the current `3044/8044` worktree session
+    - visible settings shell context included `settings`, `Filter`, `Tag`, `Param Defaults`, and `All Settings`
+    - the dict/param area rendered normally with representative controls including `Dropzone Param`, `Nested Param`, `Password Param`, `Rotary Param`, `Slider Param`, `Switch Param`, `Text Area Param`, and their `Size Mode` comboboxes
+    - relevant requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned mount helper from `groupContainerNodeMountPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.

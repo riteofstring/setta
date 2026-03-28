@@ -50,17 +50,14 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket";
 import {
-  buildLiveDictAreaNodeCanvasPacket,
-  type LiveDictAreaEdgeStripCanvasPacket,
-  type LiveDictAreaPinnedParamAreaCanvasPacket,
-  type LiveDictAreaUnpinnedParamAreaCanvasPacket,
-} from "./groupContainerNodeCanvasPacket";
+  buildLiveDictAreaNodeMountPacket,
+  type LiveDictAreaEdgeStripMountPacket,
+  type LiveDictAreaPinnedParamAreaMountPacket,
+  type LiveDictAreaUnpinnedParamAreaMountPacket,
+} from "./groupContainerNodeMountPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
-import {
-  buildLiveDictAreaNodeSurfacePacket,
-} from "./groupContainerNodeSurfacePacket";
+import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
@@ -254,7 +251,9 @@ function _ParamGroupContainer({
       edgeOutputPorts: impl.edgeOutputPorts.map((port) => ({
         id: port.id,
         label:
-          port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
+          port.accessor.trim() === ""
+            ? C.EDGE_OUTPUT_BASE_LABEL
+            : port.accessor,
       })),
       pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
       pinnedTopLevelParamIds: pinned.topLevelParamIds,
@@ -353,24 +352,17 @@ function _ParamGroupContainer({
       styleColor,
     ],
   );
-  const liveDictAreaNodeDrawPacket = useMemo(
+  const liveDictAreaNodeMountPacket = useMemo(
     () =>
-      buildLiveDictAreaNodeDrawPacket({
+      buildLiveDictAreaNodeMountPacket({
         nodeSurfacePacket: liveDictAreaNodeSurfacePacket,
       }),
     [liveDictAreaNodeSurfacePacket],
   );
-  const liveDictAreaNodeCanvasPacket = useMemo(
-    () =>
-      buildLiveDictAreaNodeCanvasPacket({
-        nodeDrawPacket: liveDictAreaNodeDrawPacket,
-      }),
-    [liveDictAreaNodeDrawPacket],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeCanvasPacket.maxNestedDepth);
-  }, [liveDictAreaNodeCanvasPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeMountPacket.maxNestedDepth);
+  }, [liveDictAreaNodeMountPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -383,7 +375,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeCanvasPacket.domBlocks.map((block) => {
+        {liveDictAreaNodeMountPacket.domBlocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
@@ -564,7 +556,7 @@ function EdgesStrip({
   canvasPacket,
 }: {
   sectionId: string;
-  canvasPacket: LiveDictAreaEdgeStripCanvasPacket;
+  canvasPacket: LiveDictAreaEdgeStripMountPacket;
 }) {
   const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
     canvasPacket;
@@ -804,7 +796,7 @@ function EdgesStrip({
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  canvasPacket: LiveDictAreaPinnedParamAreaCanvasPacket;
+  canvasPacket: LiveDictAreaPinnedParamAreaMountPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -822,7 +814,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  canvasPacket: LiveDictAreaUnpinnedParamAreaCanvasPacket;
+  canvasPacket: LiveDictAreaUnpinnedParamAreaMountPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
