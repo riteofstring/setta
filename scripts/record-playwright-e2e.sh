@@ -34,7 +34,7 @@ resolve_default_recording_root() {
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/record-playwright-e2e.sh [--artifact-dir <dir>] [playwright-codegen-args...]
+Usage: ./scripts/record-playwright-e2e.sh [--artifact-dir <dir>] [--reset] [playwright-codegen-args...]
 
 Starts Setta with the normal dev-state defaults, bootstraps auth, and launches
 `playwright codegen` against the local app. Close the recorder browser when you
@@ -48,6 +48,7 @@ By default, the recorder uses the normal dev state:
 
 Options:
   --artifact-dir <dir>  Override the recording bundle directory.
+  --reset               Reset Setta state first using the normal dev-state roots.
   -h, --help            Show this help.
 
 Environment:
@@ -64,6 +65,7 @@ EOF
 }
 
 artifact_dir=""
+reset_first=0
 declare -a passthrough_args=()
 
 while (( $# > 0 )); do
@@ -75,6 +77,10 @@ while (( $# > 0 )); do
         exit 1
       fi
       artifact_dir="$1"
+      shift
+      ;;
+    --reset)
+      reset_first=1
       shift
       ;;
     -h|--help)
@@ -137,6 +143,11 @@ if [[ -n "${SETTA_PROJECT_URL:-}" ]]; then
 fi
 if [[ -n "${SETTA_PROJECT_PATH:-}" ]]; then
   export SETTA_PROJECT_PATH
+fi
+
+if [[ "${reset_first}" -eq 1 ]]; then
+  echo "Resetting Setta state before recording..." >&2
+  "${ROOT_DIR}/scripts/reset-setta-state.sh" --workspace "${SETTA_WORKSPACE_ROOT}"
 fi
 
 declare -a command_args=("${ROOT_DIR}/scripts/run-playwright-e2e.sh")

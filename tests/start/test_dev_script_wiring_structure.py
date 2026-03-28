@@ -231,6 +231,8 @@ def test_record_playwright_wrapper_defaults_to_repo_artifact_bundle() -> None:
     assert "resolve_default_recording_root()" in script
     assert '${TMPDIR:-/tmp}/setta-playwright-recordings' in script
     assert ': "${SETTA_E2E_SEED_WORKSPACE:=0}"' in script
+    assert "--reset" in script
+    assert '"${ROOT_DIR}/scripts/reset-setta-state.sh" --workspace "${SETTA_WORKSPACE_ROOT}"' in script
     assert 'SETTA_PROJECT_PATH="/home"' in script
     assert 'SETTA_E2E_PLAYWRIGHT_SUBCOMMAND="codegen"' in script
     assert 'SETTA_E2E_RECORD_OUTPUT_FILE="${artifact_dir}/recording.spec.ts"' in script

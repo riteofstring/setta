@@ -85,6 +85,8 @@ starting Setta the normal dev way:
 
 Artifacts are written under `${TMPDIR:-/tmp}/setta-playwright-recordings/<repo>/recording-<timestamp>/` by default.
 Use `--artifact-dir <dir>` or `SETTA_E2E_RECORD_ROOT_DIR=<dir>` to override.
+Use `--reset` to clear the active dev `setta_files_dev` state first, matching the
+same reset step used by the normal `reset.sh` flow.
 
 Bundle contents:
 - `recording.spec.ts`: generated Playwright script

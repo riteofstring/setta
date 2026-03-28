@@ -11,7 +11,7 @@ from tests.start.dev_script_wiring_helpers import (
 
 def build_record_playwright_sandbox(
     tmp_path: Path,
-) -> tuple[Path, Path, Path]:
+) -> tuple[Path, Path, Path, Path, Path, Path]:
     root = repo_root()
     sandbox_root = tmp_path / "record_playwright_sandbox"
     scripts_dir = sandbox_root / "scripts"
@@ -24,22 +24,49 @@ def build_record_playwright_sandbox(
 
     capture_args = sandbox_root / "runner_args.txt"
     capture_env = sandbox_root / "runner_env.txt"
+    reset_capture_args = sandbox_root / "reset_args.txt"
+    reset_capture_env = sandbox_root / "reset_env.txt"
+    call_log = sandbox_root / "call_log.txt"
     write_stub_executable(
         scripts_dir / "run-playwright-e2e.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
+printf 'runner\\n' >> "{call_log}"
 env | sort > "{capture_env}"
 printf '%s' "$*" > "{capture_args}"
 """,
     )
+    write_stub_executable(
+        scripts_dir / "reset-setta-state.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'reset\\n' >> "{call_log}"
+env | sort > "{reset_capture_env}"
+printf '%s' "$*" > "{reset_capture_args}"
+""",
+    )
 
-    return sandbox_root, capture_args, capture_env
+    return (
+        sandbox_root,
+        capture_args,
+        capture_env,
+        reset_capture_args,
+        reset_capture_env,
+        call_log,
+    )
 
 
 def test_record_playwright_wrapper_passes_codegen_env_and_paths(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, capture_args, capture_env = build_record_playwright_sandbox(tmp_path)
+    (
+        sandbox_root,
+        capture_args,
+        capture_env,
+        _,
+        _,
+        _,
+    ) = build_record_playwright_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -101,7 +128,7 @@ def test_record_playwright_wrapper_passes_codegen_env_and_paths(
 def test_record_playwright_wrapper_defaults_to_tmp_recording_root(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, _, capture_env = build_record_playwright_sandbox(tmp_path)
+    sandbox_root, _, capture_env, _, _, _ = build_record_playwright_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -136,7 +163,7 @@ def test_record_playwright_wrapper_defaults_to_tmp_recording_root(
 def test_record_playwright_wrapper_preserves_explicit_plugin_fixture_overrides(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, _, capture_env = build_record_playwright_sandbox(tmp_path)
+    sandbox_root, _, capture_env, _, _, _ = build_record_playwright_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -173,3 +200,52 @@ def test_record_playwright_wrapper_preserves_explicit_plugin_fixture_overrides(
         tmp_path / "custom-workspace"
     )
     assert captured_env.get("SETTA_PROJECT_PATH") == "/custom-home"
+
+
+def test_record_playwright_wrapper_reset_flag_runs_reset_before_runner(
+    tmp_path: Path,
+) -> None:
+    (
+        sandbox_root,
+        capture_args,
+        capture_env,
+        reset_capture_args,
+        reset_capture_env,
+        call_log,
+    ) = build_record_playwright_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = tmp_path / "recording-output"
+    env = script_env(stub_dir, home_dir)
+    env.pop("SETTA_WORKSPACE_ROOT", None)
+    env.pop("SETTA_PROJECT_URL", None)
+    env.pop("SETTA_PROJECT_PATH", None)
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "record-playwright-e2e.sh"),
+            "--reset",
+            "--artifact-dir",
+            str(artifact_dir),
+            "--browser",
+            "chromium",
+        ],
+        cwd=sandbox_root,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert call_log.read_text(encoding="utf-8").splitlines() == ["reset", "runner"]
+    assert reset_capture_args.read_text(encoding="utf-8") == (
+        f"--workspace {sandbox_root}"
+    )
+    reset_env = parse_env_snapshot(reset_capture_env.read_text(encoding="utf-8"))
+    assert reset_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
+    assert reset_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
+    assert reset_env.get("SETTA_WORKSPACE_ROOT") == str(sandbox_root)
+    assert capture_args.read_text(encoding="utf-8") == "--browser chromium"
+    runner_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert runner_env.get("SETTA_WORKSPACE_ROOT") == str(sandbox_root)
