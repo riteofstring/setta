@@ -6,12 +6,7 @@ import {
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import {
-  useMisc,
-  useProjectState,
-  useSettings,
-  type ZustandProjectState,
-} from "state/definitions";
+import { useMisc, useProjectState, useSettings } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import {
@@ -23,6 +18,10 @@ import {
   type LiveDictAreaProps,
 } from "./groupContainerLiveDictArea";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
+import {
+  buildLiveDictAreaSectionDisplayNames,
+  buildLiveDictAreaSectionInput,
+} from "./groupContainerLiveDictAreaSectionInput";
 
 export type LiveDictAreaSectionProps = {
   bgColor: string;
@@ -48,7 +47,7 @@ export function LiveDictAreaSection({
     edgeOutputPorts,
     pinnedRequiredParamIdsToPaths,
     pinnedTopLevelParamIds,
-    selectedParams,
+    selectedParamIds,
     unpinnedRequiredParamIdsToPaths,
     unpinnedTopLevelParamIds,
     styleColor,
@@ -86,7 +85,7 @@ export function LiveDictAreaSection({
       })),
       pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
       pinnedTopLevelParamIds: pinned.topLevelParamIds,
-      selectedParams: impl.selectedParams ?? [],
+      selectedParamIds: impl.selectedParams ?? [],
       unpinnedRequiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
       unpinnedTopLevelParamIds: unpinned.topLevelParamIds,
       styleColor: impl.styleColor ?? null,
@@ -110,46 +109,39 @@ export function LiveDictAreaSection({
   );
   const displayNamesById = useProjectState(
     (state) =>
-      buildParamDisplayNameMap({
-        state,
-        sectionId,
+      buildLiveDictAreaSectionDisplayNames({
+        getParamDisplayName: (paramId: string) =>
+          getParamDisplayName(state, sectionId, paramId),
         topLevelParamIds: allTopLevelParamIds,
         requiredParamIdsToPaths: allRequiredParamIdsToPaths,
       }),
     _.isEqual,
   );
   const liveDictAreaInput = useMemo(
-    () => ({
-      bgColor,
-      canConnect: canEditStructure && !isSelectingParams,
-      edgeInputParams,
-      hideUnpinnedParams,
-      paramFilter,
-      getParamDisplayName: (paramId: string) =>
-        displayNamesById[paramId] ?? paramId,
-      handleColumnResizeStart,
-      inputPorts: edgeInputPorts,
-      isSelectingParams,
-      outputPorts: edgeOutputPorts,
-      pinned: {
-        requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
-        topLevelParamIds: pinnedTopLevelParamIds,
-      },
-      positionAndSizeLocked,
-      sectionId,
-      sectionTypeName,
-      selectedParamIds: selectedParams,
-      styleColor,
-      unpinned: {
+    () =>
+      buildLiveDictAreaSectionInput({
+        bgColor,
         canEditLayout,
-        configuredMinHeight: unpinnedParamsAreaMinHeight,
+        canEditStructure,
+        displayNamesById,
+        edgeInputParams,
+        edgeInputPorts,
+        edgeOutputPorts,
+        handleColumnResizeStart,
+        hideUnpinnedParams,
+        isSelectingParams,
+        paramFilter,
         pinnedRequiredParamIdsToPaths,
         pinnedTopLevelParamIds,
         positionAndSizeLocked,
-        requiredParamIdsToPaths: unpinnedRequiredParamIdsToPaths,
-        topLevelParamIds: unpinnedTopLevelParamIds,
-      },
-    }),
+        sectionId,
+        sectionTypeName,
+        selectedParamIds,
+        styleColor,
+        unpinnedParamsAreaMinHeight,
+        unpinnedRequiredParamIdsToPaths,
+        unpinnedTopLevelParamIds,
+      }),
     [
       bgColor,
       canEditLayout,
@@ -167,7 +159,7 @@ export function LiveDictAreaSection({
       positionAndSizeLocked,
       sectionId,
       sectionTypeName,
-      selectedParams,
+      selectedParamIds,
       styleColor,
       unpinnedParamsAreaMinHeight,
       unpinnedRequiredParamIdsToPaths,
@@ -181,31 +173,4 @@ export function LiveDictAreaSection({
       onMaxNestedDepthChange={onMaxNestedDepthChange}
     />
   );
-}
-
-function buildParamDisplayNameMap({
-  state,
-  sectionId,
-  topLevelParamIds,
-  requiredParamIdsToPaths,
-}: {
-  state: ZustandProjectState;
-  sectionId: string;
-  topLevelParamIds: string[];
-  requiredParamIdsToPaths: Record<string, string[]>;
-}): Record<string, string> {
-  const paramIds = new Set(topLevelParamIds);
-
-  Object.values(requiredParamIdsToPaths).forEach((path) => {
-    path.forEach((paramId) => {
-      paramIds.add(paramId);
-    });
-  });
-
-  const displayNamesById: Record<string, string> = {};
-  for (const paramId of paramIds) {
-    displayNamesById[paramId] = getParamDisplayName(state, sectionId, paramId);
-  }
-
-  return displayNamesById;
 }

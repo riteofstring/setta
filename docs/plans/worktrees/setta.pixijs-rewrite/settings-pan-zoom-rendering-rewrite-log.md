@@ -2260,3 +2260,30 @@ Record:
     - representative requests returned `200`, including `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerWrapper.tsx` boundary into the next higher-level live dict/param caller in `frontend/src/components/Section/Layouts/DictArea.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 085
+
+- Item: Deepen the live dict-area section boundary by extracting the section input-shaping helper from `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx`.
+- Status: `done`
+- Details:
+  - Continued from the current committed worktree state after the higher-level node-canary/live-dict-area boundary stack and outer `GroupContainer` wrapper/shell extraction already present in the worktree.
+  - Extracted the live dict-area section input shaping into a new pure typed helper boundary:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts`
+  - Updated `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx` to consume the new helper for:
+    - unique param display-name collection across top-level ids plus nested path ids
+    - live `LiveDictArea` input shaping, including connectability gating, display-name fallback, and pinned/unpinned payload assembly
+  - Kept the current non-Pixi DOM path intact while reducing the inline coupling in `LiveDictAreaSection`:
+    - the component still owns the store-backed selectors and hook wiring
+    - the pure helper now owns the deterministic input contract passed into the live dict-area boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts src/components/Params/groupContainerLiveDictAreaSection.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `All Settings` loaded without auth bootstrap and the visible settings shell plus dict/param area rendered normally
+    - representative visible labels and controls included `settings`, `TAG`, `languageServer`, `gui`, `sectionSizingPolicy`, `shortcuts`, `backend`, the filter box, and bottom tabs `Core`, `Section Defaults Struct...`, `Section Defaults Conte...`, `Param Defaults`, and `All Settings`
+    - relevant requests returned `200`, including `GET /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the cleanup-first pass on `frontend/src/components/Params/groupContainerLiveDictAreaSection.tsx` by extracting the remaining store-backed section-state selector above the new input helper before moving the retained-scene canary higher.
