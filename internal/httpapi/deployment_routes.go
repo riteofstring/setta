@@ -48,7 +48,7 @@ type AppDeploymentSessionResponse struct {
 	Manifest               *deployments.Manifest                `json:"manifest,omitempty"`
 }
 
-type loadDeploymentProjectConfigRequest struct {
+type LoadDeploymentProjectConfigRequest struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }
 
@@ -58,7 +58,7 @@ type deploymentProjectStateResponse struct {
 	PendingOpIDs   []string                 `json:"pendingOpIds"`
 }
 
-type appDeploymentStateResponse struct {
+type AppDeploymentStateResponse struct {
 	ProjectState  projectview.SingleConfig    `json:"projectState"`
 	AppDefinition *projectstate.AppDefinition `json:"appDefinition"`
 	AppSpec       any                         `json:"appSpec"`
@@ -204,7 +204,7 @@ func shareDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Hand
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[loadDeploymentProjectConfigRequest](r)
+		payload, err := decodeStrictJSONBody[LoadDeploymentProjectConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -253,7 +253,7 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, appDeploymentStateResponse{
+		writeJSON(w, http.StatusOK, AppDeploymentStateResponse{
 			ProjectState:  projectState,
 			AppDefinition: cloneAppDefinition(snapshot.Document.AppDefinition),
 			AppSpec:       appSpec,
@@ -268,7 +268,7 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[loadDeploymentProjectConfigRequest](r)
+		payload, err := decodeStrictJSONBody[LoadDeploymentProjectConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -302,7 +302,7 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			return
 		}
 
-		writeJSON(w, http.StatusOK, appDeploymentStateResponse{
+		writeJSON(w, http.StatusOK, AppDeploymentStateResponse{
 			ProjectState:  projectState,
 			AppDefinition: cloneAppDefinition(snapshot.Document.AppDefinition),
 			AppSpec:       appSpec,

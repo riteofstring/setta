@@ -651,7 +651,7 @@ func TestRegisterDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec(t 
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload appDeploymentStateResponse
+	var payload AppDeploymentStateResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode app state response: %v", err)
 	}
@@ -728,7 +728,7 @@ func TestRegisterDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload appDeploymentStateResponse
+	var payload AppDeploymentStateResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode app project config response: %v", err)
 	}

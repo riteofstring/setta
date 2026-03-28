@@ -4145,18 +4145,10 @@ export function createLoadDeploymentProjectConfigRequestInput(
   return options as LoadDeploymentProjectConfigRequestInput;
 }
 
-export type JSONValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<JSONValue>
-  | { [key: string]: JSONValue | undefined };
-
 export type AppDeploymentStateResponse = {
   projectState: ProjectStateSingleConfig;
-  appDefinition?: AppDefinition | null;
-  appSpec: JSONValue;
+  appDefinition: AppDefinition | null;
+  appSpec: unknown;
   appPolicy: SharePolicy;
 };
 export function createAppDeploymentStateResponse(
@@ -7791,6 +7783,14 @@ export function createChatStopEvent(
 ): ChatStopEvent {
   return options as ChatStopEvent;
 }
+
+export type JSONValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<JSONValue>
+  | { [key: string]: JSONValue | undefined };
 
 export type MessageTextContent = {
   type: "text";

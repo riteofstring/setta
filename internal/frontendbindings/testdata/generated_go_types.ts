@@ -3906,13 +3906,10 @@ export function createLoadDeploymentProjectConfigRequestInput(options: Partial<L
 }
 
 
-export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
-
-
 export type AppDeploymentStateResponse = {
   projectState: ProjectStateSingleConfig;
-  appDefinition?: AppDefinition | null;
-  appSpec: JSONValue;
+  appDefinition: AppDefinition | null;
+  appSpec: unknown;
   appPolicy: SharePolicy;
 };
 export function createAppDeploymentStateResponse(options: Partial<AppDeploymentStateResponse> = {}): AppDeploymentStateResponse {
@@ -7425,6 +7422,9 @@ export type ChatStopEvent = {
 export function createChatStopEvent(options: Partial<ChatStopEvent> = {}): ChatStopEvent {
   return options as ChatStopEvent;
 }
+
+
+export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
 
 
 export type MessageTextContent = {

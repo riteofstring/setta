@@ -359,6 +359,15 @@ That means:
     - `SetCallableRequestInput -> httpapi.SetCallableRequest`
     - `SetCodeRequestInput -> httpapi.SetCodeRequest`
     - `FormatCodeRequestInput -> httpapi.FormatCodeRequest`
+  - more project-state mutation result contracts now point at their real `projectstate` owners instead of mirrored `frontendbindings` structs:
+    - `CreateChildSectionsResponse -> projectstate.CreateChildSectionsResult`
+    - `DeleteChildSectionsViaDecrementerResponse -> projectstate.DeleteSectionsResult`
+    - `CreateTopLevelSectionResponse -> projectstate.CreateTopLevelSectionResult`
+  - more deployment route contracts now point at exact `httpapi` owners instead of local `frontendbindings` copies:
+    - `LoadDeploymentProjectConfigRequestInput -> httpapi.LoadDeploymentProjectConfigRequest`
+    - `AppDeploymentStateResponse -> httpapi.AppDeploymentStateResponse`
+  - `internal/httpapi/deployment_routes.go` now exports the app-deployment state/request structs that were previously trapped inside the route file, so `frontendbindings` can alias the real route-contract owners instead of repeating those shapes locally
+  - `frontendbindings.Position` no longer mirrors the backend point shape; it now aliases `projectstate.Position`, which also unblocked `CreateTopLevelSectionResult` from using its real backend field owner
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:

@@ -82,16 +82,9 @@ type DeploymentNameRouteParams struct {
 	DeploymentName string `json:"deploymentName"`
 }
 
-type LoadDeploymentProjectConfigRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-}
+type LoadDeploymentProjectConfigRequestInput httpapi.LoadDeploymentProjectConfigRequest
 
-type AppDeploymentStateResponse struct {
-	ProjectState  ProjectStateSingleConfig `json:"projectState"`
-	AppDefinition *AppDefinition           `json:"appDefinition,omitempty"`
-	AppSpec       JSONValue                `json:"appSpec"`
-	AppPolicy     SharePolicy              `json:"appPolicy"`
-}
+type AppDeploymentStateResponse httpapi.AppDeploymentStateResponse
 
 type PublishShareDeploymentRequestInput struct {
 	DeploymentName       string       `json:"deploymentName"`
@@ -255,9 +248,7 @@ type CreateChildSectionsViaIncrementerRequestInput struct {
 	NumChildren     int         `json:"numChildren"`
 }
 
-type CreateChildSectionsResponse struct {
-	SectionIDs []string `json:"sectionIds"`
-}
+type CreateChildSectionsResponse projectstate.CreateChildSectionsResult
 
 type DeleteChildSectionsViaDecrementerRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -266,9 +257,7 @@ type DeleteChildSectionsViaDecrementerRequestInput struct {
 	NumChildren     int     `json:"numChildren"`
 }
 
-type DeleteChildSectionsViaDecrementerResponse struct {
-	SectionIDs []string `json:"sectionIds"`
-}
+type DeleteChildSectionsViaDecrementerResponse projectstate.DeleteSectionsResult
 
 type DeleteSectionsRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
@@ -516,10 +505,7 @@ type SetCodeObjDisplayNameRequestInput struct {
 	DisplayName     string  `json:"displayName"`
 }
 
-type Position struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-}
+type Position projectstate.Position
 
 type RunSnapshotMode deployments.RunSnapshotMode
 
@@ -609,11 +595,7 @@ type CreateTopLevelSectionRequestInput struct {
 	ViewportBounds     *ViewportBoundsInput                  `json:"viewportBounds,omitempty"`
 }
 
-type CreateTopLevelSectionResponse struct {
-	SectionID          string    `json:"sectionId"`
-	MetaControlParamID *string   `json:"metaControlParamId,omitempty"`
-	PanTo              *Position `json:"panTo,omitempty"`
-}
+type CreateTopLevelSectionResponse projectstate.CreateTopLevelSectionResult
 
 type CreateViewModeRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
