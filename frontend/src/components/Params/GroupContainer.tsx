@@ -4,14 +4,12 @@ import React, {
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 import { useTemporaryMiscState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { getParamsFixedHeightKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { LiveDictAreaSection } from "./groupContainerLiveDictAreaSection";
+import { LiveDictAreaSectionContainer } from "./groupContainerLiveDictAreaSectionContainer";
 
 function _ParamGroupContainer({
   sectionId,
@@ -23,21 +21,11 @@ function _ParamGroupContainer({
   sectionTypeName: SectionTypeEnum;
 }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
-  const [maxNestedDepth, setMaxNestedDepth] = useState({
-    pinned: 1,
-    unpinned: 1,
-  });
   const paramsFixedHeightKey = getParamsFixedHeightKey(sectionId);
   const lastFixedHeightRef = useRef<number | null>(null);
   const pendingFixedHeightRef = useRef<number | null>(null);
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   const waitingForResultRef = useRef(waitingForResult);
-
-  const handleColumnResizeStart = useParamColumnWidth({
-    sectionId,
-    outerRef,
-    maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
-  });
 
   const setOuterRef = useCallback((node: HTMLDivElement | null) => {
     outerRef.current = node;
@@ -166,10 +154,9 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        <LiveDictAreaSection
+        <LiveDictAreaSectionContainer
           bgColor={bgColor}
-          handleColumnResizeStart={handleColumnResizeStart}
-          onMaxNestedDepthChange={setMaxNestedDepth}
+          outerRef={outerRef}
           sectionId={sectionId}
           sectionTypeName={sectionTypeName}
         />

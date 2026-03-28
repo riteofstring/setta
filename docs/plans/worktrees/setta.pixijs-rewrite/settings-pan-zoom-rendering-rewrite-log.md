@@ -2179,3 +2179,29 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/serverMode`, `GET /src/components/Params/groupContainerLiveDictAreaSection.tsx`, and `GET /src/components/Params/groupContainerLiveDictArea.tsx`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSection.tsx` boundary into the next higher-level scene-owned boundary before any broad Pixi node drawing lands.
+
+## 2026-03-27 082
+
+- Item: Lift the new `groupContainerLiveDictAreaSection.tsx` boundary into one higher-level scene-owned section container above it.
+- Status: `done`
+- Details:
+  - Added a typed live dict-area section-container boundary above the existing section boundary:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new section-container boundary instead of owning the live dict-area `maxNestedDepth` state and `useParamColumnWidth(...)` wiring inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new section-container boundary now deterministically:
+    - composes the current column-width hook and `maxNestedDepth` feedback loop from one deeper component boundary above `LiveDictAreaSection`
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while hiding the last section-boundary-to-column-width wiring hop behind one higher-level boundary
+    - preserves the existing non-Pixi block order and live dict-area rendering behavior while shrinking `GroupContainer.tsx` further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx src/components/Params/groupContainerLiveDictAreaSection.test.tsx src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated with `All Settings` reachable and visible in the bottom tab strip
+    - the visible dict/param area rendered normally after the new section-container wiring, with representative rows and controls including `Dropzone Param`, `Nested Param`, `Password Param`, `Rotary Param`, `Slider Param`, `Switch Param`, `Text Area Param`, `Text Param`, `Time Param`, and the `Size Mode Height` / `Size Mode Width` selectors
+    - representative requests returned `200`, including `GET /`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, and `POST /api/loadAllProjectMetadata`; static frontend assets were expected `304` cache hits
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionContainer.tsx` boundary into the next higher-level `GroupContainer` shell boundary before any broad Pixi node drawing lands.
