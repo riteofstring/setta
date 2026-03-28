@@ -36,27 +36,6 @@ vi.mock("state/actions/edgeHandles", () => ({
   scheduleEdgeHandlePositionUpdate: vi.fn(),
 }));
 
-vi.mock("./SectionContainerNestedSections", () => ({
-  renderSectionContainerNestedSections: ({
-    sectionId,
-    layoutVariant,
-    isJoinedCodeTerminalGroup,
-  }: {
-    sectionId: string;
-    layoutVariant: "default" | "tight";
-    isJoinedCodeTerminalGroup: boolean;
-  }) => (
-    <div
-      data-testid="mock-section-container-nested-sections"
-      data-section-id={sectionId}
-      data-layout-variant={layoutVariant}
-      data-is-joined-code-terminal-group={
-        isJoinedCodeTerminalGroup ? "true" : "false"
-      }
-    />
-  ),
-}));
-
 vi.mock("./SortableSectionBody", () => ({
   SortableSectionBody: ({
     sectionId,
@@ -123,11 +102,31 @@ describe("SortableSectionContainer", () => {
         data-bg-color={bgColor}
       />
     );
+    const renderNestedSections = ({
+      sectionId,
+      layoutVariant,
+      isJoinedCodeTerminalGroup,
+    }: {
+      sectionId: string;
+      isGroup: boolean;
+      layoutVariant: "default" | "tight";
+      isJoinedCodeTerminalGroup: boolean;
+    }) => (
+      <div
+        data-testid="mock-section-container-nested-sections"
+        data-section-id={sectionId}
+        data-layout-variant={layoutVariant}
+        data-is-joined-code-terminal-group={
+          isJoinedCodeTerminalGroup ? "true" : "false"
+        }
+      />
+    );
     const markup = renderToStaticMarkup(
       <SortableSectionContainer
         sectionId="section-1"
         className="child-class-name"
         renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
       />,
     );
 

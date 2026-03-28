@@ -26,6 +26,7 @@ const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
       key={`Nested-Sec-${childId}`}
       className={childClassName}
       renderCoreBody={renderSectionContainerCoreBody}
+      renderNestedSections={renderSectionContainerNestedSections}
     />
   ));
 

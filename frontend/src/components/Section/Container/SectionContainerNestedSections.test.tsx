@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ManyNestedSectionsRenderer } from "./ManyNestedSectionsBody";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
+import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
 
 vi.mock("./ManyNestedSections", () => ({
   MaybeManyNestedSections: ({
@@ -51,15 +52,18 @@ vi.mock("./SortableSectionContainer", () => ({
     sectionId,
     className,
     renderCoreBody,
+    renderNestedSections,
   }: {
     sectionId: string;
     className?: string;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
+    renderNestedSections: SortableSectionNestedSectionsRenderer;
   }) => (
     <div
       data-testid="mock-sortable-section"
       data-section-id={sectionId}
       data-class-name={className ?? ""}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     >
       {renderCoreBody({
         sectionId,
@@ -88,6 +92,7 @@ describe("SectionContainerNestedSections", () => {
     expect(markup).toContain('data-testid="mock-sortable-section"');
     expect(markup).toContain('data-section-id="child-a"');
     expect(markup).toContain('data-class-name="from-section-container"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
   });
 
@@ -105,5 +110,6 @@ describe("SectionContainerNestedSections", () => {
     expect(markup).toContain('data-layout-variant="tight"');
     expect(markup).toContain('data-testid="mock-sortable-section"');
     expect(markup).toContain('data-class-name="from-section-container"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
   });
 });

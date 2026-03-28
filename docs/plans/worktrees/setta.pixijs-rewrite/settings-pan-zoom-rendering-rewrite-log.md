@@ -3233,3 +3233,28 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the live dict-area surface pass by lifting the nested-section renderer seam into the next higher-level caller above `SectionContainerNestedSections.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 118
+
+- Item: Lift the nested-section renderer seam into the next higher-level caller above `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/SortableSectionContainer.tsx` so the sortable shell no longer hardcodes `renderSectionContainerNestedSections(...)` internally:
+    - `SortableSectionContainer` now accepts a typed caller-owned `renderNestedSections(...)` boundary and threads it through the temp/regular sortable path down to `SortableSectionBody`
+  - Updated `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx` so the higher-level nested-sections boundary now owns the recursive renderer injection for each child sortable section:
+    - each rendered `SortableSectionContainer` now receives both the lifted `renderCoreBody(...)` boundary and the recursive `renderNestedSections(...)` boundary from its caller
+  - This deepens the non-Pixi section-container contract by removing the hardcoded lower-level import from `SortableSectionContainer.tsx` back into `SectionContainerNestedSections.tsx` while keeping the current live DOM/canvas path intact.
+  - Updated focused coverage to pin the lifted ownership seam:
+    - `frontend/src/components/Section/Container/SortableSectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `All Settings` remained visible and the settings shell plus visible dict/param area rendered normally with no obvious clipping, overlap, or missing content after the lifted nested-section renderer seam
+    - representative visible labels and controls included `Grid Color`, `Pan On Drag`, `minHeight 120.0`, and `Size Mode Height`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getListenerCoverage`, `GET /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the now-caller-owned nested-section renderer seam one level higher in the section-container stack before any broad Pixi node drawing lands.
