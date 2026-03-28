@@ -1170,3 +1170,30 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `POST /api/getLatestLspDiagnostics`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned painter helper from `groupContainerNodePainterPacket.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-26 045
+
+- Item: Extract the unpinned param-area block into the next block-specific scene-owned painter helper.
+- Status: `done`
+- Details:
+  - Added a pure typed painter-packet helper for the live dict-area unpinned param area:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaPainterPacket.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaPainterPacket.test.ts`
+  - Updated the higher-level node painter packet boundary to compose through the new unpinned helper instead of building the unpinned painter block inline:
+    - `frontend/src/components/Params/groupContainerNodePainterPacket.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the unpinned param-area draw block into one explicit painter packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node painter packet as a composition boundary instead of a mixed composition-plus-unpinned-block-shaping module
+    - leaving the current DOM unpinned param-area mount path intact while deepening the future retained-scene block-specific painter contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaPainterPacket.test.ts src/components/Params/groupContainerNodePainterPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - `/settings` loaded authenticated with `All Settings` visible alongside `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, and `Param Defaults`
+    - representative visible controls included `toggle agentic edges`, `toggle arg edges`, `Grid Color`, `Pan On Drag`, `Zoom On Scroll`, and the chat actions area
+    - no obvious clipping, overlap, or missing content was observed in the visible viewport
+    - relevant requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
+- Next action:
+  - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific painter helpers into the next higher-level scene-owned canvas packet above `groupContainerNodePainterPacket.ts` before any broad Pixi node drawing lands.

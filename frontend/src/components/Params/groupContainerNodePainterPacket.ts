@@ -5,22 +5,18 @@ import {
 import type {
   LiveDictAreaNodeDrawBlock,
   LiveDictAreaNodeDrawPacket,
-  LiveDictAreaUnpinnedParamAreaDrawPacket,
 } from "./groupContainerNodeDrawPacket";
 import {
   buildLiveDictAreaPinnedParamAreaPainterPacket,
   type LiveDictAreaPinnedParamAreaPainterPacket,
 } from "./groupContainerPinnedParamAreaPainterPacket";
+import {
+  buildLiveDictAreaUnpinnedParamAreaPainterPacket,
+  type LiveDictAreaUnpinnedParamAreaPainterPacket,
+} from "./groupContainerUnpinnedParamAreaPainterPacket";
 
 export type { LiveDictAreaPinnedParamAreaPainterPacket } from "./groupContainerPinnedParamAreaPainterPacket";
-
-export type LiveDictAreaUnpinnedParamAreaPainterPacket = {
-  blockId: LiveDictAreaUnpinnedParamAreaDrawPacket["blockId"];
-  kind: LiveDictAreaUnpinnedParamAreaDrawPacket["kind"];
-  mount: LiveDictAreaUnpinnedParamAreaDrawPacket["mount"];
-  styleColor: LiveDictAreaUnpinnedParamAreaDrawPacket["surfacePacket"]["styleColor"];
-  visualPacket: LiveDictAreaUnpinnedParamAreaDrawPacket["surfacePacket"]["visualPacket"];
-};
+export type { LiveDictAreaUnpinnedParamAreaPainterPacket } from "./groupContainerUnpinnedParamAreaPainterPacket";
 
 export type LiveDictAreaNodePainterBlock =
   | LiveDictAreaEdgeStripPainterPacket
@@ -53,7 +49,9 @@ export function buildLiveDictAreaNodePainterPacket({
       })
     : null;
   const unpinnedParamAreaBlock = nodeDrawPacket.unpinnedParamAreaBlock
-    ? buildUnpinnedParamAreaPainterPacket(nodeDrawPacket.unpinnedParamAreaBlock)
+    ? buildLiveDictAreaUnpinnedParamAreaPainterPacket({
+        drawPacket: nodeDrawPacket.unpinnedParamAreaBlock,
+      })
     : null;
 
   return {
@@ -96,16 +94,4 @@ function buildNodePainterBlock({
   }
 
   return unpinnedParamAreaBlock;
-}
-
-function buildUnpinnedParamAreaPainterPacket(
-  drawPacket: LiveDictAreaUnpinnedParamAreaDrawPacket,
-): LiveDictAreaUnpinnedParamAreaPainterPacket {
-  return {
-    blockId: drawPacket.blockId,
-    kind: drawPacket.kind,
-    mount: drawPacket.mount,
-    styleColor: drawPacket.surfacePacket.styleColor,
-    visualPacket: drawPacket.surfacePacket.visualPacket,
-  };
 }
