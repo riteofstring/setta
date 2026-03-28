@@ -565,12 +565,7 @@ type PluginStatusResponse plugins.StatusResponse
 
 type PluginRuntimeResponse plugins.RuntimeResponse
 
-type PluginRescanResponse struct {
-	SchemaVersion    int        `json:"schemaVersion"`
-	ServerMode       ServerMode `json:"serverMode"`
-	InstalledPlugins int        `json:"installedPlugins"`
-	ActivePlugins    int        `json:"activePlugins"`
-}
+type PluginRescanResponse httpapi.PluginsRescanResponse
 
 type PluginEnableDisableRequestInput struct {
 	PluginID string `json:"pluginId"`
@@ -626,19 +621,10 @@ type PluginConfigWriteRequestInput struct {
 
 type PluginConfigWriteResponse plugins.PluginConfigWriteResult
 
-type PluginLockWriteResponse struct {
-	LockfilePath string `json:"lockfilePath"`
-	PluginCount  int    `json:"pluginCount"`
-}
+type PluginLockWriteResponse plugins.PluginLockWriteResult
 
-type PluginLockApplyRequestInput struct {
-	Check bool `json:"check"`
-}
+type PluginLockApplyRequestInput httpapi.PluginLockApplyRequest
 
-type PluginLockApplyResponse struct {
-	LockfilePath   string   `json:"lockfilePath"`
-	PlannedChanges []string `json:"plannedChanges"`
-	Applied        bool     `json:"applied"`
-}
+type PluginLockApplyResponse plugins.PluginLockApplyResult
 
 type PluginRestartResponse plugins.PluginRestartResult

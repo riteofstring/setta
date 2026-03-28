@@ -285,6 +285,12 @@ That means:
     - `PluginUpdateResponse -> plugins.PluginUpdateResult`
     - `PluginRollbackResponse -> plugins.PluginRollbackResult`
     - `PluginRestartResponse -> plugins.PluginRestartResult`
+  - the remaining plugin rescan / lock wire contracts now also point at exact backend owners instead of route-local or frontendbinding-only copies:
+    - `PluginRescanResponse -> httpapi.PluginsRescanResponse`
+    - `PluginLockApplyRequestInput -> httpapi.PluginLockApplyRequest`
+    - `PluginLockWriteResponse -> plugins.PluginLockWriteResult`
+    - `PluginLockApplyResponse -> plugins.PluginLockApplyResult`
+  - `internal/httpapi` now exports the plugin rescan / lock request-response structs that were still trapped inside route handlers, so `frontendbindings` can alias the real route-contract owners instead of repeating those shapes locally
   - the remaining launcher enums that already had exact backend owners are now also wrapped instead of repeated:
     - `LauncherOpenMode -> launcher.LauncherOpenMode`
     - `LauncherWorkspaceBehavior -> launcher.LauncherWorkspaceBehavior`

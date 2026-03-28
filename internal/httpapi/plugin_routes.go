@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/config"
 	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 	"setta/internal/plugins"
@@ -74,6 +75,17 @@ type PluginRouteService interface {
 	Restart(ctx context.Context) (plugins.PluginRestartResult, error)
 }
 
+type PluginsRescanResponse struct {
+	SchemaVersion    int         `json:"schemaVersion"`
+	ServerMode       config.Mode `json:"serverMode"`
+	InstalledPlugins int         `json:"installedPlugins"`
+	ActivePlugins    int         `json:"activePlugins"`
+}
+
+type PluginLockApplyRequest struct {
+	Check bool `json:"check"`
+}
+
 func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("plugin routes: router is required")
@@ -125,22 +137,15 @@ func pluginRuntimeHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginRescanHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type pluginRescanResponse struct {
-		SchemaVersion    int    `json:"schemaVersion"`
-		ServerMode       string `json:"serverMode"`
-		InstalledPlugins int    `json:"installedPlugins"`
-		ActivePlugins    int    `json:"activePlugins"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := deps.Service.Rescan()
 		if err != nil {
 			writePluginRouteError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, pluginRescanResponse{
+		writeJSON(w, http.StatusOK, PluginsRescanResponse{
 			SchemaVersion:    1,
-			ServerMode:       string(snapshot.ServerMode),
+			ServerMode:       snapshot.ServerMode,
 			InstalledPlugins: snapshot.InstalledPlugins,
 			ActivePlugins:    snapshot.ActivePlugins,
 		})
@@ -387,12 +392,8 @@ func pluginLockWriteHandler(deps PluginRouteDependencies) http.HandlerFunc {
 }
 
 func pluginLockApplyHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type pluginLockApplyRequest struct {
-		Check bool `json:"check"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[pluginLockApplyRequest](r)
+		payload, err := decodeJSONBody[PluginLockApplyRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
