@@ -1771,3 +1771,30 @@ Record:
     - representative request returned `200`: `POST http://127.0.0.1:8044/api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the edge-strip block into the first block-specific helper above `groupContainerNodeCanaryRenderView.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 067
+
+- Item: Extract the edge-strip block into the first block-specific helper above `groupContainerNodeCanaryRenderView.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-render helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripCanaryRenderView.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripCanaryRenderView.test.ts`
+  - Updated the higher-level node canary render boundary to compose through the new edge-strip helper instead of shaping the edge render block inline:
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderView.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the live edge-strip canary view into one explicit render block with a stable frame-id key
+    - keeping `groupContainerNodeCanaryRenderView.ts` as the higher-level composition boundary instead of a mixed composition-plus-edge-render module
+    - leaving the current DOM edge-strip mount path intact while deepening the first scene-owned canary render contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripCanaryRenderView.test.ts src/components/Params/groupContainerNodeCanaryRenderView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated with `All Settings` visible
+    - the visible settings surface and dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new edge-strip canary-render helper extraction
+    - representative visible labels and controls included `settings`, `shortcuts`, `backend`, `languageServer`, `sectionSizingPolicy`, `gui`, `toggle agentic edges`, `toggle arg edges`, `toggle snap to grid`, and `toggle minimap`
+    - representative requests returned `200`, including `POST /api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryRenderView.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
