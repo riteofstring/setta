@@ -13,6 +13,10 @@ import {
   buildEdgeRendererView,
   shouldRenderEdgeRendererContents,
 } from "./edgeRendererView";
+import {
+  EDGE_INTERACTION_WIDTH,
+  EDGE_RECONNECT_RADIUS,
+} from "./edgeScenePackets";
 
 const WrappedBezierEdge = wrapEdge(BezierEdge);
 const WrappedStraightEdge = wrapEdge(StraightEdge);
@@ -92,9 +96,9 @@ const EdgeRenderer = () => {
                 targetPosition={edge.targetPosition}
                 elementsSelectable={true}
                 onReconnect={onReconnect}
-                reconnectRadius={12}
+                reconnectRadius={EDGE_RECONNECT_RADIUS}
                 isReconnectable={true}
-                interactionWidth={16}
+                interactionWidth={EDGE_INTERACTION_WIDTH}
               />
             );
           })}

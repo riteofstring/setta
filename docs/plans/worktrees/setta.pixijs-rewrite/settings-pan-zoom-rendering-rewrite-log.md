@@ -543,3 +543,33 @@ Record:
       - relevant requests returned `200`, including `api/loadProjectConfig`, `api/getAgentRuns`, `api/plugins/runtime`, `api/llm/config`, `api/getPromptTemplates`, `api/getExternalAgentConfigs`, `api/getExternalAgentHealth`, `api/getEngineConfigs`, `api/getTranscriptionProfiles`, and `api/setTopLevelSectionLayout`
 - Next action:
   - Treat the first branch-local cleanup-first non-Pixi file cluster as complete and start the first Pixi-side branch-local slice step from the plan, beginning with retained-scene packet extraction for edges and hit regions on the cleaned `xyflow` boundary.
+
+## 2026-03-26 022
+
+- Item: Start the first Pixi-side branch-local slice step with deterministic edge and hit-region packet extraction.
+- Status: `done`
+- Details:
+  - Added a pure typed packet boundary for the cleaned `xyflow` edge path:
+    - `frontend/src/forks/xyflow/core/container/edgeScenePackets.ts`
+    - `frontend/src/forks/xyflow/core/container/edgeScenePackets.test.ts`
+  - The new helper now deterministically:
+    - filters to the active visible edge set using section variants plus registered handle positions
+    - sorts packets by edge `zIndex`
+    - derives stable edge geometry packets for `bezier` and `straight` edges
+    - emits reconnect hit-region packets alongside the same edge geometry using shared interaction constants
+  - Kept the current non-Pixi DOM edge renderer stable by routing `buildEdgeRendererView(...)` through the new packet helper and mapping packets back into the existing wrapped-edge prop surface:
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.ts`
+    - `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/components/Edges/StraightEdge.tsx`
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/edgeScenePackets.test.ts src/forks/xyflow/core/container/edgeRendererView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` loaded authenticated with the settings shell structurally intact
+      - visible context included `Overview`, `settings`, `Filter`, `Tag`, tag rows such as `shortcuts`, `gui`, `sectionSizingPolicy`, `backend`, and `languageServer`, plus bottom tabs including `Param Defaults` and `All Settings`
+      - no obvious clipping, overlap, or missing major content was observed in the visible viewport
+      - relevant requests returned `200`, including `api/loadSettings`, `api/authRefreshStatus`, `api/backendInitStatus`, `api/getDefaultConfigName`, `api/getFileBrowserRoot`, `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, and `api/getListenerCoverage`
+- Next action:
+  - Continue workstream `3. Scene Packet And Edge Packet Extraction` with the next bounded first-slice packet boundary, starting with deterministic node-visual packet extraction for the dict/param canary path before any Pixi renderer mounting lands.
