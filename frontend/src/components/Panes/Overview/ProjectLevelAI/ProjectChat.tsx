@@ -569,9 +569,10 @@ function ProjectChatSurface({
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
-    if (chatId === null) {
-      const pendingMessages =
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]?.messages;
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
+      const pendingMessages = pendingDetails?.messages;
       if (Array.isArray(pendingMessages)) {
         return pendingMessages as Array<BaseChatMessageUnion>;
       }
@@ -587,7 +588,9 @@ function ProjectChatSurface({
     return [];
   });
   const activeConversationAppGenerationDetails = useAIStore((state) => {
-    if (chatId === null) {
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
       return (
         state.pendingChatAppGenerationDetailsBySurfaceId[resolvedSurfaceId] ??
         getDefaultChatAppGenerationDetails()
@@ -602,11 +605,10 @@ function ProjectChatSurface({
     );
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
-    if (chatId === null) {
-      return Boolean(
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]
-          ?.waitingForResponse,
-      );
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
+    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
+      return Boolean(pendingDetails?.waitingForResponse);
     }
     if (typeof chatId !== "string") {
       return false;

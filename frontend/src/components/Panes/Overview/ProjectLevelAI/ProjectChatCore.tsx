@@ -1347,31 +1347,39 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     contextUsage,
     activeAppGeneration,
     appGenerationByMessageId,
+    usingPendingDraftDetails,
   } = useAIStore((state) => {
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[surfaceId] ?? null;
     const appGenerationDetails =
-      chatId === null
+      chatId === null || (typeof chatId !== "string" && pendingDetails !== null)
         ? state.pendingChatAppGenerationDetailsBySurfaceId[surfaceId] ??
           DEFAULT_CHAT_APP_GENERATION_DETAILS
         : typeof chatId === "string"
           ? state.chatAppGenerationDetailsByChatId[chatId] ??
             DEFAULT_CHAT_APP_GENERATION_DETAILS
           : DEFAULT_CHAT_APP_GENERATION_DETAILS;
-    if (chatId === null) {
+    const shouldUsePendingDraftDetails =
+      chatId === null ||
+      (typeof chatId !== "string" && pendingDetails !== null);
+    if (shouldUsePendingDraftDetails) {
       return {
-        ...(state.pendingChatDetailsBySurfaceId[surfaceId] ??
-          getDefaultChatDetails()),
+        ...(pendingDetails ?? getDefaultChatDetails()),
         ...appGenerationDetails,
+        usingPendingDraftDetails: pendingDetails !== null,
       };
     }
     if (typeof chatId !== "string") {
       return {
         ...getDefaultChatDetails(),
         ...appGenerationDetails,
+        usingPendingDraftDetails: false,
       };
     }
     return {
       ...(state.chatDetails[chatId] ?? getDefaultChatDetails()),
       ...appGenerationDetails,
+      usingPendingDraftDetails: false,
     };
   }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
@@ -1404,7 +1412,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
+    (typeof chatId === "undefined" && !usingPendingDraftDetails) ||
+    ((chatId === null || usingPendingDraftDetails) &&
+      messages.length === 0 &&
+      !waitingForResponse);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
@@ -1778,14 +1789,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   ]);
 
   const handleNewChatStart = useCallback(() => {
+    if (chatId === null) {
+      return;
+    }
     if (onStartNewChat) {
       onStartNewChat();
       return;
     }
     onDraftThreadStart?.();
-    if (chatId === null) {
-      return;
-    }
     initializePendingChatDetails(surfaceId);
     setChatId(null);
   }, [chatId, onDraftThreadStart, onStartNewChat, setChatId, surfaceId]);
