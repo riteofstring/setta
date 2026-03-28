@@ -1,15 +1,15 @@
 import type { SectionTypeEnum } from "utils/generatedTypes";
 import {
+  buildLiveDictAreaEdgeStripCanaryPacket,
+  type LiveDictAreaEdgeStripCanaryPacket,
+} from "./groupContainerEdgeStripCanaryPacket";
+import {
   buildLiveDictAreaNodeDomPacket,
-  type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaNodeDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
-import type {
-  LiveDictAreaNodeEdgeStripScenePacket,
-  LiveDictAreaNodeScenePacket,
-} from "./groupContainerNodeScenePacket";
+import type { LiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
 import type { LiveDictAreaSceneParamAreaPacket } from "./groupContainerScenePackets";
 
@@ -18,13 +18,7 @@ export type {
   LiveDictAreaPinnedParamAreaDomPacket,
   LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
-
-export type LiveDictAreaEdgeStripCanaryPacket = {
-  blockId: LiveDictAreaEdgeStripDomPacket["blockId"];
-  domPacket: LiveDictAreaEdgeStripDomPacket;
-  kind: "edge-strip";
-  scenePacket: LiveDictAreaNodeEdgeStripScenePacket;
-};
+export type { LiveDictAreaEdgeStripCanaryPacket } from "./groupContainerEdgeStripCanaryPacket";
 
 export type LiveDictAreaPinnedParamAreaCanaryPacket = {
   blockId: LiveDictAreaPinnedParamAreaDomPacket["blockId"];
@@ -78,12 +72,10 @@ export function buildLiveDictAreaNodeCanaryPacket({
     nodeSurfacePacket,
   });
   const edgeStripBlock = nodeDomPacket.domEdgeStripBlock
-    ? {
-        blockId: nodeDomPacket.domEdgeStripBlock.blockId,
+    ? buildLiveDictAreaEdgeStripCanaryPacket({
         domPacket: nodeDomPacket.domEdgeStripBlock,
-        kind: "edge-strip" as const,
         scenePacket: nodeDomPacket.edgeStrip,
-      }
+      })
     : null;
   const pinnedParamAreaBlock = nodeDomPacket.domPinnedParamAreaBlock
     ? {
