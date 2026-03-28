@@ -1,33 +1,29 @@
+import type { ReactNode } from "react";
 import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { SortableSectionContainer } from "./SortableSectionContainer";
 import {
   buildManyNestedSectionsView,
   type ManyNestedSectionsBodyProps,
+  type ManyNestedSectionsRendererProps,
 } from "./manyNestedSectionsView";
 
-function renderNestedSections(
-  childIds: string[],
-  childClassName?: string,
-): React.ReactNode {
-  return childIds.map((childId) => (
-    <SortableSectionContainer
-      sectionId={childId}
-      key={`Nested-Sec-${childId}`}
-      className={childClassName}
-    />
-  ));
-}
+export type ManyNestedSectionsRenderer = (
+  props: ManyNestedSectionsRendererProps,
+) => ReactNode;
 
-function _ManyNestedSectionsBody(props: ManyNestedSectionsBodyProps) {
+type ManyNestedSectionsBodyComponentProps = ManyNestedSectionsBodyProps & {
+  renderNestedSections: ManyNestedSectionsRenderer;
+};
+
+function _ManyNestedSectionsBody(props: ManyNestedSectionsBodyComponentProps) {
   const view = buildManyNestedSectionsView(props);
+  const nestedSections = props.renderNestedSections({
+    childIds: view.childIds,
+    childClassName: view.childClassName,
+  });
 
   if (view.kind === "tight") {
-    return (
-      <div className={view.containerClassName}>
-        {renderNestedSections(view.childIds, view.childClassName)}
-      </div>
-    );
+    return <div className={view.containerClassName}>{nestedSections}</div>;
   }
 
   return (
@@ -40,9 +36,7 @@ function _ManyNestedSectionsBody(props: ManyNestedSectionsBodyProps) {
           }}
         />
       ) : null}
-      <div className={view.containerClassName}>
-        {renderNestedSections(view.childIds, view.childClassName)}
-      </div>
+      <div className={view.containerClassName}>{nestedSections}</div>
     </div>
   );
 }

@@ -2726,3 +2726,32 @@ Record:
     - remaining console noise was limited to existing accessibility warnings about missing form `id/name` attributes and broken `aria-labelledby` targets
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the nested-sections renderer seam one caller higher above `SortableSectionContainer.tsx` in `frontend/src/components/Section/Container/ManyNestedSectionsBody.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 102
+
+- Item: Lift the nested-section child renderer seam one caller higher into `frontend/src/components/Section/Container/ManyNestedSections.tsx`.
+- Status: `done`
+- Details:
+  - Turned `ManyNestedSectionsBody` into an injected renderer seam for nested child sections instead of hardcoding `SortableSectionContainer`:
+    - `frontend/src/components/Section/Container/ManyNestedSectionsBody.tsx`
+    - `frontend/src/components/Section/Container/manyNestedSectionsView.ts`
+  - Updated `ManyNestedSections.tsx` to own the default sortable child renderer handoff:
+    - `frontend/src/components/Section/Container/ManyNestedSections.tsx`
+  - Added focused coverage to pin both sides of the lifted seam:
+    - `frontend/src/components/Section/Container/ManyNestedSectionsBody.test.tsx`
+    - `frontend/src/components/Section/Container/ManyNestedSections.test.tsx`
+  - Kept the current non-Pixi nested-section DOM path intact while lifting the renderer one caller higher:
+    - `ManyNestedSectionsBody` now only owns layout shell selection plus navigation-rail chrome
+    - `ManyNestedSections.tsx` now owns the explicit `SortableSectionContainer` renderer handoff for child sections
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/ManyNestedSectionsBody.test.tsx src/components/Section/Container/ManyNestedSections.test.tsx src/components/Section/Container/manyNestedSectionsView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the supplied bootstrap token was rejected in that browser session (`Token rejected`; `POST /__setta__/bootstrap/consume` `401`), but the already-authenticated `/settings` tab remained usable
+    - the visible settings shell plus nested section / dict-param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `settings`, `Filter`, `TAG`, `All`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, and nested param labels such as `nestedParamCodeObjDefault`, `textAreaParamCodeObjDefault`, `textParamCodeObjDefault`, `dropdownParamCodeObjDefault`, `dropzoneParamCodeObjDefault`, `switchParamCodeObjDefault`, `sliderParamCodeObjDefault`, `rotaryParamCodeObjDefault`, and `passwordParamCodeObjDefault`
+    - representative requests returned `200`, including `POST /api/getFolderContents`, `GET /api/getAgentRuns`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the nested-section child renderer seam one caller higher above `ManyNestedSections.tsx` in `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx` before any broad Pixi node drawing lands.

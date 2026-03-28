@@ -7,8 +7,25 @@ import {
 import { useProjectState } from "state/definitions";
 import { ListRootViewModeEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { ManyNestedSectionsBody } from "./ManyNestedSectionsBody";
+import {
+  ManyNestedSectionsBody,
+  type ManyNestedSectionsRenderer,
+} from "./ManyNestedSectionsBody";
+import type { ManyNestedSectionsRendererProps } from "./manyNestedSectionsView";
+import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
+
+const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
+  childIds,
+  childClassName,
+}: ManyNestedSectionsRendererProps) =>
+  childIds.map((childId) => (
+    <SortableSectionContainer
+      sectionId={childId}
+      key={`Nested-Sec-${childId}`}
+      className={childClassName}
+    />
+  ));
 
 export function MaybeManyNestedSections({
   sectionId,
@@ -86,6 +103,7 @@ function ManyNestedSections({
         isHorizontalOrientation={isHorizontalOrientation}
         listRootViewMode={listRootViewMode}
         layoutVariant={layoutVariant}
+        renderNestedSections={renderSortableNestedSections}
       />
     </DNDSortable>
   );

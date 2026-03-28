@@ -12,6 +12,11 @@ export type ManyNestedSectionsBodyProps = {
   layoutVariant: "default" | "tight";
 };
 
+export type ManyNestedSectionsRendererProps = {
+  childIds: string[];
+  childClassName?: string;
+};
+
 type TightManyNestedSectionsView = {
   kind: "tight";
   childIds: string[];
