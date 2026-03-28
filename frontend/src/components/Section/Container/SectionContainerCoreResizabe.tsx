@@ -3,21 +3,22 @@ import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import React from "react";
 import { getEmbeddedAttachedTerminalForCodeSection } from "state/actions/sectionInfos";
-import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import type { SectionType } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
+import { buildSectionContainerCoreResizableView } from "./sectionContainerCoreResizableView";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
-  body: React.ReactNode;
+  isMinimized: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
@@ -30,7 +31,7 @@ function _SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   bgColor,
-  body,
+  isMinimized,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
@@ -49,25 +50,16 @@ function _SectionContainerCoreResizable({
         embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
     };
   }, _.isEqual);
-
-  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
-  const isRoot = getIsRoot(sectionTypeName);
-  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const shouldRenderMetaMenu = isMetaControl && !isUserView;
-  const shouldRenderTextBlockMetaMenu =
-    textBlockMetaControlStyle && !isUserView;
-  const showMetaControlDragHandle =
-    useMetaControlStyle && !isUserView && !positionAndSizeLocked;
-  const metaControlFrameClassName = useMetaControlStyle
-    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
-    : undefined;
-  const metaControlLayoutClassName = isMetaControl
-    ? "grid-cols-1 grid-rows-1"
-    : undefined;
-  const shouldRenderHeader =
-    !hideHeader && (!benchmark.active || benchmark.renderSectionHeader);
-  const shouldRenderIncrementer =
-    isRoot && (!benchmark.active || benchmark.renderFullSectionBody);
+  const view = buildSectionContainerCoreResizableView({
+    sectionTypeName,
+    textBlockMetaControlStyle,
+    isUserView,
+    positionAndSizeLocked,
+    hideHeader,
+    benchmarkActive: benchmark.active,
+    renderSectionHeader: benchmark.renderSectionHeader,
+    renderFullSectionBody: benchmark.renderFullSectionBody,
+  });
 
   return (
     <CustomResizable
@@ -75,67 +67,69 @@ function _SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={false}
-      isMetaControl={useMetaControlStyle}
+      isMetaControl={view.useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      frameClassName={metaControlFrameClassName}
-      layoutClassName={metaControlLayoutClassName}
+      frameClassName={view.frameClassName}
+      layoutClassName={view.layoutClassName}
     >
-      {showMetaControlDragHandle && (
+      {view.showMetaControlDragHandle && (
         <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
         </div>
       )}
-      {isMetaControl ? (
-        shouldRenderMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
-            <div className="flex h-12 w-10 items-center justify-end">
-              <MetaControlMenuButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isInOtherProjectConfigs={isInOtherProjectConfigs}
-              />
-            </div>
+      {view.headerKind === "meta-control-menu" ? (
+        <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+          <div className="flex h-12 w-10 items-center justify-end">
+            <MetaControlMenuButton
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              isInOtherProjectConfigs={isInOtherProjectConfigs}
+            />
           </div>
-        )
-      ) : textBlockMetaControlStyle ? (
-        shouldRenderTextBlockMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
-            <div className="flex h-12 w-10 items-center justify-end">
-              <TextBlockMetaControlMenuButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isInOtherProjectConfigs={isInOtherProjectConfigs}
-                isRoot={isRoot}
-              />
-            </div>
+        </div>
+      ) : view.headerKind === "text-block-meta-control-menu" ? (
+        <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+          <div className="flex h-12 w-10 items-center justify-end">
+            <TextBlockMetaControlMenuButton
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              isInOtherProjectConfigs={isInOtherProjectConfigs}
+              isRoot={view.isRoot}
+            />
           </div>
-        )
-      ) : shouldRenderHeader ? (
+        </div>
+      ) : view.headerKind === "section-header" ? (
         <SectionHeader
           sectionId={sectionId}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
-          isRoot={isRoot}
+          isRoot={view.isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
           extraControls={
             !isUserView ? (
               <SectionWindowToggleButton
                 sectionId={sectionId}
                 sectionTypeName={sectionTypeName}
-                isRoot={isRoot}
+                isRoot={view.isRoot}
                 hasSectionStyleTheme={hasSectionStyleTheme}
               />
             ) : null
           }
         />
       ) : null}
-      {shouldRenderIncrementer ? (
-        <Incrementer sectionId={sectionId} isRoot={isRoot} />
+      {view.shouldRenderIncrementer ? (
+        <Incrementer sectionId={sectionId} isRoot={view.isRoot} />
       ) : null}
-      {body}
+      <SectionContainerCoreCanvasBody
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
     </CustomResizable>
   );
 }

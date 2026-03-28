@@ -26,12 +26,12 @@ import { getSectionContainerShellClassName } from "./sectionChrome";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
-import { getBgColor, getOnSectionClick, useAiSectionHighlight } from "./utils";
+import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 export type SectionContainerCoreProps = {
   sectionId: string;
   isUserView: boolean;
-  body: React.ReactElement<SectionContainerCoreBodyProps>;
+  bodyProps: SectionContainerCoreBodyProps;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
@@ -41,7 +41,7 @@ export type SectionContainerCoreProps = {
 function _SectionContainerCore({
   sectionId,
   isUserView,
-  body,
+  bodyProps,
   forceHideOutline = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
@@ -101,9 +101,6 @@ function _SectionContainerCore({
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
     (x) => x[styleColorPreviewKey] as string | null | undefined,
@@ -197,15 +194,15 @@ function _SectionContainerCore({
       ) : null}
       <SectionContainerCoreResizable
         sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
+        sectionTypeName={bodyProps.sectionTypeName}
+        bgColor={bodyProps.bgColor}
+        isMinimized={bodyProps.isMinimized}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
         textBlockMetaControlStyle={textBlockMetaControlStyle}
-        body={body}
       />
     </section>
   );
@@ -222,11 +219,11 @@ function areSectionContainerCorePropsEqual(
     prev.hideAgenticEdgeHandles === next.hideAgenticEdgeHandles &&
     prev.omitAgenticHandleScopeClass === next.omitAgenticHandleScopeClass &&
     prev.joinedCorners === next.joinedCorners &&
-    prev.body.props.sectionId === next.body.props.sectionId &&
-    prev.body.props.sectionTypeName === next.body.props.sectionTypeName &&
-    prev.body.props.bgColor === next.body.props.bgColor &&
-    prev.body.props.isMinimized === next.body.props.isMinimized &&
-    prev.body.props.isUserView === next.body.props.isUserView
+    prev.bodyProps.sectionId === next.bodyProps.sectionId &&
+    prev.bodyProps.sectionTypeName === next.bodyProps.sectionTypeName &&
+    prev.bodyProps.bgColor === next.bodyProps.bgColor &&
+    prev.bodyProps.isMinimized === next.bodyProps.isMinimized &&
+    prev.bodyProps.isUserView === next.bodyProps.isUserView
   );
 }
 export const SectionContainerCore = React.memo(

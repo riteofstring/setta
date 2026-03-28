@@ -2983,3 +2983,37 @@ Record:
     - no console errors were present during the check
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SectionContainerCoreCanvasBody.tsx` boundary into the next higher-level section core caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 111
+
+- Item: Lift the `SectionContainerCoreCanvasBody.tsx` boundary into the next higher-level section core caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`.
+- Status: `done`
+- Details:
+  - Added a pure typed resizable-shell view helper above the existing core canvas-body boundary:
+    - `frontend/src/components/Section/Container/sectionContainerCoreResizableView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerCoreResizableView.test.ts`
+  - Updated `SectionContainerCoreResizabe.tsx` to own the higher-level body handoff directly instead of receiving a prebuilt body element:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - the shell now renders `SectionContainerCoreCanvasBody` itself and keeps the benchmark/header/meta-menu/incrementer decisions behind the new typed view helper
+  - Propagated the lifted typed `bodyProps` seam through the higher-level callers and removed the now-redundant wrapper component:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - deleted `frontend/src/components/Section/Container/SectionContainerCoreBody.tsx`
+  - Updated nearby integration coverage to pin the new contract:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionContainerCoreResizabe.tsx` as the higher-level owner of section chrome plus the lifted core canvas-body boundary
+    - shrinking the section-core seam from a rendered `body` element to typed `bodyProps` routed through the higher-level callers
+    - leaving the current DOM/live canvas path intact while deepening the section-core contract above `SectionContainerCoreCanvasBody.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerCoreResizableView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCoreCanvasBody.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the authenticated settings shell loaded and `All Settings` stayed visible
+    - the dict/param area rendered without obvious clipping, overlap, or missing content after the lifted resizable-shell boundary
+    - representative requests returned `200`, including `/api/serverMode`, `/api/loadSettings`, `/api/backendInitStatus`, and `/api/authRefreshStatus`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionContainerCoreResizabe.tsx` body boundary into the next higher-level section core caller in `frontend/src/components/Section/Container/SectionContainerCore.tsx` before any broad Pixi node drawing lands.

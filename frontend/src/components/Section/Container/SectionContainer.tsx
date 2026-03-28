@@ -19,7 +19,6 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
-import { SectionContainerCoreBody } from "./SectionContainerCoreBody";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { buildSectionContainerView } from "./sectionContainerView";
 import { getOutlineColor } from "./utils";
@@ -125,10 +124,7 @@ function _SectionContainer({
     isJoinedCodeTerminalGroup: view.kind === "joined-code-terminal-group",
   });
   const core = view.core ? (
-    <SectionContainerCore
-      {...view.core.props}
-      body={<SectionContainerCoreBody {...view.core.bodyProps} />}
-    />
+    <SectionContainerCore {...view.core.props} bodyProps={view.core.bodyProps} />
   ) : null;
 
   return (

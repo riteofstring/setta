@@ -106,13 +106,19 @@ vi.mock("./ContainerSwitch", () => ({
 
 vi.mock("./SectionContainerCore", () => ({
   SectionContainerCore: ({
-    body,
+    bodyProps,
     forceHideOutline = false,
     hideAgenticEdgeHandles = false,
     omitAgenticHandleScopeClass = false,
     joinedCorners = "none",
   }: {
-    body: ReactNode;
+    bodyProps: {
+      sectionId: string;
+      sectionTypeName: string;
+      bgColor: string;
+      isMinimized: boolean;
+      isUserView: boolean;
+    };
     forceHideOutline?: boolean;
     hideAgenticEdgeHandles?: boolean;
     omitAgenticHandleScopeClass?: boolean;
@@ -129,33 +135,15 @@ vi.mock("./SectionContainerCore", () => ({
       }
       data-joined-corners={joinedCorners}
     >
-      {body}
+      <div
+        data-testid="mock-section-container-core-body"
+        data-section-id={bodyProps.sectionId}
+        data-section-type={bodyProps.sectionTypeName}
+        data-bg-color={bodyProps.bgColor}
+        data-is-minimized={bodyProps.isMinimized ? "true" : "false"}
+        data-is-user-view={bodyProps.isUserView ? "true" : "false"}
+      />
     </div>
-  ),
-}));
-
-vi.mock("./SectionContainerCoreBody", () => ({
-  SectionContainerCoreBody: ({
-    sectionId,
-    sectionTypeName,
-    bgColor,
-    isMinimized,
-    isUserView,
-  }: {
-    sectionId: string;
-    sectionTypeName: string;
-    bgColor: string;
-    isMinimized: boolean;
-    isUserView: boolean;
-  }) => (
-    <div
-      data-testid="mock-section-container-core-body"
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-bg-color={bgColor}
-      data-is-minimized={isMinimized ? "true" : "false"}
-      data-is-user-view={isUserView ? "true" : "false"}
-    />
   ),
 }));
 

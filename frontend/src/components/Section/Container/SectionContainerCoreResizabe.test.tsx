@@ -7,7 +7,7 @@ import {
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SectionContainerCoreBody } from "./SectionContainerCoreBody";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { SectionCanvasBody } from "./SectionCanvasBody";
 
@@ -251,7 +251,7 @@ describe("SectionContainerCoreResizable", () => {
     };
 
     const markup = renderToStaticMarkup(
-      <SectionContainerCoreBody
+      <SectionContainerCoreCanvasBody
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Code}
         bgColor="bg-setta-50"
@@ -265,13 +265,13 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-testid="mock-code-area"');
   });
 
-  it("renders the injected body inside the resizable shell", () => {
+  it("renders the lifted core canvas body path inside the resizable shell", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Code}
         bgColor="bg-setta-50"
-        body={<div data-testid="mock-core-body" />}
+        isMinimized={false}
         isInOtherProjectConfigs={false}
         isUserView={false}
         positionAndSizeLocked={false}
@@ -280,7 +280,8 @@ describe("SectionContainerCoreResizable", () => {
       />,
     );
 
-    expect(markup).toContain('data-testid="mock-core-body"');
+    expect(markup).toContain('data-testid="mock-code-area"');
+    expect(markup).toContain("code:section-123");
   });
 
   it("routes chat sections through the section-owned surface id on the section layout host", () => {
