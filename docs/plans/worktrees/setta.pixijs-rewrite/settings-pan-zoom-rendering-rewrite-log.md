@@ -464,3 +464,29 @@ Record:
       - representative requests visible during verification returned `200`, including `loadProjectConfig`, `getAgentRuns`, `plugins/runtime`, `llm/apiKeys`, `llm/config`, `getAgentProfiles`, `getPromptTemplates`, and `setTopLevelSectionLayout`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the xyflow container cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`.
+
+## 2026-03-26 019
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `FlowRenderer` container decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its AI-follow viewport gating and selection-mode pan split inline in the component:
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/flowRendererView.ts`
+    - `frontend/src/forks/xyflow/core/container/flowRendererView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - disabling wheel zoom, pinch zoom, scroll panning, drag panning, and zoom-activation while AI follow is transitioning
+    - keeping selection mode routed into the pane as selecting state while separately suppressing viewport drag panning inside `ZoomPane`
+    - passing through the configured pan/zoom settings unchanged in the normal interactive state
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/flowRendererView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` loaded cleanly at `http://127.0.0.1:3044/settings` with `All Settings` active
+      - the visible settings/dict-param area and canvas shell rendered normally without obvious overlap, clipping, or missing content
+      - representative visible rows and controls included `chartSectionDefault`, `dictSectionDefault`, `backend`, `languageServer`, `Is Frozen`, `Is Minimized`, `Position And Size Locked`, and `height 300.0` / `width 300.0`
+      - relevant backend/auth/settings requests returned `200`, including `api/serverMode`, `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/getDefaultConfigName`, `api/getFileBrowserRoot`, `api/loadAllProjectMetadata`, `api/loadProjectConfig`, and `api/llm/config`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the xyflow container cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`.
