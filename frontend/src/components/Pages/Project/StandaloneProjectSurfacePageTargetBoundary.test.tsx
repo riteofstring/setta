@@ -107,10 +107,6 @@ const hoisted = vi.hoisted(() => {
 
 const stateBoundaryMock = vi.fn();
 
-vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
-  SectionContainerAreaDictBoundary: () => null,
-}));
-
 vi.mock("state/actions/chatHistory", () => ({
   buildChatHistoryEntries: hoisted.buildChatHistoryEntriesMock,
 }));
@@ -163,6 +159,7 @@ function createBaseProps() {
     is404: false,
     projectConfigName: "demo",
     navigate: vi.fn(),
+    renderDictArea: () => null,
     sectionSlug: undefined,
     chatId: undefined,
     windowSpaceSlug: undefined,

@@ -11,6 +11,10 @@ const hoisted = vi.hoisted(() => ({
   targetBoundaryMock: vi.fn(),
 }));
 
+vi.mock("components/Section/Container/SectionContainerAreaDictBoundary", () => ({
+  SectionContainerAreaDictBoundary: () => null,
+}));
+
 vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
   StandaloneProjectSurfacePageTargetBoundary: ({
     doneLoading,
@@ -20,6 +24,7 @@ vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
     chatId,
     windowSpaceSlug,
     navigate,
+    renderDictArea,
   }: {
     doneLoading: boolean;
     is404: boolean;
@@ -28,6 +33,7 @@ vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
     chatId: string | undefined;
     windowSpaceSlug: string | undefined;
     navigate: (path: string) => void;
+    renderDictArea: unknown;
   }) => {
     hoisted.targetBoundaryMock({
       doneLoading,
@@ -37,6 +43,7 @@ vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
       chatId,
       windowSpaceSlug,
       navigate,
+      hasRenderDictArea: Boolean(renderDictArea),
     });
     return <div data-testid="mock-standalone-project-surface-target-boundary" />;
   },
@@ -90,6 +97,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
         sectionSlug: undefined,
         windowSpaceSlug: undefined,
         navigate: expect.any(Function),
+        hasRenderDictArea: true,
       }),
     );
   });
@@ -122,6 +130,7 @@ describe("StandaloneProjectSurfacePageRouteStateBoundary", () => {
         chatId: undefined,
         windowSpaceSlug: undefined,
         navigate: expect.any(Function),
+        hasRenderDictArea: true,
       }),
     );
   });

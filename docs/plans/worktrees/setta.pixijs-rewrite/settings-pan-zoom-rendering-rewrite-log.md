@@ -4618,3 +4618,34 @@ Record:
     - representative successful requests visible in DevTools included `GET /api/serverMode`, `POST /api/loadSettings`, and `GET /api/backendInitStatus`
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`.
+
+## 2026-03-28 161
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone page-route-state dict-area handoff one caller higher so `StandaloneProjectSurfacePageRouteStateBoundary` now owns the dict renderer seam above `StandaloneProjectSurfacePageTargetBoundary`:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`
+  - Updated the focused coverage to pin the higher ownership boundary while keeping the target-boundary tests focused on target resolution and state handoff:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - deriving route params and navigation in `StandaloneProjectSurfacePageRouteStateBoundary` while also providing the shared `SectionContainerAreaDictBoundary` renderer from that higher caller
+    - keeping `StandaloneProjectSurfacePageTargetBoundary` on the same standalone target-resolution, managed-chat authority, and chat-history selector path while accepting the dict renderer from its caller
+    - leaving the standalone settings dict/param DOM path intact while shrinking `StandaloneProjectSurfacePageTargetBoundary.tsx` ownership further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed
+  - Chrome DevTools MCP visual check:
+    - the initial check on `http://127.0.0.1:3044/settings/section/gui` was blocked because the bootstrap token at `http://127.0.0.1:8044/__setta__/bootstrap#token=...` was rejected and the page stayed stuck on `Loading settings…` with repeated `Maximum update depth exceeded` console errors
+    - used the one allowed lifecycle self-recovery via `./aireset.sh`, which restarted the current worktree on `http://127.0.0.1:3046/` and `http://127.0.0.1:8046` with a new bootstrap URL from the live script output
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .` still returned `Error: No matching Setta sessions found.`, so the retry used the live restart output for the refreshed URLs
+    - on the restarted app, `http://127.0.0.1:3046/settings/section/gui` rendered normally after bootstrap with no obvious clipping, overlap, or missing content
+    - representative visible labels included `defaultZoomLevel`, `Grid Color`, `Grid Color Dark Mode`, `Grid Pattern`, `gridPatternSize`, `Left Side Pane Shifts Map`, `maxZoom`, `minZoom`, `Pan On Drag`, `Pan On Scroll`, `Pan On Scroll Mode`, `panOnScrollSpeed`, `sectionTagColorChoices`, `Selection Mode`, `Show Grid Lines`, `snapGrid`, `transitionDuration`, `Wire Color`, `Wire Color Dark Mode`, `Zoom On Double Click`, `Zoom On Pinch`, and `Zoom On Scroll`
+    - representative successful requests visible in DevTools included `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`.
