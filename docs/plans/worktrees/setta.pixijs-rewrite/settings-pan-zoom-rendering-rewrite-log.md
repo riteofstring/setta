@@ -249,3 +249,29 @@ Record:
       - `Param Defaults` / `All Settings` and the visible dict/param area rendered normally without obvious layout breakage
 - Next action:
   - Continue the cleanup-first non-Pixi pass across the remaining first-slice dict/param cluster, starting with the next bounded file around the `DictArea`/param-stack path before any Pixi renderer code lands.
+
+## 2026-03-26 011
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Params/GetParamSwitch.tsx`.
+- Status: `done`
+- Details:
+  - Extracted the param-filtering and ancestry-expansion path into a pure typed helper so the component no longer mixes `matchSorter` results with raw string IDs:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/paramSwitchView.ts`
+    - `frontend/src/components/Params/paramSwitchView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - unfiltered path-backed param rows
+    - filtered leaf-name matches expanding back through their visible ancestor path
+    - temporary DnD placeholder rows staying visible while filtering
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/paramSwitchView.test.ts src/components/Params/GroupContainer.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` stayed authenticated and loaded cleanly at `http://127.0.0.1:3044/settings`
+      - `All Settings` was active and the visible dict/param area rendered normally
+      - expected rows and controls were present, including `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `autobackupFreq 300`, `defaultZoomLevel 1.0`, `Grid Color`, and `Grid Pattern`
+      - checked backend requests such as `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, and `api/loadProjectConfig`; they returned `200`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file, starting with `frontend/src/components/Params/ParamItems/ParamInput.tsx` before any Pixi renderer code lands.
